@@ -36,7 +36,7 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.MeasurementsExt;
 
-public interface MeasurementsExtDao extends AbstractDao<MeasurementsExt> {
+public interface MeasurementsExtDao extends AbstractDao<MeasurementsExt>, CdsExportPatientTableReadDao {
     List<MeasurementsExt> getMeasurementsExtByMeasurementId(Integer measurementId);
 
     HashMap<String, MeasurementsExt> getMeasurementsExtMapByMeasurementId(Integer measurementId);

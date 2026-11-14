@@ -83,4 +83,47 @@ public interface SecurityInfoManager {
     }
 
     public boolean isAllowedAccessToPatientRecord(LoggedInInfo loggedInInfo, Integer demographicNo);
+
+    /**
+     * The policy rows of one identity, read once for one authorization operation that asks many
+     * read-only questions about it. Every answer is the answer {@link #hasPrivilegeReadOnly} or
+     * {@link #isAllowedAccessToPatientRecord} would give from those rows: the same roles, the
+     * same patient-specific override, priority and hierarchy rules, evaluated by the same code.
+     * A snapshot is a view of the database at the moment it was read. It must be created inside
+     * the operation that uses it, never kept past that operation, never shared with another
+     * identity, request or thread, and never used where the session's account-lock state must
+     * change.
+     */
+    interface PrivilegeSnapshot {
+        /** {@link SecurityInfoManager#hasPrivilegeReadOnly} for this snapshot's identity. */
+        boolean hasPrivilege(String objectName, String privilege, String demographicNo);
+
+        /** {@link SecurityInfoManager#isAllowedAccessToPatientRecord} for this snapshot's identity. */
+        boolean isAllowedAccessToPatientRecord(Integer demographicNo);
+    }
+
+    /**
+     * Opens a {@link PrivilegeSnapshot} for one identity. Implementations may read the identity's
+     * roles and the named security objects in one round trip each; an object that was not named
+     * is still answered correctly, from its own read. This default reads nothing ahead and
+     * answers every question from the database when it is asked, which is always correct.
+     *
+     * @param loggedInInfo the identity every answer is for
+     * @param objectNames the complete security object names the operation expects to ask about,
+     *     including patient-specific names such as {@code _demographic$42}
+     * @return a snapshot for this one operation; never null
+     */
+    default PrivilegeSnapshot readOnlySnapshot(LoggedInInfo loggedInInfo, Collection<String> objectNames) {
+        return new PrivilegeSnapshot() {
+            @Override
+            public boolean hasPrivilege(String objectName, String privilege, String demographicNo) {
+                return hasPrivilegeReadOnly(loggedInInfo, objectName, privilege, demographicNo);
+            }
+
+            @Override
+            public boolean isAllowedAccessToPatientRecord(Integer demographicNo) {
+                return SecurityInfoManager.this.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo);
+            }
+        };
+    }
 }

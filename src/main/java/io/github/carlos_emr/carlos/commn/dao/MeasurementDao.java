@@ -81,7 +81,18 @@ import io.github.carlos_emr.carlos.commn.dao.MeasurementDaoImpl.SearchCriteria;
  * @see MeasurementDaoImpl
  * @see io.github.carlos_emr.carlos.managers.MeasurementManager
  */
-public interface MeasurementDao extends AbstractDao<Measurement> {
+public interface MeasurementDao extends AbstractDao<Measurement>, CdsExportPatientTableReadDao {
+
+    /**
+     * CDS export only: whether this patient has an HL7 result filed as a measurement (a
+     * {@code lab_no} extension) whose report is not routed to the patient as an HL7 lab, so the
+     * LaboratoryResults path cannot export it. Reads identifiers only, never result values, and
+     * runs inside the caller's read-only capture transaction.
+     *
+     * @param patient demographic number of the chart being captured
+     * @return true when at least one such filed result exists
+     */
+    boolean hasCdsExportUnroutedLaboratoryMeasurements(int patient);
 
     /**
      * Corrects only the patient ownership of a managed, source-linked lab measurement.

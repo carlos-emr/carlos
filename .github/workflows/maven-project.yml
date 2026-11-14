@@ -2,9 +2,9 @@
 #
 # Description:
 # This workflow automates the build and testing for the CARLOS EMR Maven project.
-# The build, tests and JSP-compilation jobs run as independent parallel jobs:
-# each compiles from a clean tree inside the dev container, so none of them
-# needs the others' output. The build job is the fail-fast signal and the only
+# Build, font/cache and JSP-compilation jobs compile independently. The Java
+# test job requires the font/cache result so its established required status
+# includes that matrix; it still compiles from a clean tree. The build job is the fail-fast signal and the only
 # job that saves the shared Maven dependency cache.
 #
 # Container Images:
@@ -27,7 +27,7 @@
 #   - Runs `make install` to verify the project builds successfully
 #   - The only job that SAVES the Maven dependency cache (the others restore)
 #
-# - tests (parallel, does not wait for build):
+# - tests (gates font/cache success, does not wait for build):
 #   - Restores Maven dependencies from cache (graceful fallback if miss)
 #   - Runs tests (JUnit 5) using H2 in-memory database
 # - mariadb-dao-tests (parallel):
@@ -162,6 +162,10 @@ jobs:
           retention-days: 14
 
   tests:
+    # Keep the established required test check red if the separate font/cache job fails.
+    # always() prevents a failed dependency from turning this gate into an accepted skip.
+    needs: [report-fonts]
+    if: always()
     # No dependency on the build job: make install --run-tests compiles from
     # scratch itself, and the Maven cache it restores has a prefix fallback, so
     # waiting for build only added its ~4.5 min to the critical path.
@@ -173,6 +177,11 @@ jobs:
       contents: read
       packages: read
     steps:
+      - name: Require successful report font and cache qualification
+        env:
+          FONT_RESULT: ${{ needs.report-fonts.result }}
+        run: test "$FONT_RESULT" = "success"
+
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -187,7 +196,10 @@ jobs:
 
       - name: Run tests
         run: |
-          docker exec carlos-tomcat-dev bash -c "
+          # Native-file unit contracts need ancestry owned by the process or root;
+          # the host checkout is runner-owned. Keep the real trust checks intact.
+          docker exec carlos-tomcat-dev install -d -m 0700 /opt/cds-export-test-documents
+          docker exec -e JAVA_TOOL_OPTIONS=-Dcds.export.test.documentRoot=/opt/cds-export-test-documents carlos-tomcat-dev bash -c "
             echo '========================================='
             echo 'Running Tests (JUnit 5 with H2)'
             echo '========================================='
@@ -220,9 +232,6 @@ jobs:
               mvn --batch-mode test -Dtest.forkCount=1 \
               -Dtest=DemographicBirthDayTimezoneUnitTest,DemographicBirthDayPropertyUnitTest,DemographicServiceEndpointTest,DemographicConverterUnitTest,SmartDateModuleRoundTripUnitTest,RestBirthDateMapperConfigurationUnitTest
           done
-
-      - name: Verify Rourke PDFs with alternate fonts and cache permissions
-        run: docker exec carlos-tomcat-dev bash scripts/check-rourke-fonts.sh
 
       - name: Prepare sanitized Java test reports
         if: always()
@@ -288,23 +297,14 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-      - name: Preserve synthetic Rourke rendering evidence
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: rourke-font-rendering
-          path: |
-            target/rourke-font-matrix/
-            target/rourke-pdf/
-          if-no-files-found: ignore
-          retention-days: 14
-
       - name: Generate and require the successful Java run's coverage counters
         # make install packages before running tests; the prepare-package report
         # goal therefore runs before any execution data exists on a clean CI tree.
         # Render the counters explicitly after the successful tests and retakes.
         run: |
           docker exec carlos-tomcat-dev test -s target/jacoco.exec
+          docker exec carlos-tomcat-dev test -s target/ci-permission-reports/jacoco.exec
+          docker exec carlos-tomcat-dev test -s target/ci-permission-reports/coverage/jacoco.xml
           docker exec carlos-tomcat-dev rm -f target/site/jacoco/jacoco.xml
           docker exec carlos-tomcat-dev mvn --batch-mode --no-transfer-progress jacoco:report
           docker exec carlos-tomcat-dev test -s target/site/jacoco/jacoco.xml
@@ -320,6 +320,42 @@ jobs:
             target/ci-permission-reports/jacoco.exec
             target/ci-permission-reports/coverage/jacoco.xml
           if-no-files-found: error
+          retention-days: 14
+
+  report-fonts:
+    # The complete Java suite and six fresh-JVM font scenarios exceeded the
+    # shared 40-minute budget. Keep every scenario in an independent job.
+    name: Report font and cache matrix
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref != '' && inputs.ref || github.sha }}
+          persist-credentials: false
+
+      - name: Start dev container (Maven cache restore-only)
+        uses: ./.github/actions/dev-container
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          maven-cache: restore
+
+      - name: Verify every report renderer with alternate fonts and cache permissions
+        run: docker exec carlos-tomcat-dev bash scripts/check-rourke-fonts.sh
+
+      - name: Preserve synthetic Rourke rendering evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: rourke-font-rendering
+          path: |
+            target/rourke-font-matrix/
+            target/rourke-pdf/
+          if-no-files-found: ignore
           retention-days: 14
 
   mariadb-dao-tests:

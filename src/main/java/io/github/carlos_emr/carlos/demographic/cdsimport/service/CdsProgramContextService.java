@@ -28,9 +28,12 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsProgramContextDt
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Administrative context remains readable while patient data and Program formulas are closed. */
+/**
+ * Administrative context remains readable while patient data and Program formulas are closed. Its
+ * read-only transactions carry no clock: a slow but working database never fails them.
+ */
 @Service
-@Transactional(readOnly = true, timeout = 30)
+@Transactional(readOnly = true)
 public class CdsProgramContextService {
     private final CdsImportProgramDao programs;
     public CdsProgramContextService(CdsImportProgramDao programs) { this.programs = programs; }

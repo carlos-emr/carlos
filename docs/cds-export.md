@@ -1,0 +1,5492 @@
+# CDS export implementation contract
+
+Native demographics, all seven case-management history/note categories, measurements,
+HL7 laboratory results, document reports and prescriptions have native mappings alongside
+retained-import reconciliation. Revised notes preserve the original and edits in one
+occurrence. Patient and child-table scopes keep other patients' clinical data outside a
+selection. Publication still requires independent source/field closure; unsupported or
+inconsistent selected data requires review instead of a partial package.
+
+The current review fixes preserve sealed import preparations, move native ATC allergy
+classes into an explicit residual marker (the standard allergy Code is DIN-only),
+respect native inclusive appointment end times and date-only immunization storage,
+and retain native enrolment history beside the current demographic snapshot.
+Patient membership is written synchronously to the normal chart audit in bounded
+batches before a private package is returned; PREPARED and actual publication/download
+outcomes are explicitly distinct and remain linked by run and attempt generation.
+
+Native prevention screenings (the bundled Screenings types and `OtherB`, which the frozen
+prevention classification puts in the non-immunization partition) are exported as PastHealth
+procedures when PastHealth is selected, as the legacy exporter wrote them. The description is
+the prevention type, its Refused, Ineligible or Completed externally status and the
+`Result:`/`Reason:` extension lines; a description longer than 250 characters keeps the type
+and status and moves those lines whole to Notes. A type and status that do not fit the
+description themselves open Notes behind the fixed description `Screening (type and status in
+Notes)`, and Notes beyond their own limit are left out whole; in both cases the values are exact
+in the residual (`OVERLONG_NATIVE_TEXT_EXACT_IN_RESIDUAL_ONLY`) and no length of text holds a
+screening (`SCREENING_DESCRIPTION_CAPACITY_REQUIRES_REVIEW` and
+`SCREENING_NOTES_CAPACITY_REQUIRES_REVIEW` are gone). ProcedureDate is the recorded calendar date at
+its recorded year, year-month or full-date precision (a native clock time stays in the
+residual), and Notes are the comments. The complete parent, extension and precision rows travel
+in the `CARLOS.Prevention.Source.v1` residual as JSON with SQL NULL and empty text distinct and
+spaces escaped, so `xs:token` normalization cannot change them. Screenings are captured through
+their own logical tables (`preventions_screening`, `preventionsExt_screening`,
+`prevention_precision_screening`) beside the classification inputs shared with Immunizations,
+so every screening has its own expected PastHealth identity and row witnesses; a missing,
+duplicated or unwitnessed row refuses the patient. A row restricted to a program is exported
+under the program rule described below. A malformed program restriction flag, rows whose type is
+not a proven screening, unknown status codes, duplicate result/reason/comments extensions and
+unsupported date precision hold the patient for review, and any unclassifiable prevention row
+also holds a PastHealth export because it may be a screening.
+also holds a PastHealth export because it may be a screening.
+
+Every value the demographic add and edit screens write is exported, never held. Values with a
+Demographics element map to it. The patient alert (`demographiccust.cust3`, the forms' Alert
+box) is one AlertsAndSpecialNeeds occurrence whose AlertDescription is the exact text (a carriage
+return is a character reference); the CARLOS importer files it as a Reminders note. Values that
+CDS 5.2 Demographics has no element for travel together in one NewCategory record per patient,
+`CARLOS.NativeDemographic.v1` (`CdsExportDemographicSupportingMapper`): its single
+`CARLOS.Demographic.v1` residual is a versioned JSON object in a fixed key order (`version`,
+`demographic`, `careTeam`, `properties`) with every space escaped, holding the populated
+base-row columns `alias`, `anonymous`, `children`, `citizenship`, `consentToUseEmailForCare`,
+`country_of_origin`, `end_date`, `family_doctor` (the referral-doctor wrapper, verbatim),
+`gender`, `genderId`, `myOscarUserName`, `newsletter`, `pcn_indicator`, `pref_name`,
+`previousAddress`, `pronoun`, `pronounId` and `sourceOfIncome`; the nurse, resident and midwife
+(`cust1`, `cust2`, `cust4`) with the stored provider number and, when the captured public
+provider row matches it exactly, that row's six public lookup columns (as the printed-prescription
+record carries its author); and every visible `demographicExt` property other than the mapped
+phone values (ethnicity, consents, paper-chart status, First Nations details, a site's configured
+keys, and an extension or mobile number the CDS phone element cannot hold), by row id, key and
+value. Demographics has no ResidualInfo, and NewCategory is where this exporter already carries
+native supporting context, so the record goes there; Names/OtherNames is not used for `alias` or
+`pref_name` because the pinned schema lists the name-purpose codes without their meanings, parts
+must be typed FAMC or GIV, and the CARLOS importer keeps OtherNames source-only. The importer
+keeps the record as protected source fields. A value is in the record only when populated; SQL
+NULL and empty values stay ABSENT with their presence, and the form placeholders (newsletter
+"Unknown", country of origin "-1", the empty referral-doctor wrapper, interaction warning level
+"0") are accounted for as operational. When the job does not select NewCategory these values are
+decided `NO_CDS_ELEMENT_NEW_CATEGORY_NOT_SELECTED`, no record is written, the ReadMe says so, and
+the patient is not held. The record and the alert are predicted by the patient inventory from
+the same captured rows (the inventory reads them through `CdsExportDemographicSupportingReader`),
+and the public provider capture now includes the providers the care-team columns name. Only text
+no XML document can hold (a lone surrogate, U+FFFE or U+FFFF in a carried value; a control
+character in the alert), a populated property with no key, a hidden property row (written only
+through the REST API) and duplicate phone keys still hold the patient. Imported charts follow the
+same rules: these columns are never imported Demographics elements, so the retained
+reconcilers' protected elements are unchanged.
+
+The same rule covers the rest of the Demographics path. Roster states that are not CDS
+enrolment events (FS fee for service, a clinic-defined status, RO without a roster date, TE
+without a termination date, RO still holding a termination, a termination reason outside CT-010,
+NR with leftover roster values) are carried with the current row in the record's `roster`
+object; an archived snapshot of such a state stays in the approved audit arrangement with the
+archive's other superseded columns. `CdsExportEnrolmentHistory` exports the latest version of
+each episode (start date and physician); earlier versions of the same episode, and an archived
+episode the current state contradicts (left open while the patient was re-rostered, cleared or
+moved to FS, or dated after the current state), are superseded snapshots
+(`SUPERSEDED_ROSTER_SNAPSHOT_IN_APPROVED_AUDIT`) and no termination date is invented. An enrolled
+provider number with no captured provider row exports the event without EnrolledToPhysician and
+carries the number. The history no longer throws a plain `IOException` for a roster value: only
+an enrolled provider whose public values no CDS name can hold remains, as a patient hold
+(`CdsExportMappingReviewException`), never a job failure. A second or third preferred pharmacy
+and the PreferredPharmacy values without an element (Phone 2, Notes, the service location, a
+free-text province, a postal code without a pinned jurisdiction, an over-long line or name, the
+status of a pharmacy deleted in Manage Pharmacy but still preferred) travel in the record's
+`related` list; a removed link (status 0) and a pharmacy only it names are not in the chart and
+are not exported (`REMOVED_PHARMACY_ASSOCIATION_NOT_IN_CURRENT_CHART`), whether or not that
+pharmacy's row still exists. The links' `consentToContact` of 1 is the model default
+(`DEFAULT_CONTACT_CONSENT_HAS_NO_CDS_CARRIER`) and never holds a chart. No pharmacy value holds
+a chart any more (see "Contacts, physicians and pharmacies: no remaining hold" below): an active
+link to a pharmacy row that no longer exists, a link status or consent flag no screen writes,
+two links both ranked first and a preferred pharmacy saved without a name were each a named hold
+(`CdsExportPharmacyMapper.REVIEW_CODES`, now only reached by a result built with a review in it)
+and are carried exactly instead. Text XML cannot carry no longer holds
+(`CDS_EXPORT_NATIVE_PHARMACY_WIRE_TEXT_REQUIRES_REVIEW` is gone): a name shows U+FFFD in its
+place and is carried exactly, and any other such value is carried in the native demographic
+record. No screen writes a dangling link: Manage
+Pharmacy and the REST service only mark a pharmacy deleted (status 0), never remove its row. The
+census-2 holds of charts A05-A07 on build 108a were such links: a probe script's cleanup
+(`DELETE FROM pharmacyInfo WHERE name LIKE 'FAKE-C2 %'`) removed the census pharmacies after they
+were seeded; the same rows with their pharmacies present are exported
+(`CdsExportDemographicSupportingMapperUnitTest.shouldExportTheCensusPharmacyCharts_fromTheRowsTheScreensStore`). Contacts follow the same
+pattern: a deleted association is not exported; an inactive, "Internal" (another patient),
+provider or specialist association (types 0, 1 and 3, whose names live in tables this export
+does not read) travel in `related` with their contact, as do contact columns
+Demographics/Contact has no element for (address, fax, CPSO number, specialty...), a note longer
+than 200 characters or distinct between contact and association, and an extension the phone
+element cannot hold. In the base row an untrimmed or doubled-space token is written collapsed,
+as every schema reader sees an `xs:token`, and its exact value is carried (destination
+`<element>,NewCategory/ResidualInfo`); an e-mail outside the CDS pattern, a SIN that is not nine
+digits after removing spaces and hyphens, an address line over 50 characters, an unlisted
+province (OT, US) with its postal code, a health card of an unlisted issuer (whole card), an
+unlisted spoken or official language are left out of their optional elements and carried; sex X
+(Intersex) is Gender O with the exact code carried. For imported charts the retained reconcilers
+keep the receipt truthful (`withNativeCarriers`), follow an imported contact the user removed or
+made inactive and an imported pharmacy preference that was removed or re-ranked (see "Imported
+charts edited in CARLOS" below), and the contact-mapping and original-relationship checks that
+used to fail the whole job are patient holds. Remaining holds: required values that are
+missing (name, birth date, sex, status), duplicate or hidden extension rows, and provider values
+(OHIP number over six characters, names over 50) on an enrolled physician. Tied first pharmacy
+preferences, a dangling pharmacy or contact link, two family or two referring physicians and an
+unknown contact consent or purpose flag no longer hold: see the next section.
+
+#### Contacts, physicians and pharmacies: no remaining hold
+
+Every hold of `CdsExportPersonalContactMapper`, `CdsExportProfessionalContactMapper`,
+`CdsExportPharmacyMapper` and `CdsExportContactConsent` could be reached by data in an ordinary
+chart, several of them from a screen. None was imposed from outside: the schema makes both parts
+of Contact/Name optional and gives the other elements a length. Each value now follows one
+rule: the element says what it can say truthfully, and the stored value travels exactly in the
+native demographic record's `related` list (`CARLOS.NativeDemographic.v1`), which the supporting
+mapper fills from every carried decision.
+
+| Was a hold | Reached by | Now |
+| --- | --- | --- |
+| A health care team member with MRP, EC or SDM ticked beside a Family Doctor or Referring Doctor role (undecided column, `CDS_EXPORT_UNMAPPED_DATA`) | procontact.jsp, Health Care Team | The physician is exported; the flag is carried. |
+| Two members in the Family Doctor (or Referring Doctor) role (`MULTIPLE_PROFESSIONAL_RELATIONSHIPS_EXCEED_WIRE_CARDINALITY`) | Health Care Team | The element states one physician and none is chosen: no element for that role; every such association and contact is carried. The other role is still written. |
+| A physician's name part longer than 50 characters, or with nothing stored (`COMPLETE_PROFESSIONAL_NAME_REQUIRED_WITHOUT_INVENTED_PARTS`) | Add/Edit professional contact (the columns hold 100) | Both parts are required elements: a part with nothing stored is written empty, a longer one as its first 50 characters with the stored name carried whole. A contact with no name at all states no physician and is carried. |
+| A team member whose contact row is a plain contact, is marked deleted, or is missing (`EXACT_CURRENT_PROFESSIONAL_CONTACT_REQUIRED`, `EXACT_LINKED_PROFESSIONAL_CONTACT_REQUIRED`) | The contact search lists every contact row | A plain contact is exported in the role with its subtype carried; a deleted or missing row gives no element and the association is carried. |
+| A personal contact saved without a name (`CONTACT_NAME_MISSING_OR_UNREPRESENTABLE`) | Add contact | Written with an empty Name (schema-valid; nothing invented), with its purposes, phones and note. |
+| A relationship longer than 50 characters or holding a character XML cannot carry (`CONTACT_PURPOSE_VALUES_REQUIRES_REVIEW`) | The relationship box (the column holds 100) | No ContactPurpose from it; the text is carried. |
+| A relationship stored as a CtlRelationships row id (`LEGACY_RELATIONSHIP_ID_REQUIRES_REVIEW`) | Older data | The digits are not written as a purpose; the id is carried. |
+| EC or SDM stored as "false" beside a relationship naming the same purpose, or as another spelling (`CONFLICTING_CONTACT_PURPOSE_ASSERTIONS_REQUIRES_REVIEW`, `UNKNOWN_NATIVE_CONTACT_PURPOSE_FLAG_REQUIRES_REVIEW`) | Older data (the screens write "true" or empty) | The relationship is the purpose; the stored flag is carried. |
+| A personal contact whose row is of the professional subtype or marked deleted (`UNEXPECTED_NATIVE_CONTACT_SUBTYPE_REQUIRES_REVIEW`, `DELETED_OR_UNKNOWN_CONTACT_HISTORY_REQUIRES_REVIEW`), or whose row is missing (`EXACT_LINKED_CONTACT_MISSING_REQUIRES_REVIEW`) | The contact search; contact administration | Exported with the subtype or flag carried; a missing row gives no Contact and the association is carried. |
+| A set MRP flag on a personal contact (undecided column) | Not offered by the personal contact screens | Carried. |
+| An active pharmacy link to a missing row, a status no screen writes, two links ranked first, a consent flag of another spelling, a preferred pharmacy without a name (`CDS_EXPORT_NATIVE_PHARMACY_LINK_DANGLING`, `..._LINK_STATUS_UNKNOWN`, `..._FIRST_PREFERENCE_TIED`, `..._CONSENT_UNKNOWN`, `..._NAME_REQUIRED`) | SQL outside CARLOS; concurrent ranking | No PreferredPharmacy is asserted from such a link; links and pharmacies are carried. For an imported chart the imported element is removed too (`CdsExportRetainedPharmacyReconciler`), never kept as if it were the one preference. |
+| An imported contact edited in CARLOS in a way its imported element could not follow (`EDITED_COMPOUND_OR_UNPROJECTED_CONTACT_VALUE_REQUIRES_REVIEW`) | The contact editor (first name, phones, note); Manage Contacts (relationship, EC, SDM, note; every save rewrites those columns of every listed contact) | The edited part takes its current value by the rule of a contact added in CARLOS and the imported element it replaces is listed as replaced; the rest stays the import's projection (`CdsExportContactFieldReconciler`). First name: the column holds the source's first and middle names together, so FirstName is replaced and MiddleName removed. Relationship, EC or SDM of a contact with several source purposes: only the purposes that column was projected from are replaced, so the purposes behind the marker stay while the relationship still holds the marker. Phone: the source phones projected into the column (equal repeats of a type; a home or cell number with its extension folded in) are replaced; phones the import kept as source only stay and a number typed since is a further PhoneNumber. Notes that now differ between the contact and its association: no Note element, both carried; when the element holds nothing kept only in the import's source, the element is removed and the contact decided from its current rows (`Result.current`). |
+| An imported contact with several source purposes picked again from the contact search (`RETAINED_CONTACT_PURPOSE_RECONCILIATION_REQUIRED`, `CDS_EXPORT_CONTACT_MAPPING_REQUIRES_REVIEW`) | Manage Contacts, contact search | The imported element stays with its purposes and the further relationship's purposes join it (the reconciler decides the further association's columns). The marker "Multiple source purposes; see imported Contact details" is never a ContactPurpose: on any row the stored text is carried. |
+| An imported association pointed at another contact row (`CDS_EXPORT_CONTACT_RECONCILIATION_SCOPE_INVALID`, a job stop) | The server accepts another contact on an existing association (`Contact2Action.linkContactToDemographic`); the forms do not offer it (an existing row's search link is rendered without text) | The imported element is removed, its source fields listed as replaced, and the association is exported with the contact it names, like any added contact (`CdsExportContactFieldReconciler.repointed`, which still proves the association against its import baseline). |
+
+| An imported family or referring physician that the Health Care Team removed, made inactive, moved to the other role, joined with a second member in the role, or whose team entry now names another contact row (`ORIGINAL_PROFESSIONAL_RELATIONSHIP_MISSING_OR_MOVED`, `ORIGINAL_PROFESSIONAL_CONTACT_REFERENCE_CHANGED`, `CDS_EXPORT_PROFESSIONAL_RELATIONSHIP_REQUIRES_REVIEW`) | Health Care Team (a changed contact only through the server, as above) | The imported element is replaced by the chart's current physician of that role, or removed when there is none (`CdsExportRetainedProfessionalContactReconciler`); its source fields stay in the import's retained source, replaced. |
+| A Family or Referring Doctor added to the team of an imported chart whose source physician the import did not file (`UNPROJECTED_SOURCE_PROFESSIONAL_RELATIONSHIP_CONFLICT`) | Health Care Team. The import files no team entry only for a source physician that names nobody (a missing or blank name, `CDS_CONTEXT_PHYSICIAN_SOURCE_ONLY`) | The element states the chart's physician; the source element's fields are listed as replaced. |
+
+No placeholder text is written for any of these.
+
+**Still held.** Only what the import's own receipt cannot prove: a contact or association row
+that left the capture (`CDS_EXPORT_CONTACT_DELETION_REQUIRES_REVIEW`; no screen deletes these
+rows), a row two import units claim (`CDS_EXPORT_CONTACT_ALIAS_REQUIRES_REVIEW`), a missing or
+unreadable import baseline (`CDS_EXPORT_CONTACT_FIELD_BASELINE_REQUIRED`,
+`CDS_EXPORT_CONTACT_FIELD_CODEC_REQUIRES_REVIEW`), a baseline row that is not what the sealed
+preparation projects (`PREPARED_NATIVE_CONTACT_PROJECTION_NOT_PROVEN`), an association state no
+screen writes (`EDITED_IMPORTED_CONTACT_ASSOCIATION_STATE_REQUIRES_REVIEW`), and an imported
+physician's team entry that left the capture (`ORIGINAL_PROFESSIONAL_RELATIONSHIP_MISSING_OR_MOVED`
+with no row).
+
+The health-care-team roles Specialist and Dietician (procontact.jsp) have no FamilyPhysician or
+ReferredPhysician meaning, but an active external contact (type 2) in such a role is a
+`Demographics/Contact`: `CdsExportProfessionalContactMapper.contactRoleAssociations` leaves it to
+the personal-contact mapper, which writes the role as `ContactPurpose/PurposeAsPlainText`
+(`HEALTH_CARE_TEAM_ROLE_AS_PLAIN_TEXT_PURPOSE`; the plain-text arm of `purposeEnumOrPlainText`
+holds 50 characters) with the contact's name, phones, e-mail and note, and carries its other
+`ProfessionalContact` columns. On an imported chart the contact is appended after the imported
+contacts, as a newly added personal contact is. A specialist whose contact is also the family or
+referring physician, an inactive or removed association and types 0, 1 and 3 keep their earlier
+handling (carried in `related`, or not in the chart).
+
+**Imported charts edited in CARLOS.** A chart imported from a CDS file and then edited through
+ordinary CARLOS screens is an ordinary chart and is not held for the edit. An unedited imported
+chart still exports its retained source exactly as before. After an edit the current CARLOS columns are the truth, as for a
+never-imported chart; the superseded source value is never silently dropped: it stays in the
+import's retained source fields, the receipt lists its field IDs as replaced, and the column's
+decision names the rule.
+
+- Addresses (`CdsExportDemographicAddressReconciler`): an edited part replaces its source part;
+  a street typed over several source lines becomes `Line1` and the other lines are superseded,
+  and a value typed over a part the importer kept source-only replaces it
+  (`EDITED_CURRENT_ADDRESS_PARTS_SUPERSEDE_SOURCE_PARTS`). A `Formatted` source with an edited
+  city, province or postal code, two source addresses of one type, or one the importer never
+  projected is replaced by the current `Structured` address
+  (`EDITED_CURRENT_ADDRESS_SUPERSEDES_SOURCE_ADDRESS`); an address the user cleared (the forms'
+  default province alone records no address) exports no address of that type
+  (`CLEARED_CURRENT_ADDRESS_SUPERSEDES_SOURCE_ADDRESS`).
+- Phones (`CdsExportDemographicRetainedPhonesReconciler`): the current number replaces the
+  source phone, or the first of several source phones of its type
+  (`EDITED_CURRENT_PHONE_SUPERSEDES_SOURCE_PHONES`); an edited mobile supersedes a source mobile
+  extension CARLOS cannot store (`EDITED_CURRENT_PHONE_SUPERSEDES_SOURCE_EXTENSION`, recorded on
+  the mobile property row); a cleared number exports no phone of that type
+  (`CLEARED_CURRENT_PHONE_SUPERSEDES_SOURCE_PHONES`).
+- Names, scalars, dates and the note: edited middle names take the source's given `OtherName`
+  parts in order, surplus parts are removed and further names appended
+  (`EDITED_CURRENT_MIDDLE_NAMES_SUPERSEDE_SOURCE_PARTS`); a scalar or optional date typed over a
+  source-only one is written (`EDITED_CURRENT_SCALAR_SUPERSEDES_UNPROJECTED_SOURCE`,
+  `EDITED_CURRENT_DATE_SUPERSEDES_UNPROJECTED_SOURCE`); an edited date is a plain calendar date
+  and supersedes a source time-zone offset (`CURRENT_NATIVE_SUPERSEDES_SOURCE_OFFSET`,
+  `EDITED_BIRTH_DATE_SUPERSEDES_SOURCE_OFFSET`); an edited patient note replaces the complete
+  source note the native column could not hold
+  (`EDITED_CURRENT_PATIENT_NOTE_SUPERSEDES_SOURCE_ONLY_NOTE`).
+- Contacts (`CdsExportContactFieldReconciler`, `CdsExportContactRetainedAssembler`): Manage
+  Contacts "Delete" (`Contact2Action.removeContact`, deleted=1) or "Inactive" (active=0) on an
+  imported association removes its `Contact` element (the change names every source field of the
+  element, which the receipt lists as replaced). The rows are decided by the personal-contact
+  mapper as for a native association: a removed one is not exported
+  (`REMOVED_IMPORTED_CONTACT_ASSOCIATION_NOT_IN_CURRENT_CHART` on the flag,
+  `REMOVED_CONTACT_ASSOCIATION_NOT_IN_CURRENT_CHART` and
+  `CONTACT_OF_A_REMOVED_ASSOCIATION_NOT_IN_CURRENT_CHART` on the rest) and an inactive one travels
+  with its contact in the native demographic record. A person removed and added again from the
+  contact search is a new association to the imported contact row: that row is decided with the
+  new association and appended like any added contact. When the imported association is still
+  current and the person is picked again with another relationship, the contact is decided with
+  all its current associations (one Contact, every purpose) and appended, and the imported element
+  is replaced; this used to hold with `CDS_EXPORT_CONTACT_NEW_ASSOCIATION_REQUIRES_REVIEW`. When
+  the imported element holds content CARLOS keeps only in the import's source (several purposes
+  behind the marker "Multiple source purposes; see imported Contact details", a separate middle
+  name, phones no column holds), it stays in place instead and the further relationship's
+  purposes join it. A deleted or active flag no screen writes still holds. A later association that is itself removed or inactive leaves the
+  imported contact as it is. A contact added after the import and later removed or made inactive
+  no longer fails the assembly's row count (`CDS_EXPORT_CONTACT_ASSEMBLY_SCOPE_INVALID`).
+- Preferred pharmacy (`CdsExportRetainedPharmacyReconciler`): once the imported link is no longer
+  the rank-one active link (the Rx screen's remove, `DemographicPharmacyDao.unlinkPharmacy`,
+  status 0; or another pharmacy made the first preference, `addPharmacyToDemographic`, which
+  moves the imported link to rank 2), `PreferredPharmacy` is the chart's current rank-one pharmacy
+  written natively, or is removed when there is none. The whole imported element is replaced, the
+  receipt lists its source fields as replaced, and the native pharmacy mapper decides every link
+  and pharmacy as on any chart (a removed link is not exported,
+  `REMOVED_IMPORTED_PHARMACY_ASSOCIATION_NOT_IN_CURRENT_CHART` on its status; a lower-ranked one
+  travels in the native demographic record). While the imported link is still the first
+  preference the imported element keeps its structured details, as before.
+- Roster (`CdsExportRetainedEnrolmentReconciler`): native events recorded after the import
+  follow `CdsExportEnrolmentHistory`. Only RO and TE are enrolment events; FS, clinic-defined
+  statuses and NR with leftover values are carried in the record's `roster` object. Per episode
+  (start and physician) the latest native version decides; an open episode exports while it is
+  current or the source records its termination; one the current state contradicts
+  (re-rostered without a termination, cleared, moved to FS) or dated after it is a superseded
+  snapshot (`SUPERSEDED_ROSTER_SNAPSHOT_IN_APPROVED_AUDIT`), its provider
+  `SUPERSEDED_ROSTER_PROVIDER_IN_APPROVED_AUDIT`. Once the roster is edited (the current row is
+  no longer the import's own projection) the same rule applies to the imported history: an
+  imported episode that is open (no imported termination and no kept native one) and is not the
+  current episode, because the current state is FS, NR or another non-enrolment status or RO
+  with another physician or start date without a termination, is superseded. Its
+  `EnrolmentHistory` is removed from the export (with its date normalization), its source fields
+  stay in the retained source and the receipt lists them as replaced, an archive snapshot of that
+  imported state is `SUPERSEDED_ROSTER_SNAPSHOT_IN_APPROVED_AUDIT`, and the current roster
+  status keeps its outcome and destination under
+  `CURRENT_ROSTER_SUPERSEDES_IMPORTED_OPEN_ENROLMENT`; when nothing of the imported enrolment
+  remains and no native event is added, the `Enrolment` element is removed. The export
+  therefore never claims a patient is still enrolled in an episode CARLOS no longer shows.
+  Closed imported episodes, an RO still in the imported episode, an episode a current TE
+  terminates (exported terminated) and every imported episode of an unedited roster export
+  exactly as imported. No termination is invented. The four review rules for re-rostering, a
+  cleared current enrolment, a conflicting termination and a stale current state are gone, and
+  an FS current state sharing an archived event's provider no longer fails the job.
+
+An empty value a Master Record save writes over a column the importer left NULL is not an edit:
+a source-only value, part, address or phone is kept (`UNPROJECTED_SOURCE_*_KEPT_WITHOUT_A_CURRENT_*`),
+as is a source-only date with no current date, which used to hold even an unedited chart. Still
+held: an unproven import projection (a matched existing chart), an invalid retained source value
+that an unedited chart would replay, text no XML document can carry
+(`CURRENT_NATIVE_ADDRESS_REQUIRES_REVIEW`, `CURRENT_NATIVE_PHONE_REQUIRES_REVIEW`,
+`CURRENT_NATIVE_NAME_REQUIRES_REVIEW`...), a missing required value, an enrolled provider whose
+public values no CDS name can hold, and a mobile reconciliation with no current row to mark
+(now a patient hold, `CDS_EXPORT_DEMOGRAPHIC_MOBILE_RECONCILIATION_REQUIRES_REVIEW`, no longer a
+job failure). A removed or inactive imported contact and a removed or re-ranked imported
+pharmacy preference no longer hold the chart (above). The
+superseded source values are not in the package itself: the NewCategory record is built from the
+current rows only, so they remain available through the retained import source and the receipt.
+
+An RO roster status without a roster date is still carried, not written as an
+`EnrolmentHistory` without `EnrollmentDate`: the schema makes the element optional, but the
+OntarioMD implementation guide requires the dates (see `cds-import-web.md`) and the CARLOS
+importer refuses such a history (`CDS_ENROLMENT_REQUIRED_VALUES_MISSING`).
+
+A patient status CARLOS defines without a CDS value is exported by meaning ("Moved",
+"Fired") as PersonStatusAsPlainText, and the CARLOS importer maps those labels back to MO and
+FI; a clinic-defined status is exported as stored. The primary physician's practitioner number
+becomes PrimaryPhysicianCPSO only when its recorded authority is CPSO and it is a six-character
+token; a number with no recorded authority (`UNTYPED_REGISTRATION_NUMBER_NOT_ASSERTED`) or a
+CPSO number with spaces or more characters (`UNREPRESENTABLE_CPSO_NUMBER_NOT_ASSERTED`) is not
+asserted and no longer holds the patient. Once-daily "OD" is written as
+CT-024 "QD" on both the native and reconciled paths, and when a prescription's start date is
+marked unknown its date-precision rows travel in the medication residual instead of being
+counted as a StartDate.
+
+Thirty-four further patient-linked tables are classified rather than refused. Edit history whose
+current record is exported (tickler links left after their migration to ticklerdocs, the consent
+migration audit), working state that is not
+part of the record (autosaved note drafts, eRefer and document-queue staging, the recycle bin,
+vacancy matching, saved demographic sets, report and letter scratch tables) and per-patient
+reference or configuration rows (saved filters and queries, eForm report-tool definitions,
+flowsheet and prevention-report settings, letter templates, WCB code lists) are not exported and
+no longer hold a patient. Each table's reason is its ruling note in
+`src/main/resources/cds-export/source-catalogue.json`.
+
+Records that CDS 5.2 has no element for are exported, not refused (maintainer decision 6). The 120
+tables ruled `DOCUMENT` (every encounter-form table, eForms and their values, consultation
+requests and responses with their extensions and attachment references, the archived earlier
+versions of consultation requests with their extensions, ticklers with their
+comments, updates and attachment references, e-mails with their attachment references, faxes,
+patient-linked messages, digital signatures, consents, the cumulative patient profile, the patient
+photo, the waiting list, workflows and the CAISI referral, queue, restriction and joint-admission
+records, program admissions with a narrative or discharge reason, and the legacy records of older
+OSCAR releases: the eChart encounter, the encounter immunization schedule, patient relationships
+and the MDS, CML and BC PathNet lab reports) are captured whole when Reports is selected and
+exported as one Reports entry per record:
+a PDF "CARLOS data summary" that lists every stored field of the record and its related rows with
+the exact value. The 37 tables ruled `LISTED` belong to removed features: they are never read or
+exported and never hold a patient; the encrypted ReadMe names each table and the number of the
+patient's rows in it (and, for listed tables with no patient link, the number of rows for the whole
+job). See [Data summaries and listed tables](#data-summaries-and-listed-tables). Each eForm the
+chart lists also travels as the form itself, rendered at export time beside its data summary;
+removed and patient-independent eForms are counted, not exported (see
+[eForms: the rendered form beside the data summary](#eforms-the-rendered-form-beside-the-data-summary)).
+
+Native vaccines are exported as Immunizations exactly as the prevention form records them. The
+name is the recorded brand name, or the configured prevention type when the name is blank;
+ImmunizationType is the configured Health Canada type when it is one of the CT-020 values, and
+is left out (never guessed) for a configured vaccine outside that list, such as COVID-19,
+Pneu-C-20 or RZV. Site, route, dose, lot, manufacturer, instructions and comments map to their
+standard elements, and an eight-digit DIN becomes ImmunizationCode; text typed in the DIN box
+that is not an eight-digit DIN is never exported as one. The prevention form's text boxes have no
+length limit, so a recorded value longer than its element (ImmunizationName, Manufacturer,
+LotNumber, Route, Site and Dose hold 120 characters, Instructions 250) is ordinary: it is left out
+of that element and moves whole to Notes as a labelled line (`Name: `, `Manufacturer: `,
+`Lot number: `, `Route: `, `Site: `, `Dose: `, `Instructions: `), after the status line and before
+the comments, and stays exact in the residual (`OVERLONG_NATIVE_TEXT_MOVED_WHOLE_TO_NOTES`,
+destination `Notes;ResidualInfo`). A name moved this way is replaced by the configured prevention
+type, as a blank name is (the catch-all and Rh labels below apply the same way); it is never
+clipped. Notes holds 32,000 characters. When the status line, the moved values and the comments
+do not all fit, whole parts are left out of Notes, last first (the comments, then the moved
+values), and comments longer than Notes on their own are left out the same way; nothing is
+clipped, the status line stays, and each left-out value is exact in the residual
+(`OVERLONG_NATIVE_TEXT_EXACT_IN_RESIDUAL_ONLY`, destination `ResidualInfo`). No length of text
+holds a vaccine; `IMMUNIZATION_NOTES_CAPACITY_REQUIRES_REVIEW` is gone. Census chart A31a (a
+160-character Td name) was held as `CDS_EXPORT_UNMAPPED_DATA` before the first rule. "Completed externally" exports as given
+(RefusedFlag N) and "Ineligible" as not given (RefusedFlag Y), with the status as the first line
+of Notes. The complete parent, extension and precision rows travel in the same
+`CARLOS.Prevention.Source.v1` residual as screenings, so the recording provider, reminder date
+and "never remind" choice, the CVC concept, flu risk factors, refusal reasons and the free-text
+administering provider are carried exactly. A CARLOS importer restores two of them natively
+from that carrier (#6198, [import guide](cds-import.md#recognised-carlos-residual-markers)): the
+free-text name of the form's "Other" provider (`provider_no` `-1`; a CARLOS provider number is
+never restored) and the reminder date. The form saves an empty row for every unfilled
+input; an empty row is not a fact and never hides the type name. An edited vaccine's link to the
+version it replaced is not exported. A row restricted to a program is exported under the
+program rule below. A malformed program restriction flag, unknown status codes, duplicate
+standard fields, unsupported date precision and the importer's date hints on a row no applied
+import claims still hold the patient. An imported vaccine is written from its retained original
+elements without this residual while its row is the one the import wrote. When the sender was
+CARLOS, those retained elements include its original `CARLOS.Prevention.Source.v1`: the
+provider and reminder date the import restored from it are accounted to it while the sealed
+native baseline proves them unchanged, so the unedited vaccine round-trips without a hold. A
+restored value changed in place would hold the patient
+(`RESTORED_SOURCE_CONTEXT_CHANGED_REQUIRES_REVIEW`) because the retained carrier would restate
+it, and so would any value of the imported row the native mapper could carry only in this
+residual (`IMPORTED_OCCURRENCE_HAS_NO_NATIVE_RESIDUAL`, in `CdsExportImmunizationFieldReconciler`):
+no screen or API reaches either. CARLOS never changes a `preventions` or `preventionsExt` row in
+place. The prevention editor (`AddPrevention2Action`, `PreventionData.updatetPreventionData`)
+soft-deletes the edited row and inserts a new version that names it as `previousId`, a delete
+only sets `deleted = '1'`, the eForm path and `PreventionManager` only insert, the REST and SOAP
+prevention services only read, and `PreventionData.setNextPreventionDate`, the one in-place
+writer, has no caller. A provider, reminder, status or comment recorded after the import, a
+comment edited in the prevention editor included, is therefore a new version, exported natively
+with the residual (below), and the imported source fields are accounted as replaced; only a row
+changed directly in the database reaches these two holds.
+
+`preventions.restrictToProgram` and `programNo` are legacy OSCAR 19/CAISI columns that no CARLOS
+screen writes or reads. A prevention row is restricted to a program under the rule the chart
+applies to a document restricted to a program: the flag set (or a legacy NULL) and a program
+other than none or `-1`. A flag set without a program and an explicit `0` flag, whatever the
+program, are unrestricted. Such a row is exported when every current exporting identity, the
+effective provider and any operator, works in that program (any `program_provider` membership
+in it, `CdsExportRunControl.restrictedProgramReadable`, `CdsExportAccessService.canReadRestrictedProgram`).
+Every prevention reader (`prevention_configuration`, `preventions_scope` and the six vaccine and
+screening tables) reads only prevention ids and their programs first, in their own short
+read-only transaction (`CdsExportPreventionAccessService`, bounded at
+`MAXIMUM_PROGRAM_RESTRICTIONS`); checks each program live, for each category it serves, before any
+prevention value is read; and proves inside the capture snapshot that the restrictions are the
+ones it authorized (a change is `CDS_EXPORT_SOURCE_CHANGED`). The selection
+(`CdsExportPreventionSnapshotService.prepare`) applies the same proof before it reads any
+classification metadata and checks that its restrictions are exactly the restricted rows of that
+metadata; a reader never prepared still reads nothing restricted. The DAOs no longer refuse
+restricted rows themselves. The classification places a restricted row like any other row; a
+malformed flag (anything but `0`, `1` or NULL) is a `PROGRAM_SCOPE` review. The vaccine and
+screening mappers check each restricted row's program again, live, before it is written, and
+every program so granted is checked once more after the patient's vaccines or screenings are
+written (a change is `CDS_EXPORT_ACCESS_CHANGED`). An authorized row's flag and program are
+`PROGRAM_SCOPE_AUTHORIZED` and travel exactly in the `CARLOS.Prevention.Source.v1` residual with
+the rest of the row. A program nobody exporting works in, and a malformed flag, hold the patient
+with `CDS_EXPORT_PREVENTION_PROGRAM_SCOPE`. An imported vaccine reconciled from its retained
+elements has no native residual, so a restriction on it still needs review.
+
+An imported vaccine whose ImmunizationType was absent or not configured is filed by the CARLOS
+importer as the catch-all `OtherA` (review finding F10). The shipped prevention configuration now
+classifies `OtherA` as an immunization by itself (`CATCH_ALL_INJECTION`, below); a configuration
+that files `OtherA` elsewhere cannot prove it is a vaccine, so there the row is kept as an
+Immunizations occurrence only on the importer's own receipt (`CdsExportImmunizationImportReceipts`): an applied (`COMMITTED` or
+`ALREADY_COMPLETE`) `Immunizations` import unit of this patient whose receipt names exactly one
+`preventions` row, this one, and whose native-baseline witness, sealed under the installation
+key and bound to that receipt's digest, records the row's identifier and this patient. The same
+rule covers any row the classification cannot place (an unknown, unresolved or conflicting
+type), never a row with a malformed program restriction, and it never moves a row the
+classification did place. The proof applies whenever Immunizations or PastHealth is selected, so a proved
+vaccine is never taken for a possible screening in a PastHealth-only export. Capture-time
+selection reads the units through `CdsImportUnitDao` in the capture's
+repeatable-read snapshot, and the finished-capture reclassification re-proves the partition
+from the captured `cds_import_unit` rows, so both reach the same vaccine set. A legacy unit
+without a witness, a unit that was not applied, a rewritten receipt or tampered witness, and
+another patient's import prove nothing; the row then keeps its classification review
+(`CATEGORY_NOT_PROVEN` for an `OtherA` filed outside the Other heading). The importer's provenance extensions (`cdsName`,
+`cdsType`, `cdsDatePrecision` and the others) are ordinary editable chart rows and are never
+proof. A witness that cannot be opened because the installation key is missing refuses the job
+with `CDS_EXPORT_NATIVE_BASELINE_KEY_UNAVAILABLE`, as the retained index does. The occurrence is
+then reconciled like any imported vaccine. For the catch-all type the sealed baseline itself
+witnesses the importer's type projection, so the original ImmunizationType is exported (an
+absent one stays absent) whatever today's declaration for `OtherA` says; a native type change
+fails the baseline match and holds the patient with `PREPARED_NATIVE_PROJECTION_NOT_PROVEN`, and
+every other native change keeps its existing reconciliation code. Any other imported type still
+needs today's declared type to equal the original ImmunizationType, or it holds the patient with
+the same code. Under a configuration that files `OtherA` elsewhere, a PastHealth export without
+Immunizations captures no Immunizations unit, so the row still holds it: it could be a screening.
+
+A native `OtherA` row ("Other immunization or injection", A30) is exported as an Immunizations
+entry without ImmunizationType when the configuration files `OtherA` as the shipped one does (an
+`injection` item under the `Other` heading): rule `CATCH_ALL_INJECTION` in
+`CdsExportPreventionClassifier`, `CATCH_ALL_INJECTION_AS_UNTYPED_IMMUNIZATION` in the mapper. The
+injection layout records the vaccine fields (name, lot, manufacturer, route, site, dose), and an
+untyped Immunizations entry is exactly what the CARLOS importer writes back as `OtherA`, so the
+round trip is the same row; every native row also travels in `CARLOS.Prevention.Source.v1`. The
+name box is optional: an entry recorded without a name is named `Other immunization or
+injection`, its label on the prevention screen. It is never a PastHealth screening, so it no
+longer holds a PastHealth-only export either. Any other `injection` item without a declared type,
+and an `OtherA` a clinic files elsewhere, still holds the patient with `CATEGORY_NOT_PROVEN` unless
+an import receipt proves it. Neither can be created from CARLOS's screens: prevention items come
+only from the XML file `PREVENTION_ITEMS` names in the server configuration (`carlos.properties`,
+default the bundled `oscar/prevention/PreventionItems.xml`, whose only such item is `OtherA` under
+Other); the Prevention Manager page only hides items and stop signs, and `AddPrevention2Action`
+refuses a type the configuration does not define. Changing that file is a server configuration
+change. The one exception the save action makes is `RH`, which the Rh Immune Globulin form
+(`addRhInjection.jsp`) saves without a configured item: it is exported as an Immunizations entry
+without ImmunizationType named `Rh immune globulin` (rule `RH_IMMUNE_GLOBULIN`,
+`RH_IMMUNE_GLOBULIN_AS_UNTYPED_IMMUNIZATION`); its product, dosage, reason and every other row stay
+in `CARLOS.Prevention.Source.v1`. It held the patient as `UNKNOWN_TYPE` before. A clinic that
+configures an `RH` item has it classified by that item instead. A clinic can still declare a `healthCanadaType` on the `OtherA` item
+in the file `PREVENTION_ITEMS` names; ImmunizationType is exported only when that value is a
+CT-020 value; otherwise it is left out and the native type travels in the residual. Choose a value no other
+item declares: the importer files an incoming ImmunizationType under the last injection item
+declaring it, so reusing another item's value would redirect those imports to `OtherA`.
+
+Superseded or removed prevention versions are not exported, for vaccines and screenings alike.
+CARLOS never edits a prevention in place: an edit soft-deletes the old row (`deleted = '1'`)
+and inserts the new version, and a delete only sets the flag. The legacy exporter read only
+`deleted = '0'` rows (`PreventionDao.findNotDeletedByDemographicId`). These versions stay in the
+capture and are witnessed; every field of the version, its extensions and its precision rows
+gets the `SUPERSEDED_OR_REMOVED_PREVENTION_VERSION` disposition, the field-closure count covers
+them, and they are neither an expected occurrence nor a reason to hold the patient. A legacy
+NULL flag records no deletion and is current. Any other flag value holds the patient. An
+imported vaccine edited or removed in CARLOS no longer holds the patient. Its row is a
+superseded version like any other; `CdsExportPreventionVersions.currentVersions` follows the
+`previousId` extension each edit records on the new version (`AddPrevention2Action`) from the
+imported row to the current version, reading only row witnesses so the inventory and the vaccine
+assembly agree. An edited vaccine's current version is exported through the native path, and its
+receipt names the import unit and lists every retained source field of the imported vaccine as
+replaced: the imported elements stay in the import's retained source. A removed one (no current
+version) is not exported; its retained source fields are accounted as removed by the assembly
+and left out of the inventory, as for a deleted imported appointment. One version replaced twice,
+which no screen records, holds the patient (`CDS_EXPORT_AMBIGUOUS_SOURCE`). Without PastHealth, screenings are an explicit
+scope exclusion, and the ReadMe field `Prevention screenings (exported only as PastHealth)`
+says `NOT_SELECTED`. The CARLOS importer files each entry as a Past Health (MedHistory) note
+whose text is the description and whose observation date is the ProcedureDate; Notes and the
+residual stay in the retained CDS source fields.
+
+Disease Registry entries (`dxresearch`) and coded episodes (`Episode`, pregnancies included) are
+exported as ProblemList items when ProblemList is selected, after the CPP Concerns items, through
+`CdsExportProblemRegistryOccurrenceService`, `CdsExportProblemRegistryMapper` and the shared
+`CdsExportNativeHistoryXmlWriter`. Both tables used to be `REQUIRE_EMPTY` with a direct patient
+scope, so every chart with a registry entry or an episode was held; they are now `MAPPED_SOURCE`
+in the ProblemList scope (read plans `DISEASE_REGISTRY`, `DISEASE_REGISTRY_PRECISION` and
+`EPISODES`; logical captures `dxresearch_precision` and `diagnosis_code_reference`).
+
+- A registry entry with status `A` is ProblemStatus `Active`; `C` is `Resolved`, with the
+  calendar day of `update_date` (the day the entry was resolved or last changed) as
+  ResolutionDate, as the legacy exporter wrote it; the clock time stays in the residual.
+  `start_date` is OnsetDate at the precision the registry list shows (`dxResearchBean` reads
+  `partial_date` table 3, field 4): `YYYY` is YearOnly, `YYYY-MM` is YearMonth, no marker or an
+  empty one is the stored full date. When a concurrent save left two precision rows, the export
+  uses the newest, as the registry list does (`PartialDateDao.getPartialDate`), and the older one
+  stays in the residual. Another field or marker holds the patient
+  (`CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_DATE_PRECISION_REQUIRES_REVIEW`); a stored date that is not
+  a calendar day holds it as `CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_DATE_REQUIRES_REVIEW`.
+- Status `D` is a deleted entry: the registry list (`status<>'D'`) never shows it, as the legacy
+  exporter never exported it. Its row and precision rows stay captured and every field gets the
+  `DELETED_DISEASE_REGISTRY_ENTRY_NOT_SHOWN_IN_CHART` disposition; it is neither an expected
+  occurrence nor a reason to hold the patient. A NULL or other status holds the patient
+  (`CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_STATUS_REQUIRES_REVIEW`).
+- An episode with status `Current` is `Active` and `Complete` is `Resolved`; `startDate` and
+  `endDate` are OnsetDate and ResolutionDate (full dates, as stored). `Deleted`, the third status
+  the episode form saves, gets `DELETED_EPISODE_NOT_CURRENT` and is not exported. Any other
+  status holds the patient (`CDS_EXPORT_NATIVE_EPISODE_STATUS_REQUIRES_REVIEW`). The episode
+  description is ProblemDiagnosisDescription when the code table has no description for the
+  code, otherwise ProblemDescription beside the code-table description; the notes are Notes.
+- DiagnosisCode is the stored coding system and code exactly as stored, as the CPP problems send
+  theirs, so one ProblemList never spells a code two ways (the legacy exporter dotted ICD-9 codes
+  with `Util.formatIcd9`, which also split long codes at every third character).
+  StandardCodeDescription (token-normalized) and
+  ProblemDiagnosisDescription come from the public code table.
+- Code-table descriptions are read in the same patient snapshot through
+  `CdsExportDiagnosisCodeReadSupport`. Its fixed allowlist is the legacy exporter's
+  `ALLOWED_CODE_SYSTEM_DAOS`: `icd9`, `icd10`, `ichppccode` and `msp` (the `diagnosticcode`
+  table), compared ignoring ASCII case as the registry list's collation does; a stored coding
+  system never becomes an SQL identifier. Only rows matching one of the patient's current codes
+  are read, compared under the code column's own collation exactly as the registry list joins
+  them, so the four code tables keep their `REFERENCE` ruling. A code the table does not list,
+  or a system without a reviewed table (`SnomedCore`, whose licensed table is outside the
+  physical contract, so pregnancy codes have none), is still exported with an empty
+  StandardCodeDescription. A code the table holds on several rows with different descriptions
+  (the bundled BC `diagnosticcode` table splits 90 long MSP descriptions over continuation rows)
+  is sent with every distinct description, in code-table row order, joined by " / ": the chart
+  lists the entry once per row, so no row is chosen over another, and each row stays whole in the
+  residual. A `start_date` still at its column default `0001-01-01` (no start date entered) gives
+  no OnsetDate; the stored value and any precision row stay in the residual.
+- Nothing is clipped or dropped. A code a standard element cannot carry exactly (more than 20
+  characters, or irregular spacing), a blank coding system, a description over 250 characters or
+  notes over 64,000 characters leave that element out and travel only in the residual. The
+  `CARLOS.NativeHistory.v1` residual carries the complete row (every column except the row
+  identity and patient owner), its precision rows and the matched code-table rows as JSON with
+  SQL NULL and empty text distinct and every space escaped; `CARLOS.History.Archived.v1` is
+  `false`. The CARLOS importer files the item as a Concerns note and keeps the residual and code
+  in its retained source fields.
+- Every entry, episode and precision row is witnessed with its full JDBC receipt recipe. The
+  patient inventory expects one ProblemList identity (`dxresearch` or `Episode` and the row id)
+  for every row whose witnessed status is not deleted; a missing, duplicated, unwitnessed or
+  disagreeing row, a precision row of no captured entry and a code-table row no exported item
+  names all refuse the patient (`CDS_EXPORT_PROBLEM_REGISTRY_OCCURRENCE_SCOPE_INVALID`).
+- The registry and the CPP problems are separate records with their own status; the encounter
+  shows both lists. Adding a registry entry writes no CPP note. Signing a note with a certain
+  issue that has a Dx association (`CaseManagementManagerImpl.saveToDx`, `association=1`), or
+  adding an issue mapped in `caisi_issues_dx.properties`, creates a registry row for the same
+  diagnosis; that row is exported once as its own item, with its association flag in the residual,
+  beside the CPP item, as the legacy exporter exported both.
+- The CARLOS CDS importer never writes `dxresearch` or `Episode`, so an imported chart has no
+  retained source for them; an applied import unit that names such a row would mean it was
+  already exported as something else and holds the patient (`CDS_EXPORT_AMBIGUOUS_SOURCE`).
+- Authorization is the ProblemList category's (`_casemgmt.notes`) plus the chart and patient
+  gates; the registry screen's own `_dxresearch` read right is not separately required.
+
+Notes attached to other records (`casemgmt_note_link`) are exported with their notes, and
+CAISI group-note shares (`GroupNoteLink`) no longer hold a chart. Both tables used to be
+`REQUIRE_EMPTY`, so every chart with a filed document, a sent e-mail, a tickler or eForm
+note, a discontinued prescription or a shared group note was held (the ON demo data alone has
+279 link rows).
+
+- A link row says which record a note is attached to: `table_name` is the
+  `CaseManagementNoteLink` record type, `table_id` the record and `other_id` an optional
+  part of it. The note itself is an ordinary `casemgmt_note` row, already captured and
+  exported once, as the encounter list shows it (with its "View" link), as ClinicalNotes or,
+  when it carries a CPP issue, as that CPP item. The legacy exporter skipped annotated notes
+  as encounter notes and copied the newest non-import annotation into the annotated item's
+  Notes; the native export keeps the note where it is and makes the link context on it.
+- Writers and what travels, per record type: 1 `casemgmt_note` (only
+  `CaseManagementManagerImpl.saveCaseManagementNote`, which re-points an older import's
+  `imported.cms4.2011.06` data note at each new revision of the note it annotates); 2 `drugs`
+  (`RxDeleteRx2Action` discontinuation reason, `addNewNoteLink`); 5 `document`
+  (`ManageDocument2Action`, `AddEditDocument2Action`, `addNewNoteLink`: the "Document ...
+  created" note by the system provider `-1`); 6 `eform_data` (`EFormUtil.saveCMNote`,
+  possibly filed in a CPP section); 10 `tickler` (`DbTicklerAdd2Action`,
+  `CaseManagementEntry2Action`, `NotesService`, with the `TicklerNote` system issue); 12
+  `emailLog` (`EmailManager`). Types 3 `allergies`, 4 `hl7TextMessage`, 7 `demographic`, 8
+  `preventions`, 9 `labPatientPhysicianInfo` and 11 `appointment` have no CARLOS writer
+  today; they come from older OSCAR annotation screens and the CMS4 import. Every type,
+  and any other number, travels the same way. `copyRevisionMetadata` copies the links of the
+  previous revision to each new revision, so every revision of a chain carries its own rows.
+- Capture: `Plan.CASE_NOTE_LINK` (`id`, `note_id`, `other_id`, `table_id`, `table_name`)
+  owned by `CaseManagementNoteLinkDAO`, scoped to the links of the patient's own notes
+  (`exists` on `casemgmt_note.demographic_no`, as `CASE_NOTE_EXT`), read by
+  `CdsExportNoteLinkSourceReader` with the seven history categories and the
+  `casemgmt_note_link` source-schema descriptor; full JDBC receipt recipes witness every
+  row. The catalogue rules the table `MAPPED_SOURCE` in the seven history scopes.
+  `CdsExportHistoryCurrentContext` verifies each link against its witness, refuses a link of
+  a note outside the capture and gives each note revision its links in link-row order
+  (`Current.noteLinks`); a catalogued capture without the table is refused
+  (`CDS_EXPORT_HISTORY_CURRENT_CONTEXT_INVALID`).
+- Mapping (`CdsExportNativeHistoryMapper`): `id` is `NATIVE_NOTE_LINK_IDENTITY` and `note_id`
+  `VERIFIED_NATIVE_NOTE_LINK_PARENT` (operational); `table_name`, `table_id` and `other_id`
+  are `MAPPED` (`EXACT_NATIVE_NOTE_LINK`) into the revision's `attachedTo` list in the
+  source-note JSON, with a readable record label, SQL NULL distinct from empty. A
+  ClinicalNotes entry also opens (after any archived statement) with
+  `[CARLOS: this note is attached to another record in the sending system: document 12.]`
+  naming the current revision's records (`part <other_id>` when one is stored); a CPP item
+  keeps the facts only in its `CARLOS.NativeHistory.v1` residual, so its description and
+  Notes are unchanged. Nothing about the linked record itself is read. An `other_id` that is
+  not writable XML text holds the patient (`CDS_EXPORT_NATIVE_NOTE_LINK_TEXT_INVALID`). The
+  CARLOS importer writes no links; an imported note that CARLOS attached later is routed
+  through the native revision context, which is the only carrier for the link.
+- Why not the annotated item's own Notes (PhysiciansNotes, allergy, medication or report
+  Notes): the note is chart text under per-note program authorization, which the item's
+  category does not apply; the item may be unselected, deleted (a discontinuation note
+  explains a drug being deleted) or a data summary; and copying would write the text twice.
+- Presence scope: `casemgmt_note_link` keeps its parent chain through `casemgmt_note` in
+  `CdsExportIndirectPatientScopeReadSupport`. As a mapped indirect table only its
+  unattributable rows are checked: a link whose note is missing, or whose note names no
+  existing patient, still holds every chart. No CARLOS screen deletes notes, so this is a
+  data repair case.
+- `GroupNoteLink` is `OPERATIONAL` (rule `GROUP_NOTE_RECIPIENT_LINK`; its patient scope is
+  removed). A group note is written in one chart and shown read-only in each recipient chart
+  a row names (`GroupNoteAction`, `GroupNoteSelect2Action`; `CaseManagementView2Action`
+  shows it only when the facility enables group notes and to a provider with the note's
+  reporter role). The row carries only that linkage (note, recipient, created time,
+  anonymous placeholder client, active). The note is exported once with the chart that
+  wrote it, under its own authorization. Copying it into a recipient's package would
+  disclose another chart's note (group notes often name the other members) without that
+  chart's authorization, and a data summary of the row would show only another chart's note
+  number; it is a live CAISI feature, so `LISTED` does not apply.
+
+Native measurements are exported as CareElements where a standard element represents them
+exactly, and each current observation also travels in full as a
+`CARLOS.NativeObservation.v1` NewCategory record. The native types and codes follow the CARLOS
+importer and the legacy exporter: WT, HT, WAIS and WC (Weight, Height, WaistCircumference, in
+kg/cm; lb, g, m and inches convert by exact decimal factors, and a bare WT/HT/WAIS number is
+kg/cm as CARLOS displays it, while WC needs a stated unit), BP (mmHg; the instruction is
+posture text), SKST and POSK (SmokingStatus Y/N, SmokingPacks per day), SMBG
+(SelfMonitoringBloodGlucose), DMME (DiabetesEducationalSelfManagement), SMCD
+(DiabetesSelfManagementChallenges, 44941-3), HYPE (HypoglycemicEpisodes, a whole count),
+MCCN/MCCE/MCCS/MCCO (DiabetesMotivationalCounselling Nutrition/Exercise/Smoking
+Cessation/Other) and EYEE/FTE/FTLS/NRTF (DiabetesComplicationsScreening 32468-1, 11397-7 and
+67536-3 for both neurological exams). The diabetes kinds map only under no instruction or the
+one CARLOS seeds for the type ("Yes/No", "Discussed", "since last visit", "Exam Done",
+"Normal"), because a reworded local instruction can change what "Yes" asserts. Counselling and
+screening elements can only say the counselling or exam was performed, so they map only from
+"Yes": "No" or "NA" (not done, or under "Normal" possibly an abnormal result) stays in the
+supporting record. CGSD records Yes/No, not the documented goals that
+DiabetesSelfManagementCollaborative requires, so it is supporting-only, as is any value with
+words in it, a fractional or signed episode count, an unknown unit or a partial date. No value
+is rounded and no unit is guessed. The supporting record's `CARLOS.Observation.v1` content is
+the complete row, its extensions and matching vocabulary rows as JSON in one fixed key order
+(`version`, `deleted`, `rows`; each row `table`, then its fields sorted by column), with every
+space escaped as `\u0020` so the `xs:token` whitespace collapse cannot change a decoded value;
+an unchanged chart produces the same bytes on every run. No care value holds a patient for its
+size or its characters. The only length that applies is the schema's: Weight, Height,
+WaistCircumference, SystolicBP and DiastolicBP admit 1,024 characters, and a converted value
+that would be longer gets no standard element and stays, whole, in the supporting record. A
+character XML 1.0 cannot carry (a pasted form feed, U+FFFE) is written inside the JSON as its
+`\uXXXX` escape, which decodes to the same character. Two `measurementsExt` rows under one key
+state no single unit, so the observation gets no standard element and both rows are carried.
+The CARLOS importer keeps the supporting record as retained source and does not interpret it.
+Deleted measurements are not exported. A
+`measurementsDeleted` row is either a clinician's deletion of an erroneous entry
+(`EctDeleteData2Action`) or an HL7 result version superseded by a newer report
+(`Hl7textResultsData`); neither is a current fact, and the legacy exporter, which read
+`MeasurementDao.findByDemographicId`, never exported them. Deleting a measurement moves its row
+but leaves its `measurementsExt` rows keyed by the original id, so capture follows
+`measurementsDeleted.originalId` as well as current measurements. Every field of the deleted row
+and of those extensions gets the `DELETED_OR_SUPERSEDED_OBSERVATION_VERSION` disposition: they
+are accounted, never an expected occurrence, and no reason to hold the patient, and they need no
+NewCategory selection. An extension whose id names both a current and a deleted observation, or
+two deleted ones, holds the patient (`CDS_EXPORT_NATIVE_CARE_EXTENSION_OWNER_AMBIGUOUS`); an
+original id deleted from two charts holds both (`CDS_EXPORT_AMBIGUOUS_SOURCE`). No CARLOS screen
+edits a measurement in place, so a clinician corrects an imported care value by deleting it and
+recording the new value. A deleted imported value is not exported either: the imported
+CareElements parent is still written from its retained source, without the deleted child's
+element, and its receipt lists that element's source fields as replaced; the deleted row and the
+extensions it left behind are accounted by the deleted-version pass, and the new value is an
+ordinary native observation. A parent whose every observation was deleted is not exported and its
+source fields are accounted as removed (`CdsExportCareOccurrenceService.removedImportedParents`
+gives the inventory the same answer). This replaces the hold
+`CDS_EXPORT_NATIVE_CARE_IMPORTED_OBSERVATION_DELETED`; any other change to an imported
+observation still holds it as `CDS_EXPORT_UNMAPPED_DATA`.
+
+An HL7 result that `Hl7textResultsData.fileMeasurements` filed as a measurement (one row per
+OBX with `lab_no`, test name, abnormal flag, lab, accession, range and blocked extensions) is a
+laboratory result, not a care element. The measurement capture plans leave every measurement
+carrying an exact `lab_no` extension, current or deleted, its extensions and the vocabulary only
+it uses to the LaboratoryResults path, which exports the complete report and applies the
+laboratory and sensitive-laboratory rights. When LaboratoryResults is selected, a filed result
+whose `lab_no` names no HL7 report routed to the patient (so neither path could carry it) holds
+the patient with `CDS_EXPORT_NATIVE_CARE_LABORATORY_RESULT_UNROUTED` before any observation value
+is read. No CARLOS screen produces such a row: matching a lab to another patient
+(`CommonLabResultData.updatePatientLabRouting`) replaces every version's routing and moves the
+filed results with it (`reconcileMatchedLabMeasurements`, `MeasurementDao.reassignLabPatient`),
+the only other routing removal (`MessageUploader.clean`, a failed upload) deletes the filed
+results too, and only `Hl7textResultsData` writes `lab_no`. The hold stays for rows written
+outside the screens. When LaboratoryResults is not selected, filed results are not exported: the operator
+excluded laboratory results.
+
+A chart's measurements are exported however many there are; a long-standing chart (years of
+INR, glucose or blood pressure flowsheet entries) is no longer held for its size (#6200,
+CARE-5). The care assembly does not load them at once (`CdsExportCapturedCareRowsReader`). A
+first pass over the authenticated capture validates every measurement, deleted version,
+extension, vocabulary and demographic row and keeps only a compact index, a few longs a row:
+the counts, unique ids, the extension owner rules and each owner's weight. Rows are grouped by
+owner (a current measurement's id, a deleted version's `originalId`, an extension's
+`measurement_id`), in the decimal order of the owner ids that the exported occurrences follow,
+into windows of at most 8,192 measurement rows (current and deleted) and about 64 MiB of rows
+(the section window, see "Section windows" below; no setting changes it). One owner's rows are
+never split. Each window is read again from the capture, every
+one of its rows is checked against its native-row witness before use, and only then is it
+planned, mapped, emitted and claimed; the vocabulary and the demographic row are held with every
+window. A chart that fits in one window (every chart the former per-chart bound admitted) is
+read and verified exactly as before, in the same two passes, and its output is byte-identical; a
+larger one costs one more row pass and one witness pass per window, so the time grows with the
+chart and the rows held at once do not. The owner rules for the whole chart (an extension owned by no
+observation, or by a current and a deleted one) are decided in the first pass, before any window
+is read. Imported care values are read on their own, as many rows as the retained import index
+names. The inventory and the NewCategory supporting records receive the native occurrences window
+by window too (`forEachNativeSource`), never as one list. The completeness gates are checked per
+window: every current measurement and extension row is claimed exactly once, by an imported value
+or by a native occurrence of its own window; every row an imported value claimed falls in exactly
+one window; and every captured vocabulary row is claimed by some observation.
+
+No count of occurrences holds a patient or stops a job. The occurrence index all categories
+share (every occurrence the document must hold and every retained field it must account for,
+with what the document did with each, kept until the patient's document is proven) is packed
+(`CdsExportOccurrenceIndex`): the category and the 32 bytes of an occurrence's key, one state
+byte and the 32 bytes of its output digest are 66 bytes an occurrence, and a retained field is
+the 32 bytes of its id and one state byte, 33 bytes. Both are sorted once, when the inventory is
+complete, and looked up by binary search; identities and dispositions are rebuilt when they are
+read, in the order they always had. A current measurement is one or two occurrences (its
+NewCategory record, and its CareElements value when it has an exact standard form), so a
+million measurements take about 130 MiB. Before, each occurrence was held as an identity, a
+disposition and a receipt entry (about 530 bytes) and each retained field as two strings in two
+sets (about 350), the inventory stopped the job with `RESOURCE_LIMIT` at `cds.export.maxIndexRows`
+or `maxIndexBytes` / 512 of them together (131,072 at the installed maximum, which an imported
+chart of about 6,500 records reached through its retained fields alone), and a chart whose
+measurements passed that number was held with `CDS_EXPORT_NATIVE_CARE_PATIENT_LIMIT_EXCEEDED`.
+That code no longer exists. The patient's reconciliation audit is streamed to an encrypted
+staged file and has no size limit (`CdsExportPatientDocumentService`); its former bound,
+`maxIndexBytes` plus 16 KiB for each expected occurrence, is gone with `auditLimit`, and the
+coverage comparison, the dispositions, the attachments and the report references of one patient
+are no longer counted against `maxIndexRows`. What the inventory holds while it is taken and
+drops when it returns is a string for each captured note, document and appointment number (about
+100 bytes each) and, when the job left NewCategory out, the name of each record whose
+NewCategory record is not written. A chart's capture has no size limit (see "No limit on the
+capture" below); every per-job limit still applies. A measurement is ten captured fields.
+
+`measurementsDeleted` is read by patient (every capture count and page, and the extension scope,
+which also follows `originalId`) and by original measurement id (the check that no measurement
+id is shared between a current and a deleted row of different charts). Migration
+`common/V1.0.59.46` indexes it by `demographicNo` and by `originalId, demographicNo` (CARE-4);
+before it each of those reads scanned the table, once per page, and the check for an id deleted
+from two charts joined the table to itself without an index. The current-or-deleted check is
+two branches, one for each side the patient owns, each driven by a patient index and probing the
+other table by id, instead of one `OR` across both tables that no index could serve. It still
+runs once per patient in each read-only REPEATABLE READ capture snapshot, not on every count,
+page and chunk call.
+
+
+Native document reports carry what the chart shows for each document
+(`CdsExportDocumentRepresentation`). An uploaded, scanned or faxed document is exported as its
+stored file: Format Binary, FilePath to a `Reports/` package member, and a
+FileExtensionAndVersion taken from the stored file name's extension when it names a recognised
+format, otherwise from the stored `contenttype`, each kept only when the file's leading bytes
+bear it out; bytes that contradict both are declared as what their signature shows, or as the
+opaque `bin` (`CdsExportReportFileFormats`). The guide, the exporter's XML validator and the
+CARLOS importer all require a declaration for a Binary report, so an unrecognised file is
+declared `bin` rather than left undeclared or held. An Add HTML or Add Link document
+(`AddEditHtml2Action`: status `H`, content in `document.docxml`, no file) is exported as Format
+Text with that HTML as `Content/TextContent` and FileExtensionAndVersion `html`, because the
+chart renders a non-blank `docxml` instead of any file; a link document's stored page carries its
+URL. Media is left out, since nothing in the document records how it was received. Capture reads
+only the files of live documents whose content is a file (`Plan.DOCUMENT_FILES`). A soft-deleted
+document (`status = 'D'`, `EDocUtil.deleteDocument`) or a deleted patient link is not shown in the
+chart and is not exported, as the legacy exporter exported active documents only; its document
+and link rows stay in the capture, every field gets the `DELETED_DOCUMENT_OR_LINK_NOT_SHOWN_IN_CHART`
+disposition, and it is neither an expected occurrence nor a reason to hold the patient. One
+document's problem holds only its patient: an HTML document with no stored HTML or an unknown
+document or link status (`CDS_EXPORT_NATIVE_REPORT_STATUS_REQUIRES_REVIEW`), an empty file
+(`..._FILE_EMPTY`), a missing file
+(`..._FILE_MISSING`) or an unsupported stored name (`..._FILENAME_UNSUPPORTED`). A file of any
+size is exported: it is streamed into the capture and into the package as a file member
+(`cds.export.maxDocumentBytes`, which held the patient of a file over 1 GiB with
+`..._FILE_TOO_LARGE`, is retired and ignored). No column of the document or its link holds
+the patient for its size or its characters: every one is a short varchar that fits Notes, a
+character XML 1.0 cannot carry is written in the Notes JSON as its `\uXXXX` escape, and a source
+author or facility holding such a character is left out of its `text120` element and stays exact
+in Notes. Stored HTML is exported exactly as stored, blank included: the Add HTML form refuses
+only an empty body, so a body of spaces or line breaks is a document a user saved, and it
+becomes a Text report whose TextContent is that body (`..._STORED_HTML_REQUIRES_REVIEW` is
+gone). Stored HTML holding a character XML cannot carry is written in TextContent with U+FFFD
+in that character's place (`CdsExportXmlText`) and exact, as its JSON escape, in the Notes
+context (`STORED_HTML_IN_CONTENT_WITH_U_FFFD_EXACT_IN_SOURCE_CONTEXT`).
+
+Notes (`text32K`; 32,000 characters in the dictionary, which the Notes CARLOS writes keep;
+imported Notes retained unchanged keep the schema's 32,768, see
+[Dictionary lengths](#dictionary-lengths-carlos-text-and-unchanged-imported-text))
+is the only free text of a Reports record and the category has no `ResidualInfo`. That number
+decides where a report's CARLOS context is written, never whether the report is exported
+(`CdsExportReportContext`). When the whole Notes text fits it is written there, as before. When
+a document, an embedded laboratory document or an HRM report has reviews, inbox comments,
+laboratory notes or report comments that take it past 32,000 characters, Notes keeps its
+leading statements and one fixed sentence naming a reference, and the complete text travels in
+a companion Reports record written directly after the report: Format Text, TextContent the
+reference and the complete Notes text (TextContent has no length facet), Class Medical Records
+Report, SubClass "CARLOS context of a report". The reference is the companion's identity,
+`CdsImportKeys.hash("carlos-native-occurrence-v1", "report_context", <table>, <id>)`, a digest
+of local identifiers. The companion's receipt accounts the fields it carries
+(`Reports/Notes` decisions relocated to `Reports/Content`). The patient inventory expects the
+companion by running the same mappers on the same captured rows
+(`CdsExportReportContextPlanner` for documents and embedded laboratory documents,
+`CdsExportHospitalReportOccurrenceService.identities` for HRM reports), so the prediction is
+exact, not an estimate. `CDS_EXPORT_NATIVE_REPORT_METADATA_CAPACITY`,
+`CDS_EXPORT_NATIVE_LAB_DOCUMENT_NOTES_CAPACITY` and `CDS_EXPORT_HRM_REPORT_METADATA_CAPACITY`
+are gone. A CARLOS import does not read the companion back into the report: it stores it as an
+ordinary text report of the chart, and the two are matched by the reference a person reads in
+both. An untrusted `DOCUMENT_DIR` stops
+the job with `CDS_EXPORT_DOCUMENT_STORAGE_UNTRUSTED`. Attachments are copied from the patient's
+encrypted capture through one authenticated pass of its values member
+(`CdsExportStagingService.verifiedRanges`), which is verified again as a whole before the
+patient's output is accepted.
+
+The CARLOS importer recognises every declaration this exporter writes except `html` and `bin`
+(`CdsReportMediaService`, confirmed against the same leading bytes `CdsExportReportFileFormats`
+reads), so a CARLOS-to-CARLOS move re-imports PDF, text, JPEG, PNG, TIFF, GIF, BMP, `doc`,
+`docx` and RTF documents as their own types. An HTML file is imported as an opaque document
+requiring review and Add HTML text as plain text requiring review, because the document viewer
+(`ManageDocument2Action.display`) renders a `text/html` document as a live page in the CARLOS
+origin; see [Report file types](cds-import.md#report-file-types). A report imported for media
+review (opaque, HTML, unconfirmed or of unstated text encoding) is exported again from its
+retained source like any other: `CdsExportReportOccurrenceService.bind` no longer holds it,
+because the retained elements keep the sender's own declaration and the attachment is the
+verified original bytes, so the export claims nothing the source did not say. An imported
+representation with no bytes still holds the patient (`CDS_EXPORT_UNMAPPED_DATA`), as an empty
+native document file does (`CDS_EXPORT_NATIVE_REPORT_FILE_EMPTY`), and so does a reviewed source
+whose Format contradicts its content (Text over a file or Media,
+`CDS_REPORT_BINARY_FORMAT_DECLARATION_RETAINED`, or Binary over base64 TextContent), which this
+exporter's XML validator would refuse (`CDS_EXPORT_REPORT_FORMAT_MISMATCH`).
+`CdsExportReportMediaRoundTripUnitTest` exports, imports and binds each stored type.
+
+A document restricted to a program (`restrictToProgram` set and a program other than none or
+`-1`; the chart shows a flagged document without a program to everyone) is exported when every
+current exporting identity, the effective provider and any operator, works in that program:
+any `program_provider` membership in it, the rule the chart's document list applies
+(`EDocUtil` program filtering, `DocumentPatientLink`). The Reports capture reads only document
+numbers and their programs first, in their own short transaction
+(`CdsExportDocumentProgramScopeService`); checks each program live before any document value is
+read (`CdsExportDocumentSourceReader.authorizeReadScope`, `CdsExportAccessService.canReadRestrictedProgram`);
+and proves inside the capture snapshot that the restrictions are the ones it authorized (a
+change is `CDS_EXPORT_SOURCE_CHANGED`). The report mapper checks each program again, live,
+before the document is written, and every program so granted is checked once more after the
+patient's documents are written (a change is `CDS_EXPORT_ACCESS_CHANGED`). The restriction and
+program travel in Notes with every other document column. A program nobody exporting works in
+holds the patient with `CDS_EXPORT_DOCUMENT_PROGRAM_SCOPE`, since the chart those identities see
+lacks the document; a malformed flag or program is `CDS_EXPORT_NATIVE_REPORT_PROGRAM_REQUIRES_REVIEW`.
+
+A native document report carries every review of the document. `document_review` and
+`DocumentExtraReviewer` are mapped sources and a DOC inbox route is captured as the logical
+table `providerLabRouting_documents` (its schema contract names the physical
+`providerLabRouting`; LaboratoryResults reads the HL7 routes of the same table), all in the
+Reports scope and scoped by the document's `ctl_document` chart link exactly as
+`Plan.DOCUMENTS` scopes the document (`Plan.DOCUMENT_ROUTES`, `DOCUMENT_REVIEWS`,
+`DOCUMENT_EXTRA_REVIEWERS`, through `CdsExportReviewerReadDao`, which proves the patient's
+document associations first; `requireLocalDocumentAssociations` refuses none of these
+sidecars, nor a `document_storage` row: that is a database copy of a document's bytes that only
+an older release wrote and no CARLOS screen reads, so it is listed in the ReadMe and the stored
+file is exported). The public provider lookup names their providers. The
+first reviewer (`document.reviewer`, `reviewdatetime`) stays as it was; each review record,
+each later reviewer (`AddEditDocument2Action` writes a `DocumentExtraReviewer` row for every
+review after the first) and each acknowledged route becomes one more `Reports/ReportReviewed`
+(unbounded in the XSD), decided by `CdsExportInboxReviewMapper.report()` with the routing
+rules the laboratory path uses. DateTimeReportReviewed is a date, so a review naming the same
+provider on the same date as an earlier element is not written again, and every review row,
+acknowledged route and commented route travels whole in the report's Notes source context
+(`reviews`, with the public names of the reviewers in `reviewers`), which keeps the exact
+times and the comments. A document without such rows has unchanged Notes. An undated review
+record stays in Notes only. The reviewers and routes of a removed document get the same
+`DELETED_DOCUMENT_OR_LINK_NOT_SHOWN_IN_CHART` disposition as the document. On a document
+exported from its import, the review and route rows of every document of the unit are decided
+together by the same `report()` mapper (`CdsExportReportOccurrenceService.importedReviews`):
+each dated review becomes a `CdsExportRetainedSectionWriter.Change` that adds
+`ReportReviewed[n]` after the highest imported ordinal (`CdsExportInboxReviewMapper.nextOrdinal`),
+so no imported element is replaced and the receipt's retained fields stay the whole unit. The
+carried rows (`carriedContext`, the same JSON shape as a native report's `reviews`/`reviewers`)
+are added as `Notes[1]` only when all three of these hold
+(`CdsExportReportOccurrenceService.importedReviewsInNotes`): the unit has no imported Notes; no
+document row of the unit was edited in CARLOS; and the text fits Notes' 32,000 characters.
+Otherwise the rows travel in a supplementary Text report ("CARLOS reviews of an imported
+report", identity `importedReviewsId(address)`, fields relocated to `Reports/Content`): an
+imported Notes element is never rewritten, an edit context is decided from the import's sealed
+values, which the inventory does not read (so its size cannot be predicted there), and a text
+longer than Notes is carried whole instead of holding the patient
+(`CDS_EXPORT_IMPORTED_REPORT_REVIEW_NOTES_CAPACITY` and `..._REVIEW_TEXT_REQUIRES_REVIEW` are
+gone; a character XML cannot carry is its JSON escape). The inventory expects the record for
+every unit whose retained fields include `Notes[1]` and whose documents have a carried row
+(`CdsExportInboxReviewMapper.carriedByReport`) or a row whose current digest differs from the
+import's, and, through `CdsExportReportContextPlanner`, for every unit without imported Notes
+that has an edited document row or whose carried rows do not fit Notes. Every reviewer row belongs to exactly one
+captured document.
+
+An imported document edited through the document edit page is exported, the user's edit
+superseding the source (`CdsExportImportedDocumentEditReconciler`). The page
+(`AddEditDocument2Action.editDocument`, `EDocUtil.editDocumentSQL`) rewrites exactly
+`doctype`, `docClass`, `docSubClass`, `docdesc`, `source`, `sourceFacility`, `docxml` (always
+`""`: the page's `EDoc` carries no HTML), `responsible`, `public1`, `abnormal` and
+`receivedDate` on every save, plus `reviewer` and `reviewdatetime` on a review or
+`updatedatetime` and `observationdate` on a plain Update; a replacement file ("File", when
+`ALLOW_UPDATE_DOCUMENT_CONTENT` allows it) also writes `docfilename` (the upload's name with an
+`EDoc` time prefix), `contenttype` and `number_of_pages`, while `contentdatetime` is kept because
+an imported row has `cds_content_precision`. The type select offers the configured types (`ctl_doctype`), which do not
+include the import's `CDS` unless a clinic adds it, so a save normally also changes `doctype`;
+text inputs post `""` for a missing value. `editedDocuments` accepts a
+report unit whose only non-unchanged references are document rows with `CHANGED_ROW`, a
+qualified field comparison and changed columns inside that set, and reads each row's
+import-time state from the unit's sealed native baseline; anything else (a program
+restriction, a changed status or link, a missing baseline) still requires review
+(`CDS_EXPORT_UNMAPPED_DATA`).
+
+A replaced file is the report's content (`REPLACED_IMPORTED_DOCUMENT_FILE_EXPORTED_CURRENT`).
+The representation whose document no longer has the import's file name is found by its sealed
+baseline (`CdsExportImportedDocumentEditReconciler.wrote`: the baseline's `docfilename` digest
+is the import's `cds-<unit>-<variant>-<digest>.<ext>`), and its captured file is accepted as it
+now is instead of against the import's digest. Its current bytes are staged and attached through
+the native attachment path at `Reports/<hash>.<ext>`, declared by their own signature
+(`CdsExportReportFileFormats.extension`): a referenced representation's FilePath names them; an
+embedded-only report's Content is removed and a FilePath added; an embedded representation
+beside a referenced one (whose FilePath is taken) becomes inline `Content/Media`, streamed from
+the captured file as the entry is written and so of any size: the former 32 MiB bound
+(`CDS_EXPORT_IMPORTED_REPORT_REPLACED_CONTENT_CAPACITY`, a patient hold) is removed
+(`CdsExportReportOccurrenceService.representationChanges`, `inlineReplacement`). With one
+representation, `FileExtensionAndVersion` follows the replacement and `Format` becomes Binary.
+The replaced elements are the receipt's replaced fields. The file's captured content is
+`MAPPED` under the same rule, the row's file columns carry it too, and the report's edit
+context gains `replacedFile`: the representation, the imported name, content type, SHA-256 and
+length (from the preparation and proved by the baseline), and the current name, type, SHA-256
+and length. The edit page never deletes the imported file, so its bytes stay in the document
+directory under the import's name, and for an embedded representation also in the retained
+source; neither is put in the package, because the chart no longer shows it, and its identity
+travels in the context.
+`bind` then checks only the unchanged columns against the preparation. For each changed column:
+a first review is one more appended `ReportReviewed` (`FIRST_REVIEWER_RECORDED_AFTER_IMPORT`);
+a class, subclass, source author, source facility, observation date or received date the
+element can hold replaces `Class[1]`, `SubClass[1]`, `SourceAuthorPhysician[1]`,
+`SourceFacility[1]`, `EventDateTime[1]` or `ReceivedDateTime[1]`
+(`CARLOS_EDIT_SUPERSEDES_IMPORTED_VALUE`; dates as FullDate, which is what the page edits), a
+cleared one removes it (`CARLOS_EDIT_CLEARED_IMPORTED_VALUE`), and a value the element cannot
+hold (an unlisted class, a subclass over 60 characters) leaves the imported element and is
+carried; description, type, responsible provider, flags and update time are carried
+(`CARLOS_EDIT_OF_IMPORTED_DOCUMENT_IN_SOURCE_CONTEXT`); SQL NULL turned into `""` is not an
+edit (`EMPTY_EDIT_FORM_VALUE_FOR_AN_ABSENT_IMPORTED_VALUE`). Every changed column goes in an
+`edits` entry of the report's CARLOS context (always in the supplementary report: see above)
+with its current value and the imported
+value: the value the import is known to write when its SHA-256 matches the sealed baseline,
+SQL NULL or `""`, or else the baseline's digest and length; a replaced element's exact imported
+text is under `supersededElements`. Replaced elements are the receipt's replaced fields, so
+retained and replaced fields still cover the whole unit. Two representations edited to
+different values hold (`CDS_EXPORT_IMPORTED_REPORT_EDIT_CONFLICT`). An unedited imported
+document is unchanged.
+
+Hospital Report Manager (HRM) reports are exported, not held. Every report linked to the
+selected patient is one CDS 5.2 Reports entry (`CdsExportHospitalReportOccurrenceService`, after
+the native and imported documents and before the data summaries). `HRMDocument`,
+`HRMDocumentComment`, `HRMDocumentSubClass` and `HRMDocumentToProvider` are mapped sources in the
+Reports scope, read through `CdsExportHospitalReportReadDao` (`Plan.HRM_REPORTS`,
+`HRM_REPORT_COMMENTS`, `HRM_REPORT_SUBCLASSES`, `HRM_REPORT_ROUTES`) with exactly the rows the
+inbox scope calls linked to the patient (`CdsExportIndirectPatientScopeReadSupport.owned`;
+`CdsExportHospitalReportPlanScopeUnitTest` compares the two in every pinned profile): a report
+named by an `HRMDocumentToDemographic` row of the patient (indexed `cds_patient_key`, report
+number compared numerically as the scope compares it). A report linked to two charts belongs to
+both. `HRMDocumentToDemographic` itself is now captured (`Plan.HRM_REPORT_LINKS`) instead of
+refused. Each report's stored message file is captured as the logical table `hrm_report_files`
+(`CdsExportHospitalReportFileSourceReader`, `Plan.HRM_REPORT_FILES`): `reportFile` is resolved as
+the report viewer resolves it (`HRMReportParser.parseReport`: an absolute path inside
+`DOCUMENT_DIR`, otherwise a name below it) and read through the same directory-relative, no-follow,
+trusted-storage stream as a native document, with a `state` of `READ`, `NOT_RECORDED`, `MISSING`
+or `UNSUPPORTED_NAME`. The mapper reads the message with the viewer's own parser
+(`HRMReportParser.unmarshal`: OntarioMD HRM 1.1.2 schema validation, secure JAXB source; its JAXB
+context and schema are now built once):
+
+- Media, Format, FileExtensionAndVersion, Class, SubClass, EventDateTime, ReceivedDateTime,
+  SourceAuthorPhysician (AuthorName, or AuthorFreeText when a part is missing or longer than 50),
+  SendingFacilityId, SendingFacilityReport, every OBRContent block and HRMResultStatus come from
+  the message's `ReportsReceived`; MessageUniqueID and RecipientName (the provider the message
+  was delivered to) from its first `TransactionInformation`. A message date with an offset keeps
+  it; one without is a clinic wall-clock time (`cds.export.clinicalZone`). SourceFacility is the
+  facility CARLOS recorded (`HRMDocument.sourceFacility`), as the legacy exporter wrote it.
+- TextContent is the report text. A binary report's decoded Media is attached at
+  `Reports/<hash>.<ext>` (FilePath, Format Binary), the extension decided from the declared
+  extension and the bytes (`CdsExportReportFileFormats`); FileExtensionAndVersion keeps the
+  message's own value.
+- Class falls back to `className`, then `reportType`, then Medical Records Report; SubClass to the
+  active accompanying subclass, then the first OBR description.
+- A sign-off (`HRMDocumentToProvider.signedOff` 1, `HRMModifyDocument2Action.signOff`) by a
+  provider the public lookup names (the lookup now also serves the signers and comment authors
+  of the patient's HRM reports), with a sign-off time, is a ReportReviewed (Name, OHIP number of
+  six digits, the date of `signedOffTimestamp` in the clinic zone); one per provider and date.
+  Every sign-off row travels whole in Notes (`signOffs`), keeping its exact time; an undated
+  sign-off, an unclaimed one or one by a provider the lookup cannot name stays in Notes only.
+  Unsigned routes (0 or NULL) are `UNSIGNED_HRM_INBOX_ROUTING_WORKFLOW`; any other `signedOff`
+  value holds the patient (`CDS_EXPORT_HRM_SIGN_OFF_STATUS_REQUIRES_REVIEW`).
+- Notes is `[CARLOS HRM report source context]` with the report row (`hrmReport`: description,
+  category id, duplicate count, parent report, recipient, the patient identity the report named,
+  class and subclass names, dates), its patient links, every comment that was not deleted, with
+  its author's public name (`comments`, `providers`), every accompanying subclass with its active
+  flag (`subClasses`), every sign-off, the message file state and the message values with no
+  element (`message`: ReviewedDateTime, ReviewingOHIPPhysicianId, every TransactionInformation
+  entry, and any value too long for its element). A comment with `deleted` 1 is not shown in the
+  chart (`HRMDocumentCommentDao.getCommentsForDocument`) and is accounted
+  `DELETED_HRM_COMMENT_NOT_SHOWN_IN_CHART`; a comment with another or no value travels. The
+  duplicate-detection digests and the storage location are operational. The message's own
+  patient block (name, health card, birth date, address) is the sender's identification of the
+  chart the report is filed to; the chart's identity is exported in Demographics and the report
+  row keeps the identity CARLOS recorded from it.
+
+An ordinary chart is never held for its HRM reports. A report whose file is not recorded,
+missing or has a name the stream refuses is exported from what CARLOS recorded about it: Format
+Text without Content, Class and SubClass from `className`/`subClassName`, EventDateTime from
+`reportDate`, ReceivedDateTime from `timeReceived`, SendingFacilityReport from
+`sourceFacilityReportNo`, HRMResultStatus from a one-letter `reportStatus`, the accompanying
+subclasses as OBRContent, and Notes beginning with a statement that the message could not be read.
+A stored file that is not an HRM message the viewer could show (it does not parse or validate, or
+is larger than 64 MiB) is attached exactly as stored (Format Binary, FileExtensionAndVersion `xml`)
+with a Notes statement; an empty file and a message with no report or no content give no Content.
+A link naming a report that no longer exists shows nothing in the chart and is accounted
+`HRM_LINK_TO_NO_STORED_REPORT_NOT_SHOWN_IN_CHART`. A link naming a chart that does not exist
+belongs to no chart; a report whose only links name such charts is unattributable and, as
+before, holds every chart (`CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED`). Only these hold the patient: a link whose
+patient or report number is not spelled as its canonical decimal number (a legacy alias such as
+`0` + the chart number; `CDS_EXPORT_HRM_REPORT_LINK_REQUIRES_REVIEW`) and a sign-off state
+other than 0 or 1. A wall-clock time with no single offset in the clinic zone is written with no
+offset (see "Times at a daylight-saving change"). A report file of any size is read
+(`CDS_EXPORT_NATIVE_REPORT_FILE_TOO_LARGE` and `cds.export.maxDocumentBytes` are retired). Untrusted storage
+still stops the job.
+
+A message that holds several reports no longer holds the patient
+(`CDS_EXPORT_HRM_REPORT_MULTIPLE_REPORTS_REQUIRES_REVIEW` is gone). The HRM schema allows it
+(`ReportsReceived` is unbounded), the HRM intake stores such a message as any other, and the
+viewer shows its first report. Every report is exported
+(`CdsExportHospitalReportMapper.map(source, parsed, part, ...)`): the first as the chart's
+record of the message, with everything above and a Notes statement of how many reports the
+message holds; each further one as its own Reports entry from its own message values (content,
+class, subclass, dates, author, facility identifiers, OBRContent, result status), with Notes
+saying which report of the message it is, the message values that have no element, and no
+ReportReviewed, because a sign-off attests the report the viewer showed. The chart's rows are
+accounted with the first entry. A report whose comments and message values pass Notes' 32,000
+characters gets a companion record, as a document does. The inventory expects one Reports
+occurrence per captured report (`carlos-native-occurrence-v1`, `HRMDocument`, id), one for each
+further report of its message (`id:n`) and one for each companion;
+`CdsExportHospitalReportOccurrenceService.identities` reads, parses and maps every report the
+way `append` does to know them. The CDS
+importer never writes HRM tables (an imported report becomes a `document`), so an exported HRM
+report imported into CARLOS and exported again travels once, as that document's retained
+occurrence. HRM reports are exported in every province profile: the chart list shows them only
+in Ontario billing regions, but rows elsewhere are still chart data.
+
+Inbox rows that name no patient hold no chart. The presence check of a must-be-empty table
+reached through a parent (`CdsExportIndirectPatientScopeReadSupport`) used to treat every
+row whose parent chain reached no patient as possibly anyone's, so an HL7 lab that the
+inbox had not matched yet (`MessageUploader` writes no `patientLabRouting` row, and the
+unlink action sets its `demographic_no` to `PatientLabRoutingDao.UNMATCHED`, 0), an
+incoming document not yet filed (its `ctl_document` link is `('demographic', -1)`) and an
+HRM report not matched to a patient (no `HRMDocumentToDemographic` row) held every
+selected chart. For the inbox tables (`providerLabRouting`, `document_review`,
+`DocumentExtraReviewer`, `HRMDocument`, `HRMDocumentComment`, `HRMDocumentSubClass`,
+`HRMDocumentToProvider`) one generic rule now sorts every row into one of three kinds:
+linked (its exact chain reaches an existing `demographic` row; it belongs to that chart
+only), unlinked (every parent before the patient link exists exactly, and no link row,
+matched as leniently as the column collation allows, names anything but the unmatched
+placeholder) and unattributable (anything else: a missing parent, a link to a chart that
+does not exist, another `ctl_document` module, a lab type equal to its link's type under
+the collation but not byte for byte, a routing row with no type). Unlinked rows are
+excluded from every chart; unattributable rows still hold every chart. A `DOC` routing
+row is scoped through the document's `ctl_document` chart link, like the document itself
+(a reassigned document keeps its earlier `patientLabRouting` row); every other routing
+type is scoped through `patientLabRouting` of exactly the same type, so an MDS lab never
+lends its number to an HL7 lab. The other parent-scoped tables keep the earlier rule
+(`document_storage` is a listed table, counted per chart). The exclusion is visible, not silent:
+`CdsExportClinicalPackageService` counts the unlinked rows per table once per attempt
+generation before any chart is captured (`CdsExportSourceCatalogueDao.unlinkedSourceRows`,
+counts only) and `CdsExportLedgerService.recordUnlinkedSources` writes one
+`UNLINKED_SOURCE_ROWS` event per table to the run's event ledger, whose safe code carries
+only the table and count (`CDS_EXPORT_UNLINKED_PROVIDERLABROUTING_ROWS_43`,
+`CdsExportUnlinkedSourceDto`); a replay of the generation must record the same counts.
+The diagnostic report lists them as `unlinkedSourceRows`, the ReadMe as "Unlinked inbox
+tables not exported" (checked again by the supporting-files validator), and the log line
+`CDS_EXPORT_UNLINKED_SOURCE_ROWS` names tables and counts. No migration was needed.
+
+Native HL7 reports carry their inbox acknowledgements. `providerLabRouting` is a mapped
+source: `Plan.LABORATORY_REVIEWERS` captures every route of the patient's HL7 labs, scoped as
+the presence scope scopes them (a `patientLabRouting` row of the same lab number and
+exactly the type HL7 owned by the patient), through `CdsExportReviewerReadDao` (which first
+proves the lab associations as the other laboratory DAOs do) and
+`CdsExportLaboratoryReviewerSourceReader`; the public provider lookup now also serves
+LaboratoryResults with every provider those routes name. `CdsExportInboxReviewMapper` decides
+each route. Status `A` (acknowledged, `CommonLabResultData.updateReportStatus`) by a real
+provider is a review: a `LaboratoryResults/ResultReviewer` on every result of the report
+(the XSD allows it unbounded, after CollectionDateTime), with Name from the provider row,
+OHIPPhysicianId only for a six-digit OHIP number (`CdsExportPublicProviderMapper`; the legacy
+exporter wrote any number up to six characters) and DateTimeResultReviewed from the route's
+`timestamp` as a clinic-zone clock; identical provider-and-time acknowledgements write one
+element. `N` (new), `F` (filed), `X` (removed from an inbox) and a blank legacy status are
+`UNACKNOWLEDGED_INBOX_ROUTING_WORKFLOW`, provider `0` or blank is
+`UNCLAIMED_INBOX_ROUTING_PLACEHOLDER`, the identity and report link columns are
+`LOCAL_INBOX_ROUTING_IDENTITY_AND_REPORT_LINK` and `mrpDemographicNo` is
+`MRP_RULE_ROUTING_PROVENANCE`, all operational. Any other status, or an acknowledgement whose
+provider has no provider row, holds the patient. A comment (on any route) is clinical text
+about the report: the route travels whole, as one more `providerLabRouting` row, in the
+report's `CARLOS.NativeLaboratory.v1` residual, which is per report rather than per result, so
+the comment is neither repeated on every result nor squeezed into PhysiciansNotes; its fields
+are then accounted as carried. A report nobody commented on has an unchanged residual.
+`timestamp` (and `DocumentExtraReviewer.reviewDateTime`) is a MariaDB TIMESTAMP, which a
+session renders in its own time zone, so it is captured as the stored instant
+(`UNIX_TIMESTAMP`, seconds since the epoch; `Plan.instant`) and placed in
+`cds.export.clinicalZone` by the mapper (`CdsExportNativeHistoryMapper.instant`). The database
+or session time zone therefore cannot shift a reviewer time, and a review in the repeated hour
+of a daylight-saving change has one exact answer instead of holding the patient. The carried
+row keeps the instant as Unix seconds; the zero TIMESTAMP (no time recorded) requires review. Routes of an imported (retained) lab are decided by
+`laboratory()` like a native report's: each acknowledgement is a `ResultReviewer[n]` added after
+the imported reviewers (`CdsExportLaboratoryOccurrenceService.appendedReviewers`), every imported
+element keeping its bytes, and each commented route travels whole in a NewCategory record
+`CARLOS.ImportedLaboratoryReview.v1` (`importedComments`, identity `importedCommentsId(result)`,
+emitted by `CdsExportNewCategoryOccurrenceService` and expected by the inventory). Without
+NewCategory selected the record is not written and the chart is still exported (see "Records
+that need NewCategory when it is not selected"). Every route is owned by exactly one
+captured report.
+
+Finite operator settings include `cds.export.downloadTimeoutSeconds` (default 900, range
+1–86400). `cds.export.captureTimeoutSeconds` is retired: a capture has no time limit (see "No
+deadline on a capture" below), and the setting is accepted and ignored whatever its value
+(`CdsExportActivePlanService.RETIRED`). A download
+re-verifies the whole cohort's current authorization when it opens, during streaming, after the
+last byte and at completion. The download timeout is an inactivity window, not a budget for the
+transfer: it bounds the time since the download thread last made progress (a block written, a
+verification step), plus three times the measured opening pass, and only the lease heartbeat
+can find the thread silent (`CdsExportArtifactService.Download`). A download that keeps moving
+is never ended for how long a package takes to send. While streaming, a new verification pass
+starts no sooner than 30 seconds, or the previous pass's own duration, after the last one.
+**No deadline on a capture.** A chart's capture runs in one read-only repeatable-read
+transaction with no timeout (`CdsExportNativeCaptureService`). The snapshot blocks no writer, a
+capture that keeps reaching checkpoints finishes however long its chart takes, and a worker that
+stops is ended by the stall detector (`cds.export.maxDurationMillis`), not by a time budget.
+Before this change the transaction and the legacy table's guard carried
+`cds.export.captureTimeoutSeconds` (default 120 s, the guard 30 s more), and a chart whose
+capture took longer failed its job with `CDS_EXPORT_EXECUTION_FAILED`.
+
+The legacy Rourke table (`formRourke2009`, Aria on ON, MyISAM on BC) has no snapshot, so it is
+read under a table READ lock on a dedicated connection (`CdsExportSourceReadLock`), and only
+while it is read: a statement that reads it pins it first, and the pin ends when that reader's
+turn ends and between the presence checks of the source catalogue. The table's own reader is
+counted at its turn to write, so its count and its rows are read under one unbroken pin. The
+lock therefore lasts as long as reading one patient's rows of that one table, and the clinic
+writes to the table between pins; before, it was held for the whole capture, so every write to
+that form waited for as long as a large chart took to read. The pinned rows are one state of
+the table at a moment during the capture rather than at the snapshot's instant. Nothing is
+lost by that: the engine has no transactions, so no writer could change this table atomically
+with another, and the whole-capture lock only chose an earlier moment. A lock lost while pinned
+refuses the capture, and a structural change between pins is caught by the capture's second
+schema read. The lock waits for a writer as long as the writer takes (below).
+
+**A statement's deadline is a wait, not a limit.** No statement of an export fails for how long
+the database takes to answer it (`CdsExportStatementWaitReadSupport`). Each read is sent with a
+server-side deadline (`max_statement_time`), first 30 s. When the server ends the statement at
+that deadline, because it is busy or because someone else holds a metadata or table lock, the
+same statement is sent again on the same connection with twice the wait (60 s, 120 s, ...), until
+it is answered. This covers every read built by `CdsExportPatientTableReadSupport.query`, the
+source catalogue's presence checks and counts (formerly 120 s), every note scope, note
+authorization, program and role read (formerly 30 s for the scopes, and nothing for the rest),
+the exact-numeric and receipt-metadata reads, the demographic row and schema, the cohort
+selection's pages, a run's applied import copies, the prescription inputs of the drug reference
+lookup and the legacy table's lock statements (below). Every other read of an export is listed,
+with how it waits, in "Every read of an export" below. The only things that end a
+wait are the ones that end the attempt: a cancel, a lost lease, and the stall
+detector. A wait is not a checkpoint, so an attempt that only ever waits is still ended as
+`CDS_EXPORT_WORKER_STALLED` after `cds.export.maxDurationMillis` without progress, and no single
+wait is longer than that window (`CdsExportExecutionService.Control.waiting`).
+
+Sending the statement again is sound because the statement is a read and the server ended it:
+it changed nothing, the connection is intact and the transaction is still open, so inside the
+capture's read-only repeatable-read snapshot the second sending reads exactly the rows the
+first would have returned (`CdsExportStatementWaitMariaDbIntegrationTest`: a row committed by
+another session between the two sendings is not seen, and the transaction commits). It is never
+moved to another connection, because another connection is another snapshot.
+
+The deadline is kept, rather than removed, because it makes a dead connection visible: a live
+server always answers within the deadline, with rows or with the timeout, so silence for 30 s
+beyond it means the connection or the server is gone. The connection's socket timeout says so.
+Where the pool has one (60 s by default and at most 300 s under the CDS network policy,
+`CdsJdbcConnectionTimeouts`, which the importer shares and which is unchanged), the export
+raises it on its own connection, for its own transaction, to the statement's deadline plus
+30 s, and puts it back before the connection returns to the pool; a connection without a
+socket timeout is given none. The socket timeout therefore no longer ends a statement that is
+merely slow.
+
+**Reads the export does not build: sent again as a unit.** Some reads of an export are made by
+code the rest of CARLOS shares, so their statements cannot be wrapped one by one: the account,
+provider, facility and membership lookups and the `SecurityInfoManager` role and privilege rows of
+every authorization (`CdsExportAccessService`), the eForm renderer's own reads of the saved eForm
+and of the `_eform` and `_measurement` privileges, and the signature manager's reads of a
+consultation letter's signature. Shared code also answers a failed read its own way: the
+privilege check answers it as a refusal, so before this change a privilege read that waited
+longer than the socket timeout for a lock refused the whole job as `CDS_EXPORT_ACCESS_CHANGED`,
+printed an eForm without the measurements it shows, or printed a letter unsigned. These reads run
+as a unit (`CdsExportStatementWaitReadSupport.transaction`): one new read-committed, read-only
+transaction. Before its first shared read the unit is armed: the connection's own deadline
+(`max_statement_time`) becomes the unit's (first 30 s) and its socket timeout is raised to that
+plus 30 s. The server counts, for each connection, the statements it ended at a deadline
+(`Max_statement_time_exceeded`); when that count grew during the unit by more than the unit's own
+per-statement waits sent again, the unit's answer is set aside, whatever the shared code made of
+the ended statement, and the whole unit is made again in a new transaction with twice the wait
+(60 s, 120 s, ...), until a sending has no statement ended. The same things end the waiting as
+for one statement. This is sound because a unit only reads and each of its answers is a fresh
+read-committed one: making it again is reading again. Every call of `CdsExportAccessService` is
+one unit (a call it makes joins it, as it always has), armed only before its first shared read,
+so a note check that needs nothing but its waiting note reads costs no extra statement. Each of
+the renderer's three reads is its own unit, so no transaction is held while the browser renders;
+the two signature reads are one. Before the connection returns to its pool its own deadline and
+socket timeout are put back; a connection that cannot be given its deadline back is aborted, so
+it never returns to the pool with the unit's. A connection without a socket timeout is not armed
+(nothing cuts a statement off), nor is one on a server that cannot count the statements it ended.
+
+**The export's own writes: sent again only before they commit.** Every metadata transaction of
+the export's ledger (`CdsExportLedgerService`: submission, claim, lease renewals and the capture's
+own checkpoint, selection seal, phases, finished-chart checkpoints and the kept charts' adoption
+and rejection, retention of the package, publication, stop, release, retirement of an expired
+lease, downloads, cancel and resume, the retention sweep's cleanups and trims, status and
+history) and every batch of the chart audit (`CdsExportAuditPersister`: prepared, adopted and
+read rows) used to carry a 15 s transaction timeout, so a slow but working database failed the
+export: a renewal after 100 s of such failures, any other write at once. None has a time limit
+now. Each runs as a write unit (`CdsExportStatementWaitReadSupport.writing`): its transaction is
+armed before its first statement, on every connection (without a socket timeout too, so that its
+waits reach the attempt), every statement gets the unit's deadline (first 30 s), the writes the
+persistence context still holds are sent before the commit under the same deadline, and the
+server's count of ended statements is read. Only a sending with none ended is committed, and its
+commit is sent with the connection's own deadline back (a commit is never given a deadline it
+could be ended by, and never sent twice). A sending the server ended at its deadline, or whose
+lock wait ran out (`innodb_lock_wait_timeout`, error 1205, or a metadata lock's), or that InnoDB
+chose to break a deadlock (1213), is rolled back and the work runs again in a new transaction
+with twice the wait. This is sound because the sending provably did not commit: MariaDB undoes a
+statement it ends at `max_statement_time` and leaves its transaction open with every earlier
+statement in place (verified on 11.8.8, `CdsExportStatementWaitMariaDbIntegrationTest`: the write
+sent before the ended statement is still there and commits, the ended statement changed
+nothing), a lock wait that runs out undoes the statement alone (with `innodb_rollback_on_timeout`
+off, the default; on, the whole transaction) and a deadlock the whole transaction; the unit then
+rolls the rest back itself, so the next sending starts from the committed rows. Each sending reads its rows again, the lease's fence
+included: `owned` locks the job's row and reads the database clock after the lock, so a sending
+that comes after the lease ran out is fenced and can never revive it, and nothing a rolled-back
+sending wrote survives to be written twice (a write unit on the real server writes once:
+`shouldWriteAUnitOnce_whenTheServerEndsItsLockedStatementAndItIsWrittenAgain`). A fence, a
+cancellation and every refusal of the work's own end it at once; so does a lost connection
+(`CDS_EXPORT_DATABASE_UNAVAILABLE`), and a failure of the commit itself is passed on as before
+(publication reads the outcome back, a renewal renews again). The waits end with the attempt: a
+renewal waits only for what the lease the last successful renewal granted has left, from its
+first sending on (below); the engine's other writes stop waiting, between two sendings, once the
+attempt has ended (a cancel, a fenced heartbeat, the stall detector), but a write that does not
+wait is still sent after its attempt ended, so the chart audit of a stopped job is written; an
+interrupt ends any wait; and a request or the retention sweep, which have no attempt, wait while
+the database answers. Their row-lock-free reads (status, history, the diagnostic report) can
+only wait for a metadata lock or a busy server.
+
+**Every read of an export.** From admission through cohort selection, authorization, capture,
+mapping and packaging:
+
+| Read | Where | How it waits |
+| --- | --- | --- |
+| Every captured table: schema pin, count, key and row pages, value chunks (native, retained import, data-summary and listed tables, HRM, reviewers, eForm rows, printed-form references, providers, diagnosis codes, prevention scopes, document and prevention program restrictions) | `CdsExportPatientTableReadSupport.query` and every DAO and read support built on it (`CdsExportDataSummaryReadDao`, `CdsExportEformRenderReadDao`, `CdsExportPrintedFormReadDao`, `CdsExportHospitalReportReadDao`, `CdsExportReviewerReadDao`, `CdsExportProviderReadSupport`, `CdsExportDiagnosisCodeReadSupport`, `CdsExportPhysicalSchemaReadSupport` and the `*CdsExport*` methods of the shared DAOs) | statement by statement |
+| Source catalogue: presence checks, counts, schema pass, `lower_case_table_names` | `CdsExportSourceCatalogueDao` | statement by statement |
+| Receipt metadata, exact numerics | `CdsExportNativeMetadataReadSupport`, `CdsExportExactNumericReadSupport` | statement by statement |
+| The demographic row and schema (its zero-row read takes the table's metadata lock), the cohort selection's roster and selected-patient pages | `DemographicDaoImpl` | statement by statement (until this change, none: the socket timeout cut them off) |
+| A run's applied import copies | `CdsImportRunDao.readAppliedCdsExportCopyKeys` | statement by statement (until this change, a 120 s timeout and a 4,096-copy limit, both failing the job) |
+| Note scopes, note authorization, program, role and patient-domain reads | `CdsExportNoteAccessDao` | statement by statement (until this change, only the scopes) |
+| Prescription inputs of the drug reference | `DrugDaoImpl.readCdsExportDrugReferenceInputs` | statement by statement |
+| The legacy table's lock and housekeeping | `CdsExportSourceReadLock` | statement by statement, on its own connection |
+| Account, provider, facility and membership lookups; role and privilege rows | `CdsExportAccessService` (`SecurityDao`, `ProviderDao`, `ProviderFacilityDao`, `SecurityInfoManager`) | one unit per call (new) |
+| The eForm renderer's saved eForm and its `_eform` and `_measurement` checks | `EFormBrowserPdfService.renderSavedEformPdf(..., SavedEformReads)`, run by `CdsExportEformRenderService.reads` | one unit per read (new) |
+| A consultation letter's signature owner and image | `DigitalSignatureManager`, run by `CdsExportConsultationLetterComposer.signature` | one unit (new) |
+| The database clock of the capture and the selection (`SELECT UNIX_TIMESTAMP(CURRENT_TIMESTAMP(6))`) | `CdsExportRunDao.now` | not needed: it names no table, so no lock or metadata wait can hold it, and it serves the lease too |
+| Ledger, lease, held-patient and event rows (reads and writes); the chart audit rows | `CdsExportLedgerService` and its DAOs; `CdsExportAuditPersister` | one write unit per transaction, sent again only before it commits (new; until this change, a 15 s transaction timeout that failed the export); a renewal waits only for what its lease has left |
+
+A connection the database loses during an armed unit is reported as the database's failure,
+`CDS_EXPORT_DATABASE_UNAVAILABLE`, whatever the shared code made of the lost read (the privilege
+check's refusal would have read as changed access). So is a connection lost during the
+renderer's or the signature's reads: before, the first was counted as a browser failure (the
+eForm went without its rendered form) and the second printed the letter unsigned.
+
+**A lost connection restarts the chart, not the job.** When the connection that holds the
+capture's snapshot is lost (closed, reset, or silent past the deadline and its grace), nothing
+read so far can be continued elsewhere. The capture of one chart is an idempotent unit, so
+`CdsExportNativeCaptureService.capture` discards everything that reading staged and reads the
+chart again from its authorization on, in a new snapshot, after 1 s, 2 s and 4 s. The same
+happens when the legacy table's lock is lost while pinned (before, that held the patient as
+`CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED`). A chart whose connection is lost on four readings in
+a row ends the job `FAILED` under `CDS_EXPORT_DATABASE_UNAVAILABLE`: the database, not the
+export, has failed, nothing is published, and the job can be resumed. The same code is
+recorded whenever a job ends on a lost database connection (`CdsExportExecutionService`,
+`CdsExportDatabaseUnavailableException.lost`: JDBC connection exceptions and SQLState class 08
+only, never a statement the server answered with an error).
+
+The transactions that select the cohort (`CdsExportSelectionService`, formerly 120 s) and read
+a chart's prescription identities for the drug reference (`CdsExportDrugReferenceProjectionService`,
+formerly 30 s) have no timeout either, and each of their statements waits as above: a page of a
+very large clinic's roster that takes longer than the socket timeout is no longer taken for a
+lost connection.
+
+The legacy table's lock (`LOCK TABLES ... READ`) waits for a writer the same way, in waits that
+are sent again; its housekeeping statements (formerly 5 s each) do too. Its dedicated
+connection's socket timeout is raised as the waits grow and is discarded with the connection.
+
+**Keys before rows.** Every captured table is read a page of 32 rows at a time. A page used to
+be one statement that ordered every remaining row of the patient to return thirty-two, so a
+table of N rows cost N squared, and the import ledger's child tables were walked from the
+table's side, so their cost also grew with the clinic. A page now reads its keys first and then
+exactly those rows by primary key under the same patient predicate
+(`CdsExportPatientTableReadSupport.pageBound`). Inside the capture's snapshot the keys are read
+ahead 65,536 at a time (`KEY_WINDOW`, about 7 MiB; a larger table is read in further windows),
+which is invisible there because a later statement would return the same keys; a key the
+read-ahead named that the row statement does not return fails the read. The import ledger's
+keys are read from the patient's side: `cds_import_unit` by run and patient key through
+`idx_cds_units_patient_id` (migration `V1.0.59.48`), `cds_import_field` by category through
+`idx_cds_field_category`, and `cds_import_dependency`, `cds_import_preparation`,
+`cds_import_file_reference` and `cds_import_file` through the patient's units. The last four
+have no patient column, so one read of their keys still visits each of the patient's units
+once; that happens once for every 65,536 rows instead of once for every 32. Measured on a
+synthetic clinic of 94,131 units (MariaDB 11.8.8) for a chart of 4,131 units, whole-table
+reads: `cds_import_unit` 542,106 rows examined and 5.4 s before, 16,915 and 0.47 s after;
+`cds_import_dependency` 14,691,997 and 19.0 s before, 29,176 and 0.31 s after;
+`cds_import_preparation` 316,658 and 2.2 s before, 25,050 and 0.43 s after.
+Native clinical clocks use the same explicit `cds.export.clinicalZone` as the accepted
+plan; a configured import zone must agree. No JVM default zone is inferred.
+
+#### Section windows: how a long chart's rows are read
+
+Each clinical section of one patient's document is built from that patient's sealed capture. To
+decide and to prove one occurrence a section needs three things together: the row, the rows that
+belong to it (its precision rows, extensions, reasons) and the native-row witness of each. To emit
+the section it needs the occurrences once, in a stable order. It never needs two occurrences of
+the same table together. A section therefore reads its rows in windows
+(`CdsExportSectionWindowPlanner`):
+
+- **Windowed.** The rows of the section's main table are its owners, in the order the capture
+  holds them, which is the order of the exported occurrences. A window is a run of consecutive
+  owners. For one window the section reads the witnesses of its owners, the child rows that name
+  one of its owners and the owners' rows, emits their occurrences and receipts, and drops all of
+  it before the next window. Each of those reads is a pass over the authenticated capture, read
+  like every staged member (the session's checked replay, or the staged replay member of a
+  capture too large for it).
+- **First attempt: the whole chart.** A chart of at most 8,192 owners whose witnesses and child
+  rows count at most 64 MiB (`Bounds.WINDOW_ROWS`, `Bounds.WINDOW_BYTES`, the two sizes that used
+  to refuse a chart) is one window. It is read by the same passes as before, in the same order,
+  with no extra pass, and its output is byte-identical. A larger chart costs one pass that lists
+  the owners and then the same passes once for each window; a window whose load passes 64 MiB is
+  abandoned before anything of it is emitted and read again with as many owners as fitted. A
+  window of one owner is never abandoned. Nothing is refused: the two sizes decide how a chart is
+  read, never whether.
+- **Held for the whole section, with its cost for each row.** The id of each owner, only for a
+  chart read in several windows (its digits and four bytes: 12 bytes for an eight-digit id); the
+  set of owner ids already emitted where a section proves each row is emitted once (about 60
+  bytes an id); the retained fields the windows used (a reference to a field the retained
+  source already holds, about 40 bytes); the clinic's own vocabulary that the chart names
+  (providers, appointment statuses and reason codes, diagnosis code descriptions, the measurement
+  types): these are not rows of the chart and every window holds them. The public provider
+  lookup (`CdsExportPublicProviderReader`) no longer counts them against `maxLookupRows` or
+  `maxIndexBytes` either.
+- **Completeness.** Every check of the whole-chart read is kept. Per window: every witness and
+  child row the window loaded is used by one of its owners, and it emits as many rows as it
+  holds owners. Over the chart: the windows emitted as many rows as the capture states, and they
+  took as many child rows as the capture holds, so a child row whose owner is in no window (an
+  orphan) is taken by none and the chart is refused, as it was when read whole. The two readings
+  decide alike, case by case. In Reports, a link to a document whose row the chart no longer
+  holds (deleted outside CARLOS; no CARLOS screen deletes a document row) holds the patient, with
+  any review or inbox route of that document (they are captured through the link): read whole,
+  such a review used to refuse the job as an invalid capture, while read in windows it held the
+  patient. A captured file whose document row the capture does not hold is refused as an invalid
+  capture by both (`CDS_EXPORT_REPORT_OCCURRENCE_INVALID`), as a document without its link is: a
+  file is read from its own document row in the same snapshot (`Plan.DOCUMENT_FILES` selects only
+  rows `Plan.DOCUMENTS` also selects), so no chart can produce it, and read in windows it used to
+  hold the patient as if the chart were at fault
+  (`CdsExportNativeReportAssemblyUnitTest`).
+- **Spilled.** Nothing of a windowed section is written to staging: a window is read again from
+  the capture instead. The structures that would have to be spilled are the ones no window
+  bounds, listed below.
+
+| Section | State | What a window holds |
+| --- | --- | --- |
+| Medications, Allergies (`CdsExportClinicalOccurrenceService`) | windowed | witnesses of the window's prescriptions or allergies; their precision rows, reasons and drug references; every public provider row the chart names. At capture the drug reference reader lists every prescription's id, catalogue id and DIN (three scalars a row; its 8,192-prescription hold is gone) |
+| Appointments (`CdsExportAppointmentOccurrenceService`, and through its visitor each appointment's NewCategory source record) | windowed | witnesses of the window's appointments; the providers, status definitions, reason-list items, the demographic row and earlier display names for every window; every current and archived appointment number (a string each) |
+| Immunizations (`CdsExportImmunizationOccurrenceService`) | windowed | witnesses, extensions and precision rows of the window's vaccines. The edit chains of imported vaccines are decided once for the chart from two witness passes that keep two digests for each recorded edit and a flag for each row an edit names (`CdsExportPreventionVersions.Chain`) |
+| Screenings (`CdsExportScreeningOccurrenceService`) | windowed | witnesses, extensions and precision rows of the window's screenings |
+| The partition of a chart's preventions into vaccines and screenings (`CdsExportPreventionClassificationService`, `CdsExportImmunizationCaptureValidator`), which both sections above ask for | read whole | one short scope row for each prevention (its id, type and program, about 400 bytes), held while the chart is partitioned and while the capture is checked. The two counts that failed a chart of 10,000 preventions or 4 MiB of scope rows (`CDS_EXPORT_PREVENTION_SCOPE_LIMIT`, `CDS_EXPORT_IMMUNIZATION_CAPTURE_INVALID`) are gone |
+| Disease Registry and episodes (`CdsExportProblemRegistryOccurrenceService`) | windowed | witnesses and precision rows of the window's entries; every diagnosis code row the chart names |
+| CareElements measurements (`CdsExportCapturedCareRowsReader`) | windowed (its own planner, by owner id) | see the measurements paragraph above; it now takes the same two sizes |
+| Laboratory results (`CdsExportLaboratoryOccurrenceService`; through `forEachNativeSource` and `forEachImportedComments` the inventory, the NewCategory source records and the Reports entries of embedded documents) | windowed | the rows of the window's reports (structured result, message, metadata, patient routing), their witnesses, their inbox routes and the window's native reports parsed; every public provider row the chart names. Held for the chart: the result id and report number of each imported result (a reference to an id the retained index holds, about 80 bytes a result) and, for a chart read in windows, the number of each native report |
+| Printed prescriptions (`CdsExportPrescriptionOccurrenceService.forEachSource`) | streamed | one script at a time; the public provider rows. Every drug row is checked in a pass that keeps none |
+| Reports: imported reports and native documents (`CdsExportReportOccurrenceService`; through `CdsExportReportContextPlanner.forEachIdentity` the inventory's companion and supplementary records) | windowed | the document and link rows of the window's documents, their witnesses, their reviewer and inbox route rows and their captured file descriptors (the file bytes are streamed from the capture when an attachment is staged); every public provider row the chart names. Held for the chart: for a chart read in windows, the number of each native document (four bytes) and the number of each document an imported report used (a reference to an id the retained index holds) |
+| Hospital reports (`CdsExportHospitalReportOccurrenceService`, `forEachIdentity` for the inventory) | windowed | the rows, links, comments, subclasses, routes and file descriptors of the window's stored reports; one report's message parsed at a time. Held for the chart read in windows: the number of each stored report (four bytes) |
+| History: the seven note categories (`CdsExportHistoryOccurrenceService`, `CdsExportHistoryCurrentContext`; the history inventory plans from the same chart-wide facts) | windowed | the window's note chains, each with every revision, its extensions, issue links and attached records; the patient issues those links name with their catalogue entries; the patient issue of each standalone diagnosis; the rows the window's import units name; each with its witness. Held for a chart read in windows: each case-management row's key (16 bytes), each note's captured scope, a bit for each note that needs the native carrier, each patient issue's catalogue entry (8 bytes) and each catalogue entry's CPP tag (a byte); and for every chart, the planned occurrences (each chain's revision numbers) and the revision inventory (40 bytes a note) |
+| Demographics, the demographic NewCategory record and the patient alert (`CdsExportDemographicOccurrenceService`, `CdsExportDemographicSupportingReader`) | one occurrence, read whole | the patient's row, properties, contacts, pharmacies and roster states with their witnesses, and the public provider rows. They are one window of one owner (the element is built from all of them together), so no count of them refuses the chart; the former `CDS_EXPORT_DEMOGRAPHIC_OCCURRENCE_RESOURCE_LIMIT` at `maxNativeRows` rows a table and `maxIndexBytes` is gone. Each row costs about 2 KB plus its values |
+| The patient's file name (`CdsExportPatientFileBindingService`) | streamed | the patient's row and the selected physician's provider row; the other provider rows are read past (they were held, and counted against `maxLookupRows` and `maxIndexBytes`) |
+
+**Laboratory results.** A report is its message, its metadata row, its patient routing row, the
+structured result of an imported result that mirrors it, and its inbox routes; all are joined by
+the report number. The owners of the section are the applied imported results, in the order of
+their import units, then the native reports (those no applied import unit names), in the order
+of their numbers as text: the order of the occurrences. A window is a run of consecutive
+owners. It reads, in one pass over the four report tables, the rows its import units name and
+every row of the reports they name, with every row of its native reports; then their witnesses;
+then their inbox routes. A chart whose four tables hold at most 8,192 rows and whose routes are
+at most 8,192 is tried whole first, by the passes that always read it. A chart read in windows
+costs one pass that lists the native reports and three passes for each window. Parsed reports
+are counted at twice their message against the window's 64 MiB, before anything of the window
+is emitted, so a window of long reports is read again smaller.
+
+Every row is owned by exactly one occurrence. In every pass every row of the four tables is
+checked for its shape and for its owner (the routing row and the structured result name this
+patient), whether or not the window keeps it. Each window proves that every row and every route
+it loaded is owned by one of its occurrences and that its rows are whole reports
+(`requireOwnership`, the check a chart read whole has always had). Over the chart, a result or
+report owned by two import units is refused when the second is met, and the rows the windows
+took are counted against the capture for each table: a metadata, routing or result row whose
+report is in no window is taken by none, and the chart is held for review as it is when read
+whole; a route left over names no report of the chart and refuses it. The inventory, the
+NewCategory records and the Reports entries of embedded documents visit the native reports
+window by window with the same checks for the reports of each window; the ownership of the
+imported results' rows is proved by the LaboratoryResults assembly, which every such job runs.
+
+A planner detail the laboratory windows needed (`CdsExportSectionWindowPlanner.forEachWindowOf`):
+a window that was read again smaller no longer keeps every later window small. A window that
+completes with at most half the byte limit used doubles the next one, up to 8,192 owners, so
+one very large report costs the few small windows around it. A chart whose owners are alike
+never grows a window that way and reads no window twice.
+
+**Reports.** A document is its `document` row, its patient link (`ctl_document`), its reviewer
+and inbox route rows (`providerLabRouting` of type DOC, `document_review`,
+`DocumentExtraReviewer`) and, when its content is a stored file, the descriptor of its captured
+file; all are joined by the document number. The owners of the section are the applied imported
+reports, in the order of their import units, then the native documents (those no applied import
+unit names), in the order of their numbers: the order of the occurrences. A chart whose document
+and link rows together are at most 8,192 and whose reviewer rows are at most 8,192 (the counts
+that used to stop the job) is tried whole first, by the passes that always read it. A chart read
+in windows costs one pass that lists the native documents and four passes for each window: the
+document and link rows the window's imported reports name with the rows of its native
+documents; their witnesses; their reviewer rows; their file descriptors. Every row of those
+tables is checked for its shape in every pass, whether or not the window keeps it.
+
+Each window proves that every row, file and reviewer row it loaded is owned by one of its
+occurrences, and that it emitted an occurrence, or accounted a removed document, for each of its
+owners. A document that an imported report of the window names without using it is left to the
+window of the report that uses it. Over the chart: no document is used by two imported reports;
+every document an imported report names is used by one; the windows took as many document and
+link rows as the capture holds (a link whose document is in no window, or a document only a
+report of another category names, is taken by none and the patient is held for review, as when
+read whole); and they took as many reviewer rows and files as the capture holds (one left over
+names a document the chart does not hold and refuses the capture). The inventory's prediction of
+companion and supplementary records (`CdsExportReportContextPlanner`), which read every document,
+link and reviewer row of the chart without any bound, reads them window by window too and hands
+the inventory one identity at a time.
+
+**Hospital reports.** The owners are the stored HRM reports in the order of their numbers; a
+window reads, in one pass over the five HRM tables, the rows that name one of its reports, and
+in a second pass their captured file descriptors. A chart read in windows first lists the report
+numbers (four bytes each), so that a link to a report that no longer exists is told from a link
+whose report is in another window: the first is accounted once, row by row, and never held. A
+comment, subclass, route or file of a report the chart does not hold refuses the capture in every
+pass; each window proves that each of its reports has a link and a file descriptor; and the
+windows take as many rows of each table as the capture holds.
+
+**The retained fields of an imported chart.** In each section that reconciles imported records,
+`CdsExportRetainedValuesService.withValues` used to decode every retained field of the chart and
+keep them all for the section (81,938 `CdsExportRetainedFieldDto` in each section of a chart of
+2,048 notes and 2,048 results), and `CdsExportRetainedOccurrenceFields.fieldsFor` found the
+fields of one record by a pass over every field and every native parent of the chart, once for
+each record: the work grew with the square of the chart. The section now receives a list that
+decodes a field from its row of the retained index when it is read and keeps none
+(`CdsExportRetainedFieldList`). It holds the id of each field (a reference to a string the index
+holds), the ids of each record's fields once a section has asked for a record, and the payload
+descriptor of each field whose value is not inline; a section holds the decoded fields of the
+record it is working on. Every row is still decoded once before the section starts, so a row
+that cannot be decoded, or two rows of one id, refuse the chart as before, and each field handed
+to a value stream is compared with its row again. What an imported chart still holds for all its
+sections is the retained import index itself (`CdsExportRetainedIndexService`, for the patient's
+session) and the receipt comparison.
+
+**History** (the seven note categories, `CdsExportHistoryOccurrenceService` with
+`CdsExportHistoryCurrentContext`). The owners are the section's occurrences in the order they are
+emitted: a note chain (every revision of one note, which is one occurrence) or a standalone
+diagnosis (a patient issue no CPP item links). A note's revisions, extensions, issue links and
+attached records (`casemgmt_note_link`) travel with it; the patient issues its links name and
+their catalogue entries are read by every window whose notes link them. A chart whose six
+case-management tables each hold at most 8,192 rows, and whose rows and witnesses count at most
+64 MiB, is read whole by the one witness pass and the one row pass that always read it. A larger
+chart is first proved complete in two passes that keep, for each row, its key and one SHA-256
+of every cell its witness froze (`CdsExportCaseManagementProjectionEvidence.reduce`, 48 bytes a
+row while the passes run and 16 after): the row pass checks each row against that digest and
+every rule the whole read applies (a note is the patient's under its captured scope; an
+extension, link or attached record names a captured note; a link joins a captured patient issue;
+a patient issue is the patient's and names a captured catalogue entry; no row has two witnesses
+and none has none), and keeps only what the plan needs: each note's scope, a bit for each note
+whose own columns or attached records need the native carrier, each link as two numbers, each
+patient issue's catalogue entry and each catalogue entry's CPP tag. Each category's occurrences
+are then read a window at a time (`CdsExportSectionWindowPlanner.loadNext`): one row pass that
+keeps the rows of the window's notes and the patient issues and catalogue entries they name,
+and one witness pass for those rows, every row checked against its whole witness before it is
+used. The window is dropped before the next one is read.
+
+The CPP grouping that spans notes is decided once, from the chart-wide facts, never from a
+window: a chain's section comes from the CPP tags its current revision links
+(`CdsExportHistoryCurrentContext.category`); whether a diagnosis stands alone comes from every
+revision of every chain that links it; and a catalogue entry no exported issue names holds the
+chart as it does when read whole. A standalone diagnosis is mapped with the program of each note
+revision that links it, which the note's verified scope carries
+(`CdsExportNativeHistoryMapper.mapLinkedIssue`), so the encounter notes that may link one
+diagnosis by the thousand are not loaded for it. The window of an imported item also reads every
+row its import unit names, whichever note that row now belongs to, so the field reconciler
+compares the same rows as when the chart is read whole; a note so named is never one of the
+window's owners. When all seven categories were emitted, the windows took every note, extension,
+issue link and attached record the capture holds, each once (`requireEveryRowTaken`).
+`cds.export.maxNativeRows` and `maxLookupRows`, which stopped the job here, are retired: a chart
+of 8,193 notes, and one of 131,073 diagnoses, are exported (`CdsExportHistoryWindowUnitTest`). The plan
+of the history inventory (`CdsExportHistoryInventoryService`) reads the same chart-wide facts.
+
+
+#### What can still stop a large export
+
+No count, size or time setting refuses, holds or fails a whole export. Memory is bounded by
+writing to protected storage, never by refusing work. The only thing that ends an export for its
+size is a genuine storage failure, which is loud, has its own code and can be resumed. What
+follows says how each former ceiling was removed, what each remaining threshold does when it is
+crossed, and what is still fixed and why.
+
+**Time.** `cds.export.maxDurationMillis` (default 86,400,000, range 1 to 31 days) is a stall
+window, not a budget. Every checkpoint the engine thread passes is its proof of life
+(`CdsExportExecutionService.Control`); the 20-second lease heartbeat is the only thing that can
+find it silent.
+
+**A renewal that fails for a moment.** The heartbeat, and the worker's own checkpoints, renew the
+attempt's 120-second lease. A renewal that fails for a transient database reason (no connection
+for a moment, a transaction that could not be opened or committed:
+`CdsExportExecutionService.transientRenewalFailure`) does not end a healthy export: it is logged
+as `CDS_EXPORT_LEASE_RENEWAL_RETRY run=<id> epoch=<n> failure=<type>` and the next beat or
+checkpoint renews the lease again, as long as the lease the last successful renewal granted is
+still valid (its 120 seconds less one 20-second beat). Before this, one failed renewal ended the
+job. A renewal that is merely slow no longer fails at all: it is a write unit (see "The export's
+own writes"), whose statements wait, but only for what that lease has left: each wait is cut to
+it (30 s, 60 s, then whatever is left) and, when nothing is left, the renewal ends and the owner
+is fenced at once (`CdsExportExecutionService.Control.renewing`). The lease's own window is
+unchanged: 120 s, renewed every 20 s. The grant is counted from the start of the renewal's last
+sending, which the database answered after it, so the owner never counts on a lease longer than
+the one the database granted, however long the sending waited (`renewed`; the claim's grant is
+counted the same way). Only a lease that is actually lost ends this owner, as before and under
+the same codes: the ledger's fence (another owner, a cancellation, the lease already expired)
+ends it as an expired lease (`CDS_EXPORT_EXECUTION_LEASE_EXPIRED`), and so do renewals that keep
+failing or waiting for the whole lease (`CDS_EXPORT_LEASE_RENEWAL_EXHAUSTED` is logged first).
+The stall detector is unchanged. Recording the finished-chart checkpoint (below) follows the same rule: a transient
+failure records nothing now and the next seal records the newest member. A worker that keeps reaching checkpoints is never stopped, however long its
+roster takes. When it reaches none for the whole window the attempt is stalled, for good: the
+heartbeat logs `CDS_EXPORT_WORKER_STALLED run=<id> epoch=<n> silentMillis=<n>
+attemptMillis=<n>`, stops renewing the lease and records the attempt as `FAILED` with the code
+`CDS_EXPORT_WORKER_STALLED` (`recordStall`), retrying on every beat until the ledger has it. The
+outcome does not depend on when, or whether, the engine thread returns: a lease that is still
+live is stopped (`CdsExportLedgerService.stop`), one that has expired is retired under the same
+code (`retireExpiredLease(lease, FAILED, code)`), and the returning thread is fenced at its next
+checkpoint, finds the outcome recorded and changes nothing. A stalled attempt can never publish:
+the ledger has cleared its ownership. `FAILED` is terminal, so the dispatcher does not claim the
+job again by itself and a step that always outlasts the window cannot loop; the operator resumes
+it. (Before this, the heartbeat only stopped renewing: a thread that returned before the lease
+expired left the run in an executing state to be claimed and restarted silently, and one that
+returned after it ended `CDS_EXPORT_EXECUTION_LEASE_EXPIRED`.) The one window left is a ledger
+that cannot be reached from the moment the stall is seen until the lease expires and another
+worker claims the job; that successor is then authoritative.
+
+**Roster, member count, inventory, supporting files, archive, delivery and staging members.**
+`cds.export.maxPatients`, `maxPackageMembers`, `maxPackageIndexBytes`, `maxSupportingBytes`,
+`maxMetadataBytes`, `maxZipBytes`, `maxCiphertextBytes` and `maxStagedFileBytes` are no longer
+read (`CdsExportActivePlanService.RETIRED`); neither is `maxIndexRows`, the count of one
+chart's rows and occurrences, whose last reader (hospital reports) reads a chart window by
+window, nor are `maxNativeRows` (the rows of one table of a chart), `maxLookupRows` (the rows
+of its lookup tables) and `maxIndexBytes` (what a section held for it): their last reader,
+History, reads a chart window by window, and every other reader only passed them on to code
+that no longer applied them. `CdsExportClinicalOccurrenceService.Bounds` keeps only what every
+read of a capture states (`fields`, `bytes`, unlimited in the installed plan) and the window
+size (`windowRows`, `windowBytes`); an invalid `maxIndexBytes`, which used to stop every export
+with `CDS_EXPORT_CONFIGURATION_INVALID`, is ignored like the others. An installation that still
+sets one gets one log
+line naming the settings (`CDS_EXPORT_RETIRED_SETTINGS_IGNORED`, names only) and no refusal,
+whatever the value. The fixed "format" ceilings that stood behind them (2,000,000 charts,
+2,000,000 members, 64 GiB of inventory, 64 GiB of supporting files, 512 GiB of member bytes) are
+removed as well: none was a width of a format. Counts are 64-bit throughout, the archive is
+ZIP64 (`CdsExportPackageComposer`, `CdsExportPackageValidator`), and the cleanup of an attempt
+no longer refuses a directory of more than 4,000,000 members
+(`CdsExportStagingFactory.purgeAttempt`).
+
+| Former ceiling | Why it existed | What replaced it |
+| --- | --- | --- |
+| `maxPatients`, 2,000,000 charts (`CdsExportSelectionService`, `CdsExportSelectionDto`, `CdsExportCohortService`, `CdsExportDisclosureScopeService`, `CdsExportArtifactContextDto`, `CdsExportClinicalPackageService`) | A budget. The selection and cohort are streamed to staged members. | Nothing; the count is a `long`. |
+| `maxPackageMembers`, 2,000,000 members (`CdsExportPackageInventoryService`, `CdsExportPackageComposer`, `CdsExportPackageDto`) | A budget. The inventory is an encrypted external sort and ZIP64 counts entries in 64 bits. | Nothing. The sort now merges a full level of 32 runs into one run of the next level as members arrive, so the run descriptors it holds grow with the logarithm of the member count. |
+| `maxPackageIndexBytes`, 64 GiB of inventory | A budget. | Nothing. |
+| `maxSupportingBytes`, 64 GiB of ReadMe and event log; 64 MiB of sender identifiers in `CdsExportSupportingFilesValidator` (about 250,000 charts) | The first a budget; the second bounded an in-memory set of every chart's sender identifier. | The validator keeps no set. It hands every identifier to the caller's `Identities`; the packaging step spools them to protected storage and proves uniqueness by sorting them (`SpooledIdentities`). |
+| `maxMetadataBytes`, 256 MiB to 4 GiB (`CdsExportClinicalPackageService.compose`) | It bounded, by estimate, what `compose` kept in the heap for every chart: its record (names, validation counts, note scopes, attachments) and a descriptor for each staged member. | `compose` keeps none of that. See "What the packaging step keeps in memory". |
+| `maxZipBytes`, 64 GiB (`CdsExportPackageComposer`, `CdsExportPackageDto`) | Not the archive: the delivery. One AES-GCM message carries at most 2^36 - 32 bytes, so a larger ZIP could not be encrypted as one CMS object. | A ZIP of any size is composed (ZIP64). A ZIP larger than 32 GiB is delivered in parts; see "Delivery of a package of any size". |
+| `maxCiphertextBytes`, 128 GiB (`CdsExportDeliveryComposer`, `CdsExportDeliveryService`) | A budget above the same cipher limit. | Nothing. |
+| `maxStagedFileBytes`, 128 GiB to 1 TiB for any one staged member (`CdsExportStagingFactory`) | A budget; it also capped the archive and its delivery. | An attempt's store has no member size bound (`CdsExportStagingService`, six-argument constructor). |
+| 2^32 chunks (256 TiB) per staged member, `CDS_EXPORT_STAGING_CHUNK_LIMIT` | A field width: the 32-bit chunk index in the 96-bit GCM nonce. | The high 32 bits of the 64-bit index are folded into the four nonce bytes before the low ones (`CdsExportStagingService.nonce`). The mapping is one-to-one and each member has its own key, so no nonce repeats; a member below 2^32 chunks is byte for byte what it was. |
+| 4,000,000 members per attempt directory at cleanup (`CDS_EXPORT_CLEANUP_UNKNOWN_MEMBER`) | A budget. A larger attempt could never be erased. | Nothing. |
+| `CdsExportExecutionService.PACKAGE_CEILINGS`: six codes that ended a job `REVIEW_REQUIRED` | The last commit's handling of the ceilings above. | Removed with them. |
+
+**What the packaging step keeps in memory.** `CdsExportClinicalPackageService.compose` appends
+each finished chart's record to a protected spool (`CdsExportSpoolService`, staged members of
+the attempt's own store, purpose `PACKAGE_CHART_SPOOL`) and each staged member it owns to a
+second one (`PACKAGE_OWNED_SPOOL`). The cohort is sealed in ascending patient order, so the
+chart spool is in cohort order: the three re-authorization passes and the disclosure manifest
+read it front to back, the supporting files read it through an external sort by archive path
+(which is also where two charts under one path are found, `CDS_EXPORT_AMBIGUOUS_SOURCE`), the
+inventory reads it in any order, and the ownership manifest reads the owned spool sorted by
+member identifier. A spool holds at most 4 MiB of records waiting to be written, one record per
+open cursor and 32 heads during a merge; its segment descriptors never exceed 32 per level. The
+spools are erased when the step ends, whether it finished or not. What remains in memory for the
+roster is:
+
+- four bytes for each chart read and one bit for each chart audited (`Patients`, `Audited`);
+- four bytes and one shared reference for each held patient (`Held`), and one
+  `CdsExportHeldPatientDto` (about 32 bytes) for each held patient in the package metadata, which
+  the ReadMe and the ledger's held-patient rows are written from;
+- one entry for each physician folder (`physicians`, `billingNames`), which grows with the
+  clinic's physicians, not its patients;
+- for the length of each re-authorization pass only, one two-word handle and one map entry
+  (about 85 bytes together) for each packaged chart. `authorizeCohort` builds that map itself;
+  the handles it receives carry no notes (the notes are read from the spool when the pass
+  reaches the patient). Removing the map means reading the cohort and the chart spool in step
+  inside `authorizeCohort`, which was not changed here.
+
+At 100,000 charts that is under 10 MiB, against about 2 GiB before; it is no longer a function
+of how many notes or documents a chart has. One line of the disclosure manifest carries at most
+8,192 of a patient's notes and the rest follow on `NOTES` lines, so a chart is not refused for
+how many notes it has; a manifest written before those lines existed has none and reads as it
+did.
+
+**Delivery of a package of any size.** `CdsExportDeliveryComposer` writes one CMS
+AuthEnvelopedData object (`cms-aes256gcm-rsa-oaep-sha256-v1`) when the ZIP is at most 32 GiB,
+exactly as before. Above that it writes a POSIX tar archive
+(`tar-cms-aes256gcm-rsa-oaep-sha256-v2`) of objects of that same profile,
+`part-000000000001.cms` onward, each carrying the next 16 MiB of the ZIP under a fresh
+content-encryption key to the same pinned recipient, followed by `manifest.json` (profile, part
+count, part size, ZIP length and SHA-256). Crossing the threshold changes how the package is
+delivered, never whether. The delivery is still one staged member and one download whose length
+and SHA-256 the ledger pins; `CdsExportArtifactContextDto` accepts either profile and
+`CdsExportDownload2Action` names the download `cds-export-parts.tar`. The operator guide gives
+the recipient's commands. A recipient that only accepts a single CMS object cannot read a
+delivery larger than one AES-GCM message in any format.
+
+**Storage failures.** A staged write that fails ends the job `FAILED`, publishes nothing and
+leaves nothing truncated (every staged member is written whole, fsynced and read back by digest
+before it is used, and a failed one is deleted). `CdsExportExecutionService.storageFailure`
+records `CDS_EXPORT_DISK_RESERVE` when the store's free space fell below
+`cds.export.minimumFreeBytes`, `CDS_EXPORT_DISK_FULL` when the file system reported no space or
+a quota, and `CDS_EXPORT_IO_FAILED` otherwise; only these fixed codes, never an exception's
+text. The job can be resumed. A job that ends on a lost database connection is recorded as
+`CDS_EXPORT_DATABASE_UNAVAILABLE` instead, whether the failure arrived as an I/O or a runtime
+failure (see "A lost connection restarts the chart, not the job").
+
+**Thresholds that remain, and what crossing each one does.**
+
+| Threshold | Where | Crossing it |
+| --- | --- | --- |
+| 4 MiB of records in a spool batch | `CdsExportSpoolService.BATCH_BYTES` | The batch is written to protected storage. A single record larger than the batch is written alone. |
+| 32 segments or runs per level | `CdsExportSpoolService.FAN_IN`, `CdsExportPackageInventoryService` | The level is combined into one segment of the next level. |
+| 4,096 members or 8 MiB per inventory sort batch | `CdsExportPackageInventoryService` | The batch is written as a sorted run. |
+| 8,192 notes on one disclosure line and in one authorization call | `CdsExportClinicalPackageService.NOTE_BATCH` | The rest follow on `NOTES` lines and in further calls. |
+| 8,192 notes in one statement of the note scope read and of the note authorization | `CdsExportNoteAccessDao.readScopes`, `CdsExportAccessService.requireNotesRead` | The next statement continues after the last note; any number of notes is read and every one authorized. |
+| 8,192 program-restricted documents or preventions in one statement | `CdsExportPatientTableReadSupport.restrictions` | The next statement continues after the last key; every restriction is authorized. |
+| 65,536 keys read ahead for one captured table | `CdsExportPatientTableReadSupport.KEY_WINDOW` | A larger table is read in further windows. |
+| 8,192 selected preventions named by one statement | `CdsExportPatientTableReadSupport.PREVENTION_ID_BATCH` | The read is sent once for each further 8,192 selected preventions; counts are added and keys and rows merged in key order. |
+| 30 s first wait for a statement's answer, doubling | `CdsExportStatementWaitReadSupport.FIRST_WAIT_SECONDS` | The statement is sent again in the same transaction with twice the wait. Nothing fails. |
+| 30 s of silence past a statement's own deadline | `CdsExportStatementWaitReadSupport.ANSWER_GRACE_SECONDS` | The connection counts as lost (its socket timeout fires); inside a capture the chart is read again. |
+| 3 further readings of one chart after its snapshot's connection was lost | `CdsExportNativeCaptureService.SNAPSHOT_RESTARTS` | This one stops the job: the database was lost on four readings in a row, `CDS_EXPORT_DATABASE_UNAVAILABLE`. |
+| 40 bytes for each note of a chart in the revision inventory | `CdsExportNoteRevisionPlanner.Witnesses.BYTES_PER_NOTE` | Not a threshold: what the inventory keeps of a note's receipt. Its result still names every note (one chain and its revision ids), and the capture keeps one scope entry for each note. |
+| 32 GiB of ZIP in one CMS object | `CdsExportDeliveryComposer.SINGLE_MESSAGE_BYTES` | The delivery is written in 16 MiB parts (`PART_BYTES`). |
+| 4 GiB member size, 65,535 members, 4 GiB of central directory | `CdsExportPackageComposer` | ZIP64 records are written. |
+| `cds.export.minimumFreeBytes` (default 512 MiB) | `CdsExportStagingService.checkDisk` | This one stops the job: it is the store reporting that it is nearly full, `CDS_EXPORT_DISK_RESERVE`. |
+| 1 MiB for one line of a manifest this step writes | `CdsExportClinicalPackageService.line`, `CdsExportJsonLines` | Cannot be reached: the only line that grew with a chart is split at 8,192 notes. A longer line is a defect (`CDS_EXPORT_CLINICAL_PACKAGE_INVALID`). |
+| 65,536 characters in one ReadMe line | `CdsExportSupportingFilesValidator` | Cannot be reached by a line the composer wrote (each is one bounded field); a longer one fails validation as not this exporter's. |
+
+**Request size.** A request names as many physicians or patients as the operator listed. `CdsExportCommand` once
+refused more than 100 physicians or 10,000 patients, the form more than 120,000 characters, the
+patients file more than 262,144 bytes, and the ledger a job document of more than 262,144
+characters (`CDS_EXPORT_REQUEST_TOO_LARGE`). All five numbers are gone. Every check that is
+about correctness stays: no physician or patient named twice, valid identifiers, one selection
+mode, and the authorization of the request and of each patient exactly as before.
+
+| Where | What it does now |
+| --- | --- |
+| `CdsExportCommand` | Keeps both lists sorted and refuses a duplicate; no count. |
+| `CdsExportWebCommandParser`, the form | No count and no character limit of ours. The servlet container still bounds a form post (Tomcat `maxPostSize`, 2 MiB unless the deployment changed it, about 250,000 patient numbers); a longer list goes through the patients file. |
+| `CdsExportCliArguments` | `--physicians` takes any number the command line holds. |
+| `CdsExportSelectionFileService` | Reads the patients file as a stream, one number at a time, with the same strict rules (UTF-8, the two members once each, version 1, positive numbers, none twice) and the same proof that the file did not change while it was read. It keeps one `int` per patient. |
+| `CdsExportSelectionService` | A roster of more than 100 physicians is read as statements of 100 physicians each, every group through its own keyset cursor, merged by patient number; the staged selection is in ascending patient number as before. Explicit patients were already read 256 at a time. |
+| `CdsExportCohortService` | Checks a roster row's physician by binary search of the sorted list, not by scanning it for every patient. |
+| `CdsExportLedgerService` | See below. |
+
+**The job document.** `cds_export_run.request_document` is `LONGTEXT`; no table changed. A job
+document of at most 262,144 bytes is stored as before, byte for byte. A longer one, which only an
+explicit selection can make, is stored as two lines:
+
+1. the same JSON with `command.patientNos` and `command.physicianNos` empty and one more member,
+   `selection`: `{"patients": <count>, "physicians": <count>, "sha256": <SHA-256 of line 2>}`;
+2. `{"patientNos":[...],"physicianNos":[...]}` in the command's sorted order.
+
+`request_digest` is the SHA-256 of the first line (of the whole document when there is one
+line). The first line names the selection by its digest and counts, so the job is bound to
+exactly that selection: reading the document back checks the second line against both before
+either list is used and fails with `CDS_EXPORT_JOB_DOCUMENT_INVALID` otherwise; a resubmission
+with one patient more or fewer is another intent (`CdsExportSubmissionConflictException`). The
+ownership query (`CdsExportRunDao.owner`) still reads only the first 262,145 characters, which
+always hold the whole first line. A worker proves its lease's document at every checkpoint; the
+digest of a lease's document is remembered by identity, so a long selection is encoded once per
+attempt and not once per checkpoint.
+
+What a long explicit selection costs: the run row carries the list (about 7 characters a patient,
+so 3.5 MB for 500,000 patients), and every ledger transaction that loads the run row reads it.
+Checkpoints are at most one a second, and a job history page loads at most 100 runs. A roster
+chosen by physician stores only the physicians.
+
+**The cohort manifest.** The sealed cohort (`CdsExportCohortService`, staged member
+`COHORT_MANIFEST`) binds the whole job document, explicit lists included, so a long explicit
+selection made it long too, and a manifest over 512 KiB stopped the job
+(`CDS_EXPORT_COHORT_MANIFEST_LIMIT`; an explicit selection of roughly 65,000 patients or more). No
+manifest is refused for its size now. One of at most 512 KiB is stored as before, byte for byte; a
+longer one is stored in the same two lines as the job document: the manifest with both lists empty
+and a `lists` member giving the count of each list and the SHA-256 of the second line, then
+`{"patientNos":[...],"physicianNos":[...]}`, written from the command as it streams. A manifest is
+read back only once its second line is exactly the one its first line names (digest, both counts
+and the member's authenticated end), and the member's own digest, which the ledger records in
+`cohort_digest` and every patient scope names, covers both lines. A second line that differs fails
+with `CDS_EXPORT_COHORT_INVENTORY_INVALID`, as any other altered manifest does.
+
+**Still fixed, and why.**
+
+- Nothing about the size of a request (see "Request size" above).
+- The import ledger's own stored format stays an integrity check, because the importer could
+  not have written anything larger: one line of a course-copy plan (1,024 bytes, for a copy key,
+  a provider number of at most six characters and two integers), the job document of an import
+  run (65,536 bytes of fixed scalar options), a sealed witness (`MAX_SEALED_BYTES`), and a
+  prevention scope cell (4,096 bytes for an integer, a flag or a `VARCHAR(255)`).
+- The prevention configuration file is read whole and may be at most 1 MiB
+  (`CdsExportPreventionConfigurationLoader.MAX_XML`); a larger file fails every job of that
+  installation. It is the installation's own configuration, not a chart.
+- MariaDB's own limits stay as integrity checks of what the schema read returns: 4,096 columns
+  in a table and 16 columns in a key.
+- An attempt's staged members live in one directory and each is fsynced; neither is a limit.
+- The cleanup of one attempt directory gives up after 15 minutes and is retried by the next
+  sweep (`CdsExportRetentionService.retire`). It validates the whole directory before deleting
+  anything, so a directory too large to list in 15 minutes would not be erased. That holds disk,
+  not an export.
+- The check of each finished patient XML (`CdsExportXmlValidator`) refuses no document for its
+  size, its number of elements, the size of a binary value or the time the check takes (#57).
+  Those bounds (`CdsExportXmlLimitsDto`: 64 GiB of XML, also applied to the composer's output,
+  64 GiB of one decoded report, 20,000,000 elements and two hours) are deleted with no number in
+  their place; a check that stops making progress is ended by cancellation or the stall
+  detector. Its identity-value guard (16,384 values, 1,048,576 characters) is deleted as dead
+  code: no CDS 5.2 type is an `xs:ID`, `IDREF` or `IDREFS`, so the JDK validator keeps no identity
+  values. What the check keeps are integrity checks, listed below, that only a document the
+  schema or CARLOS's writer would never produce can reach.
+- The index and row bounds of a chart's capture (`maxIndexBytes`, `maxNativeRows`,
+  `maxLookupRows`) and the per-table mapper limits hold one chart or stop the job on their own
+  rules and are described where they apply.
+- The receiving CARLOS import has its own admission settings; see "Importing a large CARLOS
+  export" below.
+
+**The finished-XML check's integrity bounds.** A document CARLOS writes is valid against the
+pinned schema and uses only its names; each bound below is far past anything such a document
+holds, and bounds only what a malformed document could make the parser keep before the schema
+check refuses it. `CdsExportXmlValidatorUnitTest` measures each against the pinned schema.
+
+| Bound (`CdsExportXmlValidator`) | Value | Why a document CARLOS writes cannot reach it |
+| --- | --- | --- |
+| `MAX_DEPTH`, element nesting | 256 levels | The schema is not recursive: no element is more than eight levels below `OmdCds`. The composer's own 252 (`CdsExportXmlComposer`) is the same kind of check. |
+| `MAX_NAMES`, distinct names | 2,048 | The schema has fewer than 300 element and attribute names. |
+| `MAX_NAME`, one name or prefix | 256 characters | The longest schema name has 40. |
+| `MAX_NAMESPACES`, `MAX_URI` | 64 namespaces, 1,024 characters a URI | CARLOS declares `cds` and `cds_dt`. |
+| `MAX_ATTRIBUTES`, attributes of one element | 128 | No schema type declares more than two. |
+| `MAX_MARKUP`, one tag, comment or instruction | 65,536 characters | Text is not counted. CARLOS's tags are a few dozen characters, and its one comment is the header. |
+| `MAX_RESTRICTED_VALUE`, one value of a length-, pattern- or code-restricted type | 65,536 characters | The schema's longest `maxLength` is the text64K's 65,536; dates, codes and identifiers are far shorter. A type with no such facet (report `TextContent`, `text`, a plain token) is streamed and not counted. |
+| `MAX_CAPTURE`, one captured identity or report value | 8,192 characters | The schema admits at most 250 (a file path); a vendor identifier has 20, a name part, report format or file extension 50. |
+
+**Importing a large CARLOS export.** The import reads a CARLOS package like any CDS archive, and
+nothing needs raising on the receiving server for a large one (`docs/cds-import-configuration.md`).
+No size, entry count, compression ratio or duration refuses a package: every byte the import
+writes (the upload, the snapshot, the parse and plan spools, the published documents) is checked
+against the receiving store's free-disk reserve (`cds.import.minimumFreeDiskBytes`), which is
+what stops a package that store cannot hold, under its own code, resumably once space is freed.
+`cds.import.maxDurationMillis` is a stall window, not a time limit: an import that keeps making
+progress runs to its end however long it takes. A browser upload is sent chunk by chunk with no
+size or total limit. The receiving store needs free space for the package, its expanded
+snapshot, the spools and the documents. The former `cds.import.maxSourceBytes`,
+`maxExpandedBytes`, `maxEntries`, `maxBinaryBytes`, `maxCompressionRatio`, `upload.maxFileBytes`
+and `upload.maxTotalBytes` settings are retired and ignored. The import's XML guards (depth,
+names, namespaces, constrained values) are hostile-input guards a genuine package cannot reach.
+
+#### Continuing a stopped export: kept charts and adoption
+
+An attempt that stops before READY keeps the charts it finished, encrypted in its own protected
+staging, until the job is resumed (a resumed attempt adopts each unchanged one), cancelled (they
+are erased at once) or seven days have passed since the attempt stopped (the existing attempt
+ceiling, `CdsExportLedgerService.ATTEMPT_SECONDS`; no new setting). A chart is reused only when
+a new capture of the patient is exactly the one it was built from, never on a timestamp or a
+counter, and never silently: the job's status, events and chart audit say what was kept, adopted,
+built and erased. Integrity, authorization, privacy and audit are the same for an adopted chart
+as for a built one.
+
+**The checkpoint.** As the roster goes, the packaging step seals every finished chart and every
+held patient, in cohort order, into a chain of encrypted `CHART_CHECKPOINT` members of the
+attempt's own store (`CdsExportChartCheckpointPersister`). A `CHART` entry holds the patient,
+whether the chart may be adopted at all, the fingerprint of the capture it was built from and
+the chart record the packaging step spools for itself (archive path and naming record, the XML
+member with its digest and validation counts, the attachment members, the ReadMe counts); the
+note scopes are not kept, because an adopted chart takes them from its new capture. A `HELD`
+entry holds the patient and the hold code. Each member is written whole, fsynced and read back
+by digest like every staged member, opens with a header (run, epoch, sequence, the build
+parameters' digest, the totals so far and the previous member's identifier, plaintext SHA-256
+and length) and ends with a closing line that counts its entries, so the newest member pins the
+whole chain. A member is sealed at each lease heartbeat (about every 20 seconds), when its batch
+reaches `CdsExportSpoolService.BATCH_BYTES`, at the end of the roster and when the attempt
+stops; nothing counts or refuses entries. The ledger records the newest member's identifier,
+digest, length and chart count, and the charts the attempt adopted, on the attempt row
+(migration `V1.0.59.49`), under the live lease fence; the pointer only grows. A later reader
+trusts a chain only from that pointer (`CdsExportChartCheckpointReader`): it walks the chain
+back from the pointer, checks every link, header, closing count and entry order, and refuses
+anything else (`CDS_EXPORT_CHART_CHECKPOINT_INVALID`). Sealing changes nothing an export
+produces.
+
+**Retention.** When an attempt ends without READY (`stop` with FAILED or REVIEW_REQUIRED, a
+foreground wait that is interrupted, a lease that expired, a worker found stalled), the attempt
+that recorded a checkpoint becomes `KEEPING` and is due for erasure seven days after it stopped;
+an attempt whose worker vanished before any outcome is kept the same way when the job is next
+claimed, until its own seven-day ceiling. Every other attempt of the job is due at once, as
+before. The retention sweep (`CdsExportRetentionService`, every minute while the online worker
+runs) first trims each `KEEPING` attempt, under its cleanup lease: it reads the checkpoint from
+the recorded pointer and erases, through the same anchored and validated deletion as a purge
+(`CdsExportStagingFactory.trimAttempt`), every member the checkpoint does not pin (captures,
+spools, partial outputs, members sealed after the last record); the chart XML, the attachments
+and the checkpoint members stay, and the attempt becomes `KEPT`. A checkpoint that does not
+verify, or that the job's key no longer opens, is rejected (`CHECKPOINT_REJECTED`) and the
+attempt is erased whole. Cancelling a stopped job that keeps charts makes every kept attempt due
+at once (the recorded outcome and code stay as they were); publication does the same; after
+seven days the sweep erases them. A purge of a kept attempt records `CHARTS_ERASED` with the
+count. The READY lifecycle (artifact, download, retention) is unchanged.
+
+**A deterministic capture.** The comparison is sound only because a capture of unchanged rows
+is byte-identical: every table reader reads in a fixed key order, and
+`CdsExportNativeCaptureComposer` writes the value and index members from the rows alone (no run,
+epoch or time), with the JSON lines of the index written with their keys in name order. Stored
+document files are captured with their document rows (`CdsExportDocumentFileSourceReader`), and
+eForm renderings with their outcome (`CdsExportEformRenderingSourceReader`), so a changed file
+or rendering is a changed capture. The reference rows a chart's build reads are captured with
+the patient as well (the public provider fields, the clinical zone, the prevention
+configuration and vaccine catalogue, the diagnosis code tables, the drug reference), so a change
+to them is a changed capture too; the printed forms below are the only builds that read
+reference rows outside the capture. The application itself cannot change between the attempts
+of a job: a resume on another build is refused (`CDS_EXPORT_RUNTIME_CHANGED`). `CdsExportNativeCaptureServiceUnitTest` proves two captures
+of the same rows are identical and a changed value changes them.
+
+**The fingerprint** (`CdsExportChartFingerprints.capture`) is the SHA-256 of a canonical JSON
+of the patient, every captured table (its column set, row count, schema SHA-256, receipt
+columns and note access scopes), the field count and value bytes, and the length and SHA-256 of
+the capture's value and index members. The build parameters (`CdsExportChartFingerprints
+.parameters`) are the run, the application version, the clinical zone, the profile, the
+categories, the sender namespace, the compatibility digest, the required tables and the
+capture bounds; a checkpoint made under other parameters adopts nothing.
+
+**Adoption** (`CdsExportChartAdoptionService`). A resumed attempt opens the kept checkpoints of
+the job's earlier attempts, newest first, each verified from its recorded pointer and its store
+opened through `openExisting`. For each cohort patient, the newest earlier attempt whose
+checkpoint reached the patient decides: a chart it finished may be adopted; a patient it held,
+or did not have, is built again, and so is a patient whose chart's build read live inputs. The
+patient is then captured exactly as for a built chart (the same reads, authorization session
+and audit), and the chart is adopted only when the new capture's fingerprint equals the one the
+chart was built from. The new capture is then discarded and the chart's XML and attachments
+are copied, each read to its authenticated end, into the new attempt's store, so their scope,
+ownership manifest, checkpoint and cleanup are the new attempt's; the chart takes its note
+scopes and capture manifest digest from the new capture. Authorization is never adopted: the
+closing authorization of the patient's session and the packaging step's cohort passes check an
+adopted chart exactly as a built one. A patient removed from the selection is not in the new
+cohort and is never asked for. Should an earlier attempt's store fail while it is read, nothing
+more is adopted by the attempt and every later chart is built. An earlier attempt whose every
+kept patient the new attempt has decided again is released when the new attempt's checkpoint is
+next recorded (`CHECKPOINT_SUPERSEDED`); at the end of the roster every earlier attempt is
+released and the adopted count is audited (`CHARTS_ADOPTED`). Each adopted chart is a chart read
+in the chart audit (`log`), as `CDS_EXPORT_CHART_ADOPTED` with the attempt it came from; the
+chart's own export row is written at publication as for every chart. The job's status reports
+`keptCharts` (the most finished charts any one stopped attempt of the job keeps; normally one
+attempt keeps them) and `keptUntil` (the earliest time a kept attempt is due for erasure), and
+`adoptedCharts` and `builtCharts` as the latest attempt's checkpoint recorded them
+(`CdsExportJobDto`).
+
+**What is not reused, and what adoption does not repeat.**
+
+- A chart whose build read something its capture does not hold is never adopted: a printed
+  consultation letter and a printed Rourke chart read live reference rows
+  (`CdsExportChartInputs.uncaptured`). Such a chart is built again in every attempt.
+- A rendered eForm is part of the capture, so a chart is adopted only when the rendering's bytes
+  are identical. A renderer that stamps a time on its output makes every capture differ and the
+  chart is built again; moving a job between the browser worker (which renders) and the command
+  line (which does not) changes the capture the same way.
+- A data summary with an image is printed with its images drawn or, when the shared PDF module
+  had no render slot free after `CdsExportDataSummaryPdfService.SLOT_ATTEMPTS` tries, with its
+  images attached instead. Which of the two a build gets depends on the server's load, not on
+  the chart, so two fresh builds of the same chart can differ there; an adopted chart is the one
+  its first build produced.
+- Adoption does not repeat the retained-payload freeze, the occurrence services, XML composition
+  and validation, the witness and receipt checks of an imported chart or the document reads:
+  their inputs are the capture, which is identical, and they were done for the chart when it was
+  built. The XML's validation counts travel with the chart record.
+
+`CdsExportResumeMariaDbIntegrationTest` runs the whole command-line service graph against the
+full Flyway schema: a stopped job keeps four finished charts and a held patient; after one
+chart's row and another's document file change and the held chart's file appears, the resumed
+attempt adopts the two unchanged charts and builds the other three; cancelling erases what it
+kept; a fresh attempt of the same job then builds exactly the charts the resumed attempt held,
+byte for byte; and the last attempt adopts them and publishes a package that carries exactly
+those bytes. Chart XML and attachment names are keyed by the job, so only attempts of one job
+compare byte for byte; the ReadMe and event log carry the attempt's own time.
+
+**Limits inside the mappers.** A mapper keeps a number only when something outside CARLOS
+imposes it: a facet of the CDS 5.2 schema (for text CARLOS writes, `text1K`, `text32K` and
+`text64K` are counted as the migration guide counts them, 1,000, 32,000 and 64,000 characters;
+see [Dictionary lengths](#dictionary-lengths-carlos-text-and-unchanged-imported-text)), the
+capacity of a database column, or an integrity check.
+Such a limit does not hold a patient where the record has somewhere else to put the value: the
+element is left out or written in its schema-valid form, and the exact stored value travels in
+the record's CARLOS residual. These numbers were CARLOS's own and are gone:
+
+| Former limit | Where | What it stopped | Now |
+| --- | --- | --- | --- |
+| 8,192 rows and 64 MiB per call | `CdsExportDemographicPhonesMapper`, `CdsExportPersonalContactMapper`, `CdsExportPharmacyMapper`, `CdsExportProfessionalContactMapper`, their retained reconcilers and assemblers (`CdsExportDemographicAssembler`, `CdsExportNativeDemographicAssembler`, `CdsExportDemographicCareAssembler`, `CdsExportContactRetainedAssembler` 4,096 changes), and the four demographic projection services | the whole job (`..._RESOURCE_LIMIT`) | every row is mapped; the methods no longer take a row count or a size |
+| 65,536 archive rows, 65,536 providers and 64 MiB | `CdsExportEnrolmentHistory`, `CdsExportRetainedEnrolmentReconciler`, `CdsExportEnrolmentProjectionService`, `CdsExportEnrolmentXmlWriter` | the whole job | every archived roster state is read |
+| 8,192 enrolment entries, 65,536 fields, 16 MiB; 131,072 units; 128 fields and 1 MiB | `CdsExportRetainedEnrolmentSource`, `CdsExportRetainedContactBinding`, `CdsExportRetainedPharmacyBinding` (the retained source of an imported chart) | the whole job | read whole |
+| 16 uses of one provider row | `CdsExportDemographicRetainedCoreReconciler` | the whole job (`CDS_EXPORT_DEMOGRAPHIC_PROVIDER_USES_LIMIT`) | every use is recorded |
+| 8,192 revisions of a note, 8,192 note rows, chains or reviews per chart | `CdsExportNativeHistoryMapper`, `CdsExportNoteRevisionPlanner` | the job | removed; the history section reads its notes window by window (see "Section windows") |
+| 8,192 notes in the note scope read, in one note authorization call and in the revision inventory, and the inventory's estimate of its receipts against the caller's byte bound (about 3,500 notes at the default) | `CdsExportNoteAccessDao.readScopes`, `CdsExportNoteSourceReader`, `CdsExportAccessService.requireNotesRead`, `CdsExportNoteRevisionInventoryService`, `CdsExportNoteRevisionReader` | the patient (`CDS_EXPORT_RESOURCE_LIMIT`), or the job | removed: the scopes and the authorization are read 8,192 notes a statement; the inventory counts every note and holds its receipts in the worker's heap |
+| 64 MiB for one captured text row, and the smaller bound many readers passed for their table (from 4 KiB for screening, immunization and prevention rows to 14 MiB for an import unit) | `CdsExportCapturedTextRowsReader` and the readers that call it | the job (`CDS_EXPORT_NATIVE_ROW_INVALID`) | removed: a row of any length is read. The number a reader passes now decides only how a value is read: up to it, the value is collected whole and decoded; past it, it is decoded as its verified bytes arrive, so its bytes and its text are never both held whole |
+| 4,096 program access rows naming one access type; more held the patient as an access change (`CDS_EXPORT_NOTE_AUTHORIZATION_DENIED`) | `CdsExportNoteAccessDao.canRead` | the patient | removed: every row the database's equality matches is read, 4,096 a statement in id order, and decided by the rule a short list always had: the one row whose name is exactly the access name decides, and a second such row leaves the note unreadable. No note a short list leaves unreadable becomes readable |
+| 4 MiB for one capture's manifest (about 40,000 notes) | `CdsExportNativeCaptureService` | the job (`CDS_EXPORT_CAPTURE_MANIFEST_LIMIT`) | removed: the manifest is written and read as a stream |
+| 8 MiB of retained import options for one chart | `CdsExportRetainedIndexService` | the job (`CDS_EXPORT_IMPORT_OPTIONS_BYTE_LIMIT`) | removed: each run's options are still verified, not added up |
+| 100,000 program-restricted documents or preventions | `CdsExportPatientTableReadSupport` | the patient (`CDS_EXPORT_DOCUMENT_PROGRAM_SCOPE`, `CDS_EXPORT_PREVENTION_PROGRAM_SCOPE`) | removed: every restriction is read and authorized |
+| `cds.export.captureTimeoutSeconds` (120 s) on the capture transaction and the legacy table's guard | `CdsExportNativeCaptureService`, `CdsExportSourceSnapshotService`, `CdsExportSourceReadLock` | the job (`CDS_EXPORT_EXECUTION_FAILED`) | removed: a capture has no deadline; the setting is retired |
+| 30 s per capture statement, 120 s per source-catalogue statement, 30 s per note scope statement, 5 s per lock housekeeping statement; the pool's socket timeout (60 s) on any of them | `CdsExportPatientTableReadSupport`, `CdsExportSourceCatalogueDao`, `CdsExportNoteAccessDao`, `CdsExportExactNumericReadSupport`, `CdsExportNativeMetadataReadSupport`, `CdsExportSourceReadLock` | the job (`CDS_EXPORT_EXECUTION_FAILED`, `CDS_EXPORT_IO_FAILED`) or, for the lock, the patient | a deadline is a wait that is sent again in the same snapshot; the socket timeout is raised past it for the export's own transaction; a lost connection reads the chart again |
+| 120 s for the cohort selection transaction, 30 s for the drug reference inputs transaction | `CdsExportSelectionService`, `CdsExportDrugReferenceProjectionService` | the job | removed: no transaction timeout |
+| The pool's socket timeout (60 s, at most 300 s) on every read not built through the wait support: the cohort selection's pages, the demographic row and its schema pin, the note authorization, program and role reads, the account, provider, facility, membership, role and privilege reads of every authorization, the eForm renderer's and the signature manager's own reads | `DemographicDaoImpl`, `CdsExportNoteAccessDao`, `CdsExportAccessService`, `CdsExportEformRenderService`, `CdsExportConsultationLetterComposer` | the job, as a lost connection (`CDS_EXPORT_DATABASE_UNAVAILABLE`) or, through a privilege read the shared check answered as a refusal, as changed access (`CDS_EXPORT_ACCESS_CHANGED`); the rendered eForm or the letter's signature, left out | removed: each such read waits statement by statement or as a unit that is made again whole ("Every read of an export"); a connection actually lost is `CDS_EXPORT_DATABASE_UNAVAILABLE` |
+| 120 s per statement and 4,096 applied copies of one import run for one chart | `CdsImportRunDao.readAppliedCdsExportCopyKeys` | the job (`CDS_EXPORT_APPLIED_COPY_LIMIT`) | removed: every applied copy is read, and the read waits like every other |
+| 15 s per metadata transaction and per chart audit batch | `CdsExportLedgerService` (every transaction it opens, the capture's own checkpoint included), `CdsExportAuditPersister` (`prepared`, `adopted`, `read`) | the job: a lease renewal after 100 s of them (`CDS_EXPORT_LEASE_RENEWAL_EXHAUSTED`), a finished-chart checkpoint until the next seal, any other write at once (`CDS_EXPORT_EXECUTION_FAILED`), and an outcome being recorded made the supervisor stop (`CDS_EXPORT_CONTROL_OUTCOME_UNKNOWN`) | removed: each is a write unit that waits for the database and is sent again only when it provably did not commit ("The export's own writes"); a renewal waits only for what its lease has left |
+| 4,096 import runs naming one chart | `CdsExportImportOptionsSourceReader` | the whole job (`CDS_EXPORT_IMPORT_OPTIONS_RUN_LIMIT`) | every run is read |
+| 10,000 prevention rows | `CdsExportPreventionScopePlanner` | the whole job | every row is planned |
+| 10,000 prevention or vaccine-catalogue rows and 4 MiB of their scope columns; 10,000 selected preventions in one read; 1,000,000 Immunizations import units and 64 MiB of their witnesses | `CdsExportPreventionSnapshotService`, `CdsExportPatientTableReadSupport.requireSelected`, `CdsExportPreventionClassifier`, `CdsExportPreventionConfigurationService`, `CdsExportPreventionClassificationService`, `CdsExportImmunizationCaptureValidator` | the whole job (`CDS_EXPORT_PREVENTION_SNAPSHOT_INVALID`, `CDS_EXPORT_NATIVE_SOURCE_INVALID`, `CDS_EXPORT_PREVENTION_SCOPE_LIMIT`) | removed: every row is read a page of 32 at a time; a statement names at most 8,192 selected preventions (`PREVENTION_ID_BATCH`) and a chart with more is read in further statements whose rows are merged in key order |
+| 4,096 copies and 4 MiB of an import run's course-copy plan; 2 MiB of one run's captured options | `CdsExportRetainedImportOptionsReader`, `CdsExportRetainedIndexService` | the whole job (`CDS_EXPORT_RETAINED_COPY_PLAN_INVALID`, `CDS_EXPORT_IMPORT_OPTIONS_BYTE_LIMIT`) | removed: these were not the importer's stored format (the importer writes every copy its course holds, with no count or size ceiling; only its free-disk reserve, `cds.import.minimumFreeDiskBytes`, stops it); the plan is authenticated by its seal and read as a stream |
+| One whole receipt (several kilobytes) and one metadata row held for every note of a chart | `CdsExportNoteRevisionInventoryService`, `CdsExportNoteRevisionPlanner` | the worker, as an out-of-memory failure on a very long chart | each receipt is reduced as it is read to 40 bytes (`CdsExportNoteRevisionPlanner.Witnesses`) and each metadata row is compared as it is read |
+| 1,025 base tables, 65,536 columns or 16,384 primary-key columns in the clinic's database | `CdsExportSourceCatalogueDao`, `CdsExportPhysicalSchemaReadSupport` | every job of that clinic (`CDS_EXPORT_CLINIC_SOURCE_UNREVIEWED`) | removed: the schema's metadata is read whole; extra local tables are listed as before |
+| 8,192 problem-registry entries and episodes of one chart, 64 code-table rows for one code | `CdsExportDiagnosisCodeReadSupport` | the whole job (`CDS_EXPORT_RESOURCE_LIMIT`) | removed: every code the chart names is looked up |
+| 100,000 current eForms of one chart | `CdsExportEformRenderReadDao` | the whole job (`CDS_EXPORT_EFORM_RENDER_LIMIT`) | removed |
+| 10,000 rows or 4 MiB of the clinic's vaccine catalogue (`CVCImmunization`, `CVCMapping`), 10,000 items of the prevention configuration | `CdsExportPreventionClassifier`, `CdsExportPreventionConfigurationService` | every patient of the job (`CDS_EXPORT_PREVENTION_CLASSIFICATION_INVALID`, `CDS_EXPORT_PREVENTION_CONFIG_INVALID`) | removed when a capture is read: the catalogue is the clinic's vocabulary, held while the classifier is built from it (about 2 KB a row). The capture of the catalogue (`CdsExportPreventionSnapshotService`) no longer stops at 10,000 rows or 4 MiB, and the configuration file is read whatever its size, its items' attributes whatever their number or length (1 MiB, 64 and 4,096 stopped every export); only an item name longer than the prevention type column (255) and a shape other than `preventions/item` still refuse the configuration |
+| 65,536 retained fields, 131,072 nodes, 16 MiB of source paths or 4,096 changes in one imported record | `CdsExportRetainedOccurrenceFields`, `CdsExportRetainedSectionWriter` | the job (`..._SOURCE_FIELDS_REQUIRED`, `CDS_EXPORT_RETAINED_STRUCTURE_REQUIRES_REVIEW`) | removed: `cds_import_field` stores any number of fields for one unit, and one record is rebuilt together whatever its size |
+| 1,000,000 captured fields in the rows of one occurrence | `CdsExportNativeFieldAssessmentValidator` | the job (`CDS_EXPORT_FIELD_ASSESSMENT_RESOURCE_LIMIT`) | removed: the caller already holds those rows together |
+| 8,192 eForm renderings of one chart | `CdsExportEformRenderings` | the job (`CDS_EXPORT_EFORM_RENDERING_CAPTURE_INVALID`) | removed: one descriptor for each eForm is held (its identity, author and content digest) |
+| 8,192 document and link rows, 8,192 reviewer rows, 8,192 captured files and 64 MiB of them; 8,192 stored HRM reports, 1,000,000 HRM rows | `CdsExportReportOccurrenceService`, `CdsExportCapturedDocumentFiles`, `CdsExportHospitalReportOccurrenceService`, `CdsExportCapturedHospitalReportFiles` | the job (`CDS_EXPORT_RESOURCE_LIMIT`, `CDS_EXPORT_DOCUMENT_CAPTURE_INVALID`, `CDS_EXPORT_HOSPITAL_REPORT_CAPTURE_INVALID`) | removed: read window by window, see "Section windows" |
+| An HL7 report of about 2.1 MB, 8,192 results or 32,768 segments | `CdsExportNativeLaboratoryParser` | the patient (`CDS_EXPORT_NATIVE_LAB_MESSAGE_CAPACITY`, `..._RESULT_CAPACITY`, `..._SEGMENT_CAPACITY`) | the message is parsed whole, one message at a time; a report with an embedded PDF is as long as the laboratory made it |
+| 1,024 characters per care value, as a hold | `CdsExportNativeCareMapper` | the patient | the schema's 1,024 only decides whether the observation gets a standard element |
+
+What these mappers hold in memory is one chart's rows of the tables they map (its
+`demographicExt` properties, contacts, pharmacies, `demographicArchive` roster states, note
+revision numbers, prevention rows), each about 2 KB plus its values; nothing is shared between
+charts. The occurrence services that hand rows to these mappers are a separate matter: see
+"Section windows" for the sections that read a chart window by window, History included. The
+imported NewCategory records of a chart are no longer counted against `maxNativeRows`
+(`CdsExportNewCategoryOccurrenceService.parents`).
+
+Required limits that no longer hold a patient (second pass):
+
+| Limit | Where | What it stopped | Now |
+| --- | --- | --- | --- |
+| Reports/Notes, 32,000 characters | `CdsExportNativeReportMapper`, `CdsExportLaboratoryDocumentMapper`, `CdsExportHospitalReportMapper`, `CdsExportReportOccurrenceService.importedReviews` | the patient | the complete context travels in a companion or supplementary Reports record (`CdsExportReportContext`, see Reports above) |
+| NoteAboutPatient, 64,000 characters (`demographiccust.content` holds 65,535 bytes) | `CdsExportPatientNoteMapper` | the patient (`PATIENT_NOTE_DICTIONARY_LENGTH_REQUIRES_REVIEW`) | the element holds the note's first characters followed by the mark `[CARLOS: shortened to the CDS limit of 64,000 characters]` on its own line (`CdsNativeExtensionContract.patientNoteElement`, 64,000 code points in all), and the whole column travels in `CARLOS.Demographic.v1` under `note` (`CdsExportPatientNoteMapper.note`), from which a CARLOS importer restores the whole note once the element proves to be its shortened form. The element was left out before, so a receiving chart had no patient note at all. Without NewCategory the record is not written and only the shortened form travels |
+| CPP Notes, 32,000 / 64,000 / 1,000 characters | `CdsExportNativeHistoryMapper`, `CdsExportHistoryNativeReconciler` | the patient (`CDS_EXPORT_NATIVE_HISTORY_NARRATIVE_CAPACITY`, `CDS_EXPORT_HISTORY_COMBINED_NARRATIVE_CAPACITY`, `..._SOURCE_NARRATIVE_CAPACITY`) | Notes holds whole parts only; parts that do not fit together are left out whole, last first, and each has an exact carrier: a statement (a CPP field its element cannot hold) in the revision's extension facts of `CARLOS.NativeHistory.v1`, the current narrative in `CARLOS.History.Narrative.v1`, and imported Notes that had to make way in the item's `CARLOS.NativeHistory.v1` residual as `importedNotes` |
+| A character XML 1.0 cannot carry (a control character, U+FFFE, U+FFFF, an unpaired surrogate) | the same mappers, `CdsExportInboxReviewMapper`, `CdsExportDemographicSupportingMapper`, every carrier written through `CdsExportScreeningMapper.tokenSafe` | the patient | in a JSON carrier it is its `\uXXXX` escape (`CdsExportResidualJson`); in an element it is U+FFFD, one for one (`CdsExportXmlText`), and the exact text travels in the record's carrier: a note's revision details (`exactNarrative`), the Notes context of stored HTML, the `note` of `CARLOS.Demographic.v1`, the message of `CARLOS.Laboratory.v1` |
+| 16,777,216 characters per carrier | `CdsExportDemographicSupportingMapper`, `CdsExportNativeHistoryMapper`, `CdsExportHistoryFieldReconciler`, `CdsExportNativeLaboratoryMapper`, `CdsExportInboxReviewMapper` | the patient | removed, with no number in its place (ours, not the schema's) |
+
+### Times at a daylight-saving change
+
+A time stored as a local wall-clock value (a note's observation or save time, a report's
+observation, filing or review time, a lab time sent with no offset, an HRM message time with no
+offset) is written in `cds.export.clinicalZone` with that zone's offset
+(`CdsExportNativeHistoryMapper.clock`). When the zone has no single whole-minute offset for it,
+the time is written as its wall-clock value with no UTC offset, the rule appointments already
+follow (`LOCAL_WALL_CLOCK_TIME_AT_DAYLIGHT_SAVING_TRANSITION`): a time inside the hour the autumn
+change repeats, one inside the spring gap (a time a clinician can still type), and one before the
+zone's standard time (a local mean time offset with seconds). An `xs:dateTime` without a zone is
+schema-valid and a receiving CARLOS reads it as clinic time; no offset is ever invented, and the
+stored value travels exactly in the record's native details as before. Such a time held the
+patient (`CDS_EXPORT_NATIVE_HISTORY_CLOCK_AMBIGUOUS`, `CDS_EXPORT_NATIVE_HISTORY_OFFSET_NOT_REPRESENTABLE`):
+a note written in the repeated hour was enough. A stored instant (a `TIMESTAMP`) is never
+ambiguous and keeps its offset.
+
+### A summary the PDF cannot show completely
+
+The data summary's PDF is the only carrier of a record that has no CDS element, and until this
+change `CdsExportDataSummaryPdfService` held the chart when the PDF was not complete
+(`CDS_EXPORT_DATA_SUMMARY_RENDER_INCOMPLETE`, `CDS_EXPORT_DATA_SUMMARY_RENDER_FAILED`). Both
+holds are gone. What happens, exactly:
+
+| What the page cannot show | When it happens | What is exported |
+| --- | --- | --- |
+| A character with no glyph in the bundled fonts | The HTML-to-PDF module draws DejaVu Sans, then the bundled CJK and symbol faces, then U+FFFD (`FallbackFontRuns`). Hindi, Punjabi, Tamil and Thai are among the scripts no bundled face draws (`docs/html-pdf-rendering.md`). The module reported this only when a fallback face failed to load, so with the fonts installed such text printed as U+FFFD with no hold and no notice: the stored text was lost from the export. | The page prints U+FFFD for each such character, carries the notice below, and the exact record is attached inside the PDF. |
+| A character the summary's HTML cannot carry, or that draws nothing | A control character other than tab and the line breaks, a lone surrogate or a non-character is written as a space by the HTML encoder; a format character (a zero-width joiner, a soft hyphen), a variation selector, a private-use or unassigned code point has no glyph of its own. Pasted text reaches all of these. | The same: notice and attached exact record. |
+| An image | The module found no render slot within its wait (two renders at a time for the whole server; it then prints raster images as boxes, `IMAGES_OMITTED_FOR_MEMORY`), could not decode the image (`IMAGE_UNAVAILABLE`), or printed text only because the document was over its size limit or its layout failed (`TEXT_ONLY`; that mode draws no image, and until this change lost a photo with no hold). | A record with an image is rendered up to six times while the module reports no free slot (`SLOT_ATTEMPTS`). If its image still did not print, the page shows the box, carries the notice, and the image itself is attached inside the PDF as its own file. |
+| Anything: no PDF could be made | Every rung of the module's ladder failed for this record, or its output is not a loadable PDF. | A one-page PDF holding only a notice, written with PDFBox and the bundled DejaVu Sans (not the module that failed), with the same attachments. An interrupted wait is the one exception: it is the job being cancelled. |
+
+**The attachments** are PDF embedded files, which every PDF reader lists as attachments and
+`pdfdetach` extracts:
+
+- `carlos-data-summary-record.json` (`CARLOS.DataSummary.Record.v1`): the record's table and
+  identifier, the part numbers, and every source row with each stored text value exactly (JSON
+  escapes for the characters a text file cannot hold, so the file is valid UTF-8 and decodes to
+  the stored text), SQL NULL and empty kept apart, and the size and SHA-256 of each binary value.
+  A value registered as Base64 text also has its decoded text. An e-mail access credential is
+  withheld there as on the page.
+- `carlos-data-summary-image-<n>.png|jpg|gif`: each image the summary shows (a stored photo, a
+  signature decrypted as the chart prints it, a legacy unencrypted signature), as its own bytes;
+  the record file names it beside the stored value's size and SHA-256.
+
+The notice is printed under the summary's statement and written in the Reports entry's Notes:
+"This PDF cannot show every character or image of this record exactly: ... The exact record is
+attached inside this PDF. ..." (`ATTACHED_NOTICE`), or "CARLOS EMR could not print this record as
+a PDF, so this PDF holds only this notice. ..." (`UNPRINTED_NOTICE`). The Reports entry, its
+identity, its one FilePath and its receipt are unchanged: the attachments travel inside the one
+member the inventory already predicts, so nothing about a render outcome has to be predicted.
+
+**On import.** A CARLOS import files the Reports entry as a document and stores the PDF's bytes
+unchanged, so the attachments stay inside the stored document and open from it. No importer reads
+a data summary back into tables (that was already so for every data summary), so the attached
+record is for the reader and for a later conversion, not a restore.
+
+A record without an image that the module printed in safe mode or as text only still shows every
+character and is accepted as it is. Tests: `CdsExportDataSummaryPdfServiceUnitTest`.
+
+### Data summaries and last holds
+
+A third pass removed what the table above left:
+
+| Limit or hold | Where | What it stopped | Now |
+| --- | --- | --- | --- |
+| Data-summary rows, fields, text, embedded values and audit | `CdsExportDataSummarySourceReader`, `CdsExportDataSummaryRowsReader`, `CdsExportDataSummaryOccurrenceService`, `CdsExportPatientDocumentService.auditLimit` | the patient (the audit bound: the job) | removed; see [Size: stored rows and record parts](#size-stored-rows-and-record-parts) |
+| A character XML cannot carry in a prevention value (lot, comments, name, any extension) | `CdsExportImmunizationMapper` | the patient | U+FFFD in the element (`CHARACTER_XML_CANNOT_CARRY_REPLACED_EXACT_IN_RESIDUAL`); every stored value exact in `CARLOS.Prevention.Source.v1`. A reconciled imported vaccine has no native residual and still requires review, but no screen edits a vaccine in place |
+| The same in the master record's Alert box | `CdsExportPatientAlertMapper` (`CDS_EXPORT_PATIENT_ALERT_WIRE_TEXT_REQUIRES_REVIEW`) | the patient | U+FFFD in AlertDescription; the stored alert exact in the occurrence's own ResidualInfo, DataElement `CARLOS.PatientAlert.v1` (`{"version":1,"alert":...}`), written only then. The CARLOS importer files AlertDescription as the Reminders note and does not read this element back yet |
+| The same in a pharmacy, a contact or a professional contact | `CdsExportNativeFieldAssessments.token` / `carriedText`, `CdsExportPharmacyMapper`, `CdsExportPersonalContactMapper`, `CdsExportProfessionalContactMapper` | the patient | a name or note shows U+FFFD and is carried exactly in `CARLOS.Demographic.v1`; a telephone, e-mail or postal code is carried instead of written. A contact name part longer than 50 characters is carried too, instead of holding |
+| The same in a provider's name | `CdsExportPublicProviderMapper` | every chart naming the provider | U+FFFD in the name (`PROVIDER_NAME_CHARACTER_XML_CANNOT_CARRY_SHOWN_AS_U_FFFD`); the name is provider-record data and stays exact there, not in the chart's file |
+| The same in a prescription or an allergy | `CdsExportNativeMedicationMapper`, `CdsExportMedicationFieldReconciler`, `CdsExportAllergyMapper`, `CdsExportAllergyFieldReconciler`, `CdsExportNativeFieldAssessments.text` | the patient | the element shows U+FFFD (or is left out when a number or code cannot be read); the stored row is exact in `CARLOS.Medication.Source.v1` / `CARLOS.Allergy.Source.v1` |
+| The same in a stored laboratory message; non-UTF-8 hexadecimal escape data | `CdsExportNativeLaboratoryParser` (`CDS_EXPORT_NATIVE_LAB_MESSAGE_ENCODING`), `CdsExportNativeLaboratoryMapper` (`..._WIRE_TEXT_REQUIRES_REVIEW`, `..._ESCAPE_REQUIRES_REVIEW`) | the patient | U+FFFD in every element; the escape as sent; the stored message exact in `CARLOS.NativeLaboratory.v1` |
+| Replaced file of an imported report with both representations, 32 MiB | `CdsExportReportOccurrenceService.currentBytes` (`CDS_EXPORT_IMPORTED_REPORT_REPLACED_CONTENT_CAPACITY`) | the patient | streamed from the captured file into the inline Media; any size |
+
+Nothing in these families still holds an ordinary chart for a length. The last such hold,
+imported text between the dictionary and schema lengths, is resolved below.
+
+#### Dictionary lengths: CARLOS text and unchanged imported text
+
+The CDS 5.2 types `text1K`, `text32K` and `text64K` have two lengths: the migration data
+dictionary counts them in thousands (1,000 / 32,000 / 64,000 characters) and the schema's
+`maxLength` in multiples of 1,024 (1,024 / 32,768 / 65,536). The importer accepts the schema's.
+Until this change `CdsExportXmlValidator.dictionaryLength` held every such element of the
+finished document to the dictionary's (`CDS_EXPORT_DICTIONARY_LENGTH_REQUIRES_REVIEW`), so an
+imported record with, say, Notes of 32,500 characters could not be exported, edited or not.
+
+The rule now (owner decision, "export unchanged when schema-valid";
+`CdsExportDictionaryLength`):
+
+- **An imported element retained unchanged** is exported exactly as it was imported when the
+  schema accepts it, the lengths between the two included. A CARLOS import of the export stores
+  the same value again; nothing is cut and no carrier is needed.
+- **Text CARLOS writes** (entered or edited in CARLOS, an imported value CARLOS adds to, or text
+  the exporter composes) keeps the dictionary length by its writer's documented rule: the
+  element holds a valid value and the exact value travels in the record's CARLOS carrier.
+- **`CdsExportXmlValidator` holds the schema alone**, so a length never holds a chart there.
+  Each writer's own check against the dictionary length is an integrity check its mapper's rule
+  never trips; for the imported element's own text the check is the schema's length.
+
+| Element (type) | CARLOS text keeps the dictionary length by |
+| --- | --- |
+| Demographics/NoteAboutPatient (`text64K`) | `CdsExportPatientNoteMapper.note`: a longer note is cut before the shortened mark to 64,000 code points, the whole column in `CARLOS.Demographic.v1`, from which a receiving CARLOS restores it |
+| Notes of FamilyHistory (`text32K`), PastHealth, ProblemList, RiskFactors (`text64K`), AlertsAndSpecialNeeds (`text1K`) | `CdsExportNativeHistoryMapper` and `CdsExportHistoryNativeReconciler.Notes.fit`: whole parts only, a left-out part exact in `CARLOS.NativeHistory.v1` (statements, `importedNotes`) or `CARLOS.History.Narrative.v1`; imported Notes alone stay as imported. A screening's PastHealth/Notes keeps 64,000 (`CdsExportScreeningMapper.NOTES_LIMIT`, which allowed the schema's 65,536 and so held a comment in between), longer text exact in `CARLOS.Prevention.Source.v1`; a registry episode's ProblemList/Notes likewise in its residual |
+| AllergiesAndAdverseReactions/Notes (`text32K`) | `CdsExportAllergyMapper`; on an imported allergy (`CdsExportAllergyFieldReconciler.notes`) the archive statement or a changed long reaction is added only when it fits beside the imported Notes, otherwise the imported Notes stay as imported and the state is exact in `CARLOS.Allergy.Archived.v1` / `CARLOS.Allergy.Source.v1` |
+| MedicationsAndTreatments RefillDuration, RefillQuantity (`text1K`), Notes, PrescriptionInstructions (`text32K`) | `CdsExportMedicationMapper.text` and `CdsExportNativeMedicationMapper`: a longer value is left out, exact in `CARLOS.Medication.Source.v1`; refill counts are whole numbers |
+| Immunizations/Notes (`text32K`) | `CdsExportImmunizationMapper`: whole parts, a left-out part exact in `CARLOS.Prevention.Source.v1` |
+| LaboratoryResults TestResultsInformationReportedByTheLab, NotesFromLab (`text32K`) | `CdsExportNativeLaboratoryMapper`: a longer value is left out whole, the message exact in `CARLOS.NativeLaboratory.v1`. CARLOS writes no PhysiciansNotes |
+| Appointments/AppointmentNotes (`text32K`) | `CdsExportAppointmentMapper.fitNotes`: cut before the mark, the complete text in `CARLOS.NativeAppointment.v1` |
+| Reports/Notes (`text32K`) | `CdsExportReportContext`: a pointer and a companion record holding the whole context; reviews of an imported report in its supplementary record |
+| AlertsAndSpecialNeeds/AlertDescription (`text1K`) | `CdsExportPatientAlertMapper` (`CARLOS.PatientAlert.v1`) and `CdsExportNativeHistoryMapper` (`CARLOS.History.Narrative.v1`) |
+
+What changed with it: the writers' gates (`CdsExportAllergyXmlWriter`,
+`CdsExportImmunizationXmlWriter`, `CdsExportAppointmentXmlWriter`,
+`CdsExportMedicationXmlWriter`) held an unchanged imported Notes, PrescriptionInstructions or
+AppointmentNotes past the dictionary length (`..._VALUES_REQUIRES_REVIEW`) and now hold it to the
+schema's; `CdsExportAppointmentOriginalValues` read imported AppointmentNotes only up to 32,000
+(`CDS_EXPORT_APPOINTMENT_ORIGINAL_VALUES_REQUIRES_REVIEW`) and the reconciler cut unchanged
+imported notes past it before a mark: both now keep them as imported. A current alert narrative
+of an imported item (`CdsExportHistoryFieldReconciler`) now keeps 1,000 characters, not the
+schema's 1,024. `CdsExportDictionaryLengthContractUnitTest` lists every element of the three
+types, its writers and their rules, and fails when a new class names one of them without a rule.
+
+Limits that remain in these families, and why:
+
+- **Data summaries.** None: see
+  [Size: stored rows and record parts](#size-stored-rows-and-record-parts).
+- **Schema facets of retained import source** read back during reconciliation (a name part of
+  50 characters, a phone extension of 5): the import validated them, so they are integrity
+  checks.
+
+This change targets `release/2026.08`, integrating through
+`9ba62cab4b5538dcbfaa9377a3090dc79cc4a562` (#6167), including the release lab and package/test qualification fixes.
+Its released migration bytes are identical to the pinned upgrade SQL baseline, that same commit
+(80 ON / 79 BC migrations, high water `V1.0.59.39`). The release renumbered its own unpublished
+migrations in #6167, so the earlier baseline `ef69eea17a4cc3fb288b26327471fce1e20dcd8f` can no
+longer be upgraded and is retired. The integration retains the release's
+importer, MariaDB Connector/J 3.5.11 and DAO/API fixes. It excludes develop-only
+portal, SMS and email features. Historical WAR hashes and workflow results below
+describe their recorded checkpoints; they do not qualify this release integration.
+
+The new, unpublished migrations are `V1.0.59.40` through `V1.0.59.49`, following
+the release's common `V1.0.59.39`. All 89 released SQL files remain unchanged.
+The billing filename audit already shipped at common `V1.0.59.33` is reused. Fresh
+ON/BC installations and upgrades from the pinned release are checked separately.
+The upgrade gate requires unchanged applied Flyway history, retained synthetic
+clinical/audit/property rows, explicit packaged CLI migration and validation,
+boot validation, zero pending migrations, and the same physical schema and seed
+expectations as a fresh install. It does not repair or rewrite migration history.
+
+The release prescription receipt stores only delivery hashes, identities and outcomes, so it is classified as operational. Favourite-group tables inherit the existing `favorites` requirement to be empty; unqualified templates are never silently omitted. The drugs concurrency version is retained in read evidence as storage metadata, not presented as a clinical CDS value.
+
+Both directions use the same MariaDB binary-read adapter. It verifies the actual
+result decoder before exposing values, because Connector/J can fall back to text
+protocol while retaining its server-prepared statement class. Unsupported driver
+inspection or text results fail explicitly. Required tests cover actual float bits,
+text-result refusal, statement ownership and bypass attempts.
+
+The package lifecycle gate keeps its published beta6/CLI 1.3.1 and beta5/CLI 1.3.0
+predecessors intact. Its unpublished 1.3.5 candidate is separately bound to the exact
+companion fallback commit and actual CI-built Debian bytes (370,142 bytes,
+SHA-256 `b93e250a54d56483dad44125e7443cec3e69d69647df2d756d40038741906db4`,
+workflow 43509827095, artifact 14078855233). Two local `dpkg-buildpackage` runs of that
+commit in the digest-pinned `ubuntu:26.04` image reproduce the package byte for byte, and
+package smoke rebuilds and checks it in CI.
+Source-built mode asserts no published tag or release-download URL. Lifecycle
+configuration must supply this exact candidate package; predecessor packages
+cannot substitute for it.
+
+The companion CLI PR also targets `release/2026.08`, starting at its compatible
+`84adfc5c237d4a536300a9d7e74e19599df23dcc` baseline. Its pinned runtime is
+`b759f117a165526e01a57295e22cc9e35f2a9697` (unpublished 1.3.5, adding the export
+command's run-id, exit-status and ticket-sweep fixes and `cds-import --abandon`). After
+`release/2026.08` took main's OSCAR 19 beta8 line (#6167, carlos-ctl 1.3.3 at
+`09b97f95356d3c12f9972d96d10355e597cc7540`), the companion merged that line too, so the
+pair now uses schema manifest format 3 and ETL contract 6. The `carlos-emr` floor stays at
+carlos-ctl 1.3.3; no maintainer script uses the export or abandon commands.
+
+| Release migration | Purpose | Earlier unpublished develop numbering |
+| --- | --- | --- |
+| `V1.0.59.40` | Nullable native field witnesses; no clinical backfill | `V1.0.82` |
+| `V1.0.59.41` | Independent export run/event ledger and authorization | `V1.0.83` |
+| `V1.0.59.42` | Artifact publication attempts | `V1.0.84` |
+| `V1.0.59.43` | Approved independent administrator import grant, preserving explicit decisions | `V1.0.85` |
+| `V1.0.59.44` | Indexed virtual HRM numeric patient key; original owner strings remain unchanged | — |
+| `V1.0.59.45` | Protected record of patients held back from an export package (chart number and safe code only) | — |
+| `V1.0.59.46` | `measurementsDeleted` indexed by patient and by original measurement id; no row changes (#6200) | — |
+| `V1.0.59.47` | `cds_laboratory_result` indexed by local report and patient, for the laboratory ownership check of imported charts; no row changes | — |
+| `V1.0.59.48` | `cds_import_unit` indexed by run, patient key and id (with the category), so the capture reads one imported chart's units in id order from the index; no row changes | — |
+| `V1.0.59.49` | `cds_export_attempt` gains the pointer to an attempt's sealed finished-chart checkpoint (newest member, plaintext SHA-256 and length, chart count) and its adopted-chart count, so a resumed export can adopt a stopped attempt's unchanged charts; nullable columns only, no row changes | — |
+
+The earlier `V1.0.86` consent forward-merge repair does not apply to the retained
+release history and is excluded. The release catalogue contains 510 rulings for
+457 ON and 490 BC physical tables. Its appointment tables do not contain
+develop's `locationCode`; unknown future columns still require explicit review.
+All importer receipts, recorded fingerprints and released migration bytes remain
+unchanged. Both directions retain separate authorization and admission.
+
+For deployment, browser/CLI operation, recipient decryption and support arrangements,
+start with the [operator guide](cds-export-operator-guide.md).
+
+The OntarioMD CDS 5.2 exporter lives beside the modern importer under
+`demographic/cdsexport`, sharing the pinned wire contract and clinical scalar
+semantics while keeping export admission, authorization and delegation independent.
+The registered `CdsExportClinicalEngine` connects the same clinical job service to
+foreground CLI work and durable asynchronous browser work. Export admission remains
+disabled by default. PCON is recognized as a logical identity but is not advertised
+as an implemented export profile.
+
+An accepted job fixes its authorized selection, recipient/audit arrangement,
+implementation identity, clinic zone and storage binding. Patient-scoped read-only
+capture, independent source/native field closure, typed clinical assembly and
+finished XML/ZIP/supporting-file checks precede recipient encryption. Only verified
+publication can atomically set `READY`. Download rechecks current authorization,
+authenticates complete ciphertext and holds a separate lease against retention.
+Unknown, changed, ambiguous, deleted, unrepresented or unauthorized clinical facts
+require explicit review; they cannot produce a truncated or partial migration that
+is labelled complete. The source catalogue classifies every physical ON/BC table;
+unreviewed sources must be empty. Native-only history, unsupported historical
+carriers and other unqualified clinical representations remain review cases.
+
+The execution lease is renewed independently during bounded source I/O. A worker
+that returns after its own lease expires records `CDS_EXPORT_EXECUTION_LEASE_EXPIRED`
+and requires review; it cannot change a newer generation or a completed publication.
+Delegated browser retrieval rechecks the configured delegation and the current
+administration/read rights of both the account's provider and the authorizing
+provider. Metadata ownership never substitutes for those clinical checks.
+
+Saved jobs are listed newest first, with a stable creation-time/identifier cursor
+restricted to the same operator. Browser controls fence pending polls before
+starting a fresh status chain. Known missing jobs return HTTP 404 and invalid state
+transitions return 409; unexpected failures are logged without exception messages,
+patient values or physical paths. A committed download never enters Struts error
+rendering. Fully written ciphertext with a failed final confirmation is audited as
+`DOWNLOAD_COMPLETION_UNCONFIRMED`, rather than as confirmed delivery or no delivery.
+
+Unpublished DDL is safe to replay after an interrupted statement sequence. The
+native gate exercises this on its own MariaDB fixture, preserving existing native
+witnesses, attempt rows and explicit privilege denials. Shared prevention readers
+also preserve a legacy row with a null demographic association. An unavailable
+source still fails explicitly instead of presenting an empty or incomplete chart.
+
+## Data summaries and listed tables
+
+**Catalogue.** `CdsExportSourceCatalogue.Disposition` has two dispositions beside
+`MAPPED_SOURCE`, `OPERATIONAL`, `REFERENCE`, `ACCESS_CONTROL` and `REQUIRE_EMPTY`:
+
+- `DOCUMENT`: the table must be named in the Reports capture scope (`requiredScopes.Reports`) and
+  nowhere else, keeps a reviewed patient scope (a direct owner in `patientScopes`, or a parent
+  chain in `CdsExportIndirectPatientScopeReadSupport`), and has no separate source-schema
+  descriptor: it is read through the pinned physical contract itself.
+- `LISTED`: never read for values, never exported, never holds a patient.
+
+Both need a ruling note. `scripts/verify-cds-export-source-catalogue.py` and the catalogue loader
+enforce these rules; `scripts/ci/test_verify_cds_export_source_catalogue.py` covers them. The
+source-presence check (`CdsExportSourceCatalogueDao.requireUnclassifiedSourcesEmpty`) checks only
+`REQUIRE_EMPTY` and `ACCESS_CONTROL` tables, so a data-summary or listed row no longer holds a
+chart. With Reports unselected the data-summary tables are neither read nor exported, exactly like
+a mapped table of an unselected category. Parent chains added for this: `form_boolean_value`
+through the Rourke 2017/2020 revision its `form_name` and `form_id` name, `emailAttachment`
+through `emailLog`, `formBCAR2020Data`/`Text` through `formBCAR2020`, `messagetbl` through
+`msgDemoMap` (a message belongs to every chart it is linked to), and for listed counts
+`caisi_form_data`, `mdsZFR` and `mdsZLB`.
+
+**Capture.** `CdsExportDataSummarySourceReader.readers` builds one reader per `DOCUMENT` table
+from the pinned contract (`CdsExportDataSummaryReadDao.plan`): every physical column, the primary
+key (or, for the BC antenatal record 2020 tables, their reviewed NOT NULL unique key) as row
+identity and paging order, and the patient scope. Values are read as exact bytes in the same
+authenticated, encrypted per-patient capture as the mapped tables: text, numbers and dates as UTF-8
+text (`CAST(.. AS BINARY)`), binary columns as raw bytes, SQL NULL distinct from empty; large
+values in byte ranges verified against the page's SHA-256; wide legacy forms in column groups whose
+row keys must agree. A table of the other province's profile reads as absent and its schema
+digest is the absent descriptor; `formRourke2009` (Aria on ON, MyISAM on BC) is read only while
+`CdsExportSourceReadLock` pins it (the lock is held for that read, not for the capture). No
+number of rows or fields holds a patient (see
+[Size: stored rows and record parts](#size-stored-rows-and-record-parts)); a row identity that
+proves not unique does (`CDS_EXPORT_DATA_SUMMARY_ROW_IDENTITY_NOT_UNIQUE`, an integrity check: keyed
+paging could skip a row). `CdsExportListedSourceReader` captures, as
+the synthetic `listed_sources` scope of every export, only each listed table's name and the
+patient's row count.
+
+**Grouping.** `CdsExportDataSummaryRegistry` is the one reviewed rule list: every `DOCUMENT` table
+is a root (one record per row) or a child linked to a root by named columns. Each saved row of a
+form table is one revision, labelled "revision n of m" in row-identity order within its table for
+the patient; `form_boolean_value` joins its Rourke revision, `formBCAR2020Data`/`Text` their BC
+antenatal record, `desannualreviewplan` the Annual/AnnualV2/ADF revision and `desaprisk` the BC
+antenatal record revision its `form_no` names. A child whose parent is not in the chart, or whose
+link names more than one candidate record, becomes its own record rather than being guessed into
+one. `CdsExportDataSummaryPlanner` applies the rules deterministically.
+
+**Rendering.** `CdsExportDataSummaryHtmlComposer` writes a deterministic HTML document: the title
+"CARLOS data summary: <record kind>", the patient's name, date of birth, sex, health card, chart
+number and CARLOS patient number, the statement that it is a data summary of CARLOS records and not
+an original document, then each source row with its table and every column with its exact value,
+HTML-encoded with `SafeEncode`. SQL NULL, empty and a value are labelled outside the value, long
+text is printed whole and wraps, and a binary value shows its size and SHA-256 and is embedded when
+its bytes (or their strict Base64 decoding) are a PNG, JPEG or GIF; e-mail bodies stored as Base64
+are decoded when they are UTF-8 text. A stored signature image (`DigitalSignature.signatureImage`)
+is kept encrypted by CARLOS, so its stored bytes are listed by size and SHA-256 only and never shown
+as an image: the summary embeds the image as it decrypts through the chart's own path
+(`DigitalSignatureManagerImpl.readStoredImage`, which `getDigitalSignature` uses) and says it was
+decrypted, shows a legacy unencrypted row only when its bytes decode as an image, and otherwise
+says it could not be decrypted (`SIGNATURE_UNAVAILABLE`). The password and password hint of an encrypted e-mail
+(`emailLog.password`, `emailLog.passwordClue`) are access credentials, not chart content: the
+summary states that a value is held and withheld and never prints it or its length.
+`CdsExportDataSummaryPdfService` renders it through
+`HtmlPdfRenderService` (bundled fonts only) and checks the `%PDF-` header, that PDFBox loads it and
+that it has a page. A record its pages cannot show completely is never held: see
+"A summary the PDF cannot show completely" below. `CdsExportDataSummaryOccurrenceService.Renderer` is
+the per-kind seam for a rendering that replaces the data summary of one kind without changing
+capture or emission; the printed forms below are added beside the summary instead.
+
+**Emission.** `CdsExportDataSummaryOccurrenceService` emits each record after the native and
+imported documents, in the Reports source scope: Media `Download`, Format `Binary`,
+FileExtensionAndVersion `pdf`, FilePath of the encrypted attachment (staged as
+`REPORT_ATTACHMENT`, the path native documents use), Class of the record kind, SubClass naming the
+kind (or the form table and "revision n of m"), EventDateTime from the record's own date column at
+its true precision (a date stays a date; a local date-time becomes an offset date-time in the
+clinic zone, or stays a date when that local time is ambiguous or skipped; a missing or zero date
+gives none) and Notes stating that it is a CARLOS data summary. Every captured field of the record
+is assessed `MAPPED` to `Reports/FilePath` (a withheld e-mail credential `OPERATIONAL` under
+`CARLOS_DATA_SUMMARY_CREDENTIAL_WITHHELD`) and checked by `CdsExportNativeFieldAssessmentValidator`;
+the patient inventory expects one Reports identity per planned record. The per-patient
+reconciliation audit records each receipt's field decisions grouped by table and assessment (each
+row key with the columns so decided), not one line per field. The audit is streamed to an
+encrypted staged file and has no size limit: neither the former per-patient bound
+(`maxIndexBytes` plus an allowance per occurrence, a job stop) nor
+`CDS_EXPORT_DATA_SUMMARY_AUDIT_LIMIT`, which held a chart before that bound could be reached,
+exists any more. The package ReadMe counts
+the data summary records of each patient by record kind (a record in several parts counts once)
+and lists the patient's listed tables and the job's unlinked listed tables.
+
+### Size: stored rows and record parts
+
+No count or size of a chart's data-summary rows holds the chart or fails the job. The former
+numbers (100,000 rows and 400,000 fields per table and chart, `CDS_EXPORT_DATA_SUMMARY_ROW_LIMIT`;
+64 MiB of text and 32 MiB of embedded binary values per chart, 16 MiB per embedded value,
+`CDS_EXPORT_DATA_SUMMARY_SIZE_LIMIT`; the audit limit above) existed because every row of every
+data-summary table of the chart was held as objects while its records were planned and rendered.
+The design that replaces them:
+
+- **Stored rows.** `CdsExportDataSummaryRowsReader` reads the authenticated capture once. Each
+  verified row is written whole to one protected member of the attempt's encrypted staging store
+  (purpose `DATA_SUMMARY_ROWS`, erased when the plan is closed) and then dropped from memory. What
+  stays in memory per row is its *index entry*: the table, the capture key, the place, length and
+  SHA-256 of its stored copy, three counters (fields, text bytes, embedded binary bytes) and the
+  row's *planning columns* only: the columns `CdsExportDataSummaryRegistry` names for identity,
+  links, revision groups, dates, the save time and the eForm listing columns
+  (`CdsExportDataSummaryPlanner.planning`). A planning value longer than 512 characters is kept
+  as its SHA-256 (links compare for equality only; no date, number or listing value is that long).
+  That is about half a kibibyte per row and does not depend on what the row holds. It is the
+  stated cost: memory grows by that much per data-summary row and by nothing else.
+- **Planning.** `CdsExportDataSummaryPlanner.plan` runs unchanged on the index entries, so the
+  records, their order, identities, revisions and dates are exactly those of the former in-memory
+  plan (`CdsExportDataSummaryStoredRowsUnitTest` plans the same rows both ways and compares the
+  records, the rendered HTML and the field decisions exactly).
+- **One record at a time.** The inventory, the emission and a printer load a record's rows from
+  the stored member by verified range (`CdsExportStagingService.VerifiedRanges`: each row is read
+  against its length and SHA-256, and the member is authenticated whole when the plan closes),
+  render it, and release it. The ReadMe counts use the index alone and store nothing.
+- **Record parts.** A record is rendered as one HTML document and one PDF, so its rows are in
+  memory together. The former numbers now decide only how such a record is written, never whether:
+  a record is divided into parts when its rows would pass 400,000 fields of one table, 1,000,000
+  fields in all (the most one field-decision receipt accounts), 64 MiB of text or 32 MiB of
+  embedded binary values (`CdsExportDataSummaryPlanner.Division.STANDARD`). Every chart that
+  exported before was inside all of these for every record, so its records have one part and its
+  output is byte for byte what it was. A part is a Reports entry of its own: the same Class,
+  SubClass and EventDateTime, its own identity and attachment (the first part keeps the record's
+  identity), Notes and a title that say "part n of m", and the receipt of exactly the rows it
+  lists. Every part begins with the record's root row, so each names its record; the root row's
+  fields are accounted by the first part only. Rows are never split and never reordered: the parts
+  in order list the record's rows in the record's order, each once. A rendered eForm and a printed
+  form belong to the record and are emitted once, after its first part; a printer is given the
+  whole record.
+- **What one value still needs.** One row is held in memory whole while it is written, loaded or
+  rendered, so a single value must fit a Java array (2,147,483,639 bytes). MariaDB cannot store or
+  return a value over 1 GiB (`max_allowed_packet`), so no chart reaches that; a text value past it
+  is refused as `CDS_EXPORT_DATA_SUMMARY_SIZE_LIMIT` and a binary value past it is listed by size
+  and SHA-256 and not embedded. An embedded binary value of any smaller size is now embedded
+  (before, one over 16 MiB was listed by size and SHA-256 only, without saying so).
+
+Report classes chosen (a maintainer decision, recorded per kind in the registry): Consultant Report
+for consultation responses; Other Letter for consultation requests, e-mails, faxes and messages;
+Lab Report for the legacy laboratory reports and their requisition links; Medical Records Report
+for every other kind.
+
+### eForms: the rendered form beside the data summary
+
+Plan item 2.5, under the maintainer's decision that every current eForm instance of a patient is
+exported and that a patient with eForms is never refused or held for them.
+
+**Which eForms.** The eForms the chart lists: `eform_data` rows of the patient with `status` not 0
+and `patient_independent` 0, the rows `EFormDataDao.findByDemographicIdCurrent(patient, true)`
+shows. Each keeps its data summary (Kind `EFORM`, the lossless record of every stored value) and
+gains a second Reports entry holding the form as CARLOS displays it. A removed instance (`status`
+0: deleted, or the earlier version an edit replaced) and a patient-independent instance are not
+exported by either path (`CdsExportDataSummaryOccurrenceService.withheld`): the record and the
+rows that belong to it (`eform_values`, `EFormDocs`) are still captured, every field is assessed
+`OPERATIONAL` under `CARLOS_EFORM_REMOVED_NOT_EXPORTED` or
+`CARLOS_EFORM_PATIENT_INDEPENDENT_NOT_EXPORTED` and validated, no receipt or identity is made, and
+the ReadMe counts them per patient as `Patient records not exported: <label>: <n>`
+(`CdsExportPatientSummaryDto.notExported`, written by `CdsExportSupportingFilesComposer` and
+re-read by `CdsExportSupportingFilesValidator`). Before this change such rows were exported as
+data summaries. A child row whose eForm is not in the chart still becomes its own record, as for
+every data-summary kind.
+
+**Capture.** The rendered forms are the synthetic Reports table `native_eform_renderings`
+(`CdsExportEformRenderingSourceReader`, schema `TRUSTED_EFORM_RENDERINGS`, in `requiredScopes`):
+one row per listed eForm with `fdid`, `outcome` (`RENDERED` or `UNAVAILABLE`), `reason` (empty or a
+`CdsExportEformRenderService.Reason` code), the saving provider's `author_first_name` and
+`author_last_name`, and `content` (the PDF, or empty). A browser render takes seconds and reads the
+eForm through the web application, so it cannot run inside the capture's repeatable-read snapshot.
+`forCapture` therefore renders before the source transaction, and the PDF goes straight to a new
+capture spool (`CdsExportNativeSourceReader.Spool`): members encrypted under the job's staging key,
+readable only by that capture, never published and erased when the capture ends, successful or not
+(`CdsExportNativeCaptureService`). Rendered bytes are never held in heap. Inside the snapshot the
+listed eForms are read again (`CdsExportEformRenderReadDao`): a render is captured only when the
+row's digest (every stored column a render reads, the form HTML through its SHA-256, SQL NULL
+distinct from empty) equals the digest it was rendered from. An eForm edited, replaced or added in
+between is captured as `CHANGED`.
+
+**Rendering.** `CdsExportEformRenderService` calls `EFormBrowserPdfService.renderSavedEformPdf`
+with no approval: an omission the renderer would deliver only after a clinician's exact approval
+makes the render `INCOMPLETE`; nothing is ever approved for the export. The identity is the job's
+effective provider from `CdsExportRunControl.authorizeRendering` (the same fresh Reports and chart
+checks as every other read, `CdsExportAccessService.requireEformRendering`), re-obtained for every
+render; the renderer checks `_eform` again and never runs as a system identity. Throttle: one export
+render at a time per JVM (a fair semaphore), so the export never holds more than one of the
+renderer's two global slots and a clinician's print or fax always keeps the other, at least
+`cds.export.eformRenderIntervalMillis` apart (default 250 ms).
+
+The export waits for the renderer instead of giving a form up (the owner's decision, "wait and
+retry"):
+
+- **A busy renderer is waited for.** The export waits for its own turn and then for a render
+  slot as long as each takes, keeping its place in the renderer's queue
+  (`EFormBrowserPdfService.renderSavedEformPdf` with a slot-wait check, `RenderAdmission`; a
+  clinician's print or fax still waits its ordinary 30 seconds). When the queue itself is full
+  the renderer refuses at once, and the export asks again after 1 s, then 2 s, doubling to 30 s.
+- **An open breaker is waited out.** Three consecutive browser failures or timeouts open a
+  five-minute breaker; the export waits until it closes and then tries the form.
+- **A failed render is tried once more.** A render that times out (`TIMEOUT`, the renderer's
+  90-second deadline) or fails in the browser (`BROWSER_FAILURE`, which includes the renderer's
+  30-second browser-start and page-load limits) is tried again after the patient's other eForms,
+  in eForm order, before the chart is captured (`CdsExportEformRenderingSourceReader.forCapture`).
+  A second attempt that renders is captured exactly as a first one would be. A second failure is
+  captured as `TIMEOUT_RETRIED` or `BROWSER_FAILURE_RETRIED`, and the eForm keeps today's fallback:
+  its data summary, with every stored value and the form's HTML source, and the note below.
+  Nothing about the attempts (their number, order or time) reaches the capture, so the same
+  outcomes give the same chart bytes, which a resumed attempt's adoption compares.
+- **Every wait is cancellable and is not progress.** Each wait runs
+  `CdsExportRunControl.waitCheckpoint` at least once a second: a cancellation ends it within a
+  second and the lease is renewed, but, unlike a checkpoint, the wait does not tell the stall
+  detector (`cds.export.maxDurationMillis`) that the worker is alive, so an attempt that only ever
+  waits is still ended as `CDS_EXPORT_WORKER_STALLED`, as for a statement's wait.
+
+Each attempt is timed (its wait for a slot included), and a PHI-free line per chart records counts
+and times (`CDS_EXPORT_EFORM_RENDERS rendered=<n> unavailable=<n> retried=<n> renderMs=<total>
+longestMs=<max>`). A process without the renderer bean (the command line) is
+`NOT_IN_THIS_PROCESS`, with no attempt. Only a `SecurityException` (changed authorization),
+cancellation and a spool write failure leave the render path, as on every other export path. A
+render without a request derives its base URL from Tomcat's connector (see
+`docs/eform-browser-pdf-renderer.md`, "Base URL for renders without a request").
+
+**Emission.** `CdsExportDataSummaryOccurrenceService.append` reads the captured outcomes
+(`CdsExportEformRenderings`) and requires one per listed eForm and none for anything else
+(`CDS_EXPORT_EFORM_RENDERING_SCOPE_INVALID`). A rendered eForm emits, after its data summary, a
+Reports entry with its own identity (`carlos-native-occurrence-v1` over `native_eform_renderings`
+and the fdid): Media Download, Format Binary, FileExtensionAndVersion pdf, FilePath of an attachment
+copied from the authenticated capture into encrypted staging, Class `Medical Records Report`,
+SubClass the form name when it fits the 60-character SubClass (else `eForm`), EventDateTime the
+form date and time at their true precision, SourceAuthorPhysician/AuthorName the saving provider
+when both names are present, and Notes stating it is the form as CARLOS displays it, plus the
+eForm's "additional information" (subject). Its receipt assesses the eForm row and the render
+outcome row: `form_data` and `content` `MAPPED` to `Reports/FilePath`, the name, subject, date,
+time and provider `MAPPED` to the elements above when written, everything else `OPERATIONAL`
+(`CARLOS_EFORM_VALUE_IN_DATA_SUMMARY`, `CARLOS_EFORM_RENDER_OUTCOME`). An unavailable render adds
+to the eForm's data summary, in Notes and as a paragraph under the summary's statement, "The eForm
+as CARLOS displays it could not be rendered for this export (`<reason>`), so this data summary is
+its only Report.", where `<reason>` is fixed text: "rendering timed out on the second of two attempts"
+(`TIMEOUT_RETRIED`), "the rendering browser failed on the second of two attempts"
+(`BROWSER_FAILURE_RETRIED`), "the renderer could not show all of the form's content, and an export
+never approves an incomplete form" (`INCOMPLETE`, not retried: the renderer's answer would be the
+same), "the eForm changed while the export ran" (`CHANGED`), "the export ran outside the web
+application, which renders eForms" (`NOT_IN_THIS_PROCESS`) or "rendering was not attempted"
+(`NOT_PREPARED`); the outcome row joins that receipt with `reason` `MAPPED` to `Reports/Notes`. The
+inventory expects the second identity for every captured rendered form. A job accepted before this
+table existed has no renderings and keeps the data summaries alone.
+
+**Authorization.** Reports now also require `_eform` read, by name at admission and for each
+patient, like `_dxresearch` with ProblemList (`CdsExportAccessService.EFORM_READ`): Reports carry
+every eForm's values and form, so a provider without the eForm screen's read right cannot export
+them. The two rights every chart's capture already checked for each patient are now also named at
+admission and worker entry: `_rx` for every export (`PHARMACY_READ`: the preferred pharmacy is
+read with Demographics, which every export carries) and `_eChart` whenever a note-backed category
+is selected (`CHART_READ`: case management is read for every chart). Without them a job was
+accepted and then stopped at its first patient as `CDS_EXPORT_ACCESS_CHANGED`.
+
+**Command line.** The CLI JVM has no Tomcat and no renderer: render tokens live in the web JVM's
+`EFormRenderTokenService`. A foreground `export` or `resume` of a job that selects Reports
+(`CdsExportService.rendererHandoffMillis`) first leaves the durable job to the web dispatcher, which
+discovers queued jobs every five seconds, and only polls its status; it prints `HANDOFF`. If the job
+stays unclaimed for `cds.export.cliRendererHandoffSeconds` (default 120), the CLI prints
+`HANDOFF_FALLBACK` and runs it itself; every eForm then carries the `NOT_IN_THIS_PROCESS` note. A
+job the web worker owns is never claimed by the CLI while its lease lives; an expired lease makes it
+unclaimed again. Detached submissions always leave the job to the web worker.
+
+**Revision labels.** A revisioned record (every encounter-form table, the legacy eChart and the
+encounter immunization schedule) keeps SubClass "<table> revision n of m" (60 characters at most);
+its PDF title and its Notes add the stored save time, "Revision n of m, saved <time>"
+(`formEdited`, `timeStamp` or `save_date` as stored, a local wall-clock value), so revisions of
+one form can be told apart. A revision whose save time is absent or zero is labelled without it.
+
+**Printed forms beside data summaries.** A `CdsExportDataSummaryOccurrenceService.Printer` adds the
+record as CARLOS EMR prints it as a second Reports entry, after the record's data summary, which
+stays the lossless accounting. Two printers are registered (web context by component scan, CLI in
+`CdsExportCliSpringConfiguration`):
+
+- `CdsExportConsultationLetterComposer` prints every consultation request (`consultationRequests`
+  root, not detached) through `ConsultationPDFCreator`'s request-free path
+  (`ConsultationPDFCreator(ConsultationLetterDto, OutputStream)` and `printLetter()`). The
+  request's own values come from the captured request row, its `letterheadTitle` extension and the
+  captured demographic row; the reference values the chart's Print looks up (clinic letterhead,
+  consultation service, specialist directory, provider names and billing numbers, program name,
+  appointment-instruction label and the patient's current `demo_cell`) are read by
+  `CdsExportPrintedFormReadDao` in a short read-only transaction. The signature is resolved as the
+  chart's Print resolves it: the request's `signature_img` must name a `DigitalSignature` row
+  captured for this chart whose stored ownership (`DigitalSignatureManager.getDigitalSignatureMetadata`)
+  is a consultation signature of this patient, and its image is read through
+  `DigitalSignatureManager.getDigitalSignature`, which decrypts the stored value (the stored bytes are
+  ciphertext and are never printed as they are). Any other owner or module, or a lookup or
+  decryption failure, leaves the letter unsigned with `SIGNATURE_UNAVAILABLE`, never a hold. The
+  logo is the configured `faxLogoInConsultation` file. When either is requested but cannot be included, `printLetter()`
+  reports it (`ConsultationPDFCreator.Omission`) and both Notes say `SIGNATURE_UNAVAILABLE` /
+  `LOGO_UNAVAILABLE`: nothing is substituted. A configured logo file that is not installed (the
+  packaged sample path, for example) is not an omission: the letter prints without a logo, as the
+  clinic's own Print does, and no Note is added. An installed logo that cannot be read (larger than
+  4 MiB, unreadable, or not an image) is reported. A request whose consultant is a health-care-team
+  contact (`demographicContactId` with `ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS`) prints
+  that contact as the chart's Print does (`EctConsultationFormRequestUtil.estRequestFromId`,
+  `CdsExportConsultationLetterComposer.consultant`): `CdsExportPrintedFormReadDao.teamLink` reads
+  the `DemographicContact` link (type, category, contact id) and `contact` the `Contact` row, and
+  a professional `ProfessionalContact` (type 2, category "professional" in any case) becomes the
+  consultant through `ProfessionalSpecialist.healthCareTeamConsultant`, the code the chart's Print
+  runs too. It shows the contact's own values only: its name (a contact has no salutation or
+  professional letters), the address parts it has, its work phone with any extension, and its
+  fax. No directory specialist is read, so one that shares the contact's number is never
+  borrowed, and a missing value prints blank, never "null". No CPSO number is needed (contacts a
+  CDS import creates have none). Earlier releases took the salutation and letters of the
+  directory specialist with the contact's number and could not print without one or without a
+  CPSO number; the chart and the export are corrected together. Any other link (a directory
+  specialist's, a provider's, a personal one) prints the specialist `specId` names, as the chart
+  does. A personal contact cannot be a consultant: the consultation form offers only the patient's
+  professional contacts (`DemographicManager.getHealthCareTeam`) and saves only those
+  (`ConsultationConsultantSelection`). Only a link that no longer exists or is malformed refuses
+  the letter with `CONSULTANT_CONTACT_UNAVAILABLE`: the link row is gone or untyped, or a
+  professional contact link's id is not a number or names no professional contact (the row is
+  gone or personal). The chart prints such a request without a consultant; the export carries it
+  as its data summary, whose Notes give the code, and never holds the patient. The letter prints
+  only part of the record (not the
+  other extension rows, attachment references, status or source); the request's data summary
+  already lists every one of its rows and values, so no further supplementary summary is needed.
+  The request path is pinned by
+  `ConsultationPDFCreatorRequestPathUnitTest` (page text, drawing instructions and images) and
+  prints a directory specialist's letter exactly as before; its health-care-team letter is the
+  corrected one above.
+- `CdsExportRourkeChartComposer` prints the current (latest saved) `formRourke2017` or
+  `formRourke2020` revision through the form's fixed Jasper pages (`Rourke2017PdfReport`,
+  `Rourke2020PdfReport`; bundled DejaVu fonts only, a character DejaVu lacks or clipped text refuses
+  the PDF). The captured revision row is read into the form's own entity (every persistent field
+  from its stored column; a missing column refuses with `FORM_MAPPING_MISMATCH`) with its captured
+  `form_boolean_value` rows, so `toProperties()` fills the pages exactly as the clinician's print
+  does; the child's name, date of birth, gestational age and FSA come from the captured demographic
+  row as `FrmRourke2017Record`/`FrmRourke2020Record` set them. Text with no stored value prints
+  blank and a checkbox with no stored value prints as an empty box (the 2020 form's own properties
+  cannot hold either); the data summary still shows SQL NULL.
+
+A printed entry is expected and emitted only when `CdsExportRunControl.recordReadable` answers that
+every current identity holds the record's read object (`_con`, `_form`) at role and patient level
+(`CdsExportAccessService.canReadRecordObject`, after the ordinary Reports chart gates). Its
+Reports content, in schema order, is Media `Download`, Format `Binary`, FileExtensionAndVersion
+`pdf`, FilePath (staged as `REPORT_ATTACHMENT` under `Reports/`), the kind's Class, the printer's
+SubClass, EventDateTime from the record's own date (`referalDate`, `formCreated`),
+SourceAuthorPhysician/AuthorFreeText with the record's provider ("LAST, FIRST") and Notes beginning
+"CARLOS printed form:". Its receipt assesses the stored values it used for that metadata `MAPPED`
+to their element under `CARLOS_PRINTED_FORM_METADATA`; every field stays accounted by the data
+summary's own receipt as well. Its identity is `carlos-printed-form-occurrence-v1` over the table
+and record id.
+
+A printed form that cannot be made never holds the patient: the record is exported as its data
+summary, whose Notes end with "could not be produced (<category>)". Categories are fixed codes
+(`NOT_AUTHORIZED`, `TEXT_OVERFLOW`, `UNSUPPORTED_CHARACTER`, `FONT_UNAVAILABLE`,
+`FORM_MAPPING_MISMATCH`, `CONSULTANT_CONTACT_UNAVAILABLE`, `RENDER_FAILED`), never PHI. The
+inventory (`identities`) prints each eligible record to decide whether its printed entry is
+expected; the emission prints it again. Both printers are functions of the captured record and
+the reference values, so they reach the same answer; an answer that differs between the two
+(access revoked mid-export, an infrastructure fault) fails the patient's document like any other
+inventory/emission mismatch. The package ReadMe counts data summaries only.
+
+`CdsExportPrintedPdf` makes the printed PDF reproducible: OpenPDF (directly and inside Jasper)
+writes the current time as creation and modification dates, a time-based file identifier and a
+random six-letter tag on each font subset. The export removes the dates, derives the identifier
+from the table and record id, and renames the subset tags in file order, so an unchanged record
+gives the same bytes. The data summary PDF itself (`HtmlPdfRenderService`) is not normalized.
+
+Consultation responses, archived consultation request versions, other encounter forms and every
+earlier form revision remain data summaries only.
+
+**Archived consultation request versions.** Each update of a consultation request first copies
+the request to `consultationRequestsArchive` and its extensions to `consultationRequestExtArchive`
+(`ConsultationManagerImpl.archiveConsultationRequest`). Both are `DOCUMENT` tables: each archived
+version is an "Archived consultation" record (Class Other Letter) with its copied
+extensions (linked by `consultationRequestArchiveId`), numbered "revision n of m" among the archived
+versions of the same request (`requestId`, the rule's revision group) and labelled with its stored
+`lastUpdateDate`. The archive is scoped by its own `demographicNo`; its extension rows by the
+version they name (`CdsExportIndirectPatientScopeReadSupport`).
+
+### Legacy records of older releases
+
+Installations upgraded from older OSCAR releases hold rows that every chart with them was held
+for (`REQUIRE_EMPTY`), and a populated legacy lab table without a patient link stopped the whole
+job. Each table was checked against current CARLOS (writers, readers and the screen that shows
+it); all are still shown, so all 23 are `DOCUMENT` and none is `LISTED`:
+
+| Tables | CARLOS today | Record (kind) | Chart |
+|---|---|---|---|
+| `eChart` | written by `EctSaveEncounter2Action`/`EChartRevisionPersister`, shown by `report/ViewReportecharthistory` | one "Legacy encounter" per saved row, "eChart revision n of m" | `demographicNo` |
+| `immunizations` | encounter immunization schedule (`EctImmImmunizationData`); a save archives the previous row | one "Immunization schedule" per row, revisioned | `demographic_no` |
+| `relationships` | classic demographic page (`demographic/AddRelation`, shown when `NEW_CONTACTS_UI` is off), chart printer | one "Patient relationship" per row | `demographic_no` only: the related patient's chart shows its own inverse row |
+| `mdsMSH` and the segments `mdsPID`, `mdsPV1`, `mdsOBR`, `mdsOBX`, `mdsNTE`, `mdsZMC`, `mdsZMN`, `mdsZRG` | MDS lab list and `mds/SegmentDisplay` | one "MDS laboratory report" per header, every segment of its `segmentID` | `patientLabRouting` of type `MDS`, `lab_no` = `segmentID` |
+| `labPatientPhysicianInfo`, `labTestResults`, `labReportInformation` | CML upload (`lab/CMLlabUpload`) and `CMLDisplay` | one "CML laboratory report" per report, with its test lines and its upload header | `patientLabRouting` of type `CML`, `lab_no` = report id |
+| `hl7_message`, `hl7_msh`, `hl7_pid`, `hl7_link`, `hl7_orc`, `hl7_obr`, `hl7_obx` (BC) | PathNet upload (`lab/labUpload`) and `ViewLabBcDisplay` | one "PathNet laboratory report" per message, with MSH, PID, PID link, ORC, OBR and OBX | `patientLabRouting` of type `BCP`, `lab_no` = `message_id` |
+| `labRequestReportLink` | `lab/ViewLinkReq`, shown on the HL7 and CML report displays | one "Laboratory requisition link" per row | the route of the report it names: `CML` for `labPatientPhysicianInfo`, `HL7` for `hl7TextMessage`; any other table, no chart |
+
+Native mappings were considered and not taken. `relationships` names another chart as the
+related person; the personal-contact mapping never reads another chart's identity (a
+patient-to-patient `DemographicContact` also requires review), so the relationship travels as a
+summary that names the related patient by CARLOS number. `immunizations` holds a configured
+schedule document, not the administration records the Immunizations mapping reads.
+
+**Scope.** A legacy lab report's chart is the one CARLOS lists it in: its `patientLabRouting` row
+of exactly the report's type. `CdsExportIndirectPatientScopeReadSupport` gains a step condition on
+the parent's type (`Step.route`, a literal from the compiled list, compared with the collation for
+the index and byte for byte, so `mds` is not `MDS`), and scopes every legacy lab row straight to
+its report's route, through `hl7_pid` and `hl7_obr` where the row names only those (`hl7_obx` is
+three joins from its route) and through `labPatientPhysicianInfo` for the shared upload header.
+The copies of a patient number in `mdsMSH.demographic_no` and `hl7_link.demographic_no` are data,
+not ownership; they left `patientScopes`, and the listed `mdsZFR`/`mdsZLB` follow the MDS route
+too. A segment whose header row is missing still follows its lab number's route and becomes its
+own record. A report routed to no patient (an unmatched upload, `demographic_no` 0) is in no
+chart: it is neither exported nor held, and its inbox routes are counted as unlinked
+`providerLabRouting` rows. A relationship's other endpoint no longer holds or receives the row.
+
+**Keyless segments.** The eight MDS segment tables have no key at all (only a non-unique
+`segmentID` index), and two rows may be identical. `CdsExportDataSummaryReadDao` reads exactly
+these reviewed tables (`KEYLESS`) whole, ordered by every column (integers by value, text by its
+exact bytes, NULL first) and paged by position inside the one repeatable-read capture snapshot,
+so each row is captured once; the capture names them by ordinal. Every column of these tables is
+at most 255 characters, so every value is read inline; a keyless plan refuses a longer type and
+never reads a byte range. Identical rows stay separate rows of the summary.
+
+**Grouping.** A registry link may name a child registered earlier as its parent; the row joins
+whichever record that parent row joined (or the parent's own record when it stood alone).
+`CdsExportDataSummaryRegistryUnitTest` requires every parent to be registered before its child.
+An upload header named by two reports of one chart is ambiguous and stands as its own record.
+The CML service date is stored as `YYYYMMDD` text; the planner reads that basic form as a date.
+
+**Laboratory category.** `requireLocalLaboratoryAssociations` no longer refuses an `MDS`, `CML` or
+`BCP` route; the HL7 projection never reads one. A request that selects LaboratoryResults without
+Reports would leave those reports out, so `CdsExportLaboratorySourceReader.forRequest` returns a
+projection whose capture holds such a patient (`CDS_EXPORT_LEGACY_LAB_REPORTS_NEED_REPORTS`,
+`CdsLaboratoryResultDao.hasCdsExportLegacyReports`). An unknown route type still holds.
+
+**Program admissions.** `admission` was the only `ACCESS_CONTROL` table: any stored
+`admission_notes`, `discharge_notes` or `radioDischargeReason` held the chart. It is now
+`DOCUMENT`, and its `clinicalRemainders` (allowed on a `DOCUMENT` table by the loader and the
+verifier) select the records: `CdsExportDataSummaryReadDao.predicate` adds the same "stored
+remainder" test the presence check used, so only admissions with a narrative or a discharge
+reason become "Program admission" summaries (every column: program, provider, dates, status,
+team and the narratives). A membership row without one is not exported. Program membership keeps
+gating access: `CdsExportNoteAccessDao` and the application's patient-access checks read
+`admission` directly, independently of the catalogue ruling. A `radioDischargeReason` of `0` is
+the column default and no CARLOS screen writes a discharge reason (reasons are lookup codes, such
+as `50` for an automatic discharge), so `0` is no reason and does not make a row a record
+(`CdsExportSourceCatalogue.remainderPresent`, shared by the record filter and the presence check).
+
+No legacy table and no clinic-wide must-be-empty table remains: every remaining `REQUIRE_EMPTY`
+table has a patient link.
+
+## Historical implementation and qualification log
+
+Everything below records earlier checkpoints, including work originally based
+on develop. References to pending implementation, approval decisions, migration
+numbers, source counts or nullable appointment locations describe those recorded
+checkpoints. They do not override the release contract above, the current
+[implementation progress](cds-export-progress.json), or the requirement-to-code
+references in the [standards review](cds-export-spec-review.json). Only required
+evidence bound to the exact current source and WAR qualifies a release artifact.
+
+The exact source-catalogue WAR passed independent native-chart and genuine
+sixteen-category-import checks without application-class overlays or restamping
+import metadata. The latter detected 18 schema-valid clinical mutants. The concrete
+adapter checkpoint passed a clean WAR/Javadoc build and 1,000 focused checks across
+66 suites, following the preserved 4,914-check coordinated baseline. Its exact WAR
+(`c9e1d8a737f15fdb9b10dba85ee33274dc826a8bf7b66905845520a6a273bad2`)
+published a real native-chart package through `CdsExportPublicationService` and
+retrieved it through `CdsExportArtifactService`. All thirteen independently expected
+clinical facts matched; four schema-valid mutations were rejected. Independent
+recipient decryption reproduced the exact validated ZIP, without copying a private
+key. Temporary chart/provider/grant changes were restored and the test's own
+published attempt was expired and physically retired.
+
+Normal engine registration and CLI capability reporting passed 36 affected checks,
+including the real MariaDB/Spring CLI graph with disabled admission, a missing active
+zone and invalid active budgets. Metadata status/control stayed available.
+
+The exact normally registered WAR
+(`17f93a04c56771befd30271d4cfd75c2daad2b492be50df7c22742afe847c407`)
+then passed the actual Python CLI, root-issued delegation, service-user Java 25,
+real Spring/MariaDB, clinical publication and authorized download path. Independent
+processes observed the same durable job and submission identity. A second download
+to the same destination was refused without changing its bytes. Status and report
+remained available with both an invalid clinical zone and invalid active budget.
+Independent recipient decryption recovered the exact validated ZIP, all thirteen
+expected native facts matched and four schema-valid clinical mutants were rejected.
+The test retired its own tickets/artifact/metadata and restored temporary
+provider/grant changes; it retained the original native chart and protected keys.
+
+The owned installed workflow now runs the actual CLI and the authenticated asynchronous
+browser against one normally deployed WAR. At `0acf632d`, both reached `READY`,
+downloaded and independently recipient-decrypted packages matching all fourteen
+expected native facts and rejecting four schema-valid clinical mutants. Browser
+login, CSRF/method refusal, HTTP 202 acceptance and reload/submission recovery also
+passed. That run failed the final ledger assertion because CLI and browser runtime
+compatibility digests differed; it is not a completed release qualification. The
+fixture now matches the CLI bootstrap's explicit clinical default time zone and
+minimal locale. Exact runtime equality, unchanged native chart/WAR and retired
+process tickets remain required final assertions.
+
+At `8a6248f1`, that complete installed workflow passed, including both real `READY`
+jobs, equal CLI/browser runtime compatibility, recipient decryption, all fourteen
+native facts and four mutation checks for each transport. The native chart was
+unchanged, no import metadata was created, root delegation tickets retired, and
+all 10,327 installed WAR files verified before and after. The actual WAR SHA-256
+was `3a9f54e906a9c778d354252056d572a17359f996b42b7ac1a74ae024d6300c1b`.
+The retained [workflow evidence](https://github.com/carlos-emr/carlos/actions/runs/42540856434)
+is a passing checkpoint; later changes still require their own final-head checks.
+
+At `a42feca0`, the complete installed CLI/browser proof passed again with WAR
+`7cce2bc8e3f37d73e32ee05528be21f8c810dd4380abbece2c53d4347250195c`.
+All 3,906 coordinated checks across 305 required suites passed with zero skips,
+and all five installed importer resource profiles passed, including scaling and 20 GiB.
+Those profiles exercise import; they do not qualify export resource behavior.
+The full Java run had zero errors and one static migration-guard failure: its
+matcher did not recognize `WHERE EXISTS (...) AND NOT EXISTS (...)`. The actual
+migration's four native authorization/reapply cases passed. The candidate fixes
+the generic matcher and keeps the approved SQL unchanged. Its progress-executor
+retirement and prescription-preview load binding have additional focused checks;
+final-head workflow results remain the release authority.
+
+
+At `ce2aa735`, all 3,909 coordinated checks across 305 required suites passed
+without skips. The [complete Java workflow](https://github.com/carlos-emr/carlos/actions/runs/42549472262)
+passed 39,371 checks across 3,008 report files, with zero failures or errors and
+315 visible optional-environment skips; its separate time-zone and font matrices
+also passed. The installed CLI/browser workflow passed with all fourteen native
+facts and four schema-valid mutants per transport, equal runtime compatibility,
+an unchanged chart and all 10,328 installed files verified. Its actual WAR SHA-256
+is `f9ff6661fdc7146eecd362d077597ce441ce8b1d4468c4fb2bdde19294610fba`.
+SonarCloud passed; the complete post-analysis report contained no security or
+reliability findings.
+
+Resource evidence has separate scopes. The five profiles in
+`cds-import-performance.yml` qualify the importer regression boundary. The new
+`cds-export-resources.yml` qualifies only the packaged export byte layer: a 256 MiB
+heap, a 20 GiB aggregate archive containing entries above 4 GiB, independent ZIP
+readers, real 65,537-entry ZIP64 count overflow, recipient decryption and physical
+32 MiB filesystem exhaustion/reserve refusal with private-file cleanup and
+recovery. This is separate from clinical readiness and query-scaling evidence.
+The exact current source compiled and the physical disk checks passed locally.
+A separate streaming CMS recipient verified the bounded rehearsal and rejected
+a tag-only mutation. OpenSSL interoperability uses its own bounded fixture.
+External proof checks reject small rehearsals, absent counters, ordinary ZIP
+counts, unconfirmed disk cleanup and failed recipient authentication. The initial
+CI attempt stopped before resource execution because Maven created a root-owned
+output directory; fixtures now use the runner-owned temporary root. The actual
+large run passed at `a40178c7`: 21,475,164,160 aggregate bytes, 4,295,032,832-byte
+entries, 65,537-entry ZIP64 and verified streaming recipient decryption, with a
+256 MiB heap and a measured largest-child RSS of 346,894,336 bytes. Both export
+resource jobs verified all 10,328 installed files before and after. The same
+head passed all 3,909 native checks, the complete 39,371-test Java workflow, all
+five importer resource profiles, installed clinical CLI/browser proof, SonarCloud
+and the full Semgrep workflow. The final CLI pin includes the matching ten-minute
+import/export orphan-ticket cleanup and the clarified package artifact identifier;
+its paired-pin checks remain authoritative. The final test fixtures capture the real prescription-preview
+listener, and Semgrep's 120-minute budget preserves its full scan and custom-rule
+steps. Scanner execution errors or absent SARIF now fail explicitly while the
+existing non-blocking findings policy stays intact. Current-head checks remain authoritative. CodeFactor still reports an
+obsolete critical function span; its available official refresh calls returned
+HTTP 403, and no failed check has been waived.
+
+All 305 reviewed coordinated suites passed at `b59628c7`, with no failures, errors
+or required skips, including the four real MariaDB permission-seed cases and the
+actual Struts action factory. The independent administrator `_cds_import` grant
+was explicitly approved and applied in the new V1.0.85 migration. Existing explicit
+grants and denials are preserved. This independent permission survives later
+removal of `_admin` authority and must be revoked separately when intended.
+The maintainer DCO attestation was also explicitly approved; its PR comment and
+check must match the final head. There is no outstanding permission decision.
+
+The paired CLI checkpoints passed their unit, installed MariaDB and Debian checks.
+The final unpublished CLI pin is `cdc1302c`; its cleanup follow-up at `e141d0cb`
+passed Python3.12/3.14, Debian/lintian, installed root identity/expiry and man-page
+checks. A disposable current-schema test copy passed all 2,017 CLI tests with
+107 optional-environment skips, while verifying unchanged pinned runtime code
+and tests outside the supported standalone-data export.
+It incorporates the billing contract and retains its filename/audit safeguards; the
+current pair uses manifest format 3 and ETL contract 6 (see the companion paragraph above). Version 1.3.3 remains unpublished. Final candidate
+Java, security, installed resource and complete clinical workflow results remain
+release gates; the current PR checks and their bounded evidence are authoritative.
+The adapter is [carlos-emr/carlos-ctl#20](https://github.com/carlos-emr/carlos-ctl/pull/20).
+
+The complete reviewed inventory runs in the import/export/shared jobs of
+`.github/workflows/cds-transfer.yml`, each with newly migrated owned databases.
+Missing, duplicated, ambiguous or skipped suite evidence fails the gate. Only
+sanitized reports are uploaded. Older checkpoint narratives below are retained as
+historical component evidence, not statements of the current readiness state.
+
+The current pair forward-integrates the released billing compatibility change from
+application commit `d40d2939afde9bea460b232fe78976b2820698ca` and CLI main
+`84adfc5c237d4a536300a9d7e74e19599df23dcc`. It preserves native billing
+creator authorization, original filenames, cross-table reservations, audit
+provenance and guarded download/regeneration. Schema manifests use format 2;
+properties and preflight retain format 1. The candidate requires CLI 1.3.3.
+The new `billing_filename_import` table is operational financial audit metadata,
+matching the existing billing-table disposition. All previous 516 source rulings
+remain unchanged; the current catalogue has 517 rulings (464 ON and 497 BC tables).
+No original CDS import metadata is rebound or rewritten.
+
+## Historical verification checkpoint
+
+At `0ca658cf`, all 301 coordinated suites passed: 2,234 export, 1,160 import
+and 379 shared checks, with no errors, failures or skips. Later import/export
+shards and the canonical DAO wiring check also passed. These checkpoints do not
+replace current-head browser, broad Java or resource verification.
+
+The installed runner now uses the actual packaged Tomcat context descriptor,
+verified byte for byte, alongside the immutable WAR. Replacing that descriptor
+with a minimal test context had omitted `suspendWrappedResponseAfterForward=false`
+and produced empty HTTP 200 login responses despite successful application/TLS
+startup. Sanitization stays enabled. A proper disposable CA/server chain, strict
+certificate validation and the real desktop login form are used. Successful CLI
+clinical checkpoints are printed separately from the complete browser result.
+
+The action-instantiation contract distinguishes named Spring prototype beans
+from legacy class-mapped actions. It follows the included Struts mappings and
+exercises the real Struts 7.4 factory, checks independent instances and retains
+the legacy no-argument constructor requirement. Global autowiring is unchanged.
+Both contracts run early and in the strict coordinated inventory; the current
+304-suite revision still requires its passing reports.
+
+A proposed independent importer admin grant requires explicit approval after
+automatic approval review rejected that persistent permission change. The
+unpublished draft seed was removed and original permission defaults, manifests
+and migration bindings were restored. The unchanged security-seed contract stays
+in the coordinated inventory. No exemption, weakened security gate or successful
+readiness claim substitutes for that unresolved decision. DCO attestation and
+external quality checks also remain outstanding.
+
+## Original baseline and integration
+
+The implementation worktree starts at `release/2026.08` commit
+`b96e367945befe66eb333fe19aa1630aa9d10647`, which includes the modern importer.
+The feature branch includes the forward integration of `develop` commit
+`848ca460b2d5779a45950ae1451311f1c9409f33`, followed by appointment-location commit
+`497896230576b492284b1c29efa77f4c4a2409ea`. The original 117 merge conflicts and
+17 later appointment-location conflicts were resolved
+and the integrated importer/exporter baseline was packaged and tested at
+`2026.09.0-alpha1-SNAPSHOT`. The preserved package and installed component evidence
+below distinguish this completed integration from the remaining clinical export
+qualification under the [release process](release-process.md).
+
+The original checkout and its work remain intact. The separate `carlos-ctl`
+worktree starts at `c330ae97683757da4aeff18f70db665c561de1cf`. Its export adapter
+is implemented alongside the Java entry point. The real protected Java 25 capability probe and native-chart clinical export/download have passed in an isolated installed container. The remaining qualification gates are stated above.
+
+## Implemented foundation
+
+| Component | Contract |
+| --- | --- |
+| `demographic.cds.contract.CdsCategory` | The 16 schema sections in wire order. Helper units and ReportsText/ReportsBinary are not extra schema categories. Unknown names are refused. |
+| `demographic.cds.contract.CdsLogicalProfile` | Explicit `omd-5.2` and `pcon-2024-02` identities. Recognition does not establish direction-specific support or conformance. |
+| `cdsexport.dto.CdsExportIdentityDto` | Stable patient/category/source-occurrence identity. Identical values in different occurrences remain distinct facts. |
+| `cdsexport.validator.CdsExportReconciliationValidator` | Selects effective retained source only for verified source-only or unchanged projected occurrences; selects current data for native-only occurrences. Changed, deleted, contradictory or insufficient evidence requires review. |
+| `cdsexport.validator.CdsExportCoverageValidator` | Compares independent, sorted source inventory with actual serialization dispositions. Missing, unexpected, blocked, duplicate and unordered occurrences cannot produce complete source coverage. |
+
+The coverage validator retains two input rows and at most 16 issue previews.
+Complete mismatch counts remain available when the previews are limited. Input
+failure, cancellation, lost ownership and resource exhaustion propagate rather
+than returning partial success. Callers own and close the input streams.
+
+These classes are internal contracts. They provide no disclosure authorization,
+storage verification, schema validation, package publication, or proof that an
+upstream inventory/mapping is correct. In particular, a mapping digest must be
+checked against the reviewed mapping registry by the eventual application
+service; merely supplying a digest-shaped string is not approval evidence.
+
+Provenance decisions, serialization dispositions and coverage results carry the
+capture digest. A disposition from another generation is refused even when the
+patient and occurrence identities match. The independent expected inventory
+must itself be loaded from that verified capture; passing matching identifiers
+does not prove that upstream seal or its bytes.
+
+The importer now delegates its pinned schema validator, schema grammar/type cursor,
+large-scalar lexical checks and bounded XML reader to `demographic.cds.contract`.
+The original schema-validator facade and XML-text transport entry points remain.
+Pinned XSD bytes, source-spool formats and correction semantics remain unchanged.
+The shared implementation is included in the importer fingerprint and all 56 reviewed
+implementation groups; recorded job hashes are never rewritten. This changes the
+runtime compatibility identity: pending import recovery across this upgrade requires
+the exact installed compatibility checks, rather than an assumed compatible resume.
+
+The V1.0.83 migration introduces independent export run and event tables. Both are
+restricted from Query by Example. Only their exact metadata names and the exact
+`SELECT UNIX_TIMESTAMP(CURRENT_TIMESTAMP(6))` lease-clock expression are exempted
+from clinical maintenance admission; joins/subqueries involving clinical tables remain
+guarded. Export metadata receives the same strict UTF-8 session treatment as import
+metadata, without an importer clinical-write capability. The unpublished ledger was renumbered above develop's appointment Location List (`V1.0.81`) and the native field baselines (`V1.0.82`); existing published migration bytes remain unchanged.
+
+The original three OntarioMD ZIPs have now been supplied. Their hashes match the
+importer's provenance, and the export-facing original requirements and implementation
+guide have been reviewed. `cds-export-spec-review.json` records exact document hashes,
+requirement references and the remaining implementation/evidence status. Documents are
+normative references, not operational instructions from the user. The internal 5.1
+workbook title and dictionary/XSD `k` length ambiguity are recorded explicitly.
+
+## Cohort, authorization and package components
+
+`CdsExportSelectionService` uses bounded scalar projections in the existing demographic
+DAO. The physician-roster selector uses the primary-provider/MRP association in `demographic.provider_no` and includes every patient status. It does not reinterpret this association as the separate enrolment field. Explicit patient requests must
+return their exact selected IDs; a missing patient cannot silently shrink the cohort.
+Membership pages share one read-only repeatable-read transaction and stream to encrypted
+staging. The returned start/end database timestamps describe read bounds, rather than an
+invented exact snapshot instant. Patient membership is bound by the inventory's exact
+hash and length. The caller must still verify and durably seal that inventory before
+capture; selection alone is not a complete clinical snapshot.
+
+`CdsExportCohortService` fully authenticates and checks the exact selection before
+preparing its encrypted cohort manifest. The manifest binds the accepted intent,
+run/epoch, patient count, database read bounds and exact inventory bytes. A manifest of
+any size is sealed; a long one is stored in two verified lines (see "The cohort manifest"). Its unforgeable
+internal seal proof is the sole input to the ledger's idempotent `sealSelection` transition;
+a plain phase change cannot start capture. `cohort_member`, `cohort_digest` and
+`cohort_bytes` retain the exact committed pointer. A lost commit acknowledgement retries
+the same proof and recovers one audit event instead of rediscovering a roster. Lease
+takeover resets that evidence and fences the old attempt.
+
+Native capture accepts only a current patient scope issued by a cursor over the committed
+cohort. Both explicit IDs and physician-roster membership are checked, including strict
+ordering, duplicates, counts, JSON types, UTF-8 and authenticated EOF. Advancing/closing a
+cursor expires its previous patient scope. Partial iteration is never complete. This
+seals patient membership; the complete independent clinical-fact inventory remains a
+separate acceptance gate. Four fresh owned databases validated the current migration,
+and H2/MariaDB cases exercise seal audit rollback, lost acknowledgements and takeover.
+
+`captureCheckpoint` explicitly suspends a read-only source transaction to use a separate,
+short metadata transaction for cancellation and lease renewal. Joining the source's
+repeatable-read snapshot would miss concurrent cancellation. A final refusal or failed
+read commit erases the unpublished selection, including when its file was already closed.
+A cancellation arriving after a failed attempt cannot rewrite the recorded failure as a
+cancellation. Unknown totals remain unknown until discovery is sealed.
+
+`CdsExportAccessService` reconstructs current accounts, active providers, facility membership,
+export administration, selected category reads, and patient restrictions in a fresh
+read-committed transaction at each application boundary. Actual sensitive lab occurrences
+also require the sensitive-lab right. This service is independent of import admission and
+never substitutes chart write permission for clinical read/disclosure permission. The
+export policy uses `cds.export.enabled` and `cds.export.operator.<operator>.providers` /
+`.facilities`; new admission defaults off, while authorized metadata observation/control
+can remain available. The migration registers `_cds_export` and grants that independent permission to
+the administrator role. An existing customized administrator grant or denial is
+preserved on replay. Current `_admin` authority remains an alternative. Neither
+permission enables admission or supplies a recipient/audit policy: those controls
+must be configured separately.
+
+Browser and Unix identities have distinct durable operator keys (`web:<securityNo>` and
+`unix:<verifiedLogin>`), even when a Unix login happens to be named `web-7`. Root-issued
+exact-argument delegation and live policy remain necessary for CLI authority. An operator
+key is only an identifier. Metadata ownership alone never authorizes a clinical download.
+The shared application facade and execution control invoke these boundaries. Browser acceptance commits before queueing; database rediscovery owns recovery. A local interruption releases an attempt back to waiting without cancelling disclosure intent. Cancel/resume from a browser check its observed revision under the durable row lock.
+
+The shared `CdsCategoryReadPermission` selects the same read domain for all 16 categories
+in both engines. Import account/provider, patient and invalid-category behavior is
+retained. The SQL admission guard also owns its JSQLParser executor explicitly: the
+pinned library's convenience overload omits executor cleanup when parsing fails. Both
+successful and refused SQL now retire that worker without changing classification or
+executing a normalized statement.
+
+`CdsExportPackageComposer` creates STORED ZIP/ZIP64 entries from exact captured encrypted
+members, avoiding a receiving importer's compression-ratio refusal for highly repetitive
+text. Central records are encrypted streams, rather than an in-memory member list.
+`CdsExportPackageValidator` independently reads local records and payload hashes/CRCs,
+streams encrypted local receipts, checks every central record and offset, and requires
+exact ZIP/ZIP64 end records and authenticated staging EOF. Member inventories must reopen
+identically. Logical paths use component ordering and reject case/Unicode collisions,
+file-versus-directory conflicts, unsafe names, missing members, mutations and volume limits.
+A 65,537-entry test crosses the real ZIP64 count boundary and verifies the finished
+archive with both Java ZIP readers. Oversized single volumes refuse; patient-complete
+volume planning remains unfinished.
+
+Actual parsed XML evidence includes legal patient name, ID and calendar birth date.
+`verifyFileBinding` compares that evidence to the exact DP01.11 filename without stripping
+names or shifting dates through UTC. Physician folders still need independent captured
+roster/provider evidence: the folder is `First_Last_BillingNumber` from the patient's primary
+physician's captured provider row (`CdsExportPatientFileBindingService`). The folder is a
+packaging convention that no CARLOS importer reads, so it never holds a patient: a physician
+without a usable billing number (one to six letters or digits, as stored, such as a British
+Columbia MSP number) keeps the name with an empty number (`First_Last_`, as the legacy exporter
+wrote it), and a patient with no primary physician, a physician whose provider record is gone, or
+a name no file system can carry goes in the single-token `Unassigned` folder. No number or name
+is invented or altered. The ReadMe lists that folder as "No primary physician recorded". Package byte agreement does not establish clinical completeness,
+attachment-reference closure, supporting-file content, disclosure authority or READY.
+There is deliberately no ledger API that can publish this intermediate byte proof.
+
+## Installed integration evidence
+
+The current capture implementation passed 2,214 Java checks without failures, errors or skips:
+2,016 checks in the packaged lifecycle and 198 additional baseline checks against the same
+source. The latter include upload and mutation-route suites whose display names had been
+omitted from the reconstructed selector; all eight classes are now explicit in that inventory.
+The current package passed 37 installed capture/permission checks across 21 tables and 370
+fields, plus 12 installed selected-immunization capture, importer-receipt, closure and privacy
+checks. Six real installed command-line process checks passed. These cover private source
+capture and job metadata/control; a complete clinical export engine remains unfinished.
+
+The packaged application was run on an owned private Docker/MariaDB network. Tomcat11
+Jasper compiled the new JSP. Five Chromium checks passed through ordinary login, actual
+Struts and CSRFGuard: waiting preserves unknown totals; GET mutation is rejected;
+a tokenless POST changes no durable state; authorized AJAX cancellation is recorded; and
+reload recovers the cancelled job without implying a completed clinical package. The
+owned Tomcat process and loopback forwarder were stopped after proof so background
+queries cannot contaminate the native coordinator's server-global query-count checks.
+No production deployment, public port, clinical export qualification or certification is
+implied by these checks.
+
+`CdsExportNativeCaptureService` now captures an explicit installed table scope into three
+protected members: exact concatenated source values, a separate JSON-lines field index,
+and the final manifest binding the run/epoch/patient/sealed cohort/read bounds/table schemas/counts and
+actual member hashes/lengths. Schema, count and row reads share one bounded read-only
+repeatable-read patient transaction. Current authorization runs before and after capture
+outside that source transaction; source-time lease/cancellation probes use independent
+metadata transactions. A failed commit, cancellation or post-capture access revocation
+erases every unpublished member, including closed files.
+
+The first installed reader captures all 60 physical demographic columns as raw binary
+scalars and strictly decodes UTF-8. It preserves SQL NULL, empty text, incomplete date
+components, nullable flags and full names without model/UI defaults. Its metadata pin and
+exact reviewed source-schema contract refuse added/missing/changed columns or a
+nontransactional engine before payload capture. Independent Ontario/BC contracts and a
+live MariaDB schema/row read verify that contract. Related contacts/pharmacy, the remaining
+clinical mappings and the complete clinical source catalogue remain unfinished.
+Twelve actual non-root CLI-context/protected-storage checks pass across eleven captured tables
+and 102 fields, including missing/revoked allergy permission, captured allergy projection,
+the durable cohort and values preserved after a subsequent database update. The
+installed run exposed unsupported `ORDER BY BINARY` syntax in the maintenance SQL parser;
+bounded Java sorting now preserves the exact metadata order, and the full guarded CLI
+graph regression exercises this query. The separate finished-stream reader checks
+table/column/ordered unique row identities,
+counts, strict UTF-8, every byte offset/hash and both EOFs. Swallowed adapter/stream errors
+leave capture and staging permanently failed. This verifies the declared transport scope;
+it does not independently prove discovery or mapping of every clinical fact. The latest
+focused current-source run passed 348 cases without failures or skips before the projection
+service and synchronous push API additions. The later 307-unit run also covers those two
+additions. XML composer cases verify sticky failure, stalled-source refusal, producer/mapper
+lifetimes, thread and recursion boundaries; a caught write error cannot produce a complete
+document. A final authenticated-read failure still invalidates a document after all rows
+have been pushed. Occurrence receipts must remain private until whole-document verification.
+
+Patient-owned readers capture `demographicExt`, `demographiccust`, complete `allergies`
+rows and allergy-linked `partial_date` metadata.
+The custom-row reader includes `cust3` only when Alerts and Special Needs is selected:
+that column is an alert, and its bytes never enter a demographics-only query. The full
+physical schema is checked in either case. Each owning entity DAO exposes bounded raw projections; no
+entity graph or UI converter supplies source values. Header pages contain at most 32
+rows with bounded inline values. Larger values stream in 64KiB SQL byte ranges under
+the same patient snapshot, with an independently computed SQL length/SHA-256 checked
+at EOF. Exact signed native IDs, including historical negative/zero IDs, have unique
+ordered internal keys. Null, empty text, zero and full Unicode remain distinct. Runtime
+schema contracts include complete primary keys as well as columns/engines, and both
+regional schema inventories independently check the source plans.
+
+The zero-row physical-table probes check all-column visibility before and after reading
+the schema catalogue. An ordinary constant projection could succeed while column-only
+database grants hid a future field from `information_schema`. Real empty-clone regressions
+reproduce that omission with both ordinary and invisible fields, and prove the new probe
+refuses the incomplete catalogue. The probes return no clinical values.
+
+Allergy capture includes archived rows and retains nullable booleans, exact reaction text,
+coding references and native dates before classification. Precision rows are selected through
+the allergy's patient identity and native owner type; another patient's rows and other source
+types cannot enter this capture. Duplicate field metadata and unknown/null formats remain
+available for explicit review. Dates must be mapped together with that precision information;
+the physical date's storage anchor is not evidence of a complete calendar date. Other native
+owners of `partial_date`, drug lookup definitions and retained imported allergy fields
+remain required work.
+
+The native allergy mapper classifies all 24 physical columns plus linked precision rows.
+It distinguishes nullable drug-property flags, maps only explicit code authorities, preserves
+partial dates, and never substitutes a modification clock for recorded date. Native severe
+does not prove life-threatening severity; that case requires source reconciliation. Unresolved
+catalogue IDs and recording clinicians remain explicit review blockers; no CARLOS screen writes a
+recording clinician (`allergies.providerNo`: the Add Allergy page never sets it and the CDS
+importer stores NULL), so only data written outside CARLOS reaches that blocker. The bounded projection
+service joins only the authenticated allergy/date generation, refuses orphan/extra precision
+rows, and retains every field assessment. Its results establish native-row representability,
+not complete clinical coverage or source-only reconciliation.
+
+Typed allergy XML carries the versioned `CARLOS.Allergy.Archived.v1` boolean residual.
+Because CDS 5.2 allergies have no status element and other EMRs ignore CARLOS residuals, an
+archived allergy (removed, replaced by an edit, or marked inactive) also states in its standard
+`Notes` that it is inactive in the sending EMR and not a current allergy. A native "Severe"
+reaction (severity 3) has no CDS 5.2 value and is not evidence of a life-threatening (`LT`)
+reaction: the standard `Severity` is absent and `CARLOS.Allergy.Severity.v1` (`string`,
+`Severe`) carries the native label. The CARLOS importer restores that label as native
+severity 3 and refuses a record carrying both the label and a standard `Severity`. On
+re-export of such an imported allergy the carrier is kept while the severity is unchanged and
+replaced by the standard `Severity` when it is changed in CARLOS. An imported allergy whose
+`CARLOS.Allergy.Archived.v1` the import did not restore (the default, decision 9) is exported in
+its active native state: its archive marker is rewritten from the native row, never re-sent from
+the source.
+A reaction longer than the standard Reaction element (120 characters; the Add Allergy page's box
+has no limit and the column is MEDIUMTEXT) is written in full in Notes, after the archived
+statement when there is one, labelled `Reaction:`, for every receiver, and exactly in the
+`CARLOS.Allergy.Reaction.v1` residual (`string`, the text encoded as one JSON string literal as
+for `CARLOS.History.Narrative.v1`), with no Reaction element (A22,
+`COMPLETE_LONG_REACTION_IN_NOTES`). The CARLOS importer restores the carrier as the native reaction
+(`CdsAllergyResidualReader`, `CdsClinicalNormalizationService`) and refuses it beside a standard
+Reaction, so an export and import round-trips the exact text. On re-export of such an imported
+allergy the carrier is kept while the reaction is unchanged (`CdsExportPreparedAllergyMapper`,
+`CdsExportAllergyRetainedAssembler`). A reaction that would not fit Notes' text32K either has no
+Reaction, no Notes copy and no reaction carrier: it travels exactly in `CARLOS.Allergy.Source.v1`
+(below) and no longer holds the patient.
+
+A never-imported allergy with a stored value that CDS 5.2 and the carriers above have no place
+for is exported, not held. The complete captured row and its date-precision rows travel in one
+more residual element, `CARLOS.Allergy.Source.v1` (`string`: a JSON object `version`, `fields`,
+`precision` in a fixed key order, SQL NULL and empty text distinct, every space escaped), written
+only for such an allergy, and the column's decision is `EXACT_NATIVE_ALLERGY_SOURCE_CONTEXT`
+(`CdsExportAllergyMapper.CARRIED_RULES`). It covers:
+
+- `providerNo` and the First Databank identifiers `HICL_SEQNO`, `HIC_SEQNO`, `AGCSP` and `AGCCS`.
+  No CARLOS screen writes them (`RxAddAllergy2Action`, `RxPatientData.addAllergy` and the CDS
+  importer leave them NULL), but the OSCAR 19 migration copies all five
+  (`debian/assets/o19-manifest/o19map_schema.json`, table `allergies`, class `copy`), so a
+  migrated chart carries them. CDS 5.2 allergies have no author element.
+- a catalogue type outside the DrugRef categories, an identifier on a row that is not a brand
+  search result, and an ATC value that is not one valid code (no Code or ATC marker is written);
+- a severity, onset, life-stage or reaction-type code outside its list and a drug flag other than
+  0 or 1 (the element or marker is left out, never guessed);
+- an age of onset with leading, trailing or doubled whitespace;
+- a date whose precision rows disagree, whose format is unknown or whose anchor is not a calendar
+  date (OSCAR's zero date): no date element is written;
+- a row that names no agent and has no exportable code: OffendingAgentDescription is the fixed
+  label `Offending agent not recorded`, because every CDS reader, the CARLOS importer included,
+  needs a description or a code.
+
+An imported allergy changed in CARLOS since its import follows the same rule
+(`CdsExportAllergyFieldReconciler`, `CdsExportAllergyRetainedAssembler`). Each element group whose
+columns changed takes the current value by the rule of a never-imported allergy: a changed date
+with its current precision rows, also when the source had a clock or offset the column never
+held; a changed reaction too long for Reaction after the imported Notes (labelled `Reaction:`,
+replacing the sender's own statement of an earlier long reaction) and in
+`CARLOS.Allergy.Reaction.v1`; an allergy left with no agent under the label `Offending agent not
+recorded`. A current value with no element (the list above, and a recording provider written by a
+direct edit) travels in `CARLOS.Allergy.Source.v1` for the current row: the element is added
+(`Result.carried`), and a CARLOS sender's own element of that name is replaced with the current
+row whenever anything changed, archiving included, because it would restate the row as the sender
+held it; the receipt lists its content field as replaced. `CHANGED_PRECISION_DEPENDENCY_REQUIRES_REVIEW`,
+`UNPROJECTED_CLOCK_OR_OFFSET_REQUIRES_RECONCILIATION`, `CHANGED_LONG_REACTION_REQUIRES_REVIEW`,
+`ALLERGY_AGENT_REQUIRED_AFTER_RECONCILIATION` and the generic hold for a carried rule on a changed
+group are gone. Still held on an imported allergy: `PREPARED_NATIVE_PROJECTION_NOT_PROVEN` (the
+unit's sealed preparation does not describe the row its receipt says the import wrote, so the
+unit's retained source fields cannot be shown to belong to this row), the baseline, codec,
+deletion, witness and alias codes. Text XML cannot carry no longer holds an allergy (see
+"Data summaries and last holds").
+
+A CARLOS importer keeps the carrier as protected source (it is not one of the markers it
+restores). Still held: an archive flag that is neither 0 nor 1. An imported allergy is unaffected: the importer writes none of these columns, and CARLOS
+amends an allergy by archiving it and adding a row. A brand allergen saved after
+the DrugRef lookup returned no DIN (`TYPECODE` 13 without a DIN, which `RxAddAllergy2Action` keeps)
+is named by its description, with its product ATC class in `CARLOS.Allergy.Atc.v1` when DrugRef gave
+one (A23, `DRUGREF_BRAND_WITHOUT_RESOLVED_DIN`). An allergen picked under the allergy search's
+"ATC Class" heading (DrugRef category 8, `RxSearchAllergy2Action`) is saved as `TYPECODE` 8 with
+its search id in `drugref_id` and no class code, because `ChooseAllergy2.jsp` posts none for a
+search result (`RxAddAllergy2Action`). It is named by its description like the generic, ingredient
+and AHFS class results (`DRUGREF_SEARCH_CATEGORY_NOT_A_DRUG_CODE`, the search id
+`DRUGREF_SEARCH_ID_IS_NOT_A_DRUG_CODE`); only a type 8 allergy filed under its class code (the
+Penicillin and Sulfa shortcuts) writes `CARLOS.Allergy.Atc.v1`.
+Age text and onset speed use `CARLOS.Allergy.AgeOfOnset.v1` and
+`CARLOS.Allergy.OnsetOfReaction.v1` string residuals: exact native age text retains leading
+zeroes without an inferred unit; onset labels are Unknown, Immediate, Gradual and Slow.
+These individually named fields have no standard allergy counterpart. The importer recognizes
+only these explicit names and types, applies effective corrections, and blocks duplicate or
+invalid known fields. Other residual names retain their protected source-only behavior.
+Omitted fields preserve existing importer defaults. The strict prepared-value decoder supplies
+only omitted extension defaults after verifying the stored payload; legacy bytes/digests are
+never rewritten. Native ORM, pinned XML/parser and actual CMS/OpenSSL receiver cases cover
+these semantics in the combined verification.
+
+Six further owning-DAO adapters capture selected retained import fields, units, dependencies,
+preparations, patient records and originating run metadata in the same native snapshot.
+Digest keys and UUID run keys stay exact. Category filters include the known field/contact/care
+work units; another patient's rows and unselected category values are excluded. Unknown
+category/work-unit names stop discovery instead of disappearing from the expected inventory.
+Retained laboratory evidence requires sensitive-lab authority while its per-row classification
+is unfinished. Fresh authorization checks deduplicate read domains and preserve the strongest
+required privilege.
+
+`CdsExportRetainedPayloadService` copies only the referenced original field ranges, not an
+entire spool that may contain other categories or patients. It verifies the source range hash,
+streams into encrypted owned values/index members, independently verifies their finished bytes,
+and binds every field identity, null/inline marker and payload digest to the exact source/cohort
+generation. Effective inline corrections stay separate from copied originals. Restore uses
+the owned copies after an original file is deleted. Missing files, corrupt data, changed metadata,
+resource exhaustion, cancellation or final access revocation cannot produce a successful receipt;
+all newly created members are erased. Native-only/inline-only evidence requires no original
+import-storage configuration, and import admission need not be enabled.
+
+The bounded retained index reads related metadata tables in one authenticated pass. Equal
+keys in different tables remain separate rows. It checks field/native-unit dependencies,
+cycles, captured holds, publication states, receipt envelopes and prepared payload seals.
+Refused or unstarted proposals are retained as metadata but do not become applied clinical
+facts. Replays can refer to original preserved fields across runs; those fields are not
+duplicated. Historical row digests remain assertions until actual row verification, and the
+index does not establish clinical projection equivalence, resolve native aliases, or qualify
+an export profile. Complete fieldwise reconciliation and reviewed legacy evidence remain work
+to finish.
+
+The appointment capture reads all 26 current-table columns across all booking statuses.
+A separate lookup captures full status codes and every referenced definition, including
+inactive and duplicate definitions; the first-character UI lookup is never used. The
+provider DAO projects only public ID/name/OHIP fields, checks all physical provider
+columns, and uses binary UTF-8 key paging for nonnumeric identifiers. Private provider
+values never enter capture. A third lookup (`LookupListItem`, Appointments scope) captures
+the items of the list named `reasonCode` that the patient's current appointments reference,
+active or not; `LookupList` is read only as that list-name filter. All lookup scopes follow
+selected patient/category references.
+
+The native appointment mapper accounts for every row and used lookup field and requires exact
+captured identities. Imported status never substitutes for a changed or cleared current status.
+The category has no `ResidualInfo`, so every current appointment also has one NewCategory record,
+`CARLOS.Appointment.Source.v1` (below), that holds the complete stored row. An element value that
+CDS cannot hold exactly is written in its schema-valid form by a named rule and is whole in that
+record; no such value holds a chart. The writer's actual bytes pass the pinned XSD and receiving
+parser checks.
+
+Timing (`CdsExportAppointmentTimingMapper`, shared with the importer through
+`CdsAppointmentSourceContract.minutes`):
+
+- `AppointmentDate` and `AppointmentTime` are the stored date and start clock, seconds included.
+- `Duration` is the slot in whole minutes. The scheduler stores an inclusive end (start + duration
+  - 1 minute); an appointment written by a CDS import keeps the exclusive end. An end not on a
+  minute counts its started minute (`STARTED_MINUTE_COUNTED_...`). A stored end earlier than the
+  start is an end on the next day, as the add form stores 23:30 for 60 minutes (end 00:29):
+  `Duration` is 60 (`END_ON_NEXT_DAY_...`). The form's duration 0 (an inclusive end one minute
+  before the start, which is also what a full 24 hours stores), an exclusive end equal to the
+  start, or an end that is not a time of day states no positive length: `Duration`, which is
+  optional and must be positive, is left out (`NO_POSITIVE_LENGTH_DURATION_LEFT_OUT_...`). In each
+  of these cases the exact stored end is in the source record.
+- A start with no single whole-minute offset in the clinical zone (inside the spring-forward gap,
+  inside the fall-back overlap, a slot spanning the change, or a date before standard time) is
+  written as the schedule's wall-clock time with no UTC offset
+  (`LOCAL_WALL_CLOCK_TIME_AT_DAYLIGHT_SAVING_TRANSITION`); every other time carries the clinical
+  zone's single offset, and none is ever invented.
+- The one timing hold: a stored date or start that is not a calendar date or a time of day at all
+  (a zero date, `838:59:59`). `AppointmentDate` and `AppointmentTime` are required and nothing
+  could be written for them: `CDS_EXPORT_APPOINTMENT_START_NOT_A_CALENDAR_TIME`.
+  (`CDS_EXPORT_APPOINTMENT_TIMING_REQUIRES_REVIEW` is gone.)
+
+What an appointment exports:
+
+| Native value | Export |
+| --- | --- |
+| date, start and end time | `AppointmentDate`, `AppointmentTime`, `Duration` by the timing rules above; exact start and end in the source record |
+| `status` | `AppointmentStatus`: the captured status definition's description. Signing or verifying the encounter appends `S` or `V` to the status (`H` becomes `HS`); the chart shows the first letter's description with `/Signed` or `/Verified` (`ApptStatusData`), and so does the export, from that first letter's captured definition. A code with no single definition (none, or duplicates), or whose definition has no label CDS text can hold (blank, over 250 characters with its mark, XML-illegal), is written as the stored code itself (`STATUS_CODE_WITHOUT_SINGLE_DEFINITION_WRITTEN_AS_STORED`, `STATUS_DEFINITION_WITHOUT_USABLE_LABEL_WRITTEN_AS_STORED_CODE`); the code and its captured definitions are in the source record. It used to hold the patient. |
+| `provider_no` | `Provider`: public name and OHIP number. A number with no provider record (migrated data), or whose record cannot form a CDS Provider (a missing, over-long or XML-illegal name part), is exported without `Provider`, as a prescription is without its prescriber; the stored number and the record's public columns are in the source record. `EXACT_PUBLIC_PROVIDER_REFERENCE_REQUIRED` and `PUBLIC_PROVIDER_VALUES_REQUIRES_REVIEW` no longer hold an appointment. |
+| `reasonCode` and `reason` | `AppointmentPurpose`: what the day sheet shows, the trimmed reason-list label, a space and the trimmed reason (`appointmentprovideradminday.jsp`). When the code names no captured item (the add form's `-1` placeholder when no list exists, or an id outside the `reasonCode` list) or the label is blank, the schedule shows the reason alone and the exact reason is sent; `reasonCode` is then operational. When the label and the reason exceed 250 characters together, neither is cut: the reason is the purpose and the label is the first line of `AppointmentNotes`, `Reason: <label>` (`SCHEDULE_REASON_LABEL_IN_NOTES_BEYOND_PURPOSE_CAPACITY`), as for an imported purpose. An item without a label requires review (the column is NOT NULL). |
+| `notes` | `AppointmentNotes`. The complete notes text is the stored notes, after a `Reason:` line and before `Booking name:` and `Remarks:` lines when there are any. The Edit Appointment form admits 32,768 characters and the element 32,000: a longer complete text is cut to the first characters that fit before the mark `[CARLOS: shortened to the CDS limit of 32,000 characters]` on its own last line (`NOTES_CUT_AT_CDS_LIMIT_COMPLETE_TEXT_IN_APPOINTMENT_SOURCE_RECORD`), and the complete text is in the source record's `complete.AppointmentNotes`. It used to hold the patient (generic, `CDS_EXPORT_APPOINTMENT_LABELLED_PURPOSE_CAPACITY`, `CDS_EXPORT_APPOINTMENT_NOTES_CAPACITY_REQUIRES_REVIEW`). |
+| text with characters no XML document can hold | The element text leaves those characters out (`XML_ILLEGAL_CHARACTERS_LEFT_OUT_EXACT_VALUE_IN_APPOINTMENT_SOURCE_RECORD`); the exact value is in the source record, where JSON escapes it. It used to hold the patient. |
+| `style`, `billing`, `location`, `resources`, `urgency`, `type`, `bookingSource`, non-zero `program_id` | No CDS Appointments field: carried in the source record (`NO_CDS_APPOINTMENT_FIELD_IN_APPOINTMENT_SOURCE_RECORD`). They used to be exported nowhere. |
+| `name` | Operational when it is the current patient's name in a form CARLOS stores (`Last,First` from the add form; `Last, First` or `Last, First (alias)` from the edit form's patient search and the booking web service), or the same form of a name from the patient's own captured `demographicArchive` snapshot (a booking made before a rename). Any other text is what the user left in the booking's name box (the Edit Appointment form stores its `keyword` field as typed, `AppointmentUpdateRecord2Action`): it is exported as a labelled line after the notes, `Booking name: <name>` (`BOOKING_NAME_NOT_THE_PATIENT_DISPLAY_AS_LABELLED_NOTES_LINE`). |
+| `remarks` | A labelled line after the notes, `Remarks: <remarks>` (`APPOINTMENT_REMARKS_AS_LABELLED_NOTES_LINE`). The add and edit forms only write an empty value or keep the stored one; the SOAP schedule service and OSCAR 19 data (its reminder mailer's `Emailed:` marks) fill it, and the patient's appointment history shows it. |
+| `imported_status` | Unchanged review rule on a row no applied import claims (an import receipt the system cannot prove). |
+| storage audit and identity columns | Operational in the element's receipt; whole in the source record. |
+
+#### `CARLOS.Appointment.Source.v1`
+
+One NewCategory record per current appointment (`CategoryName` `CARLOS.NativeAppointment.v1`,
+written by `CdsExportNewCategoryOccurrenceService` from the Appointments assembly's own decisions
+through `CdsExportAppointmentOccurrenceService.forEachOccurrence`, built by
+`CdsExportAppointmentSourceMapper`, predicted by `CdsExportPatientInventoryService` as one
+`NEW_CATEGORY` identity per captured appointment row, with its own receipt). Its single residual
+`CARLOS.Appointment.Source.v1` (type `string`) holds a JSON object in a fixed key order with
+every space escaped, so `xs:token` normalization cannot change it:
+
+| Key | Content |
+| --- | --- |
+| `version` | `1` |
+| `appointment` | 1-based position of the appointment's `Appointments` element in the same patient record; elements and records are written in the same order |
+| `fields` | every captured `appointment` column exactly as stored, SQL NULL as JSON `null` |
+| `complete` | by element name, the complete text of an element that holds only its schema-valid form (`AppointmentNotes`, `AppointmentPurpose`, `AppointmentStatus`) |
+| `statusDefinitions` | the captured `appointment_status` rows of the stored status code (and of its first letter for a signed or verified code) |
+| `publicProvider` | the captured public provider columns of the stored provider number, or `null` |
+
+JSON escapes control characters and the exporter escapes U+FFFE/U+FFFF, so a stored value no XML
+document can hold is still carried exactly. The record of an imported appointment carries its
+current row the same way. A retained copy of an earlier sender's record (CARLOS-to-CARLOS-to-
+CARLOS) is still re-exported with the other retained NewCategory records; the current record is
+always written after it, and a reader uses the last record naming an element position.
+
+When the job does not select NewCategory the record is not written. The appointment's own receipt
+then decides each value only the record would hold `OPERATIONAL`
+`NO_CDS_ELEMENT_NEW_CATEGORY_NOT_SELECTED` (a value whose schema-valid form is in the element:
+`NORMALIZED_VALUE_EXACT_FORM_NEW_CATEGORY_NOT_SELECTED`), the chart still exports, and the package
+ReadMe states per patient `Patient records not exported: Appointment source records
+(NO_CDS_ELEMENT_NEW_CATEGORY_NOT_SELECTED): <count>`.
+
+The CARLOS importer reads the record back (`docs/cds-import.md`, "CARLOS appointment source
+record").
+
+#### Carriers have no length limit
+
+The schema's residual `Content` is an `xs:token` with no `maxLength`. The exporter once refused
+any JSON carrier longer than 16,777,216 characters (`legal(json, 1 << 24)`), which held the
+patient (or, for a screening, stopped the job with `CDS_EXPORT_SCREENING_VALUE_INVALID`): a row
+needs only about 2.8 MB of text with many spaces to reach it, because every space is written as
+a six-character escape. Nothing depended on the number: the XML composer and validator bound only
+the whole patient document, and the importer now reads carriers as a stream
+(`docs/cds-import.md`). The bound is removed, with no other number in its place, for
+`CARLOS.Medication.Source.v1`, `CARLOS.Medication.CurrentSource.v1`, `CARLOS.Medication.Reasons.v1`,
+`CARLOS.Prescription.v1`, `CARLOS.Allergy.Source.v1`, `CARLOS.Prevention.Source.v1` (vaccines and
+screenings) and `CARLOS.Appointment.Source.v1`. `tokenSafe` also escapes U+FFFE and U+FFFF, so a
+carrier is always XML text. The same expression is still in force in the demographic, history,
+care, laboratory and inbox-review mappers (`CdsExportDemographicSupportingMapper`,
+`CdsExportNativeHistoryMapper`, `CdsExportNativeCareMapper`, `CdsExportNativeLaboratoryMapper`,
+`CdsExportInboxReviewMapper`), which were not changed here.
+
+#### Records that need NewCategory when it is not selected
+
+The operator's category choice never holds a chart. Five kinds of captured record have no CDS
+element of their own, or only an inexact one, and travel in a NewCategory record. When the job
+does not select NewCategory the record is not written and:
+
+- the chart is exported from its standard elements;
+- every field decision that named the record becomes `OPERATIONAL`
+  `NO_CDS_ELEMENT_NEW_CATEGORY_NOT_SELECTED` (or `NORMALIZED_VALUE_EXACT_FORM_NEW_CATEGORY_NOT_SELECTED`
+  when the element holds the value's schema-valid form) in the receipt of the record's own
+  element (`CdsExportDemographicSupportingMapper.withSelection`);
+- `CdsExportPatientInventoryService` does not expect the record's identity and names it instead
+  (`Inventory.notSelected`: ReadMe label, source table, native ids);
+- `CdsExportPatientDocumentService` writes one `OPERATIONAL` line per label and table, with the
+  rule and the record ids, in the patient's reconciliation audit;
+- the package ReadMe states the count per patient, `Patient records not exported: <label>:
+  <count>` (`Captured.notExported`, composed and independently validated with the eForm counts).
+
+| Record | ReadMe label (each ends ` (NO_CDS_ELEMENT_NEW_CATEGORY_NOT_SELECTED)`) | Still exported |
+| --- | --- | --- |
+| `CARLOS.Appointment.Source.v1`, one per appointment | `Appointment source records` | the Appointments element |
+| `CARLOS.Prescription.v1`, one per printed script | `Printed prescription records` | the medications; the script text, comments and reprint history are not |
+| `CARLOS.Laboratory.v1`, one per native laboratory report | `Laboratory report source records` | every result of the report |
+| `CARLOS.ImportedLaboratoryReview.v1`, one per commented imported result | `Inbox comments on imported laboratory results` | the result and its reviewers; the comments are not |
+| `CARLOS.NativeObservation.v1` of a measurement that has a CareElements element | `Measurement source records` | the CareElements entry |
+| `CARLOS.NativeObservation.v1` of a measurement with no CareElements element | `Measurements with no CDS element` | nothing of that measurement |
+
+These were holds: `CDS_EXPORT_PRESCRIPTION_SUPPORTING_CATEGORY_REQUIRED`, and
+`CDS_EXPORT_UNMAPPED_DATA` from the inventory and from the care and laboratory assemblies for a
+native laboratory report, a commented imported result or a measurement. Demographic values with
+no element already followed this rule. A native laboratory report with an embedded document
+follows it too when Reports is not selected: the chart is exported, the document (a Reports
+entry) is named `Documents embedded in laboratory reports (Reports not selected)` with an
+`OPERATIONAL` not-selected line and a ReadMe count, and its bytes stay in the report's message,
+which the report's source record carries when NewCategory is selected.
+
+The separate owning archive DAO captures every `appointmentArchive` version, including repeated
+booking IDs, SQL NULL/empty values, large text and historical-only status/provider definitions.
+CARLOS copies an appointment into the archive before every edit, status change, billing and
+deletion, so ordinary charts have archive rows. Under maintainer decision 17 the edit history is
+superseded: each archive row is read and every field receives an explicit operational
+disposition, `SUPERSEDED_APPOINTMENT_VERSION` when the current appointment with the same number
+is captured, otherwise `DELETED_OR_MOVED_APPOINTMENT_VERSION`. Archive rows are never exported,
+never counted as bookings and never hold the patient. A deleted appointment is therefore not
+exported, as the day sheet and the default appointment history do not show it. A deleted or cut
+imported appointment is not exported either: its verified receipt shows the row no longer in the
+patient's capture (`ROW_NOT_IN_CAPTURE`) and CARLOS's archive copy proves the removal (its
+version is `DELETED_OR_MOVED_IMPORTED_APPOINTMENT_VERSION`); the unit's retained source fields
+are accounted as removed, and the inventory leaves them out of the expected retained fields.
+Without that archive copy the patient is held (`CDS_EXPORT_APPOINTMENT_DELETION_REQUIRES_REVIEW`).
+An aliased imported appointment still requires retained-import review.
+
+`CdsNativeRowDigest` shares the importer's existing protocol-2 calculation without changing
+its receipt envelope or digest bytes. A frozen independent Python vector and actual-driver
+compatibility checks protect this extraction. The driver's legacy `SELECT *` omits only
+the reviewed invisible derived `demographicExt.dashboard_single_value_key`; raw capture
+still includes all eight extension columns. Capture and restore verify that exact recipe
+exception and refuse ordinary missing columns. All 60 base demographic columns remain
+in their legacy receipt. Owning DAOs record ordered JDBC type,
+precision and scale metadata inside a new capture; a partial or old capture retains an
+unavailable recipe. Restore never substitutes current metadata. The bounded row scanner
+can recompute these hashes from authenticated captured field lengths and hashes while
+streaming large values without loading their contents into a row DTO.
+
+`CdsExportRetainedReceiptVerificationService` compares every applied historical reference
+with those captured-row digests. Duplicate references and aliases with different old hashes
+remain separate. Changed rows, rows outside capture, missing adapters and missing metadata
+require review. Generation mismatch, cancellation, resource limits or final authorization
+failure cannot return a verification result. An unchanged reference set is still not a
+qualified mapping, fieldwise reconciliation, alias resolution or clinical publication.
+
+Actual MariaDB cases cross a 32-row page, retain full large text across a concurrent
+update, and verify SQL hashes. The installed non-root proof now traverses a durable
+cohort and 15 native/reference/retained tables and 141 fields (before the subsequent six-field public provider refinement) for a demographics/allergies request under the real SQL guard. The finished-capture
+reader can deliver bounded field bytes to mapper-owned sinks and acknowledges a field
+only after strict UTF-8 and hash verification. Sink errors propagate; a field callback
+is not whole-patient or clinical coverage proof.
+
+The base demographic mapper now consumes only a fully authenticated captured generation,
+including complete transport EOF and current authorization checks. It classifies all 59
+non-key base columns and keeps SQL null distinct from empty text. Typed output covers
+legal names, exact birth date, health card, mailing/residential addresses, home/work phones,
+languages, email, patient status/date, chart number and SIN. Its writer follows the pinned
+wire order and its tests parse the finished XML and run the real schema validator.
+Known code translations and the Canadian postal display separator are recorded as named
+rules; source values remain in the protected capture. An explicit US subdivision selects the
+`ZipCode` choice. Import and export now share the exact 71-value pinned health-card authority
+vocabulary; explicit unknown-authority wire codes never become known identity authorities.
+Missing/partial required birth dates,
+unknown administrative gender, token normalization, excess lengths and populated unsupported
+fields prevent serialization. There is no truncation, guessed date or fallback note dump.
+This establishes representability of that base row only. Captured primary physician mapping now shares the public provider mapper with appointments: exact provider references, distinct OHIP/CPSO identifiers and schema order are checked without an operator fallback. Contacts,
+enrolment history, notes, extensions, pharmacy and imported-source reconciliation still
+need their own complete mappings and independent clinical-fact coverage. In particular,
+the pinned Demographics schema has no `ResidualInfo`; extra demographic fields cannot
+be moved into another category in violation of the implementation guide's semantic rule.
+
+The shared schema metadata now retains nested compositor order and occurrence bounds.
+`CdsExportRetainedSectionWriter` reconstructs a bounded section from retained field paths,
+orders each selected choice branch, retains repeated occurrences and empty complex nodes,
+and streams effective text or binary values. It refuses duplicate/gapped/conflicting paths,
+unknown namespaces/types and unresolved structural attributes. The real receiving parser
+compares every scalar/attribute in all four pinned choice fixtures; semantically conflicting
+report fixtures must still fail the stricter finished-export validator. Structural round-trip
+coverage does not establish that an occurrence reflects the current clinical chart.
+
+`CdsExportRetainedValuesService` reads a completely checked retained index and frozen payload
+manifest, binds requested DTOs to their captured identities, and provides a scoped effective-value
+capability. An explicit empty logical correction remains empty. Original import files are never
+reopened. Large values use one pinned encrypted file descriptor. Each requested range decrypts
+only overlapping 64KiB chunks and verifies its own exact hash. The complete enclosing file,
+including its authenticated terminator, whole-file hash and EOF, is checked before and after
+the callback. A final live authority check follows that last full verification. This removes
+one complete file scan per field while retaining bounded memory and detecting corruption in
+unused original values. Caught read failures, malformed UTF-8, abandoned fields, cancellation
+and scope/thread violations still invalidate the complete result.
+
+`CdsExportDemographicArchiveSourceReader` now reads all 58 physical historical demographic
+columns through the owning archive DAO, with bounded keyset pages and chunk access in the
+same read-only patient snapshot. The ON and BC physical contracts agree. Every archived row
+is retained, including repeated enrollment states, nullable values and signed BIGINT keys.
+Current and historical primary/enrollment provider references contribute only public clinician
+identity fields to the frozen lookup. Archive timestamps are not invented enrollment event
+dates, and snapshots are not automatically deduplicated or promoted into standard enrollment
+history. That semantic reconciliation and whole-demographic coverage remain unfinished.
+
+`projectWithPatientNote` combines the base demographic and native patient note from the same
+protected source manifest. Its writer inserts `NoteAboutPatient` in the standard schema order.
+Only the complete outer legacy `unotes` frame is removed; internal closing tags, entity-looking
+text, whitespace and unmatched literal tags are preserved. A complete embedded frame with
+additional prefix/suffix content requires review. Nurse, resident and midwife assignments
+remain separate unresolved fields; selected alerts are explicitly delegated to their category.
+The note reader buffers at most one wire-sized value. Larger values stream to discard and
+produce a review decision only after the complete encrypted capture and live authority check
+succeed. The guide's 64,000-character limit is enforced before serialization: a longer note
+is written as its first characters and the shortened mark, and travels whole in
+`CARLOS.Demographic.v1` (`CdsNativeExtensionContract.patientNoteElement`). This projection still requires retained-source reconciliation, historical/related
+source coverage and the remaining demographic writers before it can establish completeness.
+
+The demographics-only `demographiccust` capture now retains actual driver metadata for its
+five selected columns. Its receipt is explicitly partial, with a separate partial-row count.
+An original full-row baseline can qualify comparisons of those five fields; `cust3` remains
+omitted and unverified. Missing legacy baselines and changed column definitions remain
+unqualified. A partial comparison always leaves the import unit in the review set and cannot
+be promoted to a whole-row match, even when every selected field is unchanged. Original
+import receipt hashes and baseline documents are unchanged. The installed non-root proof
+compares actual MariaDB metadata and confirms that an alert edit invalidates the original
+whole import receipt while preserving the frozen selected-field evidence.
+
+All typed writers run their validation and output inside the same document failure guard.
+A caller that catches a rejected demographic, allergy, medication, appointment, provider or
+immunization value cannot subsequently obtain a successful composition or emission receipt.
+The standard date-choice writer is shared across allergy, medication and immunization output;
+each destination explicitly permits or refuses clock precision.
+
+The sealed preparation reader and typed serializer now cover historical immunization events.
+They preserve the prepared post-option date (including partial dates, offsets and fractions),
+required refusal state and distinct standard text fields. The writer refuses invalid DIN/code
+pairs and overlength values; the pinned schema refuses unrecognized CT-020 types. Native
+per-program grants and current-chart reconciliation are still required before
+this category can be enabled; exact classification and frozen capture are described below.
+These serializers do not establish clinical completeness or qualify an export profile.
+
+The additive V1.0.59.40 migration adds nullable field-witness documents to import units and
+checkpoints. New native receipt capture records SQL nullness, byte length, SHA-256 and
+actual ordered JDBC metadata in the same original unit transaction. The protocol-2 receipt
+JSON and its digest remain unchanged. Original metadata hashes were verified across the
+upgrade on all four owned ON/BC test databases, with every historical witness still NULL.
+Pristine independent ON/BC reference databases validate the complete migration chain and
+canonical schema contracts. The witness document is bounded to 8MiB and carries no native
+plaintext values, but its unsalted per-column hashes and byte lengths are value equivalents
+for low-entropy columns (sex, birth date parts, health card or SIN number, postal code,
+phone). It is therefore stored only sealed (IMP-1): AES-256-GCM under a per-installation key
+held outside the database (`cds.nativeBaseline.keyRoot` / `cds.nativeBaseline.activeKey`, see
+the [import configuration](cds-import-configuration.md)), with the key ID recorded and the
+receipt digest bound as associated data. New witnesses are protocol-4 envelopes, deflated before
+they are sealed. Every committed unit stores its witness twice (unit and checkpoint), and the
+uncompressed protocol-3 form averaged about 23 KB, an overflow page per copy, which filled the
+installed scaling lane's database. Deflated, a witness is a quarter to a third of that size.
+The compression is part of the associated data, inflation stops at the 8 MiB document bound, and
+protocol-3 witnesses from earlier builds still open. A stored unsealed document, a tampered,
+rebound or relabelled envelope and a missing key are refused. The exporter unseals a
+witness only into its in-memory retained index (the frozen capture keeps the sealed form) and
+fails the job with `CDS_EXPORT_NATIVE_BASELINE_KEY_UNAVAILABLE` when the recorded key is not
+configured. Treat witnesses, keys, ledger database access and backups as protected patient
+data. Both ledger tables remain restricted for reporting, and no
+baseline is returned in an ordinary status/diagnostic response. Unit metadata pages use
+an explicit scalar projection so their 200-row limit does not hydrate witness documents;
+receipt validation loads a single bounded unit at a time. Its exact referenced-row set and reconstructed row digests must match
+the original receipt. Commit, checkpoint reuse and field comparisons passed the
+combined database/rollback/replay verification; neither export profile is qualified.
+
+`CdsExportNativeRowReceiptReader` now supplies independently authenticated column witnesses
+from the frozen capture. The retained verifier can report the mechanically changed columns
+when an original witness exists. Legacy absence stays explicit. New version-two baselines
+add codec-bound hashes of server-binary IEEE values without changing the original receipt.
+The prescription DAO captures exact stored dose bits in its encrypted native index, alongside
+the original SQL display and its unchanged byte receipt. The driver capability retains the
+physical admission barrier, bound parameters, query deadline and caller transaction; an
+unsupported binary protocol refuses instead of falling back to text. Version-one baselines
+remain readable and receive no invented exact witness. Equal SQL display text for a legacy
+non-null FLOAT/DOUBLE/REAL, or session-dependent TIMESTAMP, still requires review. Replay
+comparisons use each complete baseline, because equal old SQL digests can conceal different
+float values. A field difference does not choose the clinical value;
+category reconciliation, external lookup changes, import-option transformations and reviewed
+resolutions remain separate required work.
+
+## Protected storage configuration
+
+`cds.export.store.active` selects a stable root ID, resolved through
+`cds.export.store.<id>.root`. Each root and run/epoch directory must be private, service
+owned and free of symlink or writable-ancestor substitution. `cds.export.masterKeyRoot`
+contains `<keyId>.key`; `cds.export.masterKey.active` chooses the active immutable key ID.
+Keys contain exactly 32 raw random bytes and must be root owned and read-only to the
+service (for example root:carlos 0640 below a root-owned 0750 directory). Writable
+service-owned secrets are refused. Key bytes and filesystem paths never enter a job
+response or accepted document. A staged member has no size bound (`cds.export.maxStagedFileBytes` is retired and
+ignored); the store's free-space reserve is `cds.export.minimumFreeBytes` (default 512MiB, maximum 1TiB).
+
+An attempt that stops before READY keeps its finished charts (their XML and attachments, and the
+checkpoint that names them) in its own run/epoch directory, encrypted under the job's bound key,
+for a resumed attempt to adopt: until the job is resumed and the charts are decided again, the
+job is cancelled, or seven days after the attempt stopped (`CdsExportLedgerService.ATTEMPT_SECONDS`,
+the existing attempt ceiling). There is no setting for this: a different period, or none, would
+be a privacy decision of its own. Size the store for a stopped job's finished charts as well as a
+running job (about their share of the finished package), and keep the job's root and key
+configured while it keeps charts: a resumed attempt reads them with the job's original binding,
+and a checkpoint the key no longer opens is rejected and its attempt erased whole. See
+"Continuing a stopped export" above.
+
+Version-two accepted documents bind the root/key IDs and the key SHA-256. Exact legacy
+version-one JSON bytes remain compatible for metadata recovery; a version-one job cannot
+create a new storage attempt. A claim creates an exclusive run/epoch directory only after
+ownership validation. Accepted jobs retain their old root/key binding when active policy
+rotates, and changed key bytes refuse access. Keep retained roots and immutable key IDs
+configured until their artifacts are retired through the eventual retention protocol.
+The context can start for metadata-only observation without loading any master key.
+Eight installed non-root storage/binding checks and six actual POSIX permission checks
+passed. Storage evidence alone cannot publish an artifact.
+
+## Medication capture and historical prepared meanings
+
+The prescription source adapter reads every one of the 64 reviewed `drugs` columns through
+`DrugDao`, including archived, historical and hidden rows. ON/BC physical contracts agree.
+The shared partial-date reader binds its predicate to selected allergy and/or medication
+parents; colliding owner IDs, other patients and unselected domains do not enter capture.
+The native regional-identifier column has no authority discriminator. Even eight digits
+require a verified Health Canada DIN catalogue or retained preparation binding; the mapper
+cannot relabel an unverified identifier as DrugIdentificationNumber.
+Public prescriber candidates use the same snapshot and six public provider fields, including
+inactive referenced providers. Exact binary identifiers are required at mapping time; a local
+provider number, billing number or exporting actor cannot substitute for source authorship.
+
+Native medication mapping assesses every captured column, keeps duration, refill duration,
+quantity, refill quantity, dose, strength, instructions and provider notes separate, and checks
+nullable flags and currentness independently. The writer follows the pinned schema sequence
+and indicator choices; generated values passed the real receiving parser and clinical
+normalizer. Exact server-binary dose bounds can supply a round-trip decimal representation;
+contradictory dose text, signed zero and the undocumented all-zero default require review.
+SQL floating-dose displays without those witnesses, unstructured strengths, unresolved script or
+pharmacy links, archive history, unknown flags and contradictory prescriber hints remain
+explicit review cases. These are unfinished mapping/reconciliation cases, not a qualification
+of a complete medication export.
+
+`CdsExportRetainedPreparationReader` verifies historical unit/category/type/source/options/
+ruleset ownership and the exact original preparation seal before decoding. It reads the
+captured index, not current import staging or current import options. Shared transient allergy
+defaults retain old omitted optional properties without rewriting any stored payload/seal. A
+medication preparation sealed before #3958 names its initial duration `durationDays`; the shared
+medication defaults (`CdsPreparedMedicationDefaults`, used by the importer's resume decoder too)
+read it as the same amount with unit `D`, and refuse a payload carrying both shapes or an unknown
+unit.
+The temporal converter proves original lexical meaning plus its recorded synthetic shift;
+it preserves calendar precision, offsets, fractional seconds and legal end-of-day spelling.
+It rejects inconsistent anchors and cannot truncate a clock into a date-only destination.
+Historical preparation conversion is not a current-chart selection decision.
+
+Retained XML assembly now supports bounded, explicitly accounted subtree changes. Every
+prior field ID under a changed/deleted subtree must be supplied exactly; untouched source
+fields, attributes and vendor residuals remain in the original occurrence. Additions use
+original source coordinates, independent of deletion/list order. Nested replacement callbacks
+cannot close their parent, and all replacements retain the live authenticated-value scope
+even when no original scalar stream is opened.
+
+The allergy retained assembler combines those changes with qualified fieldwise decisions. It
+requires unchanged published field pages, checks descriptors against captured metadata, and
+compares known marker meanings with the sealed historical preparation before updating them.
+A sender's standard allergy `Code` with `CodeType` `ATC` (valid in the schema, though CARLOS
+itself writes ATC classes only in `CARLOS.Allergy.Atc.v1`) is kept as that standard subtree
+while the coded agent is unchanged (F9); only a CARLOS-authored ATC travels in the residual.
+Unrecognized vendor data remains streamed intact. Clinical occurrences, aliases, audit/history,
+other categories and final publication still need the separate complete delivery gates.
+
+Medication reconciliation now checks the sealed historical preparation against each native
+field group and its own exact baseline. A changed provider note or quantity can use its current
+value while preserving a proven DIN, structured strength, original prescriber, prescription
+identifiers and clock precision. A quantity unit and as-needed flag the import restored from a
+CARLOS sender's `CARLOS.Medication.Source.v1` (#6198) are projected the same way (a restored
+`unitName` belongs to the Quantity group, whose original page is `100 mL`); unchanged, they are
+the retained carrier's own values, and changed they hold the patient
+(`RESTORED_SOURCE_CONTEXT_CHANGED_REQUIRES_REVIEW`) because the retained carrier would restate
+them. Native clears remain cleared. Unprojected standard ProblemCode
+and unknown vendor data retain their source fields through the separate retained assembler.
+Source field pages must be applied and unchanged before those values are reused. The native
+parent link is keyed by each field ID; the shared occurrence-field resolver derives the
+separate preservation-unit address and checks that field's own receipt. The native
+dose row carries its authenticated exact numeric evidence into mapping; a baseline from an older
+SQL display cannot acquire historical float bits from today's row. Changed dose/SIG dependencies,
+ambiguous strengths, missing/aliased occurrences and changed precision still require review.
+An actual importer-generated Drug persisted through JPA and MariaDB exercises the projection
+check, in addition to finished-XSD and receiving-parser tests. This domain utility is not yet
+an orchestrated clinical engine or a complete review/delivery workflow.
+
+`CdsExportClinicalOccurrenceService` connects the authenticated retained-value scope, real
+field-ID ownership, receipt verification, frozen rows/lookups, reconciliation and retained
+assembly for allergy and medication occurrences. It emits each native row once, accounts
+for every retained field in those occurrences, and refuses missing rows, aliases, orphan
+precision, unknown mappings and mismatched generations. The CLI registers the same service.
+Its output is private intermediate XML. The source guard on the XML section emitter keeps
+final authorization, authenticated EOF and receipt failures sticky even when a caller catches
+them. Other domains, independent whole-chart field coverage, review and delivery publication
+remain required before this becomes a qualified clinical engine.
+
+`demographic_merged` is captured through the existing owning DAO, including incoming,
+outgoing and deleted links. CARLOS merges keep clinical rows under their original patient
+owners; an exact-root query does not include all linked chart facts. The occurrence service
+therefore verifies the frozen merge scope before reading clinical values. Active, null or
+unknown deletion flags require explicit review; deleted history remains captured. Missing
+scope, foreign links, malformed ownership, failed authentication and late authority failures
+refuse output. A caught review cannot produce a complete document. Full linked-patient
+closure, authorization and original-owner reconciliation remain unfinished; this safeguard
+does not qualify merged-chart exports.
+
+The retained-preparation reader also verifies demographic preparations against their original
+source, options, ruleset, payload type and seal. It decodes the historical post-option values
+without applying current options or restoring an original unshifted date. This is evidence
+for demographic reconciliation, not a completed demographic section or enrollment history.
+
+The public CVC immunization and legacy-name catalogues now have bounded owning-DAO readers,
+full physical schema checks and frozen driver metadata. Existing native finder methods are
+unchanged and covered beside the new readers. These global vocabulary rows contain no patient
+occurrences. Their capture requires a current patient scope and the immunization read domain.
+The exact configured prevention XML is copied into a source-bound encrypted member and read
+back with the fully authenticated captured CVC rows. Recovery does not reopen current settings
+or vocabulary. Unknown, conflicting or unsupported types require review. Injection layouts
+alone do not prove vaccination: Mantoux tuberculosis testing stays screening, and ambiguous
+Other injections require review. Explicit vaccine configuration or exact CVC evidence must
+prove the category; conflicting declarations remain review cases. This
+classification does not establish code equivalence, authorize a program-restricted fact or
+complete native immunization capture/reconciliation.
+
+The explicit `preventions_scope` alias captures only six classification/restriction metadata
+fields through the prevention DAO; its full 16-column physical schema is still checked. Dates,
+provider descriptions and other clinical values stay outside this projection. Every native
+authorization boundary now runs a reader's additional scope checks after ordinary patient and
+category rights, outside the captured transaction. Prevention restriction checks use fresh
+read-committed transactions, so an older snapshot cannot keep a newly restricted record readable.
+(Superseded: a program restriction no longer requires review by itself. Each restricted program
+is authorized live before capture, proved unchanged inside the snapshot and checked again at
+mapping, as the native immunization section above describes; only a malformed flag requires
+review, and no program grant is inferred.) A legacy null flag with no program records no
+restriction, and explicit false keeps its meaning. Classification partitions every frozen metadata row
+into vaccinations, other preventions or explicit review, with generation/count/hash checks and
+final live authority. This is not a native immunization occurrence writer or whole-chart proof.
+
+The source schema guard now binds a declared source name to its exact physical schema. The
+reviewed metadata alias is explicit; an ordinary reader cannot claim another table's schema.
+
+Selected immunization capture now reads every physical prevention, extension and precision
+column through its owning DAO. Selection uses the exact trusted configuration bytes, captured
+CVC definitions and patient metadata in the same read-only repeatable-read transaction. The
+configuration is an explicit binary source with no claimed SQL table or native receipt; UTF-16
+configuration stays byte-for-byte intact. Unknown categories fail selection, and dependencies
+cannot be omitted to bypass it. The completed encrypted capture is independently classified
+again: every selected parent must match its frozen metadata, children must retain their original
+selected owner, and date aliases must be disjoint. Large extension values stream while NULL,
+empty values, duplicate keys and archived rows remain distinct. Recovery uses the embedded
+configuration and never falls back to current settings. Actual installed checks compare frozen
+row evidence with the importer, exercise live edits/revocations, and verify failed-attempt cleanup.
+This establishes capture and dependency closure; retained-field reconciliation and complete
+immunization occurrence integration remain separate unfinished gates.
+
+The native immunization mapper and projection service now retain a decision for every parent,
+extension and precision field. They use captured definitions, exact current text and date
+precision, and require explicit DIN authority. Ineligible and externally completed statuses,
+provider, reminder and other native fields are carried as described above; duplicate keys,
+conflicting aliases, unsupported archive states and stale imported date hints remain review cases.
+They cannot be collapsed into a refusal boolean or silently dropped. The writer independently checks the pinned CT-020
+enumeration and the dictionary's 32,000-character note boundary. Source generations, bounded
+child indexes, counts, authenticated EOF and late live authority guard the projection. The
+86-case isolated suite and 15 installed checks passed before integration. The integrated
+package passed all 2,260 combined Java checks and 15 installed checks against the packaged
+classes. These services remain private intermediates.
+
+Retained immunization reconciliation now checks the original sealed preparation against the
+actual parent, extension and precision witnesses field by field. Changed or cleared notes,
+names, refusal and supported optional fields use the current recorded value; unchanged fields
+keep their proved prepared meanings. A newly recorded DIN cannot disappear behind an absent
+old code. Renamed/duplicate keys, aliases, deletions, changed precision, mismatched generations
+and missing field baselines remain explicit review cases. Historical offset events require
+original zone/projection evidence, and gap-adjusted anchors cannot be guessed from today's
+settings. Imported date hints remain provenance rather than restoring an unshifted date.
+The retained assembler accounts for all source field IDs and preserves untouched vendor data.
+The existing allergy, medication and common retained writers now share source occurrence path
+handling, including the second patient record in an originally imported file; verified patient
+ownership and field-page receipts remain mandatory. Shared captured-row/receipt readers also
+check current authority after their final private callback. The 152-case prototype suite and
+18 installed checks passed before integration. The installed reconciliation fixture uses real
+JDBC baselines and encrypted captures with an explicitly simulated historical metadata index;
+it does not establish a completed import/export round trip. The integrated package passed all
+2,320 selected combined Java checks, 18 installed component checks, six installed CLI process
+checks and five browser checks. Immunization occurrence-service integration remains unfinished.
+
+The common clinical occurrence service now routes vaccines through the same private XML,
+retained-values and field-receipt pipeline as allergies and medications. Its explicit embedded
+configuration path never opens today's settings or creates a duplicate configuration member.
+It verifies the vaccine partition, exact parent/child witnesses, generation, bounded indexes,
+counts, all retained source field IDs and current authority after the final output callback.
+Active merges, missing/deleted/duplicate parents, orphaned children, unmapped current values
+and unaccounted source fields cannot become a completed document, including when a caller
+catches the failure. The isolated 129-case suite and 23 actual installed checks passed before
+integration. The native-only installed proof uses the full metadata/retained-values pipeline
+and actual receiving parser without mocked services; the separate historical reconciliation
+index remains explicitly simulated. The expanded coordinated package passed all 2,347
+selected combined Java tests with zero failures, errors or skips.
+No clinical profile or publication is enabled by this component integration.
+
+Occurrence assembly now independently compares the complete native row field identities and
+NULL/empty/value states with its mapping assessments before emitting XML. Equal field counts
+cannot hide a missing field behind an invented column. The helper checks only supplied captured
+rows; whole-chart inventory and semantic/output validation remain separate gates. Its 49-case
+isolated suite includes intentional same-count field substitution inside allergy and vaccine
+assembly, both refused before emission.
+
+Strict export capacities follow the migration dictionary and Guide section 1.10 decimal units:
+1k is 1,000 and 32k is 32,000. Appointment notes, medication duration/quantity text, medication
+notes/instructions and strength now use those bounds. Allergy and medication retained assembly
+call the same validation gate as direct serialization, preventing original imported values from
+bypassing dictionary limits. (Since then an oversize value no longer requires review: it is
+written in its schema-valid form by a named rule and carried whole in its CARLOS source
+carrier; for appointments see `CARLOS.Appointment.Source.v1` above. Later still, an original
+imported value retained unchanged is exported as imported up to the schema's length, and only
+text CARLOS writes keeps the dictionary's: see
+[Dictionary lengths](#dictionary-lengths-carlos-text-and-unchanged-imported-text).) The 54-case isolated suite passed, including direct/retained validation and a
+caught-failure document check. The expanded combined package passed all 2,368 selected Java
+tests with zero failures, errors or skips. Installed clinical-path verification remains pending.
+
+Appointment occurrence assembly now uses the common private XML, native witness, retained-value
+and field-receipt pipeline. The explicit clinic setting `cds.import.clinicalZone` is shared with
+import and captured as trusted configuration, together with the installed timezone rules
+version. Recovery reads that encrypted capture and rejects missing old metadata, changed
+rules, mismatched generations or an explicit projection zone that differs from the capture.
+It never substitutes current settings or the JVM default. The XML clock carries its proved
+offset, including winter/summer differences; a historical second offset or an offset outside
+the wire range is written as the wall-clock time with no offset, never held. An actual importer preparation test preserves the instant when a
+Toronto appointment is received by a Vancouver clinic.
+
+Current edits and clears take effect; unchanged recorded provider and full source-view purpose
+values require separately verified source-field pages. Post-option dates are not shifted again.
+Native patient-display names require an exact captured same-patient join. Storage audit fields
+receive explicit assessments. Source-only
+calendar records, aliases and merged patients remain review gates; native archive versions are
+superseded history and deleted imported appointments are not exported (decision 17, above). A
+reason-list label chosen in CARLOS for an imported appointment whose purpose was not edited
+prefixes the preserved imported purpose (or the complete source purpose behind the source-view
+marker), as the day sheet shows it (`EXACT_CAPTURED_REASON_CODE_LABEL`,
+`VERIFIED_UNCHANGED_PREPARED_PURPOSE_AFTER_SCHEDULE_REASON_LABEL`). When the label and the
+imported purpose do not fit the 250 characters CDS allows together, the imported purpose is kept
+exactly and the label opens AppointmentNotes as a first line `Reason: <label>`
+(`SCHEDULE_REASON_LABEL_IN_NOTES_BEYOND_PURPOSE_CAPACITY`).
+A booking name that is not the patient's and remarks stored on an imported appointment are
+appended to its notes as on a never-imported one (`Booking name: `, `Remarks: `), which makes
+the notes current. Notes that such a line takes past 32,000 characters, like notes edited in
+CARLOS up to the form's 32,768, are cut by the native rule and whole in
+`CARLOS.Appointment.Source.v1` (`CDS_EXPORT_APPOINTMENT_LABELLED_PURPOSE_CAPACITY` and
+`CDS_EXPORT_APPOINTMENT_NOTES_CAPACITY_REQUIRES_REVIEW` are gone). An appointment whose import
+restored the sender's stored end or complete notes from that record
+(`CdsAppointmentNativeDto.source`) is read by the native rule for those values: the end is the
+scheduler's inclusive end and the notes are current. All original field IDs are accounted for and the last callback cannot
+bypass live authority. The 126-case isolated suite and 14 installed checks passed before
+integration. The native-only installed path uses real services and captured metadata; historical
+reconciliation metadata is explicitly simulated. Expanded coordinated verification is pending.
+These are private component gates; the full clinical engine and publication remain unfinished.
+
+The importer review now includes the existing CVC mapping dependencies explicitly. Additional
+read methods do not change its native finder bodies or rewrite persisted preparation/receipt
+bytes. The participating DAO/helper byte changes do change the runtime fingerprint; existing
+pending jobs retain their recorded compatibility identity and must satisfy normal recovery
+checks.
+
+## Value provenance and current chart state
+
+For each in-scope imported occurrence, capture original source evidence, accepted
+effective logical value, its native projection baseline and the current native
+projection. Retain mapping and capture identities with the work. Corrected large
+values can have an original spool reference and a different inline effective
+value; `writeOriginal()` is not an effective-value export API.
+
+`NATIVE` and paged `FIELDS` units have different keys and are linked through
+dependencies. A field's unit key must not be treated as its native unit key.
+Whole-row receipts can prove that recorded projections changed, but do not prove
+which field should take precedence. A digest mismatch cannot automatically
+choose native, original, normalized, or concatenated content.
+A matching physical-row digest also does not establish complete clinical equivalence:
+external physician/catalogue definitions and one-to-many projections need their own witnesses.
+Retained XML logical text precedes import-option transformations. Synthetic date shifts and
+identity substitutions must follow the verified preparation/option evidence, rather than
+restoring an unshifted date or original identity from retained XML. These are reconciliation
+gates, not permissions supplied by the generic retained serializer.
+
+The allergy field reconciler now qualifies individual standard fields against the sealed
+historical preparation and exact native baseline. It preserves a coding authority or
+life-threatening source severity only when the corresponding original projection is proved;
+a changed reaction can use the current native value without erasing those unchanged meanings.
+An explicitly cleared reaction stays cleared. Matching complete legacy receipts can qualify
+an unchanged projection transiently; no old field witness is backfilled or persisted. Changed
+legacy rows, deletion, aliases, changed precision dependencies and unresolved original clocks
+require review. Independent source-extension/occurrence coverage remains mandatory.
+
+The general occurrence validator deliberately blocks changed or missing projections.
+Resolving those cases is unfinished delivery work, not a permanent blanket
+refusal that can be called a complete exporter. Implement category-specific
+reconciliation and evidence-backed migration/backfill for existing charts, with
+an authorized review workflow where older evidence is ambiguous. Support
+replacements, deletions, merges, renewals, new native additions and one-to-many
+or many-to-one projections without duplication or resurrection.
+
+Unknown or partial clinical values allowed by the profile remain valid values.
+They must not be confused with missing evidence or turned into zero, false,
+an exact date, import time, or a local clinical author.
+
+## Snapshot and asynchronous execution contracts
+
+Durable acceptance records an immutable request and returns a run identifier.
+Expensive planning/capture/rendering occurs outside the HTTP request. Explicit
+patient IDs are fixed at acceptance; provider-based selection needs a documented
+selection instant and a sealed inventory before capture. Totals remain unknown
+until discovery completes.
+
+The snapshot reader must use bounded projections participating in its chosen
+database snapshot. The clinical source-view reader rejects ambient transactions
+and performs separate read-committed reads; wrapping it in a repeatable-read
+transaction is not a valid snapshot implementation.
+
+Bind native data, retained source, accepted corrections, associations and exact
+attachment/render inputs to a captured generation. A database snapshot alone
+does not freeze files or another browser's eForm rendering. Copy and hash the
+actual bytes into owned immutable staging and verify their captured versions.
+Oversized or changed patients must restart from a new consistent generation or
+refuse visibly; never resume half a patient from a different snapshot.
+
+Use durable database rediscovery, bounded worker scheduling, ownership fencing,
+idempotent acceptance and explicit startup/shutdown ordering. Tab closure and
+logout do not erase accepted work. Current rights remain authoritative; saved
+actor identity is not a saved permission grant. Status, cancel, resume, history,
+reports and protected download must survive restart.
+
+Foreground CLI execution uses the same engine with both background dispatchers
+disabled in its dedicated Spring context. A job that selects Reports is first left to
+the online web worker, which renders eForms, and run by the CLI only when no worker
+claims it within `cds.export.cliRendererHandoffSeconds` (see "eForms: the rendered
+form beside the data summary"). Detached submission must report
+waiting if no compatible persistent worker is available. Stopping a foreground
+wait is distinct from cancelling the job. The same submission identity recovers
+the original run after a lost acknowledgment.
+
+## Native enrolment history integration
+
+The demographic enrolment projector now reads current and historical roster fields,
+public physician identities and patient notes from the same authenticated source capture.
+Identical snapshots share one event while every source roster field retains its own
+assessment. Conflicting termination versions, reopened episodes, missing conditional
+dates, unknown codes, a cleared current state and stale effective dates require review.
+The writer includes the patient note and emits the guide's required dates in schema order.
+Field counts cannot substitute for complete row identities or erase mapped events.
+
+The isolated implementation passed 65 focused checks and 12 installed non-root checks
+with actual MariaDB rows, encrypted storage, receiving-parser validation, frozen/current
+edit comparisons and final SQL revocation. This installed native-only fixture uses real
+empty import-metadata tables; historical metadata is not simulated. The combined package after integration passed all 2,458 tests. A further ambiguity
+guard passed 66 focused checks: changing a date or physician cannot manufacture
+another enrolment while the prior episode remains unclosed. The updated combined package passed all 2,459 tests and 13 installed packaged
+checks, including the actual SQL ambiguity case. Applied imported demographics still require
+retained field reconciliation, and other demographic related data, native archive fields,
+whole-chart inventory, the clinical engine, review workflow and publication remain open.
+
+The preceding appointment/frozen-zone package passed 2,422 combined tests and installed
+37 native capture, 14 appointment and 23 vaccine checks. The appointment and vaccine
+historical reconciliation fixtures explicitly simulate old metadata. Neither profile is
+qualified. The exact artifact identity is in the task's `cds-appointment-zone-package-proof.json`.
+
+## Native demographic phone integration
+
+Home and work extensions (`hPhoneExt`, `wPhoneExt`) and the mobile number (`demo_cell`)
+now join the base demographic values from the same frozen capture. Exact NULL and empty
+extension values remain distinct. Hidden history and duplicate keys require review; an orphaned
+nonempty extension, an extension or mobile number the phone element cannot hold and every other
+populated property travel in the native demographic NewCategory record; no latest-row heuristic,
+phone concatenation or truncation supplies a replacement. The typed phone DTO enforces
+the dictionary's 25-character number and five-character extension limits before writing.
+All eight native property columns receive independently checked field dispositions.
+
+Native enrolment assembly now requires the property table and includes these phones
+alongside the patient note and enrolment history. A later primary-physician join preserves
+the independent phone values and evidence. The implementation passed 85 focused checks
+and 17 installed checks using twelve actual source tables, real empty import metadata,
+protected storage, receiver parsing, frozen/current edits and final SQL revocation.
+There is no historical metadata simulation in that installed fixture. The expanded combined package passed all 2,482 tests and 17 installed packaged
+checks. The pinned crosswalk is unchanged and all 25 crosswalk checks pass. Imported demographic reconciliation,
+other associated data, whole-source coverage and clinical publication remain unfinished.
+
+## Historical implementation and acceptance checklist
+
+This checklist records the original acceptance boundaries. Current executed
+evidence and remaining checks are recorded above and in `cds-export-progress.json`;
+the historical component narratives below do not reset completed work.
+
+| Gate | Required evidence before release |
+| --- | --- |
+| Normative export review | Original ZIPs and document hashes are verified and export requirements reviewed. Bind every completed mapper, log and package claim to those requirements and executed evidence; resolve recorded dictionary/XSD length ambiguities without truncation. |
+| Source-domain inventory | Inventory every native and retained-source domain, including all 16 sections, contacts/pharmacies, typed labs, source-only fields, historical documents, eForms, encounter forms and consultations. The existing 407-path wire inventory is not an exhaustive CARLOS source inventory. |
+| Export mapping | Source-to-wire mappings, cardinality/choice rules, precision, codes, restrictions, authorship, provenance and supported exclusions. No truncation, invented defaults or generic Notes fallback. |
+| Identity and replay | Stable sender namespace and patient IDs within wire limits; defined merge/restore/copy behavior; separate identical-artifact replay, regenerated equivalent delivery and changed delivery tests. Automatic same-instance update synchronization is not assumed. |
+| Rendering | Version-bound inputs, completeness-aware rendering, historical-form scope and explicit review for incomplete results; preserve approval scope and expiry. |
+| Job persistence and MVC | Independent run/event entities, DAOs, live authorization, cohort selection and short audited ledger transactions are implemented. Finish patient/source/artifact inventories, the application/worker services, prototype Struts actions, per-JSP assembler/immutable view model, safe responses and browser stale-response fencing. |
+| Joint lifecycle | Explicit import-admission/maintenance/holds/startup/disable/recovery matrix. No wildcard route exemption or importer-ownership bypass. Released charts remain exportable when import admission is disabled. |
+| Packaging and publication | Finished ZIP/ZIP64 byte validation is implemented. Complete actual XML/supporting-file validation, attachment closure, source/output identities and multiplicities, metadata and logs before atomic publication. Diagnostic delivery is separate from clinical package availability. |
+| Secure delivery | Recipient-bound CMS encryption, independent decryption and live authorization primitives are implemented. Complete application-enforced disclosure authorization at creation and retrieval, owned artifact retention/active-download protection, recipient-bound encryption without plaintext fallback, approved decryption and real importer acceptance. Respect receiver archive limits or create independently importable volumes. |
+| Upgrade compatibility | Accurate dependency fingerprints, old persisted-source readability and verified pending-job recovery across application/runtime/schema/store versions. Never rewrite recorded fingerprints. |
+| CLI and browser parity | Real installed browser and separate `carlos-ctl` package runs, restart and interruption recovery, cross-interface authorized observation/control, equivalent semantic output and dispositions. |
+| Independent semantics | Reviewed expected clinical facts independent of production mappers; mutation tests must fail for missing/duplicated occurrences, stale values, wrong choice arms and lost precision. |
+| Resource and side effects | Bounded memory/disk/queries/time, physical failure/race tests, and no clinical mutation other than separately reviewed provenance work. Export ledger, disclosure audit and owned artifacts are explicitly permitted effects. |
+
+Wire validity, logical-profile compliance, current-chart completeness and receiver
+interoperability remain distinct acceptance claims. Source coverage alone cannot
+publish a package. Selected, partial, review-required, cancelled, failed and
+expired outcomes never inherit complete-chart migration labeling.
+
+Keep existing [legacy projection refusals](cds-legacy-projection-contract.md)
+until each replaced path proves its coverage. Do not relax unrelated REST, SOAP,
+FHIR or PDF safeguards when enabling the new exporter.
+
+## Focused verification
+
+```sh
+mvn -B -ntp -Dtest=CdsContractUnitTest,CdsExportReconciliationValidatorUnitTest,CdsExportCoverageValidatorUnitTest test
+mvn -B -ntp -Dtest=CdsSpecificationCrosswalkUnitTest,CdsRulesetFingerprintMappingUnitTest,CdsClinicalSourceServiceUnitTest test
+```
+
+These commands cover component and importer regression checks. Native database and
+installed CLI/browser metadata/control checks have also run as described above. Complete
+clinical CLI/browser export, eForm rendering, upgrade/recovery and an independent clinical
+receiving-system oracle remain required before qualifying an export profile.
+
+
+## Retained demographic core reconciliation
+
+The demographic core coordinator binds the actual applied parent, sealed preparation,
+patient lineage and authenticated source field pages to historical and current native
+column witnesses. A matched existing chart is never assumed to have received prepared
+source values. Missing legacy baselines, row substitution, conflicting source identities
+and changed SQL column recipes require review. Generated SQL timestamps remain explicitly
+unqualified by the general row comparator.
+
+Separate name, birth-date, scalar, optional-date, health-card and address components own
+27 base-row fields without overlapping decisions. Unchanged source representations retain
+name-part boundaries, phone-independent details, address lines, formatted addresses and
+date offsets. The common calendar mapper uses the effective prepared date for accepted
+corrections and synthetic shifts; later native edits are not shifted again. Compound-name and
+address edits and edits of source-only projections supersede the source (see "Imported charts
+edited in CARLOS"). A full
+health-card clear removes its complete subtree, and adding a card creates the required
+parent and children together. Province edits also reconcile the postal/ZIP choice.
+
+The coordinator keeps the other 32 base-row fields and all other source IDs as explicit
+hand-offs. Phones and extensions, notes, enrolment and archives, professional/patient/provider
+references, pharmacy, operational/native-only values and complete source/native closure still
+need the enclosing demographic assembly. `coreRepresentable()` therefore does not qualify a
+whole demographic, an export job or a profile. One unresolved component prevents all core
+changes from being used. A completed genuine import with multiple name parts, two address
+forms, phone components/extensions, enrolment history, a patient note and offset-bearing
+dates supplies the installed reconciliation fixture; its historical metadata is not simulated.
+
+
+The adjunct coordinator now combines the core, retained phones and the patient note in
+one field/source-ID ownership check. It accounts for home/work numbers, every known phone
+property column and the note content/owner; unknown properties, care-team carriers and
+other demographic fields remain explicit hand-offs. The seven-column historical
+`demographicExt` receipt omits its captured invisible generated key. Phone reconciliation
+checks that key independently instead of weakening the general witness guard. Original
+phone components and unprojected mobile extensions survive unchanged rows; later edits
+supersede them. Missing note rows supply explicit blockers even when there is
+no remaining native content field on which to attach a review outcome.
+
+For demographics-only jobs, note reconciliation compares the selected five cust columns
+against the historical full baseline through the reviewed partial comparator. It does not
+claim to verify the omitted alert column. Care-team fields remain separate native facts.
+The outer unotes frame is plain text; embedded delimiters are never parsed as markup or
+used to truncate a note. Null clears and empty notes remain distinct. A native edit of a
+source-only oversized note supersedes it. Simultaneous core/phone/note changes are all
+withheld when any component requires review; remaining fields still prevent whole-chart
+qualification. Genuine imported-data edit/restoration fixtures cover both components.
+
+
+## Native contact and pharmacy source capture
+
+Import-file evidence now has separate owning-DAO readers for `cds_import_file` and
+`cds_import_file_reference`. Their shared-payload closure is limited to units belonging to
+the selected patient and clinical categories; the owning run alone never supplies access.
+UUID file identifiers and digest reference identifiers retain their original forms. Exact
+ON, BC and owned-database schema contracts, bounded paging/chunks and repeatable-read
+snapshots apply to both tables. Capture retains `verified_epoch`, while the receipt recipe
+omits it exactly as the importer does, because verification advances it after unit commit.
+Missing or changed file dependencies still refuse a preservation-unit proof.
+
+The contact-child binding verifies original lineage, copy identity, source path, ordinal
+and the demographic-parent dependency against the parent's separately committed field
+pages. Contact fields remain owned by those pages; they are not reassigned to the native
+child. An actual completed modern import has passed authenticated capture and this binding
+across 18 source tables, including both file dependencies, without simulated historical
+metadata. Generated Contact/association SQL timestamps remain explicitly unqualified by
+the general row comparator; equal clinical-column witnesses do not qualify an entire row.
+The fieldwise contact reconciler now qualifies each original prepared projection against
+historical and current native witnesses before choosing a source group or a current edit.
+Unchanged groups retain the original first/middle names, purpose choices and telephone
+components. Independent family-name, email, simple-phone, work-extension and matching-note
+edits can replace their own fields; clears stay cleared. An edited compound given name,
+embedded extension, unprojected purpose set or conflicting note copies requires review.
+Other populated native fields, consent and inactive/deleted history keep their independent
+dispositions. A genuine import has passed the authenticated retained-value path, complete
+field-ID coverage, finished XML validation and independent name/purpose/extension checks.
+The personal-contact assembler now checks whole-patient contact occurrence, native-row and
+field coverage for one verified demographic parent. It reconciles every imported contact,
+preserves its source field identities, and appends subsequently created native contacts
+without duplicating the imported occurrence. Missing source children, row aliases, missing
+or substituted frozen witnesses and additional associations to an imported contact refuse
+assembly. Patient/provider/specialist links, professional relationships, unresolved consent
+and history still require their dedicated projections or review. A genuine import followed
+by actual later-contact and extra-association database mutations has passed the authenticated
+assembly, XML and coverage checks; the owned mutations were restored. Complete demographic
+reconciliation remains required before clinical output or an export profile can be qualified.
+
+Four explicit owning-DAO adapters capture `DemographicContact`, linked `Contact`,
+`demographicPharmacy` and linked `pharmacyInfo` rows in the common bounded read-only
+repeatable-read snapshot. Both link tables retain deleted/inactive/history rows and
+unresolved references for later disposition. External contact IDs must match their
+canonical decimal identifier byte for byte; SQL numeric coercion cannot resolve padded
+or malformed references. Type 1 patient links do not cause another patient's chart or
+contact record to be read. Those relationships still require their own authorized identity
+projection before clinical export can be qualified.
+
+All four tables use exact installed schema contracts and ordered driver receipt metadata.
+The CLI and web Spring configurations share the same readers, capture protocol and fresh
+patient/category checks. The existing clinical access service supplies facility/chart
+checks; `consentToContact` remains captured source data and is not an invented disclosure
+permission. Capture alone does not map a preferred pharmacy, a personal contact or a
+professional relationship into clinical XML, and does not qualify a complete profile.
+
+
+## Native preferred pharmacy integration
+
+The native mapper follows CARLOS's explicit rank-one active pharmacy preference and the
+5.2 dictionary limits, including the 50-character pharmacy name limit. It maps address,
+work phone, work fax and email without truncating values or reverse-parsing an extension
+from a stored telephone string. The existing reviewed Canadian province and postal display
+translations preserve their clinical meaning. A complete field-identity and presence check
+covers both physical tables; row counts alone cannot substitute another source field.
+
+Additional preferences, inactive/deleted history, duplicate first preferences, missing linked
+rows, contact-consent context, a second phone, notes, service identifiers and unsupported
+populated values remain explicit review requirements. Two authenticated empty tables are
+distinct from a missing reader/table. The native projection and enrolment/phone/note result
+must share the patient and protected source manifest before the schema-ordered demographic
+writer can combine them. Imported demographic reconciliation remains mandatory; this
+component does not qualify a whole profile or publish a clinical export.
+
+
+## Native personal contacts and source access
+
+The external personal-contact mapper groups associations through the exact captured Contact
+identifier. Multiple purposes remain in one contact occurrence, including EC and SDM flags,
+reviewed native role labels and exact free-text roles. Names, residence/cell/work numbers,
+separate work extensions, email and the contact note are mapped without truncation, name
+splitting or telephone reverse-parsing. Matching duplicate note copies share one output;
+distinct notes require reconciliation. Every field of every supplied Contact and association
+row receives an independently checked presence/disposition. Diagnostic destinations use the
+output occurrence ordinal; native identities remain in protected field keys.
+
+Inactive/deleted history, missing or malformed references, unexpected contact subtypes,
+source-purpose placeholders, conflicting purpose assertions, consent/responsible-provider
+context and populated out-of-schema values require review. Patient, internal-provider and
+specialist links need dedicated authorized identity projections; professional relationships
+need their own schema mapping. They are not read through a personal-contact alias or silently
+filtered out. Retained demographic/contact reconciliation remains a separate mandatory gate.
+The combined native writer requires matching patient and capture-manifest bindings for
+contacts, preferred pharmacy, phones, patient notes and enrolment history.
+
+Both pharmacy source readers require a separate fresh, patient-specific `_rx` read in addition
+to the demographic wire-category rights. This matches CARLOS's pharmacy REST/Rx read routes.
+The actual worker control checks both the effective provider and any delegated web operator,
+with current account, patient and facility restrictions. Unknown/legacy controls fail closed.
+These checks apply before and after capture and replay; they cannot join the source snapshot.
+A late SQL revocation of `_rx` therefore refuses the projection. Selecting demographics does
+not select medication payloads or bypass their source permissions.
+
+Patient and pharmacy postal values require a known supported subdivision before choosing
+`PostalCode` or `ZipCode`. A missing jurisdiction requires review; country is not inferred
+from the shape of a postal string. These native components still do not qualify a full
+clinical profile or permit publication.
+
+
+The pharmacy source check includes both global `_rx` read and the patient-specific `_rx`
+read used by the owning Rx route, for each acting identity. A patient-level grant does not
+substitute for the route's global requirement.
+
+Retained contact preparations are decoded only from applied `Demographics_CONTACT` child
+units with their exact source/options/ruleset/type and original preparation seal. Combined
+native names, separate prepared extensions and importer purpose placeholders remain evidence;
+they are not reinterpreted as current wire values. All preparation decoders consistently
+reject a sealed JSON `null` root with the safe integrity code. This decoder does not establish
+the child-to-parent source-field binding, unchanged native projection or a completed retained
+contact/demographic reconciliation; those gates remain required before clinical output.
+
+## Captured original import options
+
+Export capture now includes a finite `retained_import_options` source alongside the original run, patient and unit metadata. The owning run DAO identifies only the selected patient’s applied copy keys for the selected categories. The reader verifies the private hash-named acceptance document and, for course copies, its frozen copy plan, then recomputes the effective program/facility options digests. Only minimum verified settings and that patient’s bindings enter encrypted source capture. Unapplied attempts require no original files. Private commands, source paths and other patients’ copy bindings are excluded from this source and from clinical output.
+
+The ordinary provenance index and retained-values scope read these settings from the authenticated source generation. Preparation seals retain their original options digests; course-copy digests are verified against their effective options instead of being incorrectly compared with the original unexpanded request. Mapping and restart do not reopen import job documents. Original options/document/copy hashes remain bound to the captured run. Older captures without the necessary copy evidence fail closed.
+
+The retained enrolment source mapper applies the verified original shift to every historical date, including accepted logical corrections and source offsets, and verifies the selected event against the sealed preparation. Counts, duplicate paths, conditional dates and conflicting latest events are checked. This preserves history rather than reducing it to the native latest roster. Sixty focused provenance/source checks and sixteen enrolment-source checks pass. Installed genuine ordinary and shifted imports passed 24 and 25 component checks through nineteen captured sources. The combined package passed 2,797 Java checks without failures, errors or skips; the same packaged WAR passed the 24 ordinary and 25 shifted installed component checks. Native archive/current reconciliation, remaining demographic closure and clinical publication are still unfinished.
+
+The complete reviewed import/export test inventory is committed in `scripts/ci/cds-coordinated-test-classes.json`. To reproduce it, provide the three owned disposable test-database property files through `CDS_TEST_PROPERTIES`, `CDS_LEDGER_TEST_PROPERTIES` and `CDS_EXPORT_TEST_PROPERTIES` and an owned empty directory through `CDS_EXPORT_TEST_DOCUMENT_ROOT`, then run `python3 scripts/ci/check-cds-transfer.py`. It clears inherited tag filters and, after Maven, checks every suite's report the way the native tier does: a missing, skipped, rerun or empty suite makes it fail even when Maven succeeded. Optional `--offline`, `--settings` and `--maven-local-repository` select the build environment. The script provisions no databases and reads no configuration secrets into console output. All required database fixtures and dependencies must be available; a skipped suite is not full integration evidence.
+
+
+### Registered disclosure policy
+
+The disclosure-policy service is packaged and installed component verified. Twenty-five focused policy/encryption checks and 14 exact packaged container checks verify registered certificates, approved audit scope, current expiry/revocation, strict JSON types, manifest coherence and real root-file ownership/permission checks. It supplies approved arrangement evidence; it does not grant clinical read access, qualify an export profile or publish an artifact. The clinical engine must connect it to acceptance and recheck it before capture, encryption, publication and download.
+
+`cds.export.policyRoot` identifies an administrator-controlled absolute directory. Every directory in its ancestry must pass the protected-file trust checks. Policy files are root owned, private regular files; a service-readable group is allowed only under the existing protected-file contract. Symlinks and group-writable policy files are refused. Construction performs no policy reads, so metadata/control startup remains available without this configuration.
+
+The protocol-one layout is:
+
+| Relative file | Required fields in addition to `protocol: 1` and `enabled: true` |
+| --- | --- |
+| `policy.json` | `senderSha256`; `recipients`, `certificates` and `auditPlans` maps from registered opaque identifiers to exact file SHA-256 hashes |
+| `sender.json` | Stable `namespace`, `physicianGroup`, `groupContactInformation` |
+| `recipients/<id>.json` | Matching `id`, registered `certificateId`, `certificateSha256`, explicit logical-profile identifiers in `profiles` |
+| `certificates/<certificateId>.der` | Exactly one DER-encoded recipient leaf certificate, pinned by both the manifest and recipient registration |
+| `audit/<id>.json` | Matching `id`, approved access `description`, explicit `recipientIds`, `providerNos` and `profiles` |
+
+Certificates must meet the existing authenticated-delivery contract: current validity, a non-CA RSA key of at least 2048 bits and permitted key encipherment. No recipient private key is accepted or retained. Filenames come from validated registration identifiers; callers cannot supply certificate paths or bytes.
+
+Publish complete policy files before atomically replacing the approved manifest. The service verifies every selected document against that manifest and rereads the manifest before returning. Unknown properties, duplicate keys, trailing JSON documents, numeric/boolean values coerced into identifiers, malformed Unicode, unknown profiles and duplicate approvals are refused. An audit plan must explicitly approve the requested provider, recipient and logical profile.
+
+The accepted `auditPlanDigest` binds the entire approved arrangement: manifest, sender registration, recipient registration, exact certificate and audit plan. Any later byte change requires a new accepted request with a new submission key; resume never replaces the original arrangement. Revoked or expired policy is unavailable even when its old digest is known. No production policy or clinical profile is enabled by this integration.
+
+### Independent supporting-file readback
+
+`CdsExportSupportingFilesValidator` reads the completed ReadMe and event CSV against the sealed physician inventory, actual ZIP entry paths and independently validated patient XML receipts. It checks recipient audit text, selected scope, identities, hashes, physician totals and category/report counts, requires complete UTF-8 input and EOF, and propagates cancellation. Both files are read to their exact end, and the proof that no two patients share a sender identifier is the caller's `Identities` index, which the packaging step keeps on protected storage, so no patient count is refused. Caller-owned streams remain open. Thirty focused validator/composer checks, the 2,983-check coordinated package and 67 checks against the exact packaged implementation using genuine retained importer data pass. This consistency gate does not establish source completeness or authorize publication.
+
+
+### Coordinated demographic assembly and ancillary hand-offs
+
+`CdsExportDemographicAssembler` composes the existing scalar, phone, patient-note, enrolment, primary-physician, contact and pharmacy reconcilers before closing the explicitly reviewed ancillary base-row fields. The final pass requires the captured row witness and exact earlier field ownership. Null and empty ancillary values stay distinct; a populated value with no Demographics element is decided for the native demographic NewCategory record (or as not selected), and only a value no XML document can carry withholds the proposed XML changes. Operational identity, local chart-registration and update metadata are captured without being presented as clinical history. The importer creates `date_joined` from its execution time; it is not the patient’s enrolment date. The enclosing pass also accounts for the care-team carriers: a populated nurse, resident or midwife is carried with its exactly matching public provider row, whose use is combined with any primary, enrolled or archived use of the same row, and a populated selected alert is decided for AlertsAndSpecialNeeds. Missing or duplicated field hand-offs, substituted row keys, changed captured bytes and false presence claims are rejected. Remaining retained-source and associated-row hand-offs remain visible and prevent a demographic-complete result. This component does not qualify a clinical profile or enable publication.
+
+
+### Sender patient identity reconciliation
+
+`CdsExportPatientIdentityReconciler` explicitly decides the retained previous vendor-ID field after the demographic assembly. It binds that field through the authenticated demographic parent and imported patient row, checks the effective previous ID, and emits `C` followed by the exact positive native patient number. The result is injective within the registered sender namespace and fits the 20-character wire limit without hash truncation. The namespace stays in accepted server-owned intent; changing it changes identity. A database restore, copy or merge still requires the separate lineage and ownership policy before admission. An earlier review blocker withholds the identity change along with the other proposed XML. This component does not qualify clinical export or enable publication.
+
+
+### Independent demographic field closure
+
+`CdsExportDemographicClosureValidator` compares the assembled result with the exact captured row universe and authenticated parent source-field IDs supplied independently by the caller. It rejects deferred or substituted identities, presence mismatches, review blockers and overlapping XML replacement claims. The combined component proof passed 33 assertions against a genuinely imported owned synthetic chart, including no deferred native/source fields, independent closure, finished sender-ID XML readback and supporting-file consistency. This used isolated new components over the preserved packaged baseline; exact integrated-WAR qualification remains separate. A receipt proves closure only for that supplied authenticated demographic scope; it does not prove that the overall source catalogue is complete, that every serialized clinical fact is correct, or that disclosure is authorized.
+
+
+### Scoped demographic occurrence service
+
+`CdsExportDemographicOccurrenceService` connects the coordinated demographic mapper, registered sender identity and independent field closure to the same synchronous scoped XML emitter used by the clinical occurrence services. It loads bounded authenticated rows, rejects active merge scope, verifies retained parent receipts, requires every captured demographic field and source ID to be accounted for, and checks final source authority before returning. XML and receipt callbacks stay private until the complete enclosing operation succeeds. Native-only demographics use the same typed components; populated ancillary, care-team and property values are carried in the native demographic NewCategory record and the selected patient alert is an AlertsAndSpecialNeeds occurrence, so neither holds the chart. Multiple applied demographic parents still require dedicated reconciliation; they cannot produce a partial demographic fallback.
+
+
+### Historical note preparation evidence
+
+The retained preparation reader now decodes the importer’s sealed history/clinical-note preparation for the seven supported history categories. The original payload seal, category-specific issue code and source date dependency must match. Unknown and partial temporal values remain explicit; native timestamp or author reconciliation is not inferred. Twenty-five preparation-reader checks cover existing categories and the new history decoder. Native case-management note capture, issue/revision reconciliation and fresh program-specific access still require separate implementation and installed qualification.
+
+
+### Per-note program authorization
+
+History and clinical-note payloads require the shared worker's `authorizeNote` boundary in addition to the selected category, patient and `_eChart` read privileges. Both the initiating and effective providers must pass the checks. `CdsExportAccessService` compares the captured note ID, patient, program and reporter role with the live physical row in a fresh authorization transaction. The owning DAO projects access metadata only and reads current rights without the chart cache. The final cohort pass before disclosure authorizes each patient's notes in ascending note-id batches of up to 8,192 (`authorizeNotes`, one fresh transaction per batch) with the same rules, instead of one database round trip per note.
+
+The policy follows the active `CaseManagementManager.filterNotes` and chart entry routes. A patient with admissions requires a provider membership in an admitted program (including historical admissions), or an active referral into a provider program. With no admissions, the domain check allows the ordinary chart read. Empty and zero program numbers use that domain and the chart/category rights. A positive note program supplies the exporter’s program context: an unambiguous membership role is required, and the reporter’s same-role default or a `read ROLE notes` default/program grant must allow reading. Role names and program map keys use the active reader’s lowercase spelling with spaces preserved. Access-type labels do not substitute for these names. Different membership roles or duplicate program map keys refuse disclosure instead of choosing an arbitrary row.
+
+**One authorization session per patient.** Every capture, reconciliation, mapping and emission
+step asks the worker again whether the exporting identities may read the patient, a category, a
+note, a program-restricted record or a printed record; answered fresh each time, a chart of a few
+hundred notes cost hundreds of thousands of identity and privilege queries (an installed 69-chart
+census sat in capture for over an hour and a half without finishing a chart). The worker opens a
+session for each patient (`CdsExportRunControl.beginPatient`, `CdsExportPatientAuthorization`).
+A session is two passes over the live database with the patient's reads between them:
+
+- **The opening pass** (`CdsExportAccessService.decidePatient`), before any of the patient's
+  data is read, decides every fixed gate of the command for this patient in one fresh
+  read-committed transaction: the patient gate, the pharmacy and case-management gates, each
+  selected category's gate, the sensitive-laboratory gate and the two record objects (`_con`,
+  `_form`). Each is decided by its ordinary check (`requirePatient`, `requireCategory`,
+  `requirePharmacyRead`, `requireCaseManagementRead`, `canReadRecordObject`), which is called
+  as it always was. A check that refuses is recorded as refused, with its own refusal, and does
+  not stop the others, so a right the chart never needs cannot hold the patient. If the
+  exporting identities may no longer export at all, the whole pass is refused and the patient is
+  held.
+- **While the patient is read**, a step that asks a fixed gate is answered from the opening
+  pass. What depends on the chart's own rows is still asked of the live database when it is
+  first needed, and the first answer kept: each note's exact live scope once per note, the
+  program and reporter-role grant once per distinct grant (`PatientGrants`), and each issue
+  program and restricted program once.
+- **The closing pass** (`CdsExportAccessService.recheckPatient`, from `endPatient`), after the
+  patient's last read and before its output is accepted, makes every check that granted access
+  again in one fresh transaction: every gate that was asked and passed, every note in ascending
+  batches (`requireNotesRead`) and every program-restricted and printed-record answer that was
+  yes. It takes from the session only the list of what to check. Any refusal or changed answer
+  holds the patient as `CDS_EXPORT_ACCESS_CHANGED`.
+
+A revocation at any point while the patient was read is therefore still refused before anything
+of that patient is accepted. A session is never shared between patients, jobs or threads and is
+discarded however the patient ends; the next patient starts with its own opening pass, so a
+right revoked between two patients is refused for the next one.
+
+Inside one pass the rows behind the checks are read once instead of once per check: each
+identity's roles and security objects (`SecurityInfoManager.readOnlySnapshot`, evaluated by the
+same code as `hasPrivilegeReadOnly` and `isAllowedAccessToPatientRecord`), the provider and
+facility membership rows of the exporting identities, and each program and reporter-role note
+grant. No privilege rule is evaluated by export code. The rows are bound to the calling thread
+for the one service call that is the pass and removed before it returns; nothing of a pass
+reaches another transaction, patient, job or thread. Before, each of about 184 checks per chart
+was its own transaction and read the roles and one or two security objects for every privilege
+question: 104 role reads and 186 security-object reads for the gates of one pass, against one
+of each now (`CdsExportAuthorizationPassUnitTest`).
+
+One consequence is deliberate: a gate decided by the opening pass is decided as of the session's
+start, not as of the step that first asks it. A right revoked after the start is caught by the
+closing pass, as before. A right granted only after the start does not help that patient, who is
+held; export the patient again.
+
+**Re-authorization passes.** A captured patient is authorized six more times before anything is
+published: three cohort passes before packaging (`authorizeCohort`) and the disclosure-scope
+verification at delivery (twice) and publication; every download verifies the whole cohort
+several times more. Each of these opens one pass per patient
+(`CdsExportRunControl.beginAuthorizationPass`): the same opening pass decides the patient's
+gates from the live database, the patient's notes are checked in one uncached batch, and
+`endAuthorizationPass` discards everything. Such a pass reads no patient data, so it has no
+closing check; it keeps nothing once it ends, and it cannot be opened inside a session (that
+would drop the session's closing pass). The download path uses the same passes. A check made
+outside any session or pass (for example each eForm render's `authorizeRendering`) is still one
+fresh transaction of its own.
+
+Separately, the maintenance SQL guard (`CdsJdbcAdmissionGuard`) keeps the admitted shape of each
+exact statement text instead of parsing every repeated statement again on a new parser thread;
+refusals and text with quoted literals are never kept. The installed export scaling lane
+("Installed export scaling lane" below) fails when authorization-table reads grow per note
+again, or when a chart again costs one transaction per check.
+
+**One schema pass per capture.** Each source reader verifies its table's physical structure
+against its pinned contract for every patient, inside that patient's read-only capture
+transaction, and the source catalogue compares the whole reviewed profile. Read one table at a
+time that was two metadata probes and three `information_schema` statements for each of about
+200 readers, one more engine read before every data-summary count and page, and one probe for
+each of about 500 profile tables: about 1,840 statements for every chart. The capture
+transaction now opens one schema pass (`CdsExportPhysicalSchemaReadSupport`,
+`CdsExportSourceCatalogueDao.openSchemaPass`): five or six statements read the tables, columns
+and primary keys of the whole schema, and every verification in that transaction is answered
+from them. Every reader still receives the structure of its own table as the database reported
+it inside this patient's transaction and still checks it against its contract, and the whole
+profile is still compared for every patient. Two things the per-table read did are kept
+differently:
+
+- *Column visibility.* The per-table read began with `select d.* from T limit 0`, which fails
+  for an account that can see only some columns, so a hidden column cannot leave the
+  privilege-filtered catalogue looking complete. A pass is opened only for an account that
+  holds SELECT on the whole schema or globally, which is what makes every column of every table
+  visible; any other account gets no pass and every table is read as before (and the source
+  catalogue refuses such an account, as it always did). The probe itself still runs for each
+  table the first time an export attempt meets it (`CdsExportRunControl.schemaProbes`).
+- *Stability while the rows are read.* The probe also took the table's metadata lock before
+  its structure was read. With a pass the structure is read first, so the capture reads the
+  whole schema a second time after its last source read and before it commits
+  (`verifySchemaPass`). Every table read in the transaction has held its metadata lock since
+  its first read, so its structure cannot change between that read and the second complete
+  read; if the second read shows a verified table differently, it was altered before its first
+  read, and the job stops with `CDS_EXPORT_CLINIC_SOURCE_UNREVIEWED`, naming the table on the
+  safe technical channel (`CDS_EXPORT_SOURCE_SCHEMA_CHANGED_DURING_CAPTURE` in the log). No
+  window remains for a table whose rows are read. A table that no reader reads in the
+  transaction can be altered and restored between the two reads without notice; none of its
+  rows was read.
+
+`CdsExportSchemaPassMariaDbIntegrationTest` shows each of these on MariaDB: 5 statements for one
+table read alone; 6 for a pass whatever the number of tables, one probe per table the first
+time and none for the next patient; an `ALTER` between the pass and the table's first read
+refused and named; an `ALTER` of a table already read made to wait until the transaction ends;
+and, on the installed schema, the whole reviewed profile verified from one pass, each of its
+tables probed once in the attempt and fewer than 40 statements for every later patient.
+The demographic and provider tables keep their own per-table read. The schema validator also
+keeps each verification that succeeded (by scope, structure and column set), so an unchanged
+structure is not parsed and digested again for every table of every patient; a refusal is never
+kept.
+
+**One checked read of the capture per patient.** Every reader of a chart (the inventory, each
+section, each receipt and witness check) reads the patient's whole sealed capture, and each read
+used to decrypt the members, parse every index line and hash every value again: dozens of complete
+reads per chart, about 52 s for an imported chart and 14 s for an ordinary native one in the
+installed census. Inside the patient's session (`CdsExportRunControl.verifiedCaptures`,
+`CdsExportVerifiedCaptures`) the first complete read of a capture's members (the read-back right
+after capture) is recorded once it has passed every check of `CdsExportNativeCaptureReader`
+(authenticated chunks, both end-of-stream checks, strict UTF-8, each value's SHA-256, sequence,
+offsets and counts); each later read of the identical members and plan replays those checked
+fields, in the same order and with the same bytes, to its consumer. The parsed manifest and its
+checked table plan, the retained import index (with its unsealed native-baseline witnesses) and the
+comparison of the captured rows with those witnesses are likewise derived once per session from
+the same checked members. Everything a read does around the transport still runs on every read:
+the manifest and scope checks, the authorization checks before and after, the note-scope binding
+and each consumer's own receipts. The record is the session's alone and is zeroed when the patient
+ends however it ends. It is a cache, not a bound on the chart: it holds at most a sixteenth of
+the engine's heap (32 MiB under the default 512 MiB), each verified field value with its digest
+(164 bytes, its table, key and column strings shared) beside its value bytes, which is a chart
+of about 250 imported records or 1,000 native ones; a replay from it validates, formats and
+parses nothing. It is kept small on purpose: the sections that reconcile a long chart need the
+heap more than its replay does. A larger capture is not held. Its
+first complete read also writes each verified field (row, column, kind, length, SHA-256 and
+exact numeric evidence, about 46 bytes) to a second encrypted staged member
+(`CdsExportCaptureReplay`, purpose `SOURCE_REPLAY`); each later read streams that member beside
+the capture's value member, delivers the same fields in the same order, hashes every value again
+and refuses one whose SHA-256 is not the verified one, and reads both members to their
+authenticated end. Such a read holds one field and one 64 KiB chunk whatever the chart's size,
+and skips only the JSON parsing of the index and the UTF-8 check of bytes whose digest already
+proves them. The session erases the replay member when the patient ends; an erasure that fails
+stops the job at its next checkpoint (`CDS_EXPORT_SESSION_CLEANUP_FAILED`), and the member, still
+encrypted under the job's key, is purged with the job's staging. Each read's own working buffers
+are reused across values and zeroed after each value, the export-enabled setting is read once, and
+the accepted schema digests of each reader's contract are derived once per application.
+
+**No limit on the capture.** A chart of any size is captured: every value is streamed to the
+encrypted staged members and read back from them, so a capture costs staging disk (measured 430
+MiB for a chart of 4,096 imported records, about 105 KiB each: 18 KiB of values, the index lines
+and 46 bytes a field of replay member) and no memory that grows with the chart. The former per-patient capture bounds are gone:
+`cds.export.maxCapturedFields` and `cds.export.maxCapturedBytes` are no longer read (an
+installation that still sets them starts as before; the keys are named once in the log as
+`CDS_EXPORT_RETIRED_SETTING_IGNORED`), `CdsExportNativeCaptureComposer` refuses no field or value
+count, a reader's `requireCapacity` refuses only a count that is not a count, and the 100,000,000
+field ceiling of the capture and payload manifests is removed. The installed plan passes
+`Bounds.UNLIMITED` wherever a read still takes the two former bounds as arguments. What can stop a
+capture is storage: a full disk or a failed write is an I/O failure of the job. An imported chart
+also has a retained import index, the one structure of it that `CdsExportRetainedIndexService`
+still holds in memory for the patient's session. It keeps each row packed (its column names
+shared, its values one UTF-8 byte array) and each unit's native-baseline witness sealed, opening
+it on each read, and `CdsExportRetainedReceiptVerificationService` decodes a unit's witness when
+its rows are compared instead of holding every unit's decoded rows at once. Nothing refuses the
+index, the receipt comparison or the history section's rows for their size: `maxIndexRows` and
+`maxIndexBytes` are retired, the comparison's reference count is not bounded, the history
+section reads a long chart window by window, and no heap budget stands in their place.
+
+What is left is the heap itself. The index and the sections that reconcile an imported chart
+(the retained field values, the history and laboratory contexts) still hold the chart as Java
+objects, so a long imported chart needs more heap than the default: see "Imported 2048-note
+chart" under the installed export scaling lane. No threshold of ours stops such a job. With too
+small a heap the Java runtime spends its time collecting an old generation that stays full, and
+the export does not finish; the remedy is a larger `cds.export.cliHeapMiB` and a new export.
+That lasts until those structures are spilled to staging as the capture and its replay are.
+
+The trusted server setting `FILTER_ON_FACILITY` defaults to true, as in the chart. A positive note program then requires the command’s verified facility to match the program; disabling the setting does not remove program-domain, membership, chart or category checks. Invalid settings refuse the operation. Locked notes, unknown lock flags and malformed or changed dependencies also refuse disclosure. The unused `filterNotesByAccess` helper’s legacy `ROLEnotes` and admission-interval rules are not used. Earlier component evidence used that helper; the current active-policy checks below supersede those authorization claims. History issue/revision reconciliation and complete clinical output remain separate work.
+
+
+### Retained history source reconciliation
+
+`CdsExportHistoryRetainedSource` authenticates each history occurrence’s complete field set, original options and sealed preparation. Its public entry requires live authorization for the exact native note referenced by that import unit, before reading retained clinical text and again before returning. Structured descriptions, separate notes, residual data, participating authors and reviewers remain in their original wire fields. All known dates use the verified original shift, including non-projected resolution, procedure, exposure-end and reviewer dates. Precision, offsets and fractional clock spelling survive unchanged. A partial date that cannot be shifted, an inconsistent observation selection, a changed narrative, a stalled or failed authenticated stream, or an expired callback refuses the result. Oversized source narratives remain complete; the importer’s native source-view marker is never substituted as clinical output. Current native note, issue and revision reconciliation and the history occurrence service remain required before publication.
+
+
+The packaged history-source component was checked through a genuine import of all seven history categories. Exact-WAR readback preserved every retained field, structured descriptions, separate notes, partial-date precision, clock fractions/offsets and author/reviewer dates. Actual program membership revocation, revocation at the end of a note-body stream, and locking of that note all refused the public source-reader entry point. These 32 component assertions do not qualify native note/issue/revision reconciliation or a clinical export profile.
+
+
+### CPP values and edits of imported history that no longer hold a chart
+
+`CdsExportNativeHistoryMapper` writes what a standard CPP element cannot hold in the item's Notes
+instead of holding the patient; the exact rows still travel in `CARLOS.NativeHistory.v1`:
+
+- A FamilyHistory, PastHealth or ProblemList item with several assigned diagnoses (A24) writes no
+  DiagnosisProcedureCode/DiagnosisCode rather than choosing one, and lists every code in Notes
+  (`Coded diagnoses:` then one `system code description` per line).
+- A CPP extension value its element cannot hold exactly (A25): a free-text Age at Onset
+  ("childhood", "40s", a risk factor's "0", since AgeAtOnset is `xs:nonNegativeInteger` and
+  AgeOfOnset `xs:positiveInteger`), Treatment or Problem Description over 250 characters, Exposure
+  Details over 120, Relationship or Problem Status over 50. The element is left out and Notes holds
+  `Age at Onset:` (the key) and the exact value. Notes keeps the long narrative first when there is
+  one, and the archived statement leads it. An invalid Life Stage (a select) still holds.
+- A CPP editor field its section has no element for: the editor (`prepareExtraFields` in
+  `newCaseManagementView.js.jsp`) shows Start Date and Resolution Date in every section, and
+  Medical History also Procedure Date, Treatment, Problem Status, Life Stage and Procedure, and an
+  item re-filed into another section keeps the values of its former one. Such a value (Medical
+  History's Treatment and Procedure, a family history's Resolution Date, ...) is written in Notes
+  the same way, labelled with its key (`Procedure:` then the value; a date in its own precision,
+  `Resolution Date:` then `2021-03`). A PersonalHistory item has no Notes: its Start Date and
+  Resolution Date follow its narrative in the plain-text copy `CARLOS.History.NarrativeText.v1`
+  (below). The CPP editor's "Hide Cpp" select is a display setting of the chart's CPP boxes, as a
+  prescription's hide-from-CPP flag is, and the importer's `cdsDate*` rows are import metadata;
+  neither is written in Notes. Every extension row stays exact in `CARLOS.NativeHistory.v1`.
+- A coded issue description with edge, repeated or line-break spaces (the seeded `ICSW420` ends in
+  a space) is written token-normalized in StandardCodeDescription, an `xs:token`, as any
+  schema-aware reader keeps it anyway (A26); the exact description is in the context.
+
+A FamilyHistory, PastHealth, ProblemList, RiskFactors or AlertsAndSpecialNeeds item whose text is
+longer than its description element (250 characters; RiskFactor 120; AlertDescription 1,000) is
+written without a description. Its complete narrative travels in `CARLOS.History.Narrative.v1`,
+which the CARLOS importer restores when the description is absent (`CdsHistoryPersister`; a
+narrative past the importer's own note size becomes its structured-source placeholder with the
+source fields retained). The same text is also written in Notes when it fits there with the
+item's statements and, for an archived item, the archived statement: 32,000 characters for
+FamilyHistory, 64,000 for PastHealth, ProblemList and RiskFactors (`text32K`/`text64K` counted as
+the guide counts them, which `CdsExportXmlValidator` enforces). When it does not fit, and for
+every long alert (alert Notes are `text1K`, no longer than the description), the residual alone
+carries it. No narrative length holds the patient, and neither do the item's own statements
+(values such as Treatment or Exposure Details that their element cannot hold): Notes holds
+whole parts only, statements first; one that does not fit with the others is left out whole,
+last first, and is exact in the revision's extension facts in `CARLOS.NativeHistory.v1`
+(`CDS_EXPORT_NATIVE_HISTORY_NARRATIVE_CAPACITY` is gone). A note or a CPP field pasted with a
+character XML cannot carry is written with U+FFFD in its place and its exact text travels in
+the revision details (`exactNarrative`); a CARLOS importer restores it once the element proves
+to be its U+FFFD form (see `docs/cds-import.md`). An encounter note that carries such a text also
+states, in every revision's details, `bodyLength`: the UTF-16 length of that revision's body as
+the note's text holds it, so each body has one place counted back from the details heading even
+when a body quotes a revision heading. The mapper and the revision planner no longer refuse a note with
+more than 8,192 revisions or a chart with more than 8,192 note rows, and neither do the note
+scope read, the note authorization, the revision inventory or the occurrence service, which
+reads a long chart's notes window by window (see "Section windows").
+
+PersonalHistory allows only `ResidualInfo`. Its narrative travels exactly in
+`CARLOS.History.Narrative.v1`, an escaped JSON string (`"Lives\u0020alone.\n..."`) that a CARLOS
+importer decodes but any other EMR shows literally. The exporter therefore also writes
+`CARLOS.History.NarrativeText.v1` (`string`) beside it: the narrative followed by the item's CPP
+statements, in plain words and whitespace collapsed, since residual `Content` is an `xs:token`
+that every schema-aware reader collapses anyway (`CdsExportNativeHistoryMapper.readableText`).
+The CARLOS importer restores the narrative from the carrier only: `CdsHistoryResidualReader`
+does not know the copy's name, so it is never imported as a second value, and a file with the
+copy but no carrier imports the structured-source placeholder. When an imported PersonalHistory
+item is edited in CARLOS, the native reconciler rewrites the copy with the carrier (or adds it),
+so a copy from an earlier CARLOS export never sits beside a changed narrative.
+
+An item that came from a CDS import and was then edited in CARLOS goes through the native revision
+context (`CdsExportHistoryFieldReconciler.reconcileNative`, B5 and B10). The strict guard still
+proves the item is the imported one (same sealed preparation, baseline, category tag and, for a
+CPP item, the import's date metadata rows), and now tolerates, besides archive state, audit
+columns, authors and a PersonalHistory edit, the rules in `NATIVE_CONTEXT_RULES`:
+
+- the editing provider's program team (`CLINICAL_TEAM_RECONCILIATION_REQUIRED`), which every
+  native note treats as operational;
+
+- a CPP extension added or changed in the CPP editor (`NEW_OR_CHANGED_CLINICAL_EXTENSION_REQUIRES_RECONCILIATION`),
+  written as its standard element over the imported one or, when it does not fit, in Notes;
+- an issue assigned to or removed from the item (`CHANGED_ISSUE_ASSOCIATION_IN_NATIVE_CONTEXT`):
+  a diagnosis assigned in CARLOS becomes the item's code when the imported record had none, and
+  is named in Notes (after the imported Notes) when it had one, which stays the coded element; an
+  encounter note carries its issues in its revision details;
+- a changed observation date of an imported encounter note, written as EventDateTime.
+
+`CdsExportHistoryImportedEditUnitTest` imports, edits and exports such items: archiving an
+imported CPP item and editing an imported PersonalHistory note were already absorbed by the
+native context (B10 settled), and the B5 edits above no longer hold.
+
+An imported item a clinician re-filed into another CPP section (its category tag changed in the
+CPP editor) is exported under its current section, not held. `CdsExportHistoryOccurrenceService.plan`
+gives the occurrence its current category with `sourceCategory` set to the import's section; the
+occurrence is emitted as a native item from every revision (current text, extensions and codes in
+standard elements), and the import's section elements, read through the same authenticated and
+note-authorized `CdsExportHistoryRetainedSource`, travel exactly in its `CARLOS.NativeHistory.v1`
+context under `refiledImportedSource`: rule `REFILED_IMPORTED_ITEM_SOURCE_SECTION_CARRIED`, the
+source section name, and each element's path and exact value in source order (a date at the
+import's verified shift). Its receipt accounts those retained fields, so the source section's
+closure still holds, and nothing is presented twice. An unmoved imported item exports exactly as
+before.
+
+An imported CPP item whose observation date changed is exported too. The CPP editor leaves that
+date alone; the REST note API (`NotesService.saveIssueNote`) sets it on every save. The import
+had projected one source date (StartDate, OnsetDate, OnsetOrEventDate or ProcedureDate,
+DateActive) into it. By the rule of an item written in CARLOS a CPP item's observation date has
+no element and travels in the revision context, so the native reconciler removes the imported
+date element (its source fields are listed as replaced) unless a CPP date of the current
+revision is written to that element; both dates and the import's date metadata rows are exact in
+`CARLOS.NativeHistory.v1`. It held with
+`CDS_EXPORT_HISTORY_NATIVE_SOURCE_RECONCILIATION_REQUIRED`.
+
+A flag of the patient issue that files an imported item in its CPP section (acute, certain,
+major, resolved) can be changed in the chart's issue list, which lists every patient issue, CPP
+section tags included, and saves without a new revision of the items the issue files. It held
+every imported item of the section (`CDS_EXPORT_HISTORY_ISSUE_EDIT_REQUIRES_RECONCILIATION`).
+Such an item is now given native context (`CdsExportHistoryOccurrenceService.requiresNativeContext`,
+from the receipt check of the unit's `casemgmt_issue` reference:
+`CdsExportHistoryFieldReconciler.issueContextChanged`), whose revision details carry the issue
+row exactly; a change of the row's update time alone, which every save stamps, is not one. The
+imported tag row pointed at another issue definition moves the item out of its section and is
+exported as a re-filed item, as above.
+
+Still held for an imported history item: what the import's receipt cannot prove (a missing or
+changed baseline, `CDS_EXPORT_HISTORY_NATIVE_BASELINE_REQUIRED`,
+`..._DATE_BASELINE_REQUIRED`, `..._ISSUE_LINK_BASELINE_REQUIRED`, `..._FIELD_CODEC_REQUIRES_REVIEW`,
+`..._ISSUE_EDIT_REQUIRES_RECONCILIATION` when the issue row has no usable baseline); the
+import's date metadata rows removed while the observation date is unchanged
+(`CDS_EXPORT_HISTORY_DATE_EXTENSION_DELETION_REQUIRES_REVIEW`; every save copies them, no screen
+deletes them); an imported row changed in place with no new revision (no screen does it); and a
+revision saved locked (`LOCKED_NOTE_REQUIRES_AUTHORIZATION_REVIEW`: privacy).
+
+No CARLOS screen or API changes an imported note row's text in place. The CPP editor
+(`issueNoteSave`, `issueNoteSaveJson`), the REST note service (`saveIssueNote`, `saveNote`) and
+the encounter editor save every edit as a new revision with the same uuid
+(`CaseManagementManagerImpl.saveNoteRevision`, or a new `CaseManagementNote`), and the in-place
+writes they do make (position, issues, the first copy into `history`) change no text. So
+`CURRENT_NARRATIVE_NOT_REPRESENTABLE`, which the strict import guard raises when an imported
+row's own text no longer fits its description element, holds only a row changed directly in the
+database. An imported item edited in CARLOS takes the native path: an imported alert (a
+Reminders item) edited past AlertDescription's 1,000 characters is written with AlertDescription
+left out whole and its exact narrative in `CARLOS.History.Narrative.v1`, which a receiving CARLOS
+restores as the item's text (`CdsExportHistoryImportedEditUnitTest`).
+
+### Captured note access dependencies
+
+The encrypted native-source manifest can now carry each note’s patient, native identity, program and reporter-role dependencies. These are saved identities, not saved grants. Native capture prepares an immutable patient scope after category authorization, checks the prepared reader’s table/category/dependency identity, and verifies captured note scope fields independently during readback. Recovery and buffered final-row callbacks recheck the exact captured note dependencies through the common authorization boundary. A missing scope, another patient or note, changed program/role, locked or unknown lock flag, oversized metadata, missing field or expired validator refuses completion. Existing tables omit the empty note metadata property and retain their prior serialized manifest shape. The physical note reader is now integrated; issue/revision reconciliation still remains, and no clinical profile is enabled by these infrastructure checks.
+
+
+### Bounded native note capture
+
+`CdsExportNoteSourceReader` delegates physical schema, ordered receipt metadata, row headers and text chunks to the existing case-management note DAO. A separate scalar preflight obtains the complete bounded patient note scope; every note then requires current program/reporter-role permission. The reader compares that immutable scope with the actual repeatable-read snapshot before any payload and preserves all 25 physical fields in private encrypted capture. No activity, archive or lock filter silently removes a row. Locked, malformed or unauthorized notes refuse capture; ordinary imported notes with an empty program remain eligible under the chart and patient-domain rules. The current reader requires all seven history categories together until an independent issue classifier qualifies narrower projections.
+
+The reader passed 167 focused checks including actual MariaDB ownership, large UTF-8 LOBs, snapshot isolation, strict physical schema, real CLI Spring bootstrap and import-fingerprint regressions. A component proof over the preserved package passed 44 assertions through a genuine seven-category import, including complete native note field/receipt capture and revocation during the final buffered text-row and receipt-row callbacks. This used newly compiled components in one assembled class directory; it is separate from exact packaged-WAR qualification. Temporary native access edits were restored. Issue, extension, revision and native-only reconciliation remain unfinished.
+
+The new owning-DAO read projections participate in the existing deployed implementation fingerprint. Pending import jobs retain their recorded fingerprint and follow normal upgrade/recovery checks; they are never silently restamped. Completed retained imports remain evidence under their original sealed ruleset.
+
+
+The native-note capture checkpoint is now package verified: 3,911 Java checks passed across 317 selected suites, followed by 44 assertions using the exact packaged WAR and byte-for-byte exploded classes. The previously completed genuine import kept its original ruleset; no import metadata was restamped. The earlier assembled-component proof remains separate evidence. This qualifies the captured native note component and its access fences, not a complete clinical history exporter.
+
+
+### Native note extensions and active access policy
+
+The owning case-management extension DAO now supplies all five physical `casemgmt_note_ext` fields through the same bounded, read-only snapshot interface. Patient ownership is established by the exact parent note. The source reader requires the complete captured note table, so extensions inherit its saved note identities and fresh live authorization at readback and after the final consumer callback. Unknown keys, historical rows, large values and date precision records are captured without filtering.
+
+The updated note/extension and access components passed 183 focused checks, including real MariaDB program-domain, same-role, explicit/default grants, active-referral, facility, malformed-scope and locked-note cases, shared capture regressions, CLI bootstrap and importer fingerprint validation. A genuine completed seven-category import passed 55 installed CLI component assertions using one assembled component class root over the prior packaged WAR. Those checks captured the original unscoped notes, all 25 note fields, all five fields of 18 extension rows and complete row receipts; source dates and complete XML stayed consistent, and membership revocation at final text/receipt callbacks refused completion. The installed fixture explicitly disabled facility filtering for its scoped revocation scenario; separate MariaDB tests verified enabled facility enforcement. Synthetic access edits were restored. These component-overlay results do not replace exact-package qualification or enable clinical publication.
+
+
+The active-policy and extension checkpoint is now verified in the actual packaged WAR (`ad1045c3a0425b538c0ab6dace866f2330e40952ced7dd3f01a2c5e4d31c5b00`): all 3,919 coordinated checks passed, followed by the same 55 installed CLI assertions with byte-for-byte exploded-class verification and no component overlays. Its genuine completed import retained the original ruleset and metadata. This supersedes the earlier component-overlay access qualification; issue/link/revision reconciliation and clinical publication remain unfinished.
+
+
+### Complete physical note-to-issue relations
+
+`CdsExportNoteIssueLinkSourceReader` now reads the physical `casemgmt_issue_notes` relation through the existing note DAO. Its two-column key is paged without `DISTINCT`, arbitrary row numbers or dropped duplicates. Independent counts cover the entire owned relation, including archived notes. A duplicate relationship, dangling reference or either direction of a cross-patient link requests review through the worker’s existing `AMBIGUOUS_SOURCE` outcome. The source requires the complete captured note table and inherits its exact saved note scope and final authorization checks. Issue catalogue payload and clinical interpretation still require their own readers and reconciliation.
+
+The chart’s globally grouped UUID revision chains also receive an ownership existence check before scope discovery and on fresh per-note authorization. A chain shared with another patient or an unassigned row refuses disclosure; the query reads no foreign note text or identifiers.
+
+These additions passed 189 focused checks and 58 installed CLI component assertions over the prior exact WAR. The assertions include all six genuine imported history relations and refusal when a foreign revision is introduced during final text/receipt callbacks. A further 34 execution and actual MariaDB checks passed after link conflicts were assigned to the explicit review state. These are component results pending coordinated packaging and exact-WAR qualification of the added relation/ownership code.
+
+
+### Patient issue and catalogue source capture
+
+The existing patient-issue and issue-catalogue DAOs now expose the same finite, bounded scalar snapshot interface as notes. `CdsExportCaseIssueSourceReader` captures all ten patient-issue fields, including resolved and unlinked issues. `CdsExportIssueCatalogueSourceReader` captures all eight definition fields for exactly the catalogue identities referenced by that patient’s issues. Codes, descriptions, roles, flags and original identifiers remain exact; no activity filter, code de-duplication or inferred crosswalk removes data. Whole-row receipt recipes cover both tables.
+
+Both readers require the captured note, physical link, patient issue and catalogue context. Their shared worker capability checks current chart/category rights and the active chart’s patient program domain for both identities, even when the patient has no notes. This follows the chart’s local issue-list read boundary; the issue-search write/read role filter is not substituted for that route. Authorization runs outside the source snapshot and is repeated after final callbacks. The CLI and asynchronous browser worker use the same capability; its default implementation refuses access.
+
+The combined changes passed 205 focused checks, including installed MariaDB schemas, exact receipt metadata, retained resolved/unlinked issues, fresh authorization regressions and real CLI bootstrap. Seventy-one installed CLI component assertions verified the genuine import’s six patient issues, their six exact catalogue definitions and whole-row receipts, seven note/category/issue-code associations, and refusal after chart access was revoked in final catalogue text/receipt callbacks. Temporary access edits were restored; import metadata kept its original ruleset. These component results remain separate from pending coordinated packaging and do not complete clinical field, issue or revision reconciliation.
+
+
+The patient-issue context checkpoint is now verified in the exact packaged WAR (`75e973f31190fdbf4e4266f7fee08056664ab6848291f0229413a6dcd95af829`): all 3,931 coordinated checks passed, followed by 72 installed assertions with byte-for-byte exploded-class verification and no component overlays. All six patient-issue references matched their original historical row receipts. The genuine completed import kept its original metadata and ruleset. Physical relation/ownership and issue-source component qualification is complete at this checkpoint; clinical field/revision reconciliation and publication remain unfinished.
+
+
+### Streaming revision metadata and current native authors
+
+`CdsExportNoteRevisionReader` verifies the complete authenticated source while materializing only seven bounded revision metadata fields. Note bodies, history and passwords stream through verification without entering its DTO. Exact UUID spelling, nullable legacy fields and native dates remain unchanged; no current revision is inferred from timestamps. The complete source generation, row count, patient/record identities and final live authority must all match before return. Nine dedicated tests cover large text, missing or substituted metadata, incomplete streams, late writes and consumer failures.
+
+The public provider source now includes exact public reference candidates for note authors and signing providers when the complete history group is selected. It requires the captured note table, excludes unselected note associations, preserves historical inactive provider references and still captures only its six approved public fields. Empty or zero reporter-role defaults remain exact on empty/zero-program notes, matching the active chart’s unscoped read behavior; positive programs still require a valid role and current program rights. Roles are never replaced with invented defaults.
+
+The additions passed 83 unit/shared transport/fingerprint checks, 14 actual MariaDB note/issue/provider checks and 65 legacy-scope/access/capture checks. An initial transaction-fixture assertion was corrected and its entire affected DAO suite passed on rerun. Seventy-four installed component assertions over the prior exact WAR verified streaming revision metadata and final callback revocation alongside genuine note/issue/source readback. Final packaging also exercises the legacy reporter defaults. These are focused/component results over the separately preserved 3,931-check coordinated package; they do not establish completed revision or clinical field assembly.
+
+The migration guide’s section 18.2 describes the wire document as a current clinical snapshot and distinguishes data-element audit changes from current clinical history. Revision mapping must therefore keep the current clinical projection and its separately preserved audit evidence distinct; old revisions must not be emitted as independently current notes. Section 18.1’s supplementary source format allowance does not remove the requirement to map corresponding standard clinical facts.
+
+
+The final revision/provider/legacy-scope diff is now package verified: 150 checks across 11 targeted suites over the separately preserved 3,931-check baseline, followed by 76 installed assertions using the exact WAR and byte-for-byte exploded classes, with no component overlays. Empty and zero reporter defaults were captured without substitution, and all temporary fixture changes were restored. The final WAR SHA-256 is `b933829ab33ac337d4bb29c0e64a9137e734dd73a30f8e91b7a2c6d30a6e7f4f`. These counts remain separate; they are not added together or described as a new full-suite run. Clinical field/revision assembly and publication remain unfinished.
+
+
+### Independently witnessed revision inventory
+
+`CdsExportNoteRevisionInventoryService` owns both the complete frozen row-receipt scan and the streaming metadata scan. Every metadata field must match its exact whole-row witness, and the note identities must exactly equal the captured access universe. Source-generation mismatch, missing/duplicate rows, unavailable witnesses, substituted metadata and final authority changes refuse completion. The inventory has explicit row and byte limits; exceeding them enters the existing resource review state.
+
+Canonical UUID case aliases form one chain. The current native note is the maximum note ID, matching the active chart rather than timestamp order. Every earlier revision ID remains explicit audit evidence. Missing or unsupported UUIDs require review, and unsupported flags quarantine the entire recognized chain. The result is source-bound and protected from status/log rendering; it does not itself approve clinical content or serialize old revisions as current notes.
+
+The inventory additions passed 38 focused checks, including ten planner tests, six service tests, shared capture regressions, real CLI bootstrap and importer fingerprint validation. Seventy-eight installed component assertions over the prior exact package verified the genuine seven-note inventory and actual memory-limit refusal alongside retained/native/source checks. Packaging and exact-artifact qualification follow separately. Current-note field reconciliation, historical evidence serialization and clinical occurrence assembly remain unfinished.
+
+
+The revision inventory is now package verified: 166 checks across 13 targeted suites, followed by 78 installed assertions using the exact WAR (`14c225f58639e78506e45510337ed5b926999afc3a4850ad82d0a44da56614e3`) and byte-for-byte exploded classes with no component overlays. The genuine note universe and whole-row metadata witnesses matched completely, the memory budget requested review when exceeded, and temporary fixture access edits were restored. These counts remain separate from the preserved 3,931-check full baseline. This qualifies the revision inventory component; current clinical field reconciliation, audit evidence serialization and history occurrence assembly remain unfinished.
+
+The appointment capture includes develop's nullable `locationCode` on current and archive
+rows. A populated location reference remains explicit review until its clinical location
+and supporting carrier are qualified. For an older sealed appointment baseline, only the
+known added SQL-NULL column can be excluded from the common-field comparison; all original
+receipt bytes remain unchanged. Other schema changes or a populated added value still
+require review.
+
+Current-develop integration at `e635af1a715e074bc1917b43ce3d97f3412d8314`
+passed the complete 4,592-check, 348-suite coordinated package run with zero failures,
+errors or skips. Fresh ON/BC physical schemas and packaged migration bytes match the
+contracts. The exact WAR (`9bb826afaf3eed06763b00ad0f3bb318b9ccc4770283b3bf53c21c50a1f3367a`)
+passed 107 installed assertions after a genuine current-runtime import. The test environment
+uses its own freshly generated account/key; existing protected configuration was not copied.
+
+The later nullable-column fix also handles a legacy appointment without a stored field
+baseline only when removing that one added SQL-NULL field reproduces the exact recorded
+whole-row digest. An edited common field, populated location reference or unknown schema
+cannot use that derivation. No importer metadata is backfilled or restamped. Seventy focused
+appointment checks pass; the final package qualification is recorded separately.
+
+The final nullable-location compatibility diff was packaged at `4b27881d5fe` and passed
+144 checks across its 11 affected suites (zero failures, errors or skips). Its actual
+WAR SHA-256 is `879ccf07960510fd9b51a125e8794b2b30aacfdbfbb27a29551d2992f8b9ed22`. The same packaged
+application passed all 107 installed history assertions using the preserved genuine
+current-develop import fixture; no component class overlays or historical metadata
+rewrites were used. This is a focused verification after the preserved 4,592-check
+full current-develop baseline, not an additional full-suite count. Clinical publication
+and complete engine qualification remain outstanding.
+
+The laboratory component now captures all 26 structured result columns together with
+the complete patient HL7 message, information and routing projections. The owning
+DAOs reject duplicate, dangling, missing or shared chart associations before payload
+reads. SHA-256 result IDs remain strings through keyset paging and large-value reads.
+The shared occurrence service binds unchanged native receipts to the sealed preparation
+and complete retained fields, preserves blocked results under sensitive-lab authority,
+and applies original shifts to collection, requisition and every reviewer date.
+Native-only or changed HL7 requires explicit review. A DOC route, which the inbox writes for
+every document assigned to a patient, is a document link owned by the Reports path and does not
+affect laboratory export. An older MDS, CML or BCP route is a legacy-format report exported
+as a data summary with Reports (see [Legacy records of older releases](#legacy-records-of-older-releases));
+with LaboratoryResults selected without Reports it holds the patient
+(`CDS_EXPORT_LEGACY_LAB_REPORTS_NEED_REPORTS`). An unknown route type still holds the
+patient. Native result text, notes, reference ranges and test names are read from the raw HL7
+segment (verified against HAPI's parse field by field), so a separator a laboratory left
+unescaped, as in `Hemolyzed & lipemic ^ repeat`, stays in the text instead of cutting it. HL7
+escapes are decoded as CARLOS displays them: `\.br\` and `\.sp\` are line breaks, `\Xhh\` is
+UTF-8 and highlighting or layout commands carry no text, while an escaped escape stays literal.
+The continuation lines of a TX or FT narrative form one result. TestName is the laboratory's
+name for the test, or the ordered test's name when the result has none (#3959); AccessionNumber
+is the accession CARLOS stores and shows, with a different order number noted in the
+laboratory information. That field now carries only laboratory facts (sub-ID, ordered test,
+order number, the complete text of a long result); CARLOS provenance stays in the NewCategory
+residual. A result with no flag is written as the dictionary's Unknown (`U`), and the HL7 flags
+with no CDS equivalent, including HL7 `U` ("significant change up"), are written as plain text.
+A numeric, date or coded value with unexpected components needs review. A structured numeric
+(`SN`) is written as its comparator, number, separator and second number (`>60`, `1:20`,
+`>=1.030`), with its unit; the Excelleris titre whose SN separators are themselves escaped
+(`\S\1\S\:\S\20`) gives the same text, and anything else with that type requires review
+(`CDS_EXPORT_NATIVE_LAB_VALUE_COMPONENTS_REQUIRES_REVIEW`). An embedded document (`ED`, one per
+value repetition) is not a result: the parser keeps it in `Parsed.documents()` and the Reports
+assembler writes it as a Lab Report (`CdsExportLaboratoryDocumentMapper`): ED.5, or the legacy
+OBX-5.1 payload when ED.5 is empty, decoded by ED.4 (A, Base64, Hex) or, undeclared, as strict
+base64 when it decodes to a known signature or document length; raw RTF is a binary `.rtf`;
+anything else, including a declared encoding the payload does not satisfy, is a Text report.
+Bytes are staged as `REPORT_ATTACHMENT` at `Reports/<hash>.<ext>`, declared by their own
+signature; Notes carry the stored accession number and the observation's identification, and the
+report's acknowledgements are its ReportReviewed. The inventory expects one Reports identity per
+document (`hl7TextMessage` + `lab:ordinal`) and requests review when Reports is not selected. A
+time with hour or minute precision (`YYYYMMDDHH[MM]`, with or without an offset) is exported as
+its FullDate; seconds are never invented. An OBR without OBX (a pending, cancelled or fee order)
+adds no observation; a message with no order or not one patient still requires review
+(`CDS_EXPORT_NATIVE_LAB_INCOMPLETE_MESSAGE`). Every line break of the stored message is a segment
+break, as CARLOS's own lab handlers read it (`CdsExportNativeLaboratoryParser.segmentBreaks`):
+HAPI ends a segment only at CR, but a report uploaded inside an XML file (Excelleris ON and
+PATHL7 wrap each message in CDATA) is stored as the XML parser returns it, with LF between
+segments, and `ExcellerisOntarioHandler`, `PATHL7Handler`, `CMLHandler` and the others parse
+`hl7Body.replaceAll("\n", "\r\n")`. Read as stored, such a report was one long MSH segment
+with no PID or OBR, so every Excelleris ON upload held its patient with
+`CDS_EXPORT_NATIVE_LAB_INCOMPLETE_MESSAGE` (census charts A27ED, an embedded PDF, and A27SN, an
+SN titre). HL7 v2 never carries a literal line break inside a field (it is escaped as `\.br\`
+or `\X0A\`), so the conversion changes no value; the tests read the repository samples as
+the upload stores them (`CdsExportNativeLaboratoryFeedUnitTest.stored`). An observation with neither OBX-14 nor OBR-7 is
+given the report date the chart lists: `hl7TextInfo.obr_date`, which `MessageUploader` stores
+from the handler's `getServiceDate()` (OBR-6 for `EpsilonHandler`) or, when that is empty,
+`getMsgDate()` (MSH-7), reformatted to `yyyy-MM-dd HH:mm:ss` (an unparseable date fails the
+upload, so every uploaded report has one). `CdsExportNativeLaboratoryMapper.chartDateSource`
+names the first OBR-7, OBR-6, OBR-14 or OBR-22 (message order), then MSH-7, whose wall clock
+equals that stored value, and `CollectionDateTime` takes that field at its own precision
+(minute precision is a FullDate); when no field matches, the stored value's day is written,
+since the upload may have padded its time. The obr_date field is then `MAPPED` to
+`LaboratoryResults/CollectionDateTime` under `CHART_REPORT_DATE_WITHOUT_SENT_COLLECTION_TIME`,
+and `CARLOS.NativeLaboratory.v1` gains a `collection` entry (rule, source field, observation
+ordinals) after `rows`; a report that sent its collection times keeps its residual bytes. Only
+an empty or unreadable stored date still holds (`CDS_EXPORT_NATIVE_LAB_COLLECTION_REQUIRED`). An "ORU" message without its R01 trigger cannot be
+parsed by HAPI (`Can't determine message structure`), so no CARLOS handler stored one; the
+parser refuses it the same way (`CDS_EXPORT_NATIVE_LAB_MESSAGE_REQUIRES_REVIEW`).
+No laboratory value holds a chart for its length. A result of any type longer than ResultValue's
+120 characters is written whole in `TestResultsInformationReportedByTheLab` as `Result text
+(complete):`, as a long text result already was; abnormal flags longer than their element are
+written whole there as `Abnormal flags (complete):` with the flag element Unknown; any other
+value longer than its element (a unit, a reference range over 1,024 characters, a status) is
+left out of that element, never clipped. The complete message and rows travel in the report's
+`CARLOS.Laboratory.v1` record. `CDS_EXPORT_NATIVE_LAB_RESULT_VALUE_CAPACITY`,
+`..._FLAG_CAPACITY` and `..._WIRE_CAPACITY` are gone, and so are
+`CDS_EXPORT_NATIVE_LAB_WIRE_TEXT_REQUIRES_REVIEW` and `..._ESCAPE_REQUIRES_REVIEW`: a
+character XML cannot carry in a stored message is shown as U+FFFD in every element (the parser
+replaces it before parsing; it is never an HL7 delimiter), and hexadecimal escape data that is
+not UTF-8 text is written as the laboratory sent it. Focused verification passed
+156 checks plus 13 real MariaDB/CLI-startup checks; final packaging and genuine
+installed laboratory import/export qualification are pending. This component does
+not qualify the remaining native laboratory catalogue or clinical publication.
+
+The coordinated laboratory checkpoint at `b69bbdb5f2de` passed the full
+4,658-check package run (353 requested suites; zero failures, errors or skips). Its
+actual WAR SHA-256 is `f94c8df0780a25a431d7c05ee94de65d6808c99a7ee5b8cfbf6ae5680bf674a4`. A genuine ordinary
+clinical import produced three structured results, one blocked result and two native
+HL7 records. The exact packaged application passed 39 installed export assertions
+plus seven genuine-import assertions, including independent native/source field closure,
+XSD readback, all source temporal spellings, changed-HL7 review and final-callback
+sensitive-permission revocation. No component class overlays were used, and native rows,
+grants and original import ruleset metadata were restored or retained exactly.
+The fixture initially contained an invalid reference-range choice; preflight correctly
+rejected it before any native commitments or patient targets. The rejected run and its
+input remain intact, and the separate corrected fixture passed independent XSD validation.
+This verifies an occurrence component; complete native-source coverage, a clinical engine
+and actual delivery/download qualification remain required.
+
+Category-specific occurrence assemblers now share one immutable registry in the CLI
+and web application context. Duplicate handlers and attempts to shadow the coordinated
+demographic, history, allergy or medication paths fail at startup. The seven history
+positions retain their shared authenticated source session. Original standard
+`NewCategory` occurrences have a dedicated retained-source assembler: every original
+field is accounted, the current patient association is checked independently, and
+unrelated demographic edits do not replace supplemental content. Other native fields
+are never repurposed into `NewCategory`. The focused registry/association and clinical
+regression run passed 206 checks; packaged startup and genuine installed qualification
+are pending for this diff.
+
+Genuine NewCategory qualification exposed an incorrect alias refusal in demographic
+projection evidence. The importer uses sole demographic receipts for the nonmutating
+CareElements and NewCategory parent associations. The exporter now distinguishes only
+these exact original roles, requiring the same run, patient and lineage, canonical native
+unit key and ordinal, original dependency, sole demographic reference and matching
+current witness. A second demographic projection or unknown/extra reference still
+requires review. No demographic source values come from an association receipt.
+The fix passed 94 coordinated checks, including 20 adverse/association checks; final
+packaging and the same genuine NewCategory fixture rerun remain pending.
+
+The final association/registry checkpoint at `58300bcff913` passed 480 affected
+checks across 42 requested suites (zero failures, errors or skips), after the preserved
+4,658-check full baseline. Its actual WAR SHA-256 is
+`f1cd5a8972cb35709d9b47ff617884962327a98fcf8cdd9ee4460285c7e5f969`. The same original completed
+NewCategory import passed 23 exact installed export assertions and six genuine-import
+assertions, including complete original field/type closure, current demographic edits
+without replacing supplemental values, independent XSD validation and final-callback
+category permission revocation. Native data/grants were restored; historical metadata
+was not rewritten, and no component class overlays were used.
+
+The care observation component now captures complete patient-scoped measurements, extension metadata, deleted-observation evidence and exact applicable vocabulary definitions through their owning DAOs. All thirteen standard care child types bind their complete retained fields to the original sealed preparation and unchanged whole native receipts. Shared decimal interpretation preserves importer semantics; dates use original import options and precision, and oversized goal text remains streamed. Missing, changed, duplicate, foreign, unknown or deleted evidence requires review. The source component passed 80 focused checks and 11 actual MariaDB/CLI checks; semantic/importer regressions passed 147 checks and native-binding/preparation/registry checks passed 80 (overlapping runs). Coordinated packaging and a genuine installed care import/export proof remain pending at this source checkpoint.
+
+The care checkpoint passed all 4,764 coordinated checks across 360 requested suites, full Javadoc and WAR packaging, with zero failures, errors or skips. The exact packaged WAR (`402b06511a23bb3f8c0997be5674365e57440eff90fd96a9b5d1ba99dd4b4734`) then passed 50 installed care assertions and nine genuine clinical import assertions, without application-class overlays or metadata restamping. Both original care parents, all fifteen native observations across thirteen care kinds, every retained/native field, 40,000-character and empty goals, original numeric/date spelling, changed-native review and final callback access revocation were checked. Native rows and fixture grants were restored. The first stopped fixture lacked the legacy POSK vocabulary definition; its zero-write evidence remains preserved. A separate genuine ordinary import after restoring that definition in the disposable database supplied the successful proof. Native-only, edited and deleted care still require review; this evidence does not qualify a whole clinical export profile.
+
+Report occurrence assembly now binds original metadata, every temporal choice (including reviewer and OBR dates), complete embedded text/binary bytes and each referenced native file to its original sealed preparation. Owning document/link DAOs capture every physical column and reproduce the importer’s original composite receipts. A separate native file source streams bytes into encrypted capture within the same read-only patient snapshot; mapping reopens only authenticated export-owned bytes. No mutable document file is reopened during mapping. Shared or dangling ownership requires explicit review before payload capture. (Superseded: program-restricted documents, reviewer history and `document_storage` rows are now exported or listed as described in the native document sections above.) Native-only or changed reports remain review cases.
+
+Original embedded and referenced representations remain separate. FilePath is replaced with a generated relative package member only after exact native/source digest and byte-length checks; a caller without an explicit attachment sink receives an error. Partial attachments are discarded if assembly fails. Tests caught and fixed a trailing Base64 error being swallowed by the default InputStream bulk adapter. Source/binding regressions passed 120 focused checks, actual MariaDB/CLI projection checks passed 12, and real directory-handle file capture passed 21 checks under the production UID, including symlink/traversal, truncation/growth, replacement, permission and close-time races. These runs overlap other component evidence and do not yet establish installed report or whole-profile qualification.
+
+The report checkpoint at `ca91968787b8ac1a8a855b447d48b55500a1a279` passed 4,848 coordinated checks across 365 requested suites, full Javadoc and WAR packaging, with zero failures, errors or skips; the separate 21 filesystem checks also passed under the production UID. The first full run exposed a test race: MariaDB can acknowledge KILL before releasing its advisory lock. The maintenance test now observes bounded actual release before asserting the independent admission-row drain, preserving every production fence and the original blocking assertions.
+
+The subsequent genuine import completed with both original reports, 35 retained source fields and three native representations. Installed export correctly refused the previously unaccounted durable file-publication effects. Report assembly now validates every `cds_import_file` and `cds_import_file_reference` alongside document and ownership effects: exact variant filename, immutable digest/length/generation/location key, same native unit and reference identity, and complete counts with no duplicate or extra effects. Inherited original file ownership is retained. Capture byte-limit settings are now parsed only when a present native document needs them, preserving metadata recovery and empty-domain capture when active settings are invalid. These changes passed 149 focused checks; packaging and rerunning that same genuine import’s export remain pending.
+
+Installed report verification also required original publication/control rows in the retained index. Report-selected indexing now includes both file metadata tables from the same authenticated source generation and requires those inputs explicitly; other category scopes retain their existing index recipe. Sealed, positive publication generations are accepted after immutable retirement/republication, instead of assuming every committed report came from generation one. The updated index/publication regressions passed 169 focused checks; coordinated packaging and the existing genuine fixture rerun remain pending for this diff.
+
+The corrected report/index checkpoint passed 317 affected package checks across 20 requested suites with zero failures, errors or skips, following the full 4,848-check, 365-suite coordinated baseline and full Javadoc. Its exact WAR (`eba42c36451d91bccacc8d189ba446989af8efc024d2dd72c2586e372f12c77f`) passed 44 installed report assertions against the same genuine completed import, plus the original nine import assertions. Both reports, all three native representations, all 35 retained fields and all 105 document/link/file fields closed. Complete large UTF8 text, embedded binary, referenced file bytes, unchanged temporal spelling, changed native metadata/file review, an absent attachment sink and final callback access revocation were verified. A failed private attachment was physically removed. Original native rows/files/grants were restored and the original import ruleset remained unchanged. Application/helper deployment roots were immutable and no application classes were overlaid. The report component is qualified at this checkpoint; whole-source coverage, a concrete qualified clinical engine, publication/retrieval/retention and real clinical CLI/browser execution remain open.
+
+
+Combined all-category qualification found an unresolved legacy alert carrier in the
+otherwise complete demographic field ledger. Selected `demographiccust.cust3` now
+receives an explicit absence decision only for SQL NULL or empty text. Populated
+values, including whitespace, require review and withhold proposed XML. The exact
+previously authenticated handoff must exist; an unselected alert projection is
+unchanged. Forty affected demographic/closure checks passed. The same genuine
+completed sixteen-category import remains preserved for exact-WAR rerunning.
+
+Laboratory source capture now refuses selected-patient routes outside the supported
+exact `HL7` type before counting or paging structured results. A chart containing
+only legacy or unknown laboratory routes cannot appear empty and export silently.
+Other patients' routes remain outside the scope. Sixty-nine affected checks passed,
+including twenty actual MariaDB projection cases. These source-closure changes
+still require coordinated packaging and do not qualify clinical publication.
+
+
+Clinical job planning now refuses conflicting explicit import/export clinic zones,
+including invalid appointment-zone settings, before capture or package creation.
+This keeps appointment interpretation and supporting-file calendar calculations
+on the same captured zone/rules identity. Twenty-five affected checks passed;
+configuration remains lazy so metadata recovery is available independently.
+
+
+Report-selected capture now includes the complete physical hospital-report patient-link
+contract through its owning HRM DAO. Any patient-associated hospital report requires
+explicit review until its report adapter is available. (Superseded: HRM reports are now
+exported; see "Hospital Report Manager (HRM) reports are exported, not held" above.) An
+inner join cannot hide a dangling link, and numeric legacy spellings in the VARCHAR
+patient column are conservatively refused. Both absence checks share the actual patient snapshot;
+other patients' links stay outside that scope. Twenty-five affected real MariaDB,
+CLI-startup and source-recipe checks passed. The initial incremental CLI run found
+a stale derived V84 SQL resource; refreshing that build output from the committed
+SQL restored validation without changing source migrations or database history.
+
+
+A native chart without an applied demographic import parent now uses the existing
+typed demographic, phone, patient-note, current-enrolment, personal-contact and
+pharmacy mappers through the same coordinated occurrence service. Every selected
+patient-owned row is matched to its independent captured witness before assembly.
+The six public physician fields retain their existing authenticated lookup scope
+and exact typed field closure; no private whole-provider row is read or invented. Native field
+closure covers the entire captured row universe, and the registered patient ID
+is used in actual XML. A retained demographic field without a proven parent,
+a provider row that no demographic column names exactly, populated unsupported carriers
+or multiple parents still require explicit review. The retained
+source path and its strict source-field closure are unchanged.
+
+Superseded demographic snapshots are audited history, not refused data. Every CARLOS save
+of a patient writes a `demographicArchive` row and, keyed by the same archive id, one
+`demographicExtArchive` row per edited extension key; a changed alert, care-team name or
+patient note archives the previous `demographiccust` values in `demographiccustArchive`.
+Migration guide 18.2 transfers the current snapshot. Archived roster columns are mapped into
+`Enrolment` history; every other archived column, including previous names, health cards,
+addresses and phone numbers, is decided `OPERATIONAL` under
+`SUPERSEDED_DEMOGRAPHIC_SNAPSHOT_IN_APPROVED_AUDIT` and is not exported. A former
+most-responsible physician named only by an archive row is accounted for the same way
+(`SUPERSEDED_PRIMARY_PHYSICIAN_IN_APPROVED_AUDIT`). The extension and custom archive
+tables carry the same ruling in the source catalogue (`OPERATIONAL`), so an edited patient
+is no longer held because these rows exist. Earlier values stay available only through the
+approved audit arrangement in operator-guide step 6; the package does not carry them.
+
+Values that CARLOS's own forms write when nobody chooses anything are not patient facts and do
+not hold a chart. Each keeps an explicit `OPERATIONAL` disposition, and its source value stays in
+the protected capture: newsletter `Unknown` and country of origin `-1` ("Not set")
+(`UI_PLACEHOLDER_NOT_A_PATIENT_FACT`); the empty `demographicExt` row that a Master Record save
+writes for every blank listed key (`PROPERTY_KEY_OF_AN_EMPTY_EXTENSION`), on both the native and
+the imported-chart path; `rxInteractionWarningLevel` `0` ("Not specified"); and consent to contact
+`1` on contact and pharmacy links, which is the model and form default
+(`DEFAULT_CONTACT_CONSENT_HAS_NO_CDS_CARRIER`). A value that someone chose and that has no CDS 5.2
+home travels exactly in the native demographic NewCategory record (`CARLOS.NativeDemographic.v1`)
+instead of holding the chart: another newsletter choice or country, a populated unsupported
+extension, a warning level, and consent `0` ("No Consent", an instruction not to contact that
+person or pharmacy; `CONTACT_CONSENT_REFUSAL_CARRIED_IN_NATIVE_DEMOGRAPHIC_RECORD`), on native and
+imported charts alike. Only a consent spelling no screen writes still requires review.
+
+Two user-entered demographic dates are practice-administrative and have no CDS 5.2
+Demographics element: "Date Joined" (`date_joined`) and the health card "EFF Date"
+(`eff_date`; `HealthCard` carries only number, version, expiry and issuer). They are carried in
+the native demographic record `CARLOS.NativeDemographic.v1` under their column names
+(`NO_CDS_ELEMENT_CARRIED_IN_NATIVE_DEMOGRAPHIC_RECORD`, or
+`NO_CDS_ELEMENT_NEW_CATEGORY_NOT_SELECTED` without NewCategory) and never hold a chart. They
+were first silently dropped (date_joined) or held (eff_date), then decided
+`ADMINISTRATIVE_NOT_EXPORTED`. On an imported chart `date_joined` is the import's execution time,
+carried as stored. Every package ReadMe carries the fixed line
+`CdsExportSupportingFilesComposer.ADMINISTRATIVE_DATES_NOTICE` (where the two dates travel),
+which the supporting-file validator requires.
+
+Where CDS 5.2 has an exact home for a value the CARLOS forms store, the mapper uses it. Title
+`RT_HON` is `NamePrefix` `RtHon`. A spoken language is the ISO 639-2 code that
+`spoken_languages_codes.properties` gives for the stored display name; the importer reverses that
+code with the same table. Middle names longer than one 50-character name part, up to the column's
+100, are written as their space-separated names in ordered `OtherName` GIV parts, which the
+importer joins back with single spaces. An imported chart whose edited middle names need
+several parts writes them the same way, replacing the source parts. Two values still require review because no exact home exists:
+administrative gender `X` (Intersex), since the schema's `O` (Other) is imported back as `O` and
+would lose the distinction, and a postal code without a known Canadian or pinned US subdivision.
+
+The demographic occurrence decides exactly the public provider rows that its own columns
+name byte-for-byte (the current and every archived `provider_no` and `roster_enrolled_to`),
+whichever categories are selected. A provider captured only for another selected category
+is decided by that category's receipt, on both the native and the retained path. Sixty-nine affected
+checks passed, including twelve native assembly/boundary cases, schema readback,
+selected-note witness scope, substituted fields, registered-ID mismatch and shared
+primary/enrolment physician uses. Clean packaging and genuine installed native
+chart verification remain required for this addition.
+
+
+The actual shared job service now passes combined installed reconciliation for all
+sixteen categories from one genuine completed import in the exact packaged WAR
+(`811521002bb6968e3a5a58702ebabc861fadb92f753a09c048344bfe9edce3bc`).
+All source facts plus the independently checked native allergy archive state and
+configured appointment offset matched. Eighteen schema-valid clinical mutations
+were rejected, including archive-state and time-offset changes. The clean build
+passed 836 checks across 55 suites and full Javadoc. The original input, native
+fixture and import metadata remain preserved. The unqualified production profile
+still refused publication, as required; this is a combined clinical package proof.
+
+Installed native-chart verification caught a scope error in the new witness join:
+public provider candidates intentionally have only six public fields and no whole
+private-account receipt. Native assembly now retains their existing authenticated
+lookup contract and exact typed field closure, while every patient-owned clinical
+row still requires its exact independent witness. Fabricated whole-provider
+receipts are refused. Twenty-one affected scope checks passed; the same native
+fixture remains available for exact-package rerunning without import metadata.
+
+
+The native demographic checkpoint (`132b6bd4aabf`) passed a clean 986-check,
+65-suite package build and full Javadoc. Its exact WAR
+(`10d31751d32f762367898f1621f33d773bcc59ba7e1a1cd0a340189da5020191`)
+passed installed shared-job export of a fresh native chart with no import metadata.
+All thirteen independently expected facts matched, including complete Unicode note
+text and the registered physician/patient identities; four schema-valid clinical
+mutations were rejected. The original native fixture is retained, temporary grants
+and provider fields were restored, and no application classes were overlaid.
+Publication remained visibly unavailable through the unqualified engine boundary.
+
+Clinical capture has a separate whole-source coverage gate over all 517 table
+names in the exact shipped ON/BC physical contracts (464 ON, 497 BC). Explicit
+rulings identify mapped sources, reference dictionaries, operational metadata and
+sources that must be empty until their adapter or exclusion is reviewed.
+Unclassified presence conservatively refuses the request across the database;
+column names never establish patient ownership or justify discarding a source.
+Missing required reader beans cannot reduce the expected inventory. Unknown
+tables, columns, types, primary keys, engines or filtered metadata visibility
+require review. Schema-wide SELECT visibility is required to establish that no
+unreadable clinical table exists. The schema and empty-source probes return no
+clinical, credential or key values. `scripts/verify-cds-export-source-catalogue.py`
+checks canonical schema hashes, explicit table membership and mapped-scope coverage.
+
+The stock Rourke 2009 form uses Aria in ON and MyISAM in BC. A dedicated controlled
+unpooled connection takes a READ lock on that one legacy table while a reader of the
+capture reads it, and releases it when that read ends (see "No deadline on a capture").
+The regular transactional sources retain their repeatable-read snapshot. No native data or
+schema is changed. Acquisition, connection identity, release and loss are checked;
+automatic reconnect is refused, and an idle lock connection the server closed between reads
+is replaced, which loses nothing because no lock was held on it. The lock has no deadline:
+it lasts as long as reading one patient's rows of that table, and a writer waits only that
+long. Failure to acquire, maintain or release the lock withholds capture. Database
+permissions must allow this legacy table READ lock. Metadata status/control recovery stays
+lazy. The recorded checks of the earlier whole-capture lock (eighty-two, including 24 real
+MariaDB cases) predate this arrangement; the MariaDB cases now cover a writer passing while
+the guard is unpinned, waiting while a read pins the table and passing again when the read
+ends, the lost-connection refusal, and the data-summary and source-catalogue reads under the
+per-read pin. Clean packaging and installed reruns of this source gate remain required.
+
+
+### Clinical adapter and metadata recovery checkpoint
+
+The complete source-catalogue checkpoint (`c2f54feb7394`) passed a clean package with
+998 focused checks across 66 suites, zero failures, errors or skips, and full Javadoc.
+The exact WAR SHA-256 is
+`293d551b542454e3ee00f1b7414df19b847661dd2c249dcbf9e7db485d7642c5`.
+Installed chart reruns are separate evidence and remain pending at this checkpoint.
+
+`CdsExportClinicalEngine` supplies the concrete OntarioMD adapter to the coordinated
+clinical job service. It is deliberately not registered in the default application
+or CLI context until its installed publication and transport tests pass. PCON is
+not advertised by this adapter. Registry compatibility now depends on installed
+implementation identity and the explicit clinic zone, without parsing active work
+budgets or resolving the application build version. Invalid zones receive a distinct
+non-executable identity so metadata and retention recovery remain available; clinical
+admission still requires the strict active plan. Twenty-four affected identity,
+registry and job orchestration checks passed. This checkpoint does not qualify a
+clinical profile or establish successful clinical publication.
+
+
+### Coordinated workflow execution
+
+`.github/workflows/cds-transfer.yml` partitions the entire reviewed coordinated
+inventory into import, export and shared jobs on separate fresh runners. Each job
+compiles once and runs its exact selectors against its own newly migrated import,
+ledger and export schemas using the existing native-tier harness. The matrix does
+not archive complete WARs or share mutable database fixtures. Missing, ambiguous,
+duplicate, empty or skipped suite evidence refuses the gate. Only sanitized test
+reports are uploaded. The original native importer workflow and its required cases
+remain unchanged. Installed application publication and transport evidence is still
+required separately; a workflow declaration does not establish a passing run.
+
+### Exact installed CLI and authenticated browser workflow
+
+`.github/workflows/cds-export-installed.yml` runs the paired installed export
+on a separate fresh runner, avoiding the workspace storage limit. It builds
+the exact pinned companion source as its actual Debian package and packages
+the application once. A complete WAR entry manifest binds every installed
+file before and after execution. Fixture helpers are compiled separately;
+they never replace a production class or enter the browser/CLI classpath.
+
+The owned environment contains a newly migrated MariaDB database, an ordinary
+native chart with no import metadata, a separate test login and new test-only
+recipient and TLS identities. Missing application/email keys are initialized
+through their actual complete empty-census guards, without loss acknowledgement
+or rotation. No existing runtime, accepted job, clinical fixture or key is reused.
+
+The check invokes the installed `carlos-ctl cds-export` with root delegation,
+observes the same durable job from independent processes, downloads its package
+and refuses an existing destination unchanged. Full service-user Tomcat then
+runs the untouched WAR. Chromium signs in through the normal login page, checks
+GET and tokenless-POST refusal, submits the real form, requires HTTP 202 with
+an incomplete accepted job, reloads that job, waits for the asynchronous worker
+and downloads through the authorized form.
+
+The test recipient decrypts both real downloads independently. A separate
+oracle validates each patient XML against the pinned OntarioMD XSD and compares
+every explicit native fact it expects: demographic, history, report, laboratory and
+medication values (it prints how many it compared). Every altered clinical output in
+its mutation list must remain schema valid and must fail that comparison. Direct read-only checks require
+two genuinely complete durable jobs, matching CLI/browser implementation
+bindings, unchanged native chart values and no import metadata.
+
+Run on a fresh owned CI host with the repository's Java25 build container,
+the exact pinned CLI checkout and pinned Playwright installation:
+
+```sh
+python3 scripts/ci/run-cds-export-installed-ci.py \
+  --cli-source target/cds-ctl-source \
+  --playwright-module target/cds-browser-tools/node_modules/playwright
+```
+
+Only bounded counts, hashes, fixed failure codes and application stack locations
+are published. Keys, passwords, browser state, clinical payloads and raw traces
+are excluded. The workflow's existence is not a passing qualification result;
+the exact candidate's successful CI evidence is required.
+
+The first dedicated installed run at `7d7a662f` completed the actual CLI flow,
+including real READY, independent status/submission recovery, exclusive delivery,
+recipient decryption, fourteen expected native facts and four schema-valid mutants.
+The combined workflow then stopped at its test TLS/network startup before browser
+execution. That is a CLI checkpoint, not a passing browser qualification.
+
+### Installed export scaling lane
+
+`.github/workflows/cds-export-performance.yml` ("CDS installed export scaling") measures how
+the installed export's time, SQL and memory grow with the work it is given, so a change that
+makes export work grow faster than the chart fails CI. It reuses the import resource lane's
+owner, `scripts/ci/run-cds-performance-ci.py`, with four export profiles: the exact packaged WAR,
+the pinned `carlos-ctl` built as its real Debian package, a fresh MariaDB server with
+statement-digest instrumentation and a 1536 MiB, two-CPU runtime with the default 512 MiB CLI
+heap. After the import fixture (`CdsCliEngineFixture`), `scripts/ci/CdsExportScalingFixture.java`
+adds the export policy, keys, recipient certificate and audit arrangement, appends the export
+settings to the same protected configuration, grants the synthetic provider `_lab_sensitive`
+read (laboratory export requires it and the capability has no default grant) and sets
+`cds.export.cliRendererHandoffSeconds=0`: no web worker runs there, so a job that selects
+Reports would otherwise wait out the hand-off window first. `scripts/ci/run-cds-export-scaling.py`
+then runs one foreground `carlos-ctl cds-export --categories all` per case, with the facility of
+the notes' program (`FILTER_ON_FACILITY` is on by default).
+
+| Job (`Installed CDS export …`) | Cases |
+| --- | --- |
+| `native-patients` | 1, 8 and 32 charts, each with one signed note and one HL7 result |
+| `native-charts` | one chart with 128, 512 and 2048 notes and as many HL7 results |
+| `imported-patients` | the `native-patients` sizes, imported first with `carlos-ctl cds-import` |
+| `imported-charts` | the `native-charts` sizes, imported first with `carlos-ctl cds-import` |
+
+Native charts are synthetic FAKE- data entered as the CARLOS screens store them: a demographic
+admitted to the provider's program, signed encounter notes scoped to that program and the
+provider's membership role, and uploaded HL7 results routed to the patient and acknowledged by
+the provider, one a day at local noon (the fixture keeps clear of daylight-saving changes; a
+local time inside one is written with no offset, see "Times at a daylight-saving change"). Imported charts are produced by
+the import lane's real-wire generator (`run-cds-performance.py`), so their export takes the
+retained receipt and witness reconciliation path. The imported 2048-note chart is imported
+first; each profile is its own job so that job does not serialize the others.
+
+A case passes only when the job is READY and complete with every selected chart processed and
+none held, the package (decrypted with the fixture's own recipient key) holds exactly the
+selected patient records, notes and laboratory results, and every budget holds. Budgets are
+linear (fixed cost, plus a cost per chart and per note, where a note means one note and one
+result) for:
+
+- statements: the server-global `Questions` in the export's window minus the harness's own;
+- privilege statements: statement digests that read the authorization tables (security
+  objects and roles, program membership and admission, note access grants, facility
+  membership), classified in the server as `PRIVILEGE_READ`;
+- elapsed time of the whole command;
+- peak RSS of the delegated non-root engine JVM (sampled `VmHWM` and the `wait4` receipt) and of
+  the root `carlos-ctl` adapter.
+
+Each job also checks growth across its own series, independent of the fixed command cost:
+statements and privilege statements per extra note (`chart-128` to `chart-2048`) or per extra
+chart (`patients-1` to `patients-32`). The native per-chart budgets, 2,200 statements and 200
+privilege statements, are the regression detector for the clinic-scale cost fixed by the
+authorization passes and the capture schema pass (below): a return to one transaction per
+check costs 7,088 and 2,956 per chart. The per-note privilege budget, 1.0, is the regression
+detector for the census slowdown fixed by the per-patient authorization session (see "One
+authorization session per patient" above): with the session the authorization tables are read
+per patient, not per note, so any return to per-read checks exceeds it whatever the total
+statement budget absorbs: the measured growth is 0.02 (native) and 0.13 (imported) per note.
+The other budgets are about twice the measurements below; RSS cannot take that headroom inside the
+1536 MiB runtime, so its budget (1280 MiB, about 1.5 times the largest chart) bounds growth beyond
+the 512 MiB heap. Each budget and its derivation is documented beside `BUDGETS` in the harness.
+
+Measurements on the reference runtime (two CPUs of a shared four-core host); every listed case
+was a complete READY export whose package held exactly its notes and results. They are the
+revision before the authorization passes and the capture schema pass; what those change for
+the patients rows follows the table:
+
+| Case | Native: elapsed / statements / privilege / engine RSS | Imported: elapsed / statements / privilege / engine RSS |
+| --- | --- | --- |
+| patients-1 | 25 s / 7,952 / 3,213 / 538 MiB | 23 s / 7,899 / 3,167 / 535 MiB |
+| patients-8 | 56 s / 57,582 / 23,907 / 585 MiB | 55 s / 57,147 / 23,539 / 575 MiB |
+| patients-32 | 150 s / 227,495 / 94,851 / 578 MiB | 162 s / 225,979 / 93,387 / 603 MiB |
+| chart-128 | 30 s / 9,377 / 3,213 / 562 MiB | 37 to 45 s / 9,648 / 3,175 / 744 MiB |
+| chart-512 | 39 s / 13,664 / 3,221 / 783 MiB | 114 to 138 s / 15,578 / 3,223 / 781 MiB |
+| chart-2048 | 87 to 100 s / 30,971 / 3,253 / 831 MiB | fails (below) |
+
+The `carlos-ctl` adapter peaked at 24 MiB. In these runs each extra chart cost about 7,050
+statements, 2,930 privilege statements and 4 to 4.5 s; each extra note and result costs 11.2
+statements and 0.02 privilege statements on a native chart (chart-128 to chart-2048) and 19.6 and
+0.29 on an imported one (chart-128 to chart-512). The imports of the three imported charts took
+45, 110 and 415 s.
+
+**Per-chart cost: before and after the passes.** A statement-class breakdown of the native
+patients series (statement digests classified in the server, `patients-1` to `patients-8`)
+shows where the 7,088 statements of each extra chart went:
+
+| Per extra one-note chart | Before | After (expected) | How it is established |
+| --- | --- | --- | --- |
+| Authorization: reads of the authorization tables | 2,956 | about 100 | Before: `PRIVILEGE_READ`, measured. After: 15 transactions that read each table once (`CdsExportAuthorizationPassUnitTest` proves one read of each table per pass against 104 role and 186 security-object reads for the same gates; 14 of each for a chart with six later passes), plus the program and note-grant reads of each pass |
+| Authorization: identity rows and transaction control | about 1,470 (184 transactions: 368 provider and facility reads, about six control statements each) | about 135 (15 transactions) | Before: measured digests. After: derived from the transaction count |
+| Schema verification | about 1,840 (939 `information_schema` reads; about 400 probes by the readers and 505 by the source catalogue) | about 20 (two complete reads of 5 or 6 statements; the demographic and provider tables keep their own read) | Before: measured digests and the reader count. After: `CdsExportSchemaPassMariaDbIntegrationTest`, 6 statements per pass whatever the number of tables |
+| Capture reads, coordination locks, ledger and audit | about 820 | about 820 | Unchanged; the remainder of the measured total |
+| **Total** | **7,088** | **about 1,070** | |
+
+The column-visibility probe of each table now runs once per job instead of once per chart, so
+about 510 statements move from every chart to the fixed cost of a job. The after column is
+derived, not measured: this lane could not be run on the development host, and its first
+qualifying run replaces the expectation and the provisional budgets (2,200 statements, 200
+privilege statements and 4 s per extra native chart, about twice the expectation). Elapsed time
+was about 0.55 ms per statement end to end before, so about one second per extra chart is
+expected, and about three hours for 10,000 charts instead of twelve. Most of what remains is
+the capture itself: one count and one read for each of about 200 source tables, of which the
+120 data-summary tables are usually empty for a chart. Asking those tables in one statement, or
+not reading a table whose count in the same snapshot was zero, is the next reduction and is not
+done here.
+
+**Imported charts with the stored replay.** An imported chart's capture no longer has a size
+limit, and a capture too large for the in-memory replay is replayed from a staged member (below).
+With it each extra imported note and result costs 15.4 statements, 0.13 privilege statements and
+0.20 to 0.24 s (chart-128 to chart-512); the imported time budget is 0.45 s a note. Before it,
+chart-512 took 253 s on the reference host and 244 s in CI (17,080 statements, 864 MiB) and
+chart-128 41 s and 40.5 s (9,637 statements). The reference host is shared, and one run under
+heavier load measured every case, native and patient series included, about 1.6 times slower.
+
+**Imported 2048-note chart: the defect this lane found.** Measured before the fix, its export
+ended `FAILED` with `CDS_EXPORT_EXECUTION_FAILED` after about 144 s: a statement timeout (SQL
+state 70100) in `CdsExportPatientTableReadSupport.requireLocalLaboratoryAssociations`, called
+from `CdsLaboratoryResultDao.findCdsExportRowsAfter`. That check runs before every laboratory
+page, and `cds_laboratory_result` had no index on `nativeLabNo`: for each imported result of
+the patient, the check that no other imported result is bound to the same local report scanned
+the whole table. The cost therefore grew with the chart times the clinic's imported results
+(253 s imported against 39 s native at 512 results), for every imported chart, not only a
+large one.
+
+Migration `V1.0.59.47` adds the index (`nativeLabNo, demographicNo`), and the check that no
+other chart routes one of the patient's reports now starts from the patient's own routes and
+imported results instead of scanning every other chart's routes. On a synthetic clinic of
+300,000 lab routes and 50,000 imported results, for a patient with 2,048 of each, one check
+fell from 14.9 s to 13 ms for the bound-report test and from 127 ms to 9 ms for the shared-route
+test (MariaDB 11.8.8). The imported chart-2048 budget is still the one extrapolated from
+chart-128 and chart-512.
+
+**Imported 2048-note chart: no size refuses it, and what still stops it at the defaults.** The
+chart is 1,091,901 captured fields and 72.5 MiB of values: 191 fields for an imported note and
+342 for an imported laboratory result (102 and 238 of them the 17 columns of its
+`cds_import_field` rows, 28 its two `cds_import_unit` rows). `cds_import_field` is 61 percent of
+the fields and the sealed witnesses of `cds_import_unit` 64 percent of the bytes. After the
+association fix it ended `FAILED` with `CDS_EXPORT_IO_FAILED` at the capture's 1,000,000-field
+bound (116.6 s in CI), and the 512-note chart, at 273,213 fields past the 200,000-field replay
+bound, read its whole capture from the encrypted members for each of its 133 readers: 170 s of
+a 215 s export. Both bounds are gone (see "No limit on the capture"): the capture refuses no
+count, a capture too large for the session's memory replays from its stored replay member, and
+the retained index, the receipt comparison and the history rows are refused by no count. The
+512-note chart now takes 114 to 138 s. Two things stopped the 2048-note case under the lane's
+default settings on the local reference host. On the CI runner the same case passed at the
+default 512 MiB heap in 638.7 s before this change (chart-512 in 105.8 s, chart-128 in 34.6 s),
+so there the capture finished inside the 120 s it then had; time still grew faster than the
+chart. The first of the two is fixed; the lane has not been rerun end to end since, so its
+budget for this case is unchanged and its capture time after the fix is not yet measured:
+
+- Capture time (fixed). The capture ran in one read-only snapshot under
+  `cds.export.captureTimeoutSeconds` (default 120). This chart's capture took about 125 s, so
+  the job ended `FAILED` with `CDS_EXPORT_EXECUTION_FAILED` (a transaction timeout) at about
+  160 s. About 58 s of it was the page reads of `cds_import_unit`: each 32-row page was selected
+  through the patient's `(run_id, patient_key)` index and sorted by id, which read every
+  remaining unit row with its 6 KiB witness (4,131 rows examined a page, 257 pages, 228 ms each),
+  so that part grew with the square of the chart; `cds_import_dependency` pages cost 8 s the
+  same way. The capture now has no deadline, and a page reads its keys before its rows (see "No
+  deadline on a capture" and "Keys before rows"): migration `V1.0.59.48` orders one patient's
+  units by id, and a page of units examines about a hundred rows.
+- Heap. With the capture timeout raised to 600 s (before it was removed) the default 512 MiB heap is exhausted in the
+  laboratory section: the old generation stays at its 341 MiB with two to three full
+  collections a second and the export does not finish (it was stopped by hand after three
+  minutes of that). The
+  retained field values and the section contexts are held as Java objects; the index itself is
+  now 62 MiB packed. With `cds.export.cliHeapMiB=1024` and the 600 s capture timeout the same
+  export is READY and complete in 472 s (the old generation peaked at 649 MiB of 682 with six
+  full collections, the engine's RSS at 1,390 MiB, past the lane's 1280 MiB RSS budget); it is a
+  measurement, not a lane case, and its package was not opened to count its records. From 128
+  to 512 to 2,048 notes that is 37, 114 and 472 s: 0.20 and 0.23 s a note, about linear.
+
+The same lane on the revision before the per-patient authorization session (the five classes
+that commit changed, compiled from its parent and overlaid on an earlier packaged WAR of this
+branch) shows what the per-note budget catches. Its chart-128 export was stopped after 1,899 s,
+still capturing, at 1,068,468 statements and 659,491 privilege statements, against 136 s, 10,737
+and 3,249 for the whole export with the session on that same WAR. That is at least 5,000 authorization reads per note against a
+budget of 1.0, mostly `secObjPrivilege` and `secUserRole` reads, then the facility, admission,
+program membership and role reads of each note's program check. The harness unit tests keep
+these measured counters (`PRE_SESSION` in `scripts/ci/test_run_cds_export_scaling.py`) and
+require them, and a single extra read per note, to fail.
+
+Public evidence is the same bounded artifact as the import lane's: counts, timings, kernel and
+cgroup counters, statement classes and digest hashes, package member counts and hashes. It never
+contains patient values, identifiers, run handles or paths (`require_case_fits` refuses to write
+such a proof). Run it on a fresh owned CI host as the import lane runs:
+
+```sh
+python3 scripts/ci/run-cds-performance-ci.py --profile export-native-charts \
+  --cli-source target/cds-ctl-source
+```
+
+Native prescriptions use a separate mapper beside the strict retained-source reconciler.
+Established dates, exact dose witnesses, supply, route, frequency, status and public prescriber
+fields have standard destinations. The complete captured `drugs` row, including SQL NULL versus
+empty text and IEEE dose witnesses, is also preserved in `CARLOS.Medication.Source.v1` under the
+pinned medication `ResidualInfo`. A CARLOS importer restores the quantity unit (`unitName`,
+written in Quantity as `100 mL`, with U+FFFD for a character XML cannot carry) and the exact
+as-needed flag (`prn`) from it when the standard Quantity and Frequency/TreatmentType agree with
+the carrier (#6198); the other columns stay retained source. Every JSON residual carrier (`CARLOS.Medication.Source.v1`,
+`CARLOS.Prescription.v1`, `CARLOS.Laboratory.v1`, `CARLOS.NativeHistory.v1` and the others named in
+this document) is written in one fixed key order with every space escaped as `\u0020`:
+residual `Content` is an `xs:token`, whose normalization would otherwise collapse a run of
+spaces, and an unchanged chart writes the same bytes on every run. Unstructured strength remains exact `DrugDescription` and
+source context; it is never split into an invented amount/unit. An unlabelled native regional
+identifier stays explicitly unqualified source context and is not asserted as a Health Canada
+DIN. Native `OD` maps to CT-024 `QD`. A native initial duration keeps its authored meaning:
+days as authored, weeks as their exact day count (`2 W` is `14`), and months or years with their
+unit as text (`3 months`, `1 year`; the medication `Duration` is CDS text), because a month or a
+year is not an exact number of days. Refills never multiply the duration. The CARLOS importer
+reads the unit back (#3958), and the same rendering applies to imported prescriptions whose
+duration was edited in CARLOS. A duration the prescription does not state has no Duration: the
+Rx directions parser (`RxUtil`) stores `0` whenever the directions name none ("use as directed",
+"apply thin layer", "2 puffs prn", or "1 tab BID" with no length), beside the unit it deduced from
+a frequency (`D` for BID) or no unit at all (`Drug.setDurUnit` stores the empty unit as NULL), so
+that `0` is never written as a 0-day course nor holds the patient (the shared candidate assesses
+it `NATIVE_DURATION_NOT_STATED`, `CdsExportMedicationMapper.NOT_STATED`, so neither the native nor
+the reconciled path holds it).
+
+No stored duration holds a patient. `drugs.durunit` is `CHAR(1)` and `drugs.duration`
+`VARCHAR(1024)`. CARLOS itself writes the units `D`, `W` and `M` (the directions parser, a Mitte
+quantity such as "3 mo", the legacy form's select) and `Y` (the CDS importer, from `Duration`
+text such as `1 year`), but the Rx card's duration and duration-unit boxes are free text
+(`prescribe.jsp` `duration_<id>`/`durationUnit_<id>`, `RxWriteScript2Action.updateProperty`), the
+REST prescription service takes any string, and the OSCAR 19 migration copies both columns. On an
+installation whose database truncates (the packaged `sql_mode`), "days", "wk" or "mo" typed into
+the unit box are stored as `d`, `w` and `m`. The rule (`CdsExportMedicationMapper.duration`):
+
+- The unit is the one stored character read without regard to case, as every CARLOS reader of the
+  column reads it (`Prescription.calcEndDate`, `RxUtil.findNDays` and the legacy exporter compare
+  it ignoring case): `D`/`d` days, `W`/`w` weeks, `M`/`m` months, `Y`/`y` years. A whole amount
+  with one of them is the Duration as above.
+- A whole amount with no unit (`DURATION_IS_NOT_KNOWN_DAYS`; a bare number would read as days), a
+  unit that is none of the four (`DURATION_UNIT_IS_NOT_A_KNOWN_UNIT`: `h`, `x`, a digit...) and a
+  duration typed as text (`DURATION_IS_NOT_A_WHOLE_NUMBER`: "10 days", "2-4") have no Duration.
+  The exact `duration`, `durunit` and `freqcode` travel in `CARLOS.Medication.Source.v1`.
+- An imported prescription whose duration was changed in CARLOS follows the same rule; its
+  values travel in `CARLOS.Medication.CurrentSource.v1` (below).
+- Text XML cannot carry no longer requires review: its element shows U+FFFD and the stored
+  row is exact in the residual (see "Data summaries and last holds"). This includes the dose
+  unit (DosageUnitOfMeasure, formerly left out) and the quantity unit written in Quantity
+  (`100 m\uFFFDL`, formerly a hold of the patient); a CARLOS importer restores both from the
+  residual. The residual itself refuses no character: a noncharacter (U+FFFE, U+FFFF), which
+  JSON writes as it is, is its `\uXXXX` escape there like a control character.
+
+The same residual carries, instead of holding the patient (`CdsExportNativeMedicationMapper
+.CONTEXT_RULES`): a quantity that is not a plain number ("30 tabs", "1 bottle": the legacy Rx
+form, favourites, the REST service and OSCAR 19 data store free text; Quantity is left out
+because the guide and the CARLOS importer read it as a number); a negative refill count,
+quantity or duration; a flag other than 0 or 1; a treatment type outside the CDS list; OSCAR's
+"no date" defaults (`rx_date` or `written_date` `0001-01-01`, the zero date) and a date whose
+precision rows disagree (no date element is written, and the precision rows travel in the
+residual's `precision` list); and a precision row for another field.
+
+A prescription written with the Rx page's Note button (`newCustomNote`: `custom_note` 1, no
+brand, no custom name, no drug code; the typed text is the whole prescription) used to hold the
+patient. It is exported with DrugName `Prescription note (no drug named)` and the note as
+PrescriptionInstructions; any other row that names no drug (an empty or blank name) is
+`Unnamed prescription`. CDS readers, the CARLOS importer included, need a name or a DIN, so the
+entry says what it is; the row is exact in the residual. A stored name longer than DrugName's 120
+characters (BN holds 255) with no DrugRef DIN to identify the product is never clipped: DrugName
+is `Drug name longer than 120 characters (see Notes)` and the name is the first line of Notes,
+`Drug name: <name>`. Unknown status and a false past-medication flag do not establish
+current treatment. Unbound import-provenance markers require review.
+
+The Rx page saves several values independently, and the exporter no longer holds a patient when
+they disagree (A18-A20, `CdsExportNativeMedicationMapper.CONTEXT_RULES`): "Past medication" Yes
+beside status Active, or No beside Completed or Aborted (`CONFLICTING_MEDICATION_CURRENTNESS`),
+writes both standard elements as stored; a treatment type that disagrees with the hidden
+short-term box (`CONFLICTING_NATIVE_TREATMENT_TYPE_INDICATOR`) writes the chosen TreatmentType; a
+PRN frequency or treatment with the as-needed box unticked (`CONFLICTING_NATIVE_AS_NEEDED_INDICATOR`)
+writes them as chosen, and the as-needed box with no frequency at all writes the CT-024 frequency
+`PRN`, which another receiver reads as as-needed. The CARLOS importer restores the exact flag from
+`CARLOS.Medication.Source.v1`, an unticked box beside a PRN frequency included. A dispense interval longer than
+DispenseInterval's 10 characters, a protocol or prior protocol longer than 20, a comment longer
+than Notes' 32,000, a strength longer than DrugDescription's 2,000 and any other value longer
+than its element leave that element out; never truncated. A SIG and pharmacy instructions that
+exceed PrescriptionInstructions together write the SIG alone, a quantity that no longer fits with
+its unit is left out, and a frequency that already fills its element is written without the
+`PRN` suffix. A prescription recorded with the
+"outside provider" box (`CONFLICTING_PRESCRIBER_NAME`/`CONFLICTING_PRESCRIBER_IDENTIFIER`: the
+outside name and number differ from the recording CARLOS provider) has no PrescribedBy, since the
+recorder did not write it and the outside name is one string a personNameSimple cannot hold
+without splitting it. In every case the exact columns travel in `CARLOS.Medication.Source.v1`.
+
+A value of one prescription that the medication writer refuses is a patient hold
+(`CDS_EXPORT_NATIVE_MEDICATION_REQUIRES_REVIEW`); it used to fail the whole job as an I/O error.
+
+**Imported prescriptions changed in CARLOS.** The Rx page never rewrites a prescription
+(`Prescription.Save` always inserts a row), but four actions update the imported row itself:
+Delete and Discontinue (`RxDeleteRx2Action`, `RxManagerImpl.discontinue`/`archiveDrug`: `archived`
+1 with its reason and date), Hide from CPP (`RxHideCpp2Action`: `hide_cpp`), the drug-form
+correction (`ViewUpdateForm2Action`) and a REST prescribe's script link (`script_no`). The first
+two and the last held the chart with `CDS_EXPORT_UNMAPPED_DATA`. `CdsExportMedicationFieldReconciler`
+now decides them as on a never-imported row:
+
+- an archived row writes the PrescriptionStatus its archive reason gives (Obsolete, Nullified or
+  Aborted, below) and PastMedications Y, replacing the imported elements (the receipt lists their
+  source fields as replaced); an archive the import itself wrote (reason `cds:...`) keeps its
+  status. The occurrence's `CARLOS.Medication.Archived.v1` is corrected when a CARLOS sender
+  wrote one, or added, so it never states a stale archive state.
+- every current column CDS 5.2 has no element for (`CARRIED_RULES`: the archive reason and date,
+  `hide_cpp`, `script_no`, a duration with no CDS meaning, ...) travels in one more residual
+  element, `CARLOS.Medication.CurrentSource.v1`: the complete current row in the shape of
+  `CARLOS.Medication.Source.v1`, written only when such a column exists
+  (`CURRENT_NATIVE_VALUE_IN_EDITED_SOURCE_CONTEXT`). A sender's own `CARLOS.Medication.Source.v1`
+  and every other residual element stay untouched; a later export of the same chart replaces the
+  content of its earlier `CurrentSource` element. An importer treats it as opaque source.
+- everything the change did not touch is still the import's own projection (DIN, strength,
+  prescriber, dates, ProblemCode, vendor residuals).
+
+A change made outside the Rx screens (the REST prescription service, a direct edit) is decided
+the same way and no longer holds the chart: the changed element group takes the current value by
+the rule of a never-imported row, and a value that rule gives no element (an unqualified
+identifier, a strength text, a conflicting flag, an outside prescriber, OSCAR's "no date"
+default) travels in `CARLOS.Medication.CurrentSource.v1`. A date changed in CARLOS is a plain
+calendar date and supersedes a source clock or offset; changed precision rows make the current
+column and rows the date; the SIG the import generated from values that have since changed is
+carried. A quantity unit or as-needed flag that the import restored from a CARLOS sender's
+`CARLOS.Medication.Source.v1` and that has since changed supersedes that carrier: the element is
+removed (the receipt lists its fields as replaced), because a CARLOS importer would restore the
+old value from it, and the current row travels in `CurrentSource`
+(`Result.supersedesSenderSource`; `RESTORED_SOURCE_CONTEXT_CHANGED_REQUIRES_REVIEW`,
+`CHANGED_PRECISION_DEPENDENCY_REQUIRES_REVIEW`, `UNPROJECTED_CLOCK_OR_OFFSET_REQUIRES_RECONCILIATION`
+and `GENERATED_SIG_DEPENDENCIES_CHANGED_REQUIRES_REVIEW` are gone from this path).
+
+A source strength the import could not hold natively left a placeholder in `drugs.dosage` and
+kept the source's Strength element. While the placeholder stands the element is re-exported; a
+strength typed over it (or cleared) in CARLOS is the current one: the sender's Strength element
+is removed (the receipt lists its fields as replaced) and the typed text travels in
+`CurrentSource` like any unstructured strength (`SOURCE_ONLY_STRENGTH_PROJECTION_CHANGED` is
+gone).
+
+Still held on an imported prescription: an import projection the receipt cannot prove
+(`PREPARED_NATIVE_PROJECTION_NOT_PROVEN`, the baseline and codec codes) and a physically
+deleted row. `PREPARED_NATIVE_PROJECTION_NOT_PROVEN` is an integrity hold,
+not a data condition: the baseline row is authenticated by the receipt digest, and the unit's
+sealed preparation does not reproduce it, so the retained source fields of that unit cannot be
+shown to describe the row; neither they nor the current row alone would be a proven export of
+what was imported. A sealed preparation that contradicts its own source (a duration
+with no unit, `CDS_EXPORT_PREPARED_DURATION_INVALID`; a date that does not re-derive from its
+original text and shift, `CDS_EXPORT_PREPARED_TEMPORAL_REQUIRES_REVIEW`) is an integrity fault of
+that one patient's import: a named hold of that patient, never a failed job as it was. A source
+that named its prescriber by an OHIP number or one name part only is ordinary data, not a fault:
+the retained PrescribedBy elements are exported as imported
+(`CDS_EXPORT_PREPARED_PRESCRIBER_COMPONENTS_REQUIRED` no longer stops the job).
+
+A provider number with no provider record (migrated data) does not hold a prescription or a
+printed script: the prescription has no PrescribedBy, the script record no public author values,
+and the stored number is exact in `CARLOS.Medication.Source.v1` / `CARLOS.Prescription.v1`
+(`EXACT_CAPTURED_PRESCRIBER_REQUIRED` is a carried rule).
+
+`CARLOS.Medication.Archived.v1` carries the exact archive state. Because other vendors ignore
+CARLOS extensions and an archived row keeps the status it was copied with (re-prescribing copies
+"Active"), a natively archived prescription is exported as no longer current: re-prescribed,
+dose-changed or long-term-toggled rows as `Obsolete`, deleted rows and prescribing errors as
+`Nullified`, every discontinuation reason as `Aborted`, each with `PastMedications` Y; the stored
+status and reason stay in the source residual. The Rx page's as-needed choices `PRNL`/`PRNS` are
+the CDS treatment types `PRN Long-term`/`PRN Short-term`, and its as-needed box with an ordinary
+frequency is written as that frequency followed by `PRN` (for example `BID PRN`). The
+receiving importer reads only that exact boolean marker, refuses malformed/duplicate values,
+and supplements existing historical archiving. The optional prepared flag is defaulted only
+after the original payload seal has been verified. Unknown residual context remains protected
+source, with the receiving importer's existing clinical-reconciliation diagnostics; this is
+not a claim that another vendor will interpret CARLOS extensions.
+
+Medication reasons (indications, `drugReason`) are exported with their prescription (review
+finding P3). The table used to be ruled `REFERENCE` as if it were global terminology, so no
+ProblemCode was ever written and no reason was accounted. It is now `MAPPED_SOURCE` in the
+MedicationsAndTreatments scope, read by `CdsExportMedicationReasonSourceReader` through
+`DrugReasonDao` and `Plan.DRUG_REASONS`: every reason, archived ones included, whose
+`demographicNo` is the patient and whose `drugId` is one of the patient's `drugs` rows.
+CARLOS writes a reason only on the patient's own drug (`RxReason2Action` checks the drug's owner,
+`RxWriteScript2Action` files the prescription's own reason), so
+`CdsExportPatientTableReadSupport.requireLocalDrugReasonAssociations` refuses, before any row is
+read, a reason whose two owners disagree (it would show on the drug owner's Rx profile and on the
+named patient's flowsheet) or whose drug is missing: both the drug's owner and the named patient
+are held with `CDS_EXPORT_AMBIGUOUS_SOURCE`, so no reason is left outside every capture. The
+second probe scans `drugReason`, which has no `demographicNo` index; like the measurement check
+it runs once per patient in each read-only REPEATABLE READ capture snapshot.
+`CdsExportClinicalOccurrenceService` requires the capture with every medication export, groups
+the reasons by prescription and refuses a reason of no exported prescription;
+`CdsExportMedicationReasonMapper` decides each field:
+
+- CARLOS shows a reason while its `archivedFlag` is 0 (the Rx profile, the prescription record,
+  the flowsheet and BPMH all read `archivedFlag = false`). Every such reason travels whole in
+  `CARLOS.Medication.Reasons.v1` (`DataType` string): one JSON object per reason in id order with
+  its coding system, code, comments, primary and archived flags, archive reason, recording
+  provider number and coded date, SQL NULL and empty text distinct and every space escaped as
+  ` `. The row id, drug id and patient are operational identities and stay out.
+- CDS 5.2 ProblemCode (`text10`, at most one, no coding system) carries the code of the
+  prescription's indication: the one active reason flagged primary, or, when none is flagged,
+  the only active reason. The Rx page files the reasons it records with a prescription unflagged,
+  so requiring the primary flag would leave almost every ProblemCode out; the legacy exporter
+  wrote the first active reason's code. The code is written only for coding system `icd9` (the
+  system a receiver reads ProblemCode as) and only as one to ten printable characters without
+  spaces. Two flagged or two unflagged candidates, a primary flag CARLOS does not write, an
+  overlong or spaced code and an ICD-10, SNOMED CT, ICHPPC or MSP code leave ProblemCode out;
+  the reason is still exported whole in the residual.
+- An archived reason (any other `archivedFlag`; the Rx reason page writes 1 with the archive
+  reason the clinician typed) is shown nowhere in CARLOS and was never exported by the legacy
+  exporter: every field gets `ARCHIVED_DRUG_REASON_NOT_SHOWN_IN_CHART` and it holds no one.
+- An imported medication: the CDS importer writes no `drugReason` (an incoming ProblemCode stays
+  only in its retained source fields), so every reason on an imported drug was recorded in CARLOS
+  after the import. `CdsExportMedicationRetainedAssembler` still never rewrites or deletes the
+  sender's ProblemCode, which the historical preparation does not represent. It adds the CARLOS
+  reasons as one more `CARLOS.Medication.Reasons.v1` element after the sender's residual elements
+  (or as a new ResidualInfo), and writes the indication's code as ProblemCode only when the source
+  occurrence has none. The original ProblemCode is therefore never lost or written twice, and a
+  later reason is never dropped; the field decisions record which of the two happened.
+
+The owning `PrescriptionDao` also captures printed script text, comments and reprint history,
+including scripts without remaining drug rows. Independent inventory accounts for every
+parent as `CARLOS.NativePrescription.v1` supporting clinical data. Select `NewCategory` with
+medications to send them; without it the chart is still exported and the scripts are named as not
+exported (`CDS_EXPORT_PRESCRIPTION_SUPPORTING_CATEGORY_REQUIRED` is gone; see "Records that need
+NewCategory when it is not selected"). A drug whose
+`script_no` names no script of the patient (migrated data; no CARLOS screen removes a script) is
+exported like any other drug, the stored number exact in its `CARLOS.Medication.Source.v1`; no
+script record is invented for it. A script of another patient, or two scripts with one number,
+still requires review. Source
+signature identifiers remain non-executable context and actual signature payloads retain their
+separate source-catalogue gate. The complete-table source descriptor is generated with
+`python scripts/generate-cds-export-source-schema.py --table prescription`; both pinned physical
+profiles must agree, and the table ruling/ownership/mapping remain explicit review inputs.
+
+Database-selected native prescriptions also capture an immutable public DrugRef reference. A
+short scalar discovery transaction closes before any network call. Only the DIN and the public
+lookup option enter the existing native XML-RPC protocol; patient identity, names, dose, SIG and
+chart data are never sent. Capture compares the prepared scalar identities/code/catalogue keys
+with the actual patient snapshot. Changed inputs and malformed or mismatched reference products
+refuse qualification; network/protocol outages remain distinct I/O failures. Custom prescriptions
+with no native catalogue selection keep unqualified identifiers as source context. A catalogue
+selection whose stored identifier is not an eight-digit DIN, or whose DIN DrugRef answers with no
+product (a product no longer in the installed dictionary; `RxDrugRef.getDrugByDIN` returns null,
+#5006), gets no public reference and is exported the same way (A21): authored name and strength as
+stored, no DrugIdentificationNumber, and `GCN_SEQNO` and `regional_identifier` exactly in
+`CARLOS.Medication.Source.v1` with `"regionalIdentifierAuthority":"UNQUALIFIED"` and
+`"catalogueReference":"NOT_IN_DRUG_REFERENCE"`. Such a chart was held before.
+
+Representative DINs may legitimately differ from the authored medication name and native
+strength text (guide10.1). The exporter preserves those source values and, as guide10.5 requires,
+exports the first database ingredient's typed strength amount/unit for a database-selected DIN,
+including combination products. It retains the complete ordered ingredient reference separately;
+it never splits free text or replaces an authored name with a catalogue product name. The actual
+installed fixture includes a representative-DIN combination product and verifies the real
+XML-RPC client against an owned loopback public dictionary outside the immutable WAR.

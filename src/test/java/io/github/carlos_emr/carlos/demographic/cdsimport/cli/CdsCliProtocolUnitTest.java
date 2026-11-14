@@ -50,10 +50,21 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("unit")
 class CdsCliProtocolUnitTest {
     @TempDir Path directory;
-    private static final String[] IMPORT = {"--operation", "import", "--provider", "999998", "--input", "/allowed/é.xml",
-            "--source-namespace", "synthetic-source", "--source-profile", "pcon-2024-02"};
+    private static final String[] IMPORT = {
+        "--operation",
+        "import",
+        "--provider",
+        "999998",
+        "--input",
+        "/allowed/é.xml",
+        "--source-namespace",
+        "synthetic-source",
+        "--source-profile",
+        "pcon-2024-02"
+    };
     private static final String NONCE = "5613b36a-4909-48bd-86f1-bd07b31c11f1";
-    private final ByteArrayOutputStream stdout = new ByteArrayOutputStream(), stderr = new ByteArrayOutputStream();
+    private final ByteArrayOutputStream stdout = new ByteArrayOutputStream(),
+            stderr = new ByteArrayOutputStream();
     private final PrintStream out = new PrintStream(stdout, true, StandardCharsets.UTF_8);
     private final PrintStream err = new PrintStream(stderr, true, StandardCharsets.UTF_8);
 
@@ -61,17 +72,23 @@ class CdsCliProtocolUnitTest {
     void shouldSpaceProgressLines_fromFiveSecondsUpToAOneMinuteCap() {
         long delay = 0;
         List<Long> delays = new ArrayList<>();
-        for (int line = 0; line < 6; line++) delays.add(delay = CdsImportCli.nextProgressDelayMillis(delay));
+        for (int line = 0; line < 6; line++)
+            delays.add(delay = CdsImportCli.nextProgressDelayMillis(delay));
         assertThat(delays).containsExactly(5_000L, 10_000L, 20_000L, 40_000L, 60_000L, 60_000L);
     }
 
     @Test
     void shouldExcludeDedicatedCliConfiguration_whenOrdinaryWebProfileDiscoversIt() {
-        try(var context=new org.springframework.context.annotation.AnnotationConfigApplicationContext()) {
-            context.register(CdsCliSpringConfiguration.class);context.refresh();
+        try (var context =
+                new org.springframework.context.annotation.AnnotationConfigApplicationContext()) {
+            context.register(CdsCliSpringConfiguration.class);
+            context.refresh();
             assertThat(context.containsBean("dataSource")).isFalse();
             assertThat(context.getBeansOfType(CdsCliSpringConfiguration.class)).isEmpty();
-            assertThat(context.getBeansOfType(io.github.carlos_emr.carlos.daos.security.SecuserroleDao.class)).isEmpty();
+            assertThat(
+                            context.getBeansOfType(
+                                    io.github.carlos_emr.carlos.daos.security.SecuserroleDao.class))
+                    .isEmpty();
         }
     }
 
@@ -84,13 +101,15 @@ class CdsCliProtocolUnitTest {
      */
     @Test
     void shouldResolveEveryConstructorDependency_whenCliProfileWiresTheImportContext() {
-        try (var context = new org.springframework.context.annotation.AnnotationConfigApplicationContext()) {
+        try (var context =
+                new org.springframework.context.annotation.AnnotationConfigApplicationContext()) {
             context.getEnvironment().setActiveProfiles("cds-import-cli");
             Properties properties = new Properties();
             context.registerBean("cdsImportProperties", Properties.class, () -> properties);
             context.register(CdsCliSpringConfiguration.class);
             var factory = context.getDefaultListableBeanFactory();
-            var parser = new org.springframework.context.annotation.ConfigurationClassPostProcessor();
+            var parser =
+                    new org.springframework.context.annotation.ConfigurationClassPostProcessor();
             parser.setEnvironment(context.getEnvironment());
             parser.setResourceLoader(context);
             parser.postProcessBeanDefinitionRegistry(factory);
@@ -98,81 +117,130 @@ class CdsCliProtocolUnitTest {
             List<String> unresolved = new ArrayList<>();
             for (String name : factory.getBeanDefinitionNames()) {
                 var definition = factory.getBeanDefinition(name);
-                if (definition.getFactoryMethodName() != null || definition.getBeanClassName() == null) continue;
+                if (definition.getFactoryMethodName() != null
+                        || definition.getBeanClassName() == null) continue;
                 Class<?> type = factory.getType(name, false);
                 if (type == null || !type.getName().startsWith("io.github.carlos_emr.")) continue;
-                var injected = java.util.Arrays.stream(type.getDeclaredConstructors())
-                        .filter(c -> c.isAnnotationPresent(org.springframework.beans.factory.annotation.Autowired.class))
-                        .toList();
+                var injected =
+                        java.util.Arrays.stream(type.getDeclaredConstructors())
+                                .filter(
+                                        c ->
+                                                c.isAnnotationPresent(
+                                                        org.springframework.beans.factory.annotation
+                                                                .Autowired.class))
+                                .toList();
                 if (injected.isEmpty() && type.getDeclaredConstructors().length == 1) {
                     injected = List.of(type.getDeclaredConstructors()[0]);
                 }
                 for (var constructor : injected) {
                     for (var parameter : constructor.getParameters()) {
-                        // Property values, collections and optional/deferred lookups are not single-bean lookups.
-                        if (parameter.isAnnotationPresent(org.springframework.beans.factory.annotation.Value.class)
+                        // Property values, collections and optional/deferred lookups are not
+                        // single-bean lookups.
+                        if (parameter.isAnnotationPresent(
+                                        org.springframework.beans.factory.annotation.Value.class)
                                 || java.util.Collection.class.isAssignableFrom(parameter.getType())
                                 || Map.class.isAssignableFrom(parameter.getType())
                                 || parameter.getType() == java.util.Optional.class
-                                || org.springframework.beans.factory.ObjectProvider.class.isAssignableFrom(parameter.getType())) continue;
-                        var qualifier = parameter.getAnnotation(org.springframework.beans.factory.annotation.Qualifier.class);
-                        boolean resolvable = qualifier != null ? factory.containsBean(qualifier.value())
-                                : factory.getBeanNamesForType(parameter.getType(), true, false).length > 0;
-                        if (!resolvable) unresolved.add(type.getSimpleName() + "(" + parameter.getType().getName() + ")");
+                                || org.springframework.beans.factory.ObjectProvider.class
+                                        .isAssignableFrom(parameter.getType())) continue;
+                        var qualifier =
+                                parameter.getAnnotation(
+                                        org.springframework.beans.factory.annotation.Qualifier
+                                                .class);
+                        boolean resolvable =
+                                qualifier != null
+                                        ? factory.containsBean(qualifier.value())
+                                        : factory.getBeanNamesForType(
+                                                                parameter.getType(), true, false)
+                                                        .length
+                                                > 0;
+                        if (!resolvable)
+                            unresolved.add(
+                                    type.getSimpleName()
+                                            + "("
+                                            + parameter.getType().getName()
+                                            + ")");
                     }
                 }
             }
             assertThat(unresolved).isEmpty();
-            assertThat(factory.getBeanNamesForType(org.springframework.cache.CacheManager.class, true, false)).hasSize(1);
+            assertThat(
+                            factory.getBeanNamesForType(
+                                    org.springframework.cache.CacheManager.class, true, false))
+                    .hasSize(1);
         }
     }
 
     @Test
     void shouldBindUtf8ArgumentsByLength_whenMatchingBothLauncherContracts() {
-        String[] arguments = {"--operation", "import", "--provider", "999998", "--input", "/allowed/é.xml"};
+        String[] arguments = {
+            "--operation", "import", "--provider", "999998", "--input", "/allowed/é.xml"
+        };
         assertThat(HexFormat.of().formatHex(CdsDelegationVerifier.digest(arguments)))
                 .isEqualTo("e593853869e82354927eeaa16bcafea034f26ced04aaad2ceeb6678e2a3f60a7");
-        assertThat(CdsDelegationVerifier.digest(new String[]{"ab", "c"}))
-                .isNotEqualTo(CdsDelegationVerifier.digest(new String[]{"a", "bc"}));
+        assertThat(CdsDelegationVerifier.digest(new String[] {"ab", "c"}))
+                .isNotEqualTo(CdsDelegationVerifier.digest(new String[] {"a", "bc"}));
     }
 
     @Test
     void shouldPreserveFrameworkProviderKeys_whenProviderIdentifierIsAlphanumeric() {
-        String[] arguments=IMPORT.clone();arguments[3]="T099";
+        String[] arguments = IMPORT.clone();
+        arguments[3] = "T099";
         assertThat(CdsCliArguments.parse(arguments).command(NONCE).providerNo()).isEqualTo("T099");
     }
 
     @Test
-    void shouldKeepBootstrapEvidencePrivateAndMessageFree_whenFrameworkInitializationFails() throws Exception {
-        Properties properties=new Properties();properties.setProperty("cds.import.stagingRoot",directory.toString());
-        String sentinel="SENSITIVE_PATIENT_AND_PASSWORD_SENTINEL";
-        String location=CdsCliLogging.bootstrapFailure(properties,new IllegalStateException(sentinel,
-                new java.sql.SQLException(sentinel,"42000",1234)));
+    void shouldKeepBootstrapEvidencePrivateAndMessageFree_whenFrameworkInitializationFails()
+            throws Exception {
+        Properties properties = new Properties();
+        properties.setProperty("cds.import.stagingRoot", directory.toString());
+        String sentinel = "SENSITIVE_PATIENT_AND_PASSWORD_SENTINEL";
+        String location =
+                CdsCliLogging.bootstrapFailure(
+                        properties,
+                        new IllegalStateException(
+                                sentinel, new java.sql.SQLException(sentinel, "42000", 1234)));
         assertThat(location).isNotNull();
-        assertThat(Files.readString(Path.of(location))).contains("IllegalStateException","sqlState","42000")
+        assertThat(Files.readString(Path.of(location)))
+                .contains("IllegalStateException", "sqlState", "42000")
                 .doesNotContain(sentinel);
         assertThat(Files.getPosixFilePermissions(Path.of(location)))
                 .isEqualTo(java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));
     }
 
     @Test
-    void shouldDeliverPrivateOperationEvidenceWithoutMessages_whenAcceptanceOutcomeNeedsReconciliation() throws Exception {
-        Properties properties = new Properties(); properties.setProperty("cds.import.stagingRoot", directory.toString());
+    void
+            shouldDeliverPrivateOperationEvidenceWithoutMessages_whenAcceptanceOutcomeNeedsReconciliation()
+                    throws Exception {
+        Properties properties = new Properties();
+        properties.setProperty("cds.import.stagingRoot", directory.toString());
         String sentinel = "SENSITIVE_SOURCE_PASSWORD_AND_SQL_SENTINEL";
         var failure = new IOException(sentinel, new java.sql.SQLException(sentinel, "HY000", 28));
-        failure.setStackTrace(new StackTraceElement[]{
-                new StackTraceElement("io.github.carlos_emr.CdsOperation", "accept", sentinel + ".xml", 42),
-                new StackTraceElement("private/source\n" + sentinel, "accept", sentinel, 43)});
+        failure.setStackTrace(
+                new StackTraceElement[] {
+                    new StackTraceElement(
+                            "io.github.carlos_emr.CdsOperation", "accept", sentinel + ".xml", 42),
+                    new StackTraceElement("private/source\n" + sentinel, "accept", sentinel, 43)
+                });
         var evidence = CdsCliLogging.operationFailure(properties, failure);
-        assertThat(evidence.protectedPath()).isNotNull(); assertThat(evidence.technicalJson()).isNull();
+        assertThat(evidence.protectedPath()).isNotNull();
+        assertThat(evidence.technicalJson()).isNull();
         Path file = Path.of(evidence.protectedPath());
         assertThat(file.getParent()).isEqualTo(directory.resolve("cli-diagnostics"));
         assertThat(file.getFileName().toString()).matches("cli-operation-[a-f0-9-]{36}\\.json");
         String body = Files.readString(file);
-        assertThat(body).contains("CDS_OPERATION_FAILED", "RECONCILE_DURABLE_STATE", "java.io.IOException", "HY000", "28",
-                "io.github.carlos_emr.CdsOperation#accept:42").doesNotContain(sentinel, "private/source", "NOT_STARTED");
+        assertThat(body)
+                .contains(
+                        "CDS_OPERATION_FAILED",
+                        "RECONCILE_DURABLE_STATE",
+                        "java.io.IOException",
+                        "HY000",
+                        "28",
+                        "io.github.carlos_emr.CdsOperation#accept:42")
+                .doesNotContain(sentinel, "private/source", "NOT_STARTED");
         assertThat(Files.size(file)).isLessThanOrEqualTo(65536);
-        assertThat(Files.getPosixFilePermissions(file)).isEqualTo(java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));
+        assertThat(Files.getPosixFilePermissions(file))
+                .isEqualTo(java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));
     }
 
     @Test
@@ -181,7 +249,13 @@ class CdsCliProtocolUnitTest {
         for (int depth = 0; depth < 24; depth++) {
             failure = new IOException("sensitive-path", failure);
             StackTraceElement[] stack = new StackTraceElement[128];
-            java.util.Arrays.fill(stack, new StackTraceElement("io.github.carlos_emr.CdsOperation", "accept", "sensitive-path.xml", 10));
+            java.util.Arrays.fill(
+                    stack,
+                    new StackTraceElement(
+                            "io.github.carlos_emr.CdsOperation",
+                            "accept",
+                            "sensitive-path.xml",
+                            10));
             failure.setStackTrace(stack);
         }
         var evidence = CdsCliLogging.operationFailure(new Properties(), failure);
@@ -191,21 +265,34 @@ class CdsCliProtocolUnitTest {
         int frames = 0;
         for (var cause : body.path("causes")) frames += cause.path("frames").size();
         assertThat(frames).isEqualTo(32);
-        assertThat(evidence.technicalJson().getBytes(StandardCharsets.UTF_8).length).isLessThanOrEqualTo(65536);
+        assertThat(evidence.technicalJson().getBytes(StandardCharsets.UTF_8).length)
+                .isLessThanOrEqualTo(65536);
         assertThat(evidence.technicalJson()).doesNotContain("sensitive-path", "NOT_STARTED");
     }
 
     @Test
-    void shouldValidateBoundedAsciiClassSegments_whenFramesContainBoundaryOrHostileOwners() throws Exception {
+    void shouldValidateBoundedAsciiClassSegments_whenFramesContainBoundaryOrHostileOwners()
+            throws Exception {
         String longest = "a.".repeat(127) + "$A";
         String nested = "_package.$Outer_0$Inner";
         var failure = new IOException("sensitive-source-value");
-        List<String> rejected = List.of("", ".owner", "owner.", "owner..Type", "owner.1Type",
-                "owner.\u00e9", "owner/Type", "owner\nType", longest + "X", "a.".repeat(128));
+        List<String> rejected =
+                List.of(
+                        "",
+                        ".owner",
+                        "owner.",
+                        "owner..Type",
+                        "owner.1Type",
+                        "owner.\u00e9",
+                        "owner/Type",
+                        "owner\nType",
+                        longest + "X",
+                        "a.".repeat(128));
         List<StackTraceElement> frames = new ArrayList<>();
         frames.add(new StackTraceElement(longest, "accept", "sensitive-source-value", 1));
         frames.add(new StackTraceElement(nested, "<init>", "sensitive-source-value", 2));
-        for (String owner : rejected) frames.add(new StackTraceElement(owner, "accept", "sensitive-source-value", 3));
+        for (String owner : rejected)
+            frames.add(new StackTraceElement(owner, "accept", "sensitive-source-value", 3));
         failure.setStackTrace(frames.toArray(StackTraceElement[]::new));
         var evidence = CdsCliLogging.operationFailure(new Properties(), failure);
         var body = new ObjectMapper().readTree(evidence.technicalJson());
@@ -217,69 +304,406 @@ class CdsCliProtocolUnitTest {
 
     @Test
     void shouldRetainSafeFallback_whenDiagnosticStorageIsNotWritableOrPrivate() throws Exception {
-        Path file = directory.resolve("existing-file"); Files.writeString(file, "original");
-        Properties properties = new Properties(); properties.setProperty("cds.import.stagingRoot", file.toString());
-        var evidence = CdsCliLogging.operationFailure(properties, new IOException("sensitive-path"));
+        Path file = directory.resolve("existing-file");
+        Files.writeString(file, "original");
+        Properties properties = new Properties();
+        properties.setProperty("cds.import.stagingRoot", file.toString());
+        var evidence =
+                CdsCliLogging.operationFailure(properties, new IOException("sensitive-path"));
         assertThat(evidence.protectedPath()).isNull();
-        assertThat(evidence.technicalJson()).contains("CDS_OPERATION_FAILED", "RECONCILE_DURABLE_STATE", "java.io.IOException")
+        assertThat(evidence.technicalJson())
+                .contains("CDS_OPERATION_FAILED", "RECONCILE_DURABLE_STATE", "java.io.IOException")
                 .doesNotContain("sensitive-path", "NOT_STARTED");
         assertThat(Files.readString(file)).isEqualTo("original");
     }
 
     @Test
     void shouldDeliverOnlyProtectedPathMarker_whenOperationReceiptWasWritten() throws Exception {
-        Properties properties = new Properties(); properties.setProperty("cds.import.stagingRoot", directory.toString());
-        FakeRuntime runtime = new FakeRuntime(); runtime.acceptFailure = true;
-        int code = CdsImportCli.runAuthorized(new CdsCliConfiguration(Path.of("/unused"), properties, 512),
-                CdsCliArguments.parse(IMPORT), new CdsDelegationVerifier.Delegation("synthetic-operator", 999998, NONCE),
-                out, err, (config, selected, delegation) -> runtime);
+        Properties properties = new Properties();
+        properties.setProperty("cds.import.stagingRoot", directory.toString());
+        FakeRuntime runtime = new FakeRuntime();
+        runtime.acceptFailure = true;
+        int code =
+                CdsImportCli.runAuthorized(
+                        new CdsCliConfiguration(Path.of("/unused"), properties, 512),
+                        CdsCliArguments.parse(IMPORT),
+                        new CdsDelegationVerifier.Delegation("synthetic-operator", 999998, NONCE),
+                        out,
+                        err,
+                        (config, selected, delegation) -> runtime);
         assertThat(code).isEqualTo(2);
         try (var files = Files.list(directory.resolve("cli-diagnostics"))) {
-            var receipts = files.toList(); assertThat(receipts).hasSize(1);
-            assertThat(stderr.toString(StandardCharsets.UTF_8)).contains("CDS_DIAGNOSTIC: protected operation evidence=" + receipts.getFirst())
+            var receipts = files.toList();
+            assertThat(receipts).hasSize(1);
+            assertThat(stderr.toString(StandardCharsets.UTF_8))
+                    .contains("CDS_DIAGNOSTIC: protected operation evidence=" + receipts.getFirst())
                     .doesNotContain("CDS_TECHNICAL:", "sensitive-path", "NOT_STARTED");
         }
-        assertThat(stdout.toString(StandardCharsets.UTF_8)).contains("SUBMISSION", NONCE).doesNotContain("ACCEPTED", "RESULT");
+        assertThat(stdout.toString(StandardCharsets.UTF_8))
+                .contains("SUBMISSION", NONCE)
+                .doesNotContain("ACCEPTED", "RESULT");
     }
 
     @Test
     void shouldKeepFiniteFallback_whenThrowableProjectionItselfFails() {
-        var failure = new IOException("sensitive-path") {
-            @Override public synchronized Throwable getCause() { throw new IllegalStateException("private-source-value"); }
-        };
+        var failure =
+                new IOException("sensitive-path") {
+                    @Override
+                    public synchronized Throwable getCause() {
+                        throw new IllegalStateException("private-source-value");
+                    }
+                };
         var evidence = CdsCliLogging.operationFailure(new Properties(), failure);
         assertThat(evidence.protectedPath()).isNull();
-        assertThat(evidence.technicalJson()).contains("CDS_OPERATION_FAILED", "RECONCILE_DURABLE_STATE", "\"causes\":[]")
+        assertThat(evidence.technicalJson())
+                .contains("CDS_OPERATION_FAILED", "RECONCILE_DURABLE_STATE", "\"causes\":[]")
                 .doesNotContain("sensitive-path", "private-source-value", "NOT_STARTED");
     }
 
     @Test
-    void shouldPreservePrimaryRuntimeExitAndNonce_whenBothOperationAndDiagnosticDeliveryFail() throws Exception {
-        FakeRuntime runtime = new FakeRuntime(); runtime.acceptFailure = true; runtime.closeFailure = true;
+    void shouldPreservePrimaryRuntimeExitAndNonce_whenBothOperationAndDiagnosticDeliveryFail()
+            throws Exception {
+        FakeRuntime runtime = new FakeRuntime();
+        runtime.acceptFailure = true;
+        runtime.closeFailure = true;
         assertThat(invoke("import", runtime)).isEqualTo(2);
-        assertThat(stdout.toString(StandardCharsets.UTF_8)).contains("SUBMISSION", NONCE).doesNotContain("ACCEPTED", "RESULT");
+        assertThat(stdout.toString(StandardCharsets.UTF_8))
+                .contains("SUBMISSION", NONCE)
+                .doesNotContain("ACCEPTED", "RESULT");
         String text = stderr.toString(StandardCharsets.UTF_8);
-        assertThat(text).contains("CDS_RUNTIME:", "CDS_DIAGNOSTIC: protected operation evidence could not be delivered", "CDS_CLEANUP:")
+        assertThat(text)
+                .contains(
+                        "CDS_RUNTIME:",
+                        "CDS_DIAGNOSTIC: protected operation evidence could not be delivered",
+                        "CDS_CLEANUP:")
                 .doesNotContain("sensitive-path", "NOT_STARTED");
         var lines = text.lines().filter(line -> line.startsWith("CDS_TECHNICAL: ")).toList();
         assertThat(lines).hasSize(1);
-        var body = new ObjectMapper().readTree(lines.getFirst().substring("CDS_TECHNICAL: ".length()));
+        var body =
+                new ObjectMapper().readTree(lines.getFirst().substring("CDS_TECHNICAL: ".length()));
         assertThat(body.path("code").asText()).isEqualTo("CDS_OPERATION_FAILED");
         assertThat(body.path("clinicalAcceptance").asText()).isEqualTo("RECONCILE_DURABLE_STATE");
     }
 
     @Test
+    void shouldPrintTheStoppingCauseChain_whenAnImportEndsUnclean() throws Exception {
+        FakeRuntime runtime = new FakeRuntime();
+        runtime.clean = false;
+        runtime.technical =
+                Map.of(
+                        "code",
+                        "UNIT_DATABASE_WRITE_FAILED",
+                        "stage",
+                        "EXECUTION",
+                        "evidence",
+                        Map.of(
+                                "causes",
+                                List.of(
+                                        Map.of(
+                                                "type",
+                                                "java.sql.SQLException",
+                                                "sqlState",
+                                                "HY000"))));
+        assertThat(invoke("import", runtime)).isEqualTo(4);
+        var lines =
+                stderr.toString(StandardCharsets.UTF_8)
+                        .lines()
+                        .filter(line -> line.startsWith("CDS_TECHNICAL: "))
+                        .toList();
+        assertThat(lines).hasSize(1);
+        var body =
+                new ObjectMapper().readTree(lines.getFirst().substring("CDS_TECHNICAL: ".length()));
+        // The shared CDS_TECHNICAL shape the installed qualification harness reads.
+        assertThat(body.path("code").asText()).isEqualTo("CDS_OPERATION_FAILED");
+        assertThat(body.path("clinicalAcceptance").asText()).isEqualTo("RECONCILE_DURABLE_STATE");
+        assertThat(body.path("diagnosticCode").asText()).isEqualTo("UNIT_DATABASE_WRITE_FAILED");
+        assertThat(body.path("stage").asText()).isEqualTo("EXECUTION");
+        assertThat(body.at("/causes/0/type").asText()).isEqualTo("java.sql.SQLException");
+        assertThat(body.at("/causes/0/sqlState").asText()).isEqualTo("HY000");
+        assertThat(runtime.technicalReads).isEqualTo(1);
+    }
+
+    @Test
+    void shouldDropOnlyTheOffGrammarParts_whenTheStoppingCauseIsPrinted() {
+        var cause = new java.util.LinkedHashMap<String, Object>();
+        cause.put("type", "jdk.internal.Hidden$$Lambda/0x01");
+        cause.put("vendorCode", 1205);
+        cause.put("sqlState", "40001");
+        cause.put(
+                "frames",
+                List.of(
+                        "org.mariadb.jdbc.ClientPreparedStatement#executeInternal:254",
+                        "1bad.Frame#run:3",
+                        "a.B#c:d"));
+        var line =
+                CdsImportCli.technicalLine(
+                        Map.of(
+                                "code", "unit database write failed",
+                                "stage", "EXECUTION",
+                                "evidence", Map.of("causes", List.of(cause))));
+
+        assertThat(line)
+                .containsEntry("code", "CDS_OPERATION_FAILED")
+                .containsEntry("clinicalAcceptance", "RECONCILE_DURABLE_STATE")
+                .containsEntry("stage", "EXECUTION")
+                .doesNotContainKey("diagnosticCode");
+        @SuppressWarnings("unchecked")
+        var printed = (List<Map<String, Object>>) line.get("causes");
+        assertThat(printed).singleElement().satisfies(selected -> {
+            assertThat(selected)
+                    .containsEntry("type", "java.lang.Throwable")
+                    .containsEntry("sqlState", "40001")
+                    .containsEntry("vendorCode", 1205);
+            assertThat(selected.get("frames"))
+                    .isEqualTo(List.of("org.mariadb.jdbc.ClientPreparedStatement#executeInternal:254"));
+        });
+    }
+
+    @Test
+    void shouldSelectOnlyUnresolvedStoppingEvidence_asTheRunsCause() {
+        var stopped = diagnostic("ERROR", "EXECUTION", "evidence/1.json", true, false);
+        assertThat(CdsSpringRuntime.stopping(stopped)).isTrue();
+        assertThat(
+                        CdsSpringRuntime.stopping(
+                                diagnostic("ERROR", "PREFLIGHT", "evidence/2.json", true, false)))
+                .isTrue();
+        assertThat(
+                        CdsSpringRuntime.stopping(
+                                diagnostic("ERROR", "EXECUTION", "evidence/3.json", true, true)))
+                .isFalse();
+        assertThat(
+                        CdsSpringRuntime.stopping(
+                                diagnostic("ERROR", "EXECUTION", "evidence/4.json", false, false)))
+                .isFalse();
+        assertThat(CdsSpringRuntime.stopping(diagnostic("ERROR", "EXECUTION", null, true, false)))
+                .isFalse();
+        assertThat(
+                        CdsSpringRuntime.stopping(
+                                diagnostic("WARNING", "EXECUTION", "evidence/5.json", true, false)))
+                .isFalse();
+        assertThat(
+                        CdsSpringRuntime.stopping(
+                                diagnostic("ERROR", "REPORT", "evidence/6.json", true, false)))
+                .isFalse();
+        var beforeSeal =
+                new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportDiagnosticDto(
+                        2,
+                        null,
+                        null,
+                        "INFO",
+                        "IMPORT_FAILURE_EVIDENCE",
+                        "OBSERVABILITY",
+                        null,
+                        null,
+                        "evidence/7.json",
+                        false,
+                        false,
+                        java.time.Instant.EPOCH);
+        assertThat(CdsSpringRuntime.stopping(beforeSeal)).isTrue();
+    }
+
+    private static io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportDiagnosticDto
+            diagnostic(
+                    String severity,
+                    String stage,
+                    String location,
+                    boolean blocking,
+                    boolean resolved) {
+        return new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportDiagnosticDto(
+                1,
+                null,
+                null,
+                severity,
+                "UNIT_DATABASE_WRITE_FAILED",
+                stage,
+                null,
+                null,
+                location,
+                blocking,
+                resolved,
+                java.time.Instant.EPOCH);
+    }
+
+    @Test
+    void shouldKeepTheIncompleteExit_whenTheStoppingCauseCannotBeRead() {
+        FakeRuntime runtime = new FakeRuntime();
+        runtime.clean = false;
+        runtime.technicalFailure = true;
+        runtime.expectAcceptedHandle = false;
+        assertThat(invoke("resume", runtime)).isEqualTo(4);
+        assertThat(stderr.toString(StandardCharsets.UTF_8))
+                .contains("CDS_DIAGNOSTIC: protected failure evidence of this run is unavailable")
+                .doesNotContain("CDS_TECHNICAL:", "sensitive-path");
+        FakeRuntime clean = new FakeRuntime();
+        clean.technical = Map.of("code", "UNIT_WRITE_FAILED");
+        assertThat(invoke("import", clean)).isZero();
+        assertThat(clean.technicalReads).isZero();
+    }
+
+    private static String[] abandon(String... extra) {
+        return concat(
+                new String[] {
+                    "--operation",
+                    "abandon",
+                    "--provider",
+                    "999998",
+                    "--run",
+                    NONCE,
+                    "--confirm",
+                    NONCE,
+                    "--reason",
+                    "sensitive stated reason"
+                },
+                extra);
+    }
+
+    @Test
+    void shouldAcceptAnAbandon_onlyWithTheRunTypedTwiceAndAStatedReason() {
+        var parsed = CdsCliArguments.parse(abandon());
+        assertThat(parsed.operation()).isEqualTo("abandon");
+        assertThat(parsed.runId()).isEqualTo(NONCE);
+        assertThat(parsed.confirmation()).isEqualTo(NONCE);
+        assertThat(parsed.reason()).isEqualTo("sensitive stated reason");
+        String other = "5613b36a-4909-48bd-86f1-bd07b31c11f2";
+        for (String[] refused :
+                new String[][] {
+                    {"--operation", "abandon", "--provider", "999998", "--run", NONCE},
+                    {
+                        "--operation", "abandon", "--provider", "999998", "--run", NONCE,
+                        "--confirm", NONCE
+                    },
+                    {
+                        "--operation", "abandon", "--provider", "999998", "--run", NONCE,
+                        "--confirm", other, "--reason", "stated"
+                    },
+                    {
+                        "--operation", "abandon", "--provider", "999998", "--run", NONCE,
+                        "--confirm", NONCE, "--reason", " "
+                    },
+                    {
+                        "--operation", "abandon", "--provider", "999998", "--run", NONCE,
+                        "--confirm", NONCE, "--reason", "x".repeat(1001)
+                    },
+                    abandon("--input", "/allowed/source.xml"),
+                    {
+                        "--operation", "resume", "--provider", "999998", "--run", NONCE,
+                        "--reason", "stated"
+                    },
+                    // A run is named by its random UUID, never by another token.
+                    {
+                        "--operation", "abandon", "--provider", "999998", "--run", "run-1",
+                        "--confirm", "run-1", "--reason", "stated"
+                    },
+                    {"--operation", "status", "--provider", "999998", "--run", NONCE + "0"},
+                    {"--operation", "cancel", "--provider", "999998", "--run", NONCE.replace('-', '_')},
+                    // 1001 characters are refused however they are encoded.
+                    {
+                        "--operation", "abandon", "--provider", "999998", "--run", NONCE,
+                        "--confirm", NONCE, "--reason", "\uD83D\uDE00".repeat(1001)
+                    }
+                })
+            assertThatThrownBy(() -> CdsCliArguments.parse(refused))
+                    .isInstanceOf(IllegalArgumentException.class);
+        // A run ID pasted in capitals names the same, lowercase-stored run.
+        assertThat(
+                        CdsCliArguments.parse(
+                                        new String[] {
+                                            "--operation", "abandon", "--provider", "999998",
+                                            "--run", NONCE.toUpperCase(java.util.Locale.ROOT),
+                                            "--confirm", NONCE, "--reason", "stated"
+                                        })
+                                .runId())
+                .isEqualTo(NONCE);
+        // A reason is counted in characters (code points), as carlos-ctl counts it: 600
+        // characters that need two UTF-16 units each are within the limit on both sides.
+        assertThat(
+                        CdsCliArguments.parse(
+                                        new String[] {
+                                            "--operation", "abandon", "--provider", "999998",
+                                            "--run", NONCE, "--confirm", NONCE, "--reason",
+                                            "\uD83D\uDE00".repeat(600)
+                                        })
+                                .reason())
+                .hasSize(1200);
+    }
+
+    @Test
+    void shouldCloseTheRunAsAbandoned_withExitFourAndNoReasonOnTheConsole() {
+        FakeRuntime runtime = new FakeRuntime();
+        runtime.clean = false;
+        runtime.expectAcceptedHandle = false;
+        int code =
+                CdsImportCli.runAuthorized(
+                        new CdsCliConfiguration(Path.of("/unused"), new Properties(), 512),
+                        CdsCliArguments.parse(abandon()),
+                        new CdsDelegationVerifier.Delegation("synthetic-operator", 999998, NONCE),
+                        out,
+                        err,
+                        (config, selected, delegation) -> runtime);
+        assertThat(code).isEqualTo(4);
+        assertThat(runtime.calls).containsExactly("observe:abandon", "abandon", "summary", "close");
+        assertThat(runtime.abandonedConfirmation).isEqualTo(NONCE);
+        assertThat(runtime.abandonedReason).isEqualTo("sensitive stated reason");
+        assertThat(stderr.toString(StandardCharsets.UTF_8))
+                .contains("CDS_ABANDONED:")
+                .doesNotContain("sensitive stated reason", "CDS_TECHNICAL:");
+        assertThat(stdout.toString(StandardCharsets.UTF_8))
+                .contains("\"operation\":\"abandon\"", "RESULT")
+                .doesNotContain("sensitive stated reason");
+        assertThat(runtime.technicalReads).isZero();
+    }
+
+    @Test
+    void shouldNameARefusedAbandon_byItsPublicCode() {
+        for (String refusal :
+                new String[] {
+                    "IMPORT_ABANDONED",
+                    "ABANDON_RUN_NOT_STOPPED",
+                    "ABANDON_CANCEL_REQUIRED",
+                    "ABANDON_RESUME_PENDING",
+                    "ABANDON_REVIEW_PENDING",
+                    "ABANDON_EVIDENCE_UNAVAILABLE"
+                }) {
+            stderr.reset();
+            FakeRuntime runtime = new FakeRuntime();
+            runtime.abandonFailureCode = refusal;
+            runtime.expectAcceptedHandle = false;
+            int code =
+                    CdsImportCli.runAuthorized(
+                            new CdsCliConfiguration(Path.of("/unused"), new Properties(), 512),
+                            CdsCliArguments.parse(abandon()),
+                            new CdsDelegationVerifier.Delegation(
+                                    "synthetic-operator", 999998, NONCE),
+                            out,
+                            err,
+                            (config, selected, delegation) -> runtime);
+            assertThat(code).as(refusal).isEqualTo(4);
+            assertThat(stderr.toString(StandardCharsets.UTF_8))
+                    .contains("CDS_REASON: safeCode=" + refusal + " ")
+                    .doesNotContain("CDS_ABANDONED:");
+        }
+    }
+
+    @Test
     void shouldValidateArgumentCombinations_whenConstructingSharedCommand() {
         var command = CdsCliArguments.parse(IMPORT).command(NONCE);
-        assertThat(command.matchProviderNames()).isTrue(); assertThat(command.mergeExisting()).isFalse();
+        assertThat(command.matchProviderNames()).isTrue();
+        assertThat(command.mergeExisting()).isFalse();
         assertThat(command.input()).isEqualTo(Path.of("/allowed/é.xml"));
         assertThat(command.sourceProfile()).isEqualTo("pcon-2024-02");
-        assertThatThrownBy(() -> CdsCliArguments.parse(concat(IMPORT, "--provider", "999998"))).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> CdsCliArguments.parse(concat(IMPORT, "--synthetic"))).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> CdsCliArguments.parse(concat(IMPORT, "--timeshift", "1"))).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> CdsCliArguments.parse(concat(IMPORT, "--program", "0"))).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> CdsCliArguments.parse(concat(IMPORT, "--facility", "2147483648"))).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> CdsCliArguments.parse(concat(IMPORT, "--mystery", "sensitive-value"))).hasMessage("CDS_ARGUMENTS_INVALID");
+        assertThatThrownBy(() -> CdsCliArguments.parse(concat(IMPORT, "--provider", "999998")))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> CdsCliArguments.parse(concat(IMPORT, "--synthetic")))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> CdsCliArguments.parse(concat(IMPORT, "--timeshift", "1")))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> CdsCliArguments.parse(concat(IMPORT, "--program", "0")))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> CdsCliArguments.parse(concat(IMPORT, "--facility", "2147483648")))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(
+                        () -> CdsCliArguments.parse(concat(IMPORT, "--mystery", "sensitive-value")))
+                .hasMessage("CDS_ARGUMENTS_INVALID");
     }
 
     @ParameterizedTest
@@ -287,206 +711,379 @@ class CdsCliProtocolUnitTest {
     void shouldReuseRecordedOptions_whenSelectingExistingRun(String operation) {
         String[] arguments = {"--operation", operation, "--provider", "999998", "--run", NONCE};
         assertThat(CdsCliArguments.parse(arguments).runId()).isEqualTo(NONCE);
-        assertThatThrownBy(() -> CdsCliArguments.parse(concat(arguments, "--timeshift", "0"))).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> CdsCliArguments.parse(concat(arguments, "--timeshift", "0")))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void shouldAllowOnlyStatusLookup_whenRecoveringSubmissionWithoutRunHandle() {
         String[] args = {"--operation", "status", "--provider", "T099", "--submission-key", NONCE};
         var parsed = CdsCliArguments.parse(args);
-        assertThat(parsed.runId()).isNull(); assertThat(parsed.submissionKey()).isEqualTo(NONCE);
+        assertThat(parsed.runId()).isNull();
+        assertThat(parsed.submissionKey()).isEqualTo(NONCE);
         assertThatThrownBy(() -> CdsCliArguments.parse(concat(args, "--run", NONCE)))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> CdsCliArguments.parse(concat(IMPORT, "--submission-key", NONCE)))
                 .isInstanceOf(IllegalArgumentException.class);
         for (String operation : List.of("resume", "cancel", "report")) {
-            assertThatThrownBy(() -> CdsCliArguments.parse(new String[]{"--operation", operation,
-                    "--provider", "T099", "--submission-key", NONCE})).isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(
+                            () ->
+                                    CdsCliArguments.parse(
+                                            new String[] {
+                                                "--operation",
+                                                operation,
+                                                "--provider",
+                                                "T099",
+                                                "--submission-key",
+                                                NONCE
+                                            }))
+                    .isInstanceOf(IllegalArgumentException.class);
         }
     }
 
     @Test
     void shouldReadResolvedHandleWithoutAcceptingOrExecuting_whenSubmissionLookupSucceeds() {
-        FakeRuntime runtime = new FakeRuntime(); runtime.resolvedRun = "recovered-run"; runtime.clean = false;
-        String[] args = {"--operation", "status", "--provider", "999998", "--submission-key", NONCE};
-        int code = CdsImportCli.runAuthorized(new CdsCliConfiguration(Path.of("/unused"), new Properties(), 512),
-                CdsCliArguments.parse(args), new CdsDelegationVerifier.Delegation("synthetic-operator", 999998, NONCE),
-                out, err, (config, selected, delegation) -> runtime);
+        FakeRuntime runtime = new FakeRuntime();
+        runtime.resolvedRun = "recovered-run";
+        runtime.clean = false;
+        String[] args = {
+            "--operation", "status", "--provider", "999998", "--submission-key", NONCE
+        };
+        int code =
+                CdsImportCli.runAuthorized(
+                        new CdsCliConfiguration(Path.of("/unused"), new Properties(), 512),
+                        CdsCliArguments.parse(args),
+                        new CdsDelegationVerifier.Delegation("synthetic-operator", 999998, NONCE),
+                        out,
+                        err,
+                        (config, selected, delegation) -> runtime);
         assertThat(code).isZero();
         assertThat(runtime.calls).containsExactly("observe:status", "summary", "close");
-        assertThat(stdout.toString(StandardCharsets.UTF_8)).contains("recovered-run", "\"cleanComplete\":false")
+        assertThat(stdout.toString(StandardCharsets.UTF_8))
+                .contains("recovered-run", "\"cleanComplete\":false")
                 .doesNotContain("ACCEPTED", "SUBMISSION");
     }
 
     @Test
     void shouldRetainPrintedSubmissionKey_whenAcceptanceAcknowledgementIsLost() {
-        FakeRuntime runtime = new FakeRuntime(); runtime.acceptFailure = true;
+        FakeRuntime runtime = new FakeRuntime();
+        runtime.acceptFailure = true;
         assertThat(invoke("import", runtime)).isEqualTo(2);
-        assertThat(stdout.toString(StandardCharsets.UTF_8)).contains("SUBMISSION", NONCE).doesNotContain("ACCEPTED");
+        assertThat(stdout.toString(StandardCharsets.UTF_8))
+                .contains("SUBMISSION", NONCE)
+                .doesNotContain("ACCEPTED");
         assertThat(runtime.calls).containsExactly("accept", "close");
         assertThat(stderr.toString(StandardCharsets.UTF_8)).doesNotContain("sensitive-path");
     }
 
     @Test
     void shouldPreserveRecoverableSubmissionWithoutExecuting_whenAcceptedConsoleWriteBreaks() {
-        PrintStream broken = new PrintStream(stdout, true, StandardCharsets.UTF_8) {
-            @Override public void println(String value) {
-                if (value.contains("ACCEPTED")) setError(); else super.println(value);
-            }
-        };
+        PrintStream broken =
+                new PrintStream(stdout, true, StandardCharsets.UTF_8) {
+                    @Override
+                    public void println(String value) {
+                        if (value.contains("ACCEPTED")) setError();
+                        else super.println(value);
+                    }
+                };
         FakeRuntime runtime = new FakeRuntime();
-        int code = CdsImportCli.runAuthorized(new CdsCliConfiguration(Path.of("/unused"), new Properties(), 512),
-                CdsCliArguments.parse(IMPORT), new CdsDelegationVerifier.Delegation("synthetic-operator", 999998, NONCE),
-                broken, err, (config, selected, delegation) -> runtime);
+        int code =
+                CdsImportCli.runAuthorized(
+                        new CdsCliConfiguration(Path.of("/unused"), new Properties(), 512),
+                        CdsCliArguments.parse(IMPORT),
+                        new CdsDelegationVerifier.Delegation("synthetic-operator", 999998, NONCE),
+                        broken,
+                        err,
+                        (config, selected, delegation) -> runtime);
         assertThat(code).isEqualTo(2);
         assertThat(runtime.calls).containsExactly("accept", "close");
-        assertThat(stdout.toString(StandardCharsets.UTF_8)).contains("SUBMISSION", NONCE).doesNotContain("ACCEPTED");
+        assertThat(stdout.toString(StandardCharsets.UTF_8))
+                .contains("SUBMISSION", NONCE)
+                .doesNotContain("ACCEPTED");
     }
 
     @Test
     void shouldRemainUncertainWithoutClaimingNonAcceptance_whenSubmissionLookupCannotResolve() {
-        String[] args = {"--operation", "status", "--provider", "999998", "--submission-key", NONCE};
-        int code = CdsImportCli.runAuthorized(new CdsCliConfiguration(Path.of("/unused"), new Properties(), 512),
-                CdsCliArguments.parse(args), new CdsDelegationVerifier.Delegation("synthetic-operator", 999998, NONCE),
-                out, err, (config, selected, delegation) -> { throw new CdsImportException("SUBMISSION_OUTCOME_NOT_YET_KNOWN"); });
+        String[] args = {
+            "--operation", "status", "--provider", "999998", "--submission-key", NONCE
+        };
+        int code =
+                CdsImportCli.runAuthorized(
+                        new CdsCliConfiguration(Path.of("/unused"), new Properties(), 512),
+                        CdsCliArguments.parse(args),
+                        new CdsDelegationVerifier.Delegation("synthetic-operator", 999998, NONCE),
+                        out,
+                        err,
+                        (config, selected, delegation) -> {
+                            throw new CdsImportException("SUBMISSION_OUTCOME_NOT_YET_KNOWN");
+                        });
         assertThat(code).isEqualTo(4);
-        assertThat(stderr.toString(StandardCharsets.UTF_8)).contains("outcome is not yet known", "retain original source")
+        assertThat(stderr.toString(StandardCharsets.UTF_8))
+                .contains("outcome is not yet known", "retain original source")
                 .doesNotContain("no import was accepted");
     }
 
     @Test
     void shouldUseActualPropertiesSyntax_whenDerivingAuthoritativeHeap() throws Exception {
-        var config = CdsCliConfiguration.parse(Path.of("/unused"),
-                "cds.import.cliHeapMiB:7\\\n  68\n".getBytes(StandardCharsets.ISO_8859_1));
+        var config =
+                CdsCliConfiguration.parse(
+                        Path.of("/unused"),
+                        "cds.import.cliHeapMiB:7\\\n  68\n".getBytes(StandardCharsets.ISO_8859_1));
         assertThat(config.heapMiB()).isEqualTo(768);
-        assertThat(CdsCliConfiguration.parse(Path.of("/unused"), new byte[0]).heapMiB()).isEqualTo(512);
-        assertThatThrownBy(() -> CdsCliConfiguration.parse(Path.of("/unused"), "cds.import.cliHeapMiB=127".getBytes()))
+        assertThat(CdsCliConfiguration.parse(Path.of("/unused"), new byte[0]).heapMiB())
+                .isEqualTo(512);
+        assertThatThrownBy(
+                        () ->
+                                CdsCliConfiguration.parse(
+                                        Path.of("/unused"), "cds.import.cliHeapMiB=127".getBytes()))
                 .isInstanceOf(IOException.class);
-        assertThatThrownBy(() -> CdsCliConfiguration.parse(Path.of("/unused"), "cds.import.cliHeapMiB=16385".getBytes()))
+        assertThatThrownBy(
+                        () ->
+                                CdsCliConfiguration.parse(
+                                        Path.of("/unused"),
+                                        "cds.import.cliHeapMiB=16385".getBytes()))
                 .isInstanceOf(IOException.class);
     }
 
     @Test
-    void shouldRejectUntrustedConfigurationBeforeBoot_whenCapabilityProbeCannotUseProductionProperties() {
-        int code = CdsImportCli.run(new String[]{"--capabilities"}, Map.of("CARLOS_CDS_PROPERTIES", "/tmp/forged.properties"),
-                out, err, (config, arguments, delegation) -> { throw new AssertionError("must never boot"); });
-        assertThat(code).isEqualTo(2); assertThat(stdout.toString(StandardCharsets.UTF_8)).isEmpty();
+    void
+            shouldRejectUntrustedConfigurationBeforeBoot_whenCapabilityProbeCannotUseProductionProperties() {
+        int code =
+                CdsImportCli.run(
+                        new String[] {"--capabilities"},
+                        Map.of("CARLOS_CDS_PROPERTIES", "/tmp/forged.properties"),
+                        out,
+                        err,
+                        (config, arguments, delegation) -> {
+                            throw new AssertionError("must never boot");
+                        });
+        assertThat(code).isEqualTo(2);
+        assertThat(stdout.toString(StandardCharsets.UTF_8)).isEmpty();
         assertThat(stderr.toString(StandardCharsets.UTF_8)).doesNotContain("forged.properties");
     }
 
     @Test
-    void shouldAcceptFreshBoundProof_whenProviderOperationNonceAndExactArgumentsMatch() throws Exception {
-        var proof = CdsDelegationVerifier.verifyDocument(document(), NONCE + ".json", CdsCliArguments.parse(IMPORT), IMPORT, Instant.ofEpochSecond(1000));
-        assertThat(proof.operator()).isEqualTo("synthetic-operator"); assertThat(proof.operatorUid()).isEqualTo(999998);
+    void shouldAcceptFreshBoundProof_whenProviderOperationNonceAndExactArgumentsMatch()
+            throws Exception {
+        var proof =
+                CdsDelegationVerifier.verifyDocument(
+                        document(),
+                        NONCE + ".json",
+                        CdsCliArguments.parse(IMPORT),
+                        IMPORT,
+                        Instant.ofEpochSecond(1000));
+        assertThat(proof.operator()).isEqualTo("synthetic-operator");
+        assertThat(proof.operatorUid()).isEqualTo(999998);
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"provider", "operation", "operator", "operatorUid", "argvSha256", "nonce", "expiresEpochSeconds", "issuedEpochSeconds", "protocol"})
-    void shouldRefuseForgedProofFields_whenTrustedDocumentDoesNotBindRequest(String field) throws Exception {
+    @ValueSource(
+            strings = {
+                "provider",
+                "operation",
+                "operator",
+                "operatorUid",
+                "argvSha256",
+                "nonce",
+                "expiresEpochSeconds",
+                "issuedEpochSeconds",
+                "protocol"
+            })
+    void shouldRefuseForgedProofFields_whenTrustedDocumentDoesNotBindRequest(String field)
+            throws Exception {
         Map<String, Object> value = values();
-        Object changed = switch (field) {
-            case "protocol" -> 4294967297L;
-            case "operatorUid" -> -1;
-            case "expiresEpochSeconds" -> 999;
-            case "issuedEpochSeconds" -> 1600;
-            case "provider" -> "000001";
-            case "operation" -> "report";
-            case "operator" -> "forged\noperator";
-            case "argvSha256" -> "0".repeat(64);
-            default -> UUID.randomUUID().toString();
-        };
+        Object changed =
+                switch (field) {
+                    case "protocol" -> 4294967297L;
+                    case "operatorUid" -> -1;
+                    case "expiresEpochSeconds" -> 999;
+                    case "issuedEpochSeconds" -> 1600;
+                    case "provider" -> "000001";
+                    case "operation" -> "report";
+                    case "operator" -> "forged\noperator";
+                    case "argvSha256" -> "0".repeat(64);
+                    default -> UUID.randomUUID().toString();
+                };
         value.put(field, changed);
         byte[] forged = new ObjectMapper().writeValueAsBytes(value);
         var arguments = CdsCliArguments.parse(IMPORT);
-        assertThatThrownBy(() -> CdsDelegationVerifier.verifyDocument(forged,
-                NONCE + ".json", arguments, IMPORT, Instant.ofEpochSecond(1000))).isInstanceOf(IOException.class);
+        assertThatThrownBy(
+                        () ->
+                                CdsDelegationVerifier.verifyDocument(
+                                        forged,
+                                        NONCE + ".json",
+                                        arguments,
+                                        IMPORT,
+                                        Instant.ofEpochSecond(1000)))
+                .isInstanceOf(IOException.class);
     }
 
     @Test
-    void shouldRejectAmbiguousJsonAndExpiredProof_whenDuplicateTrailingOrOverlongControlInputArrives() throws Exception {
+    void
+            shouldRejectAmbiguousJsonAndExpiredProof_whenDuplicateTrailingOrOverlongControlInputArrives()
+                    throws Exception {
         String document = new String(document(), StandardCharsets.UTF_8);
         var arguments = CdsCliArguments.parse(IMPORT);
-        for (String malformed : List.of(document + " {}", document.replace("\"protocol\":1", "\"protocol\":1,\"protocol\":1"), " ".repeat(65537))) {
-            assertThatThrownBy(() -> CdsDelegationVerifier.verifyDocument(malformed.getBytes(StandardCharsets.UTF_8),
-                    NONCE + ".json", arguments, IMPORT, Instant.ofEpochSecond(1000))).isInstanceOf(IOException.class);
+        for (String malformed :
+                List.of(
+                        document + " {}",
+                        document.replace("\"protocol\":1", "\"protocol\":1,\"protocol\":1"),
+                        " ".repeat(65537))) {
+            assertThatThrownBy(
+                            () ->
+                                    CdsDelegationVerifier.verifyDocument(
+                                            malformed.getBytes(StandardCharsets.UTF_8),
+                                            NONCE + ".json",
+                                            arguments,
+                                            IMPORT,
+                                            Instant.ofEpochSecond(1000)))
+                    .isInstanceOf(IOException.class);
         }
         byte[] expired = document();
-        assertThatThrownBy(() -> CdsDelegationVerifier.verifyDocument(expired, NONCE + ".json",
-                arguments, IMPORT, Instant.ofEpochSecond(1400))).isInstanceOf(IOException.class);
+        assertThatThrownBy(
+                        () ->
+                                CdsDelegationVerifier.verifyDocument(
+                                        expired,
+                                        NONCE + ".json",
+                                        arguments,
+                                        IMPORT,
+                                        Instant.ofEpochSecond(1400)))
+                .isInstanceOf(IOException.class);
     }
 
     @Test
     void shouldEmitAcceptedHandleBeforeExecution_whenForegroundImportStarts() {
         FakeRuntime runtime = new FakeRuntime();
         assertThat(invoke("import", runtime)).isZero();
-        assertThat(runtime.calls).containsExactly("accept", "observe:import", "execute:false", "summary", "close");
-        assertThat(stdout.toString(StandardCharsets.UTF_8)).contains("ACCEPTED", NONCE, "cleanComplete");
+        assertThat(runtime.calls)
+                .containsExactly("accept", "observe:import", "execute:false", "summary", "close");
+        assertThat(stdout.toString(StandardCharsets.UTF_8))
+                .contains("ACCEPTED", NONCE, "cleanComplete");
     }
 
     @Test
     void shouldReturnIncomplete_whenClinicalCompleteButReportOrCleanupIsIncomplete() {
-        FakeRuntime runtime = new FakeRuntime(); runtime.clean = false;
+        FakeRuntime runtime = new FakeRuntime();
+        runtime.clean = false;
         assertThat(invoke("import", runtime)).isEqualTo(4);
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"status", "report"})
     void shouldSeparateQuerySuccessFromImportOutcome_whenExistingRunIsIncomplete(String operation) {
-        FakeRuntime runtime = new FakeRuntime(); runtime.clean = false;
+        FakeRuntime runtime = new FakeRuntime();
+        runtime.clean = false;
         assertThat(invoke(operation, runtime)).isZero();
         assertThat(stdout.toString(StandardCharsets.UTF_8)).contains("\"cleanComplete\":false");
     }
 
     @Test
     void shouldRetainFailureExit_whenRuntimeRetirementAlsoFails() {
-        FakeRuntime runtime = new FakeRuntime(); runtime.clean = false; runtime.closeFailure = true;
+        FakeRuntime runtime = new FakeRuntime();
+        runtime.clean = false;
+        runtime.closeFailure = true;
         assertThat(invoke("import", runtime)).isEqualTo(4);
-        assertThat(stderr.toString(StandardCharsets.UTF_8)).contains("CDS_CLEANUP").doesNotContain("sensitive-path");
+        assertThat(stderr.toString(StandardCharsets.UTF_8))
+                .contains("CDS_CLEANUP")
+                .doesNotContain("sensitive-path");
     }
 
     @Test
     void shouldReportDeliveryFailure_whenConsoleIsBrokenAfterClinicalCommit() {
-        var failed=new java.util.concurrent.atomic.AtomicBoolean();
-        PrintStream broken = new PrintStream(new OutputStream() {
-            @Override public void write(int value) throws IOException { if(failed.get()) throw new IOException("sensitive-path"); }
-        });
-        FakeRuntime runtime = new FakeRuntime(); runtime.expectAcceptedHandle = false;
-        runtime.onExecution=() -> failed.set(true);
-        int code = CdsImportCli.runAuthorized(new CdsCliConfiguration(Path.of("/unused"), new Properties(), 512),
-                CdsCliArguments.parse(IMPORT), new CdsDelegationVerifier.Delegation("synthetic-operator", 999998, NONCE),
-                broken, err, (config, arguments, delegation) -> runtime);
-        assertThat(code).isEqualTo(2); assertThat(runtime.calls).contains("execute:false", "close");
+        var failed = new java.util.concurrent.atomic.AtomicBoolean();
+        PrintStream broken =
+                new PrintStream(
+                        new OutputStream() {
+                            @Override
+                            public void write(int value) throws IOException {
+                                if (failed.get()) throw new IOException("sensitive-path");
+                            }
+                        });
+        FakeRuntime runtime = new FakeRuntime();
+        runtime.expectAcceptedHandle = false;
+        runtime.onExecution = () -> failed.set(true);
+        int code =
+                CdsImportCli.runAuthorized(
+                        new CdsCliConfiguration(Path.of("/unused"), new Properties(), 512),
+                        CdsCliArguments.parse(IMPORT),
+                        new CdsDelegationVerifier.Delegation("synthetic-operator", 999998, NONCE),
+                        broken,
+                        err,
+                        (config, arguments, delegation) -> runtime);
+        assertThat(code).isEqualTo(2);
+        assertThat(runtime.calls).contains("execute:false", "close");
     }
 
     @Test
     void shouldRefuseBeforeOpeningRuntime_whenInitialConsoleDeliveryFails() {
-        PrintStream broken=new PrintStream(new OutputStream(){@Override public void write(int value) throws IOException{throw new IOException("private");}});
-        int code=CdsImportCli.runAuthorized(new CdsCliConfiguration(Path.of("/unused"),new Properties(),512),
-                CdsCliArguments.parse(IMPORT),new CdsDelegationVerifier.Delegation("synthetic-operator",999998,NONCE),
-                broken,err,(config,arguments,delegation) -> {throw new AssertionError("No acceptance or bootstrap after broken initial delivery");});
+        PrintStream broken =
+                new PrintStream(
+                        new OutputStream() {
+                            @Override
+                            public void write(int value) throws IOException {
+                                throw new IOException("private");
+                            }
+                        });
+        int code =
+                CdsImportCli.runAuthorized(
+                        new CdsCliConfiguration(Path.of("/unused"), new Properties(), 512),
+                        CdsCliArguments.parse(IMPORT),
+                        new CdsDelegationVerifier.Delegation("synthetic-operator", 999998, NONCE),
+                        broken,
+                        err,
+                        (config, arguments, delegation) -> {
+                            throw new AssertionError(
+                                    "No acceptance or bootstrap after broken initial delivery");
+                        });
         assertThat(code).isEqualTo(2);
     }
 
     @Test
     void shouldKeepAcceptedHandleAndSafeFailure_whenSharedEngineRefusesExecution() {
-        FakeRuntime runtime = new FakeRuntime(); runtime.executionFailure = true;
+        FakeRuntime runtime = new FakeRuntime();
+        runtime.executionFailure = true;
         assertThat(invoke("import", runtime)).isEqualTo(4);
         assertThat(stdout.toString(StandardCharsets.UTF_8)).contains(NONCE);
-        assertThat(stderr.toString(StandardCharsets.UTF_8)).contains("CDS_INCOMPLETE").doesNotContain("sensitive-path");
+        assertThat(stderr.toString(StandardCharsets.UTF_8))
+                .contains("CDS_INCOMPLETE")
+                .doesNotContain("sensitive-path");
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"IMPORT_BUSY", "IMPORT_ALREADY_RUNNING", "IMPORT_RULESET_OR_OPTIONS_INCOMPATIBLE",
-            "MAINTENANCE_RELEASE_REQUIRES_RECONCILIATION", "CDS_INPUT_DISK_RESERVE", "CDS_SOURCE_SNAPSHOT_FAILED",
-            "PREACCEPT_INDEX_TIMEOUT", "PREACCEPT_INDEX_CANCELLED", "IMPORT_CLINICAL_ZONE_REQUIRED",
-            "IMMUNIZATION_PREVENTION_CONFIG_UNAVAILABLE"})
+    @ValueSource(
+            strings = {
+                "IMPORT_BUSY",
+                "IMPORT_ALREADY_RUNNING",
+                "IMPORT_RULESET_OR_OPTIONS_INCOMPATIBLE",
+                "MAINTENANCE_RELEASE_REQUIRES_RECONCILIATION",
+                "CDS_INPUT_DISK_RESERVE",
+                "CDS_SOURCE_SNAPSHOT_FAILED",
+                "PREACCEPT_INDEX_TIMEOUT",
+                "PREACCEPT_INDEX_CANCELLED",
+                "IMPORT_CLINICAL_ZONE_REQUIRED",
+                "IMMUNIZATION_PREVENTION_CONFIG_UNAVAILABLE"
+            })
     void shouldExposeFiniteSafeReason_whenSharedEngineRefusesControl(String reason) {
-        int code = CdsImportCli.runAuthorized(new CdsCliConfiguration(Path.of("/unused"), new Properties(), 512),
-                CdsCliArguments.parse(new String[]{"--operation", "resume", "--provider", "999998", "--run", NONCE}),
-                new CdsDelegationVerifier.Delegation("synthetic-operator", 999998, NONCE), out, err,
-                (config, selected, delegation) -> { throw new CdsImportException(reason, true, new IOException("sensitive-path")); });
+        int code =
+                CdsImportCli.runAuthorized(
+                        new CdsCliConfiguration(Path.of("/unused"), new Properties(), 512),
+                        CdsCliArguments.parse(
+                                new String[] {
+                                    "--operation", "resume", "--provider", "999998", "--run", NONCE
+                                }),
+                        new CdsDelegationVerifier.Delegation("synthetic-operator", 999998, NONCE),
+                        out,
+                        err,
+                        (config, selected, delegation) -> {
+                            throw new CdsImportException(
+                                    reason, true, new IOException("sensitive-path"));
+                        });
         assertThat(code).isEqualTo(4);
-        assertThat(stderr.toString(StandardCharsets.UTF_8)).contains("safeCode=" + reason, "outcomeUnknown=true", "submission outcome is not yet known")
+        assertThat(stderr.toString(StandardCharsets.UTF_8))
+                .contains(
+                        "safeCode=" + reason,
+                        "outcomeUnknown=true",
+                        "submission outcome is not yet known")
                 .doesNotContain("sensitive-path");
         assertThat(stdout.toString(StandardCharsets.UTF_8)).doesNotContain("ACCEPTED", "RESULT");
     }
@@ -498,8 +1095,11 @@ class CdsCliProtocolUnitTest {
         runtime.inputFailureCode = reason;
         assertThat(invoke("import", runtime)).isEqualTo(4);
         assertThat(runtime.calls).containsExactly("accept", "close");
-        assertThat(stdout.toString(StandardCharsets.UTF_8)).contains("SUBMISSION", NONCE).doesNotContain("ACCEPTED", "RESULT");
-        assertThat(stderr.toString(StandardCharsets.UTF_8)).contains("safeCode=" + reason, "outcomeUnknown=false")
+        assertThat(stdout.toString(StandardCharsets.UTF_8))
+                .contains("SUBMISSION", NONCE)
+                .doesNotContain("ACCEPTED", "RESULT");
+        assertThat(stderr.toString(StandardCharsets.UTF_8))
+                .contains("safeCode=" + reason, "outcomeUnknown=false")
                 .doesNotContain("sensitive-path", "patient-value", "NOT_ACCEPTED", "rolled back");
     }
 
@@ -510,12 +1110,16 @@ class CdsCliProtocolUnitTest {
         boolean cancelled = reason.equals("PREACCEPT_INDEX_CANCELLED");
         try {
             if (cancelled) Thread.currentThread().interrupt();
-            FakeRuntime runtime = new FakeRuntime(); runtime.preacceptFailureCode = reason;
+            FakeRuntime runtime = new FakeRuntime();
+            runtime.preacceptFailureCode = reason;
             assertThat(invoke("import", runtime)).isEqualTo(4);
             assertThat(Thread.currentThread().isInterrupted()).isEqualTo(cancelled);
             assertThat(runtime.calls).containsExactly("accept", "close");
-            assertThat(stdout.toString(StandardCharsets.UTF_8)).contains("SUBMISSION", NONCE).doesNotContain("ACCEPTED", "RESULT");
-            assertThat(stderr.toString(StandardCharsets.UTF_8)).contains("safeCode=" + reason, "outcomeUnknown=false")
+            assertThat(stdout.toString(StandardCharsets.UTF_8))
+                    .contains("SUBMISSION", NONCE)
+                    .doesNotContain("ACCEPTED", "RESULT");
+            assertThat(stderr.toString(StandardCharsets.UTF_8))
+                    .contains("safeCode=" + reason, "outcomeUnknown=false")
                     .doesNotContain("NOT_ACCEPTED", "rolled back");
         } finally {
             Thread.interrupted();
@@ -525,102 +1129,229 @@ class CdsCliProtocolUnitTest {
 
     @ParameterizedTest
     @NullSource
-    @ValueSource(strings = {"private-patient-path", "PATIENT_ALICE_SMITH", "IMPORT_BUSY\nprivate-patient-path",
-            "CDS_INPUT_DISK_RESERVE_PRIVATE", "CDS_SOURCE_SNAPSHOT_FAILED\nprivate-patient-path",
-            "PREACCEPT_INDEX_TIMEOUT_PRIVATE", "PREACCEPT_INDEX_CANCELLED\nprivate-patient-path",
-            "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"})
+    @ValueSource(
+            strings = {
+                "private-patient-path",
+                "PATIENT_ALICE_SMITH",
+                "IMPORT_BUSY\nprivate-patient-path",
+                "CDS_INPUT_DISK_RESERVE_PRIVATE",
+                "CDS_SOURCE_SNAPSHOT_FAILED\nprivate-patient-path",
+                "PREACCEPT_INDEX_TIMEOUT_PRIVATE",
+                "PREACCEPT_INDEX_CANCELLED\nprivate-patient-path",
+                "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+            })
     void shouldProtectUnknownAndAdversarialCodes_whenRefusalReasonIsNotPublic(String reason) {
-        int code = CdsImportCli.runAuthorized(new CdsCliConfiguration(Path.of("/unused"), new Properties(), 512),
-                CdsCliArguments.parse(IMPORT), new CdsDelegationVerifier.Delegation("synthetic-operator", 999998, NONCE),
-                out, err, (config, selected, delegation) -> { throw new CdsImportException(reason); });
+        int code =
+                CdsImportCli.runAuthorized(
+                        new CdsCliConfiguration(Path.of("/unused"), new Properties(), 512),
+                        CdsCliArguments.parse(IMPORT),
+                        new CdsDelegationVerifier.Delegation("synthetic-operator", 999998, NONCE),
+                        out,
+                        err,
+                        (config, selected, delegation) -> {
+                            throw new CdsImportException(reason);
+                        });
         assertThat(code).isEqualTo(4);
-        assertThat(stderr.toString(StandardCharsets.UTF_8)).contains("safeCode=DETAILS_PROTECTED", "outcomeUnknown=false")
-                .doesNotContain("private-patient-path", "PATIENT_ALICE_SMITH", "safeCode=IMPORT_BUSY",
-                        "safeCode=CDS_INPUT_DISK_RESERVE", "safeCode=CDS_SOURCE_SNAPSHOT_FAILED",
-                        "safeCode=PREACCEPT_INDEX_TIMEOUT", "safeCode=PREACCEPT_INDEX_CANCELLED");
+        assertThat(stderr.toString(StandardCharsets.UTF_8))
+                .contains("safeCode=DETAILS_PROTECTED", "outcomeUnknown=false")
+                .doesNotContain(
+                        "private-patient-path",
+                        "PATIENT_ALICE_SMITH",
+                        "safeCode=IMPORT_BUSY",
+                        "safeCode=CDS_INPUT_DISK_RESERVE",
+                        "safeCode=CDS_SOURCE_SNAPSHOT_FAILED",
+                        "safeCode=PREACCEPT_INDEX_TIMEOUT",
+                        "safeCode=PREACCEPT_INDEX_CANCELLED");
     }
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void shouldReportTypedDurableResumeIntent_whenReadingCurrentStatus(boolean requested) {
-        FakeRuntime runtime = new FakeRuntime(); runtime.resumeRequested = requested; runtime.maintenanceReleasePending = requested; runtime.clean = !requested;
+        FakeRuntime runtime = new FakeRuntime();
+        runtime.resumeRequested = requested;
+        runtime.maintenanceReleasePending = requested;
+        runtime.clean = !requested;
         assertThat(invoke("status", runtime)).isZero();
-        assertThat(stdout.toString(StandardCharsets.UTF_8)).contains("\"resumeRequested\":" + requested,
-                "\"maintenanceReleasePending\":" + requested, "\"cleanComplete\":" + !requested);
+        assertThat(stdout.toString(StandardCharsets.UTF_8))
+                .contains(
+                        "\"resumeRequested\":" + requested,
+                        "\"maintenanceReleasePending\":" + requested,
+                        "\"cleanComplete\":" + !requested);
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"PRIVATE_SOURCE_VALUE", "released", "RELEASED\nPRIVATE_SOURCE_VALUE"})
-    void shouldOmitInvalidControlSummaryValues_whenSummaryContainsFreeformOrWrongType(String value) {
-        FakeRuntime runtime = new FakeRuntime(); runtime.resumeRequested = value;
-        runtime.maintenanceReleasePending = value; runtime.maintenanceReleaseState = value;
+    void shouldOmitInvalidControlSummaryValues_whenSummaryContainsFreeformOrWrongType(
+            String value) {
+        FakeRuntime runtime = new FakeRuntime();
+        runtime.resumeRequested = value;
+        runtime.maintenanceReleasePending = value;
+        runtime.maintenanceReleaseState = value;
         assertThat(invoke("status", runtime)).isZero();
-        assertThat(stdout.toString(StandardCharsets.UTF_8)).doesNotContain("resumeRequested", "maintenanceReleasePending",
-                "maintenanceReleaseState", "PRIVATE_SOURCE_VALUE");
+        assertThat(stdout.toString(StandardCharsets.UTF_8))
+                .doesNotContain(
+                        "resumeRequested",
+                        "maintenanceReleasePending",
+                        "maintenanceReleaseState",
+                        "PRIVATE_SOURCE_VALUE");
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"NOT_APPLICABLE", "RELEASE_PENDING", "RELEASE_DEFERRED", "REQUIRES_RECONCILIATION", "RELEASED"})
+    @ValueSource(
+            strings = {
+                "NOT_APPLICABLE",
+                "RELEASE_PENDING",
+                "RELEASE_DEFERRED",
+                "REQUIRES_RECONCILIATION",
+                "RELEASED"
+            })
     void shouldReportFiniteMaintenanceReleaseState_whenReadingCurrentStatus(String state) {
-        FakeRuntime runtime = new FakeRuntime(); runtime.maintenanceReleaseState = state;
+        FakeRuntime runtime = new FakeRuntime();
+        runtime.maintenanceReleaseState = state;
         assertThat(invoke("status", runtime)).isZero();
-        assertThat(stdout.toString(StandardCharsets.UTF_8)).contains("\"maintenanceReleaseState\":\"" + state + "\"");
+        assertThat(stdout.toString(StandardCharsets.UTF_8))
+                .contains("\"maintenanceReleaseState\":\"" + state + "\"");
     }
 
     private int invoke(String operation, FakeRuntime runtime) {
-        String[] arguments = "import".equals(operation) ? IMPORT
-                : new String[]{"--operation", operation, "--provider", "999998", "--run", NONCE};
-        return CdsImportCli.runAuthorized(new CdsCliConfiguration(Path.of("/unused"), new Properties(), 512),
-                CdsCliArguments.parse(arguments), new CdsDelegationVerifier.Delegation("synthetic-operator", 999998, NONCE),
-                out, err, (config, selected, delegation) -> runtime);
+        String[] arguments =
+                "import".equals(operation)
+                        ? IMPORT
+                        : new String[] {
+                            "--operation", operation, "--provider", "999998", "--run", NONCE
+                        };
+        return CdsImportCli.runAuthorized(
+                new CdsCliConfiguration(Path.of("/unused"), new Properties(), 512),
+                CdsCliArguments.parse(arguments),
+                new CdsDelegationVerifier.Delegation("synthetic-operator", 999998, NONCE),
+                out,
+                err,
+                (config, selected, delegation) -> runtime);
     }
 
     private static Map<String, Object> values() {
         Map<String, Object> value = new LinkedHashMap<>();
-        value.put("protocol", 1); value.put("operator", "synthetic-operator"); value.put("operatorUid", 999998);
-        value.put("provider", "999998"); value.put("operation", "import"); value.put("nonce", NONCE);
-        value.put("issuedEpochSeconds", 900); value.put("expiresEpochSeconds", 1200);
-        value.put("argvSha256", HexFormat.of().formatHex(CdsDelegationVerifier.digest(IMPORT))); return value;
+        value.put("protocol", 1);
+        value.put("operator", "synthetic-operator");
+        value.put("operatorUid", 999998);
+        value.put("provider", "999998");
+        value.put("operation", "import");
+        value.put("nonce", NONCE);
+        value.put("issuedEpochSeconds", 900);
+        value.put("expiresEpochSeconds", 1200);
+        value.put("argvSha256", HexFormat.of().formatHex(CdsDelegationVerifier.digest(IMPORT)));
+        return value;
     }
-    private static byte[] document() throws IOException { return new ObjectMapper().writeValueAsBytes(values()); }
+
+    private static byte[] document() throws IOException {
+        return new ObjectMapper().writeValueAsBytes(values());
+    }
+
     private static String[] concat(String[] first, String... last) {
-        List<String> all = new ArrayList<>(List.of(first)); all.addAll(List.of(last)); return all.toArray(String[]::new);
+        List<String> all = new ArrayList<>(List.of(first));
+        all.addAll(List.of(last));
+        return all.toArray(String[]::new);
     }
 
     private final class FakeRuntime implements CdsCliRuntime {
         private final List<String> calls = new ArrayList<>();
-        private boolean clean = true, closeFailure, executionFailure, acceptFailure, expectAcceptedHandle = true;
+        private boolean clean = true,
+                closeFailure,
+                executionFailure,
+                acceptFailure,
+                expectAcceptedHandle = true;
         private String resolvedRun, inputFailureCode, preacceptFailureCode;
         private Object resumeRequested, maintenanceReleasePending, maintenanceReleaseState;
-        private Runnable onExecution=() -> { };
-        @Override public String resolveRunId(String requested) { return resolvedRun == null ? requested : resolvedRun; }
-        @Override public String accept() throws IOException {
+        private Runnable onExecution = () -> {};
+        private Map<String, Object> technical;
+        private boolean technicalFailure;
+        private int technicalReads;
+        private String abandonedConfirmation, abandonedReason;
+        private String abandonFailureCode;
+
+        @Override
+        public void abandon(String run, String confirmation, String reason) {
+            calls.add("abandon");
+            if (abandonFailureCode != null) throw new CdsImportException(abandonFailureCode);
+            abandonedConfirmation = confirmation;
+            abandonedReason = reason;
+        }
+
+        @Override
+        public Map<String, Object> failureEvidence(String run) throws IOException {
+            technicalReads++;
+            if (technicalFailure) throw new IOException("sensitive-path");
+            return technical;
+        }
+
+        @Override
+        public String resolveRunId(String requested) {
+            return resolvedRun == null ? requested : resolvedRun;
+        }
+
+        @Override
+        public String accept() throws IOException {
             calls.add("accept");
             if (preacceptFailureCode != null) throw new CdsImportException(preacceptFailureCode);
-            if (inputFailureCode != null) throw new CdsInputException(inputFailureCode, "sensitive-path", "patient-value");
+            if (inputFailureCode != null)
+                throw new CdsInputException(inputFailureCode, "sensitive-path", "patient-value");
             if (acceptFailure) throw new IOException("sensitive-path");
             return NONCE;
         }
-        @Override public void observe(String run, String operation) { calls.add("observe:" + operation); }
-        @Override public void execute(String run, boolean resume) {
+
+        @Override
+        public void observe(String run, String operation) {
+            calls.add("observe:" + operation);
+        }
+
+        @Override
+        public void execute(String run, boolean resume) {
             calls.add("execute:" + resume);
-            if (expectAcceptedHandle) assertThat(stdout.toString(StandardCharsets.UTF_8)).contains("ACCEPTED");
+            if (expectAcceptedHandle)
+                assertThat(stdout.toString(StandardCharsets.UTF_8)).contains("ACCEPTED");
             if (executionFailure) throw new CdsImportException("sensitive-path");
             onExecution.run();
         }
-        @Override public void cancel(String run) { calls.add("cancel"); }
-        @Override public Map<String, Object> summary(String run) {
+
+        @Override
+        public void cancel(String run) {
+            calls.add("cancel");
+        }
+
+        @Override
+        public Map<String, Object> summary(String run) {
             calls.add("summary");
-            Map<String, Object> summary = new LinkedHashMap<>(Map.of("runId", run, "state", "COMPLETE", "cleanComplete", clean,
-                    "clinicalComplete", true, "operationTerminal", true));
+            Map<String, Object> summary =
+                    new LinkedHashMap<>(
+                            Map.of(
+                                    "runId",
+                                    run,
+                                    "state",
+                                    "COMPLETE",
+                                    "cleanComplete",
+                                    clean,
+                                    "clinicalComplete",
+                                    true,
+                                    "operationTerminal",
+                                    true));
             if (resumeRequested != null) summary.put("resumeRequested", resumeRequested);
-            if (maintenanceReleasePending != null) summary.put("maintenanceReleasePending", maintenanceReleasePending);
-            if (maintenanceReleaseState != null) summary.put("maintenanceReleaseState", maintenanceReleaseState);
+            if (maintenanceReleasePending != null)
+                summary.put("maintenanceReleasePending", maintenanceReleasePending);
+            if (maintenanceReleaseState != null)
+                summary.put("maintenanceReleaseState", maintenanceReleaseState);
             return summary;
         }
-        @Override public Map<String, Object> reports(String run) { calls.add("reports"); return Map.of("reports", List.of()); }
-        @Override public void close() throws IOException {
-            calls.add("close"); if (closeFailure) throw new IOException("sensitive-path");
+
+        @Override
+        public Map<String, Object> reports(String run) {
+            calls.add("reports");
+            return Map.of("reports", List.of());
+        }
+
+        @Override
+        public void close() throws IOException {
+            calls.add("close");
+            if (closeFailure) throw new IOException("sensitive-path");
         }
     }
 }

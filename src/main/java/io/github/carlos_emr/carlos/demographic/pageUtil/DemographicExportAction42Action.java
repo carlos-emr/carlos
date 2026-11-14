@@ -32,10 +32,8 @@ package io.github.carlos_emr.carlos.demographic.pageUtil;
 import io.github.carlos_emr.carlos.utility.LegacyXmlBeans;
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.net.URL;
@@ -309,6 +307,18 @@ public class DemographicExportAction42Action extends ActionSupport {
      */
     static final String UNSUPPORTED_TEMPLATE_CODE = "unsupportedTemplate";
 
+    /**
+     * Reason code for an export stopped because prevention records could not be read; the page
+     * shows {@code demographic.demographicexport.preventionSourceUnavailable}.
+     */
+    static final String PREVENTION_SOURCE_UNAVAILABLE_CODE = "preventionSourceUnavailable";
+
+    /**
+     * Reason code for an export that produced no archive because none of the requested charts
+     * could be exported; the page shows {@code demographic.demographicexport.nothingExported}.
+     */
+    static final String NOTHING_EXPORTED_CODE = "nothingExported";
+
     /** Response header carrying the validation reason code for a rejected export request. */
     private static final String EXPORT_ERROR_HEADER = "X-Export-Error";
 
@@ -343,6 +353,12 @@ public class DemographicExportAction42Action extends ActionSupport {
 
     Integer exportNo = 0;
     ArrayList<String> exportError = null;
+    /**
+     * Chart numbers the archive is missing something of: a chart that could not be exported at
+     * all, or one of whose documents or reports could not be. Every entry has its own line in
+     * {@link #exportError}; this set is what the response and the ReadMe report (in request order).
+     */
+    final java.util.LinkedHashSet<String> incompleteCharts = new java.util.LinkedHashSet<>();
     HashMap<String, Integer> entries = new HashMap<String, Integer>();
     CarlosProperties oscarProperties = CarlosProperties.getInstance();
 
@@ -440,10 +456,7 @@ public class DemographicExportAction42Action extends ActionSupport {
             for (String patient : list) projection.requireWholeChartSupported(Integer.parseInt(patient));
         } catch (io.github.carlos_emr.carlos.commn.model.CdsLegacyProjectionException unsupported) {
             writeExportAuditLog(loggedInInfo, list.size(), "unsupported_structured_projection", "<unavailable>", null);
-            response.setStatus(HttpServletResponse.SC_CONFLICT);
-            response.setContentType("text/plain;charset=UTF-8");
-            response.setHeader("Cache-Control", "no-store");
-            response.getWriter().write(unsupported.getMessage());
+            refuseUnsupportedProjection(response, unsupported);
             return NONE;
         }
 
@@ -462,12 +475,19 @@ public class DemographicExportAction42Action extends ActionSupport {
 
         String ffwd = "fail";
         boolean fileStreamed = false;
+        // How the download ended, for the audit record, when it is not simply the page result.
+        String streamOutcome = null;
         String tmpDir = oscarProperties.getProperty("TMP_DIR") + File.separator + RandomStringUtils.random(8, true, false);
 
 
         // Sharing Center - holds the ID that will 'potentially' be exported.
         int documentExportId = 0;
 
+        // The per-patient loop below writes PHI XML into this request's own directory before the
+        // archive exists. A failure part way through (the prevention readers now fail visibly
+        // instead of returning an empty list) must not leave those files behind or go unaudited.
+        // The switch keeps its original indentation to keep the legacy body's history readable.
+        try {
         switch (template) {
             case CMS4:
                 File exportDirectory = createTemporaryExportDirectory(tmpDir);
@@ -486,8 +506,18 @@ public class DemographicExportAction42Action extends ActionSupport {
 
                     ArrayList<File> files = new ArrayList<File>();
                     ArrayList<String> dirs = new ArrayList<String>();
+                    // Oversized documents copied beside their patient's XML. They join the archive
+                    // after schema validation and the ReadMe, which read only the patient files.
+                    ArrayList<File> carriedDocuments = new ArrayList<File>();
+                    ArrayList<String> carriedDirs = new ArrayList<String>();
                     exportError = new ArrayList<String>();
+                    incompleteCharts.clear();
                     for (String demoNo : list) {
+                        ArrayList<File> patientCarriedDocuments = new ArrayList<File>();
+                        // Bytes of this patient's documents embedded in the XML so far, and whether
+                        // the per-patient budget has been reached (see maxEmbeddedPatientBytes).
+                        long patientEmbeddedBytes = 0;
+                        boolean patientBudgetReached = false;
                         if (StringUtils.empty(demoNo)) {
                             exportError.add("Error! No Demographic Number");
                             continue;
@@ -504,11 +534,17 @@ public class DemographicExportAction42Action extends ActionSupport {
                             demographic = d.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demoNo);
                         } catch (PatientDirectiveException _) {
                             exportError.add("Unable to export patient " + demoNo + " due to Patient Directive");
+                            markIncomplete(demoNo);
                             continue;
                         }
 
-                        if (demographic.getPatientStatus() != null && demographic.getPatientStatus().equals("Contact-only"))
+                        if (demographic.getPatientStatus() != null && demographic.getPatientStatus().equals("Contact-only")) {
+                            // A contact is not a patient and has no chart to export. It was passed over
+                            // without a word; the export log now says so, so a set that names one does
+                            // not come back one file short with no explanation.
+                            exportError.add("Patient " + demoNo + " is a Contact-only record and was not exported");
                             continue;
+                        }
 
                         HashMap<String, String> demoExt = new HashMap<String, String>();
                         demoExt.putAll(demographicExtDao().getAllValuesForDemo(Integer.parseInt(demoNo)));
@@ -747,7 +783,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                             demo.setPersonStatusDate(Util.calDate(patientStatusDate));
 
                         //patient notes
-                        String demoNotes = d.getDemographicNotes(demoNo);
+                        String demoNotes = noteAboutPatient(d.getDemographicNotes(demoNo), d.getDemographicAlert(demoNo));
                         if (StringUtils.filled(demoNotes)) demo.setNoteAboutPatient(demoNotes);
 
                         String dob = StringUtils.noNull(DemographicData.getDob(demographic, "-"));
@@ -2152,14 +2188,68 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     f = validateExportDocument(edoc);
                                 } catch (SecurityException _) {
                                     exportError.add("Error! Document \"" + Encode.forHtml(edoc.getFileName()) + "\" path is invalid or outside the allowed directory. Skipping.");
+                                    markIncomplete(demoNo);
                                     logger.error("Path traversal attempt on document export");
                                     continue;
                                 }
                                 if (!f.exists()) {
                                     exportError.add("Error! Document \"" + f.getName() + "\" does not exist!");
-                                } else if (f.length() > Runtime.getRuntime().freeMemory()) {
-                                    exportError.add("Error! Document \"" + f.getName() + "\" too big to be exported. Not enough memory!");
+                                    markIncomplete(demoNo);
                                 } else {
+                                    // Validated once, before any use: null when the id is missing or not
+                                    // numeric, in which case it can neither name a carried file nor key
+                                    // the document's notes.
+                                    String documentId = numericId(edoc.getDocId());
+                                    // #3968: a document above the embedding limit is not read into memory; it
+                                    // travels as its own file in the archive (see carryOversizedDocument).
+                                    // The same happens once this patient's embedded documents would pass
+                                    // the per-patient budget: twenty documents each under the limit would
+                                    // otherwise sit Base64-encoded in one in-memory XML and could exhaust
+                                    // the heap for every user. Either way the document is in the archive;
+                                    // the limits only choose between Content and FilePath.
+                                    long documentBytes = f.length();
+                                    boolean embedded = documentBytes <= maxEmbeddedDocumentBytes();
+                                    if (embedded && !patientBudgetReached
+                                            && patientEmbeddedBytes + documentBytes > maxEmbeddedPatientBytes()) {
+                                        patientBudgetReached = true;
+                                    }
+                                    // A document that cannot be given a carried file name is still
+                                    // embedded when it is within the per-document limit: the budget
+                                    // never leaves a document out.
+                                    if (embedded && patientBudgetReached && documentId != null) {
+                                        embedded = false;
+                                    }
+                                    // The document is read or copied BEFORE its report element is added,
+                                    // so a document that cannot be exported leaves no empty report behind.
+                                    byte[] b = null;
+                                    File carried = null;
+                                    try {
+                                        if (embedded) {
+                                            b = readExportDocumentBytes(f);
+                                        } else {
+                                            carried = carryOversizedDocument(f, demoNo, documentId, exportDirectory);
+                                        }
+                                    } catch (IOException documentFailure) {
+                                        if (!exportDirectory.isDirectory()) {
+                                            // Not this document's fault: the export itself has lost its
+                                            // directory, so it fails as a whole rather than recording one
+                                            // document after another.
+                                            throw documentFailure;
+                                        }
+                                        // One document that cannot be exported must not cost the other
+                                        // documents and patients their export, and must never go missing
+                                        // unrecorded: the export log names it, its patient and the reason.
+                                        exportError.add("Error! Document \"" + edoc.getFileName() + "\" ("
+                                                + (edoc.getDocId() == null ? "no document id" : "document id " + edoc.getDocId())
+                                                + ") for Patient " + demoNo
+                                                + " was NOT exported: " + describeDocumentFailure(documentFailure));
+                                        markIncomplete(demoNo);
+                                        // Identifiers only: the file name and the failure text can hold patient data.
+                                        logger.error("Legacy export could not export document {} of chart {}: {}",
+                                                LogSafe.sanitize(edoc.getDocId()), LogSafe.sanitize(demoNo),
+                                                documentFailure.getClass().getSimpleName());
+                                        continue;
+                                    }
                                     Reports rpr = patientRec.addNewReports();
                                     if (edoc.getType() != null) {
                                         cdsDt.ReportMedia.Enum mediaEnum = cdsDt.ReportMedia.Enum.forString(formatHrmEnum(edoc.getType()));
@@ -2169,8 +2259,14 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     }
                                     rpr.setFormat(cdsDt.ReportFormat.TEXT);
 
+                                    if (!embedded) {
+                                        rpr.setFormat(cdsDt.ReportFormat.BINARY);
+                                        if (!patientCarriedDocuments.contains(carried)) patientCarriedDocuments.add(carried);
+                                        rpr.setFilePath(carried.getName());
+                                        addOneEntry(REPORTBINARY);
+                                    } else {
+                                    patientEmbeddedBytes += b.length;
                                     cdsDt.ReportContent rpc = rpr.addNewContent();
-                                    byte[] b = readExportDocumentBytes(f);
                                     if (edoc.getContentType() != null && edoc.getContentType().startsWith("text")) {
                                         String str = new String(b);
                                         rpc.setTextContent(str);
@@ -2180,6 +2276,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                                         rpc.setMedia(b);
                                         rpr.setFormat(cdsDt.ReportFormat.BINARY);
                                         addOneEntry(REPORTBINARY);
+                                    }
                                     }
 
                                     String contentType = Util.mimeToExt(edoc.getContentType());
@@ -2227,9 +2324,19 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     if (StringUtils.filled(edoc.getSourceFacility()))
                                         rpr.setSourceFacility(edoc.getSourceFacility());
 
-                                    if (edoc.getDocId() == null) continue;
+                                    if (documentId == null) {
+                                        // No id to look the document's notes up by. A missing id was
+                                        // always passed over; one that is present but not numeric used
+                                        // to abort the whole export here, so it is recorded instead.
+                                        if (edoc.getDocId() != null) {
+                                            exportError.add("Error! Notes for Document \"" + edoc.getFileName()
+                                                    + "\" for Patient " + demoNo
+                                                    + " were NOT exported: its document id is not numeric");
+                                        }
+                                        continue;
+                                    }
 
-                                    annotation = getNonDumpNote(CaseManagementNoteLink.DOCUMENT, Long.valueOf(edoc.getDocId()), null);
+                                    annotation = getNonDumpNote(CaseManagementNoteLink.DOCUMENT, Long.valueOf(documentId), null);
                                     if (StringUtils.filled(annotation)) rpr.setNotes(annotation);
                                 }
                             }
@@ -2248,18 +2355,83 @@ public class DemographicExportAction42Action extends ActionSupport {
                                         hrmFile = resolveHrmReportFile(reportFile);
                                     } catch (SecurityException _) {
                                         exportError.add("Error! HRM report file '" + Encode.forHtml(reportFile) + "' is outside the allowed directory. HRM report not exported.");
+                                        markIncomplete(demoNo);
                                         logger.error("HRM report file path traversal attempt");
                                         continue;
                                     }
 
                                     if (hrmFile == null) {
                                         exportError.add("Error! HRM report file '" + reportFile + "' does not exist! HRM report not exported.");
+                                        markIncomplete(demoNo);
                                         logger.error("HRM report file does not exist; report not exported");
                                         continue;
                                     }
 
-                                    ReadHRMFile hrm = new ReadHRMFile(hrmFile.getPath());
+                                    // The file's media is decoded into files in this request's export
+                                    // directory as it is parsed, never into memory: a chart's HRM reports
+                                    // used to be held, media and all, in the patient's in-memory XML with
+                                    // no bound, outside the document budget.
+                                    ReadHRMFile hrm = new ReadHRMFile(hrmFile.getPath(), exportDirectory);
+                                    if (hrm.isUnreadable()) {
+                                        if (!exportDirectory.isDirectory()) {
+                                            throw new IOException("Legacy export directory is no longer available");
+                                        }
+                                        // The file exists but could not be read or parsed. That used to
+                                        // count as "no reports" and the report was left out without a word.
+                                        exportError.add("Error! HRM report (HRM document id " + hrmDocumentId + ") for Patient "
+                                                + demoNo + " was NOT exported: its file could not be read");
+                                        markIncomplete(demoNo);
+                                        logger.error("Legacy export could not read HRM document {} of chart {}",
+                                                LogSafe.sanitize(hrmDocumentId), LogSafe.sanitize(demoNo));
+                                        continue;
+                                    }
                                     for (int i = 0; i < hrm.getReportsReceivedTotal(); i++) {
+                                        HashMap<String, Object> reportContent = hrm.getReportContent(i);
+                                        HashMap<String, String> reportStrings = hrm.getReportStrings(i);
+
+                                        // Content is embedded or carried by the same limits as a document's,
+                                        // against the same per-patient total, and settled BEFORE the report
+                                        // element is added, so a report that cannot be exported leaves no
+                                        // empty element behind.
+                                        String hrmText = reportContent == null ? null : (String) reportContent.get("textcontent");
+                                        File hrmMediaSpool = hrmText != null ? null : hrm.getReportMediaFile(i);
+                                        boolean hrmHasContent = hrmText != null || hrmMediaSpool != null;
+                                        long hrmContentBytes = hrmMediaSpool != null ? hrmMediaSpool.length()
+                                                : hrmText != null ? hrmText.length() : 0;
+                                        boolean hrmEmbedded = hrmContentBytes <= maxEmbeddedDocumentBytes();
+                                        if (hrmHasContent && hrmEmbedded && !patientBudgetReached
+                                                && patientEmbeddedBytes + hrmContentBytes > maxEmbeddedPatientBytes()) {
+                                            patientBudgetReached = true;
+                                        }
+                                        if (patientBudgetReached) {
+                                            hrmEmbedded = false;
+                                        }
+                                        byte[] hrmMedia = null;
+                                        File hrmCarried = null;
+                                        try {
+                                            if (hrmHasContent && !hrmEmbedded) {
+                                                hrmCarried = carryHrmContent(hrmMediaSpool, hrmText, demoNo, hrmDocumentId, i + 1,
+                                                        reportStrings == null ? null : reportStrings.get("fileextension&version"),
+                                                        exportDirectory);
+                                            } else if (hrmMediaSpool != null) {
+                                                hrmMedia = java.nio.file.Files.readAllBytes(hrmMediaSpool.toPath());
+                                                java.nio.file.Files.delete(hrmMediaSpool.toPath());
+                                            }
+                                        } catch (IOException contentFailure) {
+                                            if (!exportDirectory.isDirectory()) {
+                                                // The export has lost its directory: it fails as a whole.
+                                                throw contentFailure;
+                                            }
+                                            exportError.add("Error! HRM report " + (i + 1) + " of HRM document id " + hrmDocumentId
+                                                    + " for Patient " + demoNo + " was NOT exported: "
+                                                    + describeDocumentFailure(contentFailure));
+                                            markIncomplete(demoNo);
+                                            logger.error("Legacy export could not export report {} of HRM document {} of chart {}: {}",
+                                                    i + 1, LogSafe.sanitize(hrmDocumentId), LogSafe.sanitize(demoNo),
+                                                    contentFailure.getClass().getSimpleName());
+                                            continue;
+                                        }
+
                                         Reports rpr = patientRec.addNewReports();
 
                                         //Message Unique ID
@@ -2267,8 +2439,6 @@ public class DemographicExportAction42Action extends ActionSupport {
                                             rpr.setMessageUniqueID(hrm.getTransactionMessageUniqueID(i));
 
                                         HashMap<String, String> reportAuthor = hrm.getReportAuthorPhysician(i);
-                                        HashMap<String, Object> reportContent = hrm.getReportContent(i);
-                                        HashMap<String, String> reportStrings = hrm.getReportStrings(i);
                                         HashMap<String, Calendar> reportDates = hrm.getReportDates(i);
 
                                         if (reportAuthor != null) {
@@ -2289,16 +2459,19 @@ public class DemographicExportAction42Action extends ActionSupport {
 
                                         }
 
-                                        if (reportContent != null) {
-                                            if (reportContent != null) {
-                                                if (reportContent.get("textcontent") != null) {
-                                                    cdsDt.ReportContent content = rpr.addNewContent();
-                                                    content.setTextContent((String) reportContent.get("textcontent"));
-                                                } else if (reportContent.get("media") != null) {
-                                                    cdsDt.ReportContent content = rpr.addNewContent();
-                                                    content.setMedia((byte[]) reportContent.get("media"));
-                                                }
-                                            }
+                                        if (hrmCarried != null) {
+                                            // In the archive beside the patient's XML, named by FilePath,
+                                            // exactly as a carried document is.
+                                            if (!patientCarriedDocuments.contains(hrmCarried)) patientCarriedDocuments.add(hrmCarried);
+                                            rpr.setFilePath(hrmCarried.getName());
+                                        } else if (hrmText != null) {
+                                            cdsDt.ReportContent content = rpr.addNewContent();
+                                            content.setTextContent(hrmText);
+                                            patientEmbeddedBytes += hrmText.length();
+                                        } else if (hrmMedia != null) {
+                                            cdsDt.ReportContent content = rpr.addNewContent();
+                                            content.setMedia(hrmMedia);
+                                            patientEmbeddedBytes += hrmMedia.length;
                                         }
 
                                         String reviewerId = null;
@@ -2313,7 +2486,9 @@ public class DemographicExportAction42Action extends ActionSupport {
                                                     rpr.setFormat(cdsDt.ReportFormat.BINARY);
                                                 }
                                             } else {
-                                                if (rpr.getContent().getMedia() != null)
+                                                // From what the report holds, wherever it was put (a report
+                                                // with no content at all used to fail here on a null).
+                                                if (hrmMediaSpool != null)
                                                     rpr.setFormat(cdsDt.ReportFormat.BINARY);
                                                 else rpr.setFormat(cdsDt.ReportFormat.TEXT);
                                                 exportError.add("Error! No Format for HRM report! Patient " + demoNo + " (" + (i + 1) + ")");
@@ -2445,6 +2620,9 @@ public class DemographicExportAction42Action extends ActionSupport {
                                             }
                                         }
                                     }
+                                    // Embedded media was read and carried media moved; anything still
+                                    // spooled belongs to a report that was recorded as not exported.
+                                    hrm.discardMediaFiles();
                                 }
                             }
                         }
@@ -2467,13 +2645,13 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     height.setHeight(meas.getDataField());
                                     height.setHeightUnit(cdsDt.Height.HeightUnit.CM);
                                     addOneEntry(CAREELEMENTS);
-                                } else if (meas.getType().equals("WT") && meas.getMeasuringInstruction().equalsIgnoreCase("in kg")) { //Weight in kg
+                                } else if (meas.getType().equals("WT") && weightInKg(meas.getMeasuringInstruction(), meas.getDataField()) != null) { //Weight, exported in kg
                                     cdsDt.Weight weight = careElm.addNewWeight();
                                     weight.setDate(Util.calDate(meas.getDateObserved()));
                                     if (meas.getDateObserved() == null) {
                                         exportError.add("Error! No Date for Weight (id=" + meas.getId() + ") for Patient " + demoNo);
                                     }
-                                    weight.setWeight(meas.getDataField());
+                                    weight.setWeight(weightInKg(meas.getMeasuringInstruction(), meas.getDataField()));
                                     weight.setWeightUnit(cdsDt.Weight.WeightUnit.KG);
                                     addOneEntry(CAREELEMENTS);
                                 } else if (meas.getType().equals("WAIS") || meas.getType().equals("WC")) { //Waist Circumference in cm
@@ -2688,28 +2866,69 @@ public class DemographicExportAction42Action extends ActionSupport {
                             files.add(validatedFile);
                             dirs.add(providerName);
                         } catch (Exception e) {
-                            logger.error("Error: {}", LogSafe.exceptionTrace(e));
+                            // The generated name holds the patient's name and date of birth, and so can
+                            // the failure's text: the server log gets the chart number and the type.
+                            logger.error("Legacy export could not name the export file of chart {}: {}",
+                                    LogSafe.sanitize(demoNo), e.getClass().getSimpleName());
+                            if (!exportDirectory.isDirectory()) {
+                                // Not this chart's fault: the export has lost its directory and can
+                                // write nothing more, so it fails as a whole instead of recording one
+                                // chart after another.
+                                throw new IOException("Legacy export directory is no longer available", e);
+                            }
+                            // This chart is not exported. It used to be skipped with a server log line
+                            // only; the export log and the response now name it.
+                            exportError.add("Error! Patient " + demoNo + " was NOT exported: its export file could not be named ("
+                                    + e.getClass().getSimpleName() + ")");
+                            markIncomplete(demoNo);
+                            dropExportLogRow();
                         }
                         // Guard: only write if a new file entry was successfully added above.
                         // Without this check, a validation failure would cause us to write
                         // this patient's data into the previous patient's export file (PHI leak).
                         if (files.size() <= fileCountBefore) {
+                            Util.cleanFiles(patientCarriedDocuments);
                             continue;
                         }
                         try {
                             saveExportFile(omdCdsDoc, options, files.get(files.size() - 1));
+                            // A carried document sits in its patient's directory: its FilePath is
+                            // relative to the XML that references it.
+                            for (File carried : patientCarriedDocuments) {
+                                carriedDocuments.add(carried);
+                                carriedDirs.add(dirs.get(dirs.size() - 1));
+                            }
 
                             //omdCdsDoc.save(files.get(files.size()-1), options);
 
                         } catch (IOException ex) {
-                            logger.error("Error writing export file to directory: {}", LogSafe.exceptionTrace(ex));
-                            // Remove the file entry that could not be written so the list stays consistent
-                            if (!files.isEmpty()) {
-                                files.remove(files.size() - 1);
-                                dirs.remove(dirs.size() - 1);
+                            // The file name holds the patient's name and date of birth, and the failure
+                            // repeats it: the server log gets the chart number and the type.
+                            logger.error("Legacy export could not write the export file of chart {}: {}",
+                                    LogSafe.sanitize(demoNo), ex.getClass().getSimpleName());
+                            Util.cleanFiles(patientCarriedDocuments);
+                            // Remove the file entry that could not be written so the list stays consistent,
+                            // and the partly written file so it cannot be archived or re-read.
+                            File unwritten = files.remove(files.size() - 1);
+                            dirs.remove(dirs.size() - 1);
+                            try {
+                                java.nio.file.Files.deleteIfExists(unwritten.toPath());
+                            } catch (IOException | RuntimeException cleanup) {
+                                ex.addSuppressed(cleanup);
                             }
-                            ffwd = "fail";
-                            break;
+                            if (!exportDirectoryWritable(exportDirectory)) {
+                                // Nothing more can be written at all (the directory is gone, or the disk
+                                // refuses every write): the export fails as a whole.
+                                throw ex;
+                            }
+                            // This chart's file alone could not be written. The loop used to stop here,
+                            // dropping this chart and every later one with a server log line only, and
+                            // the archive was then streamed as a success. The chart is recorded, the
+                            // response reports the archive as incomplete, and the next chart is exported.
+                            exportError.add("Error! Patient " + demoNo + " was NOT exported: its export file could not be written ("
+                                    + describeFailure(ex) + ")");
+                            markIncomplete(demoNo);
+                            dropExportLogRow();
                         }
                     }
 
@@ -2723,10 +2942,15 @@ public class DemographicExportAction42Action extends ActionSupport {
                     int exportIndex = 0;
                     for (File f : files) {
                         exportIndex++;
-                        Boolean valid = validateExport(f);
-                        if (!valid) {
+                        ExportValidation validation = checkExport(f);
+                        if (validation == ExportValidation.SCHEMA_INVALID) {
                             String msg = "Exported file " + f.getName() + " fails OntarioMD XSD validation";
                             logger.warn("Exported file {} of {} fails OntarioMD XSD validation",
+                                    exportIndex, files.size());
+                            exportError.add(msg);
+                        } else if (validation == ExportValidation.UNREADABLE) {
+                            String msg = "Exported file " + f.getName() + " could not be re-read to check it against the OntarioMD schema";
+                            logger.warn("Exported file {} of {} could not be re-read for schema validation",
                                     exportIndex, files.size());
                             exportError.add(msg);
                         } else {
@@ -2737,6 +2961,14 @@ public class DemographicExportAction42Action extends ActionSupport {
 
                     if (files.isEmpty()) {
                         logger.warn("no files to export");
+                        // No archive: the page is told why instead of showing only its general
+                        // failure message, and which charts were refused when there were any.
+                        setExportStatusHeader(response, "error");
+                        response.setHeader(EXPORT_ERROR_HEADER, NOTHING_EXPORTED_CODE);
+                        if (!incompleteCharts.isEmpty()) {
+                            response.setHeader(EXPORT_INCOMPLETE_COUNT_HEADER, String.valueOf(incompleteCharts.size()));
+                            response.setHeader(EXPORT_INCOMPLETE_CHARTS_HEADER, incompleteChartsHeader(incompleteCharts));
+                        }
                         ffwd = "fail";
                         break;
                     }
@@ -2746,6 +2978,8 @@ public class DemographicExportAction42Action extends ActionSupport {
                     dirs.add("");
                     files.add(makeExportLog(files.get(0).getParentFile()));
                     dirs.add("");
+                    files.addAll(carriedDocuments);
+                    dirs.addAll(carriedDirs);
 
                     //zip all export files
                     String zipName = files.get(0).getName().replace(".xml", ".zip");
@@ -2787,12 +3021,11 @@ public class DemographicExportAction42Action extends ActionSupport {
                         PGPEncrypt pgp = new PGPEncrypt();
                         if (pgp.encrypt(zipName, tmpDir)) {
 
-                            // Set export status header so client-side JS knows export completed
-                            setExportStatusHeader(response, "success");
-                            Util.downloadFile(zipName + ".pgp", tmpDir, response);
+                            Util.Download download = streamArchive(zipName + ".pgp", tmpDir);
                             Util.cleanFile(zipName + ".pgp", tmpDir);
-                            ffwd = "success";
-                            fileStreamed = true;
+                            ffwd = download == Util.Download.COMPLETE ? "success" : "fail";
+                            fileStreamed = download != Util.Download.NOT_STARTED;
+                            streamOutcome = auditOutcomeOf(download);
 
                         } else {
                             setExportStatusHeader(response, "error");
@@ -2805,11 +3038,10 @@ public class DemographicExportAction42Action extends ActionSupport {
                         if (!"true".equals(CarlosProperties.getInstance().getProperty("demographic.export.encryptedOnly", "false"))) {
                             logger.info("Warning: PGP Encryption NOT available - unencrypted file exported!");
 
-                            // Set export status header so client-side JS knows export completed
-                            setExportStatusHeader(response, "success");
-                            Util.downloadFile(zipName, tmpDir, response);
-                            ffwd = "success";
-                            fileStreamed = true;
+                            Util.Download download = streamArchive(zipName, tmpDir);
+                            ffwd = download == Util.Download.COMPLETE ? "success" : "fail";
+                            fileStreamed = download != Util.Download.NOT_STARTED;
+                            streamOutcome = auditOutcomeOf(download);
                         } else {
                             setExportStatusHeader(response, "error");
                             // nosemgrep: tainted-session-from-http-request -- value is hardcoded literal "No", not user input
@@ -2840,9 +3072,31 @@ public class DemographicExportAction42Action extends ActionSupport {
                 // otherwise "succeed" here having exported nothing at all.
                 throw new IllegalStateException("No export implementation for supported template " + template);
         }
+        } catch (io.github.carlos_emr.carlos.prevention.dto.PreventionSourceUnavailableException failure) {
+            // Recognised by type, never by message text. Every other failure, including the
+            // prevention date-precision refusal, goes to the general handler below unchanged.
+            writeExportAuditLog(loggedInInfo, list.size(), "prevention_source_unavailable", "<unavailable>", null);
+            if (!response.isCommitted()) {
+                // Same shape as the unsupported-template refusal: status and a fixed reason code
+                // the page localizes, with no body for the error page to replay.
+                setExportStatusHeader(response, "error");
+                response.setHeader(EXPORT_ERROR_HEADER, PREVENTION_SOURCE_UNAVAILABLE_CODE);
+                response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            }
+            return NONE;
+        } catch (Exception failure) {
+            // Checked failures too: the directory, the XML and archive I/O, a document copy.
+            auditFailure(loggedInInfo, list.size(), failure);
+            throw failure;
+        } finally {
+            // Nothing in this request's own directory is needed once the archive has been streamed
+            // or refused, and everything in it is patient data: XML written before a failure, or
+            // an oversized document's copy. This also covers errors such as running out of memory.
+            discardExportDirectory(tmpDir);
+        }
 
         String exportedIds = null;
-        String exportOutcome = ffwd;
+        String exportOutcome = streamOutcome != null ? streamOutcome : ffwd;
         String exportException = null;
         try {
             StringBuilder exportedIdsBuilder = new StringBuilder();
@@ -2883,9 +3137,160 @@ public class DemographicExportAction42Action extends ActionSupport {
             }
             writeExportAuditLog(loggedInInfo, list.size(), exportOutcome, exportedIds, exportException);
         }
-        // When a file was streamed to the response, return null to prevent Struts
-        // from rendering a JSP result into the already-committed response.
-        return fileStreamed ? null : ffwd;
+        // When a file was streamed, the archive is the whole response. NONE ends Struts processing
+        // explicitly; a bare null is not reliable enough here and can let a JSP result or an error
+        // page be written into the download (CLAUDE.md, "Direct Response Actions").
+        return fileStreamed ? NONE : ffwd;
+    }
+
+    /** Status of an archive that was produced and streamed but is missing something. */
+    static final String EXPORT_STATUS_INCOMPLETE = "incomplete";
+
+    /** Response header: how many charts the streamed archive is missing something of. */
+    static final String EXPORT_INCOMPLETE_COUNT_HEADER = "X-Export-Incomplete-Count";
+
+    /**
+     * Response header: the chart numbers behind {@link #EXPORT_INCOMPLETE_COUNT_HEADER}, comma
+     * separated, as many as fit in {@link #MAX_INCOMPLETE_CHARTS_HEADER_LENGTH} characters. The
+     * page shows them and says how many more there are; ExportEvent.log and the ReadMe in the
+     * archive always list every one.
+     */
+    static final String EXPORT_INCOMPLETE_CHARTS_HEADER = "X-Export-Incomplete-Charts";
+
+    /** A response header cannot grow with the patient set; servers refuse oversized headers. */
+    static final int MAX_INCOMPLETE_CHARTS_HEADER_LENGTH = 1000;
+
+    /**
+     * Records that the archive is missing something of this chart. The caller has already added
+     * the line to {@link #exportError} that says what and why.
+     */
+    private void markIncomplete(String demoNo) {
+        String chart = numericId(demoNo);
+        // Only a plain number goes into a response header; anything else is still counted.
+        incompleteCharts.add(chart != null ? chart : "?");
+    }
+
+    /**
+     * Takes the chart just processed out of the export log's table. The table has one row per
+     * chart, counted as the chart's sections are built; a chart whose file could not be named or
+     * written is not in the archive, so its row would say otherwise. Its error line stays.
+     */
+    private void dropExportLogRow() {
+        if (exportNo > 0) {
+            exportNo--;
+            String row = String.valueOf(exportNo);
+            // Keys are a category name followed by the row number; category names hold no digits.
+            entries.keySet().removeIf(key -> key.replaceFirst("^\\D*", "").equals(row));
+        }
+    }
+
+    /**
+     * The value of {@link #EXPORT_INCOMPLETE_CHARTS_HEADER}: whole chart numbers only, in request
+     * order, never cut in the middle of one.
+     */
+    static String incompleteChartsHeader(java.util.Collection<String> charts) {
+        StringBuilder value = new StringBuilder();
+        for (String chart : charts) {
+            if (numericId(chart) == null) {
+                continue;
+            }
+            if (value.length() + chart.length() + 1 > MAX_INCOMPLETE_CHARTS_HEADER_LENGTH) {
+                break;
+            }
+            if (value.length() > 0) {
+                value.append(',');
+            }
+            value.append(chart);
+        }
+        return value.toString();
+    }
+
+    /**
+     * Sets the status the page reads and streams the archive. An archive that is missing
+     * something is still streamed, since it holds every chart that could be exported and the log
+     * of what could not, but never as a plain success: the status is
+     * {@link #EXPORT_STATUS_INCOMPLETE} and the headers name the charts. A download that cannot
+     * start is reported as an error instead of an empty "successful" response.
+     */
+    private Util.Download streamArchive(String fileName, String tmpDir) {
+        if (incompleteCharts.isEmpty()) {
+            setExportStatusHeader(response, "success");
+        } else {
+            setExportStatusHeader(response, EXPORT_STATUS_INCOMPLETE);
+            response.setHeader(EXPORT_INCOMPLETE_COUNT_HEADER, String.valueOf(incompleteCharts.size()));
+            response.setHeader(EXPORT_INCOMPLETE_CHARTS_HEADER, incompleteChartsHeader(incompleteCharts));
+        }
+        Util.Download download = Util.downloadFile(fileName, tmpDir, response);
+        if (download == Util.Download.NOT_STARTED) {
+            // Nothing was written, so the status can still say what happened.
+            setExportStatusHeader(response, "error");
+        }
+        return download;
+    }
+
+    /**
+     * The audit outcome of a download: {@code null} for a complete download of a complete archive
+     * (the caller's own outcome stands), otherwise why the export is not a plain success.
+     */
+    private String auditOutcomeOf(Util.Download download) {
+        if (download == Util.Download.INTERRUPTED) {
+            return "stream_failed";
+        }
+        if (download == Util.Download.NOT_STARTED) {
+            return "stream_not_started";
+        }
+        return incompleteCharts.isEmpty() ? null : EXPORT_STATUS_INCOMPLETE;
+    }
+
+    /**
+     * Whether anything can still be written to the export directory, tried with a real write.
+     * After one chart's file fails to write, this tells a fault of that file (its name, its size)
+     * from a fault of the whole export (the directory gone, the disk refusing every write).
+     */
+    // FindSecBugs PATH_TRAVERSAL_IN: the probe is a generated temporary file inside this request's own export directory
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "the probe is a generated temporary file inside this request's own export directory")
+    static boolean exportDirectoryWritable(File exportDirectory) {
+        java.nio.file.Path probe = null;
+        try {
+            if (!exportDirectory.isDirectory()) {
+                return false;
+            }
+            probe = java.nio.file.Files.createTempFile(exportDirectory.toPath(), "write-probe-", ".tmp");
+            java.nio.file.Files.write(probe, new byte[4096]);
+            return true;
+        } catch (IOException | RuntimeException unwritable) {
+            return false;
+        } finally {
+            if (probe != null) {
+                try {
+                    java.nio.file.Files.deleteIfExists(probe);
+                } catch (IOException | RuntimeException cleanup) {
+                    logger.error("Legacy export write probe could not be removed: {}", cleanup.getClass().getSimpleName());
+                }
+            }
+        }
+    }
+
+    /**
+     * Removes this request's own random export directory and everything written into it, without
+     * following links. Cleanup failure is logged by type only: the paths hold patient files.
+     */
+    // FindSecBugs PATH_TRAVERSAL_IN: the directory is TMP_DIR plus this request's random suffix
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "the directory is TMP_DIR plus this request's random suffix")
+    static void discardExportDirectory(String tmpDir) {
+        try {
+            java.nio.file.Path root = java.nio.file.Path.of(tmpDir);
+            if (!java.nio.file.Files.isDirectory(root, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                return;
+            }
+            try (java.util.stream.Stream<java.nio.file.Path> walk = java.nio.file.Files.walk(root)) {
+                for (java.nio.file.Path path : walk.sorted(java.util.Comparator.reverseOrder()).toList()) {
+                    java.nio.file.Files.deleteIfExists(path);
+                }
+            }
+        } catch (IOException | RuntimeException cleanup) {
+            logger.error("Legacy export temporary directory could not be removed: {}", cleanup.getClass().getSimpleName());
+        }
     }
 
     // FindSecBugs PATH_TRAVERSAL_IN: temporary export directory path is derived from trusted TMP_DIR configuration plus a random suffix
@@ -2906,22 +3311,261 @@ public class DemographicExportAction42Action extends ActionSupport {
                 new File(oscarProperties.getProperty("DOCUMENT_DIR")));
     }
 
-    // FindSecBugs PATH_TRAVERSAL_IN: FileInputStream reads only from a previously PathValidationUtils-validated document path
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "FileInputStream reads only from a previously PathValidationUtils-validated document path")
+    // FindSecBugs PATH_TRAVERSAL_IN: reads only a previously PathValidationUtils-validated document path
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "reads only a previously PathValidationUtils-validated document path")
     private byte[] readExportDocumentBytes(File file) throws IOException {
-        byte[] bytes = new byte[(int) file.length()];
-        try (InputStream in = new FileInputStream(file)) {
-            int offset = 0;
-            int numRead;
-            while ((numRead = in.read(bytes, offset, bytes.length - offset)) >= 0
-                    && offset < bytes.length) {
-                offset += numRead;
-            }
-            if (offset < bytes.length) {
-                throw new IOException("Could not completely read file " + file.getName());
-            }
+        // The caller admits only files within the embedding limit, which is below the largest
+        // Java array; the old (int) cast overflowed above 2 GB (#3968).
+        long size = file.length();
+        if (size > maxEmbeddedDocumentBytes()) {
+            throw new ExportDocumentException("it grew past the embedding limit while the export was running");
+        }
+        byte[] bytes = java.nio.file.Files.readAllBytes(file.toPath());
+        if (bytes.length != size) {
+            throw new ExportDocumentException("it changed while the export was reading it");
         }
         return bytes;
+    }
+
+    /**
+     * A document failure with fixed, patient-free text that the export log may show as it is.
+     * Failures raised by the file system carry paths, so those are described by type instead.
+     */
+    private static final class ExportDocumentException extends IOException {
+        private static final long serialVersionUID = 1L;
+
+        ExportDocumentException(String message) {
+            super(message);
+        }
+    }
+
+    /**
+     * A document or chart id when it can name a carried file and, for a document, key its notes.
+     *
+     * @return the trimmed id, or {@code null} when it is missing or not a plain number
+     */
+    static String numericId(String id) {
+        if (id == null) {
+            return null;
+        }
+        String trimmed = id.trim();
+        return trimmed.matches("[0-9]{1,18}") ? trimmed : null;
+    }
+
+    /**
+     * Why one document was not exported, for the export log. Text raised by this class is fixed
+     * and shown as it is; a file-system failure is named by its type and the operating system's
+     * reason ("No space left on device"), never by its message, which holds file paths.
+     */
+    static String describeDocumentFailure(IOException failure) {
+        if (failure instanceof ExportDocumentException) {
+            return failure.getMessage();
+        }
+        return "the file could not be read or copied (" + describeFailure(failure) + ")";
+    }
+
+    /**
+     * A file-system failure by its type and the operating system's reason ("No space left on
+     * device", "File name too long"), never by its message, which holds file paths and, for a
+     * patient's export file, the patient's name.
+     */
+    static String describeFailure(IOException failure) {
+        String reason = failure instanceof java.nio.file.FileSystemException fileSystem ? fileSystem.getReason() : null;
+        return failure.getClass().getSimpleName() + (StringUtils.filled(reason) ? ": " + reason : "");
+    }
+
+    /**
+     * Puts one HRM report's content beside its patient's XML, for the report's FilePath, when it
+     * is not embedded: media already decoded into a spool file is moved, text is written as
+     * UTF-8. The name is built from the numeric chart and HRM document ids and the report's
+     * position in its file, so it is unique in the export and carries no patient text.
+     *
+     * @param mediaSpool the decoded media, or {@code null} for a text report
+     * @param text the report text when there is no media
+     * @param reportNumber the report's position in its HRM file, from 1
+     * @param extensionAndVersion the report's own FileExtensionAndVersion, used for the file's
+     *        extension when it starts with a plain one; may be {@code null}
+     * @return the carried file, inside {@code exportDirectory}
+     * @throws IOException when an id is not numeric or the file cannot be written; no partial file
+     *                     is left. The caller records it against the report and goes on, unless
+     *                     the export directory itself is gone.
+     */
+    // FindSecBugs PATH_TRAVERSAL_IN: the target name is generated from numeric ids inside this request's export directory
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "the target name is generated from numeric ids inside this request's export directory")
+    static File carryHrmContent(File mediaSpool, String text, String demographicNo, String hrmDocumentNo, int reportNumber,
+                                String extensionAndVersion, File exportDirectory) throws IOException {
+        String chartId = numericId(demographicNo);
+        String documentId = numericId(hrmDocumentNo);
+        if (chartId == null || documentId == null) {
+            throw new ExportDocumentException("its chart or HRM document id is not numeric, so its file could not be named");
+        }
+        java.util.regex.Matcher declared = java.util.regex.Pattern.compile("^\\s*\\.?([A-Za-z0-9]{1,16})")
+                .matcher(StringUtils.noNull(extensionAndVersion));
+        String extension = declared.find() ? declared.group(1) : mediaSpool == null ? "txt" : "";
+        String name = "hrm_" + chartId + "_" + documentId + "_" + reportNumber + (extension.isEmpty() ? "" : "." + extension);
+        File carried = PathValidationUtils.validateGeneratedChildPath(name, exportDirectory);
+        if (carried.exists()) {
+            // The same HRM document listed twice for a chart is carried once.
+            if (mediaSpool != null) {
+                java.nio.file.Files.deleteIfExists(mediaSpool.toPath());
+            }
+            return carried;
+        }
+        try {
+            if (mediaSpool != null) {
+                java.nio.file.Files.move(mediaSpool.toPath(), carried.toPath());
+            } else {
+                java.nio.file.Files.writeString(carried.toPath(), text, java.nio.charset.StandardCharsets.UTF_8);
+            }
+        } catch (IOException | RuntimeException carryFailure) {
+            try {
+                java.nio.file.Files.deleteIfExists(carried.toPath());
+            } catch (IOException | RuntimeException cleanup) {
+                carryFailure.addSuppressed(cleanup);
+            }
+            throw carryFailure;
+        }
+        return carried;
+    }
+
+    /**
+     * Answers 409 with the refusal's own sentence. A method of its own so that its one reviewed
+     * static-analysis exception does not cover the whole of {@link #execute()}.
+     */
+    // FindSecBugs XSS_SERVLET: Writes the message of CdsLegacyProjectionException, a fixed sentence set in its only constructor with no request or patient value, as text/plain UTF-8; nothing is rendered as HTML.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "writes the message of CdsLegacyProjectionException, a fixed sentence set in its only constructor with no request or patient value, as text/plain UTF-8; nothing is rendered as HTML")
+    private static void refuseUnsupportedProjection(
+            HttpServletResponse response,
+            io.github.carlos_emr.carlos.commn.model.CdsLegacyProjectionException unsupported)
+            throws IOException {
+        response.setStatus(HttpServletResponse.SC_CONFLICT);
+        response.setContentType("text/plain;charset=UTF-8");
+        response.setHeader("Cache-Control", "no-store");
+        response.getWriter().write(unsupported.getMessage());
+    }
+
+    /**
+     * Copies a document that is not embedded beside its patient's XML, for the report's FilePath
+     * (#3968): a document above the embedding limit, or one past its patient's embedding budget.
+     * CDS carries a report as Content or as FilePath, a file in the package; the copy streams, so
+     * the document is never held in memory. The name is built from the numeric chart and document
+     * ids only, so it is unique in the export and carries no patient text.
+     *
+     * @param documentNo the document id; anything but a plain number is refused
+     * @return the copy, inside {@code exportDirectory}
+     * @throws IOException when an id is missing or not numeric, or the copy cannot be written. No
+     *                     partial copy is left behind. The caller records the failure against the
+     *                     document and goes on with the export, unless the export directory itself
+     *                     is gone, in which case the export fails as a whole.
+     */
+    // FindSecBugs PATH_TRAVERSAL_IN: the source was validated against DOCUMENT_DIR; the target name is generated from numeric ids
+    // FindSecBugs WEAK_FILENAMEUTILS: The extension is used only when it matches [A-Za-z0-9]{1,16}, so a null byte or separator in the stored name cannot reach the generated file name.
+    @SuppressFBWarnings(value = {"PATH_TRAVERSAL_IN", "WEAK_FILENAMEUTILS"}, justification = "PATH_TRAVERSAL_IN: the source was validated against DOCUMENT_DIR; the target name is generated from numeric ids; WEAK_FILENAMEUTILS: the extension is used only when it matches [A-Za-z0-9]{1,16}, so a null byte or separator in the stored name cannot reach the generated file name")
+    static File carryOversizedDocument(File document, String demographicNo, String documentNo, File exportDirectory)
+            throws IOException {
+        String chartId = numericId(demographicNo);
+        String documentId = numericId(documentNo);
+        if (documentId == null) {
+            throw new ExportDocumentException("its document id is missing or not numeric, so its file could not be named");
+        }
+        if (chartId == null) {
+            throw new ExportDocumentException("its chart number is not numeric, so its file could not be named");
+        }
+        String extension = org.apache.commons.io.FilenameUtils.getExtension(document.getName());
+        String name = "document_" + chartId + "_" + documentId
+                + (extension.matches("[A-Za-z0-9]{1,16}") ? "." + extension : "");
+        File carried = PathValidationUtils.validateGeneratedChildPath(name, exportDirectory);
+        // The same document listed twice for a chart is carried once.
+        if (!carried.exists()) {
+            try {
+                java.nio.file.Files.copy(document.toPath(), carried.toPath());
+            } catch (IOException | RuntimeException copyFailure) {
+                // A truncated copy must not stay: a second listing of the document would take it
+                // for the carried file, and the archive would hold a document cut short.
+                try {
+                    java.nio.file.Files.deleteIfExists(carried.toPath());
+                } catch (IOException | RuntimeException cleanup) {
+                    copyFailure.addSuppressed(cleanup);
+                }
+                throw copyFailure;
+            }
+        }
+        return carried;
+    }
+
+    /** Default largest document embedded in a legacy CDS export, in bytes (#3968). */
+    static final long DEFAULT_MAX_EMBEDDED_DOCUMENT_BYTES = 64L << 20;
+
+    /** Default total of one patient's documents embedded in a legacy CDS export, in bytes. */
+    static final long DEFAULT_MAX_EMBEDDED_PATIENT_BYTES = 256L << 20;
+
+    /**
+     * The largest document embedded in a legacy export, from
+     * {@code cds.legacyExport.maxEmbeddedDocumentBytes} (bytes; default 64 MB, never above 1 GB).
+     */
+    long maxEmbeddedDocumentBytes() {
+        return embeddingLimit("cds.legacyExport.maxEmbeddedDocumentBytes", DEFAULT_MAX_EMBEDDED_DOCUMENT_BYTES);
+    }
+
+    /**
+     * The most document bytes embedded in one patient's XML in a legacy export, from
+     * {@code cds.legacyExport.maxEmbeddedPatientBytes} (bytes; default 256 MB, never above 1 GB).
+     *
+     * <p>The per-document limit alone does not bound memory: a chart's documents are all held,
+     * Base64-encoded, in that patient's in-memory XML until it is written. Documents are embedded
+     * in chart order until the next one would take the patient's total past this budget; that
+     * document and every later one of the patient is carried as a file, exactly as an oversized
+     * document is. No document is left out because of it.
+     */
+    long maxEmbeddedPatientBytes() {
+        return embeddingLimit("cds.legacyExport.maxEmbeddedPatientBytes", DEFAULT_MAX_EMBEDDED_PATIENT_BYTES);
+    }
+
+    /** A byte limit from configuration: the default when unset, not a number or below 1; at most 1 GB. */
+    private long embeddingLimit(String property, long defaultBytes) {
+        String configured = oscarProperties.getProperty(property);
+        try {
+            long value = configured == null ? defaultBytes : Long.parseLong(configured.trim());
+            return value < 1 ? defaultBytes : Math.min(value, 1L << 30);
+        } catch (NumberFormatException invalid) {
+            return defaultBytes;
+        }
+    }
+
+    /**
+     * The chart's patient notes with its alert first (#3959): CDS has no alert element, so the
+     * demographic alert travels in NoteAboutPatient rather than being left out.
+     */
+    static String noteAboutPatient(String notes, String alert) {
+        if (StringUtils.empty(alert)) return notes;
+        String stated = "Alert: " + alert.strip();
+        return StringUtils.filled(notes) ? stated + "\n" + notes : stated;
+    }
+
+    private static final java.util.regex.Pattern KILOGRAMS =
+            java.util.regex.Pattern.compile("(?i).*\\b(kg|kgs|kilo|kilos|kilogram|kilograms)\\b.*");
+    private static final java.util.regex.Pattern POUNDS =
+            java.util.regex.Pattern.compile("(?i).*\\b(lb|lbs|pound|pounds)\\b.*");
+
+    /**
+     * A weight in kilograms, or null when its unit is not stated (#3959). The measuring
+     * instruction is the unit text a clinic may have edited ("in kg", "kg", "Kilograms"); a weight
+     * recorded in pounds is converted exactly and rounded to 0.01 kg, since the CDS weight unit
+     * is kg only.
+     */
+    static String weightInKg(String instruction, String value) {
+        if (instruction == null || value == null) return null;
+        if (KILOGRAMS.matcher(instruction).matches()) return value;
+        if (!POUNDS.matcher(instruction).matches()) return null;
+        try {
+            return new java.math.BigDecimal(value.strip())
+                    .multiply(new java.math.BigDecimal("0.45359237"))
+                    .setScale(2, java.math.RoundingMode.HALF_UP)
+                    .stripTrailingZeros()
+                    .toPlainString();
+        } catch (NumberFormatException notNumeric) {
+            return null;
+        }
     }
 
     // FindSecBugs PATH_TRAVERSAL_IN: HRM report path is validated against DOCUMENT_DIR before use
@@ -2947,7 +3591,10 @@ public class DemographicExportAction42Action extends ActionSupport {
     // FindSecBugs PATH_TRAVERSAL_IN: FileWriter writes only to a previously PathValidationUtils-validated export path
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "FileWriter writes only to a previously PathValidationUtils-validated export path")
     private void saveExportFile(OmdCdsDocument omdCdsDoc, XmlOptions options, File exportFile) throws IOException {
-        try (FileWriter fw = new FileWriter(exportFile)) {
+        // Opened through NIO so a failure carries the system's reason ("File name too long", "No
+        // space left on device") for the export log; the charset is the one FileWriter used.
+        try (java.io.Writer fw = new java.io.OutputStreamWriter(
+                java.nio.file.Files.newOutputStream(exportFile.toPath()), java.nio.charset.Charset.defaultCharset())) {
             omdCdsDoc.save(fw, options);
             fw.flush();
         }
@@ -3002,7 +3649,13 @@ public class DemographicExportAction42Action extends ActionSupport {
             }
         }
         for (Map.Entry<String, Integer> entry : fileCount.entrySet()) {
-            out.write("	" + entry.getKey().split("_")[0] + " " + entry.getKey().split("_")[1] + ": " + entry.getValue());
+            // The key is "First_Last_OhipNo" of the chart's most responsible provider, and empty
+            // for a chart that has none. Indexing the second part of an empty key threw, which
+            // failed the whole export of any set holding such a chart.
+            String[] physician = entry.getKey().split("_");
+            String label = physician.length >= 2 ? physician[0] + " " + physician[1]
+                    : entry.getKey().isEmpty() ? "No most responsible physician" : entry.getKey();
+            out.write("	" + label + ": " + entry.getValue());
             out.newLine();
         }
         out.write("Number of errors				   : ");
@@ -3014,6 +3667,12 @@ public class DemographicExportAction42Action extends ActionSupport {
         out.write("-");
         out.write(getIDInExportFilename(fs.get(fs.size() - 1).getName()));
         out.newLine();
+        if (!incompleteCharts.isEmpty()) {
+            // Every chart the archive is missing something of; ExportEvent.log says what and why.
+            out.write("Charts exported incompletely	   : ");
+            out.write(String.join(", ", incompleteCharts));
+            out.newLine();
+        }
         out.close();
 
         return readMe;
@@ -3739,12 +4398,14 @@ public class DemographicExportAction42Action extends ActionSupport {
 
         //lab test code, test name, test name reported by lab
         if (StringUtils.filled(labMea.get("identifier"))) labResults.setLabTestCode(labMea.get("identifier"));
-        // TODO: populate TestName as maintained by EMR properly.  The key "name_internal" isn't used anywhere.
+        // TestName is the EMR's own name when one was imported, otherwise the laboratory's (#3959).
         if (StringUtils.filled(labMea.get("name_internal"))) labResults.setTestName(labMea.get("name_internal"));
+        else if (StringUtils.filled(labMea.get("name"))) labResults.setTestName(labMea.get("name"));
         if (StringUtils.filled(labMea.get("name"))) labResults.setTestNameReportedByLab(labMea.get("name"));
 
         //laboratory name
-        labResults.setLaboratoryName(StringUtils.noNull(labMea.get("labname")) + "^" + StringUtils.noNull(labMea.get("labType")));
+        // The HL7 handler type (MDS, CML, ...) is not part of the laboratory's name (#3959).
+        labResults.setLaboratoryName(StringUtils.noNull(labMea.get("labname")));
         addOneEntry(LABS);
         if (StringUtils.empty(labResults.getLaboratoryName())) {
             exportError.add("Error! No Laboratory Name for Lab Test " + labResults.getLabTestCode() + " for Patient " + demoNo);
@@ -3894,16 +4555,32 @@ public class DemographicExportAction42Action extends ActionSupport {
         return p.getFirstName() + "_" + p.getLastName() + "_" + p.getOhipNo();
     }
 
-    public Boolean validateExport(File f) {
-        Boolean result = true;
+    /** Outcome of re-reading one generated export file against the OntarioMD schema. */
+    enum ExportValidation {
+        VALID,
+        SCHEMA_INVALID,
+        /** The file could not be re-read; this says nothing about the schema (#5845). */
+        UNREADABLE
+    }
 
+    public Boolean validateExport(File f) {
+        return checkExport(f) == ExportValidation.VALID;
+    }
+
+    ExportValidation checkExport(File f) {
         DocumentBuilderFactory factory = null;
         try {
             factory = XmlUtils.createSecureDocumentBuilderFactory();
             factory.setNamespaceAware(true);
-        } catch (ParserConfigurationException e) {
+            // The JDK counts every predefined reference (&amp;, &lt;, ...) against these ceilings
+            // (default 100,000), so a large chart's escaped notes failed re-reading as if invalid.
+            // This is the export's own output with DOCTYPE refused: only the five one-character
+            // predefined entities can occur, so no expansion is possible (#5845, as #5466).
+            factory.setAttribute("jdk.xml.maxGeneralEntitySizeLimit", "0");
+            factory.setAttribute("jdk.xml.totalEntitySizeLimit", "0");
+        } catch (ParserConfigurationException | IllegalArgumentException e) {
             logger.error("Failed to create secure XML parser factory: {}", LogSafe.exceptionTrace(e));
-            return false;
+            return ExportValidation.UNREADABLE;
         }
 
         URL url = getClass().getResource("/omdDataMigration/EMR_Data_Migration_Schema.xsd");
@@ -3917,14 +4594,14 @@ public class DemographicExportAction42Action extends ActionSupport {
                     ONTARIOMD_EXPORT_SCHEMA_IMPORTS));
         } catch (SAXException e) {
             logger.error("Failed to create secure schema factory: {}", LogSafe.exceptionTrace(e));
-            return false;
+            return ExportValidation.UNREADABLE;
         }
         Schema schema = null;
         try {
             schema = xsdFactory.newSchema(url);
         } catch (SAXException e) {
             logger.error("Parse exception: {}", LogSafe.exceptionTrace(e));
-            return false;
+            return ExportValidation.UNREADABLE;
         }
 
         DocumentBuilder builder = null;
@@ -3932,18 +4609,18 @@ public class DemographicExportAction42Action extends ActionSupport {
             builder = factory.newDocumentBuilder();
         } catch (ParserConfigurationException e1) {
             logger.error("Parse exception: {}", LogSafe.exceptionTrace(e1));
-            return false;
+            return ExportValidation.UNREADABLE;
         }
 
         Document doc = null;
         try {
             doc = builder.parse(f);
         } catch (SAXException e) {
-            logger.error("Parse exception: {}", LogSafe.exceptionTrace(e));
-            return false;
+            logger.error("Export file could not be re-read: {}", LogSafe.exceptionTrace(e));
+            return ExportValidation.UNREADABLE;
         } catch (IOException e) {
-            logger.error("Parse exception: {}", LogSafe.exceptionTrace(e));
-            return false;
+            logger.error("Export file could not be re-read: {}", LogSafe.exceptionTrace(e));
+            return ExportValidation.UNREADABLE;
         }
 
         // Check whether document is valid; validation stops at first error detected.
@@ -3952,18 +4629,18 @@ public class DemographicExportAction42Action extends ActionSupport {
             validator = XmlUtils.createSecureValidator(schema); // nosemgrep: validator-xxe -- XXE protection applied by XmlUtils.createSecureValidator()
         } catch (SAXException e) {
             logger.error("Failed to create secure validator: {}", LogSafe.exceptionTrace(e));
-            return false;
+            return ExportValidation.UNREADABLE;
         }
         try {
             validator.validate(new DOMSource(doc));
         } catch (SAXException e) {
             logger.error("Failed to process demographic export file: {}", LogSafe.exceptionTrace(e));
-            return false;
+            return ExportValidation.SCHEMA_INVALID;
         } catch (IOException e) {
             logger.error("Failed to process demographic export file: {}", LogSafe.exceptionTrace(e));
-            return false;
+            return ExportValidation.UNREADABLE;
         }
-        return result;
+        return ExportValidation.VALID;
 
     }
 
@@ -4207,6 +4884,18 @@ public class DemographicExportAction42Action extends ActionSupport {
         } catch (NumberFormatException _) {
             logger.warn("Rejected demographic export: template parameter is not an integer");
             return UNPARSEABLE_TEMPLATE;
+        }
+    }
+
+    /**
+     * Records a failed export without letting an audit write failure replace the export's own
+     * failure: the audit error is attached to it as suppressed, and the caller rethrows it.
+     */
+    private void auditFailure(LoggedInInfo loggedInInfo, int recordCount, Throwable failure) {
+        try {
+            writeExportAuditLog(loggedInInfo, recordCount, "error", "<unavailable>", failure.getClass().getSimpleName());
+        } catch (RuntimeException auditFailure) {
+            failure.addSuppressed(auditFailure);
         }
     }
 

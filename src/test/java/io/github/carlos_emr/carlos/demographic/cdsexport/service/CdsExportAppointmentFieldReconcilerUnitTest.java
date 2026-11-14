@@ -1,0 +1,1210 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * <p>This software is published under the GPL GNU General Public License. This program is free
+ * software; you can redistribute it and/or modify it under the terms of the GNU General Public
+ * License as published by the Free Software Foundation; either version 2 of the License, or (at
+ * your option) any later version.
+ *
+ * <p>This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * <p>You should have received a copy of the GNU General Public License along with this program; if
+ * not, write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
+ *
+ * <p>CARLOS EMR Project https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.demographic.cdsexport.service;
+
+import static org.assertj.core.api.Assertions.*;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport;
+import io.github.carlos_emr.carlos.commn.dto.CdsExportDemographicRowDto;
+import io.github.carlos_emr.carlos.demographic.cds.contract.*;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.*;
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.*;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportRetainedReceiptVerificationDto.*;
+import io.github.carlos_emr.carlos.demographic.cdsexport.validator.CdsExportXmlValidator;
+import io.github.carlos_emr.carlos.utility.CdsImportKeys;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.*;
+import java.time.ZoneId;
+import java.util.*;
+import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.io.TempDir;
+
+/**
+ * Exact projection/current edits and actual receiving parser; native-driver qualification is
+ * separate.
+ */
+class CdsExportAppointmentFieldReconcilerUnitTest {
+    private static final String HASH = "a".repeat(64),
+            RUN = "123e4567-e89b-12d3-a456-426614174000",
+            KEY = "f".repeat(64),
+            ADDRESS = RUN + ":" + KEY,
+            PAGE = "e".repeat(64),
+            PAGE_ADDRESS = RUN + ":" + PAGE;
+    @TempDir Path directory;
+    private Map<String, String> old, current;
+    private CdsAppointmentNativeDto prepared;
+    private String originalPurpose = "Original purpose",
+            originalNotes = "Original café 😀\r\nnotes";
+    private List<CdsExportRetainedFieldDto> fields;
+    private CdsExportRetainedIndexDto index;
+    private CdsExportRetainedReceiptVerificationDto checked;
+    private CdsExportNativeRowReceiptDto witness;
+    private boolean baseline = true, foreignNamespace;
+    private CdsExportCapturedTextRowDto demographic;
+    private CdsExportAppointmentLookupsDto lookups;
+
+    @BeforeEach
+    void setup() {
+        old = new TreeMap<>();
+        CdsExportPatientTableReadSupport.Plan.APPOINTMENTS
+                .columns()
+                .forEach(name -> old.put(name, null));
+        old.putAll(
+                Map.of(
+                        "appointment_no",
+                        "51",
+                        "demographic_no",
+                        "27",
+                        "appointment_date",
+                        "2024-03-01",
+                        "start_time",
+                        "09:00:00",
+                        "end_time",
+                        "10:00:00",
+                        "provider_no",
+                        "0é27",
+                        "name",
+                        "Fixture,Synthetic",
+                        "program_id",
+                        "0",
+                        "status",
+                        ""));
+        old.put("imported_status", "Original imported status");
+        old.put("reason", originalPurpose);
+        old.put("notes", originalNotes);
+        old.put("creator", "ORIGINAL_ACTOR");
+        old.put("lastupdateuser", "ORIGINAL_ACTOR");
+        old.put("createdatetime", "2024-02-29 12:34:56");
+        current = new TreeMap<>(old);
+        prepared =
+                new CdsAppointmentNativeDto(
+                        "2024-03-01",
+                        "09:00",
+                        "10:00",
+                        "Original imported status",
+                        originalPurpose,
+                        originalNotes,
+                        "0é27",
+                        true,
+                        List.of());
+        var values = new TreeMap<String, String>();
+        CdsExportDemographicRowDto.COLUMNS.forEach(name -> values.put(name, null));
+        values.putAll(
+                Map.of("demographic_no", "27", "first_name", "Synthetic", "last_name", "Fixture"));
+        demographic = new CdsExportCapturedTextRowDto("demographic", "0000000027", values);
+        lookups = CdsExportAppointmentMapperUnitTest.lookups();
+    }
+
+    @Test
+    void shouldUseOnlyAnExactlyMatchedLegacyReleaseReceipt_withoutBackfillingItsBaseline()
+            throws Exception {
+        baseline = false;
+        var result = reconcile();
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.mapping().value().notes()).isEqualTo(originalNotes);
+        var unit = index.tables().get("cds_import_unit").get(CdsImportKeys.hash(RUN, KEY));
+        assertThat(unit.fields().get("native_baseline")).isNull();
+    }
+
+    @Test
+    void shouldRejectAnEditedLegacyRow_whenNoRecordedFieldBaselineCanProveThePriorValues() {
+        baseline = false;
+        current.put("notes", "An edit cannot be backfilled as an original value");
+        assertThatThrownBy(this::reconcile)
+                .hasMessage("CDS_EXPORT_APPOINTMENT_FIELD_BASELINE_REQUIRED");
+    }
+
+    @Test
+    void shouldRejectAPopulatedLocationReference_whenDerivingAnOldUnchangedReceipt() {
+        baseline = false;
+        current.put("locationCode", "17");
+        assertThatThrownBy(this::reconcile)
+                .hasMessage("CDS_EXPORT_APPOINTMENT_PROJECTION_EVIDENCE_INVALID");
+    }
+
+    @Test
+    void shouldRejectAnUnknownLegacyShape_insteadOfDroppingAnotherCapturedColumn() {
+        baseline = false;
+        old.remove("billing");
+        assertThatThrownBy(this::reconcile)
+                .hasMessage("CDS_EXPORT_APPOINTMENT_FIELD_BASELINE_REQUIRED");
+    }
+
+    @Test
+    void shouldReconcileTheReleaseReceipt_withoutInventingADevelopLocationColumn()
+            throws Exception {
+        var result = reconcile();
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.mapping().value().notes()).isEqualTo(originalNotes);
+        assertThat(result.preparedPaths()).contains("AppointmentNotes", "AppointmentPurpose");
+        assertThat(result.mapping().fields().keySet())
+                .noneMatch(key -> key.column().equals("locationCode"));
+    }
+
+    @Test
+    void shouldPreserveCurrentEdits_withTheRecordedReleaseColumnSet() throws Exception {
+        current.put("notes", "Edited after the schema upgrade");
+        var result = reconcile();
+        assertThat(result.mapping().value().notes()).isEqualTo("Edited after the schema upgrade");
+        assertThat(result.mapping().value().purpose()).isEqualTo(originalPurpose);
+    }
+
+    @Test
+    void shouldRequireReviewForAPopulatedAddedLocationReference_insteadOfIgnoringIt() {
+        current.put("locationCode", "17");
+        assertThatThrownBy(this::reconcile)
+                .hasMessage("CDS_EXPORT_APPOINTMENT_PROJECTION_EVIDENCE_INVALID");
+    }
+
+    @Test
+    void shouldRefuseAMissingBaselineColumn_insteadOfAssumingItIsStorageMetadata() {
+        old.remove("billing");
+        assertThatThrownBy(this::reconcile)
+                .hasMessage("CDS_EXPORT_APPOINTMENT_FIELD_CODEC_REQUIRES_REVIEW");
+    }
+
+    @Test
+    void shouldVerifyUnchangedImportedStatusPurposeNotesAndOriginalRecordedProviderRemainExact_forAppointmentFieldReconcilerContract()
+            throws Exception {
+        var result = reconcile();
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.mapping().value().status()).isEqualTo(prepared.status());
+        assertThat(result.mapping().value().notes()).isEqualTo(originalNotes);
+        assertThat(result.mapping().value().provider().firstName()).isEqualTo("Original");
+        assertThat(result.mapping().value().provider().ohipNumber()).isEqualTo("654321");
+        assertThat(result.preparedPaths())
+                .contains(
+                        "Provider", "AppointmentStatus", "AppointmentNotes", "AppointmentPurpose");
+    }
+
+    @Test
+    void shouldVerifyEditedOrClearedNotesNeverReplayTheOriginalSourceValue_forAppointmentFieldReconcilerContract() throws Exception {
+        for (String notes : Arrays.asList("Current café 😀\r\nnotes", null, "")) {
+            current.put("notes", notes);
+            var result = reconcile();
+            assertThat(result.mapping().value().notes()).isEqualTo(notes);
+            assertThat(result.currentPaths()).contains("AppointmentNotes");
+        }
+    }
+
+    @Test
+    void shouldVerifyANativePurposeEditPreservesTheOtherOriginalFields_forAppointmentFieldReconcilerContract() throws Exception {
+        current.put("reason", "Current purpose");
+        var result = reconcile();
+        assertThat(result.mapping().value().purpose()).isEqualTo("Current purpose");
+        assertThat(result.mapping().value().notes()).isEqualTo(originalNotes);
+        assertThat(result.currentPaths()).containsExactly("AppointmentPurpose");
+    }
+
+    @Test
+    void shouldVerifyAnExplicitImportedStatusClearIsNotReplaced_withOldPreparedStatus() throws Exception {
+        current.put("imported_status", null);
+        assertThat(reconcile().mapping().value().status()).isNull();
+        current.put("imported_status", "");
+        assertThat(reconcile().mapping().value().status()).isEmpty();
+    }
+
+    @Test
+    void shouldVerifyCurrentNativeStatusDefinitionWinsOnly_whenItsSeparateOldImportedLabelIsUnchanged()
+            throws Exception {
+        current.put("status", "Q1");
+        assertThat(reconcile().mapping().value().status()).isEqualTo("Exact booked Ω");
+        current.put("imported_status", "Another independently edited status");
+        assertThat(reconcile().mapping().value()).isNull();
+    }
+
+    @Test
+    void shouldVerifyUnknownCurrentStatusNeverFallsBack_toAnOldImportedLabel() throws Exception {
+        // A current code with no definition is written as stored; the old imported label is
+        // not resurrected and the chart is not held.
+        current.put("status", "UNRESOLVED");
+        var result = reconcile();
+        assertThat(result.mapping().value().status()).isEqualTo("UNRESOLVED");
+        assertThat(result.currentPaths()).contains("AppointmentStatus");
+    }
+
+    @Test
+    void shouldVerifyChangedAndClearedProviderAssociationsDoNotResurrectTheOldSourceClinician_forAppointmentFieldReconcilerContract()
+            throws Exception {
+        current.put("provider_no", "");
+        assertThat(reconcile().mapping().value().provider()).isNull();
+        current.put("provider_no", "new");
+        var provider = new TreeMap<>(CdsExportAppointmentMapperUnitTest.provider().fields());
+        provider.put("provider_no", "new");
+        provider.put("first_name", "Current");
+        var rows = new HashMap<>(lookups.providers());
+        rows.put(
+                "new",
+                new CdsExportCapturedTextRowDto(
+                        "provider", CdsExportPublicProviderSourceReader.key("new"), provider));
+        lookups = new CdsExportAppointmentLookupsDto(HASH, rows, lookups.statuses(), lookups.reasonCodes(), lookups.earlierPatientDisplays());
+        assertThat(reconcile().mapping().value().provider().firstName()).isEqualTo("Current");
+    }
+
+    @Test
+    void shouldVerifyTheLongPurposeSourceViewMarkerIsReplaced_withItsVerifiedCompleteSourceValue()
+            throws Exception {
+        originalPurpose = "P".repeat(250);
+        String marker = "CDS: complete appointment purpose is available in CDS source fields.";
+        old.put("reason", marker);
+        current.put("reason", marker);
+        prepared =
+                new CdsAppointmentNativeDto(
+                        prepared.date(),
+                        prepared.start(),
+                        prepared.end(),
+                        prepared.status(),
+                        marker,
+                        prepared.notes(),
+                        prepared.providerNo(),
+                        true,
+                        List.of(
+                                new CdsClinicalDiagnosticDto(
+                                        "CDS_APPOINTMENT_PURPOSE_SOURCE_VIEW",
+                                        "AppointmentPurpose")));
+        assertThat(reconcile().mapping().value().purpose()).isEqualTo(originalPurpose);
+    }
+
+    @Test
+    void shouldVerifyAWrongPreparationProjectionCannotClaimUnchangedNativeValues_forAppointmentFieldReconcilerContract() {
+        old.put("notes", "Different baseline notes");
+        assertThatThrownBy(this::reconcile)
+                .hasMessage("CDS_EXPORT_APPOINTMENT_PREPARED_PROJECTION_NOT_PROVEN");
+    }
+
+    @Test
+    void shouldVerifyMissingHistoricalFieldBaselineAllowsOnlyActuallyUnchangedQualifiedLegacyRows_forAppointmentFieldReconcilerContract()
+            throws Exception {
+        baseline = false;
+        assertThat(reconcile().mapping().value()).isNotNull();
+        current.put("notes", "Edited");
+        assertThatThrownBy(this::reconcile)
+                .hasMessage("CDS_EXPORT_APPOINTMENT_FIELD_BASELINE_REQUIRED");
+    }
+
+    @Test
+    void shouldVerifyCurrentRowsCannotBorrowWitnesses_fromBeforeTheirMutation() throws Exception {
+        build();
+        current.put("notes", "Later mutation");
+        assertThatThrownBy(this::invoke)
+                .hasMessage("CDS_EXPORT_APPOINTMENT_PROJECTION_EVIDENCE_INVALID");
+    }
+
+    @Test
+    void shouldAppendAnEditedBookingNameAndRemarks_toTheImportedNotesInsteadOfHolding()
+            throws Exception {
+        // Edit Appointment stores its name box; remarks come from the SOAP service or older data.
+        String imported = reconcile().mapping().value().notes();
+        current.put("name", "Another patient");
+        var named = reconcile();
+        assertThat(named.mapping().value().notes())
+                .isEqualTo(
+                        CdsExportAppointmentMapper.withLines(
+                                imported, List.of("Booking name: Another patient")));
+        assertThat(named.currentPaths()).contains("AppointmentNotes");
+        current.put("name", old.get("name"));
+        // The program a booking was made under and the booking site are scheduler context.
+        current.put("program_id", "1");
+        assertThat(reconcile().mapping().value()).isNotNull();
+        current.put("program_id", "0");
+        current.put("location", "Additional appointment location");
+        assertThat(reconcile().mapping().value()).isNotNull();
+        current.put("remarks", "Additional appointment remark");
+        var remarked = reconcile();
+        assertThat(remarked.mapping().value().notes())
+                .isEqualTo(
+                        CdsExportAppointmentMapper.withLines(
+                                imported, List.of("Remarks: Additional appointment remark")));
+        assertThat(remarked.preparedPaths()).doesNotContain("AppointmentNotes");
+    }
+
+    @Test
+    void shouldCutEditedNotesPastTheCdsLimit_andReturnTheCompleteTextForTheSourceRecord()
+            throws Exception {
+        // Was CDS_EXPORT_APPOINTMENT_NOTES_CAPACITY_REQUIRES_REVIEW (and a generic hold for the
+        // notes alone): the Edit Appointment form admits 32,768 characters, the element 32,000.
+        current.put("notes", "n".repeat(32768));
+        current.put("remarks", "Additional appointment remark");
+        var result = reconcile();
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.mapping().value().notes())
+                .hasSize(32000)
+                .endsWith(CdsExportAppointmentMapper.SHORTENED_MARK);
+        assertThat(result.mapping().complete())
+                .containsEntry(
+                        "AppointmentNotes",
+                        "n".repeat(32768) + "\nRemarks: Additional appointment remark");
+        assertThat(result.currentPaths()).contains("AppointmentNotes");
+        var notes =
+                result.mapping().fields().entrySet().stream()
+                        .filter(field -> field.getKey().column().equals("notes"))
+                        .map(Map.Entry::getValue)
+                        .findFirst()
+                        .orElseThrow();
+        assertThat(notes.destination()).isEqualTo("AppointmentNotes,NewCategory/ResidualInfo");
+        assertThat(notes.rule()).isEqualTo(CdsExportAppointmentMapper.SHORTENED_RULE);
+    }
+
+    @Test
+    void shouldReadARestoredEndAsTheSchedulersInclusiveEnd_andRestoredNotesAsCurrent()
+            throws Exception {
+        // The import restored the sender's stored end and complete notes from its
+        // CARLOS.Appointment.Source.v1 record: 23:30 to 00:29 is 60 minutes ending tomorrow, and
+        // the retained element text (the cut form) is no longer what the row holds.
+        String complete = "n".repeat(32500);
+        for (var row : List.of(old, current)) {
+            row.put("start_time", "23:30:00");
+            row.put("end_time", "00:29:00");
+            row.put("notes", complete);
+            row.put("location", "Main Clinic");
+        }
+        originalNotes = CdsExportAppointmentMapper.fitNotes(complete).element();
+        prepared =
+                new CdsAppointmentNativeDto(
+                        prepared.date(),
+                        "23:30",
+                        "00:29",
+                        prepared.status(),
+                        prepared.purpose(),
+                        complete,
+                        prepared.providerNo(),
+                        true,
+                        List.of(),
+                        new io.github.carlos_emr.carlos.demographic.cdsimport.dto
+                                .CdsAppointmentSourceDto(
+                                true, true, null, null, "Main Clinic", null, null, null, null));
+        var result = reconcile();
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.mapping().value().timing().time()).isEqualTo("23:30:00");
+        assertThat(result.mapping().value().timing().durationMinutes()).isEqualTo(60);
+        assertThat(result.mapping().value().notes()).isEqualTo(originalNotes);
+        assertThat(result.mapping().complete()).containsEntry("AppointmentNotes", complete);
+        assertThat(result.currentPaths()).contains("AppointmentNotes");
+    }
+
+    @Test
+    void shouldPrefixTheReasonLabel_toTheUneditedImportedPurposeAsTheDaySheetShowsIt()
+            throws Exception {
+        // Imports never set reasonCode. Editing the booking in CARLOS submits the reason list's
+        // selected item; the day sheet shows its label before the preserved imported purpose.
+        current.put("reasonCode", "2");
+        lookups = withReasonItem(CdsExportAppointmentMapperUnitTest.reasonItem("2", " Follow-Up "));
+        var labelled = reconcile();
+        assertThat(labelled.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(labelled.mapping().value().purpose()).isEqualTo("Follow-Up " + originalPurpose);
+        assertThat(labelled.currentPaths()).contains("AppointmentPurpose");
+        var decisions = labelled.mapping().fields();
+        assertThat(
+                        decisions.get(
+                                        new CdsExportNativeFieldKeyDto(
+                                                "appointment", row(current).recordKey(), "reason"))
+                                .rule())
+                .isEqualTo("VERIFIED_UNCHANGED_PREPARED_PURPOSE_AFTER_SCHEDULE_REASON_LABEL");
+        assertThat(
+                        decisions.get(
+                                        new CdsExportNativeFieldKeyDto(
+                                                "appointment",
+                                                row(current).recordKey(),
+                                                "reasonCode"))
+                                .rule())
+                .isEqualTo("EXACT_CAPTURED_REASON_CODE_LABEL");
+        assertThat(decisions.values())
+                .noneMatch(
+                        decision ->
+                                decision.outcome()
+                                        == CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW);
+        // The list's blank first item, the form default, adds nothing to the display.
+        lookups = withReasonItem(CdsExportAppointmentMapperUnitTest.reasonItem("2", ""));
+        var blank = reconcile();
+        assertThat(blank.mapping().value().purpose()).isEqualTo(originalPurpose);
+        assertThat(blank.preparedPaths()).contains("AppointmentPurpose");
+    }
+
+    @Test
+    void shouldPrefixTheReasonLabel_toTheCompleteSourcePurposeBehindTheSourceViewMarker()
+            throws Exception {
+        String marker = "CDS: complete appointment purpose is available in CDS source fields.";
+        originalPurpose = "Q".repeat(120);
+        old.put("reason", marker);
+        current.put("reason", marker);
+        current.put("reasonCode", "2");
+        lookups = withReasonItem(CdsExportAppointmentMapperUnitTest.reasonItem("2", "Follow-Up"));
+        prepared =
+                new CdsAppointmentNativeDto(
+                        prepared.date(),
+                        prepared.start(),
+                        prepared.end(),
+                        prepared.status(),
+                        marker,
+                        prepared.notes(),
+                        prepared.providerNo(),
+                        true,
+                        List.of(
+                                new CdsClinicalDiagnosticDto(
+                                        "CDS_APPOINTMENT_PURPOSE_SOURCE_VIEW",
+                                        "AppointmentPurpose")));
+        assertThat(reconcile().mapping().value().purpose())
+                .isEqualTo("Follow-Up " + originalPurpose);
+        // Updated: a label that would carry the purpose past the 250 characters CDS allows used to
+        // hold the patient (CDS_EXPORT_APPOINTMENT_LABELLED_PURPOSE_CAPACITY). The purpose is now
+        // kept exactly and the label opens AppointmentNotes.
+        originalPurpose = "Q".repeat(245);
+        var result = reconcile();
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.mapping().value().purpose()).isEqualTo(originalPurpose);
+        assertThat(result.mapping().value().notes())
+                .isEqualTo("Reason: Follow-Up\n" + originalNotes);
+        assertThat(result.preparedPaths()).contains("AppointmentPurpose");
+        assertThat(result.currentPaths()).contains("AppointmentNotes");
+        var decisions = result.mapping().fields();
+        var code =
+                decisions.get(
+                        new CdsExportNativeFieldKeyDto(
+                                "appointment", row(current).recordKey(), "reasonCode"));
+        assertThat(code.rule()).isEqualTo("SCHEDULE_REASON_LABEL_IN_NOTES_BEYOND_PURPOSE_CAPACITY");
+        assertThat(code.destination()).isEqualTo("AppointmentNotes");
+        assertThat(
+                        decisions.get(
+                                        new CdsExportNativeFieldKeyDto(
+                                                "appointment", row(current).recordKey(), "reason"))
+                                .rule())
+                .isEqualTo("VERIFIED_UNCHANGED_PREPARED_PURPOSE");
+        var plan =
+                new CdsExportAppointmentRetainedAssembler()
+                        .prepare(27, result, index, checked, fields, values(), () -> {});
+        var record = parse(plan.content()).get(1);
+        var parser = new CdsFieldParser();
+        assertThat(parser.firstText(record, "AppointmentPurpose", 250)).isEqualTo(originalPurpose);
+        assertThat(parser.firstText(record, "AppointmentNotes", 32000))
+                .startsWith("Reason: Follow-Up")
+                .endsWith("notes");
+        var accounted = new HashSet<>(plan.retainedFields());
+        accounted.addAll(plan.replacedFields());
+        assertThat(accounted)
+                .isEqualTo(
+                        fields.stream()
+                                .map(CdsExportRetainedFieldDto::id)
+                                .collect(java.util.stream.Collectors.toSet()));
+    }
+
+    private CdsExportAppointmentLookupsDto withReasonItem(CdsExportCapturedTextRowDto item) {
+        return new CdsExportAppointmentLookupsDto(
+                HASH,
+                lookups.providers(),
+                lookups.statuses(),
+                Map.of(item.fields().get("id"), List.of(item)),
+                Set.of());
+    }
+
+    @Test
+    void shouldVerifyChangedSourceFieldPagesCannotBeReplaced_withOtherwiseCorrectNativeWitnesses()
+            throws Exception {
+        build();
+        var unchanged = new HashSet<>(checked.unchangedUnits());
+        unchanged.remove(PAGE_ADDRESS);
+        var review = new HashSet<>(checked.reviewUnits());
+        review.add(PAGE_ADDRESS);
+        var units = new TreeMap<>(checked.units());
+        var prior = units.get(PAGE_ADDRESS).getFirst();
+        var changed = new ArrayList<>(units.get(PAGE_ADDRESS));
+        changed.set(0, new CheckedReference(prior.expected(), "d".repeat(64), Reason.CHANGED_ROW));
+        units.put(PAGE_ADDRESS, changed);
+        checked = new CdsExportRetainedReceiptVerificationDto(HASH, units, unchanged, review);
+        assertThatThrownBy(this::invoke)
+                .hasMessage("CDS_EXPORT_APPOINTMENT_SOURCE_FIELD_EVIDENCE_CHANGED");
+    }
+
+    @Test
+    void shouldVerifyASecondAppliedUnitCannotClaimTheSameAppointment_withoutAliasReview() throws Exception {
+        build();
+        String alias = RUN + ":" + "d".repeat(64);
+        var refs = new TreeMap<>(index.references());
+        refs.put(alias, refs.get(ADDRESS));
+        var applied = new HashSet<>(index.appliedUnits());
+        applied.add(alias);
+        index =
+                new CdsExportRetainedIndexDto(
+                        HASH,
+                        index.metadataRows(),
+                        index.metadataBytes(),
+                        index.tables(),
+                        applied,
+                        refs,
+                        index.nativeParents());
+        var checks = new TreeMap<>(checked.units());
+        checks.put(alias, checks.get(ADDRESS));
+        var unchanged = new HashSet<>(checked.unchangedUnits());
+        unchanged.add(alias);
+        checked =
+                new CdsExportRetainedReceiptVerificationDto(
+                        HASH, checks, unchanged, checked.reviewUnits());
+        assertThatThrownBy(this::invoke).hasMessage("CDS_EXPORT_APPOINTMENT_ALIAS_REQUIRES_REVIEW");
+    }
+
+    @Test
+    void shouldVerifyReceivingImporterSeesCurrentNotesOriginalProviderAndPostOptionDateExactlyOnce_forAppointmentFieldReconcilerContract()
+            throws Exception {
+        current.put("notes", "Current receiving note");
+        var result = reconcile();
+        var plan =
+                new CdsExportAppointmentRetainedAssembler()
+                        .prepare(27, result, index, checked, fields, values(), () -> {});
+        var records = parse(plan.content());
+        var parser = new CdsFieldParser();
+        assertThat(parser.firstText(records.get(1), "AppointmentNotes", 32000))
+                .isEqualTo("Current receiving note");
+        assertThat(parser.firstText(records.get(1), "AppointmentDate/FullDate", 10))
+                .isEqualTo("2024-03-01");
+        assertThat(parser.firstText(records.get(1), "Provider/Name/FirstName", 50))
+                .isEqualTo("Original");
+        assertThat(parser.firstText(records.get(1), "AppointmentTime", 64))
+                .isEqualTo("09:00:00-05:00");
+        var accounted = new HashSet<>(plan.retainedFields());
+        accounted.addAll(plan.replacedFields());
+        assertThat(accounted)
+                .isEqualTo(
+                        fields.stream()
+                                .map(CdsExportRetainedFieldDto::id)
+                                .collect(java.util.stream.Collectors.toSet()));
+        assertThat(Collections.disjoint(plan.retainedFields(), plan.replacedFields())).isTrue();
+    }
+
+    @Test
+    void shouldVerifyClearedNativeNotesAreAbsent_fromTheReassembledReceivingRecord() throws Exception {
+        current.put("notes", null);
+        var result = reconcile();
+        var content =
+                new CdsExportAppointmentRetainedAssembler()
+                        .prepare(27, result, index, checked, fields, values(), () -> {})
+                        .content();
+        assertThat(new CdsFieldParser().firstText(parse(content).get(1), "AppointmentNotes", 32000))
+                .isNull();
+    }
+
+    @Test
+    void shouldVerifyCurrentDateAndClockEditsReplaceOldSourceTiming_withoutAnotherImportShift()
+            throws Exception {
+        current.put("appointment_date", "2025-04-02");
+        current.put("start_time", "11:15:30");
+        current.put("end_time", "12:15:30");
+        var result = reconcile();
+        assertThat(result.mapping().value().timing().date().lexical()).isEqualTo("2025-04-02");
+        assertThat(result.mapping().value().timing().time()).isEqualTo("11:15:30");
+        var content =
+                new CdsExportAppointmentRetainedAssembler()
+                        .prepare(27, result, index, checked, fields, values(), () -> {})
+                        .content();
+        var record = parse(content).get(1);
+        var parser = new CdsFieldParser();
+        assertThat(parser.firstText(record, "AppointmentDate/FullDate", 10))
+                .isEqualTo("2025-04-02");
+        assertThat(parser.firstText(record, "AppointmentTime", 64)).isEqualTo("11:15:30-04:00");
+    }
+
+    @Test
+    void shouldExportAnOvernightSlotByTheNativeRule_andKeepTheScheduleClockForAmbiguousLocalTiming() throws Exception {
+        // A booking moved in CARLOS to 23:30 for 60 minutes stores an end of 00:29 (the end is
+        // on the next day): exported with the stored start and 60 minutes, never held.
+        current.put("start_time", "23:30:00");
+        current.put("end_time", "00:29:00");
+        var overnight = reconcile().mapping().value().timing();
+        assertThat(overnight.time()).isEqualTo("23:30:00");
+        assertThat(overnight.durationMinutes()).isEqualTo(60);
+        // A slot in the fall-back overlap is exported as the schedule's wall-clock time with no
+        // offset (none is invented), as on a never-imported chart; nothing is read from old fields.
+        current.put("appointment_date", "2024-11-03");
+        current.put("start_time", "01:15:00");
+        current.put("end_time", "01:45:00");
+        var timing = reconcile().mapping().value().timing();
+        assertThat(timing.offset()).isNull();
+        assertThat(timing.wireTime()).isEqualTo("01:15:00");
+        assertThat(timing.date().lexical()).isEqualTo("2024-11-03");
+    }
+
+    @Test
+    void shouldVerifyRetainedPurposeAndNotesMustMatchTheClaimedPreparationRatherThanBeDiscarded_forAppointmentFieldReconcilerContract()
+            throws Exception {
+        originalPurpose = "Another untouched original purpose";
+        assertThatThrownBy(this::reconcile)
+                .hasMessage("CDS_EXPORT_APPOINTMENT_ORIGINAL_PURPOSE_REQUIRED");
+        originalPurpose = "Original purpose";
+        originalNotes = "Another untouched original note";
+        assertThatThrownBy(this::reconcile)
+                .hasMessage("CDS_EXPORT_APPOINTMENT_ORIGINAL_NOTES_REQUIRED");
+    }
+
+    @Test
+    void shouldExportUnchangedImportedNotesInTheDictionaryGap_exactlyAsImported() throws Exception {
+        // Owner decision (#56): AppointmentNotes is a text32K the import accepts up to the
+        // schema's 32,768 characters. Notes nobody changed are exported exactly as imported; they
+        // were held (CDS_EXPORT_APPOINTMENT_ORIGINAL_VALUES_REQUIRES_REVIEW) past 32,000.
+        for (int length : new int[] {32_001, 32_768}) {
+            importNotes("x".repeat(length));
+            var result = reconcile();
+            assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+            assertThat(result.mapping().value().notes()).isEqualTo(originalNotes);
+            assertThat(result.preparedPaths()).contains("AppointmentNotes");
+            assertThat(result.mapping().complete()).doesNotContainKey("AppointmentNotes");
+            var content =
+                    new CdsExportAppointmentRetainedAssembler()
+                            .prepare(27, result, index, checked, fields, values(), () -> {})
+                            .content();
+            assertThat(new CdsFieldParser().firstText(parse(content).get(1), "AppointmentNotes", 32768))
+                    .isEqualTo(originalNotes);
+        }
+    }
+
+    @Test
+    void shouldCutImportedNotesInTheGapByTheNativeRule_onceCarlosAddsALine() throws Exception {
+        // A remark added in CARLOS makes the notes CARLOS text: they keep the dictionary's
+        // 32,000 characters by the native rule, cut before the mark, and the complete text,
+        // imported notes included, travels in the appointment's source record.
+        importNotes("x".repeat(32_768));
+        current.put("remarks", "Additional appointment remark");
+        var result = reconcile();
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.mapping().value().notes())
+                .hasSize(32000)
+                .endsWith(CdsExportAppointmentMapper.SHORTENED_MARK);
+        assertThat(result.mapping().complete())
+                .containsEntry(
+                        "AppointmentNotes",
+                        "x".repeat(32_768) + "\nRemarks: Additional appointment remark");
+        assertThat(result.preparedPaths()).doesNotContain("AppointmentNotes");
+        assertThat(result.currentPaths()).contains("AppointmentNotes");
+    }
+
+    /** The import's notes, as the retained element, the prepared value and the stored column. */
+    private void importNotes(String notes) {
+        originalNotes = notes;
+        old.put("notes", notes);
+        current.put("notes", notes);
+        prepared =
+                new CdsAppointmentNativeDto(
+                        prepared.date(),
+                        prepared.start(),
+                        prepared.end(),
+                        prepared.status(),
+                        prepared.purpose(),
+                        notes,
+                        prepared.providerNo(),
+                        true,
+                        List.of());
+    }
+
+    @Test
+    void shouldVerifySourceOnlyPreparationCannotBeRelabelledAsAnAppliedCalendarProjection_forAppointmentFieldReconcilerContract() {
+        prepared =
+                new CdsAppointmentNativeDto(
+                        prepared.date(),
+                        prepared.start(),
+                        prepared.end(),
+                        prepared.status(),
+                        prepared.purpose(),
+                        prepared.notes(),
+                        prepared.providerNo(),
+                        false,
+                        List.of());
+        assertThatThrownBy(this::reconcile).hasMessage("CDS_EXPORT_RETAINED_PREPARATION_INVALID");
+    }
+
+    @Test
+    void shouldVerifySubstitutedOriginalDescriptorsCannotBorrowUnchangedFieldPageReceipts_forAppointmentFieldReconcilerContract() throws Exception {
+        build();
+        var first = fields.getFirst();
+        var changed = new ArrayList<>(fields);
+        changed.set(
+                0,
+                new CdsExportRetainedFieldDto(
+                        first.id(),
+                        first.runId(),
+                        first.sourcePatientKey(),
+                        first.fieldUnitKey(),
+                        first.category(),
+                        first.sourcePath(),
+                        first.occurrence(),
+                        first.namespace(),
+                        first.valueType(),
+                        first.precision(),
+                        first.originalInline(),
+                        "Substituted source text",
+                        first.originalPayload()));
+        fields = changed;
+        assertThatThrownBy(this::invoke)
+                .hasMessage("CDS_EXPORT_APPOINTMENT_RETAINED_ASSEMBLY_SCOPE_INVALID");
+    }
+
+    @Test
+    void shouldVerifyAnUnrelatedNamespaceCannotBorrowAStandardProviderPath_forAppointmentFieldReconcilerContract() {
+        foreignNamespace = true;
+        assertThatThrownBy(this::reconcile)
+                .hasMessage("CDS_EXPORT_APPOINTMENT_ORIGINAL_VALUES_REQUIRES_REVIEW");
+    }
+
+    @Test
+    void shouldVerifyActualReceivingAppointmentPreparationPreservesTheInstant_inAnotherClinicalZone()
+            throws Exception {
+        current.put("notes", "Current cross-zone note");
+        var decision = reconcile();
+        var content =
+                new CdsExportAppointmentRetainedAssembler()
+                        .prepare(27, decision, index, checked, fields, values(), () -> {})
+                        .content();
+        var record = parse(content).get(1);
+        var configuration = org.mockito.Mockito.mock(CdsImportConfigurationService.class);
+        org.mockito.Mockito.when(configuration.value("cds.import.clinicalZone", ""))
+                .thenReturn("America/Vancouver");
+        var providers = org.mockito.Mockito.mock(CdsProviderResolver.class);
+        org.mockito.Mockito.when(
+                        providers.resolve(
+                                org.mockito.ArgumentMatchers.any(),
+                                org.mockito.ArgumentMatchers.any(),
+                                org.mockito.ArgumentMatchers.any(),
+                                org.mockito.ArgumentMatchers.any(),
+                                org.mockito.ArgumentMatchers.anyBoolean()))
+                .thenReturn(
+                        new CdsProviderMatchDto(
+                                "028", CdsProviderMatchDto.Outcome.MATCHED_IDENTIFIERS));
+        var preparation = org.mockito.Mockito.mock(CdsNativePreparationService.class);
+        var parser = new CdsFieldParser();
+        var service =
+                new CdsAppointmentPersister(
+                        parser,
+                        new CdsClinicalNormalizationService(parser),
+                        configuration,
+                        providers,
+                        preparation,
+                        org.mockito.Mockito.mock(
+                                io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao.class),
+                        org.mockito.Mockito.mock(
+                                io.github.carlos_emr.carlos.commn.dao.DemographicDao.class));
+        var command =
+                org.mockito.Mockito.mock(
+                        io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand
+                                .class);
+        service.prepare(RUN, 1, KEY, record, command);
+        var captured = org.mockito.ArgumentCaptor.forClass(CdsAppointmentNativeDto.class);
+        org.mockito.Mockito.verify(preparation)
+                .store(
+                        org.mockito.ArgumentMatchers.eq(RUN),
+                        org.mockito.ArgumentMatchers.eq(1L),
+                        org.mockito.ArgumentMatchers.eq(KEY),
+                        org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.eq(command),
+                        captured.capture());
+        assertThat(captured.getValue().representable()).isTrue();
+        assertThat(captured.getValue().date()).isEqualTo("2024-03-01");
+        assertThat(captured.getValue().start()).isEqualTo("06:00");
+        assertThat(captured.getValue().end()).isEqualTo("07:00");
+        assertThat(captured.getValue().notes()).isEqualTo("Current cross-zone note");
+    }
+
+    record Fixture(
+            CdsExportRetainedIndexDto index,
+            CdsExportRetainedReceiptVerificationDto checked,
+            CdsExportCapturedTextRowDto row,
+            CdsExportNativeRowReceiptDto witness,
+            List<CdsExportRetainedFieldDto> fields,
+            CdsExportCapturedTextRowDto demographic,
+            CdsExportAppointmentLookupsDto lookups) {}
+
+    Fixture fixture(boolean imported, String notes) throws Exception {
+        setup();
+        current.put("notes", notes);
+        if (!imported) {
+            current.put("imported_status", null);
+            old.put("imported_status", null);
+        }
+        build();
+        return new Fixture(
+                index,
+                checked,
+                row(current),
+                witness,
+                fields,
+                demographic,
+                new CdsExportAppointmentLookupsDto(HASH, lookups.providers(), lookups.statuses(), lookups.reasonCodes(), lookups.earlierPatientDisplays()));
+    }
+
+    /** A native (never imported) appointment whose current and witnessed values are {@code values}. */
+    Fixture nativeFixture(Map<String, String> values) throws Exception {
+        setup();
+        current.put("imported_status", null);
+        old.put("imported_status", null);
+        current.putAll(values);
+        old.putAll(values);
+        build();
+        return new Fixture(
+                index,
+                checked,
+                row(current),
+                witness,
+                fields,
+                demographic,
+                new CdsExportAppointmentLookupsDto(
+                        HASH,
+                        lookups.providers(),
+                        lookups.statuses(),
+                        lookups.reasonCodes(),
+                        lookups.earlierPatientDisplays()));
+    }
+
+    private CdsExportAppointmentFieldReconciler.Result reconcile() throws Exception {
+        build();
+        return invoke();
+    }
+
+    private CdsExportAppointmentFieldReconciler.Result invoke() throws Exception {
+        return new CdsExportAppointmentFieldReconciler()
+                .reconcile(
+                        27,
+                        index,
+                        ADDRESS,
+                        checked,
+                        row(current),
+                        witness,
+                        new CdsExportAppointmentLookupsDto(
+                                HASH, lookups.providers(), lookups.statuses(), lookups.reasonCodes(), lookups.earlierPatientDisplays()),
+                        demographic,
+                        ZoneId.of("America/Toronto"),
+                        fields,
+                        values(),
+                        () -> {});
+    }
+
+    private void build() throws Exception {
+        var previous = state(old);
+        var now = state(current);
+        witness =
+                new CdsExportNativeRowReceiptDto(
+                        "appointment", "51", row(current).recordKey(), now.digest(), now);
+        var ref = new CdsExportRetainedIndexDto.Reference("appointment", "51", previous.digest());
+        var json = new ObjectMapper();
+        String refs = json.writeValueAsString(Map.of("protocol", 2, "refs", List.of(ref))),
+                target = hash(refs),
+                payload = json.writeValueAsString(prepared),
+                id = CdsImportKeys.hash(RUN, KEY),
+                source = "c".repeat(64),
+                options = "d".repeat(64),
+                ruleset = "b".repeat(64);
+        var unit =
+                new TreeMap<String, String>(
+                        Map.of(
+                                "id",
+                                id,
+                                "run_id",
+                                RUN,
+                                "unit_key",
+                                KEY,
+                                "category",
+                                "Appointments",
+                                "state",
+                                "COMMITTED",
+                                "source_digest",
+                                source,
+                                "target_references",
+                                refs,
+                                "target_digest",
+                                target));
+        unit.put(
+                "native_baseline",
+                baseline ? CdsNativeBaselineCodec.encode(refs, target, List.of(previous)) : null);
+        var preparation =
+                Map.of(
+                        "id",
+                        id,
+                        "run_id",
+                        RUN,
+                        "unit_key",
+                        KEY,
+                        "source_digest",
+                        source,
+                        "options_digest",
+                        options,
+                        "ruleset_digest",
+                        ruleset,
+                        "payload_type",
+                        CdsAppointmentNativeDto.class.getName(),
+                        "payload",
+                        payload,
+                        "digest",
+                        CdsPreparationSeal.digest(
+                                CdsAppointmentNativeDto.class.getName(),
+                                source,
+                                options,
+                                ruleset,
+                                payload));
+        fields =
+                List.of(
+                        field("AppointmentTime[1]", "cds", "09:00:00-05:00"),
+                        field("Duration[1]", "cds", "60"),
+                        field("AppointmentStatus[1]", "cds", prepared.status()),
+                        field("AppointmentDate[1]/FullDate[1]", "cds_dt", "2024-02-29"),
+                        field(
+                                "Provider[1]/Name[1]/FirstName[1]",
+                                foreignNamespace ? "urn:owned:unmapped" : "cds_dt",
+                                "Original"),
+                        field("Provider[1]/Name[1]/LastName[1]", "cds_dt", "Physician"),
+                        field("Provider[1]/OHIPPhysicianId[1]", "cds", "654321"),
+                        field("AppointmentPurpose[1]", "cds", originalPurpose),
+                        field("AppointmentNotes[1]", "cds", originalNotes));
+        var metadata = new TreeMap<String, CdsExportCapturedTextRowDto>();
+        fields.forEach(field -> metadata.put(field.id(), metadata(field)));
+        var sourceRefs =
+                fields.stream()
+                        .map(
+                                field ->
+                                        new CdsExportRetainedIndexDto.Reference(
+                                                "cds_import_field", field.id(), "e".repeat(64)))
+                        .toList();
+        var tables = new TreeMap<String, Map<String, CdsExportCapturedTextRowDto>>();
+        tables.put(
+                "cds_import_unit",
+                Map.of(id, new CdsExportCapturedTextRowDto("cds_import_unit", id, unit)));
+        tables.put(
+                "cds_import_preparation",
+                Map.of(
+                        id,
+                        new CdsExportCapturedTextRowDto(
+                                "cds_import_preparation", id, preparation)));
+        tables.put(
+                "cds_import_run",
+                Map.of(
+                        RUN,
+                        new CdsExportCapturedTextRowDto(
+                                "cds_import_run",
+                                RUN,
+                                Map.of(
+                                        "id",
+                                        RUN,
+                                        "options_digest",
+                                        options,
+                                        "ruleset_digest",
+                                        ruleset))));
+        tables.put("cds_import_field", metadata);
+        index =
+                new CdsExportRetainedIndexDto(
+                        HASH,
+                        3 + fields.size(),
+                        32768,
+                        tables,
+                        Set.of(ADDRESS, PAGE_ADDRESS),
+                        Map.of(ADDRESS, List.of(ref), PAGE_ADDRESS, sourceRefs),
+                        fields.stream()
+                                .collect(
+                                        java.util.stream.Collectors.toMap(
+                                                CdsExportRetainedFieldDto::id, field -> ADDRESS)));
+        boolean same = previous.digest().equals(now.digest());
+        var comparisons =
+                Map.of(
+                        ADDRESS,
+                        List.of(
+                                new CheckedReference(
+                                        ref,
+                                        now.digest(),
+                                        same
+                                                ? Reason.UNCHANGED_ROW
+                                                : CdsNativeRowComparison.compare(previous, now)
+                                                                .schemaChanged()
+                                                        ? Reason.RECEIPT_FIELD_CODEC_UNQUALIFIED
+                                                        : Reason.CHANGED_ROW,
+                                        CdsNativeRowComparison.compare(previous, now))),
+                        PAGE_ADDRESS,
+                        sourceRefs.stream()
+                                .map(
+                                        value ->
+                                                new CheckedReference(
+                                                        value,
+                                                        value.digest(),
+                                                        Reason.UNCHANGED_ROW))
+                                .toList());
+        checked =
+                new CdsExportRetainedReceiptVerificationDto(
+                        HASH,
+                        comparisons,
+                        same ? Set.of(ADDRESS, PAGE_ADDRESS) : Set.of(PAGE_ADDRESS),
+                        same ? Set.of() : Set.of(ADDRESS));
+    }
+
+    private static CdsExportRetainedFieldDto field(
+            String relative, String namespace, String value) {
+        var type = CdsWireSchema.schemaModel().element("cds", "Appointments");
+        for (String segment : relative.split("/")) {
+            String name = segment.substring(0, segment.indexOf('['));
+            var child =
+                    type.childNames().stream()
+                            .filter(candidate -> candidate.local().equals(name))
+                            .findFirst()
+                            .orElseThrow();
+            type = type.child(child.namespace(), child.local());
+        }
+        String path = "/OmdCds[1]/PatientRecord[2]/Appointments[3]/" + relative;
+        return new CdsExportRetainedFieldDto(
+                CdsImportKeys.hash(PAGE, namespace, path, "1"),
+                RUN,
+                "c".repeat(64),
+                PAGE,
+                CdsCategory.APPOINTMENTS,
+                path,
+                1,
+                namespace,
+                "{" + type.getTypeNamespace() + "}" + type.getTypeName(),
+                null,
+                value,
+                value,
+                null);
+    }
+
+    private static CdsExportCapturedTextRowDto metadata(CdsExportRetainedFieldDto field) {
+        var values = new TreeMap<String, String>();
+        CdsExportPatientTableReadSupport.Plan.IMPORT_FIELDS
+                .columns()
+                .forEach(name -> values.put(name, null));
+        values.putAll(
+                Map.of(
+                        "id",
+                        field.id(),
+                        "run_id",
+                        field.runId(),
+                        "patient_key",
+                        field.sourcePatientKey(),
+                        "unit_key",
+                        field.fieldUnitKey(),
+                        "demographic_no",
+                        "27",
+                        "category",
+                        "Appointments",
+                        "source_path",
+                        field.sourcePath(),
+                        "occurrence",
+                        "1",
+                        "source_namespace",
+                        field.namespace(),
+                        "value_type",
+                        field.valueType()));
+        values.put("original_value", field.originalInline());
+        values.put("normalized_value", field.logicalInline());
+        values.put("payload_offset", "0");
+        values.put("payload_length", "0");
+        return new CdsExportCapturedTextRowDto("cds_import_field", field.id(), values);
+    }
+
+    private static CdsExportRetainedSectionWriter.Values values() {
+        return new CdsExportRetainedSectionWriter.Values() {
+            public Reader text(CdsExportRetainedFieldDto field) {
+                return new StringReader(field.logicalInline());
+            }
+
+            public InputStream binary(CdsExportRetainedFieldDto field) {
+                throw new AssertionError();
+            }
+        };
+    }
+
+    private static CdsExportCapturedTextRowDto row(Map<String, String> values) {
+        return new CdsExportCapturedTextRowDto(
+                "appointment", CdsExportPatientTableSourceReader.key(51), values);
+    }
+
+    private static CdsNativeRowState state(Map<String, String> values) {
+        var columns = new ArrayList<CdsNativeRowDigest.Column>();
+        var cells = new ArrayList<CdsNativeRowState.Cell>();
+        for (var entry : new TreeMap<>(values).entrySet()) {
+            columns.add(new CdsNativeRowDigest.Column(entry.getKey(), "VARCHAR", 255, 0));
+            String text = entry.getValue();
+            cells.add(
+                    new CdsNativeRowState.Cell(
+                            text == null,
+                            text == null ? 0 : text.getBytes(StandardCharsets.UTF_8).length,
+                            text == null ? null : hash(text)));
+        }
+        return new CdsNativeRowState("appointment", "51", columns, cells);
+    }
+
+    private static String hash(String text) {
+        return HexFormat.of()
+                .formatHex(CdsImportKeys.digest().digest(text.getBytes(StandardCharsets.UTF_8)));
+    }
+
+    private List<CdsRecordDto> parse(CdsExportXmlComposer.Content appointment) throws Exception {
+        var nativePatient = new TreeMap<>(demographic.fields());
+        nativePatient.remove("demographic_no");
+        nativePatient.putAll(
+                Map.of(
+                        "year_of_birth",
+                        "1980",
+                        "month_of_birth",
+                        "01",
+                        "date_of_birth",
+                        "01",
+                        "patient_status",
+                        "AC",
+                        "sex",
+                        "U"));
+        var patient =
+                new CdsExportDemographicMapper()
+                        .map(new CdsExportDemographicRowDto(27, nativePatient));
+        var selected = Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.APPOINTMENTS);
+        var parts =
+                List.of(
+                        new CdsExportXmlComposer.Section(
+                                new CdsExportIdentityDto(
+                                        HASH, CdsCategory.DEMOGRAPHICS, "b".repeat(64)),
+                                xml -> new CdsExportDemographicXmlWriter().write(patient, xml)),
+                        new CdsExportXmlComposer.Section(
+                                new CdsExportIdentityDto(
+                                        HASH, CdsCategory.APPOINTMENTS, "c".repeat(64)),
+                                appointment));
+        var output = new ByteArrayOutputStream();
+        new CdsExportXmlComposer()
+                .compose(
+                        output,
+                        HASH,
+                        HASH,
+                        "2026.08.0-test",
+                        CdsLogicalProfile.ONTARIO_MD_5_2,
+                        selected,
+                        parts.iterator(),
+                        ignored -> {},
+                        1L << 20,
+                        () -> {});
+        new CdsExportXmlValidator()
+                .validate(
+                        new ByteArrayInputStream(output.toByteArray()),
+                        "27",
+                        selected,
+                        "2026.08.0-test",
+                        CdsLogicalProfile.ONTARIO_MD_5_2,
+                        ignored -> {},
+                        () -> {});
+        var input =
+                Files.write(directory.resolve(UUID.randomUUID() + ".xml"), output.toByteArray());
+        var records = new ArrayList<CdsRecordDto>();
+        new CdsXmlParser()
+                .parse(
+                        input,
+                        directory.resolve(UUID.randomUUID().toString()),
+                        CdsInputLimitsDto.defaults(),
+                        () -> false,
+                        records::add);
+        return records;
+    }
+}

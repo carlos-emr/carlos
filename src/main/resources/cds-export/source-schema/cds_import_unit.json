@@ -1,0 +1,121 @@
+{
+  "table": "cds_import_unit",
+  "engine": "InnoDB",
+  "columns": [
+    {
+      "name": "category",
+      "type": "varchar(64)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_bin",
+      "expression": null
+    },
+    {
+      "name": "committed_at",
+      "type": "datetime(6)",
+      "nullable": "YES",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "id",
+      "type": "varchar(64)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_bin",
+      "expression": null
+    },
+    {
+      "name": "lineage_key",
+      "type": "varchar(64)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_bin",
+      "expression": null
+    },
+    {
+      "name": "native_baseline",
+      "type": "longtext",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_bin",
+      "expression": null
+    },
+    {
+      "name": "ordinal",
+      "type": "bigint(20)",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "patient_key",
+      "type": "varchar(64)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_bin",
+      "expression": null
+    },
+    {
+      "name": "run_id",
+      "type": "varchar(36)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_bin",
+      "expression": null
+    },
+    {
+      "name": "source_digest",
+      "type": "varchar(64)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_bin",
+      "expression": null
+    },
+    {
+      "name": "spool_location",
+      "type": "varchar(1024)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_bin",
+      "expression": null
+    },
+    {
+      "name": "state",
+      "type": "varchar(48)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_bin",
+      "expression": null
+    },
+    {
+      "name": "target_digest",
+      "type": "varchar(64)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_bin",
+      "expression": null
+    },
+    {
+      "name": "target_references",
+      "type": "longtext",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_bin",
+      "expression": null
+    },
+    {
+      "name": "unit_key",
+      "type": "varchar(64)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_bin",
+      "expression": null
+    }
+  ],
+  "primaryKeyColumns": [
+    "id"
+  ]
+}

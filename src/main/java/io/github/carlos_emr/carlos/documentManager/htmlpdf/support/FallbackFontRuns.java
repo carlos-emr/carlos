@@ -124,6 +124,27 @@ public final class FallbackFontRuns {
         }
     }
 
+    /**
+     * Whether {@link #apply} would print every character of a text as itself: none of them would be
+     * replaced with U+FFFD. A caller for which the PDF is a record's carrier asks this before it
+     * renders, so that it can send the exact text another way; nothing is changed or logged here.
+     *
+     * @param text the text, as it would stand in a text node
+     * @param fonts the bundled fonts, for what each face can draw
+     * @return {@code false} when at least one character has no glyph in any available bundled face
+     *         and is neither white space nor a character that draws nothing
+     */
+    public static boolean drawsEvery(CharSequence text, BundledFontSet fonts) {
+        Objects.requireNonNull(text, "text");
+        Objects.requireNonNull(fonts, "fonts");
+        String value = text.toString();
+        if (!needsLookup(value)) {
+            return true;
+        }
+        Runs runs = new Runs(fonts);
+        return value.codePoints().noneMatch(runs::replaces);
+    }
+
     private static boolean isSkipped(TextNode text) {
         for (Element ancestor = text.parent() instanceof Element parent ? parent : null; ancestor != null;
                 ancestor = ancestor.parent()) {
@@ -176,6 +197,12 @@ public final class FallbackFontRuns {
                 runFace = face;
             }
             run.appendCodePoint(drawn);
+        }
+
+        /** The decision of {@link #add} alone: whether the character would print as U+FFFD. */
+        boolean replaces(int codePoint) {
+            return !isDrawnByDejaVu(codePoint) && !isInvisible(codePoint) && fallbackFor(codePoint) == null
+                    && !isWhitespace(codePoint);
         }
 
         private boolean isDrawnByDejaVu(int codePoint) {

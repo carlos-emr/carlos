@@ -1,0 +1,606 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.demographic.cdsexport.cli;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+import io.github.carlos_emr.carlos.demographic.cds.cli.CdsProcessConfiguration;
+import io.github.carlos_emr.carlos.demographic.cds.cli.CdsProcessDelegationVerifier;
+import io.github.carlos_emr.carlos.demographic.cds.cli.CdsProcessScope;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportJobDto;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportState;
+import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportArtifactUnavailableException;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Semaphore;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+
+@Tag("unit")
+@Tag("cds-export")
+class CdsExportCliUnitTest {
+    @Test
+    void shouldKeepFrameworkAndClinicalMessagesPrivate_whileEmittingBoundedWorkerFailureMetadata()
+            throws Exception {
+        var process =
+                new ProcessBuilder(
+                                Path.of(System.getProperty("java.home"), "bin", "java").toString(),
+                                "-cp",
+                                System.getProperty(
+                                        "surefire.test.class.path",
+                                        System.getProperty("java.class.path")),
+                                SafeLoggingProbe.class.getName())
+                        .redirectErrorStream(true)
+                        .start();
+        boolean exited = process.waitFor(15, TimeUnit.SECONDS);
+        if (!exited) process.destroyForcibly();
+        assertThat(exited).isTrue();
+        assertThat(process.exitValue()).isZero();
+        String output =
+                new String(process.getInputStream().readNBytes(131072), StandardCharsets.UTF_8);
+        assertThat(output)
+                .contains("CDS_TECHNICAL:", "java.lang.IllegalStateException", "#main")
+                .doesNotContain("SYNTHETIC_PRIVATE_SQL", "SYNTHETIC_CLINICAL_VALUE");
+    }
+
+    public static final class SafeLoggingProbe {
+        public static void main(String[] args) {
+            io.github.carlos_emr.carlos.demographic.cds.cli.CdsProcessLogging.configure();
+            org.apache.logging.log4j.LogManager.getLogger("org.hibernate.SQL")
+                    .error("SYNTHETIC_PRIVATE_SQL");
+            var failure = new IllegalStateException("SYNTHETIC_CLINICAL_VALUE");
+            org.apache.logging.log4j.LogManager.getLogger("carlos.cds.safeTechnical")
+                    .error(
+                            "CDS_TECHNICAL: {}",
+                            new String(
+                                    io.github.carlos_emr.carlos.demographic.cds.cli
+                                            .CdsProcessLogging.failureSummary(failure, false),
+                                    StandardCharsets.UTF_8));
+        }
+    }
+
+    @Test
+    void shouldVerifyProgressCloseWaits_forInterruptedWorkToRetire() throws Exception {
+        var started = new CountDownLatch(1);
+        var finished = new CountDownLatch(1);
+        try (var progress = new CdsExportCli.ProgressExecutor()) {
+            progress.execute(
+                    () -> {
+                        started.countDown();
+                        try {
+                            new CountDownLatch(1).await();
+                        } catch (InterruptedException stop) {
+                            Thread.currentThread().interrupt();
+                        } finally {
+                            finished.countDown();
+                        }
+                    });
+            assertThat(started.await(5, TimeUnit.SECONDS)).isTrue();
+        }
+        assertThat(finished.getCount()).isZero();
+    }
+
+    @Test
+    void shouldVerifyProgressClosePreservesTheCallersInterruptFlag_forCliContract() {
+        try {
+            try (var progress = new CdsExportCli.ProgressExecutor()) {
+                Thread.currentThread().interrupt();
+            }
+            assertThat(Thread.currentThread().isInterrupted()).isTrue();
+        } finally {
+            Thread.interrupted();
+        }
+    }
+
+    @Test
+    void shouldVerifyProgressCloseRefusesWorkThatDoesNotRetire_withinItsBound() throws Exception {
+        var started = new CountDownLatch(1);
+        var release = new Semaphore(0);
+        try (var progress = new CdsExportCli.ProgressExecutor(TimeUnit.MILLISECONDS.toNanos(25))) {
+            progress.execute(
+                    () -> {
+                        started.countDown();
+                        release.acquireUninterruptibly();
+                    });
+            try {
+                assertThat(started.await(5, TimeUnit.SECONDS)).isTrue();
+                assertThatThrownBy(progress::close)
+                        .isInstanceOf(IllegalStateException.class)
+                        .hasMessage("CDS_EXPORT_PROGRESS_CLEANUP_INCOMPLETE");
+            } finally {
+                release.release();
+                progress.shutdownNow();
+                progress.awaitTermination(5, TimeUnit.SECONDS);
+            }
+            assertThat(progress.isTerminated()).isTrue();
+        }
+    }
+
+    private static final String RUN = "22222222-2222-4222-8222-222222222222",
+            NONCE = "33333333-3333-4333-8333-333333333333";
+    private ByteArrayOutputStream output, error;
+    private PrintStream out, err;
+    private CdsExportCliRuntime runtime;
+    private CdsProcessConfiguration configuration;
+    private CdsProcessDelegationVerifier.Delegation delegation;
+
+    @BeforeEach
+    void prepareExplicitProcessFixture() throws Exception {
+        output = new ByteArrayOutputStream();
+        error = new ByteArrayOutputStream();
+        out = new PrintStream(output, true, StandardCharsets.UTF_8);
+        err = new PrintStream(error, true, StandardCharsets.UTF_8);
+        runtime = mock(CdsExportCliRuntime.class);
+        configuration = new CdsProcessConfiguration(Path.of("/synthetic"), new Properties(), 512);
+        delegation = new CdsProcessDelegationVerifier.Delegation("operator", 1234, NONCE);
+        when(runtime.resolveRunId()).thenReturn(RUN);
+        when(runtime.accept()).thenReturn(RUN);
+        when(runtime.status(RUN)).thenReturn(job(CdsExportState.ACCEPTED, false));
+        when(runtime.execute(RUN)).thenReturn(job(CdsExportState.READY, true));
+    }
+
+    @AfterEach
+    void retireFixtureStreams() {
+        Thread.interrupted();
+        out.close();
+        err.close();
+    }
+
+    @Test
+    void shouldPrintDurableSubmissionAndAcceptance_beforeAnyClinicalExecution() throws Exception {
+        doAnswer(
+                        call -> {
+                            assertThat(output.toString(StandardCharsets.UTF_8))
+                                    .contains(
+                                            "\"event\":\"SUBMISSION\"",
+                                            "\"event\":\"ACCEPTED\"",
+                                            RUN);
+                            return job(CdsExportState.READY, true);
+                        })
+                .when(runtime)
+                .execute(RUN);
+        assertThat(run(fresh())).isZero();
+        verify(runtime).close();
+        assertThat(output.toString(StandardCharsets.UTF_8)).contains("\"artifactAvailable\":true");
+    }
+
+    @Test
+    void shouldReturnDetachedWaiting_withoutExecutingOrClaimingClinicalCompletion()
+            throws Exception {
+        var args = new ArrayList<>(List.of(fresh()));
+        args.add("--detach");
+        assertThat(run(args.toArray(String[]::new))).isZero();
+        verify(runtime, never()).execute(anyString());
+        assertThat(output.toString(StandardCharsets.UTF_8))
+                .contains(
+                        "\"waiting\":true",
+                        "\"totalPatients\":null",
+                        "\"artifactAvailable\":false");
+    }
+
+    @Test
+    void shouldRefuseAReadyLabelWithoutAPublishedArtifact_andPreserveReviewOutcomes()
+            throws Exception {
+        when(runtime.execute(RUN)).thenReturn(job(CdsExportState.READY, false));
+        assertThat(run(fresh())).isEqualTo(4);
+        when(runtime.execute(RUN)).thenReturn(job(CdsExportState.REVIEW_REQUIRED, false));
+        assertThat(run(fresh())).isEqualTo(4);
+    }
+
+    @Test
+    void shouldExitFive_whenTheReadyPackageLeavesOutHeldPatients() throws Exception {
+        when(runtime.execute(RUN))
+                .thenReturn(
+                        new CdsExportJobDto(
+                                RUN,
+                                CdsExportState.READY,
+                                1,
+                                3L,
+                                3,
+                                1,
+                                false,
+                                false,
+                                1,
+                                null,
+                                Instant.EPOCH,
+                                Instant.EPOCH,
+                                true));
+        assertThat(run(fresh())).isEqualTo(5);
+        assertThat(error.toString(StandardCharsets.UTF_8))
+                .contains("CDS_EXPORT_PATIENTS_HELD: package ready without 1 held patient(s)");
+        assertThat(output.toString(StandardCharsets.UTF_8)).contains("\"heldBack\":true");
+    }
+
+    @Test
+    void shouldNameTheMissingRight_whenAdmissionRefusesTheProvidersRoles() throws Exception {
+        when(runtime.accept())
+                .thenThrow(new SecurityException("missing required sec object (_lab_sensitive)"));
+        assertThat(run(fresh())).isEqualTo(3);
+        assertThat(error.toString(StandardCharsets.UTF_8))
+                .contains("lack read access to _lab_sensitive")
+                .doesNotContain("current export scope is denied");
+        doThrow(new SecurityException("CDS_EXPORT_AUTHORIZATION_DENIED")).when(runtime).accept();
+        error.reset();
+        assertThat(run(fresh())).isEqualTo(3);
+        assertThat(error.toString(StandardCharsets.UTF_8))
+                .contains("CDS_EXPORT_AUTHORIZATION: current export scope is denied");
+    }
+
+    @Test
+    void shouldSayTheDelegationIsMissing_insteadOfAGenericDenial() throws Exception {
+        doThrow(new SecurityException("CDS_EXPORT_DELEGATION_NOT_CONFIGURED")).when(runtime).accept();
+        assertThat(run(fresh())).isEqualTo(3);
+        assertThat(error.toString(StandardCharsets.UTF_8))
+                .contains("CDS_EXPORT_DELEGATION_NOT_CONFIGURED")
+                .contains("cds.export.operator.<user>.providers")
+                .doesNotContain("current export scope is denied");
+        error.reset();
+        doThrow(new SecurityException("CDS_EXPORT_DELEGATION_DENIED")).when(runtime).accept();
+        assertThat(run(fresh())).isEqualTo(3);
+        assertThat(error.toString(StandardCharsets.UTF_8))
+                .contains("CDS_EXPORT_DELEGATION_DENIED")
+                .doesNotContain("current export scope is denied");
+    }
+
+    @Test
+    void shouldNameTheSafeCode_andNeverSendToReconcileAJobThatWasNotSubmitted() throws Exception {
+        int status =
+                CdsExportCli.runAuthorized(
+                        configuration,
+                        CdsExportCliArguments.parse(fresh()),
+                        delegation,
+                        out,
+                        err,
+                        (selected, args, proof) -> {
+                            throw new IllegalStateException("CDS_EXPORT_CLINICAL_ZONE_REQUIRED");
+                        });
+        assertThat(status).isEqualTo(2);
+        assertThat(error.toString(StandardCharsets.UTF_8))
+                .contains(
+                        "CDS_EXPORT_NOT_STARTED: CDS_EXPORT_CLINICAL_ZONE_REQUIRED; this command did not"
+                                + " submit or change an export job")
+                .doesNotContain("reconcile the original durable job");
+        error.reset();
+        doThrow(new IllegalStateException("CDS_EXPORT_WORKER_BUSY")).when(runtime).resume(RUN);
+        assertThat(run(new String[] {"--operation", "resume", "--provider", "100", "--run", RUN}))
+                .isEqualTo(2);
+        assertThat(error.toString(StandardCharsets.UTF_8))
+                .contains("CDS_EXPORT_RUNTIME: CDS_EXPORT_WORKER_BUSY: operation did not establish");
+    }
+
+    @Test
+    void shouldExitTwo_whenAControlOutcomeIsUnconfirmed() throws Exception {
+        doThrow(
+                        new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                .CdsExportControlOutcomeUnknownException())
+                .when(runtime)
+                .cancel(RUN);
+        assertThat(run(new String[] {"--operation", "cancel", "--provider", "100", "--run", RUN}))
+                .isEqualTo(2);
+        assertThat(error.toString(StandardCharsets.UTF_8)).contains("CDS_EXPORT_UNCERTAIN");
+    }
+
+    @Test
+    void shouldTreatAStatusExitAsObservation_only() throws Exception {
+        assertThat(run(new String[] {"--operation", "status", "--provider", "100", "--run", RUN}))
+                .isZero();
+        verify(runtime, never()).execute(anyString());
+        verify(runtime, never()).accept();
+        assertThat(output.toString(StandardCharsets.UTF_8))
+                .contains("\"state\":\"ACCEPTED\"", "\"artifactAvailable\":false");
+    }
+
+    @Test
+    void shouldReportAnExpiredCaptureOwnerAsWaiting_withTheSameIncompleteOutcomeAsTheBrowser() {
+        when(runtime.status(RUN)).thenReturn(job(CdsExportState.CAPTURING, false));
+        assertThat(run(new String[] {"--operation", "status", "--provider", "100", "--run", RUN}))
+                .isZero();
+        assertThat(output.toString(StandardCharsets.UTF_8))
+                .contains("\"waiting\":true", "\"complete\":false");
+    }
+
+    @Test
+    void shouldRefuseAReadyArtifactWithUnknownOrBlockedPatients_asClinicalSuccess() {
+        when(runtime.execute(RUN))
+                .thenReturn(
+                        new CdsExportJobDto(
+                                RUN,
+                                CdsExportState.READY,
+                                1,
+                                null,
+                                0,
+                                0,
+                                false,
+                                false,
+                                1,
+                                null,
+                                Instant.EPOCH,
+                                Instant.EPOCH,
+                                true));
+        assertThat(run(fresh())).isEqualTo(4);
+        when(runtime.execute(RUN))
+                .thenReturn(
+                        new CdsExportJobDto(
+                                RUN,
+                                CdsExportState.READY,
+                                1,
+                                1L,
+                                1,
+                                1,
+                                false,
+                                false,
+                                1,
+                                null,
+                                Instant.EPOCH,
+                                Instant.EPOCH,
+                                true));
+        assertThat(run(fresh())).isEqualTo(4);
+    }
+
+    @Test
+    void shouldWatchTheOnlineWorker_insteadOfRunningAnEformExportInThisProcess() throws Exception {
+        when(runtime.rendererHandoffMillis(RUN)).thenReturn(120_000L);
+        var owned =
+                new CdsExportJobDto(
+                        RUN,
+                        CdsExportState.CAPTURING,
+                        2,
+                        1L,
+                        0,
+                        0,
+                        false,
+                        true,
+                        1,
+                        null,
+                        Instant.EPOCH,
+                        Instant.EPOCH,
+                        false);
+        when(runtime.status(RUN))
+                .thenReturn(owned)
+                .thenReturn(job(CdsExportState.READY, true));
+
+        assertThat(run(fresh())).isZero();
+
+        // The web worker, which renders eForms, ran the job; this process only watched it.
+        verify(runtime, never()).execute(anyString());
+        assertThat(output.toString(StandardCharsets.UTF_8))
+                .contains("\"event\":\"HANDOFF\"", "\"seconds\":120")
+                .doesNotContain("HANDOFF_FALLBACK");
+    }
+
+    @Test
+    void shouldRunTheJobHere_whenNoOnlineWorkerClaimsItWithinTheHandoffWindow() throws Exception {
+        when(runtime.rendererHandoffMillis(RUN)).thenReturn(1L);
+        when(runtime.status(RUN)).thenReturn(job(CdsExportState.ACCEPTED, false));
+
+        assertThat(run(fresh())).isZero();
+
+        // Never a hold: the job still runs, and its eForms travel as noted data summaries.
+        verify(runtime).execute(RUN);
+        assertThat(output.toString(StandardCharsets.UTF_8))
+                .contains("\"event\":\"HANDOFF\"", "\"event\":\"HANDOFF_FALLBACK\"");
+    }
+
+    @Test
+    void shouldStopForegroundWaiting_withoutIssuingCancellation() throws Exception {
+        doAnswer(
+                        call -> {
+                            Thread.currentThread().interrupt();
+                            throw new java.util.concurrent.CancellationException();
+                        })
+                .when(runtime)
+                .execute(RUN);
+        assertThat(run(fresh())).isEqualTo(130);
+        verify(runtime, never()).cancel(anyString());
+        verify(runtime).close();
+        assertThat(Thread.currentThread().isInterrupted()).isTrue();
+    }
+
+    @Test
+    void shouldKeepAnUnavailableVerifiedReport_orPackageIncomplete() throws Exception {
+        doThrow(
+                        new CdsExportArtifactUnavailableException(
+                                CdsExportArtifactUnavailableException.Kind.REPORT))
+                .when(runtime)
+                .report(RUN);
+        assertThat(run(new String[] {"--operation", "report", "--provider", "100", "--run", RUN}))
+                .isEqualTo(4);
+        doThrow(
+                        new CdsExportArtifactUnavailableException(
+                                CdsExportArtifactUnavailableException.Kind.PACKAGE))
+                .when(runtime)
+                .download(RUN);
+        assertThat(
+                        run(
+                                new String[] {
+                                    "--operation",
+                                    "download",
+                                    "--provider",
+                                    "100",
+                                    "--run",
+                                    RUN,
+                                    "--artifact",
+                                    "opaque",
+                                    "--output",
+                                    "/safe/export.cms"
+                                }))
+                .isEqualTo(4);
+    }
+
+    @Test
+    void shouldKeepSourceMessagesAndCredentials_outOfTechnicalConsoleEvidence() throws Exception {
+        doThrow(new IllegalStateException("PHI-SECRET-PATIENT credential=password"))
+                .when(runtime)
+                .accept();
+        assertThat(run(fresh())).isEqualTo(2);
+        assertThat(output.toString(StandardCharsets.UTF_8) + error.toString(StandardCharsets.UTF_8))
+                .doesNotContain("PHI-SECRET-PATIENT", "credential=password");
+    }
+
+    @Test
+    void shouldFailConsoleDeliveryOrCleanup_withoutConvertingItToClinicalSuccess()
+            throws Exception {
+        doThrow(new IllegalStateException("cleanup detail")).when(runtime).close();
+        assertThat(run(fresh())).isEqualTo(2);
+    }
+
+    @Test
+    void shouldProbeTheExportHeapWithoutSpring_andAdvertiseOnlyTheInstalledOntarioMdProfile()
+            throws Exception {
+        AtomicInteger opened = new AtomicInteger();
+        try (var loader = mockStatic(CdsProcessConfiguration.class)) {
+            loader.when(() -> CdsProcessConfiguration.load(anyMap(), eq(CdsProcessScope.EXPORT)))
+                    .thenReturn(configuration);
+            int status =
+                    CdsExportCli.run(
+                            new String[] {"--capabilities"},
+                            Map.of(),
+                            out,
+                            err,
+                            (configured, args, proof) -> {
+                                opened.incrementAndGet();
+                                return runtime;
+                            });
+            assertThat(status).isZero();
+            assertThat(opened).hasValue(0);
+            assertThat(output.toString(StandardCharsets.UTF_8))
+                    .contains(
+                            "\"engine\":\"cds-export\"",
+                            "\"qualifiedProfiles\":[\"omd-5.2\"]",
+                            "\"cliHeapMiB\":512")
+                    .doesNotContain("pcon-2024-02");
+        }
+    }
+
+    /** A job stopped for review that keeps {@code kept} finished charts for a resume. */
+    private static CdsExportJobDto stopped(long kept, long adopted, long built) {
+        return new CdsExportJobDto(
+                RUN,
+                CdsExportState.REVIEW_REQUIRED,
+                3,
+                6L,
+                0,
+                0,
+                false,
+                false,
+                2,
+                "CDS_EXPORT_DOCUMENT_STORAGE_UNTRUSTED",
+                Instant.EPOCH,
+                Instant.EPOCH,
+                false,
+                kept,
+                kept == 0 ? null : Instant.parse("2026-11-21T15:00:00Z"),
+                adopted,
+                built);
+    }
+
+    @Test
+    void shouldSayWhatIsKept_whenAResumedJobStopsAgain() throws Exception {
+        when(runtime.execute(RUN)).thenReturn(stopped(5, 2, 3));
+        when(runtime.status(RUN)).thenReturn(stopped(5, 2, 3));
+        assertThat(run(new String[] {"--operation", "resume", "--provider", "100", "--run", RUN}))
+                .isEqualTo(4);
+        assertThat(output.toString(StandardCharsets.UTF_8))
+                .contains(
+                        "\"keptCharts\":5",
+                        "\"keptUntil\":\"2026-11-21T15:00:00Z\"",
+                        "\"adoptedCharts\":2",
+                        "\"builtCharts\":3");
+        assertThat(error.toString(StandardCharsets.UTF_8))
+                .contains(
+                        "CDS_EXPORT_CHARTS_KEPT: 5 finished chart(s) are kept, encrypted, until"
+                                + " 2026-11-21T15:00:00Z; resume adopts each one whose records are"
+                                + " unchanged, cancel erases them");
+    }
+
+    @Test
+    void shouldSayTheKeptChartsWereErased_whenAStoppedJobIsCancelled() throws Exception {
+        when(runtime.status(RUN)).thenReturn(stopped(4, 0, 4), stopped(0, 0, 4));
+        assertThat(run(new String[] {"--operation", "cancel", "--provider", "100", "--run", RUN}))
+                .isZero();
+        verify(runtime).cancel(RUN);
+        assertThat(output.toString(StandardCharsets.UTF_8))
+                .contains("\"keptCharts\":0", "\"keptUntil\":null");
+        assertThat(error.toString(StandardCharsets.UTF_8))
+                .contains(
+                        "CDS_EXPORT_CHARTS_ERASED: the 4 finished chart(s) the stopped job kept"
+                                + " were erased; a resume builds every chart again");
+    }
+
+    private int run(String[] arguments) {
+        return CdsExportCli.runAuthorized(
+                configuration,
+                CdsExportCliArguments.parse(arguments),
+                delegation,
+                out,
+                err,
+                (selected, args, proof) -> runtime);
+    }
+
+    private static CdsExportJobDto job(CdsExportState state, boolean available) {
+        return new CdsExportJobDto(
+                RUN,
+                state,
+                1,
+                state == CdsExportState.READY ? 1L : null,
+                state == CdsExportState.READY ? 1 : 0,
+                0,
+                false,
+                false,
+                1,
+                null,
+                Instant.EPOCH,
+                Instant.EPOCH,
+                available);
+    }
+
+    private static String[] fresh() {
+        return new String[] {
+            "--operation",
+            "export",
+            "--provider",
+            "100",
+            "--profile",
+            "omd-5.2",
+            "--physicians",
+            "100",
+            "--recipient",
+            "recipient",
+            "--audit-plan",
+            "audit"
+        };
+    }
+}

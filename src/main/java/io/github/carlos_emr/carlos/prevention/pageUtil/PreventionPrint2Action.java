@@ -51,6 +51,8 @@ import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.prevention.PreventionData;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionSourceUnavailableException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -69,8 +71,10 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * <p>The PDF is drawn into a buffer and checked before any header is set, so a failure can
  * still answer the Preventions page with its "An error occurred while trying to print" banner
  * (the {@code error} result) instead of a download whose body is that page's HTML: 400 when
- * nothing printable was selected, 500 when drawing failed. A malformed or unknown patient
- * number is answered with 400 and no page.</p>
+ * nothing printable was selected, 500 when drawing failed, 503 with the page's "preventions
+ * could not be read" banner when a prevention read failed (nothing is printed then, never the
+ * types that were read). A malformed or unknown patient number is answered with 400 and no
+ * page.</p>
  *
  * @see PreventionPrintLoader
  * @see PreventionPrintPdf
@@ -129,6 +133,13 @@ public class PreventionPrint2Action extends ActionSupport {
             // No patient has that number (or it is not a number).
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Patient not found");
             return NONE;
+        } catch (PreventionSourceUnavailableException _) {
+            // A prevention read failed (logged where it failed). Nothing is printed: a printout
+            // of the types read so far would go on paper as the patient's whole history. The
+            // Preventions page says why instead of showing its general print error.
+            PreventionData.logUnreadable("prevention print", demographicNo);
+            request.setAttribute("printUnreadable", Boolean.TRUE);
+            return printError(request, response, HttpServletResponse.SC_SERVICE_UNAVAILABLE);
         }
         if (printout.sections().isEmpty()) {
             return printError(request, response, HttpServletResponse.SC_BAD_REQUEST);

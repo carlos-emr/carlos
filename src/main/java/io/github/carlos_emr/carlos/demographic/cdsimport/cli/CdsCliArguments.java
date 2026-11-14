@@ -29,10 +29,12 @@ import java.util.Set;
 
 /** Strict, bounded adapter arguments; source identity and clinical policy remain in shared services. */
 public record CdsCliArguments(String operation, String provider, String runId, Map<String, String> values) {
-    public static final Set<String> OPERATIONS = Set.of("import", "status", "resume", "cancel", "report");
+    public static final Set<String> OPERATIONS = Set.of("import", "status", "resume", "cancel", "report", "abandon");
     private static final Set<String> FLAGS = Set.of("--merge-existing", "--dry-run", "--no-match-providers", "--synthetic");
     private static final Set<String> OPTIONS = Set.of("--operation", "--provider", "--run", "--submission-key", "--input", "--program",
-            "--facility", "--source-namespace", "--source-profile", "--timeshift", "--course");
+            "--facility", "--source-namespace", "--source-profile", "--timeshift", "--course", "--confirm", "--reason");
+    /** The longest stated abandon reason, in characters; the engine enforces the same bound. */
+    static final int MAXIMUM_REASON = 1000;
 
     public CdsCliArguments {
         values = Map.copyOf(values);
@@ -51,6 +53,9 @@ public record CdsCliArguments(String operation, String provider, String runId, M
                     || value.chars().anyMatch(c -> c < 32 || c == 127)
                     || values.putIfAbsent(option, value) != null) throw invalid();
         }
+        // Run IDs are stored as lowercase UUIDs; one pasted in capitals names the same run.
+        for (String named : java.util.List.of("--run", "--confirm"))
+            values.computeIfPresent(named, (option, value) -> lowerHex(value));
         String operation = values.get("--operation"), provider = values.get("--provider");
         if (!OPERATIONS.contains(operation == null ? "" : operation)
                 || provider == null || !provider.matches("[A-Za-z0-9_-]{1,16}")) throw invalid();
@@ -60,16 +65,31 @@ public record CdsCliArguments(String operation, String provider, String runId, M
             token(values.get("--source-profile"), 32);
             // Construction also rejects invalid synthetic/course/merge combinations.
             new CdsCliArguments(operation, provider, null, values).command("validation");
+        } else if ("abandon".equals(operation)) {
+            // An abandon names its run twice and states a reason; nothing else is accepted.
+            if (!values.keySet().equals(Set.of("--operation", "--provider", "--run", "--confirm", "--reason"))
+                    || !values.get("--run").equals(values.get("--confirm"))
+                    || values.get("--reason").isBlank()
+                    || values.get("--reason").codePointCount(0, values.get("--reason").length())
+                            > MAXIMUM_REASON) throw invalid();
+            runId(values.get("--run"));
         } else {
             boolean submission = "status".equals(operation) && values.containsKey("--submission-key");
             String handle = submission ? "--submission-key" : "--run";
             if (!values.keySet().equals(Set.of("--operation", "--provider", handle))) throw invalid();
-            token(values.get(handle), 128);
+            if (submission) token(values.get(handle), 128);
+            else runId(values.get(handle));
         }
         return new CdsCliArguments(operation, provider, values.get("--run"), values);
     }
 
     public String submissionKey() { return values.get("--submission-key"); }
+
+    /** The abandon confirmation: the run ID typed a second time. */
+    public String confirmation() { return values.get("--confirm"); }
+
+    /** The operator's stated abandon reason; protected, never printed. */
+    public String reason() { return values.get("--reason"); }
 
     public CdsImportCommand command(String submissionKey) {
         if (!"import".equals(operation)) throw invalid();
@@ -93,6 +113,24 @@ public record CdsCliArguments(String operation, String provider, String runId, M
             if (selected < 1) throw invalid();
             return selected;
         } catch (NumberFormatException failure) { throw invalid(); }
+    }
+
+    /** Import runs are named by random UUIDs; any other run ID is refused before the engine starts. */
+    private static final java.util.regex.Pattern RUN_ID =
+            java.util.regex.Pattern.compile("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
+
+    /** Lowers only the ASCII letters A-F, so no other character can turn into a valid run ID. */
+    private static String lowerHex(String value) {
+        StringBuilder lowered = new StringBuilder(value.length());
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            lowered.append(c >= 'A' && c <= 'F' ? (char) (c + ('a' - 'A')) : c);
+        }
+        return lowered.toString();
+    }
+
+    private static void runId(String value) {
+        if (value == null || !RUN_ID.matcher(value).matches()) throw invalid();
     }
 
     private static void token(String value, int maximum) {

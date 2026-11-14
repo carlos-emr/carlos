@@ -25,6 +25,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.SiteDao;
 import io.github.carlos_emr.carlos.commn.model.Site;
+import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationLetterDto;
 import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationPDFCreator;
 import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequestUtil;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
@@ -64,7 +65,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
@@ -139,9 +139,18 @@ class ClinicLogoSiteResolutionUnitTest extends CarlosUnitTestBase {
     }
 
     private PdfPTable consultation(String value) {
-        var creator = mock(ConsultationPDFCreator.class, CALLS_REAL_METHODS);
-        ReflectionTestUtils.setField(creator, "props", properties);
-        ReflectionTestUtils.setField(creator, "reqFrm", form(value));
+        // The request path resolves the letter's logo from the form's site name with exactly this
+        // call (ConsultationPDFCreatorRequestPathUnitTest pins that wiring); the creator then
+        // draws whatever file the letter carries.
+        var letter = new ConsultationLetterDto(java.util.Locale.ENGLISH,
+                new ConsultationLetterDto.Letterhead("", "", "", "", "", "", "", "", "", "", ""),
+                new ConsultationLetterDto.Request("0", "", "", "", "", false, false), null,
+                new ConsultationLetterDto.Patient("", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""),
+                new ConsultationLetterDto.Clinical("", "", "", "", "", "", ""),
+                new ConsultationLetterDto.Footer(false, null, "", false, null, ""),
+                new ConsultationLetterDto.Images(false, null, true,
+                        ClinicLogoUtility.resolveConsultationLogo(value), null));
+        var creator = new ConsultationPDFCreator(letter, new ByteArrayOutputStream());
         return ReflectionTestUtils.invokeMethod(creator, "createLogoHeader");
     }
 

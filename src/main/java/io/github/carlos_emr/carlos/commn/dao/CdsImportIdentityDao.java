@@ -28,47 +28,102 @@ import org.springframework.stereotype.Repository;
 /** Bounded indexed equality queries use the actual demographic column collations. */
 @Repository
 public class CdsImportIdentityDao extends AbstractDaoImpl<CdsImportIdentity> {
-    public CdsImportIdentityDao() { super(CdsImportIdentity.class); }
-    public CdsImportIdentity get(String id) { return entityManager.find(CdsImportIdentity.class, id); }
-    public boolean healthNumberCollision(String run, String copy, String patient, String hin, String issuer) {
-        var query=issuer == null
-                ? entityManager.createQuery("select p.id from CdsImportIdentity p where p.runId=:run and p.copyKey=:copy "
-                        + "and p.comparable=true and p.hin=:hin and p.patientKey<>:patient", String.class)
-                : entityManager.createQuery("select p.id from CdsImportIdentity p where p.runId=:run and p.copyKey=:copy "
-                        + "and p.comparable=true and p.hin=:hin and p.patientKey<>:patient "
-                        + "and (p.issuer=:issuer or p.issuer is null)", String.class);
-        query.setParameter("run", run).setParameter("copy", copy).setParameter("hin", hin)
-                .setParameter("patient", patient).setMaxResults(1);
+    public CdsImportIdentityDao() {
+        super(CdsImportIdentity.class);
+    }
+
+    public CdsImportIdentity get(String id) {
+        return entityManager.find(CdsImportIdentity.class, id);
+    }
+
+    public boolean healthNumberCollision(
+            String run, String copy, String patient, String hin, String issuer) {
+        var query =
+                issuer == null
+                        ? entityManager.createQuery(
+                                "select p.id from CdsImportIdentity p where p.runId=:run and p.copyKey=:copy "
+                                        + "and p.comparable=true and p.hin=:hin and p.patientKey<>:patient",
+                                String.class)
+                        : entityManager.createQuery(
+                                "select p.id from CdsImportIdentity p where p.runId=:run and p.copyKey=:copy "
+                                        + "and p.comparable=true and p.hin=:hin and p.patientKey<>:patient "
+                                        + "and (p.issuer=:issuer or p.issuer is null)",
+                                String.class);
+        query.setParameter("run", run)
+                .setParameter("copy", copy)
+                .setParameter("hin", hin)
+                .setParameter("patient", patient)
+                .setMaxResults(1);
         if (issuer != null) query.setParameter("issuer", issuer);
         return !query.getResultList().isEmpty();
     }
-    public boolean nameCollision(String run, String copy, String patient, String first, String last, LocalDate birth, boolean missingHin) {
-        var query=missingHin
-                ? entityManager.createQuery("select p.id from CdsImportIdentity p where p.runId=:run and p.copyKey=:copy "
-                        + "and p.comparable=true and p.lastName=:last and p.firstName=:first and p.birthDate=:birth and p.patientKey<>:patient", String.class)
-                : entityManager.createQuery("select p.id from CdsImportIdentity p where p.runId=:run and p.copyKey=:copy "
-                        + "and p.comparable=true and p.lastName=:last and p.firstName=:first and p.birthDate=:birth "
-                        + "and p.patientKey<>:patient and p.hin is null", String.class);
-        return !query
-                .setParameter("run", run).setParameter("copy", copy).setParameter("patient", patient)
-                .setParameter("first", first).setParameter("last", last).setParameter("birth", birth)
-                .setMaxResults(1).getResultList().isEmpty();
+
+    public boolean nameCollision(
+            String run,
+            String copy,
+            String patient,
+            String first,
+            String last,
+            LocalDate birth,
+            boolean missingHin) {
+        var query =
+                missingHin
+                        ? entityManager.createQuery(
+                                "select p.id from CdsImportIdentity p where p.runId=:run and p.copyKey=:copy "
+                                        + "and p.comparable=true and p.lastName=:last and p.firstName=:first and p.birthDate=:birth and p.patientKey<>:patient",
+                                String.class)
+                        : entityManager.createQuery(
+                                "select p.id from CdsImportIdentity p where p.runId=:run and p.copyKey=:copy "
+                                        + "and p.comparable=true and p.lastName=:last and p.firstName=:first and p.birthDate=:birth "
+                                        + "and p.patientKey<>:patient and p.hin is null",
+                                String.class);
+        return !query.setParameter("run", run)
+                .setParameter("copy", copy)
+                .setParameter("patient", patient)
+                .setParameter("first", first)
+                .setParameter("last", last)
+                .setParameter("birth", birth)
+                .setMaxResults(1)
+                .getResultList()
+                .isEmpty();
     }
+
     public boolean clinicalCollationsMatch() {
-        Number columns=(Number) entityManager.createNativeQuery("SELECT COUNT(*) FROM information_schema.COLUMNS a "
-                + "JOIN information_schema.COLUMNS b ON b.TABLE_SCHEMA=a.TABLE_SCHEMA AND b.COLUMN_NAME=a.COLUMN_NAME "
-                + "WHERE a.TABLE_SCHEMA=DATABASE() AND a.TABLE_NAME='demographic' AND b.TABLE_NAME='cds_import_identity' "
-                + "AND a.COLUMN_NAME IN ('first_name','last_name','hin') AND a.COLLATION_NAME=b.COLLATION_NAME "
-                + "AND a.CHARACTER_SET_NAME=b.CHARACTER_SET_NAME").getSingleResult();
-        Number authority=(Number) entityManager.createNativeQuery("SELECT COUNT(*) FROM information_schema.COLUMNS a "
-                + "JOIN information_schema.COLUMNS b ON b.TABLE_SCHEMA=a.TABLE_SCHEMA "
-                + "WHERE a.TABLE_SCHEMA=DATABASE() AND a.TABLE_NAME='demographic' AND a.COLUMN_NAME='cds_identity_issuer' "
-                + "AND b.TABLE_NAME='cds_import_identity' AND b.COLUMN_NAME='issuer' "
-                + "AND a.COLLATION_NAME=b.COLLATION_NAME AND a.CHARACTER_SET_NAME=b.CHARACTER_SET_NAME").getSingleResult();
-        return columns.intValue()==3 && authority.intValue()==1;
+        Number columns =
+                (Number)
+                        entityManager
+                                .createNativeQuery(
+                                        "SELECT COUNT(*) FROM information_schema.COLUMNS a "
+                                                + "JOIN information_schema.COLUMNS b ON b.TABLE_SCHEMA=a.TABLE_SCHEMA AND b.COLUMN_NAME=a.COLUMN_NAME "
+                                                + "WHERE a.TABLE_SCHEMA=DATABASE() AND a.TABLE_NAME='demographic' AND b.TABLE_NAME='cds_import_identity' "
+                                                + "AND a.COLUMN_NAME IN ('first_name','last_name','hin') AND a.COLLATION_NAME=b.COLLATION_NAME "
+                                                + "AND a.CHARACTER_SET_NAME=b.CHARACTER_SET_NAME")
+                                .getSingleResult();
+        Number authority =
+                (Number)
+                        entityManager
+                                .createNativeQuery(
+                                        "SELECT COUNT(*) FROM information_schema.COLUMNS a "
+                                                + "JOIN information_schema.COLUMNS b ON b.TABLE_SCHEMA=a.TABLE_SCHEMA "
+                                                + "WHERE a.TABLE_SCHEMA=DATABASE() AND a.TABLE_NAME='demographic' AND a.COLUMN_NAME='cds_identity_issuer' "
+                                                + "AND b.TABLE_NAME='cds_import_identity' AND b.COLUMN_NAME='issuer' "
+                                                + "AND a.COLLATION_NAME=b.COLLATION_NAME AND a.CHARACTER_SET_NAME=b.CHARACTER_SET_NAME")
+                                .getSingleResult();
+        return columns.intValue() == 3 && authority.intValue() == 1;
     }
+
     public java.util.List<CdsImportIdentity> page(String run, int limit) {
-        return entityManager.createQuery("select i from CdsImportIdentity i where i.runId=:run order by i.id", CdsImportIdentity.class).setParameter("run", run).setMaxResults(limit).getResultList();
+        return entityManager
+                .createQuery(
+                        "select i from CdsImportIdentity i where i.runId=:run order by i.id",
+                        CdsImportIdentity.class)
+                .setParameter("run", run)
+                .setMaxResults(limit)
+                .getResultList();
     }
-    public void flushAndClear() { entityManager.flush(); entityManager.clear(); }
+
+    public void flushAndClear() {
+        entityManager.flush();
+        entityManager.clear();
+    }
 }

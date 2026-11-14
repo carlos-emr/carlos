@@ -1,0 +1,295 @@
+{
+  "bundleSha256": {
+    "cds-s-5.2": "a1be80fc623eb41c383b74fc8033787c0d04028c3da8b3670ed6d0bfec8f5ec8",
+    "migration-5.2": "84a528cc1f894705e1c5a07a1df46f3ddf1a69eca386a6b3ef8d23b82d9b1d26",
+    "pcon-2024-02": "fc2d379002981b1527b23bb3c2964210e71f73d6f3ecc0b4e15105147d7633b3"
+  },
+  "claimsOntarioMdCertification": false,
+  "documents": [
+    {
+      "bundle": "cds52",
+      "member": "EMR Core Data Set Standard (CDS-S) - Data Dictionary (v2.1).xlsx",
+      "sha256": "9383eefadf8d086cd90474c06650c703e92d3cd9d01cf01e608469002c1e6ef0",
+      "size": 798919
+    },
+    {
+      "bundle": "cds52",
+      "member": "EMR Core Data Set Standard (CDS-S) - Business View (v2.3).pdf",
+      "sha256": "76c164160ba135c97d531e31bc83e216bb8656c72ffc444a2a7443d3766c8886",
+      "size": 567299
+    },
+    {
+      "bundle": "cds52",
+      "member": "EMR Core Data Set Standard (CDS-S) - Requirements (v1.1).pdf",
+      "sha256": "e02341ace865b56d3fdf4979c562d1472ce467ab0623a57ba428bac93e467a5b",
+      "size": 386916
+    },
+    {
+      "bundle": "migration52",
+      "member": "EMR Data Migration - Data Dictionary (v1.1).xlsx",
+      "sha256": "8e2bfa2de22a0a4dcce4b30e41dc07a10ea0a3ae1445672447313238bcc36896",
+      "size": 918985
+    },
+    {
+      "bundle": "migration52",
+      "member": "EMR Data Migration - Business View (v1.1).pdf",
+      "sha256": "c88720d1de994fcc6809b165589a18cfcc413f54d3ab0b76fa76266b27a430f5",
+      "size": 563001
+    },
+    {
+      "bundle": "migration52",
+      "member": "EMR Data Migration - Implementation Guide (v1.1).pdf",
+      "sha256": "26d675ea0780d089d5e0ca3dc53b9fd56bfe85fcddaa36f664716d02b71b1c0e",
+      "size": 950254
+    },
+    {
+      "bundle": "migration52",
+      "member": "EMR Data Migration - Requirements (v1.1).pdf",
+      "sha256": "05d4b87581e661468ee67c849c75d042a76b8135f9a794adf28f631844de67a2",
+      "size": 574802
+    },
+    {
+      "bundle": "migration52",
+      "member": "EMR_Data_Migration_Schema.xsd",
+      "sha256": "2bffde70ae84137624db888611e8a3b919e868789b726ee012d39513ce846726",
+      "size": 32717
+    },
+    {
+      "bundle": "migration52",
+      "member": "EMR_Data_Migration_Schema_DT.xsd",
+      "sha256": "e999fafd945d13a7a2866482e06029cea86b902ce7f30139377a3600c3d9ce31",
+      "size": 41359
+    },
+    {
+      "bundle": "pcon",
+      "member": "pcon-2024-02/EMR Core Data Set Standard (CDS-S) - 5.1 Final - 2021-11-10/EMR Core Data Set Standard (CDS-S) - Business View.pdf",
+      "sha256": "73603e375a34282582da8bbdca4567b6c501b5dc2eef890c87b4a3bf9e025b63",
+      "size": 427079
+    },
+    {
+      "bundle": "pcon",
+      "member": "pcon-2024-02/EMR Core Data Set Standard (CDS-S) - 5.1 Final - 2021-11-10/EMR Core Data Set Standard (CDS-S) - Data Dictionary.xlsx",
+      "sha256": "96a6da6dde0c2578c66d4bcb4383cb02042711e3818749be0dc7e8cc8695adc0",
+      "size": 791835
+    },
+    {
+      "bundle": "pcon",
+      "member": "pcon-2024-02/EMR Core Data Set Standard (CDS-S) - 5.1 Final - 2021-11-10/EMR Core Data Set Standard (CDS-S) - Logical Model.pdf",
+      "sha256": "7abac94b07eb8187898e3fa24753d57f5ac0b01f21b8c4174253992c3f028b44",
+      "size": 75944
+    },
+    {
+      "bundle": "pcon",
+      "member": "pcon-2024-02/EMR Core Data Set Standard (CDS-S) - 5.1 Final - 2021-11-10/EMR Core Data Set Standard (CDS-S) - Requirements.pdf",
+      "sha256": "675ab47441981cdc1b629e0a5001ba7c652bc26af6038d487378fc89b15fe6b1",
+      "size": 249820
+    },
+    {
+      "bundle": "pcon",
+      "member": "pcon-2024-02/EMR Data Migration - 5.1 Final - 2021-01-25/EMR Data Migration - Business View.pdf",
+      "sha256": "1b27c0aa9067d2fc712a57cd6d1414ce2fbe1e6ded19ac69807af6d4424b4de9",
+      "size": 513237
+    },
+    {
+      "bundle": "pcon",
+      "member": "pcon-2024-02/EMR Data Migration - 5.1 Final - 2021-01-25/EMR Data Migration - Data Dictionary.xlsx",
+      "sha256": "527404e8dcd57f8419c79f7ede66129757addcec9784645cd7fb2ecc34261e5b",
+      "size": 920707
+    },
+    {
+      "bundle": "pcon",
+      "member": "pcon-2024-02/EMR Data Migration - 5.1 Final - 2021-01-25/EMR Data Migration - Implementation Guide.pdf",
+      "sha256": "f64a6c453bbd60743ac209feaae68aad1a6407a40d5de3ed601e2566d7a3fee5",
+      "size": 2547162
+    },
+    {
+      "bundle": "pcon",
+      "member": "pcon-2024-02/EMR Data Migration - 5.1 Final - 2021-01-25/EMR Data Migration - Requirements.pdf",
+      "sha256": "0f50ef22261e6fbcb4473e47048bf2dcc0d1df95a9ddf0274e43e9ab5fea06fc",
+      "size": 395643
+    },
+    {
+      "bundle": "pcon",
+      "member": "pcon-2024-02/EMR Data Migration - 5.1 Final - 2021-01-25/EMR_Data_Migration_Schema.xsd",
+      "sha256": "2bffde70ae84137624db888611e8a3b919e868789b726ee012d39513ce846726",
+      "size": 32717
+    },
+    {
+      "bundle": "pcon",
+      "member": "pcon-2024-02/EMR Data Migration - 5.1 Final - 2021-01-25/EMR_Data_Migration_Schema_DT.xsd",
+      "sha256": "e999fafd945d13a7a2866482e06029cea86b902ce7f30139377a3600c3d9ce31",
+      "size": 41359
+    }
+  ],
+  "exportRequirements": {
+    "DP01.01": {
+      "acceptance": "REQUIRES_CURRENT_ARTIFACT_AND_DEPLOYMENT_EVIDENCE",
+      "meaning": "UTF-8 patient XML validated on every generation; software/schema identity comment.",
+      "reference": "Requirements 3.1; Guide 2",
+      "implementation": [
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportXmlComposer.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/validator/CdsExportXmlValidator.java"
+      ],
+      "verification": [
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportXmlComposerUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/validator/CdsExportXmlValidatorUnitTest.java",
+        "scripts/ci/run-cds-export-installed-oracle.py"
+      ]
+    },
+    "DP01.02": {
+      "acceptance": "REQUIRES_CURRENT_ARTIFACT_AND_DEPLOYMENT_EVIDENCE",
+      "meaning": "All available mapped mandatory/optional fields and all applicable choices; no invented required values or truncation.",
+      "reference": "Requirements 3.1; Guide 1.6, 18.1, 18.3",
+      "implementation": [
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportClinicalPackageService.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/validator/CdsExportCoverageValidator.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/validator/CdsExportReconciliationValidator.java"
+      ],
+      "verification": [
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportClinicalPackageServiceUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/validator/CdsExportCoverageValidatorUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/validator/CdsExportReconciliationValidatorUnitTest.java",
+        "docs/cds-spec-crosswalk.json",
+        "scripts/ci/run-cds-export-installed-oracle.py"
+      ]
+    },
+    "DP01.03": {
+      "acceptance": "REQUIRES_CURRENT_ARTIFACT_AND_DEPLOYMENT_EVIDENCE",
+      "meaning": "Provider-roster batch selection includes every patient status and needs no manually assembled cohort.",
+      "reference": "Requirements 3.1",
+      "implementation": [
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportCohortService.java"
+      ],
+      "verification": [
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportCohortServiceUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportSelectionIntegrationTest.java"
+      ]
+    },
+    "DP01.04": {
+      "acceptance": "REQUIRES_CURRENT_ARTIFACT_AND_DEPLOYMENT_EVIDENCE",
+      "meaning": "Users can select individual patients.",
+      "reference": "Requirements 3.1",
+      "implementation": [
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportSelectionService.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportSelectionFileService.java"
+      ],
+      "verification": [
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportSelectionIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportSelectionFileServiceUnitTest.java"
+      ]
+    },
+    "DP01.05": {
+      "acceptance": "REQUIRES_CURRENT_ARTIFACT_AND_DEPLOYMENT_EVIDENCE",
+      "meaning": "Category selection applies to batch and selected-patient exports; demographics remain required.",
+      "reference": "Requirements 3.1; Guide 2",
+      "implementation": [
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportSelectionService.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportClinicalPackageService.java"
+      ],
+      "verification": [
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportSelectionIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportClinicalPackageServiceUnitTest.java"
+      ]
+    },
+    "DP01.06": {
+      "acceptance": "REQUIRES_CURRENT_ARTIFACT_AND_DEPLOYMENT_EVIDENCE",
+      "meaning": "ReadMe contains full output paths, group contact, vendor/product/version, export time and physician totals.",
+      "reference": "Requirements 3.3, 5.1",
+      "implementation": [
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportSupportingFilesComposer.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/validator/CdsExportSupportingFilesValidator.java"
+      ],
+      "verification": [
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportSupportingFilesComposerUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/validator/CdsExportSupportingFilesValidatorUnitTest.java"
+      ]
+    },
+    "DP01.07": {
+      "acceptance": "REQUIRES_CURRENT_ARTIFACT_AND_DEPLOYMENT_EVIDENCE",
+      "meaning": "ExportEventLog records sender patient IDs and actual category occurrence counts, including report representation counts.",
+      "reference": "Requirements 3.3, 5.2",
+      "implementation": [
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportSupportingFilesComposer.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/validator/CdsExportSupportingFilesValidator.java"
+      ],
+      "verification": [
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportSupportingFilesComposerUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/validator/CdsExportSupportingFilesValidatorUnitTest.java"
+      ]
+    },
+    "DP01.08": {
+      "acceptance": "REQUIRES_CURRENT_ARTIFACT_AND_DEPLOYMENT_EVIDENCE",
+      "meaning": "Protect all exported patient, ReadMe, event and audit information at rest/in transit; provide a usable decryption path.",
+      "reference": "Requirements 3.3",
+      "implementation": [
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportClinicalPackageService.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDisclosurePolicyService.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportArtifactService.java"
+      ],
+      "verification": [
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportClinicalPackageServiceUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDisclosurePolicyServiceUnitTest.java",
+        "scripts/ci/run-cds-export-installed-oracle.py"
+      ]
+    },
+    "DP01.09": {
+      "acceptance": "REQUIRES_CURRENT_ARTIFACT_AND_DEPLOYMENT_EVIDENCE",
+      "meaning": "Document generation, compression, encryption and transfer steps.",
+      "reference": "Requirements 3.3",
+      "implementation": [
+        "docs/cds-export-operator-guide.md"
+      ],
+      "verification": [
+        ".github/workflows/cds-export-installed.yml",
+        ".github/workflows/cds-export-resources.yml"
+      ]
+    },
+    "DP01.10": {
+      "acceptance": "REQUIRES_CURRENT_ARTIFACT_AND_DEPLOYMENT_EVIDENCE",
+      "meaning": "Document available support arrangements and their costs without inventing vendor pricing.",
+      "reference": "Requirements 3.3",
+      "implementation": [
+        "docs/cds-export-operator-guide.md"
+      ],
+      "verification": [],
+      "deploymentEvidence": "Actual support arrangements and costs must be supplied by the deploying clinic/vendor; software does not invent pricing."
+    },
+    "DP01.11": {
+      "acceptance": "REQUIRES_CURRENT_ARTIFACT_AND_DEPLOYMENT_EVIDENCE",
+      "meaning": "PhysicianFN_PhysicianLN_OHIPBillingNumber/PatientFN_PatientLN_PatientUniqueID_ddmmyyyy.xml.",
+      "reference": "Requirements 3.1",
+      "implementation": [
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportClinicalPackageService.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPackagePaths.java"
+      ],
+      "verification": [
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportClinicalPackageServiceUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPackageComposerUnitTest.java",
+        "scripts/ci/run-cds-export-installed-oracle.py"
+      ]
+    },
+    "DP01.12": {
+      "acceptance": "REQUIRES_CURRENT_ARTIFACT_AND_DEPLOYMENT_EVIDENCE",
+      "meaning": "Provide usable access to complete patient audit history after migration, including non-CPP information.",
+      "reference": "Requirements 3.2",
+      "implementation": [
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDisclosurePolicyService.java",
+        "docs/cds-export-operator-guide.md"
+      ],
+      "verification": [
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDisclosurePolicyServiceUnitTest.java"
+      ],
+      "deploymentEvidence": "An approved, usable complete historical audit-access arrangement and its retention must be qualified with the recipient; registered policy hashes do not independently prove external availability."
+    }
+  },
+  "formatVersion": 1,
+  "profilesAreDistinct": true,
+  "reviewStatus": "EXPORT_REQUIREMENTS_REVIEWED_AND_IMPLEMENTATION_LINKED",
+  "schemaComment": "EMR Data Migration 5.0 - Schema v1.0; Publication Date: August 4,2017; Status: Final",
+  "sourceNotes": [
+    "Uploaded bundle hashes match the pre-existing importer provenance exactly.",
+    "The Migration workbook internally labels itself Data Migration 5.1, document version 1.1, June 26 2026; its bundle is 5.2. These are retained as distinct source identities.",
+    "The guide defines k as 1000 while several XSD capacities are powers of 1024; export field review must apply the reviewed normative bound without truncating values."
+  ],
+  "acceptanceAuthority": "Implementation references are not a conformance certificate. Qualification requires exact current-source/WAR CI evidence and the deployment arrangements described by the operator guide. Historical checkpoint results do not qualify another artifact."
+}

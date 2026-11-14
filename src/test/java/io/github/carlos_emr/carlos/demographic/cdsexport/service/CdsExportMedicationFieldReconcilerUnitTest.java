@@ -1,0 +1,1037 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.demographic.cdsexport.service;
+
+import static org.assertj.core.api.Assertions.*;
+import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport;
+import io.github.carlos_emr.carlos.commn.dto.CdsExportDemographicRowDto;
+import io.github.carlos_emr.carlos.demographic.cds.contract.*;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.*;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsTemporal;
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.*;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportMedicationDto.Field;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportRetainedReceiptVerificationDto.*;
+import io.github.carlos_emr.carlos.demographic.cdsexport.validator.CdsExportXmlValidator;
+import io.github.carlos_emr.carlos.utility.CdsImportKeys;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.*;
+import java.util.*;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+@Tag("unit")
+@Tag("cds-export")
+class CdsExportMedicationFieldReconcilerUnitTest {
+    private static final ObjectMapper JSON =
+            new ObjectMapper()
+                    .registerModule(new JavaTimeModule())
+                    .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    static final String RUN = "11111111-1111-4111-8111-111111111111",
+            UNIT = "a".repeat(64),
+            ADDRESS = RUN + ":" + UNIT,
+            SOURCE = "b".repeat(64);
+    @TempDir Path directory;
+
+    @Test
+    void
+            shouldRetainVerifiedDinStrengthOriginalPrescriberIdentifiersAndClock_whileExportingEditedProviderNotes()
+                    throws Exception {
+        var fields = baseline();
+        fields.put("comment", "Current provider note café 😀");
+        var result = reconcile(fixture(fields, numbers(), true));
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.mapping().value().fields().get(Field.Notes))
+                .isEqualTo("Current provider note café 😀");
+        assertThat(result.mapping().value().fields().get(Field.DrugIdentificationNumber))
+                .isEqualTo("00123456");
+        assertThat(result.mapping().value().strengthAmount()).isEqualTo("5");
+        assertThat(result.mapping().value().strengthUnit()).isEqualTo("mg");
+        assertThat(result.mapping().value().prescriber().firstName()).isEqualTo("Original");
+        assertThat(result.currentPaths()).containsExactly("Notes");
+        var received = roundTrip(result.mapping().value());
+        assertThat(received.din()).isEqualTo("00123456");
+        assertThat(received.strengthAmount()).isEqualTo("5");
+        assertThat(received.dose()).isEqualTo("0.5-1");
+        assertThat(received.providerNotes()).isEqualTo("Current provider note café 😀");
+        assertThat(received.prescriberFirstName()).isEqualTo("Original");
+        assertThat(received.prescriberOhip()).isEqualTo("001234");
+        assertThat(received.prescriptionIdentifier()).isEqualTo("rx-source");
+        assertThat(received.description()).isEqualTo("Source description");
+        assertThat(received.written().original()).isEqualTo("2024-02-29T12:34:56.1200-05:00");
+    }
+
+    @Test
+    void shouldProveAnImportedMonthDurationByItsUnit_andKeepItWhenUnchangedOrEditedInCarlos()
+            throws Exception {
+        // #3958: the importer now stores "3 months" as duration 3, durunit M (review M4).
+        var months = (com.fasterxml.jackson.databind.node.ObjectNode) JSON.valueToTree(source());
+        months.put("duration", "3");
+        months.put("durationUnit", "M");
+        var source =
+                JSON.copy()
+                        .disable(
+                                com.fasterxml.jackson.databind.DeserializationFeature
+                                        .ADJUST_DATES_TO_CONTEXT_TIME_ZONE)
+                        .treeToValue(months, CdsMedicationDto.class);
+        var stored = baseline();
+        stored.put("duration", "3");
+        stored.put("durunit", "M");
+        var current = new LinkedHashMap<>(stored);
+        current.put("comment", "Current provider note");
+        var unchanged = reconcile(fixture(current, numbers(), true, source, stored));
+        assertThat(unchanged.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(unchanged.preparedPaths()).contains("Duration");
+        assertThat(unchanged.mapping().value().fields()).containsEntry(Field.Duration, "3 months");
+        var edited = new LinkedHashMap<>(stored);
+        edited.put("duration", "2");
+        edited.put("durunit", "W");
+        var changed = reconcile(fixture(edited, numbers(), true, source, stored));
+        assertThat(changed.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(changed.currentPaths()).contains("Duration");
+        assertThat(changed.mapping().value().fields()).containsEntry(Field.Duration, "14");
+        var received = roundTrip(unchanged.mapping().value());
+        assertThat(received.duration()).isEqualTo("3");
+        assertThat(received.durationUnit()).isEqualTo("M");
+    }
+
+    @Test
+    void shouldReadAnEditedDurationUnitAsCarlosDoes_andCarryOneWithNoCdsMeaning() throws Exception {
+        // The same rule as a never-imported prescription: d, w, m and y are the units whatever
+        // their case; any other stored unit, an amount with none and a duration typed as text
+        // have no Duration and travel exactly in CARLOS.Medication.CurrentSource.v1.
+        for (var unit : List.of(List.of("d", "7"), List.of("w", "49"), List.of("m", "7 months"))) {
+            var fields = baseline();
+            fields.put("duration", "7");
+            fields.put("durunit", unit.get(0));
+            var mapped = reconcile(fixture(fields, numbers(), true));
+            assertThat(mapped.mapping().nativeRowRepresentable()).isTrue();
+            assertThat(mapped.mapping().value().fields())
+                    .containsEntry(Field.Duration, unit.get(1));
+            assertThat(mapped.currentSource()).isNull();
+        }
+        for (var stored :
+                List.of(
+                        java.util.Arrays.asList("7", "x"),
+                        java.util.Arrays.asList("7", null),
+                        java.util.Arrays.asList("10 days", "D"))) {
+            var fields = baseline();
+            fields.put("duration", stored.get(0));
+            fields.put("durunit", stored.get(1));
+            var carried = reconcile(fixture(fields, numbers(), true));
+            assertThat(carried.mapping().nativeRowRepresentable()).as(stored.toString()).isTrue();
+            assertThat(carried.mapping().value().fields()).doesNotContainKey(Field.Duration);
+            assertThat(carried.currentPaths()).contains("Duration");
+            var row = JSON.readTree(carried.currentSource().replace("\\u0020", " ")).get("fields");
+            assertThat(row.get("duration").asText()).isEqualTo(stored.get(0));
+            if (stored.get(1) == null) assertThat(row.get("durunit").isNull()).isTrue();
+            else assertThat(row.get("durunit").asText()).isEqualTo(stored.get(1));
+            assertThat(row.get("freqcode").asText()).isEqualTo("BID");
+            assertThat(carried.mapping().fields().get(key("duration")).rule())
+                    .isEqualTo(CdsExportMedicationFieldReconciler.CARRIED);
+        }
+    }
+
+    @Test
+    void shouldExportAnImportedPrescriptionArchivedInCarlos_asNoLongerCurrent() throws Exception {
+        // RxDeleteRx2Action.setDrugDelete and Discontinue, RxManagerImpl.discontinue/archiveDrug:
+        // archived 1 with its reason and date, on the imported row itself.
+        for (var reason :
+                List.of(
+                        List.of("deleted", "Nullified"),
+                        List.of("adverseReaction", "Aborted"),
+                        List.of("represcribed", "Obsolete"))) {
+            var fields = baseline();
+            fields.put("archived", "1");
+            fields.put("archived_reason", reason.get(0));
+            fields.put("archived_date", "2026-01-02 03:04:05");
+            var result = reconcile(fixture(fields, numbers(), true));
+            assertThat(result.mapping().nativeRowRepresentable()).as(reason.get(0)).isTrue();
+            assertThat(result.mapping().value().fields())
+                    .containsEntry(Field.PrescriptionStatus, reason.get(1))
+                    .containsEntry(Field.PastMedications, "Y")
+                    // Everything the edit did not touch is still the import's own projection.
+                    .containsEntry(Field.DrugIdentificationNumber, "00123456")
+                    .containsEntry(Field.Notes, "Original provider notes");
+            assertThat(result.archived()).isTrue();
+            assertThat(result.currentPaths()).containsExactly("PrescriptionStatus/PastMedications");
+            var row = JSON.readTree(result.currentSource().replace("\\u0020", " ")).get("fields");
+            assertThat(row.get("archived").asText()).isEqualTo("1");
+            assertThat(row.get("archived_reason").asText()).isEqualTo(reason.get(0));
+            assertThat(row.get("archived_date").asText()).isEqualTo("2026-01-02 03:04:05");
+            assertThat(row.get("rxStatus").asText()).isEqualTo("Active");
+            for (String column : List.of("archived", "archived_reason", "archived_date"))
+                assertThat(result.mapping().fields().get(key(column)).rule())
+                        .isEqualTo(CdsExportMedicationFieldReconciler.CARRIED);
+        }
+    }
+
+    @Test
+    void shouldCarryAnOptionSetOnAnImportedPrescription_withoutHoldingOrChangingItsElements()
+            throws Exception {
+        // RxHideCpp2Action (hide_cpp) and a REST prescribe's script link, on the imported row.
+        var unchanged = reconcile(fixture(baseline(), numbers(), true));
+        assertThat(unchanged.currentSource()).isNull();
+        assertThat(unchanged.archived()).isNull();
+        for (var option :
+                List.of(
+                        Map.of("hide_cpp", "1"),
+                        Map.of("script_no", "12"),
+                        Map.of("hide_from_drug_profile", "1"))) {
+            var fields = baseline();
+            fields.putAll(option);
+            var result = reconcile(fixture(fields, numbers(), true));
+            String column = option.keySet().iterator().next();
+            assertThat(result.mapping().nativeRowRepresentable()).as(column).isTrue();
+            assertThat(result.currentPaths()).isEmpty();
+            assertThat(result.archived()).isNull();
+            assertThat(result.mapping().value().fields())
+                    .isEqualTo(unchanged.mapping().value().fields());
+            assertThat(
+                            JSON.readTree(result.currentSource().replace("\\u0020", " "))
+                                    .get("fields")
+                                    .get(column)
+                                    .asText())
+                    .isEqualTo(option.get(column));
+            assertThat(result.mapping().fields().get(key(column)).destination())
+                    .isEqualTo(CdsExportMedicationFieldReconciler.RESIDUAL);
+        }
+    }
+
+    @Test
+    void shouldKeepARestoredQuantityUnitAndAsNeededFlag_whenTheImportedPrescriptionIsUnchanged()
+            throws Exception {
+        // #6198: the import restored unitName "mL" and prn 1 from the sender's
+        // CARLOS.Medication.Source.v1. The sealed baseline proves the import wrote them, so the
+        // unchanged prescription keeps its original Quantity ("12.5 mL") and Frequency pages,
+        // and the retained carrier stays true.
+        var stored = restoredBaseline();
+        var result = reconcile(fixture(stored, numbers(), true, restoredSource(), stored));
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.mapping().value().fields())
+                .containsEntry(Field.Quantity, "12.5 mL")
+                .containsEntry(Field.Frequency, "BID PRN")
+                .containsEntry(Field.DosageUnitOfMeasure, "tablet");
+        assertThat(result.preparedPaths())
+                .contains("Quantity", "Frequency/TreatmentType", "DosageUnitOfMeasure");
+        assertThat(result.currentPaths()).isEmpty();
+        for (String column : List.of("unitName", "prn", "quantity", "unit")) {
+            var decision = result.mapping().fields().get(key(column));
+            assertThat(decision.outcome())
+                    .as(column)
+                    .isEqualTo(CdsExportFieldAssessmentDto.Outcome.MAPPED);
+            assertThat(decision.rule()).isEqualTo("VERIFIED_UNCHANGED_PREPARED_FIELD_PROJECTION");
+        }
+        assertThat(result.mapping().fields().get(key("unitName")).destination())
+                .isEqualTo("Quantity");
+    }
+
+    @Test
+    void shouldSupersedeTheSendersCarrier_whenARestoredQuantityUnitOrAsNeededFlagChanged()
+            throws Exception {
+        // The retained carrier would restate the imported value beside a changed chart: the
+        // current value is exported, the sender's carrier is superseded and the current row
+        // travels in CARLOS.Medication.CurrentSource.v1 (a change only the REST service or a
+        // direct edit can make; no patient is held for it).
+        for (var change :
+                List.of(
+                        Map.entry("unitName", "L"),
+                        Map.entry("quantity", "20"),
+                        Map.entry("prn", "0"))) {
+            var current = restoredBaseline();
+            current.put(change.getKey(), change.getValue());
+            var result =
+                    reconcile(
+                            fixture(
+                                    current,
+                                    numbers(),
+                                    true,
+                                    restoredSource(),
+                                    restoredBaseline()));
+            assertThat(result.mapping().nativeRowRepresentable()).as(change.getKey()).isTrue();
+            assertThat(result.supersedesSenderSource()).isTrue();
+            assertThat(
+                            JSON.readTree(result.currentSource().replace("\\u0020", " "))
+                                    .get("fields")
+                                    .get(change.getKey())
+                                    .asText())
+                    .isEqualTo(change.getValue());
+        }
+        assertThat(
+                        reconcile(
+                                        fixture(
+                                                restoredBaseline(),
+                                                numbers(),
+                                                true,
+                                                restoredSource(),
+                                                restoredBaseline()))
+                                .supersedesSenderSource())
+                .isFalse();
+        // A prepared unit the sealed baseline never held is not proven.
+        var unproven = restoredBaseline();
+        unproven.put("unitName", "tablet");
+        var result = reconcile(fixture(unproven, numbers(), true, restoredSource(), unproven));
+        assertThat(result.mapping().nativeRowRepresentable()).isFalse();
+        assertThat(result.mapping().fields().get(key("unitName")).rule())
+                .isEqualTo("PREPARED_NATIVE_PROJECTION_NOT_PROVEN");
+    }
+
+    /** {@link #source()} as imported from a CARLOS sender's carrier with "12.5 mL", BID PRN. */
+    static CdsMedicationDto restoredSource() throws Exception {
+        var value = (com.fasterxml.jackson.databind.node.ObjectNode) JSON.valueToTree(source());
+        value.put("frequency", "BID PRN");
+        value.put("quantityUnit", "mL");
+        value.put("asNeeded", true);
+        return JSON.copy()
+                .disable(
+                        com.fasterxml.jackson.databind.DeserializationFeature
+                                .ADJUST_DATES_TO_CONTEXT_TIME_ZONE)
+                .treeToValue(value, CdsMedicationDto.class);
+    }
+
+    /** The drugs row CdsMedicationPersister writes for {@link #restoredSource()}. */
+    static Map<String, String> restoredBaseline() {
+        var fields = baseline();
+        fields.put("unitName", "mL");
+        fields.put("prn", "1");
+        fields.put("freqcode", "BID PRN");
+        fields.put("special", "Original café drug 5 mg\n 0.5-1 tablet PO BID PRN");
+        return fields;
+    }
+
+    @Test
+    void shouldReuseVerifiedSourceOnlyStrength_whenOnlyProviderNotesChanged() throws Exception {
+        assertThatThrownBy(() -> new CdsExportPreparedMedicationMapper().map(sourceOnlyStrength()))
+                .hasMessage("CDS_EXPORT_MEDICATION_LARGE_STRENGTH_REQUIRES_RETAINED_CARRIER");
+        var current = sourceOnlyStrengthBaseline();
+        current.put("comment", "Current provider note");
+        var result =
+                reconcile(
+                        fixture(
+                                current,
+                                numbers(),
+                                true,
+                                sourceOnlyStrength(),
+                                sourceOnlyStrengthBaseline()));
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.preparedPaths()).contains("Strength");
+        assertThat(result.mapping().value().strengthAmount()).isNull();
+        assertThat(result.mapping().value().strengthUnit()).isNull();
+        assertThat(result.currentPaths()).containsExactly("Notes");
+    }
+
+    @Test
+    void shouldExportTheCurrentStrength_whenTheSourceOnlyStrengthPlaceholderChangesOrIsCleared()
+            throws Exception {
+        // Was SOURCE_ONLY_STRENGTH_PROJECTION_CHANGED. The strength a user (or the REST service)
+        // put in place of the import's placeholder is the current one: the sender's Strength
+        // element no longer stands, and a typed strength travels in the current-source carrier.
+        for (String value : Arrays.asList("10 mg", null)) {
+            var current = sourceOnlyStrengthBaseline();
+            current.put("dosage", value);
+            var result =
+                    reconcile(
+                            fixture(
+                                    current,
+                                    numbers(),
+                                    true,
+                                    sourceOnlyStrength(),
+                                    sourceOnlyStrengthBaseline()));
+            assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+            assertThat(result.currentPaths()).contains("Strength");
+            assertThat(result.preparedPaths()).doesNotContain("Strength");
+            assertThat(result.retainedStrengthRequired()).isFalse();
+            assertThat(result.mapping().value().strengthAmount()).isNull();
+            if (value != null) {
+                assertThat(result.mapping().fields().get(key("dosage")).rule())
+                        .isEqualTo(CdsExportMedicationFieldReconciler.CARRIED);
+                assertThat(result.currentSource()).contains("\"dosage\":\"10\\u0020mg\"");
+            }
+        }
+    }
+
+    @Test
+    void shouldPreserveNativeClearsAndAChangedQuantity_withoutRestoringTheOldValue()
+            throws Exception {
+        var fields = baseline();
+        fields.put("comment", null);
+        fields.put("quantity", "21.5");
+        var result = reconcile(fixture(fields, numbers(), true));
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.mapping().value().fields())
+                .doesNotContainKey(Field.Notes)
+                .containsEntry(Field.Quantity, "21.5");
+        assertThat(result.currentPaths()).containsExactlyInAnyOrder("Notes", "Quantity");
+    }
+
+    @Test
+    void shouldCarryAFloatEditHiddenInTheLegacyDisplay_andItsStaleGeneratedInstructions()
+            throws Exception {
+        var changed = new HashMap<>(numbers());
+        changed.put("takemin", numeric("3f000001"));
+        var f = fixture(baseline(), changed, true);
+        var result = reconcile(f);
+        assertThat(f.witness().digest())
+                .isEqualTo(f.checked().units().get(ADDRESS).getFirst().expected().digest());
+        // The dose text the chart shows is still exported; the changed bounds and the SIG the
+        // import generated from the old values travel in the current-source carrier.
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.currentPaths()).contains("Dosage", "generatedInstructions");
+        assertThat(result.mapping().value().fields()).containsEntry(Field.Dosage, "0.5-1");
+        assertThat(result.mapping().fields().get(key("special")).rule())
+                .isEqualTo(CdsExportMedicationFieldReconciler.CARRIED);
+        assertThat(result.currentSource()).contains("\"takemin\"");
+    }
+
+    @Test
+    void shouldNotInventExactHistoricalFloatEvidence_fromAnUnchangedLegacyDisplay()
+            throws Exception {
+        var f = fixture(baseline(), numbers(), false);
+        assertThatThrownBy(() -> reconcile(f))
+                .hasMessage("CDS_EXPORT_MEDICATION_FIELD_BASELINE_REQUIRED");
+    }
+
+    @Test
+    void shouldExportAChangedStrengthTextAndDate_asOnANeverImportedPrescription()
+            throws Exception {
+        // A changed strength text has no typed Strength: the element is removed and the text
+        // carried. A changed date is a plain calendar date and supersedes the source clock.
+        var fields = baseline();
+        fields.put("dosage", "10 mg");
+        var strength = reconcile(fixture(fields, numbers(), true));
+        assertThat(strength.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(strength.mapping().value().strengthAmount()).isNull();
+        assertThat(strength.currentSource()).contains("\"dosage\":\"10\\u0020mg\"");
+        fields = baseline();
+        fields.put("written_date", "2024-03-01");
+        var result = reconcile(fixture(fields, numbers(), true));
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.mapping().value().written().lexical()).isEqualTo("2024-03-01");
+        assertThat(result.currentPaths()).contains("PrescriptionWrittenDate");
+    }
+
+    @Test
+    void shouldRequireReviewForDeletedOrAliasedOccurrences_withoutResurrectingOrDuplicatingThem()
+            throws Exception {
+        var f = fixture(baseline(), numbers(), true);
+        var ref = f.checked().units().get(ADDRESS).getFirst();
+        var deleted =
+                new CdsExportRetainedReceiptVerificationDto(
+                        SOURCE,
+                        Map.of(
+                                ADDRESS,
+                                List.of(
+                                        new CheckedReference(
+                                                ref.expected(), null, Reason.ROW_NOT_IN_CAPTURE))),
+                        Set.of(),
+                        Set.of(ADDRESS));
+        assertThatThrownBy(
+                        () ->
+                                new CdsExportMedicationFieldReconciler()
+                                        .reconcile(
+                                                27, f.index(), ADDRESS, deleted, null, null,
+                                                List.of(), Map.of()))
+                .hasMessage("CDS_EXPORT_MEDICATION_DELETION_REQUIRES_REVIEW");
+        String alias = RUN + ":" + "f".repeat(64);
+        var references = new LinkedHashMap<>(f.index().references());
+        references.put(alias, references.get(ADDRESS));
+        var index =
+                new CdsExportRetainedIndexDto(
+                        SOURCE,
+                        3,
+                        4096,
+                        f.index().tables(),
+                        Set.of(ADDRESS, alias),
+                        references,
+                        Map.of());
+        var checked =
+                new CdsExportRetainedReceiptVerificationDto(
+                        SOURCE,
+                        Map.of(ADDRESS, List.of(ref), alias, List.of(ref)),
+                        Set.of(ADDRESS, alias),
+                        Set.of());
+        assertThatThrownBy(
+                        () ->
+                                new CdsExportMedicationFieldReconciler()
+                                        .reconcile(
+                                                27,
+                                                index,
+                                                ADDRESS,
+                                                checked,
+                                                f.row(),
+                                                f.witness(),
+                                                List.of(),
+                                                Map.of()))
+                .hasMessage("CDS_EXPORT_MEDICATION_ALIAS_REQUIRES_REVIEW");
+    }
+
+    @Test
+    void shouldRejectSubstitutedSqlOrExactNumericRowValues_beforeSelectingAnyClinicalField()
+            throws Exception {
+        var f = fixture(baseline(), numbers(), true);
+        var values = new LinkedHashMap<>(f.row().fields());
+        values.put("comment", "Substituted");
+        assertThatThrownBy(
+                        () ->
+                                new CdsExportMedicationFieldReconciler()
+                                        .reconcile(
+                                                27,
+                                                f.index(),
+                                                ADDRESS,
+                                                f.checked(),
+                                                new CdsExportCapturedTextRowDto(
+                                                        "drugs",
+                                                        f.row().recordKey(),
+                                                        values,
+                                                        numbers()),
+                                                f.witness(),
+                                                List.of(),
+                                                Map.of()))
+                .hasMessage("CDS_EXPORT_MEDICATION_RECONCILIATION_SCOPE_INVALID");
+        var numeric = new LinkedHashMap<>(numbers());
+        numeric.put("takemin", numeric("3f000001"));
+        assertThatThrownBy(
+                        () ->
+                                new CdsExportMedicationFieldReconciler()
+                                        .reconcile(
+                                                27,
+                                                f.index(),
+                                                ADDRESS,
+                                                f.checked(),
+                                                new CdsExportCapturedTextRowDto(
+                                                        "drugs",
+                                                        f.row().recordKey(),
+                                                        f.row().fields(),
+                                                        numeric),
+                                                f.witness(),
+                                                List.of(),
+                                                Map.of()))
+                .hasMessage("CDS_EXPORT_MEDICATION_RECONCILIATION_SCOPE_INVALID");
+    }
+
+    @Test
+    void shouldQualifyNativeDoseBoundsOnlyWithExactValues_andRefuseTheUndocumentedZeroDefault()
+            throws Exception {
+        var fields = CdsExportMedicationMapperUnitTest.baseline();
+        fields.put("takemin", "0.1");
+        fields.put("takemax", "0.1");
+        fields.put("cds_dose_text", null);
+        var low = numeric("3dcccccd");
+        var high = numeric("3dccccce");
+        var row =
+                new CdsExportCapturedTextRowDto(
+                        "drugs",
+                        CdsExportPatientTableSourceReader.key(51),
+                        fields,
+                        Map.of("takemin", low, "takemax", high));
+        var result = new CdsExportMedicationMapper().map(27, row, List.of());
+        assertThat(result.nativeRowRepresentable()).isTrue();
+        assertThat(result.value().fields().get(Field.Dosage)).isEqualTo("0.1-0.10000001");
+        var zeros = Map.of("takemin", numeric("00000000"), "takemax", numeric("00000000"));
+        fields.put("takemin", "0");
+        fields.put("takemax", "0");
+        assertThat(
+                        new CdsExportMedicationMapper()
+                                .map(
+                                        27,
+                                        new CdsExportCapturedTextRowDto(
+                                                "drugs", row.recordKey(), fields, zeros),
+                                        List.of())
+                                .nativeRowRepresentable())
+                .isFalse();
+        fields.put("takemax", "1");
+        var signedZero = Map.of("takemin", numeric("80000000"), "takemax", numeric("3f800000"));
+        assertThat(
+                        new CdsExportMedicationMapper()
+                                .map(
+                                        27,
+                                        new CdsExportCapturedTextRowDto(
+                                                "drugs", row.recordKey(), fields, signedZero),
+                                        List.of())
+                                .nativeRowRepresentable())
+                .isFalse();
+    }
+
+    record Fixture(
+            CdsExportRetainedIndexDto index,
+            CdsExportRetainedReceiptVerificationDto checked,
+            CdsExportCapturedTextRowDto row,
+            CdsExportNativeRowReceiptDto witness) {}
+
+    static CdsExportMedicationFieldReconciler.Result reconcile(Fixture f) throws Exception {
+        return new CdsExportMedicationFieldReconciler()
+                .reconcile(
+                        27,
+                        f.index(),
+                        ADDRESS,
+                        f.checked(),
+                        f.row(),
+                        f.witness(),
+                        List.of(),
+                        Map.of());
+    }
+
+    static Fixture fixture(
+            Map<String, String> fields,
+            Map<String, CdsExactNumeric> numeric,
+            boolean includeBaseline)
+            throws Exception {
+        return fixture(fields, numeric, includeBaseline, source(), baseline());
+    }
+
+    static Fixture fixture(
+            Map<String, String> fields,
+            Map<String, CdsExactNumeric> numeric,
+            boolean includeBaseline,
+            CdsMedicationDto source,
+            Map<String, String> original)
+            throws Exception {
+        var old = state(original, numbers());
+        var now = state(fields, numeric);
+        String id = CdsImportKeys.hash(RUN, UNIT);
+        String sourceDigest = "c".repeat(64), options = "d".repeat(64), ruleset = "e".repeat(64);
+        var ref = new CdsExportRetainedIndexDto.Reference("drugs", "51", old.digest());
+        String references = JSON.writeValueAsString(Map.of("protocol", 2, "refs", List.of(ref))),
+                target = sha(references);
+        var prepared =
+                new CdsMedicationNativeDto(
+                        source,
+                        new CdsProviderMatchDto(
+                                null, CdsProviderMatchDto.Outcome.UNMATCHED_IDENTIFIER));
+        String payload = JSON.writeValueAsString(prepared);
+        var unit =
+                new LinkedHashMap<String, String>(
+                        Map.of(
+                                "id",
+                                id,
+                                "run_id",
+                                RUN,
+                                "unit_key",
+                                UNIT,
+                                "category",
+                                "MedicationsAndTreatments",
+                                "state",
+                                "COMMITTED",
+                                "source_digest",
+                                sourceDigest,
+                                "target_references",
+                                references,
+                                "target_digest",
+                                target));
+        unit.put(
+                "native_baseline",
+                includeBaseline
+                        ? CdsNativeBaselineCodec.encode(references, target, List.of(old))
+                        : null);
+        var prep =
+                Map.of(
+                        "id",
+                        id,
+                        "run_id",
+                        RUN,
+                        "unit_key",
+                        UNIT,
+                        "source_digest",
+                        sourceDigest,
+                        "options_digest",
+                        options,
+                        "ruleset_digest",
+                        ruleset,
+                        "payload_type",
+                        CdsMedicationNativeDto.class.getName(),
+                        "payload",
+                        payload,
+                        "digest",
+                        CdsPreparationSeal.digest(
+                                CdsMedicationNativeDto.class.getName(),
+                                sourceDigest,
+                                options,
+                                ruleset,
+                                payload));
+        var tables =
+                Map.of(
+                        "cds_import_unit",
+                        Map.of(id, new CdsExportCapturedTextRowDto("cds_import_unit", id, unit)),
+                        "cds_import_preparation",
+                        Map.of(
+                                id,
+                                new CdsExportCapturedTextRowDto(
+                                        "cds_import_preparation", id, prep)),
+                        "cds_import_run",
+                        Map.of(
+                                RUN,
+                                new CdsExportCapturedTextRowDto(
+                                        "cds_import_run",
+                                        RUN,
+                                        Map.of(
+                                                "id",
+                                                RUN,
+                                                "options_digest",
+                                                options,
+                                                "ruleset_digest",
+                                                ruleset))));
+        var index =
+                new CdsExportRetainedIndexDto(
+                        SOURCE,
+                        3,
+                        4096,
+                        tables,
+                        Set.of(ADDRESS),
+                        Map.of(ADDRESS, List.of(ref)),
+                        Map.of());
+        var difference = CdsNativeRowComparison.compare(old, now);
+        boolean same = old.digest().equals(now.digest()) && difference.unchangedProjection();
+        var checked =
+                new CdsExportRetainedReceiptVerificationDto(
+                        SOURCE,
+                        Map.of(
+                                ADDRESS,
+                                List.of(
+                                        new CheckedReference(
+                                                ref,
+                                                now.digest(),
+                                                same ? Reason.UNCHANGED_ROW : Reason.CHANGED_ROW,
+                                                difference))),
+                        same ? Set.of(ADDRESS) : Set.of(),
+                        same ? Set.of() : Set.of(ADDRESS));
+        var row =
+                new CdsExportCapturedTextRowDto(
+                        "drugs", CdsExportPatientTableSourceReader.key(51), fields, numeric);
+        return new Fixture(
+                index,
+                checked,
+                row,
+                new CdsExportNativeRowReceiptDto(
+                        "drugs", "51", row.recordKey(), now.digest(), now));
+    }
+
+    static CdsMedicationDto source() {
+        return new CdsMedicationDto(
+                "Original café drug",
+                "00123456",
+                "Source description",
+                "5",
+                "mg",
+                "0.5-1",
+                "tablet",
+                "tablet",
+                "PO",
+                "BID",
+                "030",
+                "D",
+                30,
+                "12.5",
+                12,
+                2,
+                true,
+                false,
+                false,
+                true,
+                false,
+                "CHRON",
+                "Active",
+                CdsMedicationDto.Currentness.CURRENT,
+                "Original Physician",
+                "001234",
+                "Original",
+                "Physician",
+                "Original provider notes",
+                "Original instructions",
+                "7",
+                "proto",
+                "prior",
+                "rx-source",
+                CdsTemporal.parse(null, null, null, "2024-02-29T12:34:56.1200-05:00", "Date"),
+                CdsTemporal.parse(null, null, "2020-02-29", null, "Date"),
+                false,
+                false,
+                List.of());
+    }
+
+    /** {@link #source()} whose imported Notes are {@code notes}. */
+    static CdsMedicationDto sourceWithNotes(String notes) throws Exception {
+        var value = (com.fasterxml.jackson.databind.node.ObjectNode) JSON.valueToTree(source());
+        value.put("providerNotes", notes);
+        return JSON.copy()
+                .disable(
+                        com.fasterxml.jackson.databind.DeserializationFeature
+                                .ADJUST_DATES_TO_CONTEXT_TIME_ZONE)
+                .treeToValue(value, CdsMedicationDto.class);
+    }
+
+    static CdsMedicationDto sourceOnlyStrength() throws Exception {
+        var value = (com.fasterxml.jackson.databind.node.ObjectNode) JSON.valueToTree(source());
+        value.putNull("strengthAmount");
+        value.putNull("strengthUnit");
+        value.put("strengthSourceOnly", true);
+        value.put("sourceRequiresReconciliation", true);
+        return JSON.copy()
+                .disable(
+                        com.fasterxml.jackson.databind.DeserializationFeature
+                                .ADJUST_DATES_TO_CONTEXT_TIME_ZONE)
+                .treeToValue(value, CdsMedicationDto.class);
+    }
+
+    static Map<String, String> sourceOnlyStrengthBaseline() {
+        var fields = baseline();
+        String placeholder = "[Source strength: see imported medication details]";
+        fields.put("dosage", placeholder);
+        fields.put("special", "Original café drug " + placeholder + "\n 0.5-1 tablet PO BID");
+        fields.put("cds_projection_incomplete", "1");
+        return fields;
+    }
+
+    static Map<String, String> baseline() {
+        var fields = new LinkedHashMap<String, String>();
+        CdsExportPatientTableReadSupport.Plan.DRUGS
+                .columns()
+                .forEach(column -> fields.put(column, null));
+        fields.putAll(
+                Map.of(
+                        "drugid",
+                        "51",
+                        "demographic_no",
+                        "27",
+                        "provider_no",
+                        "",
+                        "GCN_SEQNO",
+                        "0",
+                        "BN",
+                        "Original café drug",
+                        "regional_identifier",
+                        "00123456",
+                        "written_date",
+                        "2024-02-29",
+                        "rx_date",
+                        "2020-02-29",
+                        "start_date_unknown",
+                        "0"));
+        fields.putAll(
+                Map.of(
+                        "duration",
+                        "030",
+                        "durunit",
+                        "D",
+                        "quantity",
+                        "12.5",
+                        "repeat",
+                        "2",
+                        "refill_duration",
+                        "30",
+                        "refill_quantity",
+                        "12",
+                        "freqcode",
+                        "BID",
+                        "route",
+                        "PO",
+                        "drug_form",
+                        "tablet"));
+        fields.putAll(
+                Map.of(
+                        "unit",
+                        "tablet",
+                        "unitName",
+                        "tablet",
+                        "cds_dose_text",
+                        "0.5-1",
+                        "takemin",
+                        "0.5",
+                        "takemax",
+                        "1",
+                        "dosage",
+                        "5 mg",
+                        "long_term",
+                        "1",
+                        "short_term",
+                        "0",
+                        "past_med",
+                        "0",
+                        "patient_compliance",
+                        "0"));
+        fields.putAll(
+                Map.of(
+                        "nosubs",
+                        "1",
+                        "non_authoritative",
+                        "0",
+                        "eTreatmentType",
+                        "CHRON",
+                        "rxStatus",
+                        "Active",
+                        "cds_currentness",
+                        "CURRENT",
+                        "cds_projection_incomplete",
+                        "0",
+                        "prn",
+                        "0",
+                        "archived",
+                        "0",
+                        "dispense_interval",
+                        "7",
+                        "protocol",
+                        "proto"));
+        fields.putAll(
+                Map.of(
+                        "priorRxProtocol",
+                        "prior",
+                        "comment",
+                        "Original provider notes",
+                        "special_instruction",
+                        "Original instructions",
+                        "custom_instructions",
+                        "1",
+                        "custom_note",
+                        "0",
+                        "outside_provider_name",
+                        "Original Physician",
+                        "outside_provider_ohip",
+                        "001234",
+                        "special",
+                        "Original café drug 5 mg\n 0.5-1 tablet PO BID",
+                        "position",
+                        "0",
+                        "dispenseInternal",
+                        "0"));
+        fields.put("hide_cpp", "0");
+        fields.put("create_date", "2024-02-29 01:02:03");
+        fields.put("lastUpdateDate", "2024-02-29 01:02:03");
+        return fields;
+    }
+
+    static Map<String, CdsExactNumeric> numbers() {
+        return Map.of("takemin", numeric("3f000000"), "takemax", numeric("3f800000"));
+    }
+
+    static CdsExactNumeric numeric(String bits) {
+        return new CdsExactNumeric(CdsExactNumeric.Codec.IEEE754_BINARY32_V1, bits);
+    }
+
+    private static CdsNativeRowState state(
+            Map<String, String> values, Map<String, CdsExactNumeric> numeric) {
+        var columns = new ArrayList<CdsNativeRowDigest.Column>();
+        var cells = new ArrayList<CdsNativeRowState.Cell>();
+        for (String column : CdsExportPatientTableReadSupport.Plan.DRUGS.columns()) {
+            columns.add(
+                    new CdsNativeRowDigest.Column(
+                            column,
+                            Set.of("takemin", "takemax").contains(column) ? "FLOAT" : "VARCHAR",
+                            128,
+                            0));
+            String value = values.get(column);
+            cells.add(
+                    value == null
+                            ? new CdsNativeRowState.Cell(true, 0, null)
+                            : new CdsNativeRowState.Cell(
+                                    false,
+                                    value.getBytes(StandardCharsets.UTF_8).length,
+                                    sha(value),
+                                    numeric.containsKey(column)
+                                            ? numeric.get(column).witness()
+                                            : null));
+        }
+        return new CdsNativeRowState("drugs", "51", columns, cells);
+    }
+
+    static CdsExportNativeFieldKeyDto key(String field) {
+        return new CdsExportNativeFieldKeyDto(
+                "drugs", CdsExportPatientTableSourceReader.key(51), field);
+    }
+
+    private static String sha(String value) {
+        return HexFormat.of()
+                .formatHex(CdsImportKeys.digest().digest(value.getBytes(StandardCharsets.UTF_8)));
+    }
+
+    private CdsMedicationDto roundTrip(CdsExportMedicationDto value) throws Exception {
+        var patient = new LinkedHashMap<String, String>();
+        CdsExportDemographicRowDto.COLUMNS.forEach(column -> patient.put(column, null));
+        patient.putAll(
+                Map.of(
+                        "first_name",
+                        "Synthetic",
+                        "last_name",
+                        "Fixture",
+                        "year_of_birth",
+                        "1980",
+                        "month_of_birth",
+                        "01",
+                        "date_of_birth",
+                        "01",
+                        "patient_status",
+                        "AC",
+                        "sex",
+                        "U"));
+        var demographics =
+                new CdsExportDemographicMapper().map(new CdsExportDemographicRowDto(27, patient));
+        var selected = Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.MEDICATIONS_AND_TREATMENTS);
+        var sections =
+                List.of(
+                        new CdsExportXmlComposer.Section(
+                                new CdsExportIdentityDto(
+                                        "a".repeat(64), CdsCategory.DEMOGRAPHICS, "b".repeat(64)),
+                                xml ->
+                                        new CdsExportDemographicXmlWriter()
+                                                .write(demographics, xml)),
+                        new CdsExportXmlComposer.Section(
+                                new CdsExportIdentityDto(
+                                        "a".repeat(64),
+                                        CdsCategory.MEDICATIONS_AND_TREATMENTS,
+                                        "c".repeat(64)),
+                                xml -> new CdsExportMedicationXmlWriter().write(value, xml)));
+        var output = new ByteArrayOutputStream();
+        new CdsExportXmlComposer()
+                .compose(
+                        output,
+                        "d".repeat(64),
+                        "a".repeat(64),
+                        "2026.08.0-test",
+                        CdsLogicalProfile.ONTARIO_MD_5_2,
+                        selected,
+                        sections.iterator(),
+                        ignored -> {},
+                        1L << 20,
+                        () -> {});
+        new CdsExportXmlValidator()
+                .validate(
+                        new ByteArrayInputStream(output.toByteArray()),
+                        "27",
+                        selected,
+                        "2026.08.0-test",
+                        CdsLogicalProfile.ONTARIO_MD_5_2,
+                        ignored -> {},
+                        () -> {});
+        var file = Files.write(directory.resolve("medication.xml"), output.toByteArray());
+        var records = new ArrayList<CdsRecordDto>();
+        new CdsXmlParser()
+                .parse(
+                        file,
+                        directory.resolve("parsed"),
+                        CdsInputLimitsDto.defaults(),
+                        () -> false,
+                        records::add);
+        return new CdsClinicalNormalizationService(new CdsFieldParser()).medication(records.get(1));
+    }
+}

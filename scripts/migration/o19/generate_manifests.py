@@ -1102,6 +1102,16 @@ def load_schema(files: List[Path],
             for column in ("p3_immunization", "p4_immunization"):
                 schema.apply_alter("formRourke2020", "ADD COLUMN IF NOT EXISTS "
                                    + column + " TEXT NULL")
+        elif f.name == "V1.0.59.49__cds_export_attempt_checkpoint.sql":
+            # A resumed CDS export's checkpoint pointer, added column by column behind a
+            # same-shape guard (CARLOS export metadata; not an OSCAR 19 copy target).
+            for column, definition in (("checkpoint_member", "VARCHAR(64) NULL"),
+                                       ("checkpoint_digest", "VARCHAR(64) NULL"),
+                                       ("checkpoint_bytes", "BIGINT NULL"),
+                                       ("checkpoint_charts", "BIGINT NULL"),
+                                       ("adopted_charts", "BIGINT NULL")):
+                schema.apply_alter("cds_export_attempt", "ADD COLUMN IF NOT EXISTS "
+                                   + column + " " + definition)
     return schema
 
 
@@ -2597,6 +2607,13 @@ def build_profile(oscar: Path, province: str, ov_schema) -> Dict:
                 "rows in the {} profile (stale entry)".format(
                     t, n, seed_counts.get(t, 0), province))
         seed_counts[t] -= n
+
+    # Curated literal SELECT seeds whose predicates hold on the fresh reference
+    # target. Do not infer arbitrary INSERT ... SELECT cardinality from SQL text.
+    for t, n in sorted(getattr(ov_schema, "SEED_COUNT_ADDITIONS", {}).items()):
+        if t not in seed_counts or type(n) is not int or n < 1:
+            raise SystemExit("SEED_COUNT_ADDITIONS: invalid fresh reference count for " + t)
+        seed_counts[t] += n
 
     tables = build_tables(o19, carlos, ov_schema, province)
     unknown = sorted(t for t, e in tables.items() if e["class"] == "unknown")

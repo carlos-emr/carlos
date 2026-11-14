@@ -32,7 +32,31 @@ public record CdsHistoryNativeDto(
         String providerNo,
         CdsTemporalDto observationDate,
         String observationField,
-        List<CdsClinicalDiagnosticDto> diagnostics) {
+        List<CdsClinicalDiagnosticDto> diagnostics,
+        @com.fasterxml.jackson.annotation.JsonInclude(
+                        com.fasterxml.jackson.annotation.JsonInclude.Include.NON_DEFAULT)
+                boolean archived) {
+    public CdsHistoryNativeDto(
+            String content,
+            String issueCode,
+            Long observationMillis,
+            Long createdMillis,
+            String providerNo,
+            CdsTemporalDto observationDate,
+            String observationField,
+            List<CdsClinicalDiagnosticDto> diagnostics) {
+        this(
+                content,
+                issueCode,
+                observationMillis,
+                createdMillis,
+                providerNo,
+                observationDate,
+                observationField,
+                diagnostics,
+                false);
+    }
+
     public CdsHistoryNativeDto {
         diagnostics = List.copyOf(diagnostics);
         if (content == null

@@ -32,20 +32,26 @@ import org.springframework.transaction.annotation.Transactional;
 public class CdsLaboratoryReadService {
     private final SecurityInfoManager security;
     private final CdsLaboratoryResultDao results;
+
     public CdsLaboratoryReadService(SecurityInfoManager security, CdsLaboratoryResultDao results) {
-        this.security=security; this.results=results;
+        this.security = security;
+        this.results = results;
     }
 
-    @Transactional(readOnly=true)
+    @Transactional(readOnly = true)
     public void requireSourceFieldsReadable(LoggedInInfo actor, int demographicNo) {
-        if (actor == null || actor.getLoggedInSecurity() == null
-                || !security.hasPrivilegeReadOnly(actor, "_lab", "r", Integer.toString(demographicNo))
+        if (actor == null
+                || actor.getLoggedInSecurity() == null
+                || !security.hasPrivilegeReadOnly(
+                        actor, "_lab", "r", Integer.toString(demographicNo))
                 || !security.isAllowedAccessToPatientRecord(actor, demographicNo)) {
             throw new SecurityException("Laboratory access denied");
         }
         if (results.hasBlockedResult(demographicNo)
-                && !security.hasPrivilegeReadOnly(actor, "_lab_sensitive", "r", Integer.toString(demographicNo))) {
-            throw new SecurityException("Restricted laboratory access requires explicit authorization");
+                && !security.hasPrivilegeReadOnly(
+                        actor, "_lab_sensitive", "r", Integer.toString(demographicNo))) {
+            throw new SecurityException(
+                    "Restricted laboratory access requires explicit authorization");
         }
     }
 }

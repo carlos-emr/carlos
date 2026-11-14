@@ -37,6 +37,10 @@ are tested.
    Do not use `new Phrase(text, font)`, `Phrase.add(String)`, font-less `new Chunk(text)`,
    `PdfPTable.addCell(String)` or `PdfContentByte.showText*` for such text, and never OpenPDF's
    default font (`new Font()`, `new Paragraph(text)`): it is non-embedded Helvetica/Cp1252.
+   A fillable form field's font (`AcroFields.setFieldProperty(key, "textfont", ...)`) comes
+   from `PdfFonts.formFieldFont`, never from `getFont(...).getBaseFont()`: OpenPDF caches fonts
+   JVM-wide and turns subsetting off on a field's font, so one form fill with the shared font
+   made every later PDF in the JVM embed the whole face (the BPMH form did until 2026-11-13).
 5. **HTML to PDF:** non-scripted HTML goes through `HtmlPdfRenderService`; never build an
    `ITextRenderer` of your own. Every CSS font family resolves to the bundled DejaVu Sans (and
    its bold), whatever the document names, so a host font or an author's `@font-face` cannot

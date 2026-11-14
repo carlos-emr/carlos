@@ -42,7 +42,7 @@ For revised raw source, options or rules, submit the corrected file normally wit
 
 ## Transfer and acceptance recovery
 
-The browser hashes and sends one bounded raw `application/octet-stream` chunk at a time. This uses the existing CSRF guard without its multipart buffering path. It requires a secure browser context: approved HTTPS in operation, or a loopback origin for isolated testing.
+The browser hashes and sends one bounded raw `application/octet-stream` chunk at a time. This uses the existing CSRF guard without its multipart buffering path. Each chunk goes through `XMLHttpRequest`, which reports upload progress: the page gives a chunk up only after the server's no-progress window (two minutes) passes with no upload progress and no part of the reply, and then sends the same offset and hash again. A chunk that keeps moving is never cut off, and the server likewise fails a chunk only when none of its bytes arrive for that window (`UPLOAD_CHUNK_STALLED`). CSRFGuard's request hook adds the `CSRF-TOKEN` and `X-Requested-With` headers; the page sets them itself only on a page without the hook, since setting both would send each header twice. The transfer requires a secure browser context: approved HTTPS in operation, or a loopback origin for isolated testing.
 
 If transfer stops before acceptance, reopen the page's owned upload list, select the upload ID and reselect exactly the same local file. Every committed prefix chunk is checked against its durable receipt before new bytes are appended. Matching filename and size alone cannot establish a safe resume. A changed chunk at an already committed offset is refused.
 
@@ -74,7 +74,7 @@ Date-only, partial and missing source note timestamps remain unknown in native e
 
 - Prototype actions enforce HTTP methods, reauthorize, bind a bounded command and delegate. No action chooses an arbitrary server input or report path.
 - `CdsImportViewModelAssembler` and `CdsSourceFieldsViewModelAssembler` build immutable bounded presentation models. JSPs render encoded model values and perform no DAO work.
-- `CdsUploadService` owns durable byte checkpoints, quota reservation and payload retirement. Body transfer occurs outside database transactions; short row-locked transactions seal completed chunks.
+- `CdsUploadService` owns durable byte checkpoints, reservation bookkeeping and payload retirement. No upload size or total is refused: each chunk is checked against the upload store's free-disk reserve before it is written (`UPLOAD_DISK_RESERVE_REFUSED`, HTTP 507), and the only count is of uploads still holding a reservation. Body transfer occurs outside database transactions; short row-locked transactions seal completed chunks.
 - `CdsImportService` owns durable job operations. Focused native demographic/history/appointment writers load bounded hash-bound DTOs prepared outside the clinical transaction. Unbounded source metadata scans do not run under a clinical unit's database locks.
 - Source-field reads take a shared admission lock through authorization and bounded metadata selection. Protected payload I/O occurs after that short transaction ends.
 - The browser keeps only bounded opaque run IDs in local storage, replaces bounded table pages, limits decoded status JSON to 2 MiB through a backpressured `pipeTo`/`WritableStream` consumer and aborts timed-out requests. Oversize or malformed UTF-8 cancels the source and fails visibly. It clears stale run content when switching runs and requires a fresh receipt before enabling run controls.
@@ -87,14 +87,15 @@ Date-only, partial and missing source note timestamps remain unknown in native e
 | `cds.import.sourceNamespaces` | Explicit server-owned namespace list |
 | `cds.import.source.<namespace>.profiles` | Registered `pcon-2024-02` and/or `omd-5.2` profiles |
 | `cds.import.uploadRoot` | Required private upload storage |
-| `cds.import.upload.maxChunkBytes` | 4 MiB; supported range 64 KiB–16 MiB |
-| `cds.import.upload.maxFileBytes` | 64 GiB |
-| `cds.import.upload.maxTotalBytes` | 256 GiB reserved transfer bytes |
-| `cds.import.upload.maxFiles` | 20,000 reserved uploads |
-| `cds.import.minimumFreeDiskBytes` | 512 MiB floor |
+| `cds.import.upload.maxChunkBytes` | 4 MiB transfer unit; supported range 64 KiB–16 MiB |
+| `cds.import.upload.maxFiles` | 20,000 uploads holding a reservation at once (an inode guard; one import needs one upload) |
+| `cds.import.minimumFreeDiskBytes` | 512 MiB free-disk reserve, checked before every chunk |
 | `cds.import.upload.ttlHours` | 24 hours for unsubmitted expiry |
 | `cds.import.clinicalZone` | Explicit clinic/source time zone; no guessed local-time resolution |
 | `cds.import.native.maxNoteBytes` | 256 KiB bounded native narrative projection; maximum 384 KiB |
+
+A file of any size is uploaded: `cds.import.upload.maxFileBytes` and `maxTotalBytes` are retired
+and ignored (see the [configuration reference](cds-import-configuration.md#retired-settings)).
 
 Live JSON requests use the explicit browser contract `apiVersion=2`; successful JSON responses include numeric `apiVersion: 2` and `X-CARLOS-CDS-API-Version: 2`. A missing, duplicated or unsupported mutator version requires a refresh before reading a raw chunk or reserving upload quota. Durable report and original-field downloads remain separately authorized, versionless immutable files, including JSON completion receipts. The foreground CLI protocol is independent.
 
@@ -118,6 +119,24 @@ node scripts/demographic-cds-import-playwright-checks.js
 CDS_BROWSER_CORPUS=true node scripts/demographic-cds-import-playwright-checks.js
 node scripts/audit-log-demographic-import-playwright-checks.js
 ```
+
+Each committed clinical import unit (the Demographics unit and every native category unit, not
+source-field or care-element units) writes one row in the normal chart audit table `log` inside
+its own unit transaction: action `import`, content `demographic`, the patient's
+`demographic_no` as `contentId` and `demographic_no`, the importing provider and security
+record, and data `CDS_IMPORT_UNIT_COMMITTED run=<run> unit=<unit hash> category=<category>`.
+A rolled-back unit leaves no row; the outcome detail stays in `cds_import_event`. No source
+value, health card number or name is written. Imports run on the durable worker or the CLI,
+which serve no request, so these rows' `ip` is empty.
+
+A browser submission writes one more `log` row when the job is accepted: action `import`,
+content `cds import`, the run id as `contentId`, the submitting provider, security record and
+client address, and data `CDS_IMPORT_SUBMITTED run=<run>` (plus ` dryRun=true` for a preview).
+The shared run joins it to the per-patient unit rows. It is written after the durable
+acceptance; if that write fails the accepted job still runs and the server log records the
+failure without identifiers. A CLI import has no client address and writes no submission row;
+its submission is recorded in `cds_import_event`. `audit-log-demographic-import` checks both
+kinds of row.
 
 The shared browser gate retains strict console, HTTP, navigation and network checks. A passive metadata observer can classify only an exact tagged JSON request whose production bounded consumer completed fatal UTF-8 decoding, JSON parsing and stream EOF with HTTP 200/202, no redirect, abort or navigation, and independent owner/run/upload, bounded page/cursor and visible UI evidence. Clinical completion also requires native checkpoint/patient and protected report proof; a clean dry run separately proves zero native writes. Raw Chromium `net::ERR_ABORTED` events and their bounded qualification evidence remain in the audit. Unmatched, early, truncated, malformed, unsuccessful and binary-download failures remain fatal. This handles a reproduced Chromium streaming-completion bookkeeping case without changing production transport or adding URL-wide exceptions.
 

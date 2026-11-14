@@ -47,138 +47,223 @@ class CdsImportSupervisionServiceUnitTest {
     private ThreadPoolExecutor worker;
     private CdsImportConfigurationService configuration;
 
-    @BeforeEach void setUp() throws Exception {
-        reviews=mock(CdsImportReviewService.class);
-        ledger=mock(CdsImportLedgerService.class);
-        execution=mock(CdsImportExecutionService.class);
-        configuration=mock(CdsImportConfigurationService.class);
-        var cleanup=mock(CdsImportCleanupService.class);
+    @BeforeEach
+    void setUp() throws Exception {
+        reviews = mock(CdsImportReviewService.class);
+        ledger = mock(CdsImportLedgerService.class);
+        execution = mock(CdsImportExecutionService.class);
+        configuration = mock(CdsImportConfigurationService.class);
+        var cleanup = mock(CdsImportCleanupService.class);
         when(configuration.enabled()).thenReturn(true);
         when(configuration.value("cds.import.worker.enabled", "true")).thenReturn("true");
-        when(cleanup.housekeeping()).thenReturn(Map.of("state", "COMPLETE", "fullPassComplete", true));
+        when(cleanup.housekeeping())
+                .thenReturn(Map.of("state", "COMPLETE", "fullPassComplete", true));
         when(ledger.pending("", 16)).thenReturn(List.of());
         when(ledger.summary("run")).thenReturn(Map.of());
         when(reviews.summary("run")).thenReturn(Map.of());
-        service=new CdsImportService(ledger, mock(CdsImportJobService.class), execution,
-                mock(CdsImportResultService.class), mock(CdsImportAccessService.class), configuration, cleanup,
-                reviews, mock(CdsImportFailureEvidenceService.class), mock(CdsImportObservationService.class));
-        var field=CdsImportService.class.getDeclaredField("worker");field.setAccessible(true);
-        worker=(ThreadPoolExecutor)field.get(service);
+        service =
+                new CdsImportService(
+                        ledger,
+                        mock(CdsImportJobService.class),
+                        execution,
+                        mock(CdsImportResultService.class),
+                        mock(CdsImportAccessService.class),
+                        configuration,
+                        cleanup,
+                        reviews,
+                        mock(CdsImportFailureEvidenceService.class),
+                        mock(CdsImportObservationService.class));
+        var field = CdsImportService.class.getDeclaredField("worker");
+        field.setAccessible(true);
+        worker = (ThreadPoolExecutor) field.get(service);
     }
-    @AfterEach void close() {service.close();}
 
-    @Test void shouldHoldRecoveredWork_untilExplicitPostRefreshWebBootstrap() throws Exception {
-        var job=mock(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto.class);
+    @AfterEach
+    void close() {
+        service.close();
+    }
+
+    @Test
+    void shouldHoldRecoveredWork_untilExplicitPostRefreshWebBootstrap() throws Exception {
+        var job = mock(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto.class);
         when(job.id()).thenReturn("recovered");
         when(job.state()).thenReturn("RUNNING");
-        when(ledger.pending("",16)).thenReturn(List.of(job));
+        when(ledger.pending("", 16)).thenReturn(List.of(job));
         when(ledger.status("recovered")).thenReturn(job);
-        var dispatcher=CdsImportService.class.getDeclaredField("dispatcher");dispatcher.setAccessible(true);
-        try (var context=new org.springframework.context.annotation.AnnotationConfigApplicationContext()) {
-            context.registerBean("cdsImportService",CdsImportService.class,()->service);
+        var dispatcher = CdsImportService.class.getDeclaredField("dispatcher");
+        dispatcher.setAccessible(true);
+        try (var context =
+                new org.springframework.context.annotation.AnnotationConfigApplicationContext()) {
+            context.registerBean("cdsImportService", CdsImportService.class, () -> service);
             context.refresh();
             // CARLOS publishes SpringUtils after refresh returns. No persisted
             // job may reach privilege checks during refresh or its events.
             assertThat(dispatcher.get(service)).isNull();
-            verifyNoInteractions(ledger,execution);
+            verifyNoInteractions(ledger, execution);
             service.start();
-            Object started=dispatcher.get(service);
+            Object started = dispatcher.get(service);
             service.start();
             assertThat(started).isNotNull().isSameAs(dispatcher.get(service));
-            verify(execution,timeout(3000)).execute("recovered");
+            verify(execution, timeout(3000)).execute("recovered");
         }
         service.start();
         assertThat(worker.isShutdown()).isTrue();
     }
 
-    @Test void shouldNotStartDisabledWebWorker_atBootstrap() throws Exception {
-        when(configuration.value("cds.import.worker.enabled","true")).thenReturn("false");
+    @Test
+    void shouldNotStartDisabledWebWorker_atBootstrap() throws Exception {
+        when(configuration.value("cds.import.worker.enabled", "true")).thenReturn("false");
         service.start();
-        var field=CdsImportService.class.getDeclaredField("dispatcher");field.setAccessible(true);
+        var field = CdsImportService.class.getDeclaredField("dispatcher");
+        field.setAccessible(true);
         assertThat(field.get(service)).isNull();
-        verifyNoInteractions(ledger,execution);
+        verifyNoInteractions(ledger, execution);
     }
 
-    @Test void shouldNotResurrectWorker_whenClosedBeforeBootstrap() throws Exception {
-        service.close();service.start();service.close();
-        var field=CdsImportService.class.getDeclaredField("dispatcher");field.setAccessible(true);
+    @Test
+    void shouldNotResurrectWorker_whenClosedBeforeBootstrap() throws Exception {
+        service.close();
+        service.start();
+        service.close();
+        var field = CdsImportService.class.getDeclaredField("dispatcher");
+        field.setAccessible(true);
         assertThat(field.get(service)).isNull();
         assertThat(worker.isShutdown()).isTrue();
-        verifyNoInteractions(ledger,execution);
+        verifyNoInteractions(ledger, execution);
     }
 
-    @Test void shouldKeepFatalReviewSuspended_untilHealthySupervisorPersistsIt() throws Exception {
+    @Test
+    void shouldKeepFatalReviewSuspended_untilHealthySupervisorPersistsIt() throws Exception {
         when(reviews.process("failed")).thenThrow(new AssertionError("synthetic private failure"));
-        call("scheduleReview", new Class<?>[]{String.class}, "failed");barrier();
-        call("scheduleReview", new Class<?>[]{String.class}, "failed");barrier();
+        call("scheduleReview", new Class<?>[] {String.class}, "failed");
+        barrier();
+        call("scheduleReview", new Class<?>[] {String.class}, "failed");
+        barrier();
         verify(reviews, times(1)).process("failed");
-        call("dispatch", new Class<?>[]{});
+        call("dispatch", new Class<?>[] {});
         verify(reviews).superviseFatal("failed");
-        // The real DAO excludes suspended rows. A different accepted review may proceed after supervision.
+        // The real DAO excludes suspended rows. A different accepted review may proceed after
+        // supervision.
         when(reviews.pending(16)).thenReturn(List.of("other"));
-        call("dispatch", new Class<?>[]{});barrier();
-        verify(reviews).process("other");verify(reviews, times(1)).process("failed");
-    }
-    @Test void shouldKeepWorkerSuspended_whenFatalPersistenceIsUnavailable() throws Exception {
-        when(reviews.process("failed")).thenThrow(new AssertionError("synthetic private failure"));
-        doThrow(new IOException("synthetic unavailable metadata")).doNothing().when(reviews).superviseFatal("failed");
-        call("scheduleReview", new Class<?>[]{String.class}, "failed");barrier();
-        call("dispatch", new Class<?>[]{});
-        call("scheduleReview", new Class<?>[]{String.class}, "failed");barrier();
+        call("dispatch", new Class<?>[] {});
+        barrier();
+        verify(reviews).process("other");
         verify(reviews, times(1)).process("failed");
-        call("dispatch", new Class<?>[]{});verify(reviews, times(2)).superviseFatal("failed");
     }
-    @Test void shouldMakeFatalSupervisorVisible_andStopAutomaticWork() throws Exception {
+
+    @Test
+    void shouldKeepWorkerSuspended_whenFatalPersistenceIsUnavailable() throws Exception {
         when(reviews.process("failed")).thenThrow(new AssertionError("synthetic private failure"));
-        doThrow(new AssertionError("synthetic supervisor resource failure")).when(reviews).superviseFatal("failed");
-        call("scheduleReview", new Class<?>[]{String.class}, "failed");barrier();
-        call("dispatch", new Class<?>[]{});call("dispatch", new Class<?>[]{});
+        doThrow(new IOException("synthetic unavailable metadata"))
+                .doNothing()
+                .when(reviews)
+                .superviseFatal("failed");
+        call("scheduleReview", new Class<?>[] {String.class}, "failed");
+        barrier();
+        call("dispatch", new Class<?>[] {});
+        call("scheduleReview", new Class<?>[] {String.class}, "failed");
+        barrier();
+        verify(reviews, times(1)).process("failed");
+        call("dispatch", new Class<?>[] {});
+        verify(reviews, times(2)).superviseFatal("failed");
+    }
+
+    @Test
+    void shouldMakeFatalSupervisorVisible_andStopAutomaticWork() throws Exception {
+        when(reviews.process("failed")).thenThrow(new AssertionError("synthetic private failure"));
+        doThrow(new AssertionError("synthetic supervisor resource failure"))
+                .when(reviews)
+                .superviseFatal("failed");
+        call("scheduleReview", new Class<?>[] {String.class}, "failed");
+        barrier();
+        call("dispatch", new Class<?>[] {});
+        call("dispatch", new Class<?>[] {});
         verify(reviews, times(1)).superviseFatal("failed");
-        var summary=(Map<?, ?>)operatorSummary();
+        var summary = (Map<?, ?>) operatorSummary();
         assertThat(summary.get("workerAlert")).isEqualTo("IMPORT_SUPERVISOR_FATAL");
     }
+
     @ParameterizedTest
-    @ValueSource(strings={"REVIEW_REQUIRED", "RECONCILIATION_REQUIRED"})
-    void shouldAllowOnlyStoppedPendingReportDelivery_duringPendingReview(String state) throws Exception {
-        var job=mock(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto.class);
-        when(job.state()).thenReturn(state); when(ledger.hasPendingReport("run")).thenReturn(true);
-        when(ledger.status("run")).thenReturn(job); when(reviews.hasPending("run")).thenReturn(true);
-        call("schedule", new Class<?>[]{String.class}, "run"); barrier();
+    @ValueSource(strings = {"REVIEW_REQUIRED", "RECONCILIATION_REQUIRED"})
+    void shouldAllowOnlyStoppedPendingReportDelivery_duringPendingReview(String state)
+            throws Exception {
+        var job = mock(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto.class);
+        when(job.state()).thenReturn(state);
+        when(ledger.hasPendingReport("run")).thenReturn(true);
+        when(ledger.status("run")).thenReturn(job);
+        when(reviews.hasPending("run")).thenReturn(true);
+        call("schedule", new Class<?>[] {String.class}, "run");
+        barrier();
         verify(execution).reportOnly("run");
         verify(execution, never()).execute("run");
     }
-    @Test void shouldKeepBlockingClinicalResume_duringPendingReview() throws Exception {
-        var job=mock(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto.class);
-        when(job.state()).thenReturn("RESUME_REQUESTED"); when(ledger.hasPendingReport("run")).thenReturn(true);
-        when(ledger.status("run")).thenReturn(job); when(reviews.hasPending("run")).thenReturn(true);
-        call("schedule", new Class<?>[]{String.class}, "run"); barrier();
+
+    @Test
+    void shouldKeepBlockingClinicalResume_duringPendingReview() throws Exception {
+        var job = mock(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto.class);
+        when(job.state()).thenReturn("RESUME_REQUESTED");
+        when(ledger.hasPendingReport("run")).thenReturn(true);
+        when(ledger.status("run")).thenReturn(job);
+        when(reviews.hasPending("run")).thenReturn(true);
+        call("schedule", new Class<?>[] {String.class}, "run");
+        barrier();
         verifyNoInteractions(execution);
     }
-    @Test void shouldNotRedispatchAlreadyStoppedReport_duringPendingReview() throws Exception {
-        var job=mock(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto.class);
-        when(job.state()).thenReturn("REVIEW_REQUIRED"); when(ledger.hasPendingReport("run")).thenReturn(false);
-        when(ledger.status("run")).thenReturn(job); when(reviews.hasPending("run")).thenReturn(true);
-        call("schedule", new Class<?>[]{String.class}, "run"); barrier();
+
+    @Test
+    void shouldNotRedispatchAlreadyStoppedReport_duringPendingReview() throws Exception {
+        var job = mock(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto.class);
+        when(job.state()).thenReturn("REVIEW_REQUIRED");
+        when(ledger.hasPendingReport("run")).thenReturn(false);
+        when(ledger.status("run")).thenReturn(job);
+        when(reviews.hasPending("run")).thenReturn(true);
+        call("schedule", new Class<?>[] {String.class}, "run");
+        barrier();
         verifyNoInteractions(execution);
     }
+
     @ParameterizedTest
-    @ValueSource(strings={"REQUESTED", "VALIDATING", "OVERLAY_PUBLISHED", "PATIENT_DECLINED", "REVISION_PUBLISHED"})
-    void shouldNotTerminateAcceptedReviewWaitingForWorker_withDeliveredStoppedReport(String state) throws Exception {
-        var job=mock(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto.class);
+    @ValueSource(
+            strings = {
+                "REQUESTED",
+                "VALIDATING",
+                "OVERLAY_PUBLISHED",
+                "PATIENT_DECLINED",
+                "REVISION_PUBLISHED"
+            })
+    void shouldNotTerminateAcceptedReviewWaitingForWorker_withDeliveredStoppedReport(String state)
+            throws Exception {
+        var job = mock(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto.class);
         when(job.state()).thenReturn("REVIEW_REQUIRED");
         when(ledger.status("run")).thenReturn(job);
-        AtomicBoolean delivered=new AtomicBoolean();
-        when(ledger.hasPendingReport("run")).thenAnswer(call->!delivered.get());
-        when(ledger.summary("run")).thenAnswer(call->Map.of(
-                "operationTerminal", delivered.get(), "cleanComplete", false, "reportsDelivered", delivered.get()));
+        AtomicBoolean delivered = new AtomicBoolean();
+        when(ledger.hasPendingReport("run")).thenAnswer(call -> !delivered.get());
+        when(ledger.summary("run"))
+                .thenAnswer(
+                        call ->
+                                Map.of(
+                                        "operationTerminal",
+                                        delivered.get(),
+                                        "cleanComplete",
+                                        false,
+                                        "reportsDelivered",
+                                        delivered.get()));
         when(reviews.hasPending("run")).thenReturn(true);
-        when(reviews.summary("run")).thenReturn(Map.of("pendingReviewCount", 1, "reviewState", state));
-        doAnswer(call->{delivered.set(true);return null;}).when(execution).reportOnly("run");
+        when(reviews.summary("run"))
+                .thenReturn(Map.of("pendingReviewCount", 1, "reviewState", state));
+        doAnswer(
+                        call -> {
+                            delivered.set(true);
+                            return null;
+                        })
+                .when(execution)
+                .reportOnly("run");
         // This reproduces the durable review -> dispatcher report -> review-enqueue window.
         // The actual bounded facade worker delivers the report before any review is scheduled.
-        call("schedule", new Class<?>[]{String.class}, "run"); barrier();
+        call("schedule", new Class<?>[] {String.class}, "run");
+        barrier();
         assertThat(ledger.summary("run").get("operationTerminal")).isEqualTo(true);
-        var summary=(Map<?, ?>)operatorSummary();
+        var summary = (Map<?, ?>) operatorSummary();
         assertThat(summary.get("reportsDelivered")).isEqualTo(true);
         assertThat(summary.get("pendingReviewCount")).isEqualTo(1);
         assertThat(summary.get("reviewState")).isEqualTo(state);
@@ -188,37 +273,57 @@ class CdsImportSupervisionServiceUnitTest {
         verify(execution, never()).execute("run");
         verify(reviews, never()).process(anyString());
     }
-    @Test void shouldKeepStoppedTerminalOutcomeAndExplicitRecoveryCode_forSupervisedFatalReview() throws Exception {
-        when(ledger.summary("run")).thenReturn(Map.of("operationTerminal", true, "cleanComplete", true));
-        when(reviews.summary("run")).thenReturn(Map.of(
-                "pendingReviewCount", 1, "reviewState", "REVISION_PUBLISHED", "reviewErrorCode", "REVIEW_WORKER_FATAL"));
-        var summary=(Map<?, ?>)operatorSummary();
+
+    @Test
+    void shouldKeepStoppedTerminalOutcomeAndExplicitRecoveryCode_forSupervisedFatalReview()
+            throws Exception {
+        when(ledger.summary("run"))
+                .thenReturn(Map.of("operationTerminal", true, "cleanComplete", true));
+        when(reviews.summary("run"))
+                .thenReturn(
+                        Map.of(
+                                "pendingReviewCount",
+                                1,
+                                "reviewState",
+                                "REVISION_PUBLISHED",
+                                "reviewErrorCode",
+                                "REVIEW_WORKER_FATAL"));
+        var summary = (Map<?, ?>) operatorSummary();
         assertThat(summary.get("operationTerminal")).isEqualTo(true);
         assertThat(summary.get("cleanComplete")).isEqualTo(false);
         assertThat(summary.get("reviewErrorCode")).isEqualTo("REVIEW_WORKER_FATAL");
         assertThat(summary.get("pendingReviewCount")).isEqualTo(1);
     }
-    @Test void shouldKeepPendingReviewCountTyped_withZeroNotRewritingLedgerOutcome() throws Exception {
-        when(ledger.summary("run")).thenReturn(Map.of("operationTerminal", true, "cleanComplete", true));
+
+    @Test
+    void shouldKeepPendingReviewCountTyped_withZeroNotRewritingLedgerOutcome() throws Exception {
+        when(ledger.summary("run"))
+                .thenReturn(Map.of("operationTerminal", true, "cleanComplete", true));
         when(reviews.summary("run")).thenReturn(Map.of("pendingReviewCount", 0));
-        var zero=(Map<?, ?>)operatorSummary();
+        var zero = (Map<?, ?>) operatorSummary();
         assertThat(zero.get("operationTerminal")).isEqualTo(true);
         assertThat(zero.get("cleanComplete")).isEqualTo(true);
         when(reviews.summary("run")).thenReturn(Map.of("pendingReviewCount", 2L));
-        var positive=(Map<?, ?>)operatorSummary();
+        var positive = (Map<?, ?>) operatorSummary();
         assertThat(positive.get("operationTerminal")).isEqualTo(false);
         assertThat(positive.get("cleanComplete")).isEqualTo(false);
         assertThat(positive.get("pendingReviewCount")).isEqualTo(2L);
     }
-    private void barrier() throws Exception {worker.submit(()->{}).get(5, TimeUnit.SECONDS);}
-    private Object operatorSummary() throws Exception {
-        Map<String, Object> combined=new java.util.LinkedHashMap<>(ledger.summary("run"));
-        combined.putAll(reviews.summary("run"));
-        return call("operatorSummary", new Class<?>[]{String.class, Map.class}, "run", combined);
+
+    private void barrier() throws Exception {
+        worker.submit(() -> {}).get(5, TimeUnit.SECONDS);
     }
 
-    private Object call(String name, Class<?>[] parameterTypes, Object... arguments) throws Exception {
-        Method method=CdsImportService.class.getDeclaredMethod(name, parameterTypes);method.setAccessible(true);
+    private Object operatorSummary() throws Exception {
+        Map<String, Object> combined = new java.util.LinkedHashMap<>(ledger.summary("run"));
+        combined.putAll(reviews.summary("run"));
+        return call("operatorSummary", new Class<?>[] {String.class, Map.class}, "run", combined);
+    }
+
+    private Object call(String name, Class<?>[] parameterTypes, Object... arguments)
+            throws Exception {
+        Method method = CdsImportService.class.getDeclaredMethod(name, parameterTypes);
+        method.setAccessible(true);
         return method.invoke(service, arguments);
     }
 }

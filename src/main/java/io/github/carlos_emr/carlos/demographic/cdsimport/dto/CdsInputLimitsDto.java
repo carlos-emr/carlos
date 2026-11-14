@@ -21,41 +21,79 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.dto;
 
-/** Explicit per-import resource admission limits; changing these is not a memory-management fix. */
-public record CdsInputLimitsDto(long maxSourceBytes, long maxExpandedBytes, long maxEntries,
-        int maxXmlDepth, int maxBoundedScalarCharacters, long maxBinaryBytes,
-        long minimumFreeDiskBytes, long maxDurationMillis, int maxPathCharacters, double maxCompressionRatio,
-        int maxNamespaceAliases, int maxUniqueXmlNames, int maxXmlNameCharacters, int maxNamespaceUriCharacters) {
+/**
+ * The resource settings of one import.
+ *
+ * <p>Nothing here refuses an import for its size. The size, count and ratio ceilings this record
+ * once carried (source bytes, expanded bytes, archive entries, decoded binary bytes and the
+ * compression ratio) are retired: every byte the import writes is checked against the free-disk
+ * reserve ({@link #minimumFreeDiskBytes}) before and while it is written, so an import stops for
+ * its size only when its storage would actually run short, and then under its own code
+ * ({@code CDS_INPUT_DISK_RESERVE}, {@code PLANNING_DISK_RESERVE} and the like).
+ *
+ * <p>The XML structure settings are hostile-input guards that a genuine CDS 5.2 file cannot reach
+ * (the pinned schema fixes its names, depth and attributes); each is documented with its reason in
+ * {@code docs/cds-import-configuration.md}. Their values protect the parser's memory, which they
+ * keep from growing with anything but the schema.
+ *
+ * @param maxXmlDepth element nesting; the schema's deepest path is far shallower
+ * @param maxBoundedScalarCharacters characters of one schema-constrained value or markup
+ *     construct held for validation; unconstrained text, numbers and binary values stream
+ * @param minimumFreeDiskBytes free space every writer leaves on its store
+ * @param stallWindowMillis {@code cds.import.maxDurationMillis}: how long the import worker may
+ *     reach no checkpoint before it is treated as dead; not a limit on how long an import runs
+ * @param maxPathCharacters one archive member path or record-relative XML path
+ * @param maxNamespaceAliases distinct namespace prefixes and URIs of one document
+ * @param maxUniqueXmlNames distinct qualified names of one document
+ * @param maxXmlNameCharacters one qualified name or prefix
+ * @param maxNamespaceUriCharacters one namespace URI
+ */
+public record CdsInputLimitsDto(
+        int maxXmlDepth,
+        int maxBoundedScalarCharacters,
+        long minimumFreeDiskBytes,
+        long stallWindowMillis,
+        int maxPathCharacters,
+        int maxNamespaceAliases,
+        int maxUniqueXmlNames,
+        int maxXmlNameCharacters,
+        int maxNamespaceUriCharacters) {
     public CdsInputLimitsDto {
-        if (maxSourceBytes < 1 || maxExpandedBytes < 1 || maxEntries < 1 || maxXmlDepth < 4
-                || maxBoundedScalarCharacters < 65536 || maxBinaryBytes < 1
-                || minimumFreeDiskBytes < 0 || maxDurationMillis < 1 || maxPathCharacters < 256
-                || !Double.isFinite(maxCompressionRatio) || maxCompressionRatio < 1
-                || maxNamespaceAliases < 1 || maxUniqueXmlNames < 1 || maxXmlNameCharacters < 64
+        if (maxXmlDepth < 4
+                || maxBoundedScalarCharacters < 65536
+                || minimumFreeDiskBytes < 0
+                || stallWindowMillis < 1
+                || maxPathCharacters < 256
+                || maxNamespaceAliases < 1
+                || maxUniqueXmlNames < 1
+                || maxXmlNameCharacters < 64
                 || maxNamespaceUriCharacters < 128) {
             throw new IllegalArgumentException("Invalid CDS input resource limits");
         }
     }
 
-    public CdsInputLimitsDto(long maxSourceBytes, long maxExpandedBytes, long maxEntries, int maxXmlDepth,
-            int maxBoundedScalarCharacters, long maxBinaryBytes, long minimumFreeDiskBytes,
-            long maxDurationMillis, int maxPathCharacters) {
-        this(maxSourceBytes, maxExpandedBytes, maxEntries, maxXmlDepth, maxBoundedScalarCharacters,
-                maxBinaryBytes, minimumFreeDiskBytes, maxDurationMillis, maxPathCharacters, 200);
+    /** The default namespace and name guards with the given structure, disk and stall settings. */
+    public CdsInputLimitsDto(
+            int maxXmlDepth,
+            int maxBoundedScalarCharacters,
+            long minimumFreeDiskBytes,
+            long stallWindowMillis,
+            int maxPathCharacters) {
+        this(
+                maxXmlDepth,
+                maxBoundedScalarCharacters,
+                minimumFreeDiskBytes,
+                stallWindowMillis,
+                maxPathCharacters,
+                128,
+                4096,
+                256,
+                4096);
     }
 
-    public CdsInputLimitsDto(long maxSourceBytes, long maxExpandedBytes, long maxEntries, int maxXmlDepth,
-            int maxBoundedScalarCharacters, long maxBinaryBytes, long minimumFreeDiskBytes,
-            long maxDurationMillis, int maxPathCharacters, double maxCompressionRatio) {
-        this(maxSourceBytes, maxExpandedBytes, maxEntries, maxXmlDepth, maxBoundedScalarCharacters,
-                maxBinaryBytes, minimumFreeDiskBytes, maxDurationMillis, maxPathCharacters,
-                maxCompressionRatio, 128, 4096, 256, 4096);
-    }
-
-    /** Conservative operational defaults, overridable by the deployment's measured workload policy. */
+    /** Operational defaults, overridable by the deployment's settings. */
     public static CdsInputLimitsDto defaults() {
-        return new CdsInputLimitsDto(64L << 30, 512L << 30, 2_000_000, 256, 65536,
-                64L << 30, 512L << 20, 24L * 60 * 60 * 1000, 8192, 200);
+        return new CdsInputLimitsDto(256, 65536, 512L << 20, 24L * 60 * 60 * 1000, 8192);
     }
 
     /** XSD identity tables retain values across the document, including dynamic xsi:type values. */

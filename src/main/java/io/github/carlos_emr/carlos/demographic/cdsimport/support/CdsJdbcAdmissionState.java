@@ -31,37 +31,77 @@ import java.util.function.Supplier;
 /** Per-datasource admission capability; durable row locks remain the authority across processes. */
 public final class CdsJdbcAdmissionState {
     public static final String ROW = "clinical-maintenance";
-    public record Lease(String token, long generation, long connectionId) { }
+
+    public record Lease(String token, long generation, long connectionId) {}
+
     private final String lockName;
     private final AtomicReference<Lease> owner = new AtomicReference<>();
     private final AtomicReference<Lease> verifiedCatalogue = new AtomicReference<>();
     private final ThreadLocal<Lease> readScope = new ThreadLocal<>();
 
     public CdsJdbcAdmissionState(String databaseName) {
-        if (databaseName == null || databaseName.isBlank()) throw new IllegalArgumentException("Database name required");
+        if (databaseName == null || databaseName.isBlank())
+            throw new IllegalArgumentException("Database name required");
         try {
-            this.lockName = "carlos.cds.maintenance." + HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest(databaseName.getBytes(StandardCharsets.UTF_8))).substring(0, 24);
-        } catch (NoSuchAlgorithmException impossible) { throw new IllegalStateException(impossible); }
+            this.lockName =
+                    "carlos.cds.maintenance."
+                            + HexFormat.of()
+                                    .formatHex(
+                                            MessageDigest.getInstance("SHA-256")
+                                                    .digest(
+                                                            databaseName.getBytes(
+                                                                    StandardCharsets.UTF_8)))
+                                    .substring(0, 24);
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException(impossible);
+        }
     }
-    public String lockName() { return lockName; }
-    public Lease owner() { return owner.get(); }
-    public boolean install(Lease lease) { return owner.compareAndSet(null, lease); }
+
+    public String lockName() {
+        return lockName;
+    }
+
+    public Lease owner() {
+        return owner.get();
+    }
+
+    public boolean install(Lease lease) {
+        return owner.compareAndSet(null, lease);
+    }
+
     public void release(Lease lease) {
-        verifiedCatalogue.compareAndSet(lease, null); owner.compareAndSet(lease, null);
+        verifiedCatalogue.compareAndSet(lease, null);
+        owner.compareAndSet(lease, null);
     }
-    public void clearCatalogueVerification(Lease lease) { verifiedCatalogue.compareAndSet(lease, null); }
+
+    public void clearCatalogueVerification(Lease lease) {
+        verifiedCatalogue.compareAndSet(lease, null);
+    }
+
     public void catalogueVerified(Lease lease) {
-        if (owner.get()!=lease) throw new IllegalStateException("Maintenance catalogue owner is fenced");
+        if (owner.get() != lease)
+            throw new IllegalStateException("Maintenance catalogue owner is fenced");
         verifiedCatalogue.set(lease);
     }
-    public boolean hasVerifiedCatalogue(Lease lease) { return lease!=null && owner.get()==lease && verifiedCatalogue.get()==lease; }
-    public boolean hasReadScope(Lease lease) { return lease != null && owner.get() == lease && readScope.get() == lease; }
+
+    public boolean hasVerifiedCatalogue(Lease lease) {
+        return lease != null && owner.get() == lease && verifiedCatalogue.get() == lease;
+    }
+
+    public boolean hasReadScope(Lease lease) {
+        return lease != null && owner.get() == lease && readScope.get() == lease;
+    }
+
     public <T> T read(Lease lease, Supplier<T> work) {
-        if (owner.get() != lease) throw new IllegalStateException("Maintenance read owner is absent or fenced");
+        if (owner.get() != lease)
+            throw new IllegalStateException("Maintenance read owner is absent or fenced");
         Lease previous = readScope.get();
         readScope.set(lease);
-        try { return work.get(); }
-        finally { if (previous == null) readScope.remove(); else readScope.set(previous); }
+        try {
+            return work.get();
+        } finally {
+            if (previous == null) readScope.remove();
+            else readScope.set(previous);
+        }
     }
 }

@@ -37,7 +37,7 @@ import java.util.List;
 import io.github.carlos_emr.carlos.allergy.dto.AllergyListItemDTO;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 
-public interface AllergyDao extends AbstractDao<Allergy> {
+public interface AllergyDao extends AbstractDao<Allergy>, CdsExportPatientTableReadDao {
 
     public List<Allergy> findAllergies(Integer demographic_no);
 

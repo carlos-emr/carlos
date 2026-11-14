@@ -36,7 +36,11 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Episode;
 
-public interface EpisodeDao extends AbstractDao<Episode> {
+/**
+ * Coded episodes, including pregnancies. The CDS export reads a patient's episodes through
+ * {@link CdsExportPatientTableReadSupport.Plan#EPISODES}.
+ */
+public interface EpisodeDao extends AbstractDao<Episode>, CdsExportPatientTableReadDao {
     List<Episode> findAll(Integer demographicNo);
 
     List<Episode> findAllCurrent(Integer demographicNo);

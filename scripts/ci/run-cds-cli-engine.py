@@ -9,6 +9,7 @@ No credential, source XML or clinical report payload is printed by this script.
 from __future__ import annotations
 
 import argparse
+from collections.abc import Callable
 import hashlib
 import json
 import os
@@ -26,7 +27,7 @@ from pathlib import Path
 FIXTURE = "io.github.carlos_emr.carlos.demographic.cdsimport.cli.CdsCliEngineFixture"
 
 
-def main() -> None:
+def validated_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--classpath", required=True, help="real test-fixture helper plus candidate JDBC dependencies")
     parser.add_argument("--jdbc-properties", type=Path, required=True, help="protected synthetic JDBC properties; never credentials in argv")
@@ -57,6 +58,224 @@ def main() -> None:
     # an existing configuration and non-test database before any mutation.
     if Path("/etc/carlos-emr/carlos.properties").exists() and not continuing:
         parser.error("refusing to replace existing production configuration")
+    return args
+
+
+def rows(path: Path) -> list[dict]:
+    values = []
+    with path.open("r", encoding="utf-8") as stream:
+        for _ in range(4096):
+            line = stream.readline(65538)
+            if not line:
+                break
+            if len(line) > 65536:
+                raise RuntimeError("CLI operational row exceeded its documented bound")
+            if not line.endswith("\n"):
+                # A foreground println may still be in flight while the
+                # cancellation gate waits for its accepted handle.
+                break
+            if line.startswith("{"):
+                value = json.loads(line)
+                if not isinstance(value, dict):
+                    raise RuntimeError("CLI operational row was not an object")
+                if value.get("event") not in {"INITIALIZING", "SUBMISSION", "ACCEPTED", "PROGRESS", "RESULT", "PROTECTED_REPORTS"}:
+                    raise RuntimeError("unexpected JSON was emitted into the operational console")
+                if value.get("event") != "PROGRESS":
+                    values.append(value)
+        else:
+            raise RuntimeError("CLI evidence exceeded the bounded gate limit")
+    return values
+
+
+
+def stop(process: subprocess.Popen) -> None:
+    if process.poll() is None:
+        os.killpg(process.pid, signal.SIGTERM)
+        try:
+            process.wait(timeout=30)
+        except subprocess.TimeoutExpired:
+            os.killpg(process.pid, signal.SIGKILL)
+            process.wait(timeout=30)
+            raise RuntimeError("forced CLI termination requires durable reconciliation; gate stopped")
+
+
+
+def result(values: list[dict]) -> dict:
+    selected = [row for row in values if row.get("event") == "RESULT"]
+    if len(selected) != 1:
+        raise RuntimeError("CLI did not deliver exactly one terminal operational result")
+    return selected[0]
+
+
+
+def assert_complete(outcome: dict, copies: int = 1) -> None:
+    if not (outcome.get("clinicalComplete") is True and outcome.get("discoveryComplete") is True
+            and outcome.get("inventoryState") == "SEALED" and outcome.get("pendingUnits") == 0
+            and outcome.get("targetCopiesPlanned") == copies and outcome.get("reportsDelivered") is True
+            and outcome.get("cleanupComplete") is True and outcome.get("resumeRequested") is False
+            and outcome.get("maintenanceReleasePending") is False and outcome.get("maintenanceReleaseState") == "RELEASED"):
+        raise RuntimeError("clinical completion counters or delivery were incomplete")
+
+
+
+def assert_category_occurrences(complete: dict) -> None:
+    expected_categories = dict.fromkeys((
+        "Demographics", "PersonalHistory", "FamilyHistory", "PastHealth", "ProblemList", "RiskFactors",
+        "AllergiesAndAdverseReactions", "MedicationsAndTreatments", "Immunizations", "LaboratoryResults",
+        "Appointments", "ClinicalNotes", "CareElements", "AlertsAndSpecialNeeds", "NewCategory"), 1)
+    expected_categories["Reports"] = 2
+    category_rows = complete.get("categories", [])
+    categories = {value["category"]: value for value in category_rows}
+    if len(categories) != len(category_rows) or set(categories) != set(expected_categories):
+        raise RuntimeError("full contract corpus did not account for the exact expected category set")
+    for category, expected in expected_categories.items():
+        actual = categories[category]
+        if actual.get("expected") != expected or actual.get("committed") != expected \
+                or actual.get("alreadyComplete") != 0 or actual.get("pending") != 0:
+            raise RuntimeError("full contract corpus category occurrence counts did not match")
+
+
+def assert_native_projection(native: dict) -> None:
+    for key, expected in {"nativeProfessionalContacts": 2, "nativeDemographicContacts": 3,
+                          "nativeUnknownContactConsents": 3, "nativePreferredPharmacies": 1,
+                          "nativeLaboratoryResults": 1,
+                          "nativeLaboratoryProjection": 1,
+                          "nativeLaboratoryPrivateNoteIsolated": 1, "nativeDrugs": 1,
+                          "nativeAllergies": 1, "nativePreventions": 1, "nativeYearPreventions": 1,
+                          "nativeAppointments": 1, "nativeMeasurements": 2, "nativeDocuments": 2,
+                          "nativeUnclockedReports": 2, "nativeMonthReports": 1, "nativeUnknownReports": 1,
+                          "nativeFamilyPhysicians": 1, "nativeReferringPhysicians": 1,
+                          "nativeUnknownActivePharmacyConsents": 1, "nativeNotesWithoutObservationClock": 7,
+                          "nativeUnsignedAuthorFreeNotes": 7}.items():
+        if native.get(key) != expected:
+            raise RuntimeError("full contract corpus native association/result counts did not match")
+    if native.get("nativeNotes") != 7:
+        raise RuntimeError("full contract corpus did not create the expected native clinical notes")
+
+
+def assert_protected_reports(values: list[dict], path_from: Callable[[str], Path]) -> None:
+    reports = [row for row in values if row.get("event") == "PROTECTED_REPORTS"]
+    if len(reports) != 1 or set(reports[0].get("reports", {})) != {"event", "error", "receipt", "units"}:
+        raise RuntimeError("protected report set was incomplete")
+    for entry in reports[0]["reports"].values():
+        path = path_from(entry["protectedPath"])
+        sha = hashlib.sha256()
+        with path.open("rb") as stream:
+            for block in iter(lambda: stream.read(65536), b""):
+                sha.update(block)
+        if path.stat().st_size != entry["bytes"] or sha.hexdigest() != entry["sha256"]:
+            raise RuntimeError("protected report size/hash did not match its delivered receipt")
+
+
+def qualify_ordinary_and_replay(metadata, submit, invoke, fixture, common, runs, submissions, path_from) -> None:
+    dry = submit("dry-run", metadata["sources"]["dryrun"], "--dry-run")
+    if dry.get("state") != "DRY_RUN_COMPLETE" or dry.get("clinicalComplete") is not False or dry.get("committedUnits") != 0:
+        raise RuntimeError("preview was mislabeled as clinical completion")
+    if dry.get("resumeRequested") is not False or dry.get("maintenanceReleasePending") is not False \
+            or dry.get("maintenanceReleaseState") != "RELEASED" or dry.get("reportsDelivered") is not True \
+            or dry.get("cleanupComplete") is not True:
+        raise RuntimeError("preview report, cleanup or verified maintenance release was incomplete")
+    ordinary = submit("ordinary", metadata["sources"]["ordinary"])
+    assert_complete(ordinary)
+    recovered = result(invoke("submission-status", ["--status-submission", submissions["ordinary"], *common], {0}))
+    if recovered.get("runId") != runs["ordinary"]:
+        raise RuntimeError("submission lookup did not recover the original accepted run")
+    assert_complete(recovered)
+    unknown = invoke("unknown-submission", ["--status-submission", "unknown-submission", *common], {4})
+    if any(row.get("event") in {"ACCEPTED", "RESULT"} for row in unknown):
+        raise RuntimeError("unknown submission fabricated an accepted or terminal result")
+    counts = fixture("inspect", runs["ordinary"])
+    if counts.get("nativeTargets") != 1 or counts.get("holds") != 0 or counts.get("checkpoints") != ordinary["expectedUnits"]:
+        raise RuntimeError("native/checkpoint/hold evidence did not match the completion receipt")
+    before_noop = fixture("inspect", "fixture")
+    noop = submit("no-op", metadata["sources"]["ordinary"])
+    assert_complete(noop)
+    if noop.get("committedUnits") != 0 or noop.get("alreadyCompleteUnits") != noop.get("expectedUnits"):
+        raise RuntimeError("unchanged reimport did not reconcile as an explicit no-op")
+    if fixture("inspect", "fixture") != before_noop or fixture("inspect", runs["ordinary"]) != counts:
+        raise RuntimeError("unchanged no-op modified native counts or the original completion evidence")
+    resumed = result(invoke("completed-resume", ["--resume", runs["ordinary"], *common], {0}))
+    assert_complete(resumed)
+    for operation in ("status", "report"):
+        values = invoke("completed-" + operation, ["--" + operation, runs["ordinary"], *common], {0})
+        assert_complete(result(values))
+        if operation == "report":
+            assert_protected_reports(values, path_from)
+    invoke("unapproved-provider", ["--status", runs["ordinary"], "--provider", "T099"], {3})
+    complete = submit("all-categories", metadata["sources"]["allcategory"])
+    assert_complete(complete)
+    assert_category_occurrences(complete)
+    native = fixture("inspect", runs["all-categories"])
+    assert_native_projection(native)
+    alpha = submit("all-categories-alphanumeric", metadata["sources"]["allcategoryAlpha"],
+                   selected_provider=str(metadata["alphanumericProvider"]))
+    assert_complete(alpha)
+    if fixture("inspect", runs["all-categories-alphanumeric"]).get("preventionCreatorMatchesProvider") is not True:
+        raise RuntimeError("native prevention creator did not retain the authorized alphanumeric provider key")
+    directory = submit("directory", metadata["sources"]["directory"])
+    assert_complete(directory, 2)
+    archive = submit("zip", metadata["sources"]["archive"])
+    assert_complete(archive, 2)
+    archive_counts = fixture("inspect", runs["zip"])
+    if archive.get("committedUnits") != archive.get("expectedUnits") or archive_counts.get("nativeTargets") != 2 \
+            or archive_counts.get("checkpoints") != archive.get("expectedUnits"):
+        raise RuntimeError("initial ZIP import did not commit two new complete native patients")
+
+
+def qualify_interruption_and_resume(metadata, invoke, fixture, common, contract, runs, path_from) -> None:
+    invoke("interrupted", ["--input", str(path_from(metadata["sources"]["cancel"])), *common, *contract],
+           {130, 143, -signal.SIGTERM, 4}, interrupt=True)
+    invoke("cancel", ["--cancel", runs["interrupted"], *common], {4})
+    if fixture("inspect", runs["interrupted"]).get("cancelRequested") is not True:
+        raise RuntimeError("cancellation was not durably recorded on the partially committed import")
+    before_crash = fixture("inspect", runs["interrupted"])
+    crashed = invoke("interrupted-hard-resume", ["--resume", runs["interrupted"], *common], {137}, interrupt=True,
+                     resume_run=runs["interrupted"], minimum_checkpoints=before_crash["checkpoints"],
+                     minimum_notes=before_crash["nativeNotes"], hard_crash=True)
+    if any(row.get("event") == "RESULT" for row in crashed):
+        raise RuntimeError("hard-crashed engine falsely delivered a terminal success")
+    after_crash = fixture("inspect", runs["interrupted"])
+    if after_crash.get("cancelRequested") is not False or not 0 < after_crash.get("checkpoints", 0) < after_crash.get("expectedUnits", 0):
+        raise RuntimeError("hard crash did not preserve an uncancelled incomplete original run")
+    recovered = result(invoke("interrupted-resume", ["--resume", runs["interrupted"], *common], {0}))
+    assert_complete(recovered)
+    recovered_counts = fixture("inspect", runs["interrupted"])
+    if recovered_counts.get("nativeTargets") != 1 or recovered_counts.get("nativeNotes") != 256 \
+            or recovered_counts.get("checkpoints") != recovered.get("expectedUnits") or recovered_counts.get("holds") != 0:
+        raise RuntimeError("partial-import resume duplicated or omitted native units/patient or retained a hold")
+
+
+def qualify_course_refusals(metadata, submit, invoke, fixture, common, contract, runs, path_from) -> None:
+    course_options = ["--synthetic", "--course", str(metadata["courseId"]), "--timeshift", "7"]
+    if metadata.get("facilityId") is not None:
+        course_options += ["--facility", str(metadata["facilityId"])]
+    course = submit("course", metadata["sources"]["course"], *course_options)
+    assert_complete(course, 2)
+    course_counts = fixture("inspect", runs["course"])
+    if any(course_counts.get(key) != 2 for key in ("nativeTargets", "shiftedBirthDates",
+                                                  "shiftedMedicationDates", "shiftedAllergyDates", "shiftedNoteDates")):
+        raise RuntimeError("course import did not create exactly two independent copies with consistent clinical date shifts")
+    for control in ("missing-personal-program", "inactive-personal-program", "inactive-students", "inactive-course"):
+        before = fixture("inspect", "fixture")
+        fixture("control", metadata["metadataFile"], "reset")
+        fixture("control", metadata["metadataFile"], control)
+        if control == "inactive-course":
+            denied = invoke("course-" + control,
+                            ["--input", str(path_from(metadata["sources"]["course"])), *common, *contract, *course_options], {3})
+            if any(row.get("event") == "ACCEPTED" for row in denied):
+                raise RuntimeError("inactive course was accepted before its authorization refusal")
+        else:
+            refused = submit("course-" + control, metadata["sources"]["course"], *course_options, clean=False)
+            if refused.get("committedUnits") != 0 or refused.get("clinicalComplete") is not False:
+                raise RuntimeError("ineligible course imported clinical units or implied a real-chart fallback")
+        after = fixture("inspect", "fixture")
+        if after.get("totalNativePatients") != before.get("totalNativePatients"):
+            raise RuntimeError("refused course changed the native patient count")
+    fixture("control", metadata["metadataFile"], "reset")
+
+
+def main() -> None:
+    args = validated_arguments()
     environment = {key: value for key, value in os.environ.items()
                    if key not in {"JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS", "CLASSPATH"}}
     helper = [args.java, "-Xmx128m", "-cp", args.classpath, FIXTURE]
@@ -100,40 +319,7 @@ def main() -> None:
             raise RuntimeError("fixture supplied a path outside its private root")
         return path
 
-    def rows(path: Path) -> list[dict]:
-        values = []
-        with path.open("r", encoding="utf-8") as stream:
-            for _ in range(4096):
-                line = stream.readline(65538)
-                if not line:
-                    break
-                if len(line) > 65536:
-                    raise RuntimeError("CLI operational row exceeded its documented bound")
-                if not line.endswith("\n"):
-                    # A foreground println may still be in flight while the
-                    # cancellation gate waits for its accepted handle.
-                    break
-                if line.startswith("{"):
-                    value = json.loads(line)
-                    if not isinstance(value, dict):
-                        raise RuntimeError("CLI operational row was not an object")
-                    if value.get("event") not in {"INITIALIZING", "SUBMISSION", "ACCEPTED", "PROGRESS", "RESULT", "PROTECTED_REPORTS"}:
-                        raise RuntimeError("unexpected JSON was emitted into the operational console")
-                    if value.get("event") != "PROGRESS":
-                        values.append(value)
-            else:
-                raise RuntimeError("CLI evidence exceeded the bounded gate limit")
-        return values
 
-    def stop(process: subprocess.Popen) -> None:
-        if process.poll() is None:
-            os.killpg(process.pid, signal.SIGTERM)
-            try:
-                process.wait(timeout=30)
-            except subprocess.TimeoutExpired:
-                os.killpg(process.pid, signal.SIGKILL)
-                process.wait(timeout=30)
-                raise RuntimeError("forced CLI termination requires durable reconciliation; gate stopped")
 
     def hard_crash_engine(process: subprocess.Popen, run: str, observed: dict, label: str) -> None:
         # runuser and Java have their own session. Killing the outer CLI group
@@ -264,11 +450,6 @@ print(json.dumps({'signal':'SIGKILL','verifiedServiceUid':uid,'javaPid':pid,'pro
                 stop(process)
         return rows(log)
 
-    def result(values: list[dict]) -> dict:
-        selected = [row for row in values if row.get("event") == "RESULT"]
-        if len(selected) != 1:
-            raise RuntimeError("CLI did not deliver exactly one terminal operational result")
-        return selected[0]
 
     def submit(label: str, source: str, *extra: str, clean: bool = True, selected_provider: str | None = None) -> dict:
         source_path = path_from(source)
@@ -330,149 +511,10 @@ print(json.dumps({'signal':'SIGKILL','verifiedServiceUid':uid,'javaPid':pid,'pro
             raise RuntimeError("terminal outcome did not match the accepted run and expected completeness")
         return outcome
 
-    def assert_complete(outcome: dict, copies: int = 1) -> None:
-        if not (outcome.get("clinicalComplete") is True and outcome.get("discoveryComplete") is True
-                and outcome.get("inventoryState") == "SEALED" and outcome.get("pendingUnits") == 0
-                and outcome.get("targetCopiesPlanned") == copies and outcome.get("reportsDelivered") is True
-                and outcome.get("cleanupComplete") is True and outcome.get("resumeRequested") is False
-                and outcome.get("maintenanceReleasePending") is False and outcome.get("maintenanceReleaseState") == "RELEASED"):
-            raise RuntimeError("clinical completion counters or delivery were incomplete")
 
-    dry = submit("dry-run", metadata["sources"]["dryrun"], "--dry-run")
-    if dry.get("state") != "DRY_RUN_COMPLETE" or dry.get("clinicalComplete") is not False or dry.get("committedUnits") != 0:
-        raise RuntimeError("preview was mislabeled as clinical completion")
-    if dry.get("resumeRequested") is not False or dry.get("maintenanceReleasePending") is not False \
-            or dry.get("maintenanceReleaseState") != "RELEASED" or dry.get("reportsDelivered") is not True \
-            or dry.get("cleanupComplete") is not True:
-        raise RuntimeError("preview report, cleanup or verified maintenance release was incomplete")
-    ordinary = submit("ordinary", metadata["sources"]["ordinary"])
-    assert_complete(ordinary)
-    recovered = result(invoke("submission-status", ["--status-submission", submissions["ordinary"], *common], {0}))
-    if recovered.get("runId") != runs["ordinary"]:
-        raise RuntimeError("submission lookup did not recover the original accepted run")
-    assert_complete(recovered)
-    unknown = invoke("unknown-submission", ["--status-submission", "unknown-submission", *common], {4})
-    if any(row.get("event") in {"ACCEPTED", "RESULT"} for row in unknown):
-        raise RuntimeError("unknown submission fabricated an accepted or terminal result")
-    counts = fixture("inspect", runs["ordinary"])
-    if counts.get("nativeTargets") != 1 or counts.get("holds") != 0 or counts.get("checkpoints") != ordinary["expectedUnits"]:
-        raise RuntimeError("native/checkpoint/hold evidence did not match the completion receipt")
-    before_noop = fixture("inspect", "fixture")
-    noop = submit("no-op", metadata["sources"]["ordinary"])
-    assert_complete(noop)
-    if noop.get("committedUnits") != 0 or noop.get("alreadyCompleteUnits") != noop.get("expectedUnits"):
-        raise RuntimeError("unchanged reimport did not reconcile as an explicit no-op")
-    if fixture("inspect", "fixture") != before_noop or fixture("inspect", runs["ordinary"]) != counts:
-        raise RuntimeError("unchanged no-op modified native counts or the original completion evidence")
-    resumed = result(invoke("completed-resume", ["--resume", runs["ordinary"], *common], {0}))
-    assert_complete(resumed)
-    for operation in ("status", "report"):
-        values = invoke("completed-" + operation, ["--" + operation, runs["ordinary"], *common], {0})
-        assert_complete(result(values))
-        if operation == "report":
-            reports = [row for row in values if row.get("event") == "PROTECTED_REPORTS"]
-            if len(reports) != 1 or set(reports[0].get("reports", {})) != {"event", "error", "receipt", "units"}:
-                raise RuntimeError("protected report set was incomplete")
-            for entry in reports[0]["reports"].values():
-                path = path_from(entry["protectedPath"])
-                sha = hashlib.sha256()
-                with path.open("rb") as stream:
-                    for block in iter(lambda: stream.read(65536), b""):
-                        sha.update(block)
-                if path.stat().st_size != entry["bytes"] or sha.hexdigest() != entry["sha256"]:
-                    raise RuntimeError("protected report size/hash did not match its delivered receipt")
-    invoke("unapproved-provider", ["--status", runs["ordinary"], "--provider", "T099"], {3})
-    complete = submit("all-categories", metadata["sources"]["allcategory"])
-    assert_complete(complete)
-    expected_categories = dict.fromkeys((
-        "Demographics", "PersonalHistory", "FamilyHistory", "PastHealth", "ProblemList", "RiskFactors",
-        "AllergiesAndAdverseReactions", "MedicationsAndTreatments", "Immunizations", "LaboratoryResults",
-        "Appointments", "ClinicalNotes", "CareElements", "AlertsAndSpecialNeeds", "NewCategory"), 1)
-    expected_categories["Reports"] = 2
-    category_rows = complete.get("categories", [])
-    categories = {value["category"]: value for value in category_rows}
-    if len(categories) != len(category_rows) or set(categories) != set(expected_categories):
-        raise RuntimeError("full contract corpus did not account for the exact expected category set")
-    for category, expected in expected_categories.items():
-        actual = categories[category]
-        if actual.get("expected") != expected or actual.get("committed") != expected \
-                or actual.get("alreadyComplete") != 0 or actual.get("pending") != 0:
-            raise RuntimeError("full contract corpus category occurrence counts did not match")
-    native = fixture("inspect", runs["all-categories"])
-    for key, expected in {"nativeProfessionalContacts": 2, "nativeDemographicContacts": 3,
-                          "nativeUnknownContactConsents": 3, "nativePreferredPharmacies": 1,
-                          "nativeLaboratoryResults": 1,
-                          "nativeLaboratoryProjection": 1,
-                          "nativeLaboratoryPrivateNoteIsolated": 1, "nativeDrugs": 1,
-                          "nativeAllergies": 1, "nativePreventions": 1, "nativeYearPreventions": 1,
-                          "nativeAppointments": 1, "nativeMeasurements": 2, "nativeDocuments": 2,
-                          "nativeUnclockedReports": 2, "nativeMonthReports": 1, "nativeUnknownReports": 1,
-                          "nativeFamilyPhysicians": 1, "nativeReferringPhysicians": 1,
-                          "nativeUnknownActivePharmacyConsents": 1, "nativeNotesWithoutObservationClock": 7,
-                          "nativeUnsignedAuthorFreeNotes": 7}.items():
-        if native.get(key) != expected:
-            raise RuntimeError("full contract corpus native association/result counts did not match")
-    if native.get("nativeNotes") != 7:
-        raise RuntimeError("full contract corpus did not create the expected native clinical notes")
-    alpha = submit("all-categories-alphanumeric", metadata["sources"]["allcategoryAlpha"],
-                   selected_provider=str(metadata["alphanumericProvider"]))
-    assert_complete(alpha)
-    if fixture("inspect", runs["all-categories-alphanumeric"]).get("preventionCreatorMatchesProvider") is not True:
-        raise RuntimeError("native prevention creator did not retain the authorized alphanumeric provider key")
-    directory = submit("directory", metadata["sources"]["directory"])
-    assert_complete(directory, 2)
-    archive = submit("zip", metadata["sources"]["archive"])
-    assert_complete(archive, 2)
-    archive_counts = fixture("inspect", runs["zip"])
-    if archive.get("committedUnits") != archive.get("expectedUnits") or archive_counts.get("nativeTargets") != 2 \
-            or archive_counts.get("checkpoints") != archive.get("expectedUnits"):
-        raise RuntimeError("initial ZIP import did not commit two new complete native patients")
-    invoke("interrupted", ["--input", str(path_from(metadata["sources"]["cancel"])), *common, *contract],
-           {130, 143, -signal.SIGTERM, 4}, interrupt=True)
-    invoke("cancel", ["--cancel", runs["interrupted"], *common], {4})
-    if fixture("inspect", runs["interrupted"]).get("cancelRequested") is not True:
-        raise RuntimeError("cancellation was not durably recorded on the partially committed import")
-    before_crash = fixture("inspect", runs["interrupted"])
-    crashed = invoke("interrupted-hard-resume", ["--resume", runs["interrupted"], *common], {137}, interrupt=True,
-                     resume_run=runs["interrupted"], minimum_checkpoints=before_crash["checkpoints"],
-                     minimum_notes=before_crash["nativeNotes"], hard_crash=True)
-    if any(row.get("event") == "RESULT" for row in crashed):
-        raise RuntimeError("hard-crashed engine falsely delivered a terminal success")
-    after_crash = fixture("inspect", runs["interrupted"])
-    if after_crash.get("cancelRequested") is not False or not 0 < after_crash.get("checkpoints", 0) < after_crash.get("expectedUnits", 0):
-        raise RuntimeError("hard crash did not preserve an uncancelled incomplete original run")
-    recovered = result(invoke("interrupted-resume", ["--resume", runs["interrupted"], *common], {0}))
-    assert_complete(recovered)
-    recovered_counts = fixture("inspect", runs["interrupted"])
-    if recovered_counts.get("nativeTargets") != 1 or recovered_counts.get("nativeNotes") != 256 \
-            or recovered_counts.get("checkpoints") != recovered.get("expectedUnits") or recovered_counts.get("holds") != 0:
-        raise RuntimeError("partial-import resume duplicated or omitted native units/patient or retained a hold")
-    course_options = ["--synthetic", "--course", str(metadata["courseId"]), "--timeshift", "7"]
-    if metadata.get("facilityId") is not None:
-        course_options += ["--facility", str(metadata["facilityId"])]
-    course = submit("course", metadata["sources"]["course"], *course_options)
-    assert_complete(course, 2)
-    course_counts = fixture("inspect", runs["course"])
-    if any(course_counts.get(key) != 2 for key in ("nativeTargets", "shiftedBirthDates",
-                                                  "shiftedMedicationDates", "shiftedAllergyDates", "shiftedNoteDates")):
-        raise RuntimeError("course import did not create exactly two independent copies with consistent clinical date shifts")
-    for control in ("missing-personal-program", "inactive-personal-program", "inactive-students", "inactive-course"):
-        before = fixture("inspect", "fixture")
-        fixture("control", metadata["metadataFile"], "reset")
-        fixture("control", metadata["metadataFile"], control)
-        if control == "inactive-course":
-            denied = invoke("course-" + control,
-                            ["--input", str(path_from(metadata["sources"]["course"])), *common, *contract, *course_options], {3})
-            if any(row.get("event") == "ACCEPTED" for row in denied):
-                raise RuntimeError("inactive course was accepted before its authorization refusal")
-        else:
-            refused = submit("course-" + control, metadata["sources"]["course"], *course_options, clean=False)
-            if refused.get("committedUnits") != 0 or refused.get("clinicalComplete") is not False:
-                raise RuntimeError("ineligible course imported clinical units or implied a real-chart fallback")
-        after = fixture("inspect", "fixture")
-        if after.get("totalNativePatients") != before.get("totalNativePatients"):
-            raise RuntimeError("refused course changed the native patient count")
-    fixture("control", metadata["metadataFile"], "reset")
+    qualify_ordinary_and_replay(metadata, submit, invoke, fixture, common, runs, submissions, path_from)
+    qualify_interruption_and_resume(metadata, invoke, fixture, common, contract, runs, path_from)
+    qualify_course_refusals(metadata, submit, invoke, fixture, common, contract, runs, path_from)
     print(json.dumps({"gate": "installed-cds-cli-engine", "outcome": "PASS", "runs": runs,
                       "maxChildRssKiB": resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss,
                       "operatorEvidence": str(logs)}, separators=(",", ":")))

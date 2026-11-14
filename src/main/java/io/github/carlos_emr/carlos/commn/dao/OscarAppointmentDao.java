@@ -45,7 +45,7 @@ import io.github.carlos_emr.carlos.appointment.dto.AppointmentListItemDTO;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.AppointmentArchive;
 
-public interface OscarAppointmentDao extends AbstractDao<Appointment> {
+public interface OscarAppointmentDao extends AbstractDao<Appointment>, CdsExportPatientTableReadDao {
 
     List<AppointmentDaySheetRow> findDaySheet(String start, String end, String startTime, String endTime,
             String providerNo, boolean newOnly, String sort);

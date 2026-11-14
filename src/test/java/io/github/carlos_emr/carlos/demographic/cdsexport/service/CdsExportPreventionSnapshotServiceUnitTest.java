@@ -1,0 +1,615 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.demographic.cdsexport.service;
+
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+import io.github.carlos_emr.carlos.commn.dao.*;
+import io.github.carlos_emr.carlos.commn.dto.*;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
+import jakarta.persistence.EntityManagerFactory;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.*;
+import java.nio.file.attribute.PosixFilePermissions;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.h2.jdbcx.JdbcDataSource;
+import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.io.TempDir;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.orm.jpa.EntityManagerHolder;
+import org.springframework.transaction.*;
+import org.springframework.transaction.support.*;
+
+/** Actual transaction lifecycle/config bytes with bounded DAO projections; no MariaDB or clinical authorization is mocked as a permission proof. */
+@org.junit.jupiter.api.extension.ExtendWith(
+        io.github.carlos_emr.carlos.test.mocks.MockInvocationReleaseExtension.class)
+class CdsExportPreventionSnapshotServiceUnitTest {
+    @TempDir Path root;
+    private final EntityManagerFactory factory = mock(EntityManagerFactory.class);
+    private final CVCImmunizationDao vaccines = mock(CVCImmunizationDao.class);
+    private final CVCMappingDao mappings = mock(CVCMappingDao.class);
+    private final PreventionDao preventions = mock(PreventionDao.class);
+    private CdsExportPreventionSnapshotService snapshots;
+    private Path file;
+    private TransactionTemplate read;
+    private EntityManagerHolder holder;
+    private static final String XML =
+            "<preventions><item name='Td' layout='injection' healthCanadaType='Td'/><item name='PAP' layout='PAPMAM' headingName='Screenings'/></preventions>";
+
+    @BeforeEach
+    void prepare() throws Exception {
+        Files.setPosixFilePermissions(root, PosixFilePermissions.fromString("rwx------"));
+        file = Files.writeString(root.resolve("preventions.xml"), XML);
+        Files.setPosixFilePermissions(file, PosixFilePermissions.fromString("rw-------"));
+        var data = new JdbcDataSource();
+        data.setURL("jdbc:h2:mem:snapshot_" + UUID.randomUUID());
+        read = new TransactionTemplate(new DataSourceTransactionManager(data));
+        read.setReadOnly(true);
+        read.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
+        holder = new EntityManagerHolder(mock(jakarta.persistence.EntityManager.class));
+        holder.setSynchronizedWithTransaction(true);
+        when(preventions.readCdsExportSourceSchema()).thenReturn(schema("preventions_scope"));
+        when(vaccines.readCdsExportSourceSchema()).thenReturn(schema("CVCImmunization"));
+        when(mappings.readCdsExportSourceSchema()).thenReturn(schema("CVCMapping"));
+        when(vaccines.findCdsExportRowsAfter(eq(27), any(), eq(32))).thenReturn(List.of());
+        when(mappings.findCdsExportRowsAfter(eq(27), any(), eq(32))).thenReturn(List.of());
+        when(preventions.countCdsExportRows(27)).thenReturn(2L);
+        when(preventions.findCdsExportRowsAfter(eq(27), any(), eq(32)))
+                .thenReturn(List.of(raw(1, "Td"), raw(2, "PAP")));
+        snapshots =
+                new CdsExportPreventionSnapshotService(
+                        factory,
+                        new CdsExportPreventionConfigurationLoader(file.toString()),
+                        vaccines,
+                        mappings,
+                        preventions);
+    }
+
+    @AfterEach
+    void cleanup() {
+        TransactionSynchronizationManager.unbindResourceIfPossible(factory);
+    }
+
+    private <T> T transaction(java.util.concurrent.Callable<T> body) {
+        return read.execute(
+                status -> {
+                    TransactionSynchronizationManager.bindResource(factory, holder);
+                    try {
+                        return body.call();
+                    } catch (RuntimeException | Error failed) {
+                        throw failed;
+                    } catch (Exception failed) {
+                        throw new java.io.UncheckedIOException(
+                                failed instanceof IOException io ? io : new IOException(failed));
+                    } finally {
+                        TransactionSynchronizationManager.unbindResourceIfPossible(factory);
+                    }
+                });
+    }
+
+    @Test
+    void shouldVerifyConfigurationAndSelectionAreFixed_withinTheOwningSnapshotAndReleasedAtCompletion()
+            throws Exception {
+        final CdsExportPreventionSnapshotService.State[] saved = {null};
+        var probes = new AtomicInteger();
+        transaction(
+                () -> {
+                    var state = snapshots.prepare(27, probes::incrementAndGet);
+                    saved[0] = state;
+                    assertThat(state.selection().immunizations()).containsExactly(1);
+                    assertThat(state.selection().otherPreventions()).containsExactly(2);
+                    // The screening partition is no longer only metadata: PastHealth captures it.
+                    assertThat(state.clinicalIds()).containsExactly(1);
+                    assertThat(state.screeningIds()).containsExactly(2);
+                    Files.writeString(
+                            file,
+                            "<preventions><item name='Td' layout='PAPMAM'/><item name='PAP' layout='injection' healthCanadaType='Td'/></preventions>");
+                    assertThat(snapshots.prepare(27, probes::incrementAndGet)).isSameAs(state);
+                    assertThat(new String(state.xml().readAllBytes(), StandardCharsets.UTF_8))
+                            .isEqualTo(XML);
+                    return null;
+                });
+        assertThat(probes.get()).isGreaterThanOrEqualTo(4);
+        assertThatThrownBy(() -> saved[0].selection())
+                .hasMessage("CDS_EXPORT_PREVENTION_SNAPSHOT_SCOPE_INVALID");
+        assertThatThrownBy(() -> snapshots.current(27))
+                .hasMessage("CDS_EXPORT_PREVENTION_SNAPSHOT_REQUIRED");
+        transaction(
+                () -> {
+                    assertThat(snapshots.prepare(27, () -> {}).selection().immunizations())
+                            .containsExactly(2);
+                    return null;
+                });
+    }
+
+    @Test
+    void shouldVerifyConfigurationStreamsCannotEscapeTheirTransactionOrOwnerThread_forPreventionSnapshotServiceContract() {
+        final InputStream[] saved = {null};
+        transaction(
+                () -> {
+                    saved[0] = snapshots.prepare(27, () -> {}).xml();
+                    var failure = new java.util.concurrent.atomic.AtomicReference<Throwable>();
+                    var thread =
+                            new Thread(
+                                    () -> {
+                                        try {
+                                            saved[0].read();
+                                        } catch (Throwable failed) {
+                                            failure.set(failed);
+                                        }
+                                    });
+                    thread.start();
+                    thread.join(5000);
+                    assertThat(thread.isAlive()).isFalse();
+                    assertThat(failure.get())
+                            .hasMessage("CDS_EXPORT_PREVENTION_SNAPSHOT_SCOPE_INVALID");
+                    return null;
+                });
+        assertThatThrownBy(() -> saved[0].read())
+                .hasMessage("CDS_EXPORT_PREVENTION_SNAPSHOT_SCOPE_INVALID");
+    }
+
+    @Test
+    void shouldVerifyADifferentPatientThreadOrJpaTransactionCannotReuseTheState_forPreventionSnapshotServiceContract() {
+        transaction(
+                () -> {
+                    var state = snapshots.prepare(27, () -> {});
+                    assertThatThrownBy(() -> snapshots.current(28))
+                            .hasMessage("CDS_EXPORT_PREVENTION_SNAPSHOT_SCOPE_INVALID");
+                    TransactionSynchronizationManager.unbindResource(factory);
+                    var otherHolder =
+                            new EntityManagerHolder(mock(jakarta.persistence.EntityManager.class));
+                    otherHolder.setSynchronizedWithTransaction(true);
+                    TransactionSynchronizationManager.bindResource(factory, otherHolder);
+                    assertThatThrownBy(() -> state.selection())
+                            .hasMessage("CDS_EXPORT_PREVENTION_SNAPSHOT_SCOPE_INVALID");
+                    TransactionSynchronizationManager.unbindResource(factory);
+                    TransactionSynchronizationManager.bindResource(factory, holder);
+                    var failure = new java.util.concurrent.atomic.AtomicReference<Throwable>();
+                    var other =
+                            new Thread(
+                                    () -> {
+                                        try {
+                                            state.selection();
+                                        } catch (Throwable failed) {
+                                            failure.set(failed);
+                                        }
+                                    });
+                    other.start();
+                    other.join(5000);
+                    assertThat(other.isAlive()).isFalse();
+                    assertThat(failure.get())
+                            .hasMessage("CDS_EXPORT_PREVENTION_SNAPSHOT_SCOPE_INVALID");
+                    return null;
+                });
+    }
+
+    @Test
+    void shouldVerifyNoStateCanBeCreatedOutsideAnOwningReadonlyRepeatableReadJpaTransaction_forPreventionSnapshotServiceContract() {
+        assertThatThrownBy(() -> snapshots.prepare(27, () -> {}))
+                .hasMessage("CDS_EXPORT_PREVENTION_SNAPSHOT_REQUIRED");
+        read.setReadOnly(false);
+        assertThatThrownBy(() -> transaction(() -> snapshots.prepare(27, () -> {})))
+                .hasMessage("CDS_EXPORT_PREVENTION_SNAPSHOT_REQUIRED");
+    }
+
+    @Test
+    void shouldVerifyReadCommittedOrAnUnjoinedJpaHolderCannotStand_inForTheOwnedSnapshot() {
+        read.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
+        assertThatThrownBy(() -> transaction(() -> snapshots.prepare(27, () -> {})))
+                .hasMessage("CDS_EXPORT_PREVENTION_SNAPSHOT_REQUIRED");
+        read.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
+        holder.setSynchronizedWithTransaction(false);
+        assertThatThrownBy(() -> transaction(() -> snapshots.prepare(27, () -> {})))
+                .hasMessage("CDS_EXPORT_PREVENTION_SNAPSHOT_REQUIRED");
+    }
+
+    /** A scope whose live preflight read {@code restrictions} for patient 27. */
+    private static CdsExportPreventionAccessService.Scope authorized(
+            Map<Integer, Integer> restrictions) throws IOException {
+        var access = mock(CdsExportPreventionAccessService.class);
+        when(access.restrictions(27)).thenReturn(new TreeMap<>(restrictions));
+        return CdsExportPreventionAccessService.Scope.prepare(
+                access,
+                27,
+                mock(io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl
+                        .class));
+    }
+
+    // A selection never prepared by a reader that authorized the chart's programs still reads
+    // nothing restricted: the restrictions are read before any configuration or type row.
+    @Test
+    void shouldVerifyProgramRestrictionsAreChecked_beforeConfigurationOrTypeRowsAreRead() throws Exception {
+        Files.delete(file);
+        when(preventions.readCdsExportProgramRestrictions(27))
+                .thenReturn(new TreeMap<>(Map.of(1, 57)));
+        assertThatThrownBy(() -> transaction(() -> snapshots.prepare(27, () -> {})))
+                .hasMessage("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE");
+        verify(preventions, never()).findCdsExportRowsAfter(anyInt(), any(), anyInt());
+        verify(vaccines, never()).findCdsExportRowsAfter(anyInt(), any(), anyInt());
+    }
+
+    @Test
+    void shouldSelectARestrictedPrevention_whenItsProgramWasAuthorizedBeforeTheSnapshot()
+            throws Exception {
+        when(preventions.readCdsExportProgramRestrictions(27))
+                .thenReturn(new TreeMap<>(Map.of(1, 57)));
+        when(preventions.findCdsExportRowsAfter(eq(27), any(), eq(32)))
+                .thenReturn(List.of(raw(1, "Td", "1", "57"), raw(2, "PAP", null, null)));
+        var scope = authorized(Map.of(1, 57));
+        transaction(
+                () -> {
+                    var state = snapshots.prepare(27, () -> {}, false, scope);
+                    // The restriction is authorization's concern, not a classification review.
+                    assertThat(state.clinicalIds()).containsExactly(1);
+                    assertThat(state.screeningIds()).containsExactly(2);
+                    assertThat(state.restrictions()).containsExactly(entry(1, 57));
+                    // The same snapshot cannot be reused by a reader that authorized nothing.
+                    assertThatThrownBy(() -> snapshots.prepare(27, () -> {}))
+                            .hasMessage("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE");
+                    return null;
+                });
+    }
+
+    @Test
+    void shouldRefuseChangedRestrictions_beforeAnyTypeRowIsRead() throws Exception {
+        when(preventions.readCdsExportProgramRestrictions(27))
+                .thenReturn(new TreeMap<>(Map.of(1, 58)));
+        var scope = authorized(Map.of(1, 57));
+        assertThatThrownBy(() -> transaction(() -> snapshots.prepare(27, () -> {}, false, scope)))
+                .hasMessage("CDS_EXPORT_SOURCE_CHANGED");
+        verify(preventions, never()).findCdsExportRowsAfter(anyInt(), any(), anyInt());
+    }
+
+    @Test
+    void shouldTreatAFlagWithoutAProgramOrAnExplicitZeroFlag_asUnrestricted() throws Exception {
+        when(preventions.findCdsExportRowsAfter(eq(27), any(), eq(32)))
+                .thenReturn(List.of(raw(1, "Td", "1", null), raw(2, "PAP", "0", "57")));
+        transaction(
+                () -> {
+                    var state = snapshots.prepare(27, () -> {});
+                    assertThat(state.clinicalIds()).containsExactly(1);
+                    assertThat(state.screeningIds()).containsExactly(2);
+                    return null;
+                });
+        // A flag set with no program (-1) is shown to everyone as well.
+        when(preventions.findCdsExportRowsAfter(eq(27), any(), eq(32)))
+                .thenReturn(List.of(raw(1, "Td", "1", "-1"), raw(2, "PAP", null, "-1")));
+        transaction(
+                () -> {
+                    assertThat(snapshots.prepare(27, () -> {}).clinicalIds()).containsExactly(1);
+                    return null;
+                });
+    }
+
+    @Test
+    void shouldHoldAMalformedRestrictionFlag_underTheProgramScopeCode() throws Exception {
+        when(preventions.findCdsExportRowsAfter(eq(27), any(), eq(32)))
+                .thenReturn(List.of(raw(1, "Td", "2", null), raw(2, "PAP", null, null)));
+        transaction(
+                () -> {
+                    var state = snapshots.prepare(27, () -> {});
+                    assertThat(state.selection().reviews())
+                            .containsEntry(1, CdsExportPreventionScopePlanner.Review.PROGRAM_SCOPE);
+                    assertThatThrownBy(state::clinicalIds)
+                            .hasMessage("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE");
+                    assertThatThrownBy(state::screeningIds)
+                            .hasMessage("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE");
+                    return null;
+                });
+    }
+
+    @Test
+    void shouldRefuseRestrictionsThatDisagree_withTheClassificationMetadataOfTheSameSnapshot()
+            throws Exception {
+        // The restriction read and the metadata read come from one snapshot; a disagreement is an
+        // internal inconsistency, never a silently unrestricted row.
+        when(preventions.readCdsExportProgramRestrictions(27))
+                .thenReturn(new TreeMap<>(Map.of(1, 57)));
+        var scope = authorized(Map.of(1, 57));
+        assertThatThrownBy(() -> transaction(() -> snapshots.prepare(27, () -> {}, false, scope)))
+                .hasRootCauseMessage("CDS_EXPORT_PREVENTION_SELECTION_INVALID");
+    }
+
+    @Test
+    void shouldVerifyCancellation_duringDiscoveryCannotLeaveAUsableSnapshot() {
+        var calls = new AtomicInteger();
+        assertThatThrownBy(
+                        () ->
+                                transaction(
+                                        () ->
+                                                snapshots.prepare(
+                                                        27,
+                                                        () -> {
+                                                            if (calls.incrementAndGet() == 2)
+                                                                throw new java.util.concurrent
+                                                                        .CancellationException(
+                                                                        "CANCELLED_DISCOVERY");
+                                                        })))
+                .hasMessage("CANCELLED_DISCOVERY");
+        assertThatThrownBy(() -> snapshots.current(27))
+                .hasMessage("CDS_EXPORT_PREVENTION_SNAPSHOT_REQUIRED");
+    }
+
+    @Test
+    void shouldSelectEveryPrevention_whenTheChartHasMoreThanTheFormerTenThousandRows() {
+        // 12,345 rows: above the former 10,000-row and 4 MiB refusals of this read.
+        int rows = 12_345;
+        when(preventions.countCdsExportRows(27)).thenReturn((long) rows);
+        when(preventions.findCdsExportRowsAfter(eq(27), any(), eq(32)))
+                .thenAnswer(
+                        call -> {
+                            Long after = call.getArgument(1);
+                            var page = new ArrayList<CdsExportRawRowDto>();
+                            for (long id = after == null ? 1 : after + 1;
+                                    id <= rows && page.size() < 32;
+                                    id++)
+                                page.add(raw((int) id, id % 2 == 0 ? "PAP" : "Td"));
+                            return page;
+                        });
+        transaction(
+                () -> {
+                    var state = snapshots.prepare(27, () -> {});
+                    // Every row is read and placed; none is refused for how many there are.
+                    assertThat(state.selection().rows()).isEqualTo(rows);
+                    assertThat(state.clinicalIds()).hasSize((rows + 1) / 2).contains(1, 12_345);
+                    assertThat(state.screeningIds()).hasSize(rows / 2).contains(2, 12_344);
+                    return null;
+                });
+    }
+
+    @Test
+    void shouldVerifyUnknownTypesRemainAReviewPartitionAndCannotSupplyClinicalIds_forPreventionSnapshotServiceContract() {
+        when(preventions.findCdsExportRowsAfter(eq(27), any(), eq(32)))
+                .thenReturn(List.of(raw(1, "UNCONFIGURED"), raw(2, "PAP")));
+        transaction(
+                () -> {
+                    var state = snapshots.prepare(27, () -> {});
+                    assertThat(state.selection().reviews())
+                            .containsEntry(1, CdsExportPreventionScopePlanner.Review.UNKNOWN_TYPE);
+                    assertThatThrownBy(state::clinicalIds).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+                    // An unclassifiable row may be a screening: PastHealth is held as well.
+                    assertThatThrownBy(state::screeningIds)
+                            .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+                    return null;
+                });
+    }
+
+    @Test
+    void shouldVerifyCountMismatchesAndCorruptInlineHashCannotSilentlySelectAPrefix_forPreventionSnapshotServiceContract() {
+        when(preventions.countCdsExportRows(27)).thenReturn(3L);
+        assertThatThrownBy(() -> transaction(() -> snapshots.prepare(27, () -> {})))
+                .hasRootCauseMessage("CDS_EXPORT_PREVENTION_SELECTION_INVALID");
+        when(preventions.countCdsExportRows(27)).thenReturn(2L);
+        var first = raw(1, "Td");
+        var cells = new TreeMap<>(first.cells());
+        byte[] changed = "XX".getBytes(StandardCharsets.UTF_8);
+        cells.put("prevention_type", new CdsExportRawCellDto(false, 2, "a".repeat(64), changed));
+        when(preventions.findCdsExportRowsAfter(eq(27), any(), eq(32)))
+                .thenReturn(List.of(new CdsExportRawRowDto(1, cells), raw(2, "PAP")));
+        assertThatThrownBy(() -> transaction(() -> snapshots.prepare(27, () -> {})))
+                .isInstanceOf(java.io.UncheckedIOException.class);
+    }
+
+    @Test
+    void shouldVerifyUnboundDefinitionsCannotMasqueradeAsCapturedSourceEvidence_forPreventionSnapshotServiceContract() throws Exception {
+        var value =
+                CdsExportPreventionClassifier.forSelection(
+                        XML.getBytes(StandardCharsets.UTF_8), List.of());
+        assertThat(value.classify("Td", null).kind())
+                .isEqualTo(CdsExportPreventionClassifier.Kind.IMMUNIZATION);
+        assertThatThrownBy(value::sourceManifestSha256)
+                .hasMessage("CDS_EXPORT_PREVENTION_CLASSIFIER_UNBOUND");
+        assertThatThrownBy(() -> new CdsExportPreventionScopePlanner().plan(27, value, List.of()))
+                .hasMessage("CDS_EXPORT_PREVENTION_CLASSIFIER_UNBOUND");
+    }
+
+    @Test
+    void shouldVerifyTrustedLoaderPreservesBytesOfAnySizeAndRejectsLeafSymlinkFiles_forPreventionSnapshotServiceContract()
+            throws Exception {
+        assertThat(new CdsExportPreventionConfigurationLoader(file.toString()).load())
+                .isEqualTo(XML.getBytes(StandardCharsets.UTF_8));
+        // Any size is read whole (1 MiB used to stop every export); only a link is refused.
+        byte[] large = new byte[1_048_577];
+        java.util.Arrays.fill(large, (byte) ' ');
+        Files.write(file, large);
+        assertThat(new CdsExportPreventionConfigurationLoader(file.toString()).load())
+                .isEqualTo(large);
+        Files.delete(file);
+        Files.createSymbolicLink(file, Files.writeString(root.resolve("other.xml"), XML));
+        assertThatThrownBy(() -> new CdsExportPreventionConfigurationLoader(file.toString()).load())
+                .hasMessage("CDS_EXPORT_PREVENTION_CONFIG_UNAVAILABLE");
+    }
+
+    // Review finding F10: capture-time selection reads the same import receipts the finished
+    // capture reclassifies, so an imported OtherA vaccine is captured as an immunization. The
+    // configuration files OtherA outside the Other heading, where only a receipt can prove it.
+    private CdsExportPreventionSnapshotService withReceipts(
+            CdsImportUnitDao units, List<Map<String, String>> unitRows) throws Exception {
+        Files.writeString(
+                file,
+                "<preventions><item name='Td' layout='injection' healthCanadaType='Td'/><item name='PAP' layout='PAPMAM' headingName='Screenings'/><item name='OtherA' layout='injection' healthCanadaType=''/></preventions>");
+        when(preventions.findCdsExportRowsAfter(eq(27), any(), eq(32)))
+                .thenReturn(List.of(raw(1, "OtherA"), raw(2, "PAP")));
+        var pages = new ArrayList<CdsExportRawKeyRowDto>();
+        for (var unit : unitRows) pages.add(CdsExportImmunizationImportReceiptFixture.raw(unit));
+        when(units.findCdsExportRetainedRowsAfter(eq(27), eq(Set.of("Immunizations")), any(), eq(32)))
+                .thenReturn(pages);
+        return new CdsExportPreventionSnapshotService(
+                factory,
+                new CdsExportPreventionConfigurationLoader(file.toString()),
+                vaccines,
+                mappings,
+                preventions,
+                units,
+                io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys
+                        .keys());
+    }
+
+    @Test
+    void shouldCaptureAReceiptProvenImportedCatchAllVaccine_asAnImmunization() throws Exception {
+        var units = mock(CdsImportUnitDao.class);
+        var service =
+                withReceipts(
+                        units,
+                        List.of(
+                                CdsExportImmunizationImportReceiptFixture.unit(
+                                        27,
+                                        1,
+                                        io.github.carlos_emr.carlos.demographic.cds.security
+                                                .CdsNativeBaselineTestKeys.keys())));
+        transaction(
+                () -> {
+                    var state = service.prepare(27, () -> {}, true);
+                    assertThat(state.clinicalIds()).containsExactly(1);
+                    assertThat(state.screeningIds()).containsExactly(2);
+                    // One snapshot cannot be reused for a request that would not copy receipts.
+                    assertThatThrownBy(() -> service.prepare(27, () -> {}, false))
+                            .hasMessage("CDS_EXPORT_PREVENTION_SELECTION_INVALID");
+                    return null;
+                });
+    }
+
+    @Test
+    void shouldHoldACatchAllVaccine_whenImmunizationsIsNotSelectedOrItsReceiptIsForged()
+            throws Exception {
+        var units = mock(CdsImportUnitDao.class);
+        var keys =
+                io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys
+                        .keys();
+        var service =
+                withReceipts(
+                        units, List.of(CdsExportImmunizationImportReceiptFixture.unit(27, 1, keys)));
+        transaction(
+                () -> {
+                    var state = service.prepare(27, () -> {}, false);
+                    assertThat(state.selection().reviews())
+                            .containsEntry(
+                                    1, CdsExportPreventionScopePlanner.Review.CATEGORY_NOT_PROVEN);
+                    assertThatThrownBy(state::clinicalIds).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+                    return null;
+                });
+        verifyNoInteractions(units);
+        var forged =
+                withReceipts(
+                        units,
+                        List.of(CdsExportImmunizationImportReceiptFixture.forged(27, 9, 1, keys)));
+        transaction(
+                () -> {
+                    assertThat(forged.prepare(27, () -> {}, true).selection().reviews())
+                            .containsEntry(
+                                    1, CdsExportPreventionScopePlanner.Review.CATEGORY_NOT_PROVEN);
+                    return null;
+                });
+    }
+
+    @Test
+    void shouldReadALargeSealedWitnessInSnapshotChunks_forPreventionSnapshotServiceContract()
+            throws Exception {
+        var units = mock(CdsImportUnitDao.class);
+        var unit =
+                CdsExportImmunizationImportReceiptFixture.unit(
+                        27,
+                        1,
+                        io.github.carlos_emr.carlos.demographic.cds.security
+                                .CdsNativeBaselineTestKeys.keys());
+        var service = withReceipts(units, List.of());
+        var inline = CdsExportImmunizationImportReceiptFixture.raw(unit);
+        var cells = new TreeMap<>(inline.cells());
+        var witness = cells.get("native_baseline");
+        byte[] bytes = unit.get("native_baseline").getBytes(StandardCharsets.UTF_8);
+        cells.put(
+                "native_baseline",
+                new CdsExportRawCellDto(false, witness.bytes(), witness.sha256(), null));
+        when(units.findCdsExportRetainedRowsAfter(eq(27), eq(Set.of("Immunizations")), any(), eq(32)))
+                .thenReturn(List.of(new CdsExportRawKeyRowDto(inline.id(), cells)));
+        when(units.readCdsExportRetainedChunk(
+                        eq(27),
+                        eq(Set.of("Immunizations")),
+                        eq(inline.id()),
+                        eq("native_baseline"),
+                        anyLong(),
+                        anyInt()))
+                .thenAnswer(
+                        call -> {
+                            long offset = call.getArgument(4);
+                            int length = call.getArgument(5);
+                            return Arrays.copyOfRange(
+                                    bytes,
+                                    (int) offset,
+                                    (int) Math.min(bytes.length, offset + length));
+                        });
+        transaction(
+                () -> {
+                    assertThat(service.prepare(27, () -> {}, true).clinicalIds())
+                            .containsExactly(1);
+                    return null;
+                });
+    }
+
+    private static CdsExportTableSchemaDto schema(String name) throws IOException {
+        try (var input =
+                CdsExportPreventionSnapshotServiceUnitTest.class.getResourceAsStream(
+                        "/cds-export/source-schema/" + name + ".json")) {
+            return new com.fasterxml.jackson.databind.ObjectMapper()
+                    .readValue(input, CdsExportTableSchemaDto.class);
+        }
+    }
+
+    private static CdsExportRawRowDto raw(int id, String type) {
+        return raw(id, type, null, null);
+    }
+
+    private static CdsExportRawRowDto raw(int id, String type, String flag, String program) {
+        var values = new TreeMap<String, String>();
+        values.put("id", Integer.toString(id));
+        values.put("demographic_no", "27");
+        values.put("prevention_type", type);
+        values.put("programNo", program);
+        values.put("restrictToProgram", flag);
+        values.put("snomedId", null);
+        var cells = new TreeMap<String, CdsExportRawCellDto>();
+        for (var entry : values.entrySet()) {
+            byte[] bytes =
+                    entry.getValue() == null
+                            ? null
+                            : entry.getValue().getBytes(StandardCharsets.UTF_8);
+            cells.put(
+                    entry.getKey(),
+                    new CdsExportRawCellDto(
+                            bytes == null,
+                            bytes == null ? 0 : bytes.length,
+                            bytes == null
+                                    ? CdsExportRawCellDto.EMPTY_SHA256
+                                    : java.util.HexFormat.of()
+                                            .formatHex(
+                                                    io.github.carlos_emr.carlos.utility
+                                                            .CdsImportKeys.digest()
+                                                            .digest(bytes)),
+                            bytes));
+        }
+        return new CdsExportRawRowDto(id, cells);
+    }
+}

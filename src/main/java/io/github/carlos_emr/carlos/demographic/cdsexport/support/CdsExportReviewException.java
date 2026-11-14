@@ -1,0 +1,80 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.demographic.cdsexport.support;
+
+/** Finite public review reasons; protected clinical detail belongs in encrypted diagnostics, never exception text. */
+public final class CdsExportReviewException extends RuntimeException {
+    public enum Reason {
+        UNMAPPED_DATA,
+        /**
+         * A prevention of the chart is restricted to a program that not every exporting identity
+         * works in (or its restriction flag is malformed), so the chart as those identities see
+         * it lacks it. The patient is held.
+         */
+        PREVENTION_PROGRAM_SCOPE,
+        /**
+         * A document of the chart is shown only inside a program that not every exporting identity
+         * works in, so the chart as those identities see it lacks it. The patient is held.
+         */
+        DOCUMENT_PROGRAM_SCOPE,
+        MERGED_PATIENT_SCOPE,
+        SOURCE_CHANGED,
+        AMBIGUOUS_SOURCE,
+        INCOMPLETE_RENDER,
+        MISSING_ATTACHMENT,
+        AUDIT_ACCESS_UNAVAILABLE,
+        RECIPIENT_UNAVAILABLE,
+        RESOURCE_LIMIT,
+        CLINICAL_VALIDATION_FAILED,
+        RUNTIME_CHANGED,
+        NO_PATIENTS_SELECTED,
+        CLINICAL_SOURCE_UNREVIEWED,
+        PATIENTS_HELD,
+        /**
+         * The installed schema, or a clinic-wide table with no patient link, cannot be closed for
+         * any patient; the whole job stops instead of holding every patient one by one.
+         */
+        CLINIC_SOURCE_UNREVIEWED,
+        /**
+         * DOCUMENT_DIR, one of its parents or an entry below it is not trusted storage: a
+         * symbolic link, a directory or file writable by group or others, or one owned by
+         * neither root nor the service account. No chart's documents can then be read safely,
+         * so the whole job stops instead of failing as an unexplained I/O error.
+         */
+        DOCUMENT_STORAGE_UNTRUSTED;
+
+        public String code() {
+            return "CDS_EXPORT_" + name();
+        }
+    }
+
+    private final Reason reason;
+
+    public CdsExportReviewException(Reason reason) {
+        super(java.util.Objects.requireNonNull(reason).code());
+        this.reason = reason;
+    }
+
+    public Reason reason() {
+        return reason;
+    }
+}

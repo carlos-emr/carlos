@@ -263,6 +263,15 @@ public class DemographicContactCreator {
         return contact;
     }
 
+    /**
+     * The directory specialist a contact-editor form edits, with the form's values applied: the
+     * {@code professionalSpecialists} row whose id is the contact's id (a new one for an id below
+     * 1), as {@code Contact2Action} saves it for a {@code TYPE_PROFESSIONALSPECIALIST} contact.
+     * Not for a consultation letter's health-care-team consultant, whose id is a {@code Contact}
+     * id: that is {@link ProfessionalSpecialist#healthCareTeamConsultant}.
+     *
+     * @throws SecurityException without {@code _demographic} read rights
+     */
     public static ProfessionalSpecialist convertProfessionalContactAsProfessionalSpecialist(LoggedInInfo loggedInInfo, ProfessionalContact contact) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
@@ -274,75 +283,22 @@ public class DemographicContactCreator {
 
         Integer contactId = contact.getId();
         ProfessionalSpecialist professionalSpecialist = null;
-        String address = contact.getAddress();
-        String addressTwo = contact.getAddress2();
-        String postal = contact.getPostal();
-        String city = contact.getCity();
-        String province = contact.getProvince();
-        String country = contact.getCountry();
-        String workExt = contact.getWorkPhoneExtension();
-
-        StringBuilder stringBuilder = new StringBuilder("");
-
-        if (address != null) {
-            stringBuilder.append(address.trim());
-        }
-
-        if (addressTwo != null) {
-            stringBuilder.append(" ");
-            stringBuilder.append(addressTwo.trim());
-
-        }
-        stringBuilder.append(", ");
-
-        if (city != null) {
-            stringBuilder.append(city.trim());
-
-        }
-        stringBuilder.append(", ");
-
-        if (postal != null) {
-            stringBuilder.append(postal.trim());
-        }
-        stringBuilder.append(", ");
-
-        if (province != null) {
-            stringBuilder.append(province.trim());
-        }
-        stringBuilder.append(", ");
-
-        if (country != null) {
-            stringBuilder.append(country.trim());
-        }
-
-        stringBuilder.append(", ");
 
         if (contactId == null) {
             contactId = 0;
         }
 
-        if (workExt == null || workExt.isEmpty()) {
-            workExt = "";
-        } else {
-            workExt = " ext " + workExt;
-        }
-
+        // The contact editor shows a directory specialist as a contact whose id is the
+        // specialist's own (TYPE_PROFESSIONALSPECIALIST), so a positive id is that row and its
+        // edits are merged into it. Never use this for a Contact-table contact: its id names no
+        // specialist. A consultation letter uses ProfessionalSpecialist.healthCareTeamConsultant.
         if (contactId > 0) {
             professionalSpecialist = professionalSpecialistDao.find(contactId);
         } else {
             professionalSpecialist = new ProfessionalSpecialist();
         }
 
-        professionalSpecialist.setStreetAddress(stringBuilder.toString());
-        professionalSpecialist.setFirstName(contact.getFirstName());
-        professionalSpecialist.setLastName(contact.getLastName());
-        professionalSpecialist.setEmailAddress(contact.getEmail());
-        professionalSpecialist.setPhoneNumber(contact.getWorkPhone() + workExt);
-        professionalSpecialist.setFaxNumber(contact.getFax());
-        professionalSpecialist.setReferralNo(contact.getCpso().trim());
-        professionalSpecialist.setSpecialtyType(contact.getSpecialty());
-        professionalSpecialist.setPrivatePhoneNumber(contact.getResidencePhone());
-        professionalSpecialist.setCellPhoneNumber(contact.getCellPhone());
+        professionalSpecialist.applyProfessionalContact(contact);
 
         return professionalSpecialist;
     }

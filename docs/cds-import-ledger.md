@@ -42,6 +42,39 @@ import writes, restores prior session settings before pooled reuse, and fences e
 write against the current maintenance owner. See the maintenance contract for ordinary JDBC,
 background-writer exclusion, lost-owner behavior and deployment prerequisites.
 
+### Unit failure codes
+
+A unit that fails inside its transaction rolls back and is recorded with the most specific code
+its cause chain supports, so an operator is not left with a bare `UNIT_WRITE_FAILED`:
+`UNIT_JSON_LIMIT_EXCEEDED` (a bounded JSON reader refused a document the importer itself wrote,
+which is an importer defect, never a source defect), `UNIT_JSON_INVALID`,
+`UNIT_DATABASE_WRITE_FAILED` (a JDBC, Spring data-access or JPA failure),
+`UNIT_SOURCE_READ_FAILED` (an I/O failure reading the staged source or its spooled values),
+`UNIT_VALUE_REFUSED` (a value the persister refused) and, otherwise, `UNIT_WRITE_FAILED`.
+Receipt sealing failures are `NATIVE_BASELINE_KEY_UNAVAILABLE` when the witness key cannot be
+used and `NATIVE_BASELINE_SEAL_FAILED` otherwise; a sealed witness that cannot be read back is
+`NATIVE_BASELINE_REQUIRES_REVIEW`. Every such failure keeps its cause chain, and its protected
+failure evidence (exception types, SQLState/vendor codes and bounded class/method frames, never
+messages or values) is what authorized web status and the one-shot CLI's `CDS_TECHNICAL` line
+show for it.
+
+The sealed native-baseline witness is read back with limits derived from the witness the
+importer can write, not from a generic default: the envelope admits the Base64 text of the
+largest plaintext witness (`CdsNativeBaselineCodec.MAX_BYTES`, sized for 192 rows of the widest
+native table at the column and cell bounds) at nesting depth 1, and the decrypted document admits
+the six nesting levels and 128-character strings its row, column and cell records can contain.
+Anything larger or deeper is still refused.
+
+A receipt names at most 192 rows (`CdsTargetReceiptService.MAXIMUM_REFERENCES`), and no source
+file reaches that. A unit is one CDS element or one page of at most 32 source fields, and each
+kind writes a fixed set of rows (a demographic record at most 12, a vaccine at most 16, a report
+at most two representations of four rows each). Elements the schema lets repeat without limit (a
+result's ResultReviewer, a report's ReportReviewed, a note's NoteReviewer and
+ParticipatingProviders, a contact's ContactPurpose) add source-field pages, never rows to one
+unit. The largest unit, a field page whose every field carries an audited correction, names 100
+rows. The bound checks the importer's own records, and the exporter reads receipts back under the
+same one (`CdsExportRetainedReceiptVerificationDto`).
+
 The checkpoint is an acknowledgement of a known atomic unit. An exception after an owning
 commit can mean `UNIT_COMMIT_OUTCOME_UNKNOWN`; it does not mean that the unit rolled back.
 A successor verifies the durable checkpoint and exact native receipt before continuing. It
@@ -173,31 +206,39 @@ Final reconciliation still verifies referenced bytes outside database transactio
 Pages are bounded at 200 rows; source field pages at 32. Seal calculation batches dependency
 metadata for 200 units instead of making an unbounded graph or a query per dependency. Final
 native receipt verification uses one semantic unit per owning transaction. Operator report files
-are streamed row by row, rather than accumulated in memory. These are explicit bounds, not a
-promise that arbitrarily large input requires no disk or execution time; configured source,
-expansion, private storage and retention limits remain admission requirements.
+are streamed row by row, rather than accumulated in memory. These bounds keep memory fixed; they
+do not limit the input. A larger source needs proportionally more disk and time, and only the
+free-disk reserve, an I/O failure or a stall (below) stops it.
 
 ## Operator outcomes and protected evidence
 
-Each active execution attempt has one monotonic elapsed budget using `cds.import.maxDurationMillis`
-(the existing default is 24 hours). It spans snapshot verification, planning, preparation and all
-clinical units rather than restarting at each unit. The budget is checked by existing cooperative
-I/O controls and between atomic units. A committed unit remains committed if the next check expires;
-the stopped outcome retains its source, receipts and holds for an authorized resume of the same run.
-A resume starts a fresh bounded active attempt; time spent stopped or awaiting review is excluded.
-No elapsed heartbeat authorizes takeover or changes an uncertain commit into a rollback.
+Each active execution attempt has one stall window, `cds.import.maxDurationMillis` (default 24
+hours). It is not a budget: every snapshot read, parse callback, planned row, preparation step,
+verification read and unit callback of the attempt is a checkpoint, and the window bounds only the
+time since the last one, so an attempt that keeps making progress runs to its end however long it
+takes. One window spans snapshot verification, planning, preparation and all clinical units, so no
+stage starts a fresh clock that could hide a silent gap. A worker silent for the whole window stops
+at its next checkpoint with `IMPORT_WORKER_STALLED`, an operational failure: a committed unit
+remains committed, and the stopped outcome retains its source, receipts and holds for an authorized
+resume of the same run. A worker that never returns leaves its coordinator and maintenance sessions
+silent; the database closes them after the window plus the unwind allowance, releasing the locks as
+for a dead process, so a resume can take over. A resume starts a fresh window; time spent stopped or
+awaiting review is not counted. No elapsed heartbeat authorizes takeover or changes an uncertain
+commit into a rollback.
 
-Protected report generation has a separate fresh budget under the same policy. Its streaming,
-validation, hashing and cleanup loops check that budget before a new immutable report set is
-selected. Timeout records delivery failure without rewriting clinical outcomes, selecting an
-incomplete report set or replaying clinical writes. A stopped `FAILED` delivery requires the
+Protected report generation has its own stall window under the same setting. Its streaming,
+validation, hashing and cleanup loops are checkpoints of it before a new immutable report set is
+selected. A generation silent for the window stops with `IMPORT_REPORT_GENERATION_STALLED` and
+records delivery failure without rewriting clinical outcomes, selecting an incomplete report set or
+replaying clinical writes. A stopped `FAILED` delivery requires the
 existing explicit recovery route, rather than an automatic retry loop. An already selected immutable
 `DELIVERED` generation keeps its acknowledgement, pointer and hashes
-when a later report attempt times out; failed cleanup makes the current operation non-clean until
-explicit recovery selects a fresh complete generation. The historical timeout remains a nonblocking
-operational warning in subsequent reports. The controls are cooperative: they cannot impose an
-absolute deadline on a kernel-blocked filesystem open/read/write/fsync or
-replace the independent bounded JDBC/network policies and process supervision.
+when a later report attempt stalls; failed cleanup makes the current operation non-clean until
+explicit recovery selects a fresh complete generation. The historical stall remains a nonblocking
+operational warning in subsequent reports. The checkpoints are cooperative: a kernel-blocked
+filesystem open/read/write/fsync is seen only when it returns, or through the silent ownership
+sessions the database closes; they do not replace the independent bounded JDBC/network policies and
+process supervision.
 
 Run state, per-patient outcome, clinical completeness, report delivery and cleanup are separate.
 `COMPLETE` alone does not mean that the operator's files were delivered. `cleanComplete` requires
@@ -232,6 +273,32 @@ delivery can clear these states or make `cleanComplete` true. Explicit resume of
 reacquires the real maintenance owner, verifies the target catalogue and global hold/drain proof,
 then retries release and regenerates the reports; it does not replay clinical writes. The explicit
 release-retry request is durable even if its queued worker is lost or the process restarts.
+
+### Abandoned runs
+
+`ABANDONED` is the final state of a stopped written run (`INCOMPLETE` or
+`RECONCILIATION_REQUIRED`) that was cancelled and then abandoned through the one-shot CLI by a
+root-delegated operator acting for its provider (its own operator, or another whose delegation
+covers the run's provider, facility and program, as for a run started in the browser), and of
+each of its held, partial or uncertain charts. It is the only transition that
+releases a hold without completing its patient. The abandon takes the coordinator lock and a new
+verified maintenance owner, claims a new owner epoch and the global admission row
+(`ABANDON_OWNER_ACQUIRED`), re-verifies each held chart's committed units against their
+checkpoints and sealed receipts (each receipt in its own read transaction, so an unreadable one
+is recorded `UNVERIFIABLE` instead of rolling the check back), and stores the operator's stated reason in a protected record
+before anything changes. One transaction then sets each held chart `ABANDONED` with
+`held=false` (a `PATIENT_ABANDONED` diagnostic carrying the receipt result, a `PATIENT_ABANDONED`
+event and a chart-audit `log` row admitted under the claimed epoch), sets the run `ABANDONED`
+with its maintenance release pending, records `RUN_ABANDONED` as a diagnostic (pointing to the
+protected record) and as an actor event (a salted SHA-256 of the reason, whose salt only the
+protected record keeps, and the release counts, never the reason), and gives back the global admission row. Units, checkpoints, lineage, source fields,
+file references and native rows are never changed, so the lineage still names the chart and its
+checkpoints are not reusable as a completed patient's. Maintenance is released through
+the ordinary owner read-back proof, recorded as `RELEASED`, `RELEASE_DEFERRED` (another run's
+hold) or `REQUIRES_RECONCILIATION`, exactly as for a completed run. An abandoned run is never
+`clinicalComplete` or `cleanComplete`; claims for planning, preparation or execution refuse it
+with `IMPORT_ABANDONED`, cancel leaves it unchanged, and resume is refused unless it only retries
+a pending maintenance release. A refused abandon changes nothing and takes no maintenance window.
 
 Cleanup records an actual bounded catalogue of retained/removed artifact counts and logical bytes.
 Accepted snapshots, parsed source, review evidence, durable report sets and resumable native

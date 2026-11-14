@@ -1,0 +1,575 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.demographic.cdsexport.service;
+
+import io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionContract;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportAllergyDto;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportAllergyMappingDto;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportCapturedTextRowDto;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDateDto;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFieldAssessmentDto;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFieldAssessmentDto.Outcome;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFieldAssessmentDto.Presence;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNativeFieldKeyDto;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * Exact native-only allergy interpretation. This never reads the database, infers a drug
+ * authority from a lookup ID, calls severe life-threatening, or replaces recorded date with
+ * a modification/import clock. Unresolved native fields and precision conflicts are explicit
+ * blockers. Retained imported source and lookup/provider definitions require reconciliation
+ * before a complete clinical section can be asserted.
+ */
+public final class CdsExportAllergyMapper {
+    private static final String ARCHIVE =
+            "ResidualInfo/" + CdsNativeExtensionContract.ALLERGY_ARCHIVED;
+
+    static final String SOURCE =
+            "ResidualInfo/" + CdsNativeExtensionContract.ALLERGY_SOURCE_CONTEXT;
+
+    /** Rule of a stored value that travels only in {@code CARLOS.Allergy.Source.v1}. */
+    static final String CARRIED = "EXACT_NATIVE_ALLERGY_SOURCE_CONTEXT";
+
+    /**
+     * OffendingAgentDescription of an allergy row that names no agent and has no exportable code
+     * (an empty or blank description). CDS 5.2 readers, the CARLOS importer included, need one of
+     * the two, so the entry says what is missing instead of holding the chart.
+     */
+    static final String UNNAMED_AGENT = "Offending agent not recorded";
+
+    /**
+     * The candidate rules of a stored value with no CDS element and no other allergy carrier.
+     * None holds the patient: the element (or marker) is left out, never rewritten, and the
+     * complete row travels in {@code CARLOS.Allergy.Source.v1}.
+     *
+     * <ul>
+     *   <li>{@code UNMAPPED_NATIVE_VALUE}: the recording provider number and the First Databank
+     *       identifiers ({@code providerNo}, {@code HICL_SEQNO}, {@code HIC_SEQNO},
+     *       {@code AGCSP}, {@code AGCCS}), which no CARLOS screen writes but the OSCAR 19
+     *       migration copies; a catalogue type outside the DrugRef categories; an identifier on a
+     *       row that is not a brand search result.</li>
+     *   <li>A code outside its list (severity, onset, life stage, reaction type), a drug flag
+     *       other than 0 or 1, an ATC value that is not one valid code, an age or code with
+     *       leading, trailing or doubled whitespace.</li>
+     *   <li>A date whose precision rows disagree or whose anchor is not a calendar date
+     *       (OSCAR's zero date): no date element is written.</li>
+     *   <li>A reaction too long even for Notes, and a row with no agent.</li>
+     * </ul>
+     */
+    static final Set<String> CARRIED_RULES =
+            Set.of(
+                    "UNMAPPED_NATIVE_VALUE",
+                    "CODE_REQUIRES_REVIEW",
+                    "NATIVE_BOOLEAN_REQUIRES_REVIEW",
+                    "SINGLE_ATC_CODE_REQUIRES_REVIEW",
+                    "TOKEN_NORMALIZATION_REQUIRES_REVIEW",
+                    "DATE_PRECISION_REQUIRES_REVIEW",
+                    "UNKNOWN_ALLERGY_PRECISION_FIELD",
+                    "LONG_REACTION_NOTES_CAPACITY_REQUIRES_REVIEW",
+                    "ALLERGY_AGENT_REQUIRED");
+
+    private static final com.fasterxml.jackson.databind.json.JsonMapper JSON =
+            com.fasterxml.jackson.databind.json.JsonMapper.builder().build();
+
+    public CdsExportAllergyMappingDto map(
+            int patient,
+            CdsExportCapturedTextRowDto row,
+            List<CdsExportCapturedTextRowDto> precision)
+            throws IOException {
+        var candidate = candidate(patient, row, precision);
+        var fields = new LinkedHashMap<>(candidate.fields());
+        boolean carried = false;
+        for (var entry : candidate.fields().entrySet()) {
+            var decision = entry.getValue();
+            if (decision.outcome() != Outcome.REQUIRES_REVIEW) continue;
+            String column = entry.getKey().column();
+            String stored =
+                    entry.getKey().table().equals("allergies") ? row.fields().get(column) : null;
+            // A value longer than its element or marker (an ATC column of 55 characters against
+            // the seven of a code) is carried too, and so is one holding a character XML cannot
+            // carry: the source context is JSON that writes such a character as its escape.
+            boolean overlong =
+                    "WIRE_TEXT_REQUIRES_REVIEW".equals(decision.rule()) && stored != null;
+            if (!CARRIED_RULES.contains(decision.rule()) && !overlong) continue;
+            carried = true;
+            fields.put(
+                    entry.getKey(),
+                    new CdsExportFieldAssessmentDto(
+                            decision.presence(), Outcome.MAPPED, SOURCE, CARRIED));
+        }
+        boolean blocked =
+                fields.values().stream()
+                        .anyMatch(field -> field.outcome() == Outcome.REQUIRES_REVIEW);
+        if (blocked) return new CdsExportAllergyMappingDto(null, fields);
+        var value = candidate.value();
+        if (carried) {
+            String context = sourceContext(row, precision);
+            boolean unnamed =
+                    (value.description() == null || value.description().isBlank())
+                            && value.codeValue() == null;
+            value =
+                    new CdsExportAllergyDto(
+                            unnamed ? UNNAMED_AGENT : value.description(),
+                            value.property(),
+                            value.codeType(),
+                            value.codeValue(),
+                            value.reactionType(),
+                            value.start(),
+                            value.lifeStage(),
+                            value.severity(),
+                            value.reaction(),
+                            value.recorded(),
+                            value.notes(),
+                            value.archived(),
+                            value.ageOfOnset(),
+                            value.onsetOfReaction(),
+                            value.nativeSeverity(),
+                            value.longReaction(),
+                            context);
+        }
+        return new CdsExportAllergyMappingDto(value, fields);
+    }
+
+    /**
+     * The content of {@code CARLOS.Allergy.Source.v1}: the complete stored row and its
+     * date-precision rows as one JSON object in a fixed key order, SQL NULL distinct from empty
+     * text, every space escaped so {@code xs:token} normalization cannot change it.
+     */
+    static String sourceContext(
+            CdsExportCapturedTextRowDto row, List<CdsExportCapturedTextRowDto> precision)
+            throws IOException {
+        var details = new LinkedHashMap<String, Object>();
+        details.put("version", 1);
+        details.put("fields", new java.util.TreeMap<>(row.fields()));
+        details.put(
+                "precision",
+                precision.stream()
+                        .sorted(
+                                java.util.Comparator.comparing(
+                                        CdsExportCapturedTextRowDto::recordKey))
+                        .map(entry -> new java.util.TreeMap<>(entry.fields()))
+                        .toList());
+        return CdsExportScreeningMapper.tokenSafe(JSON.writeValueAsString(details));
+    }
+
+    /**
+     * CDS 5.2 allergies have no status element, and receivers ignore CARLOS residuals, so an
+     * archived allergy (removed, replaced by an edit, or marked inactive; CARLOS does not
+     * distinguish them) would otherwise reach another EMR as an active allergy. The standard
+     * Notes says so in words; the CARLOS archive residual still carries the exact state.
+     */
+    static final String ARCHIVED_NOTE =
+            "Inactive in the sending EMR: this allergy record was archived (removed, replaced by"
+                    + " an edit, or marked inactive) and is not a current allergy.";
+
+    /**
+     * Leads a reaction longer than the standard Reaction element (120 characters) in Notes. The
+     * Add Allergy page's Reaction box has no maximum length and the column is MEDIUMTEXT, so a long
+     * reaction is ordinary chart content: it is written in full in Notes (text32K) for every
+     * receiver and exactly in {@code CARLOS.Allergy.Reaction.v1}, which a CARLOS importer restores
+     * as the native reaction, instead of being truncated or holding the patient.
+     */
+    static final String LONG_REACTION_LABEL = "Reaction:\n";
+
+    /** Combines the archived statement and a long reaction into the allergy's Notes, in that order. */
+    static String notes(boolean archived, String longReaction) {
+        if (longReaction == null) return archived ? ARCHIVED_NOTE : null;
+        String reaction = LONG_REACTION_LABEL + longReaction;
+        return archived ? ARCHIVED_NOTE + "\n\n" + reaction : reaction;
+    }
+
+    /** DrugRef search categories: 13 is a brand product, the others generic/ingredient/class results. */
+    private static final String BRAND_TYPE = "13";
+
+    private static final Set<String> SEARCH_TYPES = Set.of("10", "11", "12", "14");
+
+    /**
+     * The ATC class category: an allergy filed under its class code (the Penicillin and Sulfa
+     * shortcuts, #4576), or an allergen picked under the allergy search's "ATC Class" heading,
+     * which is saved with its DrugRef search id and no class code (ChooseAllergy2.jsp posts none
+     * for a search result; RxAddAllergy2Action).
+     */
+    private static final String ATC_CLASS_TYPE = "8";
+
+    /** Partial native values stay package-private; callers must retain every unresolved field disposition. */
+    record Candidate(
+            CdsExportAllergyDto value,
+            Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields) {
+        Candidate {
+            fields = Map.copyOf(fields);
+        }
+
+        @Override
+        public String toString() {
+            return "CdsExportAllergyMapper.Candidate[protected]";
+        }
+    }
+
+    Candidate candidate(
+            int patient,
+            CdsExportCapturedTextRowDto row,
+            List<CdsExportCapturedTextRowDto> precision)
+            throws IOException {
+        shape(row, "allergies", CdsExportPatientTableReadSupport.Plan.ALLERGIES);
+        long id = integer(row.fields().get("allergyid"));
+        if (patient < 1
+                || !Integer.toString(patient).equals(row.fields().get("demographic_no"))
+                || !CdsExportPatientTableSourceReader.key(id).equals(row.recordKey())) scope();
+        var decisions =
+                new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
+        var source = new State(row, decisions);
+        source.operational("allergyid", "NATIVE_OCCURRENCE_IDENTITY");
+        source.operational("demographic_no", "SEALED_PATIENT_IDENTITY");
+        source.operational("lastUpdateDate", "CAPTURED_MODIFICATION_CLOCK_NOT_RECORDED_DATE");
+        source.operational("position", "CAPTURED_DISPLAY_ORDER");
+        String description = source.text("DESCRIPTION", "OffendingAgentDescription", 120);
+        String reaction = null, longReaction = null;
+        String rawReaction = source.raw("reaction");
+        if (rawReaction != null
+                && rawReaction.codePointCount(0, rawReaction.length()) > 120
+                && CdsExportNativeFieldAssessments.legal(rawReaction, 32000)) {
+            longReaction = rawReaction;
+            source.set(
+                    "reaction",
+                    Outcome.MAPPED,
+                    "Notes;ResidualInfo/" + CdsNativeExtensionContract.ALLERGY_REACTION,
+                    "COMPLETE_LONG_REACTION_IN_NOTES");
+        } else reaction = source.text("reaction", "Reaction", 120);
+        String property;
+        String nonDrug = source.raw("nonDrug");
+        if (nonDrug == null) {
+            property = "UK";
+            source.set(
+                    "nonDrug",
+                    Outcome.MAPPED,
+                    "PropertyOfOffendingAgent",
+                    "NATIVE_AGENT_PROPERTY_UNSPECIFIED");
+        } else {
+            property =
+                    source.code(
+                            "nonDrug", "PropertyOfOffendingAgent", Map.of("0", "DR", "1", "ND"));
+            if (property == null)
+                source.review(
+                        "nonDrug", "PropertyOfOffendingAgent", "NATIVE_BOOLEAN_REQUIRES_REVIEW");
+        }
+        String archived = source.code("archived", ARCHIVE, Map.of("0", "false", "1", "true"));
+        if (archived == null) source.review("archived", ARCHIVE, "ARCHIVE_STATE_REQUIRED");
+        if (longReaction != null
+                && !CdsExportNativeFieldAssessments.legal(
+                        notes(Boolean.parseBoolean(archived), longReaction), 32000)) {
+            // Beyond text32K even in Notes (a reaction of about 32,000 characters).
+            source.review("reaction", "Notes", "LONG_REACTION_NOTES_CAPACITY_REQUIRES_REVIEW");
+            longReaction = null;
+        }
+        String reactionType =
+                source.code("reaction_type", "ReactionType", Map.of("AL", "AL", "AR", "AR"));
+        String life =
+                source.code(
+                        "life_stage",
+                        "LifeStage",
+                        Map.of("N", "N", "I", "I", "C", "C", "T", "T", "A", "A"));
+        String severity =
+                source.code(
+                        "severity_of_reaction",
+                        "Severity",
+                        Map.of("1", "MI", "2", "MO", "5", "NO"));
+        if (Set.of("0", "4")
+                .contains(java.util.Objects.toString(source.raw("severity_of_reaction"), "")))
+            source.set(
+                    "severity_of_reaction",
+                    Outcome.OPERATIONAL,
+                    "Severity",
+                    "NATIVE_SEVERITY_UNKNOWN_NO_ASSERTION");
+        String nativeSeverity = null;
+        if ("3".equals(source.raw("severity_of_reaction"))) {
+            // "Severe" (AddReaction2.jsp) has no CDS 5.2 value and is not evidence of a
+            // life-threatening (LT) reaction: the standard Severity stays absent and the exact
+            // native label travels in a CARLOS residual, instead of refusing the patient.
+            nativeSeverity = "3";
+            source.set(
+                    "severity_of_reaction",
+                    Outcome.MAPPED,
+                    "ResidualInfo/" + CdsNativeExtensionContract.ALLERGY_SEVERITY,
+                    "NATIVE_SEVERE_HAS_NO_CDS_SEVERITY_VALUE");
+        }
+        String atcPath = "ResidualInfo/" + CdsNativeExtensionContract.ALLERGY_ATC;
+        String typeCode = source.raw("TYPECODE");
+        String din = source.raw("regional_identifier");
+        String type = null, code = null;
+        if (BRAND_TYPE.equals(typeCode) && din != null && din.matches("[0-9]{8}")) {
+            // A brand chosen from the drug search: RxAddAllergy2Action stores the DIN DrugRef
+            // resolved for that product, and the ATC code of the same product. The DIN is the
+            // standard allergy Code, as the legacy exporter wrote it; the ATC is derived from
+            // that product, not an independent coding (the importer refuses two codings).
+            type = "DIN";
+            code = source.token("regional_identifier", "Code/CodeValue", 20);
+            source.set("TYPECODE", Outcome.MAPPED, "Code/CodeType", "DRUGREF_RESOLVED_BRAND_DIN");
+            if (source.raw("atc") != null)
+                source.operational("atc", "ATC_DERIVED_FROM_THE_EXPORTED_DIN_PRODUCT");
+        } else {
+            code = source.token("atc", atcPath, 7);
+            if (code != null) {
+                if (CdsNativeExtensionContract.validAllergyAtc(code)) type = "ATC";
+                else source.review("atc", atcPath, "SINGLE_ATC_CODE_REQUIRES_REVIEW");
+            }
+            String atc = source.raw("atc");
+            if ("0".equals(typeCode))
+                source.operational("TYPECODE", "NATIVE_CATALOGUE_TYPE_UNSPECIFIED");
+            else if (ATC_CLASS_TYPE.equals(typeCode) && type != null)
+                source.set("TYPECODE", Outcome.MAPPED, atcPath, "EXPLICIT_ATC_CLASS_TYPE");
+            else if (SEARCH_TYPES.contains(typeCode)
+                    || ATC_CLASS_TYPE.equals(typeCode) && (atc == null || atc.isEmpty()))
+                // Generic, ingredient and class search results name the allergen by their
+                // description; the search category is catalogue lookup metadata, not a code. An
+                // "ATC Class" search result carries no class code, so it is one of them too.
+                source.operational("TYPECODE", "DRUGREF_SEARCH_CATEGORY_NOT_A_DRUG_CODE");
+            else if (BRAND_TYPE.equals(typeCode) && (din == null || din.isEmpty()))
+                // A brand chosen from the drug search whose DrugRef lookup returned no DIN:
+                // RxAddAllergy2Action saves it anyway so the clinician's record is not lost. The
+                // allergen is named by its description (and its product's ATC class, if DrugRef
+                // gave one); without a DIN the category is lookup metadata, as for 10-14 above.
+                source.operational("TYPECODE", "DRUGREF_BRAND_WITHOUT_RESOLVED_DIN");
+        }
+        // The DrugRef search id is a catalogue lookup key, never a DIN (RxAddAllergy2Action).
+        if (source.raw("drugref_id") != null)
+            source.operational("drugref_id", "DRUGREF_SEARCH_ID_IS_NOT_A_DRUG_CODE");
+        String age =
+                source.token(
+                        "age_of_onset",
+                        "ResidualInfo/" + CdsNativeExtensionContract.ALLERGY_AGE_OF_ONSET,
+                        4);
+        String onset =
+                source.code(
+                        "onset_of_reaction",
+                        "ResidualInfo/" + CdsNativeExtensionContract.ALLERGY_ONSET_OF_REACTION,
+                        CdsNativeExtensionContract.ALLERGY_ONSET_VALUES);
+        if (onset != null) onset = source.raw("onset_of_reaction");
+        if ("4".equals(source.raw("onset_of_reaction")))
+            source.set(
+                    "onset_of_reaction",
+                    Outcome.OPERATIONAL,
+                    "ResidualInfo/" + CdsNativeExtensionContract.ALLERGY_ONSET_OF_REACTION,
+                    "NATIVE_ONSET_UNKNOWN_NO_ASSERTION");
+        // All other populated coding/author fields retain their initial explicit
+        // review disposition. Values or IDs alone do not establish the missing namespace,
+        // lookup definition, recording clinician or additional clinical representation.
+        if ((description == null || description.isBlank()) && code == null)
+            source.review("DESCRIPTION", "OffendingAgentDescription", "ALLERGY_AGENT_REQUIRED");
+        var dates = new LinkedHashMap<Integer, List<State>>();
+        dates.put(1, new ArrayList<>());
+        dates.put(2, new ArrayList<>());
+        var seen = new java.util.HashSet<String>();
+        for (var entry : precision) {
+            shape(
+                    entry,
+                    "partial_date",
+                    CdsExportPatientTableReadSupport.Plan.PARTIAL_DATE_ALLERGIES);
+            if (!seen.add(entry.recordKey())
+                    || !CdsExportPatientTableSourceReader.key(integer(entry.fields().get("id")))
+                            .equals(entry.recordKey())
+                    || !"1".equals(entry.fields().get("table_name"))
+                    || integer(entry.fields().get("table_id")) != id) scope();
+            var state = new State(entry, decisions);
+            state.operational("id", "CAPTURED_PRECISION_ROW_IDENTITY");
+            state.operational("table_name", "ALLERGY_PRECISION_OWNER_TYPE");
+            state.operational("table_id", "VERIFIED_ALLERGY_PARENT_IDENTITY");
+            String field = state.raw("field_name");
+            if ("1".equals(field) || "2".equals(field)) {
+                state.operational("field_name", "EXPLICIT_NATIVE_DATE_FIELD");
+                dates.get(Integer.parseInt(field)).add(state);
+            } else {
+                state.review("field_name", "", "UNKNOWN_ALLERGY_PRECISION_FIELD");
+                state.review("format", "", "UNKNOWN_ALLERGY_PRECISION_FIELD");
+            }
+        }
+        CdsExportDateDto start = date(source, "start_date", "StartDate", dates.get(1));
+        CdsExportDateDto recorded = date(source, "entry_date", "RecordedDate", dates.get(2));
+        var absent = new CdsExportDateDto(CdsExportDateDto.Precision.ABSENT, null);
+        var output =
+                new CdsExportAllergyDto(
+                        description,
+                        property,
+                        type,
+                        type == null ? null : code,
+                        reactionType,
+                        start == null ? absent : start,
+                        life,
+                        severity,
+                        reaction,
+                        recorded == null ? absent : recorded,
+                        notes(Boolean.parseBoolean(archived), longReaction),
+                        Boolean.parseBoolean(archived),
+                        age,
+                        onset,
+                        nativeSeverity,
+                        longReaction);
+        return new Candidate(output, decisions);
+    }
+
+    private static CdsExportDateDto date(
+            State source, String column, String path, List<State> metadata) {
+        var formats = new ArrayList<String>();
+        metadata.forEach(row -> formats.add(row.raw("format")));
+        try {
+            var value = new CdsExportNativeDateMapper().map(source.raw(column), formats);
+            source.set(
+                    column,
+                    value.precision() == CdsExportDateDto.Precision.ABSENT
+                            ? Outcome.ABSENT
+                            : Outcome.MAPPED,
+                    path,
+                    "EXPLICIT_CAPTURED_DATE_PRECISION");
+            metadata.forEach(
+                    row ->
+                            row.set(
+                                    "format",
+                                    Outcome.MAPPED,
+                                    path,
+                                    "EXPLICIT_CAPTURED_DATE_PRECISION"));
+            return value;
+        } catch (IOException review) {
+            source.review(column, path, "DATE_PRECISION_REQUIRES_REVIEW");
+            metadata.forEach(row -> row.review("format", path, "DATE_PRECISION_REQUIRES_REVIEW"));
+            return null;
+        }
+    }
+
+    private static void shape(
+            CdsExportCapturedTextRowDto row,
+            String table,
+            CdsExportPatientTableReadSupport.Plan plan)
+            throws IOException {
+        if (row == null
+                || !table.equals(row.table())
+                || !row.fields().keySet().equals(Set.copyOf(plan.columns()))) scope();
+    }
+
+    private static long integer(String value) throws IOException {
+        try {
+            int number = Integer.parseInt(value);
+            if (!Integer.toString(number).equals(value)) scope();
+            return number;
+        } catch (NumberFormatException invalid) {
+            scope();
+            return 0;
+        }
+    }
+
+    private static void scope() throws IOException {
+        throw new IOException("CDS_EXPORT_ALLERGY_CAPTURE_SCOPE_INVALID");
+    }
+
+    private static final class State {
+        private final CdsExportCapturedTextRowDto row;
+        private final Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> decisions;
+
+        private State(
+                CdsExportCapturedTextRowDto row,
+                Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> decisions) {
+            this.row = row;
+            this.decisions = decisions;
+            row.fields()
+                    .forEach(
+                            (column, value) ->
+                                    set(
+                                            column,
+                                            value == null || value.isEmpty()
+                                                    ? Outcome.ABSENT
+                                                    : Outcome.REQUIRES_REVIEW,
+                                            "",
+                                            "UNMAPPED_NATIVE_VALUE"));
+        }
+
+        private String raw(String column) {
+            if (!row.fields().containsKey(column))
+                throw new IllegalArgumentException("CDS_EXPORT_NATIVE_COLUMN_UNKNOWN");
+            return row.fields().get(column);
+        }
+
+        private void set(String column, Outcome outcome, String destination, String rule) {
+            String value = raw(column);
+            var presence =
+                    value == null
+                            ? Presence.SQL_NULL
+                            : value.isEmpty() ? Presence.EMPTY : Presence.VALUE;
+            decisions.put(
+                    new CdsExportNativeFieldKeyDto(row.table(), row.recordKey(), column),
+                    new CdsExportFieldAssessmentDto(presence, outcome, destination, rule));
+        }
+
+        private void operational(String column, String rule) {
+            set(column, Outcome.OPERATIONAL, "", rule);
+        }
+
+        private void review(String column, String destination, String rule) {
+            set(column, Outcome.REQUIRES_REVIEW, destination, rule);
+        }
+
+        private String text(String column, String destination, int maximum) {
+            String value = raw(column);
+            if (value == null || value.isEmpty()) return null;
+            // A character XML cannot carry is shown as U+FFFD; the rule stays, so the stored value
+            // is carried exactly in the allergy's source context.
+            String shown = CdsExportXmlText.element(value);
+            if (shown.codePointCount(0, shown.length()) > maximum) {
+                review(column, destination, "WIRE_TEXT_REQUIRES_REVIEW");
+                return null;
+            }
+            if (!shown.equals(value)) {
+                review(column, destination, "WIRE_TEXT_REQUIRES_REVIEW");
+                return shown;
+            }
+            set(column, Outcome.MAPPED, destination, "EXACT_NATIVE_TEXT");
+            return value;
+        }
+
+        private String token(String column, String destination, int maximum) {
+            String value = raw(column);
+            if (value == null || value.isEmpty()) return null;
+            if (value.startsWith(" ")
+                    || value.endsWith(" ")
+                    || value.contains("  ")
+                    || value.indexOf('\t') >= 0
+                    || value.indexOf('\n') >= 0
+                    || value.indexOf('\r') >= 0) {
+                review(column, destination, "TOKEN_NORMALIZATION_REQUIRES_REVIEW");
+                return null;
+            }
+            return text(column, destination, maximum);
+        }
+
+        private String code(String column, String destination, Map<String, String> values) {
+            String value = raw(column);
+            if (value == null || value.isEmpty()) return null;
+            String mapped = values.get(value);
+            if (mapped == null) review(column, destination, "CODE_REQUIRES_REVIEW");
+            else set(column, Outcome.MAPPED, destination, "REVIEWED_NATIVE_CODE");
+            return mapped;
+        }
+    }
+}

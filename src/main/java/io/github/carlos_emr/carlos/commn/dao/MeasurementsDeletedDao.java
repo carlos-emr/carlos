@@ -36,6 +36,6 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.MeasurementsDeleted;
 
-public interface MeasurementsDeletedDao extends AbstractDao<MeasurementsDeleted> {
+public interface MeasurementsDeletedDao extends AbstractDao<MeasurementsDeleted>, CdsExportPatientTableReadDao {
     List<MeasurementsDeleted> findDeletedAfterDatetime(Date dateTime);
 }

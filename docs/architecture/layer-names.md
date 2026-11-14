@@ -50,6 +50,26 @@ Do not revive legacy compressed names such as `3rd`, `Dig`, `Db`, `Obj`,
 | `*Service` | `@Service` (often `@Transactional`) | **Default fallback.** Multi-step business operation no single verb captures, including cross-DAO read orchestration. | `BillingOnHeaderCreationService`, `GstSettingsService` |
 | `*Dao` | `@Repository` | Data access for one entity/table. **No cross-DAO calls.** | `BillingONCHeader1Dao` |
 
+### CDS transfer components
+
+The importer and exporter also share these narrowly defined roles. These names
+describe transfer boundaries rather than UI assembly. They do not relax the DAO,
+transaction, authorization or utility rules above.
+
+| Suffix | Lifecycle | Role |
+|---|---|---|
+| `*Reader` | stateless service or request-scoped stream | Reads one native or authenticated retained source slice; never writes clinical data. |
+| `*Mapper` | stateless service or pure function | Maps a typed source slice into the transfer contract, preserving unsupported-value blockers. |
+| `*FieldReconciler` | stateless service | Compares retained field witnesses with current native projections; refuses ambiguous evidence. |
+| `*Planner` | stateless service | Produces a bounded immutable capture or serialization plan; execution remains in a service. |
+| `*Classifier` | stateless service | Assigns a source occurrence to one explicit reviewed transfer category or blocker. |
+| `*Factory` | stateless service | Creates scoped resources that the caller must close; never retains an active resource in a singleton. |
+| `*Registry` | immutable singleton | Resolves explicitly registered compatible engines or occurrence handlers; never supplies a permissive fallback. |
+| `*ReadSupport` | static utility, no Spring lifecycle | Shares bounded query-shape checks among sibling CDS DAOs; owns no entity manager, authorization or cross-DAO orchestration. |
+
+Use these suffixes only when the class has the corresponding bounded role. The
+ordinary decision rules still apply to new web, presentation and business code.
+
 Plus utility classes — static-only, no Spring annotation. Use a domain noun (plural is fine):
 
 | Pattern | Example |

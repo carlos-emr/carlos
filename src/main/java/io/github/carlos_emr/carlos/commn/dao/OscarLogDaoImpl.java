@@ -48,7 +48,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
-@Repository
+@Repository("oscarLogDao")
 public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarLogDao {
 
     private static final Logger logger = MiscUtils.getLogger();

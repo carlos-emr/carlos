@@ -35,7 +35,7 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.CVCImmunization;
 
-public interface CVCImmunizationDao extends AbstractDao<CVCImmunization> {
+public interface CVCImmunizationDao extends AbstractDao<CVCImmunization>, CdsExportPatientTableReadDao {
 
     public void removeAll();
 

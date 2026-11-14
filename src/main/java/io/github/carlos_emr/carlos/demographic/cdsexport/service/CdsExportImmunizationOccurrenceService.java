@@ -1,0 +1,762 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.demographic.cdsexport.service;
+
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
+import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl;
+import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException;
+import io.github.carlos_emr.carlos.utility.CdsImportKeys;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+/**
+ * Assembles the selected frozen vaccine occurrences through the same receipt, retained-field
+ * and XML pipeline as allergies and medications. Every parent, child and retained source field
+ * must be accounted for before the private result may reach subsequent coverage checks.
+ */
+@Service
+public class CdsExportImmunizationOccurrenceService
+        implements CdsExportCategoryOccurrenceAssembler {
+    @Override
+    public CdsCategory category() {
+        return CdsCategory.IMMUNIZATIONS;
+    }
+
+    private final CdsExportRetainedValuesService values;
+    private final CdsExportRetainedReceiptVerificationService verification;
+    private final CdsExportNativeRowReceiptReader witnesses;
+    private final CdsExportNativeCaptureService captures;
+    private final CdsExportImmunizationCaptureValidator closure;
+    private final CdsExportPreventionConfigurationService configurations;
+    private final CdsExportCapturedTextRowsReader rows;
+    private final CdsExportClinicalZoneService zones;
+
+    public CdsExportImmunizationOccurrenceService(
+            CdsExportRetainedValuesService values,
+            CdsExportRetainedReceiptVerificationService verification,
+            CdsExportNativeRowReceiptReader witnesses,
+            CdsExportNativeCaptureService captures,
+            CdsExportImmunizationCaptureValidator closure,
+            CdsExportPreventionConfigurationService configurations) {
+        this(
+                values,
+                verification,
+                witnesses,
+                captures,
+                closure,
+                configurations,
+                new CdsExportCapturedTextRowsReader(captures));
+    }
+
+    @Autowired
+    public CdsExportImmunizationOccurrenceService(
+            CdsExportRetainedValuesService values,
+            CdsExportRetainedReceiptVerificationService verification,
+            CdsExportNativeRowReceiptReader witnesses,
+            CdsExportNativeCaptureService captures,
+            CdsExportImmunizationCaptureValidator closure,
+            CdsExportPreventionConfigurationService configurations,
+            CdsExportClinicalZoneService zones) {
+        this(
+                values,
+                verification,
+                witnesses,
+                captures,
+                closure,
+                configurations,
+                new CdsExportCapturedTextRowsReader(captures),
+                zones);
+    }
+
+    CdsExportImmunizationOccurrenceService(
+            CdsExportRetainedValuesService values,
+            CdsExportRetainedReceiptVerificationService verification,
+            CdsExportNativeRowReceiptReader witnesses,
+            CdsExportNativeCaptureService captures,
+            CdsExportImmunizationCaptureValidator closure,
+            CdsExportPreventionConfigurationService configurations,
+            CdsExportCapturedTextRowsReader rows) {
+        this(
+                values,
+                verification,
+                witnesses,
+                captures,
+                closure,
+                configurations,
+                rows,
+                new CdsExportClinicalZoneService(captures));
+    }
+
+    CdsExportImmunizationOccurrenceService(
+            CdsExportRetainedValuesService values,
+            CdsExportRetainedReceiptVerificationService verification,
+            CdsExportNativeRowReceiptReader witnesses,
+            CdsExportNativeCaptureService captures,
+            CdsExportImmunizationCaptureValidator closure,
+            CdsExportPreventionConfigurationService configurations,
+            CdsExportCapturedTextRowsReader rows,
+            CdsExportClinicalZoneService zones) {
+        this.values = Objects.requireNonNull(values);
+        this.verification = Objects.requireNonNull(verification);
+        this.witnesses = Objects.requireNonNull(witnesses);
+        this.captures = Objects.requireNonNull(captures);
+        this.closure = Objects.requireNonNull(closure);
+        this.configurations = Objects.requireNonNull(configurations);
+        this.rows = Objects.requireNonNull(rows);
+        this.zones = Objects.requireNonNull(zones);
+    }
+
+    public CdsExportClinicalOccurrenceService.Result append(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            String patientKey,
+            Set<String> requiredTables,
+            CdsExportPatientCaptureDto source,
+            CdsExportStagedFileDto payloadManifest,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control,
+            CdsExportXmlComposer.SectionEmitter xml,
+            CdsExportClinicalOccurrenceService.Receipts output)
+            throws IOException {
+        Objects.requireNonNull(xml);
+        var result = new CdsExportClinicalOccurrenceService.Result[1];
+        xml.source(
+                emitter ->
+                        result[0] =
+                                assemble(
+                                        lease,
+                                        patient,
+                                        patientKey,
+                                        requiredTables,
+                                        source,
+                                        payloadManifest,
+                                        bounds,
+                                        control,
+                                        emitter,
+                                        output));
+        return Objects.requireNonNull(result[0]);
+    }
+
+    private CdsExportClinicalOccurrenceService.Result assemble(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            String patientKey,
+            Set<String> requiredTables,
+            CdsExportPatientCaptureDto source,
+            CdsExportStagedFileDto payloadManifest,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control,
+            CdsExportXmlComposer.SectionEmitter xml,
+            CdsExportClinicalOccurrenceService.Receipts output)
+            throws IOException {
+        Objects.requireNonNull(output);
+        Objects.requireNonNull(bounds);
+        patient.require(lease);
+        control.checkpoint();
+        var tables = Set.copyOf(requiredTables);
+        var category = CdsCategory.IMMUNIZATIONS;
+        if (!lease.document().command().categories().contains(category)
+                || patientKey == null
+                || !patientKey.matches("[0-9a-f]{64}")
+                || !tables.equals(source.capture().tables().keySet())
+                || !tables.containsAll(CdsExportImmunizationCaptureValidator.REQUIRED)) scope();
+        long parentRows = source.capture().tables().get("preventions").rows();
+        var zone =
+                tables.contains("clinical_timezone")
+                        ? zones.read(
+                                lease,
+                                patient,
+                                tables,
+                                source,
+                                bounds.fields(),
+                                bounds.bytes(),
+                                control)
+                        : null;
+        if (zone != null
+                && !zone.sourceManifestSha256().equals(source.manifest().plaintextSha256()))
+            scope();
+        new CdsExportMergeScopeValidator(rows)
+                .requireUnmerged(
+                        lease, patient, tables, source, bounds.fields(), bounds.bytes(), control);
+        var selection =
+                closure.verifyEmbedded(
+                        lease, patient, tables, source, bounds.fields(), bounds.bytes(), control);
+        var definitions =
+                configurations.readEmbedded(
+                        lease, patient, tables, source, bounds.fields(), bounds.bytes(), control);
+        if (selection.patient() != patient.patient()
+                || !selection.representable()
+                || !selection.sourceManifestSha256().equals(source.manifest().plaintextSha256())
+                || !definitions.sourceManifestSha256().equals(source.manifest().plaintextSha256())
+                || !selection.configurationSha256().equals(definitions.configurationSha256())
+                || !selection.catalogueSha256().equals(definitions.catalogueSha256())) scope();
+        // 0 emitted, 1 imported, 2 native-only, 3 retained fields, 4 assessed fields, 5 superseded
+        long[] counts = new long[6];
+        values.withValues(
+                lease,
+                patient,
+                tables,
+                source.manifest(),
+                payloadManifest,
+                bounds.fields(),
+                bounds.bytes(),
+                control,
+                (index, retained, streams) -> {
+                    if (!index.sourceManifestSha256().equals(source.manifest().plaintextSha256()))
+                        scope();
+                    var checked =
+                            verification.verify(
+                                    lease,
+                                    patient,
+                                    tables,
+                                    source,
+                                    index,
+                                    bounds.fields(),
+                                    bounds.bytes(),
+                                    1_000_000,
+                                    control);
+                    var imported = new HashMap<String, String>();
+                    for (var unit : index.tables().get("cds_import_unit").values())
+                        if (category.wireName().equals(unit.fields().get("category"))) {
+                            control.checkpoint();
+                            String address =
+                                    unit.fields().get("run_id")
+                                            + ":"
+                                            + unit.fields().get("unit_key");
+                            if (!index.appliedUnits().contains(address)) continue;
+                            var refs =
+                                    index.references().get(address).stream()
+                                            .filter(ref -> ref.table().equals("preventions"))
+                                            .toList();
+                            if (refs.size() != 1) review();
+                            if (imported.putIfAbsent(refs.getFirst().id(), address) != null)
+                                ambiguous();
+                        }
+                    var inherited = new HashMap<String, String>();
+                    var removedFields = new HashSet<String>();
+                    // The edit chains of the imported vaccines, decided once for the chart
+                    // before any occurrence is emitted.
+                    var chains = new ArrayList<Map<String, String>>(1);
+                    var usedFields = new HashSet<String>();
+                    var seen = new HashSet<Integer>();
+                    // Extension and precision rows the capture holds [0, 1] and those taken by
+                    // the window of their vaccine, over every window [2, 3].
+                    long[] children = new long[4];
+                    // A vaccine shown only inside a program is written when a fresh check says
+                    // every exporting identity works in it; a program nobody exporting works in
+                    // holds the patient, and each program so granted is checked again after the
+                    // vaccines are written.
+                    var granted = new TreeSet<String>();
+                    java.util.function.Predicate<String> readable =
+                            program -> {
+                                if (!control.restrictedProgramReadable(
+                                        patient.patient(), category, program))
+                                    throw CdsExportPreventionAccessService.hold();
+                                granted.add(program);
+                                return true;
+                            };
+                    // The chart is read whole when it fits one window, as it always was, and
+                    // window by window otherwise (CdsExportSectionWindowPlanner): the child
+                    // rows, witnesses and rows of one window are held at a time.
+                    CdsExportSectionWindowPlanner.forEachWindow(
+                            parentRows,
+                            bounds.window(),
+                            owners -> {
+                                var listed =
+                                        rows.forEach(
+                                                lease,
+                                                patient,
+                                                tables,
+                                                "preventions",
+                                                source.manifest(),
+                                                bounds.fields(),
+                                                bounds.bytes(),
+                                                4096,
+                                                control,
+                                                row -> owners.add(row.fields().get("id")));
+                                if (!listed.equals(source.capture())) scope();
+                            },
+                            (window, budget) -> {
+                    var extensions = new HashMap<String, List<CdsExportCapturedTextRowDto>>();
+                    var precision = new HashMap<String, List<CdsExportCapturedTextRowDto>>();
+                    var auxiliaryKeys = new HashSet<String>();
+                    // 2 extension rows and 3 precision rows the capture holds; 4, 5 those taken
+                    long[] lookup = new long[6];
+                    var auxiliary =
+                            rows.forEachTable(
+                                    lease,
+                                    patient,
+                                    tables,
+                                    Set.of("preventionsExt", "prevention_precision"),
+                                    source.manifest(),
+                                    bounds.fields(),
+                                    bounds.bytes(),
+                                    67_108_864,
+                                    control,
+                                    row -> {
+                                        // A window found too large keeps nothing more; it is
+                                        // read again with fewer vaccines.
+                                        if (budget.exceeded()) return;
+                                        boolean extension = row.table().equals("preventionsExt");
+                                        if (!extension
+                                                && !row.table().equals("prevention_precision"))
+                                            scope();
+                                        String owner =
+                                                row.fields()
+                                                        .get(
+                                                                extension
+                                                                        ? "prevention_id"
+                                                                        : "table_id");
+                                        if (!selection.immunizations().contains(integer(owner)))
+                                            scope();
+                                        lookup[extension ? 2 : 3]++;
+                                        if (!window.contains(owner)) return;
+                                        long size = 0;
+                                        for (var value : row.fields().values())
+                                            if (value != null)
+                                                size +=
+                                                        value.getBytes(StandardCharsets.UTF_8)
+                                                                        .length
+                                                                + 64L;
+                                        if (!budget.add(0, size)) return;
+                                        // A repeated child row id is refused, whichever window
+                                        // meets it.
+                                        if (!auxiliaryKeys.add(
+                                                key(
+                                                        physical(row.table()),
+                                                        row.fields().get("id")))) scope();
+                                        (extension ? extensions : precision)
+                                                .computeIfAbsent(
+                                                        owner, ignored -> new ArrayList<>())
+                                                .add(row);
+                                        lookup[extension ? 4 : 5]++;
+                                    });
+                    if (budget.exceeded()) return false;
+                    if (!auxiliary.equals(source.capture())
+                            || lookup[2] != auxiliary.tables().get("preventionsExt").rows()
+                            || lookup[3] != auxiliary.tables().get("prevention_precision").rows())
+                        scope();
+                    var exact = new HashMap<String, CdsExportNativeRowReceiptDto>();
+                    var scan =
+                            witnesses.scan(
+                                    lease,
+                                    patient,
+                                    tables,
+                                    source,
+                                    bounds.fields(),
+                                    bounds.bytes(),
+                                    control,
+                                    witness -> {
+                                        String key = key(witness.table(), witness.id());
+                                        boolean parent = witness.table().equals("preventions");
+                                        // The witness of a vaccine of this window, or of a
+                                        // child row this window took.
+                                        if (parent
+                                                ? !window.contains(witness.id())
+                                                : !auxiliaryKeys.contains(key)) return;
+                                        long size =
+                                                1024L
+                                                        + (witness.state() == null
+                                                                ? 0
+                                                                : witness.state().columns().size()
+                                                                        * 256L);
+                                        if (parent ? !budget.owner(size) : !budget.add(0, size))
+                                            return;
+                                        if (exact.putIfAbsent(key, witness) != null) scope();
+                                    });
+                    if (budget.exceeded()) return false;
+                    if (!scan.sourceManifestSha256().equals(source.manifest().plaintextSha256())
+                            || exact.size() != window.size() + auxiliaryKeys.size()) scope();
+                    children[0] = lookup[2];
+                    children[1] = lookup[3];
+                    children[2] = Math.addExact(children[2], lookup[4]);
+                    children[3] = Math.addExact(children[3], lookup[5]);
+                    if (chains.isEmpty()) {
+                    // CARLOS never edits a vaccine in place (CdsExportPreventionVersions): an
+                    // imported vaccine edited in CARLOS is a superseded row and a current native
+                    // version that records it as previousId; one removed in CARLOS is a
+                    // superseded row with no current version. The current version is exported
+                    // natively and its receipt lists the imported source fields as replaced; a
+                    // removed one is not exported and its source fields are accounted as removed
+                    // (the inventory leaves them out the same way).
+                    // A chart read whole decides them from the witnesses it holds; a chart read
+                    // by window from two passes that keep only the links (chartVersions).
+                    var decided =
+                            window.whole()
+                                    ? CdsExportPreventionVersions.currentVersions(
+                                            imported.keySet(),
+                                            exact.values(),
+                                            "preventions",
+                                            "preventionsExt")
+                                    : chartVersions(
+                                            lease,
+                                            patient,
+                                            tables,
+                                            source,
+                                            bounds,
+                                            control,
+                                            Set.copyOf(imported.keySet()));
+                    var removedUnits = new HashSet<String>();
+                    for (var version : decided.entrySet()) {
+                        String unit = imported.get(version.getKey());
+                        if (version.getValue() == null) removedUnits.add(unit);
+                        else if (imported.containsKey(version.getValue())
+                                || inherited.putIfAbsent(version.getValue(), unit) != null)
+                            ambiguous();
+                    }
+                    for (String unit : removedUnits)
+                        for (var field :
+                                new CdsExportRetainedOccurrenceFields()
+                                        .fieldsFor(
+                                                patient.patient(),
+                                                category,
+                                                unit,
+                                                index,
+                                                checked,
+                                                retained,
+                                                control::checkpoint))
+                            if (!removedFields.add(field.id())) scope();
+                    chains.add(decided);
+                    }
+                    var versions = chains.getFirst();
+                    long[] emitted = {0};
+                    var finished =
+                            rows.forEach(
+                                    lease,
+                                    patient,
+                                    tables,
+                                    "preventions",
+                                    source.manifest(),
+                                    bounds.fields(),
+                                    bounds.bytes(),
+                                    4096,
+                                    control,
+                                    row -> {
+                                        streams.requireActive();
+                                        patient.require(lease);
+                                        control.checkpoint();
+                                        String id = row.fields().get("id");
+                                        if (!window.contains(id)) {
+                                            // A row with no id belongs to no window: refused.
+                                            if (id == null) scope();
+                                            return;
+                                        }
+                                        emitted[0]++;
+                                        if (!seen.add(integer(id))
+                                                || !selection.immunizations().contains(integer(id)))
+                                            scope();
+                                        var child = extensions.remove(id);
+                                        if (child == null) child = List.of();
+                                        var dates = precision.remove(id);
+                                        if (dates == null) dates = List.of();
+                                        var current = new ArrayList<CdsExportCapturedTextRowDto>();
+                                        current.add(row);
+                                        current.addAll(child);
+                                        current.addAll(dates);
+                                        var receiptRows =
+                                                new ArrayList<CdsExportNativeRowReceiptDto>();
+                                        for (var entry : current) {
+                                            var witness =
+                                                    exact.remove(
+                                                            key(
+                                                                    physical(entry.table()),
+                                                                    entry.fields().get("id")));
+                                            if (witness == null) scope();
+                                            CdsExportImmunizationProjectionEvidence.verifyCurrent(
+                                                    entry, witness);
+                                            receiptRows.add(witness);
+                                        }
+                                        String importedUnit = imported.remove(id);
+                                        if (CdsExportPreventionVersions.superseded(row)) {
+                                            // An edited or deleted version, native or imported:
+                                            // accounted, never exported, and no reason to hold
+                                            // the patient. An imported one's source fields go
+                                            // with its current version or are removed (above).
+                                            if (importedUnit != null && !versions.containsKey(id))
+                                                scope();
+                                            var retired =
+                                                    CdsExportPreventionVersions.dispositions(
+                                                            current);
+                                            new CdsExportNativeFieldAssessmentValidator()
+                                                    .requireRepresentable(
+                                                            current,
+                                                            retired,
+                                                            1_000_000,
+                                                            control::checkpoint);
+                                            if (retired.size()
+                                                    != 16
+                                                            + 4L * child.size()
+                                                            + 5L * dates.size()) scope();
+                                            counts[4] = Math.addExact(counts[4], retired.size());
+                                            counts[5]++;
+                                            return;
+                                        }
+                                        Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>
+                                                fields;
+                                        CdsExportXmlComposer.Content content;
+                                        Set<String> kept = Set.of(), replaced = Set.of();
+                                        String receiptUnit = importedUnit;
+                                        if (importedUnit == null) {
+                                            var mapping =
+                                                    new CdsExportImmunizationMapper(
+                                                                    zone == null
+                                                                            ? null
+                                                                            : zone.zone())
+                                                            .map(
+                                                                    patient.patient(),
+                                                                    row,
+                                                                    child,
+                                                                    dates,
+                                                                    definitions,
+                                                                    readable);
+                                            if (!mapping.nativeRowRepresentable()) review();
+                                            fields = mapping.fields();
+                                            content =
+                                                    writer ->
+                                                            new CdsExportImmunizationXmlWriter()
+                                                                    .write(mapping.value(), writer);
+                                            // The current version of an imported vaccine edited
+                                            // in CARLOS: the edit supersedes the imported elements,
+                                            // which stay in the import's retained source.
+                                            receiptUnit = inherited.remove(id);
+                                            if (receiptUnit != null) {
+                                                var ids = new HashSet<String>();
+                                                for (var field :
+                                                        new CdsExportRetainedOccurrenceFields()
+                                                                .fieldsFor(
+                                                                        patient.patient(),
+                                                                        category,
+                                                                        receiptUnit,
+                                                                        index,
+                                                                        checked,
+                                                                        retained,
+                                                                        control::checkpoint))
+                                                    if (!ids.add(field.id())) scope();
+                                                replaced = ids;
+                                            }
+                                        } else {
+                                            var decision =
+                                                    new CdsExportImmunizationFieldReconciler(
+                                                                    zone == null
+                                                                            ? null
+                                                                            : zone.zone())
+                                                            .reconcile(
+                                                                    patient.patient(),
+                                                                    index,
+                                                                    importedUnit,
+                                                                    checked,
+                                                                    row,
+                                                                    child,
+                                                                    dates,
+                                                                    receiptRows,
+                                                                    definitions);
+                                            if (!decision.mapping().nativeRowRepresentable())
+                                                review();
+                                            var plan =
+                                                    new CdsExportImmunizationRetainedAssembler()
+                                                            .prepare(
+                                                                    patient.patient(),
+                                                                    decision,
+                                                                    index,
+                                                                    checked,
+                                                                    retained,
+                                                                    streams,
+                                                                    control::checkpoint);
+                                            fields = decision.mapping().fields();
+                                            content = plan.content();
+                                            kept = plan.retainedFields();
+                                            replaced = plan.replacedFields();
+                                        }
+                                        new CdsExportNativeFieldAssessmentValidator()
+                                                .requireRepresentable(
+                                                        current,
+                                                        fields,
+                                                        1_000_000,
+                                                        control::checkpoint);
+                                        if (fields.size()
+                                                != 16 + 4L * child.size() + 5L * dates.size())
+                                            scope();
+                                        counts[4] = Math.addExact(counts[4], fields.size());
+                                        for (String field : kept)
+                                            if (!usedFields.add(field)) scope();
+                                        for (String field : replaced)
+                                            if (!usedFields.add(field)) scope();
+                                        var identity =
+                                                new CdsExportIdentityDto(
+                                                        patientKey,
+                                                        category,
+                                                        CdsImportKeys.hash(
+                                                                "carlos-native-occurrence-v1",
+                                                                "preventions",
+                                                                id));
+                                        xml.emit(
+                                                new CdsExportXmlComposer.Section(
+                                                        identity, content));
+                                        output.accept(
+                                                new CdsExportClinicalOccurrenceService.Receipt(
+                                                        identity,
+                                                        index.sourceManifestSha256(),
+                                                        "preventions",
+                                                        id,
+                                                        receiptUnit,
+                                                        fields,
+                                                        kept,
+                                                        replaced));
+                                        counts[0]++;
+                                        counts[importedUnit == null ? 2 : 1]++;
+                                        counts[3] =
+                                                Math.addExact(
+                                                        counts[3],
+                                                        kept.size() + (long) replaced.size());
+                                    });
+                    // Every witness and child row this window loaded was used by one of its
+                    // vaccines.
+                    if (!finished.equals(source.capture())
+                            || !extensions.isEmpty()
+                            || !precision.isEmpty()
+                            || !exact.isEmpty()
+                            || emitted[0] != window.size()) scope();
+                    return true;
+                            });
+                    // Every child row was taken by the window of its vaccine: one whose vaccine
+                    // is in no window is taken by none and makes the count fall short.
+                    long expected =
+                            Math.addExact(
+                                    Math.multiplyExact(Math.addExact(counts[0], counts[5]), 16),
+                                    Math.addExact(
+                                            Math.multiplyExact(children[0], 4),
+                                            Math.multiplyExact(children[1], 5)));
+                    if (!seen.equals(selection.immunizations())
+                            || children[2] != children[0]
+                            || children[3] != children[1]
+                            || Math.addExact(counts[0], counts[5]) != parentRows
+                            || counts[4] != expected) scope();
+                    if (!imported.isEmpty() || !inherited.isEmpty()) review();
+                    var expectedFields = new HashSet<String>();
+                    for (var field : retained)
+                        if (field.category() == category && !expectedFields.add(field.id()))
+                            scope();
+                    if (!Collections.disjoint(usedFields, removedFields)) scope();
+                    usedFields.addAll(removedFields);
+                    if (!usedFields.equals(expectedFields)) scope();
+                    for (String program : granted)
+                        if (!control.restrictedProgramReadable(
+                                patient.patient(), category, program))
+                            throw new SecurityException("CDS_EXPORT_ACCESS_CHANGED");
+                    streams.requireActive();
+                    captures.authorizeSources(lease, patient, tables, control);
+                    patient.require(lease);
+                    control.checkpoint();
+                });
+        return new CdsExportClinicalOccurrenceService.Result(
+                source.manifest().plaintextSha256(),
+                category,
+                counts[0],
+                counts[1],
+                counts[2],
+                counts[3]);
+    }
+
+    private static String physical(String table) {
+        return table.equals("prevention_precision") ? "partial_date" : table;
+    }
+
+    private static String key(String table, String id) {
+        return table + "/" + id;
+    }
+
+    private static int integer(String text) throws IOException {
+        try {
+            int value = Integer.parseInt(text);
+            if (!Integer.toString(value).equals(text)) scope();
+            return value;
+        } catch (NumberFormatException failed) {
+            throw new IOException("CDS_EXPORT_IMMUNIZATION_OCCURRENCE_SCOPE_INVALID");
+        }
+    }
+
+    private static void scope() throws IOException {
+        throw new IOException("CDS_EXPORT_IMMUNIZATION_OCCURRENCE_SCOPE_INVALID");
+    }
+
+    /**
+     * The edit chains of the imported vaccines of a chart read by window. One pass over the
+     * witnesses keeps the links the extensions record (two digests for each edit) and a second
+     * keeps a flag for each row those links or the imported vaccines name: the same answer as
+     * {@link CdsExportPreventionVersions#currentVersions} over every witness, without holding
+     * the witnesses.
+     */
+    private Map<String, String> chartVersions(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> tables,
+            CdsExportPatientCaptureDto source,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control,
+            Set<String> starts)
+            throws IOException {
+        if (starts.isEmpty()) return Map.of();
+        var chain = new CdsExportPreventionVersions.Chain();
+        var links =
+                witnesses.scan(
+                        lease,
+                        patient,
+                        tables,
+                        source,
+                        bounds.fields(),
+                        bounds.bytes(),
+                        control,
+                        witness -> {
+                            if (witness.table().equals("preventionsExt")) chain.link(witness);
+                        });
+        var named =
+                witnesses.scan(
+                        lease,
+                        patient,
+                        tables,
+                        source,
+                        bounds.fields(),
+                        bounds.bytes(),
+                        control,
+                        witness -> {
+                            if (witness.table().equals("preventions")
+                                    && (starts.contains(witness.id())
+                                            || chain.names(witness.id()))) chain.row(witness);
+                        });
+        if (!links.sourceManifestSha256().equals(source.manifest().plaintextSha256())
+                || !named.sourceManifestSha256().equals(source.manifest().plaintextSha256()))
+            scope();
+        return chain.current(starts);
+    }
+
+    private static void review() {
+        throw new CdsExportReviewException(CdsExportReviewException.Reason.UNMAPPED_DATA);
+    }
+
+    private static void ambiguous() {
+        throw new CdsExportReviewException(CdsExportReviewException.Reason.AMBIGUOUS_SOURCE);
+    }
+}

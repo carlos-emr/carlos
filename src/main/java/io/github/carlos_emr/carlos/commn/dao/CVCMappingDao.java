@@ -35,7 +35,7 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.CVCMapping;
 
-public interface CVCMappingDao extends AbstractDao<CVCMapping> {
+public interface CVCMappingDao extends AbstractDao<CVCMapping>, CdsExportPatientTableReadDao {
     CVCMapping findByOscarName(String oscarName);
 
     CVCMapping findBySnomedId(String cvcSnomedId);

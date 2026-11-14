@@ -41,7 +41,7 @@ import io.github.carlos_emr.carlos.commn.model.Hl7TextInfo;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextMessageInfo;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextMessageInfo2;
 
-public interface Hl7TextInfoDao extends AbstractDao<Hl7TextInfo> {
+public interface Hl7TextInfoDao extends AbstractDao<Hl7TextInfo>, CdsExportPatientTableReadDao {
 
     /**
      * Most recent lab IDs and statuses, bounded and ordered by lab number descending.

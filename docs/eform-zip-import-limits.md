@@ -37,11 +37,14 @@ and available memory and disk rather than treating large images as abuse.
 ## Demographic imports
 
 On `release/2026.08`, the former demographic `unzipFile` workflow has been replaced
-by the CDS snapshot pipeline. It already counts actual expanded bytes and entries
-before publishing a usable snapshot or applying patient updates. Its per-member
-byte ceiling is `cds.import.maxSourceBytes`; the aggregate ceiling is
-`cds.import.maxExpandedBytes`. Directory payloads are rejected, and compression-ratio,
-disk-reserve and duration limits also apply. See [CDS configuration](cds-import-configuration.md).
+by the CDS snapshot pipeline. It streams every member to private storage and
+checks the free-disk reserve as it writes, before publishing a usable snapshot or
+applying patient updates. No member size, total size, entry count or compression
+ratio refuses a source (the former `cds.import.maxSourceBytes`, `maxExpandedBytes`,
+`maxEntries` and `maxCompressionRatio` settings are retired); the reserve is what
+stops a source its storage cannot hold. Directory payloads are rejected, and a
+worker silent for the stall window (`cds.import.maxDurationMillis`) stops. See
+[CDS configuration](cds-import-configuration.md).
 
 Failed CDS attempts retain private, unsealed evidence within their durable job
 root under the existing recovery/retention policy. This evidence cannot be loaded

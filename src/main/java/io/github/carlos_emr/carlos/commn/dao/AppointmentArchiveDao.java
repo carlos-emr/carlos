@@ -38,7 +38,7 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.AppointmentArchive;
 
-public interface AppointmentArchiveDao extends AbstractDao<AppointmentArchive> {
+public interface AppointmentArchiveDao extends AbstractDao<AppointmentArchive>, CdsExportPatientTableReadDao {
 
     public AppointmentArchive archiveAppointment(Appointment appointment);
 

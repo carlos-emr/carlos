@@ -174,6 +174,7 @@ public class DemographicArchive extends AbstractModel<Long> implements Serializa
     }
 
     public DemographicArchive(Demographic demographic) {
+        java.util.Objects.requireNonNull(demographic, "DEMOGRAPHIC_REQUIRED");
         this.address = demographic.getAddress();
         this.alias = demographic.getAlias();
         this.anonymous = demographic.getAnonymous();

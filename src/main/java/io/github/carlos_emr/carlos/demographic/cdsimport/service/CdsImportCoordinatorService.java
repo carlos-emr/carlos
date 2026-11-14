@@ -57,7 +57,10 @@ public class CdsImportCoordinatorService {
             var lease = coordinator.acquire();
             if (lease == null) throw new CdsImportException("IMPORT_COORDINATOR_BUSY");
             try {
-                lease.retainForDuration(configuration.limits().maxDurationMillis());
+                // Polled every few seconds while its worker reads and at every unit; silent
+                // for the stall window plus the unwind allowance, the database closes it and
+                // releases the lock, exactly as for a dead worker.
+                lease.retainForDuration(configuration.limits().stallWindowMillis());
                 return new Owner(lease);
             } catch (SQLException | RuntimeException | Error failure) {
                 try { lease.close(); }

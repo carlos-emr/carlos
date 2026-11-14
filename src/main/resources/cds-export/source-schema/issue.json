@@ -1,0 +1,73 @@
+{
+  "table": "issue",
+  "engine": "InnoDB",
+  "columns": [
+    {
+      "name": "code",
+      "type": "varchar(20)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "description",
+      "type": "varchar(255)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "issue_id",
+      "type": "int(10)",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "priority",
+      "type": "char(10)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "role",
+      "type": "varchar(100)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "sortOrderId",
+      "type": "int(11)",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "type",
+      "type": "varchar(32)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "update_date",
+      "type": "datetime",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    }
+  ],
+  "primaryKeyColumns": [
+    "issue_id"
+  ]
+}

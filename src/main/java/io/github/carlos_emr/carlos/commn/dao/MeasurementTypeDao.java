@@ -34,7 +34,7 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.MeasurementType;
 
-public interface MeasurementTypeDao extends AbstractDao<MeasurementType> {
+public interface MeasurementTypeDao extends AbstractDao<MeasurementType>, CdsExportPatientTableReadDao {
     /**
      * Returns every measurement type ordered by type code.
      *

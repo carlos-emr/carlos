@@ -37,7 +37,7 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Hl7TextMessage;
 
-public interface Hl7TextMessageDao extends AbstractDao<Hl7TextMessage> {
+public interface Hl7TextMessageDao extends AbstractDao<Hl7TextMessage>, CdsExportPatientTableReadDao {
 
     public List<Hl7TextMessage> findByFileUploadCheckId(int id);
 

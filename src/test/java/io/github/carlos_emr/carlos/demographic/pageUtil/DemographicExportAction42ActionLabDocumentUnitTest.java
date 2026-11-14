@@ -151,6 +151,18 @@ class DemographicExportAction42ActionLabDocumentUnitTest extends DemographicExpo
     }
 
     @Test
+    @DisplayName("should name the laboratory without its HL7 type and fall back to the reported test name")
+    void shouldExportPlainLaboratoryAndTestNames_forIssue3959() {
+        action.exportHl7LabResults(patientRecord, String.valueOf(LAB_NO));
+
+        assertThat(patientRecord.getLaboratoryResultsArray()).isNotEmpty().allSatisfy(lab -> {
+            assertThat(lab.getLaboratoryName()).doesNotContain("^");
+            if (lab.getTestNameReportedByLab() != null)
+                assertThat(lab.getTestName()).isEqualTo(lab.getTestNameReportedByLab());
+        });
+    }
+
+    @Test
     @DisplayName("should truncate a long result to 120 characters even when it looks like base64")
     void shouldTruncateLongResult_whenTextLooksLikeBase64() {
         action.exportHl7LabResults(patientRecord, String.valueOf(LAB_NO));

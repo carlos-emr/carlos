@@ -8,7 +8,7 @@
     const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
     const COMPLETE = new Set(['COMPLETE', 'COMPLETE_WITH_NONLOSSY_WARNINGS', 'ALREADY_COMPLETE', 'DRY_RUN_COMPLETE']);
     const FINAL = new Set([...COMPLETE, 'FAILED_BEFORE_WRITE', 'REFUSED', 'CANCELLED_BEFORE_WRITE',
-        'PARTIAL_COMMITTED', 'RECONCILIATION_REQUIRED', 'CANCELLED', 'FAILED']);
+        'PARTIAL_COMMITTED', 'RECONCILIATION_REQUIRED', 'CANCELLED', 'FAILED', 'ABANDONED']);
 
     function statusPresentation(job, summary) {
         if (!job || !UUID.test(job.id || '') || typeof job.state !== 'string'
@@ -69,7 +69,9 @@
             OPEN: ['Transfer in progress', 'Transfert en cours'],
             SUBMITTING: ['Confirming acceptance', 'Confirmation de l’acceptation'],
             SUBMITTED: ['Accepted for processing', 'Accepté pour traitement'],
-            ABANDONED: ['Unsubmitted transfer abandoned', 'Transfert non soumis abandonné'],
+            // A job or chart state: an operator closed a stopped import without completing it.
+            // An unsubmitted transfer's ABANDONED is labelled by uploadPresentation instead.
+            ABANDONED: ['Import abandoned — charts released incomplete', 'Importation abandonnée — dossiers libérés incomplets'],
             EXPIRED: ['Transfer expired', 'Transfert expiré'],
             REFUSED: ['Import refused — inspect findings', 'Importation refusée — vérifier les résultats'],
             FAILED: ['Stopped — attention needed', 'Arrêt — intervention requise'],
@@ -120,7 +122,7 @@
             stage = french ? 'Données enregistrées — finalisation des rapports et de l’accès' : 'Data saved — finishing reports and access';
         if (clean && count(outcomes?.COMPLETE_WITH_NONLOSSY_WARNINGS) > 0) stage = friendlyState('COMPLETE_WITH_NONLOSSY_WARNINGS', french);
         if (baseClean && !clean) stage = french ? 'Les totaux doivent être vérifiés' : 'Counts need review';
-        const attention = reportFailed || cleanupFailed || ['INCOMPLETE','RECONCILIATION_REQUIRED','PARTIAL_COMMITTED','FAILED_BEFORE_WRITE','FAILED','REFUSED','REVIEW_REQUIRED','DRY_RUN_INCOMPLETE'].includes(job?.state)
+        const attention = reportFailed || cleanupFailed || ['INCOMPLETE','RECONCILIATION_REQUIRED','PARTIAL_COMMITTED','FAILED_BEFORE_WRITE','FAILED','REFUSED','REVIEW_REQUIRED','DRY_RUN_INCOMPLETE','ABANDONED'].includes(job?.state)
             || (!clean && !preview && summary.operationTerminal === true && ['COMPLETE','COMPLETE_WITH_NONLOSSY_WARNINGS','ALREADY_COMPLETE'].includes(job?.state));
         if (reportFailed || cleanupFailed || (attention && ['COMPLETE','COMPLETE_WITH_NONLOSSY_WARNINGS','ALREADY_COMPLETE'].includes(job?.state)))
             stage = preview ? (french ? 'Validation terminée — intervention requise pour les rapports ou le nettoyage; aucune donnée clinique importée' : 'Validation finished — reports or cleanup need attention; no clinical data imported')
@@ -226,7 +228,9 @@
         return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
     }
 
-    async function boundedJson(response, maximumBytes = 2 * 1024 * 1024) {
+    // progressed() is called for every piece of the reply that arrives, so that a caller waiting
+    // for silence restarts its wait while bytes keep coming.
+    async function boundedJson(response, maximumBytes = 2 * 1024 * 1024, progressed = () => {}) {
         if (!response.body || !Number.isSafeInteger(maximumBytes) || maximumBytes < 1) throw new Error('IMPORT_RESPONSE_UNAVAILABLE');
         const decoder = new global.TextDecoder('utf-8', {fatal: true});
         let bytes = 0; let text = '';
@@ -235,6 +239,7 @@
             write(chunk) {
                 bytes += chunk.byteLength;
                 if (bytes > maximumBytes) throw new Error('IMPORT_RESPONSE_CAPACITY_EXCEEDED');
+                progressed();
                 text += decoder.decode(chunk, {stream: true});
             }
         }));
@@ -242,16 +247,98 @@
         return JSON.parse(text);
     }
 
-    async function apiResponse(response) {
-        if (response.headers.get(API_VERSION_HEADER) !== String(API_VERSION)) {
-            await response.body?.cancel().catch(() => {});
-            throw new Error('IMPORT_CLIENT_REFRESH_REQUIRED');
-        }
-        const data = await boundedJson(response);
+    // A reply this page may trust carries the current API version in its JSON body as well as in
+    // its header; metadata replies and chunk receipts are both judged by these two checks.
+    function apiData(data) {
         if (!data || Array.isArray(data) || data.apiVersion !== API_VERSION) {
             throw new Error('IMPORT_CLIENT_REFRESH_REQUIRED');
         }
         return data;
+    }
+
+    function apiResult(status, data) {
+        if (status < 200 || status > 299 || data?.ok !== true) {
+            const failure = new Error(data?.code || 'IMPORT_RESPONSE_FAILED');
+            failure.status = status; failure.code = data?.code; throw failure;
+        }
+        return data;
+    }
+
+    async function apiResponse(response, progressed = () => {}) {
+        if (response.headers.get(API_VERSION_HEADER) !== String(API_VERSION)) {
+            await response.body?.cancel().catch(() => {});
+            throw new Error('IMPORT_CLIENT_REFRESH_REQUIRED');
+        }
+        return apiData(await boundedJson(response, undefined, progressed));
+    }
+
+    // A followed redirect (the CSRF guard's error page, an expired session's login page) or a
+    // proxy's own error page is never a receipt. It rejects without a status, like a lost reply,
+    // so the same chunk is sent again.
+    function chunkReceipt(xhr, href, maximumBytes) {
+        const type = xhr.getResponseHeader('content-type') || '';
+        if (xhr.responseURL !== href || !type.includes('application/json')) {
+            throw new Error('IMPORT_RESPONSE_UNAVAILABLE_HTTP_' + xhr.status);
+        }
+        if (xhr.getResponseHeader(API_VERSION_HEADER) !== String(API_VERSION)) throw new Error('IMPORT_CLIENT_REFRESH_REQUIRED');
+        const bytes = xhr.response;
+        if (!bytes || !Number.isSafeInteger(bytes.byteLength) || bytes.byteLength > maximumBytes) {
+            throw new Error('IMPORT_RESPONSE_CAPACITY_EXCEEDED');
+        }
+        return apiResult(xhr.status, apiData(JSON.parse(new global.TextDecoder('utf-8', {fatal: true}).decode(bytes))));
+    }
+
+    /**
+     * Posts one raw upload chunk and resolves with its receipt.
+     *
+     * The chunk goes through XMLHttpRequest because fetch() reports no upload progress. Progress,
+     * not a clock, decides when the transfer has stalled: the wait restarts on every upload
+     * progress event and on every sign of the reply, and the request is aborted only after
+     * stallMillis pass with neither. A transfer that keeps moving is never cut off, however long
+     * it takes. A stall, abort or network failure rejects without a status, so the caller sends
+     * the same offset again; a JSON refusal rejects with its HTTP status and code.
+     */
+    function postChunk(url, body, token, stallMillis, maximumBytes = 2 * 1024 * 1024) {
+        return new Promise((resolve, reject) => {
+            if (!Number.isSafeInteger(stallMillis) || stallMillis < 1) throw new Error('IMPORT_CLIENT_REFRESH_REQUIRED');
+            const target = new URL(url, global.location.href);
+            const xhr = new global.XMLHttpRequest();
+            let timer; let settled = false; let stopped = '';
+            const settle = (outcome, value) => {
+                if (settled) return;
+                settled = true; global.clearTimeout(timer); outcome(value);
+            };
+            const stop = code => { if (!stopped) { stopped = code; xhr.abort(); } };
+            const progressed = () => {
+                if (settled || stopped) return;
+                global.clearTimeout(timer);
+                timer = global.setTimeout(() => stop('UPLOAD_CHUNK_STALLED'), stallMillis);
+            };
+            xhr.open('POST', target.pathname + target.search);
+            xhr.responseType = 'arraybuffer';
+            xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+            // CSRFGuard's XMLHttpRequest hook adds X-Requested-With and CSRF-TOKEN to each
+            // same-origin request. Setting them here as well would send each header twice, joined
+            // into one list, which the guard refuses; only a page without the hook sets them here.
+            if (typeof global.XMLHttpRequest.prototype.onsend !== 'function') {
+                xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+                xhr.setRequestHeader('CSRF-TOKEN', token);
+            }
+            xhr.upload.onprogress = progressed;
+            xhr.onreadystatechange = progressed;
+            xhr.onprogress = event => (event.loaded > maximumBytes ? stop('IMPORT_RESPONSE_CAPACITY_EXCEEDED') : progressed());
+            xhr.onabort = () => settle(reject, new Error(stopped || 'UPLOAD_CHUNK_ABORTED'));
+            xhr.onerror = () => settle(reject, new Error('UPLOAD_CHUNK_NETWORK_FAILED'));
+            xhr.onload = () => {
+                try {
+                    settle(resolve, chunkReceipt(xhr, target.href, maximumBytes));
+                } catch (failure) {
+                    settle(reject, failure);
+                }
+            };
+            progressed();
+            xhr.send(body);
+        });
     }
 
     async function verifyPrefix(file, receipt, readPage, hash = sha256, progress = () => {}) {
@@ -283,7 +370,7 @@
     }
 
     const api = {API_VERSION, API_VERSION_HEADER, jobStatusUrl, friendlyState, uploadPresentation, jobPresentation, monitorAcceptedRun, readOpenedJobStatus, statusPresentation, boundedIds, latestUploadAttempt, mayStopPolling, recoveryControls, indexedSourceValuePath, reviewEligibility,
-        effectiveOptions, sha256, boundedJson, apiResponse, verifyPrefix};
+        effectiveOptions, sha256, boundedJson, apiResponse, postChunk, verifyPrefix};
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     global.CarlosCdsImport = api;
     if (!global.document) return;
@@ -295,7 +382,7 @@
         const fr = document.documentElement.lang.toLowerCase().startsWith('fr');
         const text = fr ? {
             failed: 'La demande n’a pas abouti. Vérifier l’état durable avant de réessayer.',
-            choose: 'Sélectionner au moins un fichier XML/ZIP.', maxFiles: 'Au plus 128 fichiers par sélection; utiliser un ZIP pour les grands lots.',
+            choose: 'Sélectionner au moins un fichier XML/ZIP.',
             accepted: 'Accepté; l’importation clinique n’est pas encore confirmée.', verify: 'Vérification du préfixe déjà reçu',
             transfer: 'Transfert', state: 'État durable', unavailable: 'État indisponible ou périmé; reconnecter après réauthentification.',
             queued: 'fichier(s) accepté(s). Vérifier les reçus durables de chaque tâche.', resume: 'Sélectionner pour reprise',
@@ -321,7 +408,7 @@
             controlCapacity: 'Vérifier et fermer les avertissements des tâches précédentes avant une autre demande.',
         } : {
             failed: 'The request did not complete. Check durable status before retrying.',
-            choose: 'Select at least one XML/ZIP file.', maxFiles: 'Select at most 128 files at once; use a ZIP for larger batches.',
+            choose: 'Select at least one XML/ZIP file.',
             accepted: 'Accepted; clinical completion has not yet been confirmed.', verify: 'Verifying previously received prefix',
             transfer: 'Transfer', state: 'Durable state', unavailable: 'Status unavailable or stale; reconnect after reauthentication.',
             queued: 'file(s) accepted. Check each durable run receipt.', resume: 'Select for resume',
@@ -404,6 +491,8 @@
         let uploadCursor = '';
         let latestSummary = {};
         const storageKey = 'carlos-cds-import:' + root.dataset.owner;
+        // The server's no-progress window for one chunk, so both sides give up on the same silence.
+        const chunkStallMillis = Number(root.dataset.chunkStallMillis);
 
         function notice(message, danger = false) {
             controlNoticeOwner = undefined;
@@ -470,37 +559,47 @@
             if (!field || !field.value) throw new Error('IMPORT_CSRF_TOKEN_UNAVAILABLE');
             return field.value;
         }
+        // Metadata requests only; a raw chunk goes through postChunk. The request is abandoned
+        // after 30 seconds in which no part of its reply arrived, never for its total time.
         async function request(route, params = {}, options = {}) {
             params = {...params, apiVersion: API_VERSION};
             const method = options.method || 'GET';
-            const headers = {'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': token(), ...(options.headers || {})};
+            const headers = {'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': token(), ...options.headers};
             const url = new URL(root.dataset.context + '/form/' + route, global.location.origin);
-            let body = options.body;
-            if (method === 'GET' || body !== undefined) {
+            let body;
+            if (method === 'GET') {
                 for (const [name, value] of Object.entries(params)) url.searchParams.set(name, String(value));
             } else {
                 body = new URLSearchParams();
                 for (const [name, value] of Object.entries(params)) if (value !== undefined && value !== null) body.set(name, String(value));
             }
             const controller = new global.AbortController();
-            const deadline = global.setTimeout(() => controller.abort(), options.body !== undefined ? 135000 : 30000);
+            let silence;
+            const progressed = () => {
+                global.clearTimeout(silence);
+                silence = global.setTimeout(() => controller.abort(), 30000);
+            };
+            progressed();
             try {
                 const response = await global.fetch(url, {method, headers, body, signal: controller.signal,
                     credentials: 'same-origin', cache: 'no-store'});
+                progressed();
                 const type = response.headers.get('content-type') || '';
                 if (response.redirected || !type.includes('application/json')) {
                     await response.body?.cancel().catch(() => {});
                     throw new Error('IMPORT_RESPONSE_UNAVAILABLE_HTTP_' + response.status);
                 }
-                const data = await apiResponse(response);
-                if (!response.ok || data?.ok !== true) {
-                    const failure = new Error(data?.code || 'IMPORT_RESPONSE_FAILED');
-                    failure.status = response.status; failure.code = data?.code; throw failure;
-                }
-                return data;
+                return apiResult(response.status, await apiResponse(response, progressed));
             } finally {
-                global.clearTimeout(deadline);
+                global.clearTimeout(silence);
             }
+        }
+        function uploadChunk(params, chunk) {
+            const url = new URL(root.dataset.context + '/form/cdsUpload', global.location.origin);
+            for (const [name, value] of Object.entries({operation: 'chunk', ...params, apiVersion: API_VERSION})) {
+                url.searchParams.set(name, String(value));
+            }
+            return postChunk(url.href, chunk, token(), chunkStallMillis);
         }
         function failure(error) {
             if (error instanceof StatusReadError && !error.current()) return;
@@ -556,7 +655,12 @@
 
         async function transfer(file, resumeId) {
             if (!global.crypto?.subtle) throw new Error('UPLOAD_SECURE_CONTEXT_REQUIRED');
-            if (!Number.isSafeInteger(file.size) || file.size < 1 || file.size > Number(root.dataset.maxFileBytes)
+            // A page rendered without the server's chunk window cannot time its chunks; reload it
+            // before any upload is begun.
+            if (!Number.isSafeInteger(chunkStallMillis) || chunkStallMillis < 1) throw new Error('IMPORT_CLIENT_REFRESH_REQUIRED');
+            // No upload size is refused: the server stores any file chunk by chunk until its
+            // store reaches the free-disk reserve.
+            if (!Number.isSafeInteger(file.size) || file.size < 1
                     || !/\.(xml|zip)$/i.test(file.name)) throw new Error('UPLOAD_FILE_SIZE_OR_TYPE_REFUSED');
             let receipt;
             if (resumeId) {
@@ -577,8 +681,7 @@
                 let last;
                 for (let attempt = 0; attempt < 3; attempt++) {
                     try {
-                        last = await request('cdsUpload', {operation: 'chunk', uploadId: receipt.id, offset,
-                            bytes: chunk.size, sha256: hash}, {method: 'POST', body: chunk, headers: {'Content-Type': 'application/octet-stream'}});
+                        last = await uploadChunk({uploadId: receipt.id, offset, bytes: chunk.size, sha256: hash}, chunk);
                         break;
                     } catch (error) {
                         if (attempt === 2 || (error.status && ![408, 409, 429, 503].includes(error.status))) throw error;
@@ -610,7 +713,7 @@
             safe(async () => {
                 const files = byId('importFile').files;
                 if (!files.length) throw new Error(text.choose);
-                if (files.length > 128) throw new Error(text.maxFiles);
+                // Any number of files: each is uploaded and submitted in turn, as its own run.
                 const options = readOptions();
                 const resumeId = byId('uploadResumeId').value.trim();
                 if (resumeId && files.length !== 1) throw new Error(text.selectOne);

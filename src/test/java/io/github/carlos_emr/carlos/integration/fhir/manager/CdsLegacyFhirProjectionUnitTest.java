@@ -35,31 +35,42 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 @Tag("unit")
-class CdsLegacyFhirProjectionUnitTest extends io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase {
+class CdsLegacyFhirProjectionUnitTest
+        extends io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase {
     private DemographicManager patients;
     private OscarFhirConfigurationManager context;
     private LoggedInInfo actor;
     private Demographic patient;
+
     @BeforeEach
     void prepareAuthorizedImportedPatient() {
-        patients=createAndRegisterMock(DemographicManager.class);
-        var projections=createAndRegisterMock(CdsLegacyProjectionService.class);
-        context=mock(OscarFhirConfigurationManager.class); actor=mock(LoggedInInfo.class);
+        patients = createAndRegisterMock(DemographicManager.class);
+        var projections = createAndRegisterMock(CdsLegacyProjectionService.class);
+        context = mock(OscarFhirConfigurationManager.class);
+        actor = mock(LoggedInInfo.class);
         when(context.getLoggedInInfo()).thenReturn(actor);
-        patient=new Demographic(); patient.setDemographicNo(51);
-        doThrow(new CdsLegacyProjectionException()).when(projections).requireSupported(51,Set.of("Demographics"));
+        patient = new Demographic();
+        patient.setDemographicNo(51);
+        doThrow(new CdsLegacyProjectionException())
+                .when(projections)
+                .requireSupported(51, Set.of("Demographics"));
     }
+
     @Test
     void shouldRefusePatientResource_whenStructuredDemographicsCannotBeRepresented() {
-        when(patients.getDemographic(actor,51)).thenReturn(patient);
-        assertThatThrownBy(()->OscarFhirResourceManager.getPatientByDemographicNumber(context,51))
+        when(patients.getDemographic(actor, 51)).thenReturn(patient);
+        assertThatThrownBy(
+                        () -> OscarFhirResourceManager.getPatientByDemographicNumber(context, 51))
                 .isInstanceOf(ca.uhn.fhir.rest.server.exceptions.UnprocessableEntityException.class)
                 .hasMessageContaining("cannot represent");
     }
+
     @Test
-    void shouldRefusePatientSearchBeforeResourceConstruction_whenImportedDemographicsWouldBeOmitted() {
-        when(patients.getActiveDemosByHealthCardNo(actor,"test","ON")).thenReturn(List.of(patient));
-        assertThatThrownBy(()->OscarFhirResourceManager.getPatientsByPHN(context,"test","ON"))
+    void
+            shouldRefusePatientSearchBeforeResourceConstruction_whenImportedDemographicsWouldBeOmitted() {
+        when(patients.getActiveDemosByHealthCardNo(actor, "test", "ON"))
+                .thenReturn(List.of(patient));
+        assertThatThrownBy(() -> OscarFhirResourceManager.getPatientsByPHN(context, "test", "ON"))
                 .isInstanceOf(ca.uhn.fhir.rest.server.exceptions.UnprocessableEntityException.class)
                 .hasMessageContaining("cannot represent");
     }

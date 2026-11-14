@@ -113,6 +113,8 @@ public class OscarFhirResourceManager {
 
         if (prevention != null) {
             requireStructuredProjectionSupported(prevention.getDemographicId(), "Immunizations");
+            // Prevention.preventionExts is fetched eagerly with the prevention, so its date
+            // precision and lot/route/dose/site extensions are already present here.
             requireExactImmunizationDate(prevention);
             LogAction.addLogSynchronous(configurationManager.getLoggedInInfo(), "OscarFhirResourceManager.getImmunizationsByDemographicNo", "Retrieved Immunization list for FHIR transport ");
             immunization = new Immunization<Prevention>(prevention, configurationManager);

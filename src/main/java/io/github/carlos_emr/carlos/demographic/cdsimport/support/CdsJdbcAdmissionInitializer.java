@@ -33,32 +33,51 @@ public final class CdsJdbcAdmissionInitializer {
     private final boolean enabled;
     private final boolean importEnabled;
     private final String schemaMode;
-    public CdsJdbcAdmissionInitializer(OscarTrackingBasicDataSource dataSource, boolean enabled, String schemaMode) {
+
+    public CdsJdbcAdmissionInitializer(
+            OscarTrackingBasicDataSource dataSource, boolean enabled, String schemaMode) {
         this(dataSource, enabled, enabled, schemaMode);
     }
+
     /** Separates import metadata protection from activation of the clinical maintenance guard. */
-    public CdsJdbcAdmissionInitializer(OscarTrackingBasicDataSource dataSource, boolean enabled,
-            boolean importEnabled, String schemaMode) {
-        this.dataSource = dataSource; this.enabled = enabled; this.importEnabled = importEnabled; this.schemaMode = schemaMode;
+    public CdsJdbcAdmissionInitializer(
+            OscarTrackingBasicDataSource dataSource,
+            boolean enabled,
+            boolean importEnabled,
+            String schemaMode) {
+        this.dataSource = dataSource;
+        this.enabled = enabled;
+        this.importEnabled = importEnabled;
+        this.schemaMode = schemaMode;
     }
+
     public void initialize() throws SQLException {
         if (enabled && !"validate".equals(schemaMode) && !"migrate".equals(schemaMode)) {
-            throw new IllegalStateException("CDS maintenance requires the Flyway startup schema gate");
+            throw new IllegalStateException(
+                    "CDS maintenance requires the Flyway startup schema gate");
         }
         try (Connection connection = dataSource.openUnpooledCdsMaintenanceConnection()) {
-            try (PreparedStatement engine = connection.prepareStatement("""
+            try (PreparedStatement engine =
+                            connection.prepareStatement(
+                                    """
                     SELECT ENGINE FROM information_schema.TABLES
                     WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='cds_import_admission'
-                    """); ResultSet rows = engine.executeQuery()) {
+                    """);
+                    ResultSet rows = engine.executeQuery()) {
                 if (!rows.next()) {
-                    if (!enabled) return; // Existing databases before this feature retain their normal startup.
+                    if (!enabled)
+                        return; // Existing databases before this feature retain their normal
+                                // startup.
                     throw new IllegalStateException("CDS admission migration is missing");
                 }
                 if (!"InnoDB".equals(rows.getString(1))) {
-                    throw new IllegalStateException("CDS admission requires its migrated InnoDB table");
+                    throw new IllegalStateException(
+                            "CDS admission requires its migrated InnoDB table");
                 }
             }
-            try (PreparedStatement gate = connection.prepareStatement("""
+            try (PreparedStatement gate =
+                    connection.prepareStatement(
+                            """
                     SELECT maintenance_active OR EXISTS (SELECT 1 FROM cds_import_patient WHERE held=TRUE)
                         OR IS_USED_LOCK(?) IS NOT NULL,
                         maintenance_generation,maintenance_owner_token,maintenance_connection_id
@@ -67,13 +86,17 @@ public final class CdsJdbcAdmissionInitializer {
                 gate.setString(1, new CdsJdbcAdmissionState(connection.getCatalog()).lockName());
                 gate.setString(2, CdsJdbcAdmissionState.ROW);
                 try (ResultSet rows = gate.executeQuery()) {
-                    if (!rows.next()) throw new IllegalStateException("CDS maintenance admission row is missing");
+                    if (!rows.next())
+                        throw new IllegalStateException("CDS maintenance admission row is missing");
                     if (!enabled && rows.getBoolean(1)) {
-                        throw new IllegalStateException("CDS maintenance/holds require an enabled admission guard before this node can start");
+                        throw new IllegalStateException(
+                                "CDS maintenance/holds require an enabled admission guard before this node can start");
                     }
                 }
             }
-            if (enabled) dataSource.installCdsAdmissionState(new CdsJdbcAdmissionState(connection.getCatalog()));
+            if (enabled)
+                dataSource.installCdsAdmissionState(
+                        new CdsJdbcAdmissionState(connection.getCatalog()));
             else if (importEnabled) dataSource.enableCdsMetadataGuard();
         }
     }

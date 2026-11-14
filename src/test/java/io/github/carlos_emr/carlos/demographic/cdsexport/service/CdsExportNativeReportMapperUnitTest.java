@@ -1,0 +1,552 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.demographic.cdsexport.service;
+
+import static org.assertj.core.api.Assertions.*;
+import static io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNativeHistoryMapperUnitTest.*;
+import io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Plan;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
+import java.nio.charset.StandardCharsets;
+import java.time.ZoneId;
+import java.util.*;
+import org.junit.jupiter.api.*;
+
+@Tag("unit")
+@Tag("cds-export")
+class CdsExportNativeReportMapperUnitTest {
+    private static final String PATH = "Reports/" + "a".repeat(64) + ".pdf";
+    private final CdsExportNativeReportMapper mapper = new CdsExportNativeReportMapper();
+
+    static CdsExportCapturedTextRowDto document() {
+        var fields = new LinkedHashMap<String, String>();
+        Plan.DOCUMENTS.columns().forEach(c -> fields.put(c, null));
+        fields.putAll(
+                Map.of(
+                        "document_no",
+                        "91",
+                        "status",
+                        "A",
+                        "restrictToProgram",
+                        "0",
+                        "docfilename",
+                        "original-report.pdf",
+                        "doctype",
+                        "consult",
+                        "docdesc",
+                        "Exact café 😀 report description",
+                        "source",
+                        "Dr. Source Author",
+                        "sourceFacility",
+                        "Native clinic",
+                        "observationdate",
+                        "2026-07-09",
+                        "doccreator",
+                        "999998"));
+        fields.put("receivedDate", "2026-07-10 12:30:00");
+        fields.put("reviewer", "17");
+        fields.put("reviewdatetime", "2026-07-11 12:30:00");
+        return new CdsExportCapturedTextRowDto(
+                "document", CdsExportPatientTableSourceReader.key(91), fields);
+    }
+
+    static CdsExportCapturedTextRowDto link() {
+        return new CdsExportCapturedTextRowDto(
+                "ctl_document",
+                CdsExportPatientTableSourceReader.key(27)
+                        + CdsExportPatientTableSourceReader.key(91),
+                Map.of(
+                        "document_no",
+                        "91",
+                        "module",
+                        "demographic",
+                        "module_id",
+                        "27",
+                        "status",
+                        "A"));
+    }
+
+    private static CdsExportCapturedTextRowDto edit(
+            CdsExportCapturedTextRowDto row, String column, String value) {
+        var fields = new LinkedHashMap<>(row.fields());
+        fields.put(column, value);
+        return new CdsExportCapturedTextRowDto(row.table(), row.recordKey(), fields);
+    }
+
+    private CdsExportNativeReportMapper.Result map(CdsExportCapturedTextRowDto document)
+            throws Exception {
+        var mapped =
+                mapper.map(
+                        27,
+                        document,
+                        link(),
+                        CdsExportNativeReportMapper.Content.file(PATH, "pdf"),
+                        providers(),
+                        ZoneId.of("America/Toronto"));
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(mapped.rows(), mapped.fields(), 10000, () -> {});
+        return mapped;
+    }
+
+    @Test
+    void shouldPreserveAnUndatedReviewerInNotes_withoutInventingAStandardReviewDate()
+            throws Exception {
+        var mapped = map(edit(document(), "reviewdatetime", null));
+        String xml =
+                new String(
+                        render(CdsCategory.REPORTS, body -> mapper.write(mapped, body)),
+                        StandardCharsets.UTF_8);
+        assertThat(xml).doesNotContain("<cds:ReportReviewed>").contains("publicReviewer", "Zoë😀");
+        assertThat(
+                        mapped.fields().entrySet().stream()
+                                .filter(e -> e.getKey().table().equals("provider"))
+                                .map(e -> e.getValue().destination()))
+                .containsOnly("Reports/Notes");
+    }
+
+    @Test
+    void shouldMapAnOrdinaryNativeReport_withItsSourceAuthorDatesPublicReviewerAndExactMetadata()
+            throws Exception {
+        var mapped = map(document());
+        String xml =
+                new String(
+                        render(CdsCategory.REPORTS, body -> mapper.write(mapped, body)),
+                        StandardCharsets.UTF_8);
+        assertThat(xml)
+                .contains(
+                        "Consultant Report",
+                        PATH,
+                        "Dr. Source Author",
+                        "Native clinic",
+                        "Zoë😀",
+                        "001234",
+                        "2026-07-09",
+                        "2026-07-10T12:30:00-04:00",
+                        "2026-07-11",
+                        "Exact café 😀 report description",
+                        "original-report.pdf");
+        assertThat(mapped.text().get("SourceAuthorPhysician")).isEqualTo("Dr. Source Author");
+        assertThat(mapped.fields())
+                .hasSize(
+                        Plan.DOCUMENTS.columns().size() + Plan.DOCUMENT_LINKS.columns().size() + 6);
+    }
+
+    @Test
+    void
+            shouldKeepExplicitNativeReportClasses_andUseTheGeneralMedicalRecordClassForOtherNativeTypes()
+                    throws Exception {
+        assertThat(
+                        map(edit(document(), "docClass", "Diagnostic Imaging Report"))
+                                .text()
+                                .get("Class"))
+                .isEqualTo("Diagnostic Imaging Report");
+        assertThat(
+                        map(edit(document(), "doctype", "Custom native document category"))
+                                .text()
+                                .get("Class"))
+                .isEqualTo("Medical Records Report");
+    }
+
+    @Test
+    void shouldRefuseMissingReviewerLookups_archivedReportsAndUnqualifiedProgramRestrictions() {
+        assertThatThrownBy(
+                        () ->
+                                mapper.map(
+                                        27,
+                                        document(),
+                                        link(),
+                                        CdsExportNativeReportMapper.Content.file(PATH, "pdf"),
+                                        Map.of(),
+                                        ZoneId.of("America/Toronto")))
+                .hasMessage("CDS_EXPORT_NATIVE_REPORT_REVIEWER_REQUIRED");
+        // A soft-deleted document is no longer a review case: the occurrence service accounts
+        // for it as not exported and never maps it (review R6), so reaching the mapper is a
+        // scope error. A status the chart does not know still holds the patient.
+        assertThatThrownBy(() -> map(edit(document(), "status", "D")))
+                .hasMessage("CDS_EXPORT_NATIVE_REPORT_SCOPE_INVALID");
+        assertThatThrownBy(() -> map(edit(document(), "status", "I")))
+                .hasMessage("CDS_EXPORT_NATIVE_REPORT_STATUS_REQUIRES_REVIEW");
+        // Without a live program check, a document shown only inside a program is held.
+        assertThatThrownBy(
+                        () ->
+                                map(
+                                        edit(
+                                                edit(document(), "restrictToProgram", "1"),
+                                                "program_id",
+                                                "57")))
+                .hasMessage("CDS_EXPORT_DOCUMENT_PROGRAM_SCOPE");
+    }
+
+    @Test
+    void shouldExportAProgramRestrictedDocument_whenTheLiveCheckSaysTheExportersWorkInIt()
+            throws Exception {
+        var restricted = edit(edit(document(), "restrictToProgram", "1"), "program_id", "57");
+        var asked = new java.util.ArrayList<String>();
+        var mapped =
+                mapper.map(
+                        27,
+                        restricted,
+                        link(),
+                        CdsExportNativeReportMapper.Content.file(PATH, "pdf"),
+                        providers(),
+                        ZoneId.of("America/Toronto"),
+                        CdsExportInboxReviewMapper.Reviews.NONE,
+                        program -> asked.add(program));
+        assertThat(asked).containsExactly("57");
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(mapped.rows(), mapped.fields(), 10000, () -> {});
+        // The restriction travels with every other document column in Notes.
+        assertThat(mapped.text().get("Notes")).contains("\"restrictToProgram\":\"1\"");
+        assertThatThrownBy(
+                        () ->
+                                mapper.map(
+                                        27,
+                                        restricted,
+                                        link(),
+                                        CdsExportNativeReportMapper.Content.file(PATH, "pdf"),
+                                        providers(),
+                                        ZoneId.of("America/Toronto"),
+                                        CdsExportInboxReviewMapper.Reviews.NONE,
+                                        program -> false))
+                .hasMessage("CDS_EXPORT_DOCUMENT_PROGRAM_SCOPE");
+        // The chart shows a flagged document with no program (NULL or -1) to everyone.
+        map(edit(document(), "restrictToProgram", "1"));
+        map(edit(edit(document(), "restrictToProgram", "1"), "program_id", "-1"));
+        assertThatThrownBy(() -> map(edit(document(), "restrictToProgram", "2")))
+                .hasMessage("CDS_EXPORT_NATIVE_REPORT_PROGRAM_REQUIRES_REVIEW");
+        assertThatThrownBy(
+                        () ->
+                                map(
+                                        edit(
+                                                edit(document(), "restrictToProgram", "1"),
+                                                "program_id",
+                                                "x")))
+                .hasMessage("CDS_EXPORT_NATIVE_REPORT_PROGRAM_REQUIRES_REVIEW");
+    }
+
+    @Test
+    void shouldRejectAnotherPatientOrUnsafeDeliveryPath_beforeAnyAttachmentCanBeStaged() {
+        assertThatThrownBy(
+                        () ->
+                                mapper.map(
+                                        28,
+                                        document(),
+                                        link(),
+                                        CdsExportNativeReportMapper.Content.file(PATH, "pdf"),
+                                        providers(),
+                                        ZoneId.of("America/Toronto")))
+                .hasMessage("CDS_EXPORT_NATIVE_REPORT_SCOPE_INVALID");
+        assertThatThrownBy(
+                        () ->
+                                mapper.map(
+                                        27,
+                                        document(),
+                                        link(),
+                                        CdsExportNativeReportMapper.Content.file(
+                                                "../../report.pdf", "pdf"),
+                                        providers(),
+                                        ZoneId.of("America/Toronto")))
+                .hasMessage("CDS_EXPORT_NATIVE_REPORT_SCOPE_INVALID");
+    }
+
+    @Test
+    void shouldUseTheRecordedObservationDate_andTreatTheUploadInstantAsReceipt() throws Exception {
+        // A letter dated 2026-03-01, faxed in and filed on 2026-03-05: review R1.
+        var faxed =
+                map(
+                        edit(
+                                edit(
+                                        edit(document(), "observationdate", "2026-03-01"),
+                                        "contentdatetime",
+                                        "2026-03-05 10:14:00"),
+                                "receivedDate",
+                                null));
+        assertThat(faxed.dates().get("EventDateTime").lexical()).startsWith("2026-03-01");
+        assertThat(faxed.dates().get("ReceivedDateTime").lexical()).startsWith("2026-03-05T10:14");
+        // A recorded received date wins over the upload instant.
+        var received =
+                map(
+                        edit(
+                                edit(document(), "observationdate", "2026-03-01"),
+                                "contentdatetime",
+                                "2026-03-05 10:14:00"));
+        assertThat(received.dates().get("ReceivedDateTime").lexical()).startsWith("2026-07-10");
+    }
+
+    /** An Add HTML document (AddEditHtml2Action): status H, its content in docxml, no file. */
+    private static CdsExportCapturedTextRowDto html(String body) {
+        var document = edit(edit(edit(document(), "status", "H"), "docxml", body), "contenttype", "text/html");
+        return edit(document, "docfilename", "20260709123000html");
+    }
+
+    private static CdsExportCapturedTextRowDto htmlLink() {
+        var fields = new LinkedHashMap<>(link().fields());
+        fields.put("status", "H");
+        return new CdsExportCapturedTextRowDto("ctl_document", link().recordKey(), fields);
+    }
+
+    private CdsExportNativeReportMapper.Result mapHtml(CdsExportCapturedTextRowDto document)
+            throws Exception {
+        var mapped =
+                mapper.map(
+                        27,
+                        document,
+                        htmlLink(),
+                        CdsExportNativeReportMapper.Content.html(),
+                        providers(),
+                        ZoneId.of("America/Toronto"));
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(mapped.rows(), mapped.fields(), 10000, () -> {});
+        return mapped;
+    }
+
+    @Test
+    void shouldExportStoredHtml_asTheReportTextInSchemaOrder() throws Exception {
+        String body = "<p>Discharge summary 😀</p>\r\n<p>Plan</p>";
+        var mapped = mapHtml(html(body));
+        String xml =
+                new String(
+                        render(CdsCategory.REPORTS, body2 -> mapper.write(mapped, body2)),
+                        StandardCharsets.UTF_8);
+        int format = xml.indexOf("<Format>Text</Format>");
+        int extension = xml.indexOf("<FileExtensionAndVersion>html</FileExtensionAndVersion>");
+        int content = xml.indexOf("<Content><cdsd:TextContent>");
+        int classification = xml.indexOf("<Class>");
+        assertThat(format).isPositive();
+        assertThat(extension).isGreaterThan(format);
+        assertThat(content).isGreaterThan(extension);
+        assertThat(classification).isGreaterThan(content);
+        assertThat(xml).doesNotContain("<FilePath>").contains("Discharge summary 😀");
+        assertThat(mapped.text().get("TextContent")).isEqualTo(body);
+        // The HTML is the Content and is not repeated in the Notes source context.
+        assertThat(mapped.text().get("Notes")).doesNotContain("Discharge summary").contains("document.docxml");
+        assertThat(
+                        mapped.fields().entrySet().stream()
+                                .filter(e -> e.getKey().column().equals("docxml"))
+                                .map(e -> e.getValue().destination()))
+                .containsExactly("Reports/Content");
+    }
+
+    @Test
+    void shouldExportBlankStoredHtml_exactlyAsTheUserSavedIt() throws Exception {
+        // Before: CDS_EXPORT_NATIVE_REPORT_STORED_HTML_REQUIRES_REVIEW held the chart. The Add
+        // HTML form refuses only an empty body, so a body of white space is a saved document.
+        String body = " \r\n\t";
+        var mapped = mapHtml(html(body));
+        assertThat(mapped.text())
+                .containsEntry("Format", "Text")
+                .containsEntry("FileExtensionAndVersion", "html")
+                .containsEntry("TextContent", body);
+        assertThat(mapped.companion()).isNull();
+        assertThat(render(CdsCategory.REPORTS, xml -> mapper.write(mapped, xml))).isNotEmpty();
+    }
+
+    @Test
+    void shouldExportStoredHtml_whenItHoldsACharacterXmlCannotCarry() throws Exception {
+        // Before: CDS_EXPORT_NATIVE_REPORT_STORED_HTML_REQUIRES_REVIEW held the chart for one
+        // pasted control character.
+        String body = "<p>bell \u0007 and \ufffe</p>";
+        var mapped = mapHtml(html(body));
+        assertThat(mapped.text().get("TextContent")).isEqualTo("<p>bell \ufffd and \ufffd</p>");
+        String notes = mapped.text().get("Notes");
+        assertThat(notes).doesNotContain("\u0007", "\ufffe");
+        var decoded =
+                new com.fasterxml.jackson.databind.ObjectMapper()
+                        .readTree(notes.substring(notes.indexOf('\n') + 1));
+        // The exact stored HTML travels in the Notes context.
+        assertThat(decoded.get("document").get("docxml").asText()).isEqualTo(body);
+        assertThat(
+                        mapped.fields().entrySet().stream()
+                                .filter(e -> e.getKey().column().equals("docxml"))
+                                .map(e -> e.getValue().destination()))
+                .containsExactly("Reports/Notes");
+        assertThat(render(CdsCategory.REPORTS, xml -> mapper.write(mapped, xml))).isNotEmpty();
+    }
+
+    @Test
+    void shouldRefuseAContentKindTheChartDoesNotShow_forTheDocument() {
+        // An uploaded file document cannot be exported as stored HTML, nor the reverse.
+        assertThatThrownBy(
+                        () ->
+                                mapper.map(
+                                        27,
+                                        document(),
+                                        link(),
+                                        CdsExportNativeReportMapper.Content.html(),
+                                        providers(),
+                                        ZoneId.of("America/Toronto")))
+                .hasMessage("CDS_EXPORT_NATIVE_REPORT_SCOPE_INVALID");
+        assertThatThrownBy(
+                        () ->
+                                mapper.map(
+                                        27,
+                                        html("<p>x</p>"),
+                                        htmlLink(),
+                                        CdsExportNativeReportMapper.Content.file(PATH, "pdf"),
+                                        providers(),
+                                        ZoneId.of("America/Toronto")))
+                .hasMessage("CDS_EXPORT_NATIVE_REPORT_SCOPE_INVALID");
+    }
+
+    @Test
+    void shouldHoldAnUnknownLinkStatus_whileAcceptingActiveHtmlAndLegacyNullLinks() throws Exception {
+        var unknown = new LinkedHashMap<>(link().fields());
+        unknown.put("status", "I");
+        assertThatThrownBy(
+                        () ->
+                                mapper.map(
+                                        27,
+                                        document(),
+                                        new CdsExportCapturedTextRowDto(
+                                                "ctl_document", link().recordKey(), unknown),
+                                        CdsExportNativeReportMapper.Content.file(PATH, "pdf"),
+                                        providers(),
+                                        ZoneId.of("America/Toronto")))
+                .hasMessage("CDS_EXPORT_NATIVE_REPORT_STATUS_REQUIRES_REVIEW");
+        var legacy = new LinkedHashMap<>(link().fields());
+        legacy.put("status", null);
+        assertThat(
+                        mapper.map(
+                                        27,
+                                        document(),
+                                        new CdsExportCapturedTextRowDto(
+                                                "ctl_document", link().recordKey(), legacy),
+                                        CdsExportNativeReportMapper.Content.file(PATH, "pdf"),
+                                        providers(),
+                                        ZoneId.of("America/Toronto"))
+                                .text())
+                .containsKey("FilePath");
+    }
+
+    @Test
+    void shouldLeaveMediaOut_becauseNothingRecordsHowANativeDocumentArrived() throws Exception {
+        // A scanned paper consult would be Hardcopy and a faxed one neither; the document row
+        // records no channel, so claiming Download would be provenance the chart never held.
+        var reported = edit(document(), "report_media", "3");
+        var mapped = map(reported);
+        assertThat(mapped.text()).doesNotContainKey("Media");
+        String xml =
+                new String(
+                        render(CdsCategory.REPORTS, body -> mapper.write(mapped, body)),
+                        StandardCharsets.UTF_8);
+        assertThat(xml).doesNotContain("<Media>").contains("\"report_media\":\"3\"");
+    }
+
+    @Test
+    void shouldRejectImportedPrecisionAnchors_withoutInventingAFullDate() {
+        assertThatThrownBy(() -> map(edit(document(), "cds_content_precision", "YEAR")))
+                .hasMessage("CDS_EXPORT_NATIVE_REPORT_IMPORTED_PRECISION_REQUIRES_REVIEW");
+    }
+
+    @Test
+    void shouldExportTheReport_whenAColumnHoldsACharacterXmlCannotCarry() throws Exception {
+        // Before: CDS_EXPORT_NATIVE_REPORT_SOURCE_CAPACITY and ..._METADATA_CAPACITY held the
+        // patient for one pasted control character in the facility or the description.
+        String facility = "General\u000bHospital", description = "Consult\ufffeletter";
+        var mapped =
+                map(edit(edit(document(), "sourceFacility", facility), "docdesc", description));
+        assertThat(mapped.text()).doesNotContainKey("SourceFacility");
+        String notes = mapped.text().get("Notes");
+        assertThat(notes).doesNotContain("\u000b", "\ufffe");
+        var decoded =
+                new com.fasterxml.jackson.databind.ObjectMapper()
+                        .readTree(notes.substring(notes.indexOf('\n') + 1))
+                        .get("document");
+        assertThat(decoded.get("sourceFacility").asText()).isEqualTo(facility);
+        assertThat(decoded.get("docdesc").asText()).isEqualTo(description);
+        assertThat(render(CdsCategory.REPORTS, body -> mapper.write(mapped, body))).isNotEmpty();
+    }
+
+    @Test
+    void shouldCarryTheWholeContextInACompanionRecord_whenItIsLongerThanNotes() throws Exception {
+        // Before: CDS_EXPORT_NATIVE_REPORT_METADATA_CAPACITY held the chart past 32,000
+        // characters of Notes (a document routed to dozens of providers, each with a comment).
+        var reviews = new java.util.ArrayList<CdsExportCapturedTextRowDto>();
+        for (int i = 1; i <= 200; i++) {
+            var fields = new LinkedHashMap<String, String>();
+            fields.put("comment", "Comment " + i + " " + "x".repeat(200) + " bell \u0007");
+            fields.put("id", Integer.toString(i));
+            fields.put("lab_no", "91");
+            fields.put("lab_type", "DOC");
+            fields.put("mrpDemographicNo", null);
+            fields.put("provider_no", "17");
+            fields.put("status", "A");
+            fields.put(
+                    "timestamp",
+                    CdsExportLaboratoryReviewerMappingUnitTest.instant("2026-07-12 10:00:00"));
+            reviews.add(
+                    new CdsExportCapturedTextRowDto(
+                            CdsExportDocumentRouteSourceReader.TABLE,
+                            CdsExportPatientTableSourceReader.key(i),
+                            fields));
+        }
+        var mapped =
+                mapper.map(
+                        27,
+                        document(),
+                        link(),
+                        CdsExportNativeReportMapper.Content.file(PATH, "pdf"),
+                        providers(),
+                        ZoneId.of("America/Toronto"),
+                        CdsExportInboxReviewMapper.report()
+                                .map(reviews, List.of(), providers(), ZoneId.of("America/Toronto")));
+        String notes = mapped.text().get("Notes");
+        String reference = CdsExportReportContext.id("document", "91");
+        assertThat(notes.codePointCount(0, notes.length()))
+                .isLessThanOrEqualTo(CdsExportReportContext.NOTES_LENGTH);
+        assertThat(notes).contains(reference, CdsExportReportContext.SUBCLASS);
+        // The companion carries the complete context: every comment exactly, control character
+        // included, as JSON.
+        String companion = mapped.companion();
+        assertThat(companion).contains(reference).doesNotContain("\u0007");
+        var decoded =
+                new com.fasterxml.jackson.databind.ObjectMapper()
+                        .readTree(companion.substring(companion.indexOf('{')));
+        assertThat(decoded.get("reviews")).hasSize(200);
+        assertThat(decoded.get("reviews").get(199).get("fields").get("comment").asText())
+                .isEqualTo("Comment 200 " + "x".repeat(200) + " bell \u0007");
+        assertThat(decoded.get("document").get("docdesc").asText())
+                .isEqualTo("Exact café 😀 report description");
+        // Both records are valid Reports content; every Notes decision moves to the companion.
+        assertThat(render(CdsCategory.REPORTS, xml -> mapper.write(mapped, xml))).isNotEmpty();
+        String written =
+                new String(
+                        render(
+                                CdsCategory.REPORTS,
+                                xml -> CdsExportReportContext.write(companion, xml)),
+                        StandardCharsets.UTF_8);
+        assertThat(written)
+                .contains("<Format>Text</Format>", "<SubClass>CARLOS context of a report</SubClass>");
+        var carried = CdsExportReportContext.carried(mapped.fields());
+        assertThat(carried).isNotEmpty();
+        assertThat(carried.values()).allMatch(value -> value.destination().equals("Reports/Content"));
+        assertThat(CdsExportReportContext.relocated(mapped.fields()).values())
+                .noneMatch(value -> "Reports/Notes".equals(value.destination()));
+    }
+
+    @Test
+    void shouldKeepTheContextInNotes_whenItFits() throws Exception {
+        var mapped = map(document());
+        assertThat(mapped.companion()).isNull();
+        assertThat(mapped.text().get("Notes")).startsWith("[CARLOS native report source context]\n{");
+    }
+}

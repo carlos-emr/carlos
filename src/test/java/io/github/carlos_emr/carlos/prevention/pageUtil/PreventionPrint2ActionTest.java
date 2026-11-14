@@ -260,6 +260,27 @@ class PreventionPrint2ActionTest extends CarlosUnitTestBase {
         verifyNoInteractions(printLoader);
     }
 
+    @Test
+    @DisplayName("should print nothing and say the preventions could not be read when a read fails")
+    void shouldRenderUnreadableBanner_whenAPreventionReadFails() throws Exception {
+        selection("42", "false", "Inf", "Td");
+        when(printLoader.load(any(), anyString(), any(), anyBoolean()))
+                .thenThrow(new io.github.carlos_emr.carlos.prevention.dto.PreventionSourceUnavailableException(
+                        new java.io.IOException("synthetic source failure")));
+
+        String result = action.execute();
+
+        // The Preventions page is shown with its own reason, not a download and not a stack trace.
+        assertThat(result).isEqualTo(ActionSupport.ERROR);
+        assertThat(request.getAttribute("printUnreadable")).isEqualTo(Boolean.TRUE);
+        assertThat(request.getAttribute("printError")).isEqualTo(Boolean.TRUE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+        assertThat(response.getContentType()).isNull();
+        assertThat(response.getContentAsByteArray()).isEmpty();
+        assertThat(pdfsCreated).hasValue(0);
+        verifyNoInteractions(pdf);
+    }
+
     private void selection(String demographicNo, String immunizationOnly, String... types) {
         request.addParameter("demographicNo", demographicNo);
         request.addParameter("demographic_no", demographicNo);

@@ -41,6 +41,38 @@ import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 @Transactional
 public class CaseManagementNoteLinkDAOImpl extends AbstractJpaDao implements CaseManagementNoteLinkDAO {
 
+    // The export caller owns authorization and one bounded read-only source snapshot. No managed
+    // link or note is loaded; the rows are the links of the patient's own notes.
+    @Override
+    @Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column> readCdsExportReceiptColumns() {
+        return io.github.carlos_emr.carlos.commn.dao.CdsExportNativeMetadataReadSupport.read(entityManager(), io.github.carlos_emr.carlos.commn.dao.CdsExportNativeMetadataReadSupport.Table.CASE_NOTE_LINK);
+    }
+
+    @Override
+    @Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto readCdsExportSourceSchema() {
+        return io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.schema(entityManager(), io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Plan.CASE_NOTE_LINK);
+    }
+
+    @Override
+    @Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public long countCdsExportRows(int patient) {
+        return io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.count(entityManager(), io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Plan.CASE_NOTE_LINK, patient);
+    }
+
+    @Override
+    @Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> findCdsExportRowsAfter(int patient, Long afterId, int limit) {
+        return io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.page(entityManager(), io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Plan.CASE_NOTE_LINK, patient, afterId, limit);
+    }
+
+    @Override
+    @Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public byte[] readCdsExportValueChunk(int patient, long rowId, String column, long offset, int length) {
+        return io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.chunk(entityManager(), io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Plan.CASE_NOTE_LINK, patient, rowId, column, offset, length);
+    }
+
     @Override
     public CaseManagementNoteLink getNoteLink(Long id) {
         CaseManagementNoteLink noteLink = entityManager().find(CaseManagementNoteLink.class, id);

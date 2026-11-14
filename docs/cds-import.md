@@ -1,8 +1,14 @@
 # CDS import documentation
 
-This is the entry point for the CDS import system targeting `release/2026.08`. Browser imports and the paired `carlos-ctl` command use the same CARLOS engine, clinical models and durable recovery contracts. Import admission is disabled by default. Export is outside this delivery.
+This is the entry point for the CDS import system targeting `release/2026.08`. Browser imports and the paired `carlos-ctl` command use the same CARLOS engine, clinical models and durable recovery contracts. Import admission is disabled by default. The CDS 5.2 exporter ships in the same release with its own admission setting, also off by default; see the [export operator guide](cds-export-operator-guide.md).
 
 These documents explain the implementation and operating contracts. Release acceptance additionally requires the executed evidence for the final candidate, recorded on the release pull request.
+
+The [export implementation contract](cds-export.md) describes the sibling exporter.
+Enabling export never enables import, and import completion does not depend on it.
+Packages the exporter writes are ordinary CDS 5.2 files to this importer; the CARLOS
+residual markers it adds are listed under
+[Recognised CARLOS residual markers](#recognised-carlos-residual-markers).
 
 ## Start by role
 
@@ -21,8 +27,9 @@ These documents explain the implementation and operating contracts. Release acce
 | Architecture, MVC, dependency direction, class map, lifecycle and persistence choices | [Architecture](cds-import-architecture.md) |
 | Uploading, progress, bookmarkable jobs, source views, review and protected downloads | [Web workflow](cds-import-web.md) |
 | Deployment preparation, rehearsal, reconciliation and operator exit meanings | [Operator guide](cds-import-operator-guide.md) |
-| Server defaults, source registration, delegation and capacities | [Configuration reference](cds-import-configuration.md) |
+| Server defaults, the free-disk reserve and stall window (no size or duration limits), XML guards, retired settings, source registration and delegation | [Configuration reference](cds-import-configuration.md) |
 | Failure diagnosis, safe continuation, unknown outcomes and retained evidence | [Recovery runbook](cds-import-recovery-runbook.md) |
+| Closing a stopped written import that cannot complete (audited abandon) | [Operator guide](cds-import-operator-guide.md#abandoning-an-import-that-cannot-complete) |
 | Ownership, epochs, seals, checkpoints, review publication and finalization | [Ledger contract](cds-import-ledger.md) |
 | Writer exclusion, physical connection guard, startup and maintenance release | [Maintenance admission](cds-maintenance-admission.md) |
 | Source normalization, existing DAO composition and historical clinical semantics | [Clinical contract](cds-clinical-import-contract.md) |
@@ -44,6 +51,285 @@ Transfer, durable acceptance, clinical completion, report delivery, cleanup and 
 Use the durable run ID and all four protected report kinds. Reconcile source patients, destination copies, clinical occurrences, helper units, committed units, verified prior work and unfinished work. Preserve unknown totals until discovery and sealing prove them. The operator guide and ledger contract define these terms and the supported controls.
 
 Source values that require review remain attributable and visible. Original XML, precision, restrictions and provenance are not replaced by a convenient native default. Acknowledging a message does not resolve a blocking clinical interpretation.
+
+## Recognised CARLOS residual markers
+
+The coordinated [export implementation](cds-export.md) writes versioned `ResidualInfo` fields
+where the pinned schema has no equivalent standard field. The importer recognises only these
+exact names and types listed below as interpreted, honours effective corrections, and blocks an
+invalid or duplicate known marker instead of falling back to a default. Every other residual name, including an unknown
+`CARLOS.*` name, stays protected source-only data. Unmarked records keep their established
+behaviour, and old prepared payload bytes and digests are preserved (optional decoder defaults
+are added only after seal verification).
+
+| Marker | Type | Category | Import behaviour |
+| --- | --- | --- | --- |
+| `CARLOS.Allergy.Archived.v1` | boolean | Allergies | Restored as a native archived allergy only when `cds.import.mapping.restoreArchivedAllergies=true` (decision 9, default off). By default the allergy is imported active with warning `CDS_ALLERGY_ARCHIVED_SOURCE_MARKER`; when restored, `CDS_ALLERGY_ARCHIVED_SOURCE_RESTORED`. The decision is part of the run's ruleset and of each prepared allergy. |
+| `CARLOS.Allergy.AgeOfOnset.v1` | string | Allergies | Exact native age text (at most 4 characters). |
+| `CARLOS.Allergy.OnsetOfReaction.v1` | string | Allergies | Unknown, Immediate, Gradual or Slow, as the native onset code. |
+| `CARLOS.Allergy.Atc.v1` | string | Allergies | Native ATC class (`TYPECODE` 8); refused together with a standard `Code`. |
+| `CARLOS.Allergy.Severity.v1` | string | Allergies | `Severe` restores native severity 3; refused together with a standard `Severity`. |
+| `CARLOS.Allergy.Reaction.v1` | string (encoded) | Allergies | Exact native reaction longer than the standard `Reaction` (120 characters), JSON-encoded so token normalization cannot alter it; restored as the native reaction. Refused together with a standard `Reaction`, or when malformed or empty. The record's `Notes` repeat the text for other receivers and stay in the retained source. |
+| `CARLOS.Allergy.Source.v1` | string (JSON) | Allergies | Not interpreted: the complete native row of an allergy with a value CDS has no element for (an OSCAR 19 recording provider or First Databank identifier, an unlisted code, a date without established precision, text holding a character XML cannot carry). Retained as protected source data; read only to restore the exact text of an element shown with U+FFFD (see "Exact text a CARLOS sender carries"). |
+| `CARLOS.Medication.CurrentSource.v1` | string (JSON) | Medications | Not interpreted: the complete current row of an imported prescription the sending CARLOS changed after its own import (deleted, discontinued, hidden from the CPP). Retained as protected source data; the standard PrescriptionStatus, PastMedications and `CARLOS.Medication.Archived.v1` already say that it is no longer current. Read only to restore the exact text of an element shown with U+FFFD (see "Exact text a CARLOS sender carries"). |
+| `CARLOS.PatientAlert.v1` | string (JSON) | AlertsAndSpecialNeeds | The exact patient Alert (`{"version":1,"alert":"..."}`), written by a CARLOS sender beside an AlertDescription that shows U+FFFD for each character XML cannot carry (a control character pasted into the Alert box). The carrier is proven against its element first: AlertDescription must be the carried text with those characters as U+FFFD, by the one rule both sides use (`CdsNativeExtensionContract.xmlElementText`). Proven, the Reminders note is filed with the exact text. Malformed, larger than the native note bound, or not matching its element, it is not used: the element is imported as any sender's and the patient's report names `CDS_PATIENT_ALERT_CARRIER_NOT_APPLIED`. In another history category the record is refused (`CDS_HISTORY_NATIVE_STATE_REQUIRES_REVIEW`). |
+| `CARLOS.Medication.Archived.v1` | boolean | Medications | Imported archived with warning `CDS_MEDICATION_VENDOR_ARCHIVE_CONTEXT`; clinical status/currentness stay independent. |
+| `CARLOS.History.Archived.v1` | boolean | CPP histories | Imported archived with warning `CDS_HISTORY_ARCHIVE_STATE_VENDOR_EXTENSION`. |
+| `CARLOS.History.Narrative.v1` | string (encoded) | CPP histories | Exact native narrative when no standard description exists (PersonalHistory always; long items of the other sections). |
+| `CARLOS.History.PersonalNarrative.v1` | string | PersonalHistory | Earlier raw narrative carrier, still read. |
+| `CARLOS.History.NarrativeText.v1` | string | PersonalHistory | Not interpreted: the exporter's whitespace-collapsed copy of the narrative (and Social History dates) for other EMRs. The narrative is restored from `CARLOS.History.Narrative.v1` only; the copy is retained as protected source data and never imported as a second value. |
+| `CARLOS.Medication.Source.v1` | string (JSON) | Medications | Restores the native quantity unit and as-needed flag (#6198) when the standard Quantity and Frequency/TreatmentType agree with it; refused when malformed, duplicated or contradicted. The rest stays protected source. |
+| `CARLOS.Prevention.Source.v1` | string (JSON) | Immunizations | Restores the free-text "Other" administering provider and the reminder date (#6198) when the carrier's status matches RefusedFlag; refused when malformed or duplicated. The rest stays protected source. |
+| `CARLOS.Prevention.Source.v1` | string (JSON) | PastHealth | Not interpreted: retained as protected source data like any other residual. |
+| `CARLOS.Appointment.Source.v1` | string (JSON) | NewCategory `CARLOS.NativeAppointment.v1` | Read for the Appointments element it names (see "CARLOS appointment source record"): restores the exact stored end, the complete notes and the scheduler context once the record proves itself; otherwise reported and not used. Always also retained as protected source data. |
+
+The two `Source.v1` carriers hold a complete native row (SQL NULL kept distinct from empty)
+as one JSON object, every space escaped so `xs:token` normalization cannot alter it. The
+importer reads them strictly and as a stream (`CdsSourceContextParser`, over
+`CdsFieldParser.openToken`): one object with `"version":1`, nesting of at most 16, no repeated
+member among those it reads, nothing after the document. A carrier has no length limit, on either
+side: the reader keeps only the members it restores and skips every other value where it stands,
+whatever its size, so a row with megabytes of text costs no more memory than a small one. What it
+keeps is bounded by what can be restored (a kept text can be no longer than an appointment's
+complete notes, the longest text restored from a carrier; extension rows are visited one at a
+time). The 16,777,216-character bound both sides once applied is gone. The importer restores only the native values CDS
+has no element for, and only when the standard elements the exporter wrote from the same row
+agree with the carrier. The carrier itself, and every value it alone carries, stays unchanged in
+the import's retained source fields.
+
+- **Medication quantity unit.** On the Rx page `unitName` is the quantity's unit. A carried
+  `unitName` that is not empty and differs from `unit` (the exporter's own reading) is restored
+  to `drugs.unitName` with the carried amount in `drugs.quantity`, only when the standard
+  Quantity is exactly that amount, a space and the trimmed unit (`100 mL`), as the sender writes
+  it: a unit holding a character XML cannot carry shows U+FFFD in its place (`100 m\uFFFDL`, by
+  `isElementTextOf`, see "Exact text a CARLOS sender carries"), and the carried unit is restored
+  exactly. A bare, different or absent Quantity is contradictory:
+  `CDS_MEDICATION_NATIVE_FIELD_REQUIRES_REVIEW` (path `Quantity`). Without a quantity unit the
+  dose unit is copied to `unitName`, as before.
+- **Medication as-needed flag.** The carried `prn` (0 or 1) is restored to `drugs.prn` exactly,
+  including the `BID PRN` case the frequency alone cannot show. The exporter always shows a set
+  flag in Frequency (`PRN`, `BID PRN`) or a PRN TreatmentType, so a set flag beside elements that
+  name no PRN is `CDS_MEDICATION_NATIVE_FIELD_REQUIRES_REVIEW` (path `Frequency`); an unset flag
+  beside a PRN frequency (the box left unticked) is restored as recorded. Without a carrier the
+  flag is derived from Frequency and TreatmentType, as before.
+- **Vaccine provider.** Only the prevention form's "Other" provider (`provider_no` `-1`) is a
+  free-text name: its one non-empty `providerName` extension is restored as `provider_no` `-1`
+  and a `providerName` extension, which is how the form saves it and what the chart shows. A
+  CARLOS provider number belongs to the sender and is never restored; the import still
+  attributes no local clinician. Two typed names require review.
+- **Vaccine reminder date.** `next_date` is restored to `preventions.next_date`, shifted by an
+  authorized synthetic date shift like every other clinical date. MySQL's zero date records no
+  reminder. The carrier describes its record: its native status must be the RefusedFlag the
+  exporter wrote (given and completed externally `N`, refused and ineligible `Y`), else
+  `CDS_IMMUNIZATION_NATIVE_FIELD_REQUIRES_REVIEW` (path `RefusedFlag`).
+
+A malformed or duplicated carrier, a restorable value longer than any column it could be restored
+to, a `prn` other than 0 or 1, an unknown status or an
+invalid date is `CDS_MEDICATION_NATIVE_STATE_REQUIRES_REVIEW` or
+`CDS_IMMUNIZATION_NATIVE_STATE_REQUIRES_REVIEW` (path `ResidualInfo`); nothing is guessed. The
+restored values are part of the sealed preparation (`CdsMedicationDto.quantityUnit`/`asNeeded`,
+`CdsImmunizationDto.providerName`/`reminderDate`), omitted when absent so earlier payloads keep
+their bytes and seal, and defaulted after seal verification. The import receipt's native-baseline
+witness records the rows as written. Re-exporting the unedited imported chart writes the
+original elements beside the retained original carrier (the reconcilers account the restored
+columns to it), so a further CARLOS import restores the same values. A restored medication value
+changed in CARLOS since the import is exported as current: the sender's
+`CARLOS.Medication.Source.v1` is removed and the current row travels in
+`CARLOS.Medication.CurrentSource.v1`. A restored vaccine value changed since the import still
+holds the patient (`RESTORED_SOURCE_CONTEXT_CHANGED_REQUIRES_REVIEW`), because the retained
+carrier would restate the old value.
+
+What the carriers alone still carry, and the importer does not restore, stays visible in the
+protected source view of the import: for a medication, the exact IEEE dose witnesses and the
+other native columns (a week duration arrives as its exact day count, months and years with
+their unit); for a vaccine, the never-remind flag, the CVC concept, flu risk factors and the
+other native extensions.
+
+### Carriers the importer keeps as source only
+
+These CARLOS carriers hold exact values the standard element beside them could not, and the
+importer does not read them back into the chart. They stay in the protected source view. Where
+that means a transfer between two CARLOS installations changes what the receiving chart shows,
+it is said here.
+
+| Carrier | What it holds beside the element | On import |
+| --- | --- | --- |
+| `CARLOS.History.Narrative.v1` | A CPP narrative too long for its description element (which is then left out), or a PersonalHistory narrative | Restored (the note body), as before. |
+| `CARLOS.NativeHistory.v1` `exactNarrative` / `narrative` | The exact body of a CPP item or note that holds a character XML cannot carry; the element and the narrative carrier show U+FFFD | Restored, see "Exact text a CARLOS sender carries" below. |
+| `CARLOS.NativeHistory.v1` `importedNotes`, `revisions`, extension facts | Imported Notes left out of Notes on an edited imported item; every revision | Source only. No native value is changed: Notes was never a native column. |
+| `CARLOS.NativeDemographic.v1` (`CARLOS.Demographic.v1`) `note` | A patient note longer than NoteAboutPatient (64,000), with a character XML cannot carry, or in a legacy frame | Restored, see "Exact text a CARLOS sender carries" below. A legacy frame needs nothing: the element already holds the note as the sender's chart shows it. |
+| `CARLOS.NativeDemographic.v1` `demographic`, `roster`, `careTeam`, `properties`, `related` | Demographic, enrolment, contact, health care team and pharmacy values with no element | Source only; the standard elements are imported as from any sender. |
+| `CARLOS.Medication.Source.v1`, `CARLOS.Medication.CurrentSource.v1`, `CARLOS.Allergy.Source.v1`, `CARLOS.Prevention.Source.v1` | The complete native row, including text an element shows with U+FFFD | The fields listed above are restored (quantity unit, as-needed, "Other" provider, reminder date), and the exact text of an element shown with U+FFFD (see "Exact text a CARLOS sender carries" below). The other columns stay source only. |
+| `CARLOS.Laboratory.v1`, `CARLOS.NativeLaboratory.v1`, `CARLOS.Observation.v1`, `CARLOS.NativeObservation.v1`, `CARLOS.Prescription.v1`, `CARLOS.ImportedLaboratoryReview.v1` | The stored message, measurement, script or comment | Source only. |
+| `carlos-data-summary-record.json` and image files inside a data-summary PDF | The exact record of a data summary whose PDF could not show everything | Not read. The PDF is stored unchanged (its bytes are checked against the planned digest), so the attachments stay inside the stored document. |
+
+### Exact text a CARLOS sender carries
+
+XML 1.0 cannot carry a control character (other than tab, line feed and carriage return), U+FFFE,
+U+FFFF or an unpaired surrogate, and CDS elements have lengths. A CARLOS sender writes such a
+value by one documented rule (`CdsNativeExtensionContract.xmlElementText`: the same text with
+U+FFFD in place of each such character, one for one) and carries the stored value beside it. The
+importer restores the stored value only after proving the carrier against its element: the
+element must be exactly what the sender's rule writes from the carried value, and the carried
+value must be one a CARLOS column can hold (`isElementTextOf`). Only an element that shows U+FFFD
+(or the patient note's shortened mark) can stand for another stored value, so no other element
+reads a carrier, and an element that is absent is never restored. A carrier that holds nothing
+for the element, or holds the element's own text, leaves it unchanged with no report: the U+FFFD
+is then the sender's own text. A carrier that is unreadable, or that does not prove itself, is
+never guessed at: the element is imported as from any sender and the patient's report names the
+code below. Text from a sender that is not CARLOS is unaffected, whatever it contains.
+
+- **CPP items** (`CdsHistoryPersister.exactItemText`). The item's text (its description element,
+  or `CARLOS.History.Narrative.v1`) shows U+FFFD; the current revision of the item's last
+  `CARLOS.NativeHistory.v1` (an edited imported item's sender writes its own after the one it
+  received) carries `exactNarrative`, or `narrative` for a PersonalHistory item. The details are
+  read twice as a stream and only the current revision's text is kept, so an earlier revision of
+  any length is never held. Not proven: `CDS_HISTORY_EXACT_NARRATIVE_NOT_APPLIED` (path
+  `ResidualInfo`).
+- **Encounter notes** (`CdsHistoryPersister.exactNoteText`). ClinicalNotes has no ResidualInfo:
+  the text ends with `[CARLOS source note details]` and the revision details. A revision whose
+  body was written with U+FFFD carries `exactNarrative`, and every revision then states
+  `bodyLength`, its body's UTF-16 length as written. Counted back from the details, each body has
+  one place, under the heading the sender writes (`[Original note]`, `[Revision n]`; none for one
+  revision). Every heading must stand where the lengths put it and every carried body must prove
+  itself there; then all are restored, otherwise none and `CDS_HISTORY_EXACT_NARRATIVE_NOT_APPLIED`
+  (path `MyClinicalNotesContent`). Text that merely ends like revision details is another
+  sender's quotation and is left alone.
+- **Patient note** (`CdsDemographicDetailsService.carriedPatientNote`). NoteAboutPatient shows
+  U+FFFD, or, for a note longer than its 64,000 characters, the first characters followed by the
+  mark `[CARLOS: shortened to the CDS limit of 64,000 characters]` on its own line
+  (`patientNoteElement`). The whole stored column is `note.content` of the last
+  `CARLOS.NativeDemographic.v1` record in the patient file (read from the file's sealed parse, its
+  records manifest checked against the parse seal); the note the sender's chart shows from it must
+  give exactly the element. A note too long for the receiving column then becomes the source-view
+  placeholder (`CDS_PATIENT_NOTE_COMPLETE_TEXT_SOURCE_VIEW`), as any long note does. Not proven:
+  `CDS_PATIENT_NOTE_CARRIER_NOT_APPLIED` (path `NoteAboutPatient`). Because the element is never
+  absent for a note, a record kept from an earlier sender cannot bring back a note the sending
+  chart no longer has.
+- **Prescriptions, allergies and vaccines** (`CdsCarriedTextResolver`). Each element the
+  importer stores is written by the sender from stored columns, alone or composed with fixed
+  text. For an element that shows U+FFFD the importer builds the compositions the sender can
+  write it as from the carried row and uses the one whose U+FFFD form is exactly the element;
+  none, or two different ones, is reported. The carrier is read as a stream, and a stored value
+  longer than the element it is wanted for is skipped unheld.
+  - Prescription (row of the last `CARLOS.Medication.CurrentSource.v1`, else
+    `CARLOS.Medication.Source.v1`): DrugName (custom name or brand name), Form, Route, Frequency
+    (with ` PRN` when the as-needed box qualifies it), Dosage, DosageUnitOfMeasure, Notes (the
+    comment, or a long name led by `Drug name: `), PrescriptionInstructions (the SIG, the
+    pharmacy instructions, or both joined by `[Native pharmacy instructions]` on its own line),
+    DispenseInterval, ProtocolIdentifier and PriorPrescriptionReferenceIdentifier. The SIG the
+    importer composes for the native row follows the restored values. Not proven:
+    `CDS_MEDICATION_EXACT_TEXT_NOT_APPLIED`.
+  - Allergy (`CARLOS.Allergy.Source.v1`): OffendingAgentDescription and Reaction. Not proven:
+    `CDS_ALLERGY_EXACT_TEXT_NOT_APPLIED`.
+  - Vaccine (`CARLOS.Prevention.Source.v1`): ImmunizationName (the name extension, or the
+    prevention type), Manufacturer, LotNumber, Route, Site, Dose, Instructions and Notes (the
+    status label, values too long for their elements as `Label: value` lines, the comments,
+    whole parts within 32,000 characters, as the sender composes them). Not proven:
+    `CDS_IMMUNIZATION_EXACT_TEXT_NOT_APPLIED`.
+  Allergy and vaccine warnings are part of the sealed preparation (`diagnostics`, omitted when
+  empty, so earlier payloads keep their bytes; defaulted after seal verification). Re-exported
+  unchanged, a restored value is written as its U+FFFD form again (the exporter's prepared
+  projections, `CdsExportPrepared*Mapper`, follow the element rule), beside the sender's carrier,
+  so it is never refused for its characters and a further CARLOS import restores it again.
+- **Patient Alert**: `CARLOS.PatientAlert.v1`, in the marker table above.
+
+The text is restored before the native note size is checked: the stored value is never longer in
+UTF-8 than its U+FFFD form.
+
+### CARLOS appointment source record
+
+CDS 5.2 Appointments has no ResidualInfo, so a CARLOS sender writes one NewCategory record per
+appointment (`CategoryName` `CARLOS.NativeAppointment.v1`, residual
+`CARLOS.Appointment.Source.v1`; its content is defined in `docs/cds-export.md`). Its `appointment`
+member is the 1-based position of the Appointments element it belongs to in the same patient
+file. `CdsAppointmentResidualReader` finds it from the patient file's own sealed parse (the
+records manifest is checked against the parse seal) and uses the **last** record in document
+order that names the position: a CARLOS export writes its current record for every element after
+any retained copy of an earlier sender's record, so an older copy is never used.
+
+Nothing is taken from a record until it proves itself against its element
+(`CdsAppointmentPersister`):
+
+- the receiving clinic's `cds.import.clinicalZone` is set and the element has an exact calendar
+  date;
+- the element's date and start, read in that zone, are the record's `appointment_date` and
+  `start_time`;
+- the record's `end_time` gives the element's Duration by the shared rule
+  (`CdsAppointmentSourceContract.minutes`): as the scheduler's inclusive end (no Duration when the
+  end states no positive length), or as the exclusive end an earlier CDS import left.
+
+Then:
+
+- **Exact end.** With an inclusive end the appointment is written with the sender's stored date,
+  start and end. A slot past midnight (23:30 with end 00:29), with no stated length, with an end
+  between minutes, or at a daylight-saving change, which the element alone leaves a source-only
+  record (`CDS_APPOINTMENT_CROSS_MIDNIGHT_SOURCE_ONLY`, `..._DURATION_SOURCE_ONLY`,
+  `..._DST_DURATION_SOURCE_ONLY`, `..._LOCAL_TIME_SOURCE_ONLY`), becomes a native appointment
+  exactly as the sender's schedule showed it.
+- **Complete notes.** When the record carries `complete.AppointmentNotes` and the element's notes
+  are exactly the shared cut of that text (`CdsAppointmentSourceContract.notesElement`: without
+  XML-illegal characters, cut before the mark at 32,000 characters) and the text fits the notes
+  column (32,768 characters), the complete text is stored. Otherwise the element's notes are
+  kept and `CDS_APPOINTMENT_SOURCE_NOTES_NOT_RESTORED` is reported.
+- **Scheduler context.** `style`, `billing`, `location`, `resources`, `urgency`, `type` and
+  `bookingSource` are stored as the sender stored them. A value longer than the receiving column
+  (`CDS_APPOINTMENT_SOURCE_COLUMN_CAPACITY_NOT_RESTORED`) or a booking source this build does not
+  know (`CDS_APPOINTMENT_SOURCE_BOOKING_SOURCE_NOT_RESTORED`) is reported and left empty.
+
+A record that is not a readable version 1 document, or that does not prove itself, is reported
+as `CDS_APPOINTMENT_SOURCE_RECORD_NOT_APPLIED` (path `NewCategory`) and the appointment is
+imported from its standard elements only; an applied record is reported as
+`CDS_APPOINTMENT_SOURCE_RECORD_APPLIED`. Not restored, by decision: the status code (the status
+arrives as the sender's status text; a code depends on the receiving clinic's own status table),
+the provider number (the provider is matched from the Provider element, as always), the booking
+name and remarks (they already travel as labelled lines of the notes), the reason-list item and
+the program. They stay in the retained record. What was restored is part of the sealed
+preparation (`CdsAppointmentNativeDto.source`, defaulted to "nothing restored" for earlier
+payloads after seal verification, `CdsPreparedAppointmentDefaults`). Re-exporting such an
+appointment reads a restored end as the scheduler's inclusive end and restored notes as current
+notes, and writes a new source record for it after the retained one.
+
+Export clinical qualification remains separate from these shared transfer rules.
+
+## Report file types
+
+A report file is published as a native document of the type its `FileExtensionAndVersion`
+declares when its first sixteen bytes bear the declaration out (`CdsReportMediaService`; the
+[clinical contract](cds-clinical-import-contract.md#report-representations-and-clinical-timing)
+has the details). The recognised types are every type CARLOS stores and its own export declares
+except `html` and `bin`:
+
+| Declaration (and spellings) | Published as | Confirmed by |
+| --- | --- | --- |
+| `pdf`, `application/pdf` | `application/pdf` | `%PDF-n.n` header |
+| `txt`, `text/plain` | `text/plain;charset=UTF-8` | strict UTF-8 decoding of the whole file (unstated encoding is reviewed) |
+| `jpg`, `jpeg`, `image/jpeg` | `image/jpeg` | JPEG header |
+| `png`, `image/png` | `image/png` | PNG signature |
+| `tif`, `tiff`, `image/tiff` | `image/tiff` | TIFF byte-order header |
+| `gif`, `image/gif` | `image/gif` | `GIF87a`/`GIF89a` |
+| `bmp`, `image/bmp`, `image/x-bmp`, `image/x-ms-bmp` | `image/bmp` | `BM` with zero reserved bytes |
+| `doc`, `application/msword` | `application/msword` | OLE2 compound-file header |
+| `docx`, the Word OOXML type | `application/vnd.openxmlformats-officedocument.wordprocessingml.document` | ZIP local-file header |
+| `rtf`, `application/rtf`, `text/rtf` | `application/rtf` | `{\rtf` |
+
+A declaration the bytes contradict becomes an opaque document requiring review
+(`CDS_REPORT_MEDIA_DECLARATION_MISMATCH`). An unknown or versioned declaration takes a PDF, PNG,
+JPEG, TIFF, GIF or RTF header when the bytes have one (`CDS_REPORT_MEDIA_FROM_BOUNDED_HEADER`);
+a bitmap, OLE2 or ZIP header alone names no type, since other formats and text share it. Any
+other file, `bin` included, stays opaque and reviewed (`CDS_REPORT_MEDIA_UNRECOGNIZED_SOURCE_RETAINED`).
+
+HTML (`html`, `htm`, `text/html`) is recognised but never published as HTML. The document viewer
+(`ManageDocument2Action.display`) renders a `text/html` document as a live page in the CARLOS
+origin, the behaviour a clinician's own upload relies on; script in a file from another system
+must not run there. An HTML file is therefore an opaque `application/octet-stream` document
+requiring review (`CDS_REPORT_HTML_RETAINED_OPAQUE`), which the browser downloads rather than
+renders (CARLOS sends `X-Content-Type-Options: nosniff`), and HTML report text, which is how
+CARLOS exports an Add HTML or Add Link document, stays plain text requiring review
+(`CDS_REPORT_HTML_RETAINED_AS_TEXT`), its markup shown rather than run. The original bytes and
+declaration remain in the report's protected source fields. A report imported for review is still
+exported again by CARLOS from its retained source without holding the patient (see the
+[export contract](cds-export.md)).
 
 ## Deployment companions
 

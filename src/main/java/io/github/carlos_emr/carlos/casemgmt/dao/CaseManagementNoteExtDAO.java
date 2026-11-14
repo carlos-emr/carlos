@@ -36,7 +36,7 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt;
 
-public interface CaseManagementNoteExtDAO {
+public interface CaseManagementNoteExtDAO extends io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadDao {
 
     public CaseManagementNoteExt getNoteExt(Long id);
 

@@ -1,0 +1,407 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.demographic.cds.contract;
+
+/** Vendor residual fields with explicit semantics shared by the two transfer directions. */
+public final class CdsNativeExtensionContract {
+    private CdsNativeExtensionContract() {}
+
+    /** The pinned allergy category has no native record-active/archive field. */
+    public static final String ALLERGY_ARCHIVED = "CARLOS.Allergy.Archived.v1";
+
+    /** Exact native age text; this extension does not invent a unit or a birth date. */
+    public static final String ALLERGY_AGE_OF_ONSET = "CARLOS.Allergy.AgeOfOnset.v1";
+
+    public static final String ALLERGY_ONSET_OF_REACTION = "CARLOS.Allergy.OnsetOfReaction.v1";
+
+    /** An ATC class is not a DIN and cannot be written in the standard allergy Code. */
+    public static final String ALLERGY_ATC = "CARLOS.Allergy.Atc.v1";
+
+    /**
+     * A native severity with no CDS 5.2 value. CDS has only NO/MI/MO/LT; CARLOS's "Severe" (3) is
+     * not evidence of a life-threatening reaction, so the standard Severity is left absent and
+     * the native label travels here instead of refusing the patient.
+     */
+    public static final String ALLERGY_SEVERITY = "CARLOS.Allergy.Severity.v1";
+
+    /**
+     * The complete native reaction of an allergy longer than the standard Reaction element (120
+     * characters), as {@link #encodeNarrative}. The exporter then writes no Reaction and the same
+     * text, labelled, in the standard Notes for other receivers; a CARLOS importer restores this
+     * carrier as the native reaction. A record with both a standard Reaction and this carrier is
+     * contradictory and is refused.
+     */
+    public static final String ALLERGY_REACTION = "CARLOS.Allergy.Reaction.v1";
+
+    /**
+     * The complete native allergy row (and its date-precision rows) of an allergy with a stored
+     * value CDS 5.2 and the other allergy carriers have no place for: the recording provider
+     * number and the First Databank identifiers OSCAR 19 data carries ({@code providerNo},
+     * {@code HICL_SEQNO}, {@code HIC_SEQNO}, {@code AGCSP}, {@code AGCCS}), an unlisted catalogue
+     * type, severity, onset, life-stage or reaction-type code, an identifier that is neither a
+     * brand DIN nor a single ATC code, or a date whose precision is not established. JSON with
+     * SQL NULL and empty text distinct, a fixed key order and every space escaped. It is written
+     * only for such an allergy; an importer treats it as opaque source.
+     */
+    public static final String ALLERGY_SOURCE_CONTEXT = "CARLOS.Allergy.Source.v1";
+
+    /** Native severity codes carried only by {@link #ALLERGY_SEVERITY}. */
+    public static final java.util.Map<String, String> ALLERGY_SEVERITY_VALUES =
+            java.util.Map.of("3", "Severe");
+
+    /** CPP categories have no standard record-archive field; this is independent of problem resolution. */
+    public static final String HISTORY_ARCHIVED = "CARLOS.History.Archived.v1";
+
+    /**
+     * PersonalHistory's earlier raw narrative carrier, still read for files that carry it. Its
+     * raw content is {@code xs:token}, so line breaks and repeated spaces did not survive a
+     * schema-aware reader; the exporter now writes {@link #HISTORY_NARRATIVE} instead.
+     */
+    public static final String HISTORY_PERSONAL_NARRATIVE = "CARLOS.History.PersonalNarrative.v1";
+
+    /**
+     * The complete native narrative of a PersonalHistory item (which permits only residual
+     * fields), or of a FamilyHistory, PastHealth, ProblemList or RiskFactors item too long for its
+     * description element (250 characters, 120 for RiskFactor). For the latter the exporter writes
+     * no description and the same text in the standard Notes element for any receiver; this
+     * carrier lets a CARLOS importer restore the item's text exactly rather than a placeholder. A
+     * description element, when present, always wins. The content is {@link #encodeNarrative}:
+     * residual Content is {@code xs:token}, and a schema-aware reader (the CARLOS importer
+     * included) collapses the line breaks and repeated spaces of raw text.
+     */
+    public static final String HISTORY_NARRATIVE = "CARLOS.History.Narrative.v1";
+
+    /**
+     * A PersonalHistory item in plain words, for receivers that do not decode {@link
+     * #HISTORY_NARRATIVE}: the exporter writes the narrative beside that carrier, followed by the
+     * item's CPP values that have no element there (Start Date, Resolution Date, ...), labelled
+     * as in Notes. Residual Content is {@code xs:token}, so the text is written whitespace
+     * collapsed, as every schema-aware reader keeps it. This copy is presentation only: a CARLOS
+     * importer restores the narrative from {@link #HISTORY_NARRATIVE} and never reads this one
+     * (CdsHistoryResidualReader ignores names it does not know).
+     */
+    public static final String HISTORY_NARRATIVE_TEXT = "CARLOS.History.NarrativeText.v1";
+
+    /**
+     * The revision details of a CPP item written from CARLOS notes: one JSON object with every
+     * revision's native facts. Beside an element that shows U+FFFD for a character XML 1.0
+     * cannot carry ({@link #xmlElementText}), the revision's {@code exactNarrative} (or {@code
+     * narrative}) member is the stored text. An encounter note has no ResidualInfo and carries
+     * the same document after {@link #NOTE_DETAILS_HEADING} in its text.
+     */
+    public static final String NATIVE_HISTORY = "CARLOS.NativeHistory.v1";
+
+    /** What precedes the revision details at the end of an exported encounter note's text. */
+    public static final String NOTE_DETAILS_HEADING = "\n\n[CARLOS source note details]\n";
+
+    /**
+     * The heading the exporter writes before a revision's body in an encounter note with
+     * several revisions; a note with one revision has none.
+     *
+     * @param index the revision's position, from 0
+     */
+    public static String noteRevisionHeading(int index) {
+        return index == 0 ? "[Original note]\n" : "\n\n[Revision " + (index + 1) + "]\n";
+    }
+
+    /**
+     * Member of every revision's details of an encounter note that carries an {@code
+     * exactNarrative}: the length, in UTF-16 code units, of the revision's body as the note's
+     * text holds it (after its heading, U+FFFD included). A body can quote a heading, so the
+     * text alone cannot say where one ends; with these lengths each body has one place, counted
+     * back from {@link #NOTE_DETAILS_HEADING}.
+     */
+    public static final String NOTE_BODY_LENGTH = "bodyLength";
+
+    /** CategoryName of the NewCategory record that carries a chart's native demographic values. */
+    public static final String NATIVE_DEMOGRAPHIC_CATEGORY = "CARLOS.NativeDemographic.v1";
+
+    /**
+     * The residual DataElement of that record: one JSON object. Its {@code note.content} member,
+     * written only when NoteAboutPatient cannot hold the stored patient note exactly, is the
+     * whole stored note column ({@link #patientNoteElement}).
+     */
+    public static final String NATIVE_DEMOGRAPHIC = "CARLOS.Demographic.v1";
+
+    /** NoteAboutPatient is a text64K: 64,000 characters as the migration dictionary counts it. */
+    public static final int PATIENT_NOTE_LENGTH = 64000;
+
+    /**
+     * Ends NoteAboutPatient when the note is longer than the element: the element holds the
+     * first characters that fit before this mark, and the native demographic record the whole
+     * stored note.
+     */
+    public static final String PATIENT_NOTE_SHORTENED_MARK =
+            "\n[CARLOS: shortened to the CDS limit of 64,000 characters]";
+
+    /**
+     * NoteAboutPatient for the patient note a chart shows: the text with each character XML 1.0
+     * cannot carry as U+FFFD ({@link #xmlElementText}) and, when that is longer than the
+     * element's 64,000 characters (code points), its first characters followed by {@link
+     * #PATIENT_NOTE_SHORTENED_MARK}. The exporter writes the element this way and carries the
+     * stored column whenever the element is not the note exactly; the importer proves the
+     * carried column against the element by the same rule.
+     *
+     * @param shown the note as the chart shows it ({@code DemographicCust.patientNotesText})
+     */
+    public static String patientNoteElement(String shown) {
+        String element = xmlElementText(shown);
+        if (element.codePointCount(0, element.length()) <= PATIENT_NOTE_LENGTH) return element;
+        int kept =
+                PATIENT_NOTE_LENGTH
+                        - PATIENT_NOTE_SHORTENED_MARK.codePointCount(
+                                0, PATIENT_NOTE_SHORTENED_MARK.length());
+        return element.substring(0, element.offsetByCodePoints(0, kept))
+                + PATIENT_NOTE_SHORTENED_MARK;
+    }
+
+    /**
+     * Whether {@code element} is what the exporter writes for the stored value {@code exact}
+     * ({@link #xmlElementText}: the same text with U+FFFD in place of each character XML 1.0
+     * cannot carry) and {@code exact} is a value a CARLOS column can hold (every surrogate is
+     * paired). The importer restores a carried value only when this holds for its element.
+     */
+    public static boolean isElementTextOf(String element, String exact) {
+        return element != null
+                && exact != null
+                && storable(exact)
+                && xmlElementText(exact).equals(element);
+    }
+
+    /**
+     * Whether a CARLOS text column (utf8mb4) can hold {@code value}: every surrogate in it is
+     * paired. A carried value that is not is no value a CARLOS chart stored.
+     */
+    public static boolean storable(String value) {
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (Character.isHighSurrogate(c)
+                    && i + 1 < value.length()
+                    && Character.isLowSurrogate(value.charAt(i + 1))) i++;
+            else if (Character.isSurrogate(c)) return false;
+        }
+        return true;
+    }
+
+    /**
+     * The patient Alert (the master record's Alert box) exactly, written beside an
+     * AlertsAndSpecialNeeds/AlertDescription that could not hold it: the element shows each
+     * character XML 1.0 cannot carry as U+FFFD ({@link #xmlElementText}). Content is the JSON
+     * object {@code {"version":1,"alert":"<text>"}} with every space written as an escape.
+     */
+    public static final String PATIENT_ALERT = "CARLOS.PatientAlert.v1";
+
+    /**
+     * Element text for a stored value: each character XML 1.0 cannot carry (a C0 control other
+     * than tab, carriage return and line feed, U+FFFE, U+FFFF, a lone surrogate) replaced by
+     * U+FFFD, one for one. The exporter writes an element this way and carries the exact value
+     * in a CARLOS carrier; the importer proves a carrier against its element by the same rule.
+     *
+     * @return the same instance when nothing was replaced
+     */
+    public static String xmlElementText(String value) {
+        StringBuilder safe = null;
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            boolean paired =
+                    Character.isHighSurrogate(c)
+                                    && i + 1 < value.length()
+                                    && Character.isLowSurrogate(value.charAt(i + 1))
+                            || Character.isLowSurrogate(c)
+                                    && i > 0
+                                    && Character.isHighSurrogate(value.charAt(i - 1));
+            boolean illegal =
+                    c < 0x20 && c != '\t' && c != '\r' && c != '\n'
+                            || c == 0xfffe
+                            || c == 0xffff
+                            || Character.isSurrogate(c) && !paired;
+            if (illegal && safe == null) safe = new StringBuilder(value.length()).append(value, 0, i);
+            if (safe != null) safe.append(illegal ? '\ufffd' : c);
+        }
+        return safe == null ? value : safe.toString();
+    }
+
+    /**
+     * The alert text of a {@link #PATIENT_ALERT} carrier.
+     *
+     * @throws IllegalArgumentException when the content is not exactly that carrier: one object,
+     *     version 1, one textual, non-empty {@code alert}, no other member, no raw white space
+     */
+    public static String decodePatientAlert(String content) {
+        if (content == null
+                || content.isEmpty()
+                || content.chars().anyMatch(c -> c == ' ' || c == '\t' || c == '\r' || c == '\n'))
+            throw new IllegalArgumentException("CDS_PATIENT_ALERT_CARRIER_INVALID");
+        try {
+            var node = NARRATIVE_JSON.readTree(content);
+            if (node == null
+                    || !node.isObject()
+                    || node.size() != 2
+                    || !node.path("version").isInt()
+                    || node.path("version").intValue() != 1
+                    || !node.path("alert").isTextual()
+                    || node.path("alert").textValue().isEmpty())
+                throw new IllegalArgumentException("CDS_PATIENT_ALERT_CARRIER_INVALID");
+            return node.path("alert").textValue();
+        } catch (com.fasterxml.jackson.core.JsonProcessingException malformed) {
+            throw new IllegalArgumentException("CDS_PATIENT_ALERT_CARRIER_INVALID");
+        }
+    }
+
+    private static final com.fasterxml.jackson.databind.ObjectMapper NARRATIVE_JSON =
+            new com.fasterxml.jackson.databind.ObjectMapper()
+                    .enable(
+                            com.fasterxml.jackson.databind.DeserializationFeature
+                                    .FAIL_ON_TRAILING_TOKENS);
+
+    /**
+     * One JSON string literal in which every XML whitespace character (space, tab, line feed,
+     * carriage return) is a JSON escape, so token normalization cannot alter it.
+     */
+    public static String encodeNarrative(String text) {
+        if (text == null) throw new IllegalArgumentException("CDS_HISTORY_NARRATIVE_ENCODING_INVALID");
+        try {
+            return NARRATIVE_JSON.writeValueAsString(text).replace(" ", "\\u0020");
+        } catch (com.fasterxml.jackson.core.JsonProcessingException impossible) {
+            throw new IllegalStateException("CDS_HISTORY_NARRATIVE_ENCODING_INVALID", impossible);
+        }
+    }
+
+    /** Exact inverse of {@link #encodeNarrative}; any other shape is refused, never guessed. */
+    public static String decodeNarrative(String encoded) {
+        if (encoded == null
+                || encoded.isEmpty()
+                || encoded.chars().anyMatch(c -> c == ' ' || c == '\t' || c == '\r' || c == '\n'))
+            throw new IllegalArgumentException("CDS_HISTORY_NARRATIVE_ENCODING_INVALID");
+        try {
+            var node = NARRATIVE_JSON.readTree(encoded);
+            if (node == null || !node.isTextual())
+                throw new IllegalArgumentException("CDS_HISTORY_NARRATIVE_ENCODING_INVALID");
+            return node.textValue();
+        } catch (com.fasterxml.jackson.core.JsonProcessingException malformed) {
+            throw new IllegalArgumentException("CDS_HISTORY_NARRATIVE_ENCODING_INVALID");
+        }
+    }
+
+    /**
+     * Leads the prescription's Notes when its name is longer than DrugName (120 characters): the
+     * name follows, then a line break and the stored comment, if any. DrugName then holds a
+     * fixed statement.
+     */
+    public static final String MEDICATION_LONG_NAME_LABEL = "Drug name: ";
+
+    /**
+     * Separates the SIG from the pharmacy instructions in PrescriptionInstructions when both are
+     * recorded and differ, and the two fit together.
+     */
+    public static final String MEDICATION_PHARMACY_INSTRUCTIONS_LABEL =
+            "\n[Native pharmacy instructions]\n";
+
+    /** A vaccine's Notes holds 32,000 characters (code points), as the guide counts text32K. */
+    public static final int PREVENTION_NOTES_LENGTH = 32000;
+
+    /**
+     * The label that opens a vaccine's Notes for a stored status no other element states in
+     * words: completed externally (given, RefusedFlag N) and ineligible (not given, Y).
+     */
+    public static final java.util.Map<String, String> PREVENTION_STATUS_NOTES =
+            java.util.Map.of("2", "Ineligible", "3", "Completed externally");
+
+    /**
+     * One stored vaccine value too long for its element, moved whole to Notes as {@code label:
+     * value}: the extension keys it is read from, the label, and the element's length.
+     */
+    public record PreventionNotesLine(java.util.List<String> keys, String label, int maximum) {}
+
+    /** The values the exporter moves to a vaccine's Notes, in the order it writes them. */
+    public static final java.util.List<PreventionNotesLine> PREVENTION_NOTES_LINES =
+            java.util.List.of(
+                    new PreventionNotesLine(java.util.List.of("name", "cdsName"), "Name", 120),
+                    new PreventionNotesLine(java.util.List.of("manufacture"), "Manufacturer", 120),
+                    new PreventionNotesLine(java.util.List.of("lot"), "Lot number", 120),
+                    new PreventionNotesLine(java.util.List.of("route"), "Route", 120),
+                    new PreventionNotesLine(java.util.List.of("location"), "Site", 120),
+                    new PreventionNotesLine(java.util.List.of("dose"), "Dose", 120),
+                    new PreventionNotesLine(
+                            java.util.List.of("instructions"), "Instructions", 250));
+
+    /**
+     * Complete native prescription context; unqualified codes remain explicitly unqualified. A
+     * CARLOS importer restores only the quantity unit ({@code unitName}) and the as-needed flag
+     * ({@code prn}) from it, and only when the standard Quantity and Frequency/TreatmentType
+     * written from the same row agree (#6198); every other column stays retained source.
+     */
+    public static final String MEDICATION_SOURCE_CONTEXT = "CARLOS.Medication.Source.v1";
+
+    /**
+     * The complete current native row of an imported prescription that was changed in CARLOS after
+     * its import and whose change CDS 5.2 has no element for (deleted or discontinued with its
+     * reason and date, hidden from the CPP, filed under a script, ...), in the shape of
+     * {@link #MEDICATION_SOURCE_CONTEXT}. It is written beside the sender's untouched residual
+     * elements and states the receiving chart's own columns; a sender's
+     * {@link #MEDICATION_SOURCE_CONTEXT} stays what the sender wrote. An importer treats it as
+     * opaque source.
+     */
+    public static final String MEDICATION_CURRENT_SOURCE = "CARLOS.Medication.CurrentSource.v1";
+
+    /**
+     * Exact native archive state. The exported PrescriptionStatus of an archived row is derived
+     * from its archive reason (Obsolete, Nullified or Aborted), never its stale copied status.
+     */
+    public static final String MEDICATION_ARCHIVED = "CARLOS.Medication.Archived.v1";
+
+    /**
+     * Every indication (reason, {@code drugReason}) the chart shows for a prescription, in id
+     * order: each row's coding system, code, comments, primary and archived flags, archive
+     * reason, recording provider number and coded date, with SQL NULL and empty text distinct
+     * and no literal XML whitespace. The standard ProblemCode, which names no coding system and
+     * holds ten characters, carries at most one ICD-9 code; this carrier keeps them all. An
+     * importer treats it as opaque source; it does not establish a native reason.
+     */
+    public static final String MEDICATION_REASONS = "CARLOS.Medication.Reasons.v1";
+
+    /**
+     * Complete native prevention rows (the parent, every extension and every date-precision row)
+     * behind a PastHealth entry exported from a CARLOS screening, or behind an Immunizations entry
+     * exported from a vaccine recorded in CARLOS. SQL NULL and empty text stay distinct, and the
+     * JSON carries no literal XML whitespace so token normalization cannot alter it. From an
+     * Immunizations entry a CARLOS importer restores only the free-text "Other" provider
+     * ({@code provider_no} -1 with its {@code providerName} extension) and the reminder date
+     * ({@code next_date}), once the carrier's status matches RefusedFlag (#6198).
+     */
+    public static final String PREVENTION_SOURCE_CONTEXT = "CARLOS.Prevention.Source.v1";
+
+    public static final String BOOLEAN_TYPE = "boolean";
+    public static final String STRING_TYPE = "string";
+
+    /** Labels match the native allergy vocabulary; no other code means Unknown. */
+    public static final java.util.Map<String, String> ALLERGY_ONSET_VALUES =
+            java.util.Map.of("0", "Unknown", "1", "Immediate", "2", "Gradual", "3", "Slow");
+
+    /** WHO ATC hierarchy: anatomical group through chemical substance; one exact code. */
+    // FindSecBugs REDOS: The pattern matches at most seven characters: every group is optional once and nothing is repeated without a fixed count, so there is nothing to backtrack over.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "REDOS", justification = "the pattern matches at most seven characters: every group is optional once and nothing is repeated without a fixed count, so there is nothing to backtrack over")
+    public static boolean validAllergyAtc(String value) {
+        return value != null
+                && value.matches("[ABCDGHJLMNPRSV](?:[0-9]{2}(?:[A-Z](?:[A-Z](?:[0-9]{2})?)?)?)?");
+    }
+}

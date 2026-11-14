@@ -254,3 +254,61 @@ without skips, cancellations or source mutation; Python 3 passes the 30
 coverage-tooling tests, and 398 of the 405 CI tests: the other seven compare the
 shipped `carlos-ctl` pin (1.3.3, from `main`) with the published identity recorded
 for 1.3.2 and cannot pass until 1.3.3 is published and that record is updated.
+
+The CDS release integration measures 38,311 Java cases at `57834fb7e141`
+(37,935 passes, 376 explicit routed/prerequisite skips, no failures or errors).
+Its coverage baseline also includes the fresh MariaDB export run at
+`fea89675daa9`: 2,304 cases across 185 suites, with no skips, failures or errors.
+All 7,000 production class files were compared individually and are byte-identical
+between those runs; the baseline records that manifest and both execution hashes.
+These overlapping executions are separate evidence, not 40,615 unique tests.
+
+The regenerated baseline binds 1,263 changed Java paths and nine nonexecutable
+package-documentation exclusions. The three new exclusions contain documentation
+only and name their concrete contract tests. Historical floors follow the two
+schema-parser classes moved into the shared CDS contract package. All 137 higher
+historical metric assertions and the required ZIP refusal lines remain intact.
+No zero-coverage waiver is added. The source-freshness check passes, while 95
+unreviewed zero floors and any unmet higher assertions remain refused by the
+coverage gate. This is not full release-coverage qualification.
+
+Test counts use the existing strict `junit_evidence.read_surefire` reader. It
+counts every distinct container/case and records the known Surefire 3.5.6 nested
+method-name header collision; other inconsistent counters, duplicate cases,
+failures and reruns remain refusals. The report-manifest hash uses sorted
+name/SHA-256 entries encoded as compact canonical JSON plus a final newline.
+
+The `3528ac5aea96` CDS checkpoint records 38,436 distinct H2 cases across
+2,856 suites, including 386 explicit routed/prerequisite skips and no failures
+or errors. Its three passing MariaDB CDS executions record 2,416 export cases
+across 198 suites, 1,189 import cases across 94 suites and 392 shared cases
+across 30 suites, each without skips, failures or errors. All 7,047 production
+class files are individually byte-identical between the H2 and native builds.
+The baseline records the four execution hashes, the merged JaCoCo report and
+the production-class manifest. These executions overlap and are not summed as
+unique tests.
+
+This refresh binds 1,292 changed Java paths and the same nine nonexecutable
+exclusions. It preserves 191 higher historical metric assertions and all
+required refusal lines. Source freshness passes. The current measurements leave
+92 executable files without line coverage; retained historical floors leave 88
+unreviewed zero floors. Those and unmet historical assertions remain subject to
+the coverage gate.
+No waiver or lower threshold is introduced. This CDS evidence does not replace
+the complete release-lane union required for release coverage acceptance.
+
+The `d074b11dd9a4` checkpoint includes the literal metadata projections, explicit
+CLI prescription DAO binding and exact routes for the additional native cases.
+Its complete H2 run records 38,437 cases across 2,856 suites, with 387 explicitly
+routed/prerequisite skips and no failures or errors. Export passes 2,417 cases
+across 198 suites, import 1,189 across 94 and shared 392 across 30, each without
+skips or failures. The five permission-sensitive cases also pass as an actual
+unprivileged user at `c49ad841853f`, whose Java source and test trees are identical.
+All 7,047 compiled production classes match individually across these builds.
+
+The measured union records all five execution hashes. It retains the same
+1,292 floors and nine exclusions, all required refusal lines and 190 higher
+historical metric assertions. Source freshness passes; 92 files without measured
+line coverage, 88 unreviewed zero floors and unmet historical assertions remain
+explicit. These overlapping executions are not unique-test sums, and this
+checkpoint adds no waiver or lower threshold.

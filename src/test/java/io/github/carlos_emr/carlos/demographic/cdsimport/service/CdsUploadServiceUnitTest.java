@@ -35,18 +35,23 @@ import io.github.carlos_emr.carlos.commn.model.CdsUpload;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsUploadException;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.LongSupplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -54,6 +59,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.SimpleTransactionStatus;
 
 @DisplayName("Durable bounded CDS raw uploads")
@@ -61,41 +67,100 @@ class CdsUploadServiceUnitTest extends CarlosUnitTestBase {
     @TempDir Path temporary;
     private CdsUploadService service;
     private CdsUploadDao uploads;
+    private CdsImportAdmissionDao admission;
+    private PlatformTransactionManager manager;
     private CdsImportAdmission budget;
     private final Map<String, CdsUpload> stored = new HashMap<>();
     private static final String OWNER = "web-42";
     private static final int CHUNK = 65536;
 
-    @BeforeEach void prepare() {
-        stored.clear(); uploads = mock(CdsUploadDao.class);
-        CdsImportAdmissionDao admission = mock(CdsImportAdmissionDao.class);
-        budget = new CdsImportAdmission(); budget.setId("UPLOAD_BUDGET");
+    @BeforeEach
+    void prepare() {
+        stored.clear();
+        uploads = mock(CdsUploadDao.class);
+        admission = mock(CdsImportAdmissionDao.class);
+        budget = new CdsImportAdmission();
+        budget.setId("UPLOAD_BUDGET");
         when(admission.lock("UPLOAD_BUDGET")).thenReturn(budget);
         when(uploads.get(anyString())).thenAnswer(call -> stored.get(call.getArgument(0)));
         when(uploads.lock(anyString())).thenAnswer(call -> stored.get(call.getArgument(0)));
-        when(uploads.lockActualRun(anyString())).thenAnswer(call -> stored.values().stream()
-                .filter(row -> call.getArgument(0).equals(row.getRunId())).findFirst().orElse(null));
-        when(uploads.reservedCount()).thenAnswer(call -> stored.values().stream().filter(row -> !row.isQuotaReleased()).count());
-        doAnswer(call -> { CdsUpload row = call.getArgument(0); stored.put(row.getId(), row); return null; }).when(uploads).persist(any());
-        doAnswer(call -> { CdsUpload row = call.getArgument(0); stored.put(row.getId(), row); return null; }).when(uploads).merge(any());
-        PlatformTransactionManager manager = mock(PlatformTransactionManager.class);
+        when(uploads.lockActualRun(anyString()))
+                .thenAnswer(
+                        call ->
+                                stored.values().stream()
+                                        .filter(row -> call.getArgument(0).equals(row.getRunId()))
+                                        .findFirst()
+                                        .orElse(null));
+        when(uploads.reservedCount())
+                .thenAnswer(
+                        call ->
+                                stored.values().stream()
+                                        .filter(row -> !row.isQuotaReleased())
+                                        .count());
+        doAnswer(
+                        call -> {
+                            CdsUpload row = call.getArgument(0);
+                            stored.put(row.getId(), row);
+                            return null;
+                        })
+                .when(uploads)
+                .persist(any());
+        doAnswer(
+                        call -> {
+                            CdsUpload row = call.getArgument(0);
+                            stored.put(row.getId(), row);
+                            return null;
+                        })
+                .when(uploads)
+                .merge(any());
+        manager = mock(PlatformTransactionManager.class);
         when(manager.getTransaction(any())).thenAnswer(call -> new SimpleTransactionStatus());
+        service = service(Map.of());
+    }
+
+    /**
+     * An upload service over the shared fixture. The deployment still sets the retired 4 MiB file
+     * and 8 MiB total budgets, which no longer refuse anything.
+     */
+    private CdsUploadService service(Map<String, String> overrides) {
+        return service(overrides, System::nanoTime);
+    }
+
+    /** As above, with {@code nanoTime} as the clock that times the gap between received bytes. */
+    private CdsUploadService service(Map<String, String> overrides, LongSupplier nanoTime) {
         Properties properties = new Properties();
-        properties.setProperty("cds.import.enabled", "true"); properties.setProperty("cds.import.clinicalZone", java.time.ZoneId.systemDefault().getId());
+        properties.setProperty("cds.import.enabled", "true");
+        properties.setProperty("cds.import.clinicalZone", java.time.ZoneId.systemDefault().getId());
         properties.setProperty("cds.import.uploadRoot", temporary.resolve("uploads").toString());
         properties.setProperty("cds.import.upload.maxChunkBytes", Integer.toString(CHUNK));
         properties.setProperty("cds.import.upload.maxFileBytes", Long.toString(4L << 20));
         properties.setProperty("cds.import.upload.maxTotalBytes", Long.toString(8L << 20));
         properties.setProperty("cds.import.minimumFreeDiskBytes", "1");
-        service = new CdsUploadService(uploads, admission, new CdsImportConfigurationService(properties), manager);
+        overrides.forEach(properties::setProperty);
+        return new CdsUploadService(
+                uploads,
+                admission,
+                new CdsImportConfigurationService(properties),
+                manager,
+                nanoTime);
     }
 
-    @Test void shouldStoreOpaqueBytesAndExactReceipts_whenChunksCommit() throws Exception {
+    @Test
+    void shouldStoreOpaqueBytesAndExactReceipts_whenChunksCommit() throws Exception {
         var receipt = service.begin(OWNER, "Synthetic Name 1971-03-04.xml", CHUNK + 7);
-        byte[] first = new byte[CHUNK]; java.util.Arrays.fill(first, (byte) 7);
-        service.append(OWNER, receipt.id(), 0, first.length, hash(first), new ByteArrayInputStream(first));
+        byte[] first = new byte[CHUNK];
+        java.util.Arrays.fill(first, (byte) 7);
+        service.append(
+                OWNER, receipt.id(), 0, first.length, hash(first), new ByteArrayInputStream(first));
         byte[] last = "lastxml".getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        var done = service.append(OWNER, receipt.id(), CHUNK, last.length, hash(last), new ByteArrayInputStream(last));
+        var done =
+                service.append(
+                        OWNER,
+                        receipt.id(),
+                        CHUNK,
+                        last.length,
+                        hash(last),
+                        new ByteArrayInputStream(last));
         assertThat(done.receivedBytes()).isEqualTo(CHUNK + 7);
         assertThat(service.finish(OWNER, receipt.id()).state()).isEqualTo("COMPLETE");
         assertThat(service.chunks(OWNER, receipt.id(), 0, 100)).hasSize(2);
@@ -111,120 +176,231 @@ class CdsUploadServiceUnitTest extends CarlosUnitTestBase {
         assertThat(receipt.toString()).doesNotContain("Synthetic Name", "1971");
     }
 
-    @Test void shouldReuseExactChunkReceipt_whenAcknowledgementIsRetried() throws Exception {
+    @Test
+    void shouldReuseExactChunkReceipt_whenAcknowledgementIsRetried() throws Exception {
         byte[] bytes = "content".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         var upload = service.begin(OWNER, "source.xml", bytes.length);
-        service.append(OWNER, upload.id(), 0, bytes.length, hash(bytes), new ByteArrayInputStream(bytes));
-        var repeated = service.append(OWNER, upload.id(), 0, bytes.length, hash(bytes), new ByteArrayInputStream(bytes));
+        service.append(
+                OWNER, upload.id(), 0, bytes.length, hash(bytes), new ByteArrayInputStream(bytes));
+        var repeated =
+                service.append(
+                        OWNER,
+                        upload.id(),
+                        0,
+                        bytes.length,
+                        hash(bytes),
+                        new ByteArrayInputStream(bytes));
         assertThat(repeated.committedChunks()).isEqualTo(1);
         assertThat(repeated.receivedBytes()).isEqualTo(bytes.length);
-        assertThat(Files.size(temporary.resolve("uploads").resolve(upload.id()).resolve("chunks.bin"))).isEqualTo(52);
+        assertThat(
+                        Files.size(
+                                temporary
+                                        .resolve("uploads")
+                                        .resolve(upload.id())
+                                        .resolve("chunks.bin")))
+                .isEqualTo(52);
     }
 
-    @Test void shouldRefuseChangedRetry_whenOffsetAlreadyCommitted() throws Exception {
+    @Test
+    void shouldRefuseChangedRetry_whenOffsetAlreadyCommitted() throws Exception {
         byte[] bytes = "content".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         var upload = service.begin(OWNER, "source.xml", bytes.length);
-        service.append(OWNER, upload.id(), 0, bytes.length, hash(bytes), new ByteArrayInputStream(bytes));
+        service.append(
+                OWNER, upload.id(), 0, bytes.length, hash(bytes), new ByteArrayInputStream(bytes));
         byte[] different = "changed".getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        assertThatThrownBy(() -> service.append(OWNER, upload.id(), 0, different.length, hash(different), new ByteArrayInputStream(different)))
-                .isInstanceOf(CdsUploadException.class).hasMessage("UPLOAD_RETRY_CONTENT_CONFLICT");
-        assertThat(Files.readString(temporary.resolve("uploads").resolve(upload.id()).resolve("source.xml"))).isEqualTo("content");
+        assertThatThrownBy(
+                        () ->
+                                service.append(
+                                        OWNER,
+                                        upload.id(),
+                                        0,
+                                        different.length,
+                                        hash(different),
+                                        new ByteArrayInputStream(different)))
+                .isInstanceOf(CdsUploadException.class)
+                .hasMessage("UPLOAD_RETRY_CONTENT_CONFLICT");
+        assertThat(
+                        Files.readString(
+                                temporary
+                                        .resolve("uploads")
+                                        .resolve(upload.id())
+                                        .resolve("source.xml")))
+                .isEqualTo("content");
     }
 
-    @Test void shouldRejectBadHashWithoutProgress_whenChunkIsMalformed() throws Exception {
+    @Test
+    void shouldRejectBadHashWithoutProgress_whenChunkIsMalformed() throws Exception {
         byte[] bytes = "content".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         var upload = service.begin(OWNER, "source.xml", bytes.length);
-        assertThatThrownBy(() -> service.append(OWNER, upload.id(), 0, bytes.length, "0".repeat(64), new ByteArrayInputStream(bytes)))
+        assertThatThrownBy(
+                        () ->
+                                service.append(
+                                        OWNER,
+                                        upload.id(),
+                                        0,
+                                        bytes.length,
+                                        "0".repeat(64),
+                                        new ByteArrayInputStream(bytes)))
                 .hasMessage("UPLOAD_CHUNK_HASH_MISMATCH");
         assertThat(service.status(OWNER, upload.id()).receivedBytes()).isZero();
-        assertThatThrownBy(() -> service.finish(OWNER, upload.id())).hasMessage("UPLOAD_INCOMPLETE");
+        assertThatThrownBy(() -> service.finish(OWNER, upload.id()))
+                .hasMessage("UPLOAD_INCOMPLETE");
     }
 
-    @Test void shouldStopAtBoundedBodyLimit_whenClientSendsExtraBytes() throws Exception {
+    @Test
+    void shouldStopAtBoundedBodyLimit_whenClientSendsExtraBytes() throws Exception {
         var upload = service.begin(OWNER, "source.xml", CHUNK);
-        java.util.concurrent.atomic.AtomicLong consumed = new java.util.concurrent.atomic.AtomicLong();
-        var infinite = new java.io.InputStream() {
-            @Override public int read() { consumed.incrementAndGet(); return 1; }
-            @Override public int read(byte[] bytes) { java.util.Arrays.fill(bytes, (byte) 1); consumed.addAndGet(bytes.length); return bytes.length; }
-        };
-        assertThatThrownBy(() -> service.append(OWNER, upload.id(), 0, CHUNK, "0".repeat(64), infinite))
+        java.util.concurrent.atomic.AtomicLong consumed =
+                new java.util.concurrent.atomic.AtomicLong();
+        var infinite =
+                new java.io.InputStream() {
+                    @Override
+                    public int read() {
+                        consumed.incrementAndGet();
+                        return 1;
+                    }
+
+                    @Override
+                    public int read(byte[] bytes) {
+                        java.util.Arrays.fill(bytes, (byte) 1);
+                        consumed.addAndGet(bytes.length);
+                        return bytes.length;
+                    }
+                };
+        assertThatThrownBy(
+                        () ->
+                                service.append(
+                                        OWNER, upload.id(), 0, CHUNK, "0".repeat(64), infinite))
                 .hasMessage("UPLOAD_CHUNK_SIZE_MISMATCH");
         assertThat(consumed.get()).isLessThanOrEqualTo(CHUNK + 8192L);
         assertThat(service.status(OWNER, upload.id()).receivedBytes()).isZero();
     }
 
-    @Test void shouldTruncateUncommittedTails_whenResumingKnownCheckpoint() throws Exception {
-        byte[] first = new byte[CHUNK]; byte[] last = "lastxml".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    @Test
+    void shouldTruncateUncommittedTails_whenResumingKnownCheckpoint() throws Exception {
+        byte[] first = new byte[CHUNK];
+        byte[] last = "lastxml".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         var upload = service.begin(OWNER, "source.xml", CHUNK + last.length);
-        service.append(OWNER, upload.id(), 0, first.length, hash(first), new ByteArrayInputStream(first));
+        service.append(
+                OWNER, upload.id(), 0, first.length, hash(first), new ByteArrayInputStream(first));
         Path directory = temporary.resolve("uploads").resolve(upload.id());
         Files.writeString(directory.resolve("source.xml"), "orphan", StandardOpenOption.APPEND);
         Files.writeString(directory.resolve("chunks.bin"), "orphan", StandardOpenOption.APPEND);
-        service.append(OWNER, upload.id(), CHUNK, last.length, hash(last), new ByteArrayInputStream(last));
+        service.append(
+                OWNER, upload.id(), CHUNK, last.length, hash(last), new ByteArrayInputStream(last));
         assertThat(Files.size(directory.resolve("source.xml"))).isEqualTo(CHUNK + last.length);
         assertThat(Files.size(directory.resolve("chunks.bin"))).isEqualTo(104);
     }
 
-    @Test void shouldNotFabricateMissingCommittedBytes_whenFileIsShorterThanCheckpoint() throws Exception {
+    @Test
+    void shouldNotFabricateMissingCommittedBytes_whenFileIsShorterThanCheckpoint()
+            throws Exception {
         byte[] first = new byte[CHUNK];
         var upload = service.begin(OWNER, "source.xml", CHUNK + 1);
-        service.append(OWNER, upload.id(), 0, first.length, hash(first), new ByteArrayInputStream(first));
-        Files.write(temporary.resolve("uploads").resolve(upload.id()).resolve("source.xml"), new byte[0]);
-        assertThatThrownBy(() -> service.append(OWNER, upload.id(), CHUNK, 1, hash(new byte[]{1}), new ByteArrayInputStream(new byte[]{1})))
+        service.append(
+                OWNER, upload.id(), 0, first.length, hash(first), new ByteArrayInputStream(first));
+        Files.write(
+                temporary.resolve("uploads").resolve(upload.id()).resolve("source.xml"),
+                new byte[0]);
+        assertThatThrownBy(
+                        () ->
+                                service.append(
+                                        OWNER,
+                                        upload.id(),
+                                        CHUNK,
+                                        1,
+                                        hash(new byte[] {1}),
+                                        new ByteArrayInputStream(new byte[] {1})))
                 .hasMessage("UPLOAD_STORAGE_INCOMPLETE");
     }
 
-    @Test void shouldFenceAbandonment_whenAcceptanceIsUnknownOrCommitted() throws Exception {
+    @Test
+    void shouldFenceAbandonment_whenAcceptanceIsUnknownOrCommitted() throws Exception {
         byte[] bytes = "content".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         var upload = service.begin(OWNER, "source.xml", bytes.length);
-        service.append(OWNER, upload.id(), 0, bytes.length, hash(bytes), new ByteArrayInputStream(bytes)); service.finish(OWNER, upload.id());
+        service.append(
+                OWNER, upload.id(), 0, bytes.length, hash(bytes), new ByteArrayInputStream(bytes));
+        service.finish(OWNER, upload.id());
         Path input = service.claimForSubmission(OWNER, upload.id());
-        assertThatThrownBy(() -> service.abandon(OWNER, upload.id())).hasMessage("UPLOAD_ACCEPTANCE_RECONCILIATION_REQUIRED");
+        assertThatThrownBy(() -> service.abandon(OWNER, upload.id()))
+                .hasMessage("UPLOAD_ACCEPTANCE_RECONCILIATION_REQUIRED");
         assertThat(Files.readString(input)).isEqualTo("content");
         String preview = UUID.randomUUID().toString(), actual = UUID.randomUUID().toString();
-        String previewKey = upload.submissionKey() + "-dry-run", actualKey = upload.submissionKey() + "-import";
+        String previewKey = upload.submissionKey() + "-dry-run",
+                actualKey = upload.submissionKey() + "-import";
         service.submitted(OWNER, upload.id(), preview, true);
         var previewReceipt = service.status(OWNER, upload.id());
         assertThat(previewReceipt.state()).isEqualTo("SUBMITTED_DRY_RUN");
         assertThat(previewReceipt.runId()).isNull();
         assertThat(previewReceipt.dryRunId()).isEqualTo(preview);
-        assertThat(service.sourceForAcceptedRun(OWNER, upload.id(), preview, previewKey, true)).isEqualTo(input);
+        assertThat(service.sourceForAcceptedRun(OWNER, upload.id(), preview, previewKey, true))
+                .isEqualTo(input);
         assertThat(service.status(OWNER, upload.id()).state()).isEqualTo("SUBMITTED_DRY_RUN");
-        assertThatThrownBy(() -> service.sourceForAcceptedRun(OWNER, upload.id(), preview, actualKey, false))
+        assertThatThrownBy(
+                        () ->
+                                service.sourceForAcceptedRun(
+                                        OWNER, upload.id(), preview, actualKey, false))
                 .hasMessage("UPLOAD_RUN_ASSOCIATION_INVALID");
-        assertThatThrownBy(() -> service.sourceForAcceptedRun(OWNER, upload.id(), actual, previewKey, true))
+        assertThatThrownBy(
+                        () ->
+                                service.sourceForAcceptedRun(
+                                        OWNER, upload.id(), actual, previewKey, true))
                 .hasMessage("UPLOAD_RUN_ASSOCIATION_INVALID");
-        assertThatThrownBy(() -> service.sourceForAcceptedRun("web-99", upload.id(), preview, previewKey, true))
+        assertThatThrownBy(
+                        () ->
+                                service.sourceForAcceptedRun(
+                                        "web-99", upload.id(), preview, previewKey, true))
                 .hasMessage("UPLOAD_NOT_FOUND");
         // Legacy preview workers left this state after re-claiming already accepted bytes.
         service.claimForSubmission(OWNER, upload.id());
         assertThat(service.status(OWNER, upload.id()).state()).isEqualTo("SUBMITTING");
         service.submitted(OWNER, upload.id(), preview, true);
-        assertThat(service.sourceForAcceptedRun(OWNER, upload.id(), preview, previewKey, true)).isEqualTo(input);
+        assertThat(service.sourceForAcceptedRun(OWNER, upload.id(), preview, previewKey, true))
+                .isEqualTo(input);
         assertThat(service.status(OWNER, upload.id()).state()).isEqualTo("SUBMITTING");
-        assertThatThrownBy(() -> service.sourceForAcceptedRun(OWNER, upload.id(), preview, actualKey, true))
+        assertThatThrownBy(
+                        () ->
+                                service.sourceForAcceptedRun(
+                                        OWNER, upload.id(), preview, actualKey, true))
                 .hasMessage("UPLOAD_RUN_ASSOCIATION_INVALID");
-        assertThatThrownBy(() -> service.abandon(OWNER, upload.id())).hasMessage("UPLOAD_ACCEPTANCE_RECONCILIATION_REQUIRED");
+        assertThatThrownBy(() -> service.abandon(OWNER, upload.id()))
+                .hasMessage("UPLOAD_ACCEPTANCE_RECONCILIATION_REQUIRED");
         service.submitted(OWNER, upload.id(), actual, false);
         var actualReceipt = service.status(OWNER, upload.id());
         assertThat(actualReceipt.state()).isEqualTo("SUBMITTED");
         assertThat(actualReceipt.runId()).isEqualTo(actual);
         assertThat(actualReceipt.dryRunId()).isEqualTo(preview);
-        assertThat(service.sourceForAcceptedRun(OWNER, upload.id(), actual, actualKey, false)).isEqualTo(input);
+        assertThat(service.sourceForAcceptedRun(OWNER, upload.id(), actual, actualKey, false))
+                .isEqualTo(input);
         assertThat(service.status(OWNER, upload.id()).state()).isEqualTo("SUBMITTED");
-        assertThatThrownBy(() -> service.sourceForAcceptedRun(OWNER, upload.id(), actual, previewKey, true))
+        assertThatThrownBy(
+                        () ->
+                                service.sourceForAcceptedRun(
+                                        OWNER, upload.id(), actual, previewKey, true))
                 .hasMessage("UPLOAD_RUN_ASSOCIATION_INVALID");
-        assertThatThrownBy(() -> service.abandon(OWNER, upload.id())).hasMessage("UPLOAD_ACCEPTANCE_RECONCILIATION_REQUIRED");
+        assertThatThrownBy(() -> service.abandon(OWNER, upload.id()))
+                .hasMessage("UPLOAD_ACCEPTANCE_RECONCILIATION_REQUIRED");
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"COMPLETE", "SUBMITTING", "SUBMITTED_DRY_RUN", "SUBMITTED", "SNAPSHOT_PUBLISHED", "RETIRED"})
-    void shouldResolveImmutableSourceWithoutClaiming_whenAcceptanceMayAlreadyExist(String state) throws Exception {
+    @ValueSource(
+            strings = {
+                "COMPLETE",
+                "SUBMITTING",
+                "SUBMITTED_DRY_RUN",
+                "SUBMITTED",
+                "SNAPSHOT_PUBLISHED",
+                "RETIRED"
+            })
+    void shouldResolveImmutableSourceWithoutClaiming_whenAcceptanceMayAlreadyExist(String state)
+            throws Exception {
         byte[] bytes = "content".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         var upload = service.begin(OWNER, "source.ZIP", bytes.length);
-        service.append(OWNER, upload.id(), 0, bytes.length, hash(bytes), new ByteArrayInputStream(bytes));
+        service.append(
+                OWNER, upload.id(), 0, bytes.length, hash(bytes), new ByteArrayInputStream(bytes));
         service.finish(OWNER, upload.id());
-        CdsUpload row = stored.get(upload.id()); row.setState(state);
+        CdsUpload row = stored.get(upload.id());
+        row.setState(state);
         Instant updated = row.getUpdatedAt();
         Path payload = temporary.resolve("uploads").resolve(upload.id()).resolve("source.zip");
         Files.delete(payload);
@@ -235,38 +411,75 @@ class CdsUploadServiceUnitTest extends CarlosUnitTestBase {
         assertThat(payload).doesNotExist();
         org.mockito.Mockito.verify(uploads, org.mockito.Mockito.never()).merge(any());
         org.mockito.Mockito.verify(uploads, org.mockito.Mockito.never()).lock(anyString());
-        assertThatThrownBy(() -> service.sourceForSubmission("web-99", upload.id())).hasMessage("UPLOAD_NOT_FOUND");
+        assertThatThrownBy(() -> service.sourceForSubmission("web-99", upload.id()))
+                .hasMessage("UPLOAD_NOT_FOUND");
     }
 
-    @Test void shouldRefuseUnsealedSourceWithoutChangingState_whenUploadIsOpen() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"CHART.ZIP", "Chart.Zip", "CHART.XML", "chart.xml"})
+    void shouldAcceptExtensionInAnyAsciiCase_underTurkishDefaultLocale(String name)
+            throws Exception {
+        // The extension decides whether a file may be uploaded and how it is read. It is folded
+        // over ASCII only, so the answer cannot follow the JVM default locale: a default-locale
+        // fold turns the I of ".ZIP" into a dotless i under tr-TR and would refuse the file.
+        java.util.Locale original = java.util.Locale.getDefault();
+        try {
+            java.util.Locale.setDefault(java.util.Locale.of("tr", "TR"));
+            var upload = service.begin(OWNER, name, 7);
+            boolean zip = name.toUpperCase(java.util.Locale.ROOT).endsWith(".ZIP");
+            assertThat(stored.get(upload.id()).getMediaKind()).isEqualTo(zip ? "ZIP" : "XML");
+        } finally {
+            java.util.Locale.setDefault(original);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"chart.z\u0131p", "chart.txt", "chart.xml.exe", "chart"})
+    void shouldRefuseOtherExtensions_includingLookAlikeLetters(String name) {
+        // U+0131 is a dotless i: not the i of ".zip", in any locale.
+        assertThatThrownBy(() -> service.begin(OWNER, name, 7))
+                .isInstanceOf(CdsUploadException.class)
+                .hasMessage("UPLOAD_NAME_OR_TYPE_INVALID");
+    }
+
+    @Test
+    void shouldRefuseUnsealedSourceWithoutChangingState_whenUploadIsOpen() throws Exception {
         var upload = service.begin(OWNER, "source.xml", 7);
-        assertThatThrownBy(() -> service.sourceForSubmission(OWNER, upload.id())).hasMessage("UPLOAD_NOT_COMPLETE");
+        assertThatThrownBy(() -> service.sourceForSubmission(OWNER, upload.id()))
+                .hasMessage("UPLOAD_NOT_COMPLETE");
         assertThat(service.status(OWNER, upload.id()).state()).isEqualTo("OPEN");
     }
 
-    @Test void shouldAvoidCreatingStorage_whenResolvingAReceiptWithMissingRoot() throws Exception {
+    @Test
+    void shouldAvoidCreatingStorage_whenResolvingAReceiptWithMissingRoot() throws Exception {
         var upload = service.begin(OWNER, "source.xml", 7);
         stored.get(upload.id()).setState("COMPLETE");
         Files.delete(temporary.resolve("uploads").resolve(upload.id()));
         Files.delete(temporary.resolve("uploads"));
-        assertThatThrownBy(() -> service.sourceForSubmission(OWNER, upload.id())).hasMessage("UPLOAD_ROOT_NOT_PRIVATE");
+        assertThatThrownBy(() -> service.sourceForSubmission(OWNER, upload.id()))
+                .hasMessage("UPLOAD_ROOT_NOT_PRIVATE");
         assertThat(temporary.resolve("uploads")).doesNotExist();
         assertThat(stored.get(upload.id()).getState()).isEqualTo("COMPLETE");
     }
 
-    @Test void shouldReleaseQuotaOnce_whenUnsubmittedUploadIsAbandonedRepeatedly() throws Exception {
+    @Test
+    void shouldReleaseQuotaOnce_whenUnsubmittedUploadIsAbandonedRepeatedly() throws Exception {
         var upload = service.begin(OWNER, "source.zip", 100);
         assertThat(budget.getReservedBytes()).isEqualTo(100);
-        service.abandon(OWNER, upload.id()); service.abandon(OWNER, upload.id());
+        service.abandon(OWNER, upload.id());
+        service.abandon(OWNER, upload.id());
         assertThat(budget.getReservedBytes()).isZero();
         assertThat(Files.exists(temporary.resolve("uploads").resolve(upload.id()))).isFalse();
     }
 
-    @Test void shouldSerializeCrossModeAcceptance_withoutWaitingOrChangingUploadState() throws Exception {
+    @Test
+    void shouldSerializeCrossModeAcceptance_withoutWaitingOrChangingUploadState() throws Exception {
         var upload = service.begin(OWNER, "source.xml", 1);
         try (var first = service.lockAcceptance(OWNER, upload.id())) {
-            assertThatThrownBy(() -> service.lockAcceptance(OWNER, upload.id())).hasMessage("UPLOAD_BUSY");
-            assertThatThrownBy(() -> service.lockAcceptance("web-99", upload.id())).hasMessage("UPLOAD_NOT_FOUND");
+            assertThatThrownBy(() -> service.lockAcceptance(OWNER, upload.id()))
+                    .hasMessage("UPLOAD_BUSY");
+            assertThatThrownBy(() -> service.lockAcceptance("web-99", upload.id()))
+                    .hasMessage("UPLOAD_NOT_FOUND");
             assertThat(service.status(OWNER, upload.id()).state()).isEqualTo("OPEN");
         }
         try (var next = service.lockAcceptance(OWNER, upload.id())) {
@@ -274,53 +487,340 @@ class CdsUploadServiceUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    @Test void shouldRetirePayloadButKeepPrefixProof_whenActualSnapshotIsDurablyPublished() throws Exception {
+    @Test
+    void shouldRetirePayloadButKeepPrefixProof_whenActualSnapshotIsDurablyPublished()
+            throws Exception {
         byte[] bytes = "content".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         var upload = service.begin(OWNER, "source.xml", bytes.length);
-        service.append(OWNER, upload.id(), 0, bytes.length, hash(bytes), new ByteArrayInputStream(bytes)); service.finish(OWNER, upload.id());
+        service.append(
+                OWNER, upload.id(), 0, bytes.length, hash(bytes), new ByteArrayInputStream(bytes));
+        service.finish(OWNER, upload.id());
         String dryRun = UUID.randomUUID().toString(), actual = UUID.randomUUID().toString();
-        service.claimForSubmission(OWNER, upload.id()); service.submitted(OWNER, upload.id(), dryRun, true);
-        assertThatThrownBy(() -> service.snapshotPublished(dryRun, "a".repeat(64))).hasMessage("UPLOAD_RUN_ASSOCIATION_NOT_READY");
-        Path input = service.claimForSubmission(OWNER, upload.id()); service.submitted(OWNER, upload.id(), actual, false);
-        service.snapshotPublished(actual, "a".repeat(64)); service.snapshotPublished(actual, "a".repeat(64));
-        assertThat(Files.exists(input)).isFalse(); assertThat(budget.getReservedBytes()).isZero();
+        service.claimForSubmission(OWNER, upload.id());
+        service.submitted(OWNER, upload.id(), dryRun, true);
+        assertThatThrownBy(() -> service.snapshotPublished(dryRun, "a".repeat(64)))
+                .hasMessage("UPLOAD_RUN_ASSOCIATION_NOT_READY");
+        Path input = service.claimForSubmission(OWNER, upload.id());
+        service.submitted(OWNER, upload.id(), actual, false);
+        service.snapshotPublished(actual, "a".repeat(64));
+        service.snapshotPublished(actual, "a".repeat(64));
+        assertThat(Files.exists(input)).isFalse();
+        assertThat(budget.getReservedBytes()).isZero();
         assertThat(service.status(OWNER, upload.id()).state()).isEqualTo("RETIRED");
         assertThat(service.status(OWNER, upload.id()).runId()).isEqualTo(actual);
         assertThat(service.status(OWNER, upload.id()).dryRunId()).isEqualTo(dryRun);
-        assertThat(service.chunks(OWNER, upload.id(), 0, 100).get(0).sha256()).isEqualTo(hash(bytes));
+        assertThat(service.chunks(OWNER, upload.id(), 0, 100).get(0).sha256())
+                .isEqualTo(hash(bytes));
         assertThat(service.claimForSubmission(OWNER, upload.id())).isEqualTo(input);
         service.submitted(OWNER, upload.id(), actual, false);
         assertThat(service.status(OWNER, upload.id()).state()).isEqualTo("RETIRED");
-        assertThatThrownBy(() -> service.snapshotPublished(actual, "b".repeat(64))).hasMessage("UPLOAD_SNAPSHOT_PUBLICATION_CONFLICT");
+        assertThatThrownBy(() -> service.snapshotPublished(actual, "b".repeat(64)))
+                .hasMessage("UPLOAD_SNAPSHOT_PUBLICATION_CONFLICT");
     }
 
-    @Test void shouldRejectForeignOwnerAndUnsafeName_withoutDisclosingSource() throws Exception {
+    @Test
+    void shouldRejectForeignOwnerAndUnsafeName_withoutDisclosingSource() throws Exception {
         var upload = service.begin(OWNER, "Synthetic Patient.xml", 100);
-        assertThatThrownBy(() -> service.status("web-99", upload.id())).hasMessage("UPLOAD_NOT_FOUND");
-        assertThatThrownBy(() -> service.begin(OWNER, "../Synthetic Patient.xml", 100)).hasMessage("UPLOAD_NAME_OR_TYPE_INVALID");
-        assertThatThrownBy(() -> service.status(OWNER, "../../escape")).hasMessage("UPLOAD_ID_INVALID");
+        assertThatThrownBy(() -> service.status("web-99", upload.id()))
+                .hasMessage("UPLOAD_NOT_FOUND");
+        assertThatThrownBy(() -> service.begin(OWNER, "../Synthetic Patient.xml", 100))
+                .hasMessage("UPLOAD_NAME_OR_TYPE_INVALID");
+        assertThatThrownBy(() -> service.status(OWNER, "../../escape"))
+                .hasMessage("UPLOAD_ID_INVALID");
     }
 
-    @Test void shouldAvoidInodeGrowth_whenCapacityRefusesNewUpload() throws Exception {
-        service.begin(OWNER, "source.xml", 100);
+    @Test
+    void shouldAcceptUploads_pastTheRetiredFileAndTotalByteBudgets() throws Exception {
+        // Already past the retired 8 MiB total, a 64 GiB upload begins and takes its chunks.
         budget.setReservedBytes(8L << 20);
-        long before;
-        try (var files = Files.list(temporary.resolve("uploads"))) { before = files.count(); }
-        assertThatThrownBy(() -> service.begin(OWNER, "source.xml", 100)).hasMessage("UPLOAD_CAPACITY_BUSY");
-        try (var files = Files.list(temporary.resolve("uploads"))) { assertThat(files.count()).isEqualTo(before); }
+        var large = service.begin(OWNER, "large-export.zip", 64L << 30);
+        assertThat(large.expectedBytes()).isEqualTo(64L << 30);
+        byte[] first = new byte[CHUNK];
+        java.util.Arrays.fill(first, (byte) 3);
+        var after =
+                service.append(
+                        OWNER, large.id(), 0, CHUNK, hash(first), new ByteArrayInputStream(first));
+        assertThat(after.receivedBytes()).isEqualTo(CHUNK);
+        assertThat(budget.getReservedBytes()).isEqualTo((8L << 20) + (64L << 30));
     }
 
-    @Test void shouldReleaseLocalAdmission_whenSameUploadIsBusy() throws Exception {
+    @Test
+    void shouldRefuseAChunkAtTheDiskReserve_andResumeTheSameUploadOnceSpaceReturns()
+            throws Exception {
+        var upload = service.begin(OWNER, "source.xml", CHUNK + 7);
+        // No store has this much free space: the chunk is refused before a byte is written.
+        var full =
+                service(
+                        Map.of(
+                                "cds.import.minimumFreeDiskBytes",
+                                Long.toString(Long.MAX_VALUE / 2)));
+        byte[] first = new byte[CHUNK];
+        java.util.Arrays.fill(first, (byte) 5);
+        assertThatThrownBy(
+                        () ->
+                                full.append(
+                                        OWNER,
+                                        upload.id(),
+                                        0,
+                                        CHUNK,
+                                        hash(first),
+                                        new ByteArrayInputStream(first)))
+                .hasMessage("UPLOAD_DISK_RESERVE_REFUSED");
+        assertThat(service.status(OWNER, upload.id()).receivedBytes()).isZero();
+        Path payload = temporary.resolve("uploads").resolve(upload.id()).resolve("source.xml");
+        assertThat(Files.exists(payload) ? Files.size(payload) : 0L).isZero();
+        var resumed =
+                service.append(
+                        OWNER, upload.id(), 0, CHUNK, hash(first), new ByteArrayInputStream(first));
+        assertThat(resumed.receivedBytes()).isEqualTo(CHUNK);
+    }
+
+    @Test
+    void shouldNameTheRetiredUploadBudgetsOnce_withoutTheirValues() throws Exception {
+        try (var log =
+                io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(
+                        CdsImportConfigurationService.class)) {
+            service.begin(OWNER, "one.xml", 10);
+            service.begin(OWNER, "two.xml", 10);
+            assertThat(log.events()).hasSize(1);
+            assertThat(log.messages().getFirst())
+                    .contains(
+                            "CDS_IMPORT_RETIRED_SETTINGS_IGNORED",
+                            "cds.import.upload.maxFileBytes",
+                            "cds.import.upload.maxTotalBytes")
+                    .doesNotContain(Long.toString(4L << 20))
+                    .doesNotContain(Long.toString(8L << 20));
+        }
+    }
+
+    @Test
+    void shouldAvoidInodeGrowth_whenThePendingUploadCountRefusesANewUpload() throws Exception {
+        var counted = service(Map.of("cds.import.upload.maxFiles", "1"));
+        counted.begin(OWNER, "source.xml", 100);
+        long before;
+        try (var files = Files.list(temporary.resolve("uploads"))) {
+            before = files.count();
+        }
+        assertThatThrownBy(() -> counted.begin(OWNER, "source.xml", 100))
+                .hasMessage("UPLOAD_CAPACITY_BUSY");
+        try (var files = Files.list(temporary.resolve("uploads"))) {
+            assertThat(files.count()).isEqualTo(before);
+        }
+    }
+
+    @Test
+    void shouldReleaseLocalAdmission_whenSameUploadIsBusy() throws Exception {
         var upload = service.begin(OWNER, "source.xml", 1);
         Path lock = temporary.resolve("uploads").resolve(upload.id()).resolve("body.lock");
-        try (var channel = FileChannel.open(lock, StandardOpenOption.CREATE, StandardOpenOption.WRITE); var held = channel.lock()) {
-            for (int n = 0; n < 10; n++) assertThatThrownBy(() -> service.append(OWNER, upload.id(), 0, 1,
-                    hash(new byte[]{1}), new ByteArrayInputStream(new byte[]{1}))).hasMessage("UPLOAD_BUSY");
+        try (var channel =
+                        FileChannel.open(
+                                lock, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+                var held = channel.lock()) {
+            for (int n = 0; n < 10; n++)
+                assertThatThrownBy(
+                                () ->
+                                        service.append(
+                                                OWNER,
+                                                upload.id(),
+                                                0,
+                                                1,
+                                                hash(new byte[] {1}),
+                                                new ByteArrayInputStream(new byte[] {1})))
+                        .hasMessage("UPLOAD_BUSY");
         }
-        assertThat(service.append(OWNER, upload.id(), 0, 1, hash(new byte[]{1}), new ByteArrayInputStream(new byte[]{1})).receivedBytes()).isEqualTo(1);
+        assertThat(
+                        service.append(
+                                        OWNER,
+                                        upload.id(),
+                                        0,
+                                        1,
+                                        hash(new byte[] {1}),
+                                        new ByteArrayInputStream(new byte[] {1}))
+                                .receivedBytes())
+                .isEqualTo(1);
+    }
+
+    @Test
+    void shouldStoreAChunk_whileItsBytesKeepArrivingFarPastTheWindow() throws Exception {
+        AtomicLong clock = new AtomicLong();
+        var timed = service(Map.of(), clock::get);
+        var upload = timed.begin(OWNER, "source.xml", CHUNK);
+        byte[] bytes = new byte[CHUNK];
+        java.util.Arrays.fill(bytes, (byte) 9);
+        // Ten reads, the first and every later one arriving a whole window after the last: the
+        // chunk takes twenty minutes, ten times the old fixed two-minute deadline.
+        var stored =
+                timed.append(
+                        OWNER,
+                        upload.id(),
+                        0,
+                        CHUNK,
+                        hash(bytes),
+                        new Trickle(
+                                bytes, CHUNK / 10 + 1, clock, CdsUploadService.CHUNK_STALL_MILLIS));
+        assertThat(stored.receivedBytes()).isEqualTo(CHUNK);
+        assertThat(clock.get()).isEqualTo(TimeUnit.MINUTES.toNanos(20));
+        assertThat(timed.finish(OWNER, upload.id()).state()).isEqualTo("COMPLETE");
+    }
+
+    @Test
+    void shouldRefuseAStalledChunk_andAcceptTheSameOffsetWhenItIsSentAgain() throws Exception {
+        AtomicLong clock = new AtomicLong();
+        var timed = service(Map.of(), clock::get);
+        var upload = timed.begin(OWNER, "source.xml", CHUNK);
+        byte[] bytes = new byte[CHUNK];
+        java.util.Arrays.fill(bytes, (byte) 4);
+        // The first read is immediate; the next arrives one millisecond after the window.
+        assertThatThrownBy(
+                        () ->
+                                timed.append(
+                                        OWNER,
+                                        upload.id(),
+                                        0,
+                                        CHUNK,
+                                        hash(bytes),
+                                        new Trickle(
+                                                bytes,
+                                                4096,
+                                                clock,
+                                                0,
+                                                CdsUploadService.CHUNK_STALL_MILLIS + 1)))
+                .isInstanceOfSatisfying(
+                        CdsUploadException.class,
+                        failure -> {
+                            assertThat(failure.code()).isEqualTo("UPLOAD_CHUNK_STALLED");
+                            assertThat(failure.status()).isEqualTo(408);
+                        });
+        Path directory = temporary.resolve("uploads").resolve(upload.id());
+        Path payload = directory.resolve("source.xml");
+        assertThat(timed.status(OWNER, upload.id()).receivedBytes()).isZero();
+        assertThat(Files.exists(payload) ? Files.size(payload) : 0L).isZero();
+        try (var files = Files.list(directory)) {
+            assertThat(files.map(path -> path.getFileName().toString()))
+                    .noneMatch(name -> name.startsWith("attempt-"));
+        }
+        var resent =
+                timed.append(
+                        OWNER, upload.id(), 0, CHUNK, hash(bytes), new ByteArrayInputStream(bytes));
+        assertThat(resent.receivedBytes()).isEqualTo(CHUNK);
+    }
+
+    @Test
+    void shouldOpenEveryUploadTransaction_withoutAClock() throws Exception {
+        List<TransactionDefinition> definitions = new ArrayList<>();
+        when(manager.getTransaction(any()))
+                .thenAnswer(
+                        call -> {
+                            definitions.add(call.getArgument(0));
+                            return new SimpleTransactionStatus();
+                        });
+        byte[] bytes = "abc".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        var upload = service.begin(OWNER, "source.xml", bytes.length);
+        service.append(
+                OWNER, upload.id(), 0, bytes.length, hash(bytes), new ByteArrayInputStream(bytes));
+        service.finish(OWNER, upload.id());
+        // A slow but working database never fails an upload.
+        assertThat(definitions)
+                .isNotEmpty()
+                .allSatisfy(
+                        definition ->
+                                assertThat(definition.getTimeout())
+                                        .isEqualTo(TransactionDefinition.TIMEOUT_DEFAULT));
+    }
+
+    @Test
+    void shouldWriteTheChunkDurably_beforeItsSealTransactionBegins() throws Exception {
+        byte[] bytes = "abc".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        var upload = service.begin(OWNER, "source.xml", bytes.length);
+        Path payload = temporary.resolve("uploads").resolve(upload.id()).resolve("source.xml");
+        List<Long> payloadAtEachTransaction = new ArrayList<>();
+        when(manager.getTransaction(any()))
+                .thenAnswer(
+                        call -> {
+                            payloadAtEachTransaction.add(
+                                    Files.exists(payload) ? Files.size(payload) : -1L);
+                            return new SimpleTransactionStatus();
+                        });
+        var stored =
+                service.append(
+                        OWNER,
+                        upload.id(),
+                        0,
+                        bytes.length,
+                        hash(bytes),
+                        new ByteArrayInputStream(bytes));
+        assertThat(stored.receivedBytes()).isEqualTo(bytes.length);
+        // The status read and the checkpoint come before the file is written; the seal begins
+        // only once the chunk is on disk, so no transaction is open while it is copied and
+        // synced.
+        assertThat(payloadAtEachTransaction).containsExactly(-1L, -1L, (long) bytes.length);
+    }
+
+    @Test
+    void shouldRecordNothing_whenTheUploadIsAbandonedWhileItsChunkIsWritten() throws Exception {
+        byte[] bytes = "abc".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        var upload = service.begin(OWNER, "source.xml", bytes.length);
+        // Only the seal locks the row during an append; the upload is abandoned just before.
+        when(uploads.lock(anyString()))
+                .thenAnswer(
+                        call -> {
+                            CdsUpload row = stored.get(call.getArgument(0));
+                            row.setState("ABANDONED");
+                            return row;
+                        });
+        assertThatThrownBy(
+                        () ->
+                                service.append(
+                                        OWNER,
+                                        upload.id(),
+                                        0,
+                                        bytes.length,
+                                        hash(bytes),
+                                        new ByteArrayInputStream(bytes)))
+                .hasMessage("UPLOAD_OFFSET_CONFLICT");
+        assertThat(stored.get(upload.id()).getReceivedBytes()).isZero();
+        assertThat(stored.get(upload.id()).getChunkCount()).isZero();
     }
 
     private static String hash(byte[] bytes) throws Exception {
         return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+    }
+
+    /**
+     * A request body that arrives {@code piece} bytes at a time, the clock moving before each read:
+     * by {@code gapsMillis[n]} before read {@code n}, and by the last gap for every later read.
+     */
+    private static final class Trickle extends InputStream {
+        private final byte[] bytes;
+        private final int piece;
+        private final AtomicLong clock;
+        private final long[] gapsMillis;
+        private int position;
+        private int reads;
+
+        Trickle(byte[] bytes, int piece, AtomicLong clock, long... gapsMillis) {
+            this.bytes = bytes;
+            this.piece = piece;
+            this.clock = clock;
+            this.gapsMillis = gapsMillis;
+        }
+
+        @Override
+        public int read(byte[] target, int offset, int length) {
+            if (position >= bytes.length) return -1;
+            clock.addAndGet(
+                    TimeUnit.MILLISECONDS.toNanos(
+                            gapsMillis[Math.min(reads++, gapsMillis.length - 1)]));
+            int count = Math.min(Math.min(length, piece), bytes.length - position);
+            System.arraycopy(bytes, position, target, offset, count);
+            position += count;
+            return count;
+        }
+
+        @Override
+        public int read() {
+            byte[] one = new byte[1];
+            return read(one, 0, 1) == -1 ? -1 : one[0] & 0xff;
+        }
     }
 }

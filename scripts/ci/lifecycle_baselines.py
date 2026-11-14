@@ -2,7 +2,7 @@
 """Curated distinct main and historical package baselines for release 2026.08."""
 import re
 from pathlib import Path
-from junit_evidence import EvidenceError
+from evidence_errors import EvidenceError
 
 REQUIRED_TAGS = {'2026.08.0-beta6', '2026.08.0-beta5'}
 PACKAGE_PREFIXES = ('carlos-emr_', 'carlos-emr-drugref_', 'carlos-ctl_')
@@ -15,19 +15,30 @@ def matches(pattern, value):
 def candidate_cli(document):
     """Keep the shipped CLI independent of unchanged published predecessors."""
     pin = Path(__file__).resolve().parents[2] / 'debian/carlos-ctl.pin'
-    tags = re.findall(r'^tag=(.+)$', pin.read_text(), re.M)
+    text = pin.read_text()
+    tags = re.findall(r'^tag=(.+)$', text, re.M)
+    fallbacks = re.findall(r'^fallback=(.+)$', text, re.M)
     row = document.get('candidateCli') if isinstance(document, dict) else None
+    common = {'tag', 'version', 'name', 'bytes', 'sha256'}
+    source = isinstance(row, dict) and row.get('mode') == 'source-built'
+    keys = common | ({'mode', 'sourceRepository', 'sourceCommit'} if source else {'url'})
     if (len(tags) != 1 or not matches(r'[0-9][0-9A-Za-z.+\-]*', tags[0])
             or not isinstance(row, dict)
-            or set(row) != {'tag', 'version', 'name', 'bytes', 'sha256', 'url'}):
-        raise EvidenceError('Candidate CLI requires its separate reviewed published pin')
+            or set(row) != keys):
+        raise EvidenceError('Candidate CLI requires its separate reviewed immutable package pin')
     tag = tags[0]
     name = 'carlos-ctl_' + tag.replace('-', '.') + '_all.deb'
     if (row['tag'] != tag or row['version'] != tag.replace('-', '~') or row['name'] != name
             or not matches(r'[0-9a-f]{64}', row['sha256'])
-            or type(row['bytes']) is not int or row['bytes'] <= 0
-            or row['url'] != 'https://github.com/carlos-emr/carlos-ctl/releases/download/' + tag + '/' + name):
-        raise EvidenceError('Candidate CLI differs from its shipped version or exact published identity')
+            or type(row['bytes']) is not int or row['bytes'] <= 0):
+        raise EvidenceError('Candidate CLI differs from its shipped version or exact package identity')
+    if source:
+        if (len(fallbacks) != 1 or not matches(r'[0-9a-f]{40}', fallbacks[0])
+                or row['sourceCommit'] != fallbacks[0]
+                or row['sourceRepository'] != 'https://github.com/carlos-emr/carlos-ctl'):
+            raise EvidenceError('Source-built candidate CLI differs from its exact companion source pin')
+    elif row['url'] != 'https://github.com/carlos-emr/carlos-ctl/releases/download/' + tag + '/' + name:
+        raise EvidenceError('Published candidate CLI differs from its exact release URL')
     return row
 
 

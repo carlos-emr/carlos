@@ -1,0 +1,145 @@
+{
+  "table": "cds_import_field",
+  "engine": "InnoDB",
+  "columns": [
+    {
+      "name": "category",
+      "type": "varchar(64)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_bin",
+      "expression": null
+    },
+    {
+      "name": "date_precision",
+      "type": "varchar(32)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_bin",
+      "expression": null
+    },
+    {
+      "name": "demographic_no",
+      "type": "int(11)",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "id",
+      "type": "varchar(64)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_bin",
+      "expression": null
+    },
+    {
+      "name": "normalized_value",
+      "type": "longtext",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_bin",
+      "expression": null
+    },
+    {
+      "name": "occurrence",
+      "type": "bigint(20)",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "original_value",
+      "type": "longtext",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_bin",
+      "expression": null
+    },
+    {
+      "name": "patient_key",
+      "type": "varchar(64)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_bin",
+      "expression": null
+    },
+    {
+      "name": "payload_digest",
+      "type": "varchar(64)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_bin",
+      "expression": null
+    },
+    {
+      "name": "payload_length",
+      "type": "bigint(20)",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "payload_location",
+      "type": "varchar(1024)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_bin",
+      "expression": null
+    },
+    {
+      "name": "payload_offset",
+      "type": "bigint(20)",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "run_id",
+      "type": "varchar(36)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_bin",
+      "expression": null
+    },
+    {
+      "name": "source_namespace",
+      "type": "varchar(250)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_bin",
+      "expression": null
+    },
+    {
+      "name": "source_path",
+      "type": "varchar(2048)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_bin",
+      "expression": null
+    },
+    {
+      "name": "unit_key",
+      "type": "varchar(64)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_bin",
+      "expression": null
+    },
+    {
+      "name": "value_type",
+      "type": "varchar(4608)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_bin",
+      "expression": null
+    }
+  ],
+  "primaryKeyColumns": [
+    "id"
+  ]
+}

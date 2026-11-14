@@ -172,6 +172,16 @@ class PDFControllerUnitTest {
     }
 
     @Test
+    void shouldLeaveTheSharedClinicalFontSubset_afterFillingInstructionFields(@TempDir Path output) throws Exception {
+        // The instruction fields' appearance turns subsetting off on its font. Before the field font
+        // was a private copy, one BPMH print made every later PDF in the JVM embed whole DejaVu Sans.
+        renderInstructions(output, List.of("With food", ""), true);
+        assertThat(io.github.carlos_emr.carlos.commn.printing.PdfFonts
+                        .getFont(org.openpdf.text.pdf.BaseFont.HELVETICA, 10).getBaseFont().isSubset())
+                .isTrue();
+    }
+
+    @Test
     void shouldNamePatientWithoutRecordNumber_onEveryContinuationPage(@TempDir Path output) throws Exception {
         String clinical = "Take 1 tablet by mouth with breakfast; hold if dizzy and contact the pharmacist. ".repeat(120);
         byte[] bytes = renderInstructions(output, List.of(clinical), true);

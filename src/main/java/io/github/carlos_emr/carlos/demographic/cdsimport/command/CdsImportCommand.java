@@ -25,16 +25,30 @@ import java.nio.file.Path;
 import java.util.Objects;
 
 /** Immutable effective options shared by browser and CLI; authorization remains in the service. */
-public record CdsImportCommand(Path input, String submissionKey, String providerNo,
-        Integer programId, Integer facilityId, String sourceNamespace, String sourceProfile,
-        boolean mergeExisting, boolean dryRun, boolean matchProviderNames, int timeshiftDays,
-        Integer courseId, boolean synthetic) {
+public record CdsImportCommand(
+        Path input,
+        String submissionKey,
+        String providerNo,
+        Integer programId,
+        Integer facilityId,
+        String sourceNamespace,
+        String sourceProfile,
+        boolean mergeExisting,
+        boolean dryRun,
+        boolean matchProviderNames,
+        int timeshiftDays,
+        Integer courseId,
+        boolean synthetic) {
     public CdsImportCommand {
         Objects.requireNonNull(input, "input");
-        bounded(submissionKey, 128); bounded(providerNo, 16);
-        bounded(sourceNamespace, 128); bounded(sourceProfile, 32);
-        if (!providerNo.matches("[A-Za-z0-9_-]{1,16}") || (programId != null && programId < 1)
-                || (facilityId != null && facilityId < 1) || (courseId != null && courseId < 1)
+        bounded(submissionKey, 128);
+        bounded(providerNo, 16);
+        bounded(sourceNamespace, 128);
+        bounded(sourceProfile, 32);
+        if (!providerNo.matches("[A-Za-z0-9_-]{1,16}")
+                || (programId != null && programId < 1)
+                || (facilityId != null && facilityId < 1)
+                || (courseId != null && courseId < 1)
                 || (!synthetic && (timeshiftDays != 0 || courseId != null))
                 || (synthetic && (mergeExisting || courseId == null))) {
             throw new IllegalArgumentException("IMPORT_OPTIONS_INVALID");
@@ -42,11 +56,16 @@ public record CdsImportCommand(Path input, String submissionKey, String provider
     }
 
     private static void bounded(String value, int maximum) {
-        if (value == null || value.isBlank() || value.length() > maximum
+        if (value == null
+                || value.isBlank()
+                || value.length() > maximum
                 || value.chars().anyMatch(c -> c < 32 || c == 127)) {
             throw new IllegalArgumentException("IMPORT_OPTIONS_INVALID");
         }
     }
 
-    @Override public String toString() { return "CdsImportCommand[protected]"; }
+    @Override
+    public String toString() {
+        return "CdsImportCommand[protected]";
+    }
 }

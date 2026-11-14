@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.commn.model.CdsUpload;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsUploadChunkDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsUploadDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsUploadException;
+import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import java.io.IOException;
 import java.io.InputStream;
@@ -46,11 +47,13 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
+import java.util.function.LongSupplier;
 import java.util.function.Supplier;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -58,57 +61,118 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Durable owner-scoped, raw-body uploads. Body reads and hashing run outside database transactions;
- * a short row-locked transaction seals each bounded append and its fixed-size chunk receipt.
- * Orphan file/journal tails are truncated to the last known database checkpoint on the next append.
+ * Durable owner-scoped, raw-body uploads. Body reads, hashing and every file write and fsync run
+ * outside database transactions, under the upload's body lock; a short row-locked transaction then
+ * seals each bounded append and its fixed-size chunk receipt, after the bytes are durable. Orphan
+ * file/journal tails are truncated to the last known database checkpoint on the next append.
+ *
+ * <p>No transaction here carries a clock: a slow but working database never fails an upload. A
+ * lost connection fails the request (HTTP 503), and the page sends the same chunk again.
+ *
+ * <p>No size refuses an upload. A file of any size is sent as chunks of the configured transfer
+ * size, and each chunk is checked against the upload store's free-disk reserve before it is
+ * written ({@code UPLOAD_DISK_RESERVE_REFUSED}, HTTP 507), after which the same upload resumes once
+ * space is freed. The only count is of uploads still holding a reservation, which keeps a client
+ * that begins uploads in a loop from exhausting inodes; one import needs one upload.
+ *
+ * <p>No clock refuses a chunk either. A chunk fails only when no byte of it arrives for {@link
+ * #CHUNK_STALL_MILLIS} ({@code UPLOAD_CHUNK_STALLED}, HTTP 408), and the page then sends the same
+ * offset again; a slow link that keeps delivering bytes is never cut off, however long the chunk
+ * takes.
  */
 @Service
 public class CdsUploadService {
+    /**
+     * The no-progress window of one chunk: the longest gap allowed between two reads that return
+     * bytes. The import page is given the same value and restarts its own wait on every upload and
+     * response progress event, so both sides give up only on silence.
+     */
+    public static final long CHUNK_STALL_MILLIS = 120_000L;
+
+    private static final long CHUNK_STALL_NANOS = TimeUnit.MILLISECONDS.toNanos(CHUNK_STALL_MILLIS);
     private static final int JOURNAL_BYTES = Long.BYTES * 2 + Integer.BYTES + 32;
-    private static final Set<String> IMMUTABLE_STATES = Set.of("COMPLETE", "SUBMITTING", "SUBMITTED_DRY_RUN", "SUBMITTED", "SNAPSHOT_PUBLISHED", "RETIRED");
+    private static final Set<String> IMMUTABLE_STATES =
+            Set.of(
+                    "COMPLETE",
+                    "SUBMITTING",
+                    "SUBMITTED_DRY_RUN",
+                    "SUBMITTED",
+                    "SNAPSHOT_PUBLISHED",
+                    "RETIRED");
     private final CdsUploadDao uploads;
     private final CdsImportAdmissionDao admission;
     private final CdsImportConfigurationService configuration;
     private final TransactionTemplate transaction;
     private final Semaphore incoming = new Semaphore(8);
+    private final LongSupplier nanoTime;
 
-    public CdsUploadService(CdsUploadDao uploads, CdsImportAdmissionDao admission,
-            CdsImportConfigurationService configuration, PlatformTransactionManager manager) {
-        this.uploads = uploads; this.admission = admission; this.configuration = configuration;
+    @Autowired
+    public CdsUploadService(
+            CdsUploadDao uploads,
+            CdsImportAdmissionDao admission,
+            CdsImportConfigurationService configuration,
+            PlatformTransactionManager manager) {
+        this(uploads, admission, configuration, manager, System::nanoTime);
+    }
+
+    /** Test seam: {@code nanoTime} is the clock that measures the gap between received bytes. */
+    CdsUploadService(
+            CdsUploadDao uploads,
+            CdsImportAdmissionDao admission,
+            CdsImportConfigurationService configuration,
+            PlatformTransactionManager manager,
+            LongSupplier nanoTime) {
+        this.uploads = uploads;
+        this.admission = admission;
+        this.configuration = configuration;
+        this.nanoTime = nanoTime;
         transaction = new TransactionTemplate(manager);
         transaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
         transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
-        transaction.setTimeout(30);
     }
 
     public CdsUploadDto begin(String operator, String name, long bytes) throws IOException {
         configuration.requireEnabled();
+        configuration.reportRetiredSettings();
         requireName(name);
-        if (bytes < 1 || bytes > configuration.number("cds.import.upload.maxFileBytes", 64L << 30)) {
-            throw problem("UPLOAD_FILE_SIZE_REFUSED", 413);
-        }
+        // An empty file is not a source; any other size is accepted and stored chunk by chunk.
+        if (bytes < 1) throw problem("UPLOAD_FILE_SIZE_REFUSED", 413);
         String id = UUID.randomUUID().toString();
         reserveDisk(root(), Math.min(bytes, chunkBytes()));
         // Reserve before creating per-upload files: repeated busy refusals cannot exhaust inodes.
-        CdsUploadDto receipt = write(() -> {
-            CdsImportAdmission budget = admission.lock("UPLOAD_BUDGET");
-            if (budget == null) throw problem("UPLOAD_SCHEMA_NOT_READY", 503);
-            long maximum = configuration.number("cds.import.upload.maxTotalBytes", 256L << 30);
-            if (bytes > maximum - budget.getReservedBytes()
-                    || uploads.reservedCount() >= configuration.number("cds.import.upload.maxFiles", 20_000)) {
-                throw problem("UPLOAD_CAPACITY_BUSY", 429);
-            }
-            CdsUpload upload = new CdsUpload();
-            upload.setId(id); upload.setOperator(operator); upload.setSourceName(name);
-            upload.setMediaKind(name.toLowerCase(Locale.ROOT).endsWith(".zip") ? "ZIP" : "XML");
-            upload.setExpectedBytes(bytes); upload.setState("OPEN");
-            upload.setSubmissionKey("web-upload-" + id);
-            upload.setCreatedAt(Instant.now()); upload.setUpdatedAt(upload.getCreatedAt());
-            uploads.persist(upload);
-            budget.setReservedBytes(Math.addExact(budget.getReservedBytes(), bytes));
-            admission.merge(budget); uploads.flush();
-            return dto(upload);
-        });
+        CdsUploadDto receipt =
+                write(
+                        () -> {
+                            CdsImportAdmission budget = admission.lock("UPLOAD_BUDGET");
+                            if (budget == null) throw problem("UPLOAD_SCHEMA_NOT_READY", 503);
+                            // The reserved bytes are bookkeeping released with each upload; the
+                            // disk reserve, checked before every chunk, is what protects the
+                            // store. Only the count of pending uploads is refused, against a
+                            // client that begins uploads in a loop.
+                            if (uploads.reservedCount()
+                                    >= configuration.number("cds.import.upload.maxFiles", 20_000)) {
+                                throw problem("UPLOAD_CAPACITY_BUSY", 429);
+                            }
+                            CdsUpload upload = new CdsUpload();
+                            upload.setId(id);
+                            upload.setOperator(operator);
+                            upload.setSourceName(name);
+                            upload.setMediaKind(
+                                    com.google.common.base.Ascii.toLowerCase(name).endsWith(".zip")
+                                            ? "ZIP"
+                                            : "XML");
+                            upload.setExpectedBytes(bytes);
+                            upload.setState("OPEN");
+                            upload.setSubmissionKey("web-upload-" + id);
+                            upload.setCreatedAt(Instant.now());
+                            upload.setUpdatedAt(upload.getCreatedAt());
+                            uploads.persist(upload);
+                            budget.setReservedBytes(
+                                    Math.addExact(budget.getReservedBytes(), bytes));
+                            admission.merge(budget);
+                            uploads.flush();
+                            return dto(upload);
+                        });
         // If this fails, the owner can discover the durable empty upload and retry or abandon it.
         directory(id, true);
         return receipt;
@@ -124,17 +188,29 @@ public class CdsUploadService {
         return write(() -> uploads.page(operator, cursor, count).stream().map(this::dto).toList());
     }
 
-    public CdsUploadDto append(String operator, String id, long offset, int declaredBytes,
-            String expectedHash, InputStream source) throws IOException {
+    // FindSecBugs UNSAFE_HASH_EQUALS: SHA-256 of the chunk bytes the uploader just sent, compared with the digest the same uploader declared for that chunk; a transfer checksum, not a secret.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "UNSAFE_HASH_EQUALS", justification = "SHA-256 of the chunk bytes the uploader just sent, compared with the digest the same uploader declared for that chunk; a transfer checksum, not a secret")
+    public CdsUploadDto append(
+            String operator,
+            String id,
+            long offset,
+            int declaredBytes,
+            String expectedHash,
+            InputStream source)
+            throws IOException {
         configuration.requireEnabled();
         requireId(id);
-        if (offset < 0 || declaredBytes < 1 || declaredBytes > chunkBytes()
-                || expectedHash == null || !expectedHash.matches("[0-9a-f]{64}")) {
+        if (offset < 0
+                || declaredBytes < 1
+                || declaredBytes > chunkBytes()
+                || expectedHash == null
+                || !expectedHash.matches("[0-9a-f]{64}")) {
             throw problem("UPLOAD_CHUNK_INVALID", 400);
         }
         CdsUploadDto before = status(operator, id);
         if ("ABANDONED".equals(before.state())) throw problem("UPLOAD_ABANDONED", 410);
-        Path directory = directory(id, before.receivedBytes() == 0 && "OPEN".equals(before.state()));
+        Path directory =
+                directory(id, before.receivedBytes() == 0 && "OPEN".equals(before.state()));
         Path attempt = child(directory, "attempt-" + UUID.randomUUID());
         if (!incoming.tryAcquire()) throw problem("UPLOAD_IO_BUSY", 429);
         try (FileChannel channel = openPrivate(child(directory, "body.lock"));
@@ -143,61 +219,131 @@ public class CdsUploadService {
             reserveDisk(directory, declaredBytes);
             MessageDigest digest = sha256();
             long read = 0;
-            long deadline = System.nanoTime() + 120_000_000_000L;
-            try (FileChannel out = FileChannel.open(attempt,
-                    Set.of(StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS),
-                    PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")))) {
+            long lastBytes = nanoTime.getAsLong();
+            try (FileChannel out =
+                    FileChannel.open(
+                            attempt,
+                            Set.of(
+                                    StandardOpenOption.CREATE_NEW,
+                                    StandardOpenOption.WRITE,
+                                    LinkOption.NOFOLLOW_LINKS),
+                            PosixFilePermissions.asFileAttribute(
+                                    PosixFilePermissions.fromString("rw-------")))) {
                 byte[] buffer = new byte[8192];
                 int n;
                 while ((n = source.read(buffer)) != -1) {
-                    if (Thread.currentThread().isInterrupted() || System.nanoTime() > deadline) {
-                        throw problem("UPLOAD_CHUNK_TIMEOUT", 408);
+                    // Only silence fails a chunk: every read that returns bytes restarts the
+                    // window, so the chunk's total time is never measured. A read that blocks is
+                    // ended by the container's own socket read timeout (an I/O failure the page
+                    // retries), which in the packaged install is shorter than this window.
+                    long now = nanoTime.getAsLong();
+                    if (Thread.currentThread().isInterrupted()
+                            || now - lastBytes > CHUNK_STALL_NANOS) {
+                        throw problem("UPLOAD_CHUNK_STALLED", 408);
                     }
+                    lastBytes = now;
                     read = Math.addExact(read, n);
                     if (read > declaredBytes) throw problem("UPLOAD_CHUNK_SIZE_MISMATCH", 400);
                     digest.update(buffer, 0, n);
                     ByteBuffer bytes = ByteBuffer.wrap(buffer, 0, n);
                     while (bytes.hasRemaining()) out.write(bytes);
                 }
-                if (read != declaredBytes || !HexFormat.of().formatHex(digest.digest()).equals(expectedHash)) {
+                if (read != declaredBytes
+                        || !HexFormat.of().formatHex(digest.digest()).equals(expectedHash)) {
                     throw problem("UPLOAD_CHUNK_HASH_MISMATCH", 422);
                 }
                 out.force(true);
             }
-            return write(() -> appendSealed(operator, id, offset, declaredBytes, expectedHash, directory, attempt));
+            Checkpoint current = checkpoint(operator, id);
+            if (offset < current.receivedBytes() && offset % chunkBytes() == 0) {
+                // A committed chunk is never rewritten: its retry is answered from its receipt.
+                CdsUploadChunkDto previous;
+                try {
+                    previous = readChunk(child(directory, "chunks.bin"), offset / chunkBytes());
+                } catch (IOException failure) {
+                    throw problem("UPLOAD_STORAGE_UNAVAILABLE", 503);
+                }
+                if (previous.offset() == offset
+                        && previous.bytes() == declaredBytes
+                        && CdsImportKeys.sameDigest(previous.sha256(), expectedHash))
+                    return current.receipt();
+                throw problem("UPLOAD_RETRY_CONTENT_CONFLICT", 409);
+            }
+            if (!"OPEN".equals(current.state()) || offset != current.receivedBytes()) {
+                throw problem("UPLOAD_OFFSET_CONFLICT", 409);
+            }
+            if (declaredBytes != Math.min(chunkBytes(), current.expectedBytes() - offset)) {
+                throw problem("UPLOAD_CHUNK_SIZE_MISMATCH", 400);
+            }
+            writeChunk(directory, current, offset, declaredBytes, expectedHash, attempt);
+            return write(() -> seal(operator, id, offset, declaredBytes, current.chunkCount()));
         } finally {
             incoming.release();
             // Only this attempt's fresh, never-published spool is eligible here.
-            try { Files.deleteIfExists(attempt); } catch (IOException ignored) {
-                // The owned attempt remains discoverable by expiry cleanup; never delete the durable payload.
+            try {
+                Files.deleteIfExists(attempt);
+            } catch (IOException ignored) {
+                // The owned attempt remains discoverable by expiry cleanup; never delete the
+                // durable payload.
             }
         }
     }
 
-    private CdsUploadDto appendSealed(String operator, String id, long offset, int bytes,
-            String hash, Path directory, Path attempt) {
-        CdsUpload row = owned(uploads.lock(id), operator);
+    /**
+     * The row's facts an append is planned against, read with the body lock already held, so no
+     * other append of this upload can move them; abandonment and expiry can, which the seal
+     * rechecks under the row lock.
+     */
+    private record Checkpoint(
+            CdsUploadDto receipt,
+            String state,
+            long receivedBytes,
+            long chunkCount,
+            long expectedBytes,
+            String payload) {}
+
+    private Checkpoint checkpoint(String operator, String id) {
+        return write(
+                () -> {
+                    CdsUpload row = owned(uploads.get(id), operator);
+                    return new Checkpoint(
+                            dto(row),
+                            row.getState(),
+                            row.getReceivedBytes(),
+                            row.getChunkCount(),
+                            row.getExpectedBytes(),
+                            payloadName(row));
+                });
+    }
+
+    /**
+     * Appends one verified chunk and its receipt to the durable files, outside any database
+     * transaction: under the body lock, after the tails past the database checkpoint are
+     * truncated, and fsynced before the seal records them.
+     */
+    private void writeChunk(
+            Path directory,
+            Checkpoint current,
+            long offset,
+            int bytes,
+            String hash,
+            Path attempt) {
+        Path payload = child(directory, current.payload());
         Path journal = child(directory, "chunks.bin");
         try {
-            if (offset < row.getReceivedBytes() && offset % chunkBytes() == 0) {
-                CdsUploadChunkDto previous = readChunk(journal, offset / chunkBytes());
-                if (previous.offset() == offset && previous.bytes() == bytes && previous.sha256().equals(hash)) return dto(row);
-                throw problem("UPLOAD_RETRY_CONTENT_CONFLICT", 409);
-            }
-            if (!"OPEN".equals(row.getState()) || offset != row.getReceivedBytes()) {
-                throw problem("UPLOAD_OFFSET_CONFLICT", 409);
-            }
-            if (bytes != Math.min(chunkBytes(), row.getExpectedBytes() - offset)) {
-                throw problem("UPLOAD_CHUNK_SIZE_MISMATCH", 400);
-            }
-            Path payload = child(directory, payloadName(row));
-            try (FileChannel target = openPrivate(payload); FileChannel receipts = openPrivate(journal);
-                    FileChannel input = FileChannel.open(attempt, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
-                if (target.size() < offset || receipts.size() < row.getChunkCount() * JOURNAL_BYTES) {
+            try (FileChannel target = openPrivate(payload);
+                    FileChannel receipts = openPrivate(journal);
+                    FileChannel input =
+                            FileChannel.open(
+                                    attempt, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
+                if (target.size() < offset
+                        || receipts.size() < current.chunkCount() * JOURNAL_BYTES) {
                     throw problem("UPLOAD_STORAGE_INCOMPLETE", 409);
                 }
-                target.truncate(offset); target.position(offset);
-                receipts.truncate(row.getChunkCount() * JOURNAL_BYTES); receipts.position(receipts.size());
+                target.truncate(offset);
+                target.position(offset);
+                receipts.truncate(current.chunkCount() * JOURNAL_BYTES);
+                receipts.position(receipts.size());
                 long copied = 0;
                 while (copied < bytes) {
                     long n = input.transferTo(copied, bytes - copied, target);
@@ -205,28 +351,53 @@ public class CdsUploadService {
                     copied += n;
                 }
                 target.force(true);
-                ByteBuffer entry = ByteBuffer.allocate(JOURNAL_BYTES)
-                        .putLong(row.getChunkCount()).putLong(offset).putInt(bytes).put(HexFormat.of().parseHex(hash));
-                entry.flip(); while (entry.hasRemaining()) receipts.write(entry);
+                ByteBuffer entry =
+                        ByteBuffer.allocate(JOURNAL_BYTES)
+                                .putLong(current.chunkCount())
+                                .putLong(offset)
+                                .putInt(bytes)
+                                .put(HexFormat.of().parseHex(hash));
+                entry.flip();
+                while (entry.hasRemaining()) receipts.write(entry);
                 receipts.force(true);
             }
             syncDirectory(directory);
-            row.setReceivedBytes(Math.addExact(offset, bytes)); row.setChunkCount(row.getChunkCount() + 1);
-            row.setUpdatedAt(Instant.now()); uploads.merge(row); uploads.flush();
-            return dto(row);
         } catch (IOException failure) {
             throw problem("UPLOAD_STORAGE_UNAVAILABLE", 503);
         }
     }
 
+    /**
+     * Records a durable append. The files were written for exactly this checkpoint; if the row
+     * moved meanwhile (the upload was abandoned or expired), nothing is recorded and the appended
+     * tail is an orphan the next append truncates.
+     */
+    private CdsUploadDto seal(String operator, String id, long offset, int bytes, long chunkCount) {
+        CdsUpload row = owned(uploads.lock(id), operator);
+        if (!"OPEN".equals(row.getState())
+                || row.getReceivedBytes() != offset
+                || row.getChunkCount() != chunkCount) {
+            throw problem("UPLOAD_OFFSET_CONFLICT", 409);
+        }
+        row.setReceivedBytes(Math.addExact(offset, bytes));
+        row.setChunkCount(row.getChunkCount() + 1);
+        row.setUpdatedAt(Instant.now());
+        uploads.merge(row);
+        uploads.flush();
+        return dto(row);
+    }
+
     /** Owner-only paged receipts let the browser verify every old prefix chunk before resume. */
-    public List<CdsUploadChunkDto> chunks(String operator, String id, long afterIndex, int limit) throws IOException {
+    public List<CdsUploadChunkDto> chunks(String operator, String id, long afterIndex, int limit)
+            throws IOException {
         CdsUploadDto receipt = status(operator, id);
         if (afterIndex < 0) throw problem("UPLOAD_CURSOR_INVALID", 400);
         int count = Math.max(1, Math.min(limit, 100));
         List<CdsUploadChunkDto> result = new ArrayList<>(count);
         Path journal = child(directory(id, false), "chunks.bin");
-        for (long index = afterIndex; index < receipt.committedChunks() && result.size() < count; index++) {
+        for (long index = afterIndex;
+                index < receipt.committedChunks() && result.size() < count;
+                index++) {
             result.add(readChunk(journal, index));
         }
         return List.copyOf(result);
@@ -235,32 +406,48 @@ public class CdsUploadService {
     /** Seal the ordered verified chunk inventory; the core independently hashes the complete source before clinical writes. */
     public CdsUploadDto finish(String operator, String id) throws IOException {
         configuration.requireEnabled();
-        CdsUploadDto before = status(operator, id);
-        if (IMMUTABLE_STATES.contains(before.state())) return before;
-        if (before.receivedBytes() != before.expectedBytes()) throw problem("UPLOAD_INCOMPLETE", 409);
+        Checkpoint before = checkpoint(operator, requireId(id));
+        if (IMMUTABLE_STATES.contains(before.state())) return before.receipt();
+        if (!"OPEN".equals(before.state()) || before.receivedBytes() != before.expectedBytes())
+            throw problem("UPLOAD_INCOMPLETE", 409);
         Path directory = directory(id, false);
         String manifest;
-        try (InputStream input = Files.newInputStream(child(directory, "chunks.bin"), LinkOption.NOFOLLOW_LINKS)) {
-            MessageDigest digest = sha256(); byte[] buffer = new byte[8192]; int n;
+        try (InputStream input =
+                Files.newInputStream(child(directory, "chunks.bin"), LinkOption.NOFOLLOW_LINKS)) {
+            MessageDigest digest = sha256();
+            byte[] buffer = new byte[8192];
+            int n;
             while ((n = input.read(buffer)) != -1) digest.update(buffer, 0, n);
             manifest = HexFormat.of().formatHex(digest.digest());
         }
-        return write(() -> {
-            CdsUpload row = owned(uploads.lock(id), operator);
-            if (IMMUTABLE_STATES.contains(row.getState())) return dto(row);
-            if (!"OPEN".equals(row.getState()) || row.getReceivedBytes() != row.getExpectedBytes()) {
-                throw problem("UPLOAD_INCOMPLETE", 409);
+        // A fully received upload takes no further appends, so its files are checked and made
+        // durable before the transaction, which only rechecks that the row did not move.
+        try {
+            if (Files.size(child(directory, before.payload())) != before.expectedBytes()
+                    || Files.size(child(directory, "chunks.bin"))
+                            != before.chunkCount() * JOURNAL_BYTES) {
+                throw problem("UPLOAD_STORAGE_INCOMPLETE", 409);
             }
-            try {
-                if (Files.size(child(directory, payloadName(row))) != row.getExpectedBytes()
-                        || Files.size(child(directory, "chunks.bin")) != row.getChunkCount() * JOURNAL_BYTES) {
-                    throw problem("UPLOAD_STORAGE_INCOMPLETE", 409);
-                }
-                syncDirectory(directory);
-            } catch (IOException failure) { throw problem("UPLOAD_STORAGE_UNAVAILABLE", 503); }
-            row.setManifestDigest(manifest); row.setState("COMPLETE"); row.setUpdatedAt(Instant.now());
-            uploads.merge(row); uploads.flush(); return dto(row);
-        });
+            syncDirectory(directory);
+        } catch (IOException failure) {
+            throw problem("UPLOAD_STORAGE_UNAVAILABLE", 503);
+        }
+        return write(
+                () -> {
+                    CdsUpload row = owned(uploads.lock(id), operator);
+                    if (IMMUTABLE_STATES.contains(row.getState())) return dto(row);
+                    if (!"OPEN".equals(row.getState())
+                            || row.getReceivedBytes() != row.getExpectedBytes()
+                            || row.getChunkCount() != before.chunkCount()) {
+                        throw problem("UPLOAD_INCOMPLETE", 409);
+                    }
+                    row.setManifestDigest(manifest);
+                    row.setState("COMPLETE");
+                    row.setUpdatedAt(Instant.now());
+                    uploads.merge(row);
+                    uploads.flush();
+                    return dto(row);
+                });
     }
 
     /**
@@ -268,24 +455,33 @@ public class CdsUploadService {
      * Accepted retired retries resolve their durable job before deciding whether source bytes are needed.
      */
     public Path sourceForSubmission(String operator, String id) {
-        String payload = write(() -> {
-            CdsUpload row = owned(uploads.get(requireId(id)), operator);
-            if (!IMMUTABLE_STATES.contains(row.getState())) throw problem("UPLOAD_NOT_COMPLETE", 409);
-            return payloadName(row);
-        });
+        String payload =
+                write(
+                        () -> {
+                            CdsUpload row = owned(uploads.get(requireId(id)), operator);
+                            if (!IMMUTABLE_STATES.contains(row.getState()))
+                                throw problem("UPLOAD_NOT_COMPLETE", 409);
+                            return payloadName(row);
+                        });
         return child(directory(root(false), id, false), payload);
     }
 
     /** Job acceptance claims under its locks so a lost acknowledgement cannot race source deletion. */
     public Path claimForSubmission(String operator, String id) {
-        return write(() -> {
-            CdsUpload row = owned(uploads.lock(requireId(id)), operator);
-            if (!IMMUTABLE_STATES.contains(row.getState())) throw problem("UPLOAD_NOT_COMPLETE", 409);
-            if (!Set.of("SUBMITTED", "SNAPSHOT_PUBLISHED", "RETIRED").contains(row.getState())) {
-                row.setState("SUBMITTING"); row.setUpdatedAt(Instant.now()); uploads.merge(row); uploads.flush();
-            }
-            return child(directory(id, false), payloadName(row));
-        });
+        return write(
+                () -> {
+                    CdsUpload row = owned(uploads.lock(requireId(id)), operator);
+                    if (!IMMUTABLE_STATES.contains(row.getState()))
+                        throw problem("UPLOAD_NOT_COMPLETE", 409);
+                    if (!Set.of("SUBMITTED", "SNAPSHOT_PUBLISHED", "RETIRED")
+                            .contains(row.getState())) {
+                        row.setState("SUBMITTING");
+                        row.setUpdatedAt(Instant.now());
+                        uploads.merge(row);
+                        uploads.flush();
+                    }
+                    return child(directory(id, false), payloadName(row));
+                });
     }
 
     /** Serializes acceptance of different modes/keys for one immutable upload. */
@@ -297,48 +493,86 @@ public class CdsUploadService {
             if (lock == null) throw problem("UPLOAD_BUSY", 409);
             return new AcceptanceGuard(channel, lock);
         } catch (IOException | RuntimeException failure) {
-            channel.close(); throw failure;
+            channel.close();
+            throw failure;
         }
     }
 
     public static final class AcceptanceGuard implements AutoCloseable {
         private final FileChannel channel;
         private final FileLock lock;
-        private AcceptanceGuard(FileChannel channel, FileLock lock) { this.channel = channel; this.lock = lock; }
-        @Override public void close() throws IOException {
-            try { lock.close(); } finally { channel.close(); }
+
+        private AcceptanceGuard(FileChannel channel, FileLock lock) {
+            this.channel = channel;
+            this.lock = lock;
         }
-        @Override public String toString() { return "AcceptanceGuard[protected]"; }
+
+        @Override
+        public void close() throws IOException {
+            try {
+                lock.close();
+            } finally {
+                channel.close();
+            }
+        }
+
+        @Override
+        public String toString() {
+            return "AcceptanceGuard[protected]";
+        }
     }
 
     /** Read an accepted run's immutable source without changing its acceptance state. */
-    public Path sourceForAcceptedRun(String operator, String id, String runId, String submissionKey, boolean dryRun) {
+    public Path sourceForAcceptedRun(
+            String operator, String id, String runId, String submissionKey, boolean dryRun) {
         requireId(runId);
-        return write(() -> {
-            CdsUpload row = owned(uploads.lock(requireId(id)), operator);
-            String accepted = dryRun ? row.getDryRunId() : row.getRunId();
-            if (!runId.equals(accepted)
-                    || !(row.getSubmissionKey() + (dryRun ? "-dry-run" : "-import")).equals(submissionKey)
-                    || !Set.of("SUBMITTING", "SUBMITTED_DRY_RUN", "SUBMITTED", "SNAPSHOT_PUBLISHED", "RETIRED").contains(row.getState())) {
-                throw problem("UPLOAD_RUN_ASSOCIATION_INVALID", 409);
-            }
-            return child(directory(id, false), payloadName(row));
-        });
+        return write(
+                () -> {
+                    CdsUpload row = owned(uploads.lock(requireId(id)), operator);
+                    String accepted = dryRun ? row.getDryRunId() : row.getRunId();
+                    if (!runId.equals(accepted)
+                            || !(row.getSubmissionKey() + (dryRun ? "-dry-run" : "-import"))
+                                    .equals(submissionKey)
+                            || !Set.of(
+                                            "SUBMITTING",
+                                            "SUBMITTED_DRY_RUN",
+                                            "SUBMITTED",
+                                            "SNAPSHOT_PUBLISHED",
+                                            "RETIRED")
+                                    .contains(row.getState())) {
+                        throw problem("UPLOAD_RUN_ASSOCIATION_INVALID", 409);
+                    }
+                    return child(directory(id, false), payloadName(row));
+                });
     }
 
     public void submitted(String operator, String id, String runId, boolean dryRun) {
-        write(() -> {
-            CdsUpload row = owned(uploads.lock(requireId(id)), operator);
-            String prior = dryRun ? row.getDryRunId() : row.getRunId();
-            if (!Set.of("SUBMITTING", "SUBMITTED", "SUBMITTED_DRY_RUN", "SNAPSHOT_PUBLISHED", "RETIRED").contains(row.getState())
-                    || (prior != null && !prior.equals(runId))) throw problem("UPLOAD_SUBMISSION_CONFLICT", 409);
-            if (dryRun) row.setDryRunId(requireId(runId)); else row.setRunId(requireId(runId));
-            // An idempotent prior-mode acknowledgement cannot declare another uncertain claim stale.
-            if (row.getSnapshotDigest() == null && !("SUBMITTING".equals(row.getState()) && prior != null)) {
-                row.setState(row.getRunId() != null ? "SUBMITTED" : "SUBMITTED_DRY_RUN");
-            }
-            row.setUpdatedAt(Instant.now()); uploads.merge(row); uploads.flush(); return null;
-        });
+        write(
+                () -> {
+                    CdsUpload row = owned(uploads.lock(requireId(id)), operator);
+                    String prior = dryRun ? row.getDryRunId() : row.getRunId();
+                    if (!Set.of(
+                                            "SUBMITTING",
+                                            "SUBMITTED",
+                                            "SUBMITTED_DRY_RUN",
+                                            "SNAPSHOT_PUBLISHED",
+                                            "RETIRED")
+                                    .contains(row.getState())
+                            || (prior != null && !prior.equals(runId)))
+                        throw problem("UPLOAD_SUBMISSION_CONFLICT", 409);
+                    if (dryRun) row.setDryRunId(requireId(runId));
+                    else row.setRunId(requireId(runId));
+                    // An idempotent prior-mode acknowledgement cannot declare another uncertain
+                    // claim stale.
+                    if (row.getSnapshotDigest() == null
+                            && !("SUBMITTING".equals(row.getState()) && prior != null)) {
+                        row.setState(row.getRunId() != null ? "SUBMITTED" : "SUBMITTED_DRY_RUN");
+                    }
+                    row.setUpdatedAt(Instant.now());
+                    uploads.merge(row);
+                    uploads.flush();
+                    return null;
+                });
     }
 
     /**
@@ -355,67 +589,120 @@ public class CdsUploadService {
      * Planner-only form repairs a lost acceptance association. The caller must first verify the durable
      * job's operator/submission key and source digest against this owner's upload and every chunk receipt.
      */
-    public void snapshotPublished(String operator, String uploadId, String runId, String snapshotDigest) throws IOException {
+    public void snapshotPublished(
+            String operator, String uploadId, String runId, String snapshotDigest)
+            throws IOException {
         requireId(runId);
-        if ((operator == null) != (uploadId == null)) throw problem("UPLOAD_RUN_ASSOCIATION_INVALID", 400);
+        if ((operator == null) != (uploadId == null))
+            throw problem("UPLOAD_RUN_ASSOCIATION_INVALID", 400);
         if (uploadId != null) requireId(uploadId);
-        if (snapshotDigest == null || !snapshotDigest.matches("[0-9a-f]{64}")) throw problem("UPLOAD_SNAPSHOT_DIGEST_INVALID", 400);
-        CdsUploadDto acknowledged = write(() -> {
-            CdsUpload row = uploadId == null ? uploads.lockActualRun(runId) : owned(uploads.lock(uploadId), operator);
-            if (row == null) throw problem("UPLOAD_RUN_ASSOCIATION_NOT_READY", 409);
-            if (uploadId != null && row.getRunId() == null) {
-                if (!Set.of("SUBMITTING", "SUBMITTED_DRY_RUN").contains(row.getState())) throw problem("UPLOAD_RUN_ASSOCIATION_INVALID", 409);
-                row.setRunId(runId); row.setState("SUBMITTED");
-            }
-            if (!Set.of("SUBMITTED", "SNAPSHOT_PUBLISHED", "RETIRED").contains(row.getState())
-                    || !runId.equals(row.getRunId())
-                    || (row.getSnapshotDigest() != null && !snapshotDigest.equals(row.getSnapshotDigest()))) {
-                throw problem("UPLOAD_SNAPSHOT_PUBLICATION_CONFLICT", 409);
-            }
-            if (!"RETIRED".equals(row.getState())) {
-                row.setSnapshotDigest(snapshotDigest); row.setState("SNAPSHOT_PUBLISHED"); row.setUpdatedAt(Instant.now());
-                uploads.merge(row); uploads.flush();
-            }
-            return dto(row);
-        });
+        if (snapshotDigest == null || !snapshotDigest.matches("[0-9a-f]{64}"))
+            throw problem("UPLOAD_SNAPSHOT_DIGEST_INVALID", 400);
+        CdsUploadDto acknowledged =
+                write(
+                        () -> {
+                            CdsUpload row =
+                                    uploadId == null
+                                            ? uploads.lockActualRun(runId)
+                                            : owned(uploads.lock(uploadId), operator);
+                            if (row == null) throw problem("UPLOAD_RUN_ASSOCIATION_NOT_READY", 409);
+                            if (uploadId != null && row.getRunId() == null) {
+                                if (!Set.of("SUBMITTING", "SUBMITTED_DRY_RUN")
+                                        .contains(row.getState()))
+                                    throw problem("UPLOAD_RUN_ASSOCIATION_INVALID", 409);
+                                row.setRunId(runId);
+                                row.setState("SUBMITTED");
+                            }
+                            if (!Set.of("SUBMITTED", "SNAPSHOT_PUBLISHED", "RETIRED")
+                                            .contains(row.getState())
+                                    || !runId.equals(row.getRunId())
+                                    || (row.getSnapshotDigest() != null
+                                            && !CdsImportKeys.sameDigest(
+                                                    snapshotDigest, row.getSnapshotDigest()))) {
+                                throw problem("UPLOAD_SNAPSHOT_PUBLICATION_CONFLICT", 409);
+                            }
+                            if (!"RETIRED".equals(row.getState())) {
+                                row.setSnapshotDigest(snapshotDigest);
+                                row.setState("SNAPSHOT_PUBLISHED");
+                                row.setUpdatedAt(Instant.now());
+                                uploads.merge(row);
+                                uploads.flush();
+                            }
+                            return dto(row);
+                        });
         if ("RETIRED".equals(acknowledged.state())) return;
         Path directory = directory(acknowledged.id(), false);
-        // Keep the small receipt journal and directory: resume/retry still proves the immutable upload prefix.
-        try (FileChannel channel = openPrivate(child(directory, "body.lock")); FileLock lock = tryLock(channel)) {
+        // Keep the small receipt journal and directory: resume/retry still proves the immutable
+        // upload prefix.
+        try (FileChannel channel = openPrivate(child(directory, "body.lock"));
+                FileLock lock = tryLock(channel)) {
             if (lock == null) throw problem("UPLOAD_BUSY", 409);
-            Files.deleteIfExists(child(directory, "source.xml")); Files.deleteIfExists(child(directory, "source.zip"));
+            Files.deleteIfExists(child(directory, "source.xml"));
+            Files.deleteIfExists(child(directory, "source.zip"));
             try (var attempts = Files.newDirectoryStream(directory, "attempt-*")) {
-                for (Path attempt : attempts) if (attempt.getFileName().toString().matches("attempt-[0-9a-f-]{36}")) {
-                    Files.deleteIfExists(child(directory, attempt.getFileName().toString()));
-                }
+                for (Path attempt : attempts)
+                    if (attempt.getFileName().toString().matches("attempt-[0-9a-f-]{36}")) {
+                        Files.deleteIfExists(child(directory, attempt.getFileName().toString()));
+                    }
             }
             syncDirectory(directory);
-            write(() -> {
-                CdsImportAdmission budget = admission.lock("UPLOAD_BUDGET");
-                CdsUpload row = uploads.lockActualRun(runId);
-                if (row == null || !snapshotDigest.equals(row.getSnapshotDigest())) throw problem("UPLOAD_SNAPSHOT_PUBLICATION_CONFLICT", 409);
-                if (!row.isQuotaReleased()) {
-                    if (budget == null || budget.getReservedBytes() < row.getExpectedBytes()) throw problem("UPLOAD_BUDGET_RECONCILIATION_REQUIRED", 409);
-                    budget.setReservedBytes(budget.getReservedBytes() - row.getExpectedBytes()); admission.merge(budget); row.setQuotaReleased(true);
-                }
-                row.setState("RETIRED"); row.setUpdatedAt(Instant.now()); uploads.merge(row); uploads.flush(); return null;
-            });
+            write(
+                    () -> {
+                        CdsImportAdmission budget = admission.lock("UPLOAD_BUDGET");
+                        CdsUpload row = uploads.lockActualRun(runId);
+                        if (row == null
+                                || !CdsImportKeys.sameDigest(
+                                        snapshotDigest, row.getSnapshotDigest()))
+                            throw problem("UPLOAD_SNAPSHOT_PUBLICATION_CONFLICT", 409);
+                        if (!row.isQuotaReleased()) {
+                            if (budget == null
+                                    || budget.getReservedBytes() < row.getExpectedBytes())
+                                throw problem("UPLOAD_BUDGET_RECONCILIATION_REQUIRED", 409);
+                            budget.setReservedBytes(
+                                    budget.getReservedBytes() - row.getExpectedBytes());
+                            admission.merge(budget);
+                            row.setQuotaReleased(true);
+                        }
+                        row.setState("RETIRED");
+                        row.setUpdatedAt(Instant.now());
+                        uploads.merge(row);
+                        uploads.flush();
+                        return null;
+                    });
         }
     }
 
     public CdsUploadDto abandon(String operator, String id) throws IOException {
-        CdsUploadDto receipt = write(() -> {
-            CdsImportAdmission budget = admission.lock("UPLOAD_BUDGET");
-            CdsUpload row = owned(uploads.lock(requireId(id)), operator);
-            if (Set.of("SUBMITTING", "SUBMITTED", "SUBMITTED_DRY_RUN", "SNAPSHOT_PUBLISHED", "RETIRED").contains(row.getState())) throw problem("UPLOAD_ACCEPTANCE_RECONCILIATION_REQUIRED", 409);
-            if (!row.isQuotaReleased()) {
-                if (budget == null || budget.getReservedBytes() < row.getExpectedBytes()) throw problem("UPLOAD_BUDGET_RECONCILIATION_REQUIRED", 409);
-                budget.setReservedBytes(budget.getReservedBytes() - row.getExpectedBytes()); admission.merge(budget);
-                row.setQuotaReleased(true);
-            }
-            row.setState("ABANDONED"); row.setUpdatedAt(Instant.now()); uploads.merge(row); uploads.flush(); return dto(row);
-        });
-        // Database acknowledgement is known before removing unsubmitted owned data. Unknown commits retain bytes.
+        CdsUploadDto receipt =
+                write(
+                        () -> {
+                            CdsImportAdmission budget = admission.lock("UPLOAD_BUDGET");
+                            CdsUpload row = owned(uploads.lock(requireId(id)), operator);
+                            if (Set.of(
+                                            "SUBMITTING",
+                                            "SUBMITTED",
+                                            "SUBMITTED_DRY_RUN",
+                                            "SNAPSHOT_PUBLISHED",
+                                            "RETIRED")
+                                    .contains(row.getState()))
+                                throw problem("UPLOAD_ACCEPTANCE_RECONCILIATION_REQUIRED", 409);
+                            if (!row.isQuotaReleased()) {
+                                if (budget == null
+                                        || budget.getReservedBytes() < row.getExpectedBytes())
+                                    throw problem("UPLOAD_BUDGET_RECONCILIATION_REQUIRED", 409);
+                                budget.setReservedBytes(
+                                        budget.getReservedBytes() - row.getExpectedBytes());
+                                admission.merge(budget);
+                                row.setQuotaReleased(true);
+                            }
+                            row.setState("ABANDONED");
+                            row.setUpdatedAt(Instant.now());
+                            uploads.merge(row);
+                            uploads.flush();
+                            return dto(row);
+                        });
+        // Database acknowledgement is known before removing unsubmitted owned data. Unknown commits
+        // retain bytes.
         Path configured = root();
         if (!Files.exists(child(configured, id), LinkOption.NOFOLLOW_LINKS)) return receipt;
         Path directory = directory(id, false);
@@ -435,31 +722,46 @@ public class CdsUploadService {
     /** Bounded maintenance hook; submitted/uncertain sources are intentionally never expiry-deleted. */
     public int cleanupExpired(int limit) throws IOException {
         int count = Math.max(1, Math.min(limit, 200));
-        Instant before = Instant.now().minusSeconds(configuration.number("cds.import.upload.ttlHours", 24) * 3600);
-        List<CdsUploadDto> candidates = write(() -> uploads.expired(before, count).stream().map(this::dto).toList());
+        Instant before =
+                Instant.now()
+                        .minusSeconds(
+                                configuration.number("cds.import.upload.ttlHours", 24) * 3600);
+        List<CdsUploadDto> candidates =
+                write(() -> uploads.expired(before, count).stream().map(this::dto).toList());
         int cleaned = 0;
         for (CdsUploadDto candidate : candidates) {
             String operator = write(() -> uploads.get(candidate.id()).getOperator());
-            try { abandon(operator, candidate.id()); cleaned++; }
-            catch (CdsUploadException changed) { if (changed.status() != 409) throw changed; }
+            try {
+                abandon(operator, candidate.id());
+                cleaned++;
+            } catch (CdsUploadException changed) {
+                if (changed.status() != 409) throw changed;
+            }
         }
         return cleaned;
     }
 
     public int chunkBytes() {
         long size = configuration.number("cds.import.upload.maxChunkBytes", 4L << 20);
-        if (size < 65536 || size > (16L << 20)) throw problem("UPLOAD_CHUNK_CONFIGURATION_INVALID", 503);
+        if (size < 65536 || size > (16L << 20))
+            throw problem("UPLOAD_CHUNK_CONFIGURATION_INVALID", 503);
         return Math.toIntExact(size);
     }
 
     private CdsUploadChunkDto readChunk(Path path, long index) throws IOException {
         ByteBuffer buffer = ByteBuffer.allocate(JOURNAL_BYTES);
-        try (FileChannel channel = FileChannel.open(path, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
+        try (FileChannel channel =
+                FileChannel.open(path, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
             channel.position(Math.multiplyExact(index, JOURNAL_BYTES));
-            while (buffer.hasRemaining()) if (channel.read(buffer) < 0) throw problem("UPLOAD_CHUNK_RECEIPT_MISSING", 409);
+            while (buffer.hasRemaining())
+                if (channel.read(buffer) < 0) throw problem("UPLOAD_CHUNK_RECEIPT_MISSING", 409);
         }
-        buffer.flip(); long stored = buffer.getLong(); long offset = buffer.getLong(); int bytes = buffer.getInt();
-        byte[] hash = new byte[32]; buffer.get(hash);
+        buffer.flip();
+        long stored = buffer.getLong();
+        long offset = buffer.getLong();
+        int bytes = buffer.getInt();
+        byte[] hash = new byte[32];
+        buffer.get(hash);
         if (stored != index) throw problem("UPLOAD_CHUNK_RECEIPT_CONFLICT", 409);
         return new CdsUploadChunkDto(index, offset, bytes, HexFormat.of().formatHex(hash));
     }
@@ -474,12 +776,18 @@ public class CdsUploadService {
         try {
             Path path = child(configured, id);
             if (create && !Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {
-                Files.createDirectory(path, PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------")));
+                Files.createDirectory(
+                        path,
+                        PosixFilePermissions.asFileAttribute(
+                                PosixFilePermissions.fromString("rwx------")));
                 syncDirectory(configured);
             }
-            if (Files.isSymbolicLink(path) || !Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) throw problem("UPLOAD_NOT_FOUND", 404);
+            if (Files.isSymbolicLink(path) || !Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS))
+                throw problem("UPLOAD_NOT_FOUND", 404);
             return path;
-        } catch (IOException failure) { throw problem("UPLOAD_STORAGE_UNAVAILABLE", 503); }
+        } catch (IOException failure) {
+            throw problem("UPLOAD_STORAGE_UNAVAILABLE", 503);
+        }
     }
 
     private Path root() {
@@ -489,65 +797,125 @@ public class CdsUploadService {
     private Path root(boolean create) {
         Path configured = configuration.uploadRoot();
         try {
-            if (create && !Files.exists(configured, LinkOption.NOFOLLOW_LINKS)) Files.createDirectories(configured,
-                    PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------")));
-            if (Files.isSymbolicLink(configured) || !Files.isDirectory(configured, LinkOption.NOFOLLOW_LINKS)
-                    || !PosixFilePermissions.toString(Files.getPosixFilePermissions(configured)).equals("rwx------")) {
+            if (create && !Files.exists(configured, LinkOption.NOFOLLOW_LINKS))
+                Files.createDirectories(
+                        configured,
+                        PosixFilePermissions.asFileAttribute(
+                                PosixFilePermissions.fromString("rwx------")));
+            if (Files.isSymbolicLink(configured)
+                    || !Files.isDirectory(configured, LinkOption.NOFOLLOW_LINKS)
+                    || !PosixFilePermissions.toString(Files.getPosixFilePermissions(configured))
+                            .equals("rwx------")) {
                 throw problem("UPLOAD_ROOT_NOT_PRIVATE", 503);
             }
             return configured;
-        } catch (IOException failure) { throw problem("UPLOAD_STORAGE_UNAVAILABLE", 503); }
+        } catch (IOException failure) {
+            throw problem("UPLOAD_STORAGE_UNAVAILABLE", 503);
+        }
     }
 
     private static Path child(Path directory, String name) {
-        Path path = PathValidationUtils.validatePrivateImportPath(directory.resolve(name).toFile(), directory.toFile()).toPath();
+        Path path =
+                PathValidationUtils.validatePrivateImportPath(
+                                directory.resolve(name).toFile(), directory.toFile())
+                        .toPath();
         if (Files.isSymbolicLink(path)) throw problem("UPLOAD_PATH_INVALID", 400);
         return path;
     }
+
     private static FileChannel openPrivate(Path path) throws IOException {
-        return FileChannel.open(path, Set.of(StandardOpenOption.CREATE, StandardOpenOption.READ,
-                StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS),
+        return FileChannel.open(
+                path,
+                Set.of(
+                        StandardOpenOption.CREATE,
+                        StandardOpenOption.READ,
+                        StandardOpenOption.WRITE,
+                        LinkOption.NOFOLLOW_LINKS),
                 PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
     }
+
     private static FileLock tryLock(FileChannel channel) throws IOException {
-        try { return channel.tryLock(); }
-        catch (OverlappingFileLockException busy) { throw problem("UPLOAD_BUSY", 409); }
+        try {
+            return channel.tryLock();
+        } catch (OverlappingFileLockException busy) {
+            throw problem("UPLOAD_BUSY", 409);
+        }
     }
+
     private void reserveDisk(Path path, long bytes) throws IOException {
         long floor = configuration.number("cds.import.minimumFreeDiskBytes", 512L << 20);
-        if (Files.getFileStore(path).getUsableSpace() - bytes < floor) throw problem("UPLOAD_DISK_RESERVE_REFUSED", 507);
+        if (Files.getFileStore(path).getUsableSpace() - bytes < floor)
+            throw problem("UPLOAD_DISK_RESERVE_REFUSED", 507);
     }
+
     private static void syncDirectory(Path path) throws IOException {
-        try (FileChannel directory = FileChannel.open(path, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) { directory.force(true); }
+        try (FileChannel directory =
+                FileChannel.open(path, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
+            directory.force(true);
+        }
     }
+
     private <T> T write(Supplier<T> operation) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw problem("UPLOAD_AMBIENT_TRANSACTION_REFUSED", 409);
+        if (TransactionSynchronizationManager.isActualTransactionActive())
+            throw problem("UPLOAD_AMBIENT_TRANSACTION_REFUSED", 409);
         return transaction.execute(status -> operation.get());
     }
+
     private static CdsUpload owned(CdsUpload row, String operator) {
-        if (row == null || operator == null || !operator.equals(row.getOperator())) throw problem("UPLOAD_NOT_FOUND", 404);
+        if (row == null || operator == null || !operator.equals(row.getOperator()))
+            throw problem("UPLOAD_NOT_FOUND", 404);
         return row;
     }
+
     private CdsUploadDto dto(CdsUpload row) {
-        return new CdsUploadDto(row.getId(), row.getSourceName(), row.getExpectedBytes(), row.getReceivedBytes(),
-                chunkBytes(), row.getChunkCount(), row.getState(), row.getManifestDigest(), row.getSubmissionKey(),
-                row.getRunId(), row.getDryRunId(), row.getUpdatedAt().toEpochMilli());
+        return new CdsUploadDto(
+                row.getId(),
+                row.getSourceName(),
+                row.getExpectedBytes(),
+                row.getReceivedBytes(),
+                chunkBytes(),
+                row.getChunkCount(),
+                row.getState(),
+                row.getManifestDigest(),
+                row.getSubmissionKey(),
+                row.getRunId(),
+                row.getDryRunId(),
+                row.getUpdatedAt().toEpochMilli());
     }
-    private static String payloadName(CdsUpload row) { return "ZIP".equals(row.getMediaKind()) ? "source.zip" : "source.xml"; }
+
+    private static String payloadName(CdsUpload row) {
+        return "ZIP".equals(row.getMediaKind()) ? "source.zip" : "source.xml";
+    }
+
     private static String requireId(String id) {
-        if (id == null || !id.matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")) throw problem("UPLOAD_ID_INVALID", 400);
+        if (id == null
+                || !id.matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"))
+            throw problem("UPLOAD_ID_INVALID", 400);
         return id;
     }
+
     private static void requireName(String name) {
-        if (name == null || name.isBlank() || name.length() > 1000 || name.indexOf('/') >= 0 || name.indexOf('\\') >= 0
+        if (name == null
+                || name.isBlank()
+                || name.length() > 1000
+                || name.indexOf('/') >= 0
+                || name.indexOf('\\') >= 0
                 || name.chars().anyMatch(c -> c < 32 || c == 127)
-                || !(name.toLowerCase(Locale.ROOT).endsWith(".xml") || name.toLowerCase(Locale.ROOT).endsWith(".zip"))) {
+                || !(com.google.common.base.Ascii.toLowerCase(name).endsWith(".xml")
+                        || com.google.common.base.Ascii.toLowerCase(name).endsWith(".zip"))) {
             throw problem("UPLOAD_NAME_OR_TYPE_INVALID", 400);
         }
     }
+
     private static MessageDigest sha256() {
-        try { return MessageDigest.getInstance("SHA-256"); }
-        catch (NoSuchAlgorithmException impossible) { throw new IllegalStateException("SHA-256 unavailable"); }
+        try {
+            return MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException("SHA-256 unavailable");
+        }
     }
-    private static CdsUploadException problem(String code, int status) { return new CdsUploadException(code, status); }
+
+    private static CdsUploadException problem(String code, int status) {
+        return new CdsUploadException(code, status);
+    }
 }

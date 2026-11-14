@@ -1,0 +1,57 @@
+{
+  "table": "native_eform_renderings",
+  "engine": "TRUSTED_EFORM_RENDERINGS",
+  "columns": [
+    {
+      "name": "author_first_name",
+      "type": "PROVIDER_FIRST_NAME",
+      "nullable": "YES",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "author_last_name",
+      "type": "PROVIDER_LAST_NAME",
+      "nullable": "YES",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "content",
+      "type": "BINARY",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "fdid",
+      "type": "CANONICAL_EFORM_DATA_ID",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "outcome",
+      "type": "EFORM_RENDER_OUTCOME_ASCII",
+      "nullable": "NO",
+      "charset": "ascii",
+      "collation": "ascii_bin",
+      "expression": null
+    },
+    {
+      "name": "reason",
+      "type": "EFORM_RENDER_REASON_ASCII",
+      "nullable": "NO",
+      "charset": "ascii",
+      "collation": "ascii_bin",
+      "expression": null
+    }
+  ],
+  "primaryKeyColumns": [
+    "fdid"
+  ]
+}

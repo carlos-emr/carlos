@@ -1,0 +1,23 @@
+{
+  "table": "listed_sources",
+  "engine": "TRUSTED_LISTED_SOURCE_COUNTS",
+  "columns": [
+    {
+      "name": "row_count",
+      "type": "DECIMAL_ROW_COUNT_ASCII",
+      "nullable": "NO",
+      "charset": "ascii",
+      "collation": "ascii_bin",
+      "expression": null
+    },
+    {
+      "name": "table_name",
+      "type": "SQL_IDENTIFIER_ASCII",
+      "nullable": "NO",
+      "charset": "ascii",
+      "collation": "ascii_bin",
+      "expression": null
+    }
+  ],
+  "primaryKeyColumns": []
+}

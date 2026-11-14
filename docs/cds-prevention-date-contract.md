@@ -65,6 +65,42 @@ additive precision representation still describes the recorded metadata for eith
   its active type scope: an unresolved date can affect membership in the requested range.
   It requires review rather than quietly losing undated records in the SQL filter.
 
+## Reads that fail
+
+The `PreventionData` list, record and extension-lookup readers no longer log a failed read and
+return what they had read so far: an empty or shortened list looks like a complete history. They
+throw `PreventionSourceUnavailableException` (unchecked, in `prevention.dto` beside
+`PreventionDatePrecisionException`, which still passes through unchanged). Its message is fixed
+text with no patient data or SQL; the failure is its cause and is logged once, where the read
+failed. Handlers recognise it by type, never by message.
+
+`PreventionData.getPreventionData` first looks the patient up, for the date of birth and the
+caller's right to read the chart. A failure of that lookup is a failed read like any other and
+throws the same exception; it used to return an empty list. A denial is different and keeps its
+release behaviour: a caller who may not read the chart (`SecurityException`, or a
+`PatientDirectiveException`) gets an empty list, never data and never an error page, logged as
+one warning with the chart number and no stack trace.
+
+Every caller answers it with a visible "could not be read" result, never with a partial list, a
+blank section or an error page:
+
+- Pages and fragments for one patient (the Preventions page, the Health Tracker and flowsheet
+  sections and their print view, the RH injection panel, the BC health passport forms, the
+  prevention record popup, the encounter panel) show a localized message in place of the
+  prevention content and render the rest of the page. The Preventions page reads every type it
+  is about to list before it writes any of them (`PreventionPageData.canReadAll`), and
+  `PreventionPageData` refuses every type once one read has failed.
+- The Preventions print produces no PDF and returns the page with its reason (HTTP 503).
+- The clinic prevention reports keep an unreadable patient in the report as a "Could not be
+  read" row, ranked first, with no bonus, bill or recall letter, and state above the totals how
+  many patients could not be read. Those patients stay in the denominator, so they count as not
+  up to date. A row whose patient record is not found is listed and counted the same way; the
+  page used to skip it.
+- The prevention record popup shows a "not found" message when no record has the requested id,
+  instead of failing.
+- The REST Preventions summary keeps its shape and holds one highlighted item that says so.
+- The legacy CDS 4 export is refused as a whole with the `preventionSourceUnavailable` reason.
+
 ## Extended legacy reader coverage
 
 The followthrough adapts both chart PDF printers and the RTL eForm to print the original

@@ -98,3 +98,13 @@ bc/V1.0.59.36__preserve_bc_history_amount.sql
 common/V1.0.59.37__rx_favorite_groups.sql
 common/V1.0.59.38__rx_submission_receipts.sql
 common/V1.0.59.39__rx_original_versions.sql
+common/V1.0.59.40__cds_native_field_baselines.sql
+common/V1.0.59.41__cds_export_ledger.sql
+common/V1.0.59.42__cds_export_artifact_attempts.sql
+common/V1.0.59.43__seed_admin_cds_import_permission.sql
+common/V1.0.59.44__index_cds_hrm_patient_scope.sql
+common/V1.0.59.45__cds_export_held_patients.sql
+common/V1.0.59.46__index_measurements_deleted_owners.sql
+common/V1.0.59.47__index_cds_laboratory_result_native_lab.sql
+common/V1.0.59.48__index_cds_import_unit_patient_id.sql
+common/V1.0.59.49__cds_export_attempt_checkpoint.sql

@@ -1,0 +1,15 @@
+{
+  "table": "retained_import_options",
+  "engine": "TRUSTED_IMPORT_PROVENANCE",
+  "columns": [
+    {
+      "name": "options",
+      "type": "VERIFIED_IMPORT_OPTIONS_JSON_UTF8",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_bin",
+      "expression": null
+    }
+  ],
+  "primaryKeyColumns": []
+}

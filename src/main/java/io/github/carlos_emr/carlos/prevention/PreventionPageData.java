@@ -29,6 +29,7 @@ import java.util.Map;
 
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionSourceUnavailableException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -54,6 +55,7 @@ public final class PreventionPageData {
     private final Demographic demographic;
     private final Date dateOfBirth;
     private final Map<String, ArrayList<Map<String, Object>>> preventionDataByType = new HashMap<>();
+    private PreventionSourceUnavailableException unavailable;
 
     /**
      * Looks the patient up for the logged-in user.
@@ -104,11 +106,54 @@ public final class PreventionPageData {
      * {@code PreventionData.getPreventionData} do change the list they get (for example with
      * {@code addAll}); code like that must copy this list first.
      *
+     * <p>A failed read is remembered for the rest of the request: once one type could not be
+     * read, every later call throws the same exception, for every type, including types read
+     * successfully before. A page therefore cannot show the types it managed to read as if they
+     * were the patient's whole history. Pages that write their output as they go should call
+     * {@link #canReadAll(Iterable)} before writing any prevention content.
+     *
      * @param preventionType the prevention type's name
      * @return the preventions of that type, never {@code null}
+     * @throws PreventionSourceUnavailableException if this read, or an earlier read made through
+     *         this object, failed; the caller must show that preventions could not be read
      */
     public ArrayList<Map<String, Object>> getPreventionData(String preventionType) {
-        return preventionDataByType.computeIfAbsent(preventionType,
-                type -> PreventionData.listForCheckedPatient(type, demographicId, dateOfBirth));
+        if (unavailable != null) {
+            throw unavailable;
+        }
+        try {
+            return preventionDataByType.computeIfAbsent(preventionType,
+                    type -> PreventionData.listForCheckedPatient(type, demographicId, dateOfBirth));
+        } catch (PreventionSourceUnavailableException failure) {
+            unavailable = failure;
+            throw failure;
+        }
+    }
+
+    /**
+     * Reads the given types now, keeping each list for the rest of the request, and says whether
+     * all of them could be read. A page calls this before it writes any prevention content, so
+     * that a read failing halfway down the page cannot leave the earlier types on screen looking
+     * like the complete history. It costs nothing extra for types the page reads anyway.
+     *
+     * <p>When this returns {@code false} the failure has been logged where the read failed, and
+     * {@link #getPreventionData(String)} throws for every type from then on.
+     *
+     * @param preventionTypes the prevention type names the page is about to show; {@code null}
+     *        names are skipped
+     * @return {@code true} if every type was read; {@code false} if any read failed, in which
+     *         case the page must show that preventions could not be read and none of the rows
+     */
+    public boolean canReadAll(Iterable<String> preventionTypes) {
+        try {
+            for (String preventionType : preventionTypes) {
+                if (preventionType != null) {
+                    getPreventionData(preventionType);
+                }
+            }
+            return true;
+        } catch (PreventionSourceUnavailableException _) {
+            return false;
+        }
     }
 }

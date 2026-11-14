@@ -58,6 +58,7 @@ public class CdsImportNativeService {
                     "ProblemList",
                     "RiskFactors",
                     "AlertsAndSpecialNeeds");
+    private final CdsImportConfigurationService configuration;
     private final CdsFieldParser fields;
     private final CdsClinicalNormalizationService normalization;
     private final CdsMedicationPersister medications;
@@ -92,7 +93,9 @@ public class CdsImportNativeService {
             CdsImportAccessService access,
             CdsImportLedgerService ledger,
             CdsTargetReceiptService receipts,
-            List<CdsCategoryImportService> categories) {
+            List<CdsCategoryImportService> categories,
+            CdsImportConfigurationService configuration) {
+        this.configuration = configuration;
         this.fields = fields;
         this.normalization = normalization;
         this.medications = medications;
@@ -139,7 +142,8 @@ public class CdsImportNativeService {
                 validateNativeDate(value.start(), "StartDate");
                 validateNativeDate(value.recorded(), "RecordedDate");
             }
-            case "Immunizations" -> immunizations.validate(normalization.immunization(record, command));
+            case "Immunizations" ->
+                    immunizations.validate(normalization.immunization(record, command));
             case "Demographics" -> demographics.validate(record, command);
             case "Appointments" -> appointments.validate(record, command);
             case "CareElements", "NewCategory" -> {
@@ -184,7 +188,8 @@ public class CdsImportNativeService {
                         unit.unitKey(),
                         record.effectiveSha256(),
                         command,
-                        new CdsMedicationNativeDto(source, provider));
+                        new CdsMedicationNativeDto(
+                                source, provider, normalization.medicationArchived(record)));
             }
             case "AllergiesAndAdverseReactions" ->
                     preparation.store(
@@ -193,7 +198,10 @@ public class CdsImportNativeService {
                             unit.unitKey(),
                             record.effectiveSha256(),
                             command,
-                            normalization.allergy(record, command));
+                            normalization
+                                    .allergy(record, command)
+                                    .withArchiveRestoration(
+                                            configuration.restoreArchivedAllergies()));
             case "Immunizations" ->
                     preparation.store(
                             run,
@@ -246,6 +254,7 @@ public class CdsImportNativeService {
             int demographicNo = Integer.parseInt(target.get("demographic"));
             access.context(actor, command, demographicNo);
             ledger.bindTarget(run, epoch, unit.patientKey(), demographicNo);
+            audit(run, unit, command, actor, demographicNo);
             if (command.timeshiftDays() != 0)
                 notice(
                         run,
@@ -281,6 +290,14 @@ public class CdsImportNativeService {
                                 command,
                                 CdsMedicationNativeDto.class);
                 var source = prepared.source();
+                if (prepared.archived())
+                    notice(
+                            run,
+                            epoch,
+                            unit,
+                            "WARNING",
+                            "CDS_MEDICATION_VENDOR_ARCHIVE_CONTEXT",
+                            "ResidualInfo");
                 if (!prepared.provider().matched())
                     notice(
                             run,
@@ -295,7 +312,11 @@ public class CdsImportNativeService {
                 temporalNotice(run, epoch, unit, "StartDate", source.start());
                 written =
                         medications.write(
-                                target, command.providerNo(), source, prepared.provider());
+                                target,
+                                command.providerNo(),
+                                source,
+                                prepared.provider(),
+                                prepared.archived());
             }
             case "AllergiesAndAdverseReactions" -> {
                 var source =
@@ -308,6 +329,32 @@ public class CdsImportNativeService {
                                 CdsAllergyDto.class);
                 temporalNotice(run, epoch, unit, "StartDate", source.start());
                 temporalNotice(run, epoch, unit, "RecordedDate", source.recorded());
+                for (var diagnostic : source.diagnostics())
+                    notice(run, epoch, unit, "WARNING", diagnostic.code(), diagnostic.field());
+                if (source.archived() && !source.nativeArchived())
+                    notice(
+                            run,
+                            epoch,
+                            unit,
+                            "WARNING",
+                            "CDS_ALLERGY_ARCHIVED_SOURCE_MARKER",
+                            "ResidualInfo",
+                            "The source marked this allergy as archived (a CARLOS vendor"
+                                    + " extension). It was imported as active because restoring"
+                                    + " archived allergies is not enabled for this import; review"
+                                    + " the source allergy history.");
+                else if (source.archived())
+                    notice(
+                            run,
+                            epoch,
+                            unit,
+                            "WARNING",
+                            "CDS_ALLERGY_ARCHIVED_SOURCE_RESTORED",
+                            "ResidualInfo",
+                            "The source marked this allergy as archived (a CARLOS vendor"
+                                    + " extension). It was imported as archived because this"
+                                    + " import restores archived allergies; review the source"
+                                    + " allergy history.");
                 written = allergies.write(target, command.providerNo(), source);
             }
             case "Immunizations" -> {
@@ -320,6 +367,8 @@ public class CdsImportNativeService {
                                 command,
                                 CdsImmunizationDto.class);
                 temporalNotice(run, epoch, unit, "Date", source.date());
+                for (var diagnostic : source.diagnostics())
+                    notice(run, epoch, unit, "WARNING", diagnostic.code(), diagnostic.field());
                 written = immunizations.write(target, command.providerNo(), source);
             }
             case "Appointments" ->
@@ -368,20 +417,58 @@ public class CdsImportNativeService {
                                                     record,
                                                     command);
         }
+        if (!"CareElements".equals(record.section()) && !"NewCategory".equals(record.section()))
+            audit(run, unit, command, actor, target);
         return receipts.capture(written, run, unit.unitKey());
+    }
+
+    /**
+     * The normal chart audit of an imported unit: one row in {@code log} naming the patient, in
+     * the unit's own transaction, so a rolled-back unit leaves no audit claim and a committed one
+     * cannot lack it. It carries the importing provider and only the run, unit hash and
+     * category (no source value or health number); the detailed outcome stays in
+     * {@code cds_import_event}. An asynchronous import has no client address to record.
+     */
+    private void audit(
+            String run,
+            CdsImportUnitDto unit,
+            CdsImportCommand command,
+            CdsImportActorDto actor,
+            int demographicNo) {
+        var entry = new io.github.carlos_emr.carlos.commn.model.OscarLog();
+        entry.setProviderNo(command.providerNo());
+        if (actor != null) entry.setSecurityId(actor.securityNo());
+        entry.setAction(io.github.carlos_emr.carlos.log.LogConst.IMPORT);
+        entry.setContent(io.github.carlos_emr.carlos.log.LogConst.CON_DEMOGRAPHIC);
+        entry.setContentId(Integer.toString(demographicNo));
+        entry.setDemographicId(demographicNo);
+        entry.setData(
+                "CDS_IMPORT_UNIT_COMMITTED run="
+                        + run
+                        + " unit="
+                        + unit.unitKey()
+                        + " category="
+                        + unit.category()
+                        + "; outcomes=cds_import_event");
+        entityManager.persist(entry);
     }
 
     public boolean verify(CdsImportReceiptDto receipt) {
         return receipts.verify(receipt);
     }
 
+    /**
+     * Derives a record's native child occurrences (demographic contacts, care elements) into the
+     * source's shared child spool. The spool is checked against the installation's configured
+     * free-disk reserve, like every other import spool, not against the built-in default.
+     */
     public void forEachNativeChild(
             CdsRecordDto record, String suffix, Consumer<CdsRecordDto> children)
             throws IOException {
         if ("_CONTACT".equals(suffix) && "Demographics".equals(record.section()))
-            fields.forEachSubrecord(record, "Contact", children);
+            fields.forEachSubrecord(record, "Contact", configuration.limits(), children);
         else if ("_CARE".equals(suffix) && "CareElements".equals(record.section()))
-            fields.forEachSubrecord(record, "*", children);
+            fields.forEachSubrecord(record, "*", configuration.limits(), children);
         else throw new CdsImportException("NATIVE_CHILD_KIND_INVALID");
     }
 
@@ -406,14 +493,22 @@ public class CdsImportNativeService {
                 notice(run, epoch, unit, "WARNING", "CDS_CALENDAR_STORAGE_ANCHOR_NORMALIZED", path);
             if (date.offsetDateTime() != null && date.offsetDateTime().getNano() != 0
                     || date.localDateTime() != null && date.localDateTime().getNano() != 0)
-                notice(run, epoch, unit, "WARNING", "CDS_IMMUNIZATION_SUBSECOND_PRECISION_RETAINED_IN_SOURCE", path);
+                notice(
+                        run,
+                        epoch,
+                        unit,
+                        "WARNING",
+                        "CDS_IMMUNIZATION_SUBSECOND_PRECISION_RETAINED_IN_SOURCE",
+                        path);
         }
     }
 
     private static void validateNativeDate(CdsTemporalDto value, String field) {
-        try { value.dateStorageAnchor(); }
-        catch (io.github.carlos_emr.carlos.commn.model.CdsClinicalException invalid) {
-            throw new io.github.carlos_emr.carlos.commn.model.CdsClinicalException(invalid.code(), field);
+        try {
+            value.dateStorageAnchor();
+        } catch (io.github.carlos_emr.carlos.commn.model.CdsClinicalException invalid) {
+            throw new io.github.carlos_emr.carlos.commn.model.CdsClinicalException(
+                    invalid.code(), field);
         }
     }
 
@@ -424,6 +519,25 @@ public class CdsImportNativeService {
             String severity,
             String code,
             String path) {
+        notice(
+                run,
+                epoch,
+                unit,
+                severity,
+                code,
+                path,
+                "Source meaning retained; inspect the category-local original, normalized value and"
+                        + " precision");
+    }
+
+    private void notice(
+            String run,
+            long epoch,
+            CdsImportUnitDto unit,
+            String severity,
+            String code,
+            String path,
+            String message) {
         ledger.diagnostic(
                 run,
                 epoch,
@@ -433,8 +547,7 @@ public class CdsImportNativeService {
                 code,
                 "NORMALIZATION",
                 path,
-                "Source meaning retained; inspect the category-local original, normalized value and"
-                        + " precision",
+                message,
                 null,
                 false);
     }

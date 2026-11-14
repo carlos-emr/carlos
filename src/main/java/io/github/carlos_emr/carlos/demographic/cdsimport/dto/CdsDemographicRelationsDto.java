@@ -24,35 +24,70 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.dto;
 import java.util.List;
 
 /** Bounded external source relations; these identities never resolve or create a local provider. */
-public record CdsDemographicRelationsDto(Person familyPhysician, Person referringPhysician,
-        Pharmacy preferredPharmacy, int facilityId, List<CdsClinicalDiagnosticDto> diagnostics) {
+public record CdsDemographicRelationsDto(
+        Person familyPhysician,
+        Person referringPhysician,
+        Pharmacy preferredPharmacy,
+        int facilityId,
+        List<CdsClinicalDiagnosticDto> diagnostics) {
     public CdsDemographicRelationsDto {
-        diagnostics=List.copyOf(diagnostics);
-        if (facilityId<0) throw new IllegalArgumentException("DEMOGRAPHIC_RELATIONS_INVALID");
+        diagnostics = List.copyOf(diagnostics);
+        if (facilityId < 0) throw new IllegalArgumentException("DEMOGRAPHIC_RELATIONS_INVALID");
     }
+
     public static CdsDemographicRelationsDto empty() {
         return new CdsDemographicRelationsDto(null, null, null, 0, List.of());
     }
+
     public record Person(String firstName, String lastName) {
         public Person {
-            if (firstName==null || lastName==null || firstName.isBlank() && lastName.isBlank())
+            if (firstName == null || lastName == null || firstName.isBlank() && lastName.isBlank())
                 throw new IllegalArgumentException("DEMOGRAPHIC_CONTEXT_PHYSICIAN_NAME_REQUIRED");
-            bounded(firstName, 50); bounded(lastName, 50);
+            bounded(firstName, 50);
+            bounded(lastName, 50);
         }
-        @Override public String toString() { return "CdsContextPhysician[protected]"; }
+
+        @Override
+        public String toString() {
+            return "CdsContextPhysician[protected]";
+        }
     }
-    public record Pharmacy(String name, String address, String city, String province, String postal,
-            String phone, String fax, String email) {
+
+    public record Pharmacy(
+            String name,
+            String address,
+            String city,
+            String province,
+            String postal,
+            String phone,
+            String fax,
+            String email) {
         public Pharmacy {
-            if (name==null || name.isBlank()) throw new IllegalArgumentException("DEMOGRAPHIC_PHARMACY_NAME_REQUIRED");
-            bounded(name, 255); bounded(address, 255); bounded(city, 60); bounded(province, 255);
-            bounded(postal, 20); bounded(phone, 20); bounded(fax, 20); bounded(email, 100);
+            if (name == null || name.isBlank())
+                throw new IllegalArgumentException("DEMOGRAPHIC_PHARMACY_NAME_REQUIRED");
+            bounded(name, 255);
+            bounded(address, 255);
+            bounded(city, 60);
+            bounded(province, 255);
+            bounded(postal, 20);
+            bounded(phone, 20);
+            bounded(fax, 20);
+            bounded(email, 100);
         }
-        @Override public String toString() { return "CdsPreferredPharmacy[protected]"; }
+
+        @Override
+        public String toString() {
+            return "CdsPreferredPharmacy[protected]";
+        }
     }
+
     private static void bounded(String value, int maximum) {
-        if (value!=null && value.codePointCount(0, value.length())>maximum)
+        if (value != null && value.codePointCount(0, value.length()) > maximum)
             throw new IllegalArgumentException("DEMOGRAPHIC_RELATIONS_TEXT_INVALID");
     }
-    @Override public String toString() { return "CdsDemographicRelationsDto[protected]"; }
+
+    @Override
+    public String toString() {
+        return "CdsDemographicRelationsDto[protected]";
+    }
 }

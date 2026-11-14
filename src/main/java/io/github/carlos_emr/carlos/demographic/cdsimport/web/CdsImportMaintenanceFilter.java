@@ -38,47 +38,107 @@ import java.util.function.Supplier;
 
 /**
  * While durable maintenance/holds exist, clinical HTTP reads/egress stay closed as well as writes.
- * Existing authentication and importer actions retain their own authorization/CSRF checks.
+ * Existing authentication, importer and export metadata actions retain their own
+ * authorization/CSRF checks. Export status, cancellation and resume intent are available;
+ * submission, package retrieval and clinical reports remain closed. Recording resume
+ * intent does not grant access through the maintenance barrier or authorize clinical SQL.
  * Pool-level admission independently excludes background/non-HTTP clinical SQL.
  */
 public final class CdsImportMaintenanceFilter implements Filter {
     private static final String SESSION_HEARTBEAT = "/status/SessionHeartbeat";
-    private static final Set<String> ROUTES = Set.of("/", "/index", "/index.jsp", "/login", "/login.do",
-            "/logout", "/logout.do", "/logoutPage", "/loginfailed", "/forcepasswordreset",
-            "/forcepasswordresetSubmit", "/location", "/select_facility", "/csrfguard",
-            "/mfa/loginMfa", "/securityRecord/mfa", "/form/importUpload", "/form/cdsUpload", "/form/cdsImportSubmit", "/form/cdsImportStatus", "/form/cdsImportDiagnostic",
-            "/form/cdsImportControl", "/form/cdsImportReport", "/form/importLogDownload", SESSION_HEARTBEAT);
-    private static final String[] STATIC = {"/css/", "/js/", "/images/", "/fonts/", "/library/", "/loginResource/"};
+    private static final Set<String> ROUTES =
+            Set.of(
+                    "/",
+                    "/index",
+                    "/index.jsp",
+                    "/login",
+                    "/login.do",
+                    "/logout",
+                    "/logout.do",
+                    "/logoutPage",
+                    "/loginfailed",
+                    "/forcepasswordreset",
+                    "/forcepasswordresetSubmit",
+                    "/location",
+                    "/select_facility",
+                    "/csrfguard",
+                    "/mfa/loginMfa",
+                    "/securityRecord/mfa",
+                    "/form/importUpload",
+                    "/form/cdsUpload",
+                    "/form/cdsImportSubmit",
+                    "/form/cdsImportStatus",
+                    "/form/cdsImportDiagnostic",
+                    "/form/cdsImportControl",
+                    "/form/cdsImportReport",
+                    "/form/importLogDownload",
+                    "/form/cdsExport",
+                    "/form/cdsExportStatus",
+                    "/form/cdsExportControl",
+                    SESSION_HEARTBEAT);
+    private static final String[] STATIC = {
+        "/css/", "/js/", "/images/", "/fonts/", "/library/", "/loginResource/"
+    };
     // Exact dependencies of the native login's global-head.jspf. Other shared
     // resources remain subject to maintenance admission.
-    private static final Set<String> LOGIN_ASSETS = Set.of("/share/css/global.css", "/share/css/searchBox.css",
-            "/share/css/transitions.css", "/share/javascript/Oscar.js", "/share/javascript/carlos-ajax.js");
-    private enum UnavailableReason { STARTUP_PENDING, IMPORT_MAINTENANCE }
+    private static final Set<String> LOGIN_ASSETS =
+            Set.of(
+                    "/share/css/global.css",
+                    "/share/css/searchBox.css",
+                    "/share/css/transitions.css",
+                    "/share/javascript/Oscar.js",
+                    "/share/javascript/carlos-ajax.js",
+                    "/share/javascript/csrfTokenFetch.js");
+
+    private enum UnavailableReason {
+        STARTUP_PENDING,
+        IMPORT_MAINTENANCE
+    }
+
     private final Supplier<CdsImportMaintenanceService> maintenance;
 
     /** Servlet-container compatibility boundary; dependency resolution is deferred until context startup completes. */
-    public CdsImportMaintenanceFilter() { this(() -> SpringUtils.getBean(CdsImportMaintenanceService.class)); }
-    public CdsImportMaintenanceFilter(Supplier<CdsImportMaintenanceService> maintenance) { this.maintenance = maintenance; }
+    public CdsImportMaintenanceFilter() {
+        this(() -> SpringUtils.getBean(CdsImportMaintenanceService.class));
+    }
 
-    @Override public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+    public CdsImportMaintenanceFilter(Supplier<CdsImportMaintenanceService> maintenance) {
+        this.maintenance = maintenance;
+    }
+
+    @Override
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
             throws IOException, ServletException {
-        if (!(request instanceof HttpServletRequest http) || !(response instanceof HttpServletResponse reply)) {
-            chain.doFilter(request, response); return;
+        if (!(request instanceof HttpServletRequest http)
+                || !(response instanceof HttpServletResponse reply)) {
+            chain.doFilter(request, response);
+            return;
         }
         String path = http.getRequestURI().substring(http.getContextPath().length());
         // The heartbeat reads only this browser's session, never clinical data.
         // Shared login scripts must still be able to observe session expiry
         // while clinical access and background writers remain closed.
-        boolean loginAssetRead = !(LOGIN_ASSETS.contains(path) || SESSION_HEARTBEAT.equals(route(path)))
-                || "GET".equals(http.getMethod()) || "HEAD".equals(http.getMethod());
-        if (allowed(path) && loginAssetRead) { chain.doFilter(request, response); return; }
+        boolean loginAssetRead =
+                !(LOGIN_ASSETS.contains(path) || SESSION_HEARTBEAT.equals(route(path)))
+                        || "GET".equals(http.getMethod())
+                        || "HEAD".equals(http.getMethod());
+        if (allowed(path) && loginAssetRead) {
+            chain.doFilter(request, response);
+            return;
+        }
         boolean blocked;
-        try { blocked = maintenance.get().isClinicalAccessBlocked(); }
-        catch (RuntimeException unavailable) { blocked = true; }
+        try {
+            blocked = maintenance.get().isClinicalAccessBlocked();
+        } catch (RuntimeException unavailable) {
+            blocked = true;
+        }
         if (!blocked) {
-            Object startup = http.getServletContext().getAttribute(ClinicalStartupCoordinator.ATTRIBUTE);
-            if (!(startup instanceof ClinicalStartupCoordinator coordinator) || coordinator.isReady()) {
-                chain.doFilter(request, response); return;
+            Object startup =
+                    http.getServletContext().getAttribute(ClinicalStartupCoordinator.ATTRIBUTE);
+            if (!(startup instanceof ClinicalStartupCoordinator coordinator)
+                    || coordinator.isReady()) {
+                chain.doFilter(request, response);
+                return;
             }
             unavailable(reply, UnavailableReason.STARTUP_PENDING);
             return;
@@ -86,7 +146,8 @@ public final class CdsImportMaintenanceFilter implements Filter {
         unavailable(reply, UnavailableReason.IMPORT_MAINTENANCE);
     }
 
-    private static void unavailable(HttpServletResponse reply, UnavailableReason reason) throws IOException {
+    private static void unavailable(HttpServletResponse reply, UnavailableReason reason)
+            throws IOException {
         reply.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
         reply.setHeader("Cache-Control", "no-store");
         reply.setHeader("Retry-After", "60");
@@ -94,30 +155,44 @@ public final class CdsImportMaintenanceFilter implements Filter {
         // Administration pages are also closed during maintenance. Give a direct
         // recovery route without reflecting request data or assuming a root deployment.
         switch (reason) {
-            case STARTUP_PENDING -> reply.getWriter().write("Clinical startup initialization is pending. "
-                    + "Authorized operators can open the CDS import page by adding "
-                    + "/form/importUpload to the application base address.");
-            case IMPORT_MAINTENANCE -> reply.getWriter().write(
-                    "Clinical access is unavailable during CDS import maintenance or chart reconciliation. "
-                    + "Authorized operators can open the CDS import page by adding "
-                    + "/form/importUpload to the application base address.");
+            case STARTUP_PENDING ->
+                    reply.getWriter()
+                            .write(
+                                    "Clinical startup initialization is pending. Authorized"
+                                        + " operators can open the CDS import page by adding"
+                                        + " /form/importUpload to the application base address.");
+            case IMPORT_MAINTENANCE ->
+                    reply.getWriter()
+                            .write(
+                                    "Clinical access is unavailable during CDS import maintenance"
+                                        + " or chart reconciliation. Authorized operators can open"
+                                        + " the CDS import page by adding /form/importUpload to the"
+                                        + " application base address.");
             default -> throw new IllegalStateException("Unsupported clinical availability reason");
         }
     }
 
     static boolean allowed(String path) {
-        if (path == null || path.contains("%") || path.contains(";") || path.contains("\\")
-                || path.contains("//") || path.contains("/../") || path.contains("/./")) return false;
+        if (path == null
+                || path.contains("%")
+                || path.contains(";")
+                || path.contains("\\")
+                || path.contains("//")
+                || path.contains("/../")
+                || path.contains("/./")) return false;
         if (ROUTES.contains(route(path))) return true;
         if (LOGIN_ASSETS.contains(path)) return true;
-        if (path.startsWith("/WEB-INF/jsp/login/") || path.startsWith("/WEB-INF/jsp/mfa/")) return true;
+        if (path.startsWith("/WEB-INF/jsp/login/") || path.startsWith("/WEB-INF/jsp/mfa/"))
+            return true;
         if (path.equals("/WEB-INF/jsp/demographic/demographicImport.jsp")) return true;
+        if (path.equals("/WEB-INF/jsp/demographic/demographicCdsExport.jsp")) return true;
         for (String prefix : STATIC) if (path.startsWith(prefix)) return true;
         return false;
     }
 
     private static String route(String path) {
-        return path.endsWith(".do") ? path.substring(0, path.length() - 3)
+        return path.endsWith(".do")
+                ? path.substring(0, path.length() - 3)
                 : path.endsWith(".action") ? path.substring(0, path.length() - 7) : path;
     }
 }

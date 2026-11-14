@@ -3,6 +3,15 @@
 <!-- One-shot CLI: its adapter emits safe bounded events. Shared framework/DAO
      exception messages must never reach the general operator console. -->
 <Configuration status="OFF">
-    <Appenders/>
-    <Loggers><Root level="OFF"/></Loggers>
+    <Appenders>
+        <Console name="SafeTechnical" target="SYSTEM_ERR">
+            <PatternLayout pattern="%m%n"/>
+        </Console>
+    </Appenders>
+    <Loggers>
+        <Logger name="carlos.cds.safeTechnical" level="ERROR" additivity="false">
+            <AppenderRef ref="SafeTechnical"/>
+        </Logger>
+        <Root level="OFF"/>
+    </Loggers>
 </Configuration>

@@ -130,9 +130,9 @@ def main() -> None:
     if type(caps.get("protocol")) is not int or caps["protocol"] != 1 \
             or type(caps.get("java")) is not int or caps["java"] != 25 or caps.get("submissionLookup") is not True \
             or type(heap) is not int or not 128 <= heap <= 16384 \
-            or not isinstance(operations, list) or len(operations) != 5 \
+            or not isinstance(operations, list) or len(operations) != 6 \
             or not all(isinstance(value, str) for value in operations) \
-            or set(operations) != {"import", "status", "resume", "cancel", "report"}:
+            or set(operations) != {"import", "status", "resume", "cancel", "report", "abandon"}:
         raise RuntimeError("actual container engine protocol did not match")
     memory_limit = Path("/sys/fs/cgroup/memory.max").read_text(encoding="ascii").strip()
     cpu_limit = Path("/sys/fs/cgroup/cpu.max").read_text(encoding="ascii").split()

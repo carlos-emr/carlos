@@ -201,9 +201,12 @@ function seedSections(s) {
       + (SELECT COUNT(*) FROM measurements WHERE demographicNo=${patient} AND comments=${q(marker)})`) === '0',
     'Owned export section fixtures were not removed');
   });
+  // The columns the Add Allergy page writes (RxAddAllergy2Action). No CARLOS screen sets
+  // allergies.providerNo, and the exporter holds a chart whose allergy carries a recording
+  // clinician it cannot name, so the seed leaves it NULL as the page does.
   sql.execute(`INSERT INTO allergies (demographic_no, entry_date, DESCRIPTION, TYPECODE, reaction, archived, position,
-      lastUpdateDate, providerNo, severity_of_reaction, onset_of_reaction)
-    VALUES (${patient}, CURDATE(), ${q(want.allergy)}, 0, ${q(want.reaction)}, '0', 0, NOW(), ${q(provider)}, '1', '1')`);
+      lastUpdateDate, severity_of_reaction, onset_of_reaction)
+    VALUES (${patient}, CURDATE(), ${q(want.allergy)}, 0, ${q(want.reaction)}, '0', 0, NOW(), '1', '1')`);
   // The column set export-content-chart-print-sections seeds, so every field the Drug entity maps reads back.
   sql.execute(`INSERT INTO drugs (provider_no, demographic_no, rx_date, end_date, written_date, BN, GCN_SEQNO, customName,
       dosage, unit, takemin, takemax, freqcode, duration, durunit, quantity, \`repeat\`, special, archived, archived_reason,

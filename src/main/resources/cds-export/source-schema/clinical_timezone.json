@@ -1,0 +1,31 @@
+{
+  "table": "clinical_timezone",
+  "engine": "TRUSTED_CONFIGURATION",
+  "columns": [
+    {
+      "name": "sha256",
+      "type": "SHA256_ASCII",
+      "nullable": "NO",
+      "charset": "ascii",
+      "collation": "ascii_bin",
+      "expression": null
+    },
+    {
+      "name": "tzdbVersion",
+      "type": "TZDB_VERSION_ASCII",
+      "nullable": "NO",
+      "charset": "ascii",
+      "collation": "ascii_bin",
+      "expression": null
+    },
+    {
+      "name": "zoneId",
+      "type": "ZONE_ID_ASCII",
+      "nullable": "NO",
+      "charset": "ascii",
+      "collation": "ascii_bin",
+      "expression": null
+    }
+  ],
+  "primaryKeyColumns": []
+}

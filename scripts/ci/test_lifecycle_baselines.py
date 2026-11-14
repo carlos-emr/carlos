@@ -23,7 +23,7 @@ class LifecycleBaselineTest(unittest.TestCase):
 
     def test_candidate_cli_upgrade_keeps_both_published_predecessors_unchanged(self):
         document = self.document()
-        self.assertEqual(candidate_cli(document)['version'], '1.3.2')
+        self.assertEqual(candidate_cli(document)['version'], '1.3.5')
         self.assertEqual([row['cliVersion'] for row in required_baselines(document)], ['1.3.1', '1.3.0'])
         predecessor = next(row for row in document['assets'] if row['name'].startswith('carlos-ctl_'))
         self.assertNotEqual(candidate_cli(document)['sha256'], predecessor['sha256'])
@@ -39,6 +39,28 @@ class LifecycleBaselineTest(unittest.TestCase):
             with self.subTest(field=field, value=value):
                 broken = copy.deepcopy(document); broken['candidateCli'][field] = value
                 with self.assertRaises(EvidenceError): candidate_cli(broken)
+
+    def test_unpublished_candidate_needs_its_exact_source_and_actual_package_identity(self):
+        document = self.document()
+        row = candidate_cli(document)
+        self.assertEqual(row['mode'], 'source-built')
+        self.assertEqual(row['sourceRepository'], 'https://github.com/carlos-emr/carlos-ctl')
+        for field, value in [('sourceCommit', '0' * 40),
+                ('sourceRepository', 'https://example.invalid/companion'),
+                ('mode', 'published'), ('sha256', None), ('bytes', None)]:
+            with self.subTest(field=field):
+                broken = copy.deepcopy(document); broken['candidateCli'][field] = value
+                with self.assertRaises(EvidenceError): candidate_cli(broken)
+
+    def test_published_candidate_remains_bound_to_its_exact_release_url(self):
+        document = self.document()
+        source = document['candidateCli']
+        row = {name: source[name] for name in ('tag', 'version', 'name', 'bytes', 'sha256')}
+        row['url'] = 'https://github.com/carlos-emr/carlos-ctl/releases/download/' + row['tag'] + '/' + row['name']
+        document['candidateCli'] = row
+        self.assertEqual(candidate_cli(document), row)
+        row['url'] = 'https://example.invalid/candidate.deb'
+        with self.assertRaises(EvidenceError): candidate_cli(document)
 
     def test_a_second_tag_on_the_same_commit_cannot_replace_historical_qualification(self):
         document = self.document()

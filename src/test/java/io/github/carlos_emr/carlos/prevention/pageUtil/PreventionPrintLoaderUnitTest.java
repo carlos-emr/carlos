@@ -187,6 +187,20 @@ class PreventionPrintLoaderUnitTest {
     }
 
     @Test
+    @DisplayName("should return no printout when a selected type cannot be read")
+    void shouldReturnNoPrintout_whenASelectedTypeCannotBeRead() {
+        // Inf is read first and has a record; Td then fails. Printing Inf alone would put part of
+        // the history on paper as the whole of it.
+        records("Inf", row("4", "2025-10-01", "45 years", "0", "Dr C"));
+        var unavailable = new io.github.carlos_emr.carlos.prevention.dto.PreventionSourceUnavailableException(
+                new java.io.IOException("synthetic source failure"));
+        when(pageData.getPreventionData("Td")).thenThrow(unavailable);
+
+        assertThatThrownBy(() -> loader.load(loggedInInfo, "42", new String[]{"Inf", "Td", "PAP"}, false))
+                .isSameAs(unavailable);
+    }
+
+    @Test
     @DisplayName("should refuse a demographic number with no patient")
     void shouldThrow_whenPatientMissing() {
         when(pageData.getDemographic()).thenReturn(null);

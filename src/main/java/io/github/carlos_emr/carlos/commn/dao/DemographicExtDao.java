@@ -37,7 +37,7 @@ import java.util.*;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DemographicExtKey;
 
-public interface DemographicExtDao extends AbstractDao<DemographicExt> {
+public interface DemographicExtDao extends AbstractDao<DemographicExt>, CdsExportPatientTableReadDao {
 
     /** Scalar export projection that avoids loading patient associations. */
     record ReportValue(Integer id, Integer demographicNo, String value) { }

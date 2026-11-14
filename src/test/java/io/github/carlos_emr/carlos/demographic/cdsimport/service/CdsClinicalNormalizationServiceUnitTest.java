@@ -95,14 +95,15 @@ class CdsClinicalNormalizationServiceUnitTest {
         assertThat(value.dose()).isEqualTo("1/2–1");
         assertThat(value.strengthAmount()).isEqualTo("10/5");
         assertThat(value.quantity()).isEqualTo("12.5");
-        assertThat(value.durationDays()).isEqualTo("30");
+        assertThat(value.duration()).isEqualTo("30");
+        assertThat(value.durationUnit()).isEqualTo("D");
         assertThat(value.refillDurationDays()).isEqualTo(15);
         assertThat(value.refillQuantity()).isEqualTo(12);
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"2 weeks", "10mg", "1-2", "-1"})
-    void shouldRefuseNoncoreDuration_whenNoVendorAdapterWasSelected(String duration) throws Exception {
+    @ValueSource(strings = {"10mg", "1-2", "-1", "1.5 weeks", "2 weeks extra", "weeks"})
+    void shouldRefuseAmbiguousDuration_withoutTruncatingItsMeaning(String duration) throws Exception {
         assertThatThrownBy(() -> service.medication(medication(Map.of("Duration", duration))))
                 .isInstanceOf(CdsClinicalException.class).hasMessageContaining("CDS_NUMERIC_VALUE_REQUIRES_REVIEW");
     }
@@ -181,6 +182,197 @@ class CdsClinicalNormalizationServiceUnitTest {
         var value = service.medication(medication(Map.of("Notes", notes)));
         assertThat(value.providerNotes()).isEqualTo(notes);
         assertThat(value.providerNotes().codePointCount(0, value.providerNotes().length())).isEqualTo(32768);
+    }
+
+    @Test
+    void shouldRequireReconciliation_whenTheDescriptionNamesAnotherStrengthThanTheStandardOne()
+            throws Exception {
+        // M6: a combination product's Strength is its first ingredient; the native strength
+        // column would hold only that, so the prescription must not look complete and renewable.
+        Map<String, String> complete = new LinkedHashMap<>();
+        complete.put("Strength/Amount", "875");
+        complete.put("Strength/UnitOfMeasure", "MG");
+        complete.put("Dosage", "1");
+        complete.put("DosageUnitOfMeasure", "tablet");
+        complete.put("Route", "PO");
+        complete.put("Frequency", "BID");
+        complete.put("Quantity", "20");
+        complete.put("NumberOfRefills", "0");
+        var plain = service.medication(medication(complete));
+        assertThat(plain.sourceRequiresReconciliation()).isFalse();
+        for (String same :
+                java.util.List.of("Amoxicillin 875 mg tablet", "AMOXICILLIN 875MG", "875.0 mg")) {
+            var values = new LinkedHashMap<>(complete);
+            values.put("DrugDescription", same);
+            assertThat(service.medication(medication(values)).sourceRequiresReconciliation())
+                    .as(same)
+                    .isFalse();
+        }
+        for (String combination :
+                java.util.List.of("875 mg / 125 mg", "Amoxicillin 875 mg and clavulanate 125 mg")) {
+            var values = new LinkedHashMap<>(complete);
+            values.put("DrugDescription", combination);
+            var value = service.medication(medication(values));
+            assertThat(value.sourceRequiresReconciliation()).as(combination).isTrue();
+            assertThat(value.description()).isEqualTo(combination);
+            assertThat(value.diagnostics())
+                    .extracting(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsClinicalDiagnosticDto::code)
+                    .contains("CDS_RX_DESCRIPTION_NAMES_OTHER_STRENGTHS");
+        }
+        var liquid = new LinkedHashMap<>(complete);
+        liquid.put("Strength/Amount", "250");
+        liquid.put("Strength/UnitOfMeasure", "mg/5 mL");
+        liquid.put("DrugDescription", "Amoxicillin 250mg/5mL suspension");
+        assertThat(service.medication(medication(liquid)).sourceRequiresReconciliation()).isFalse();
+    }
+
+    @Test
+    void shouldNotRequireReconciliation_whenTheDescriptionRestatesTheStrengthPerDosageUnit()
+            throws Exception {
+        // #6197: a single-strength product described per dosage unit names no other strength,
+        // so the imported prescription stays renewable.
+        Map<String, String> complete = new LinkedHashMap<>();
+        complete.put("Strength/Amount", "500");
+        complete.put("Strength/UnitOfMeasure", "mg");
+        complete.put("Dosage", "1");
+        complete.put("DosageUnitOfMeasure", "capsule");
+        complete.put("Route", "PO");
+        complete.put("Frequency", "TID");
+        complete.put("Quantity", "30");
+        complete.put("NumberOfRefills", "0");
+        for (String perUnit :
+                java.util.List.of(
+                        "500 mg/capsule",
+                        "500 mg per tablet",
+                        "500mg / tab",
+                        "Amoxicillin 500 MG/CAPSULE",
+                        "500 mg/1 tablet",
+                        "500.0 mg/caps")) {
+            var values = new LinkedHashMap<>(complete);
+            values.put("DrugDescription", perUnit);
+            var value = service.medication(medication(values));
+            assertThat(value.sourceRequiresReconciliation()).as(perUnit).isFalse();
+            assertThat(value.diagnostics())
+                    .extracting(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsClinicalDiagnosticDto::code)
+                    .as(perUnit)
+                    .doesNotContain(
+                            "CDS_RX_DESCRIPTION_NAMES_OTHER_STRENGTHS",
+                            "CDS_RX_RECONCILIATION_REQUIRED");
+        }
+        // A standard unit written per dosage unit is the same strength as a plain description.
+        var perUnitStandard = new LinkedHashMap<>(complete);
+        perUnitStandard.put("Strength/UnitOfMeasure", "mg/tab");
+        perUnitStandard.put("DrugDescription", "Amoxicillin 500 mg capsule");
+        assertThat(service.medication(medication(perUnitStandard)).sourceRequiresReconciliation())
+                .isFalse();
+    }
+
+    @Test
+    void shouldStillNameOtherStrengths_forCombinationsConcentrationsAndMultiUnitStrengths() {
+        // #6197 decision: only the same amount and unit per ONE dosage unit is the same strength.
+        // A second ingredient, a concentration (its volume is lost from a "250 mg" strength), a
+        // strength per several units or a rate still names another strength.
+        assertThat(
+                        CdsClinicalNormalizationService.describesOtherStrengths(
+                                "875 mg / 125 mg", "875", "mg"))
+                .isTrue();
+        assertThat(
+                        CdsClinicalNormalizationService.describesOtherStrengths(
+                                "250 mg/5 mL", "250", "mg"))
+                .isTrue();
+        assertThat(
+                        CdsClinicalNormalizationService.describesOtherStrengths(
+                                "5 mg/5 mL", "5", "mg"))
+                .isTrue();
+        assertThat(
+                        CdsClinicalNormalizationService.describesOtherStrengths(
+                                "250 mg per 5 mL", "250", "mg"))
+                .isTrue();
+        assertThat(
+                        CdsClinicalNormalizationService.describesOtherStrengths(
+                                "500 mg/2 tablets", "500", "mg"))
+                .isTrue();
+        assertThat(
+                        CdsClinicalNormalizationService.describesOtherStrengths(
+                                "25 mcg/h patch", "25", "mcg"))
+                .isTrue();
+        assertThat(
+                        CdsClinicalNormalizationService.describesOtherStrengths(
+                                "500 mg/capsule", "250", "mg"))
+                .isTrue();
+        // A concentration is the same strength only when the standard Strength names it too.
+        assertThat(
+                        CdsClinicalNormalizationService.describesOtherStrengths(
+                                "250 mg/5 mL", "250", "mg/5mL"))
+                .isFalse();
+        assertThat(
+                        CdsClinicalNormalizationService.describesOtherStrengths(
+                                "500 mg/capsule", "500", "mg"))
+                .isFalse();
+        assertThat(
+                        CdsClinicalNormalizationService.describesOtherStrengths(
+                                "500 mg per tablet", "500", "mg"))
+                .isFalse();
+        assertThat(
+                        CdsClinicalNormalizationService.describesOtherStrengths(
+                                "500mg / tab", "500", "mg"))
+                .isFalse();
+    }
+
+    @Test
+    void shouldDecideOtherStrengthsInLinearTime_forLongRunsOfDigitsAndSpaces() {
+        // ReDoS review (#5706): before the strength patterns were made linear each of these cost
+        // the square of its length (a 32,768-character Strength/UnitOfMeasure took seconds, and
+        // these would take minutes); they now take milliseconds.
+        String digits = "1".repeat(200_000);
+        String spaces = " ".repeat(200_000);
+        org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(
+                java.time.Duration.ofSeconds(20),
+                () -> {
+                    assertThat(
+                                    CdsClinicalNormalizationService.describesOtherStrengths(
+                                            digits, "500", "mg"))
+                            .isFalse();
+                    assertThat(
+                                    CdsClinicalNormalizationService.describesOtherStrengths(
+                                            "500 mg/" + spaces + "!", "500", "mg"))
+                            .isFalse();
+                    assertThat(
+                                    CdsClinicalNormalizationService.describesOtherStrengths(
+                                            "500 mg", "500", "mg/" + spaces + "!"))
+                            .isTrue();
+                });
+    }
+
+    @Test
+    void shouldReadSameStrengthTokens_afterLinearRewrite() {
+        // A token still starts at the first digit of its run: "12 mg" is never read as "2 mg".
+        assertThat(CdsClinicalNormalizationService.describesOtherStrengths("12 mg", "2", "mg"))
+                .isTrue();
+        assertThat(CdsClinicalNormalizationService.describesOtherStrengths("12 mg", "12", "mg"))
+                .isFalse();
+        // A dotted run still yields its last amount ("1.5.2 mg" names 5.2 mg), as before.
+        assertThat(
+                        CdsClinicalNormalizationService.describesOtherStrengths(
+                                "1.5.2 mg", "5.2", "mg"))
+                .isFalse();
+        // The per-quantity amount and the whitespace around it are read as before.
+        assertThat(
+                        CdsClinicalNormalizationService.describesOtherStrengths(
+                                "250 mg / 5 mL", "250", "mg/5 mL"))
+                .isFalse();
+        assertThat(
+                        CdsClinicalNormalizationService.describesOtherStrengths(
+                                "250mg/5mL", "250", "mg /  5  mL"))
+                .isFalse();
+        assertThat(
+                        CdsClinicalNormalizationService.describesOtherStrengths(
+                                "250 mg/  capsule", "250", "mg"))
+                .isFalse();
+        assertThat(
+                        CdsClinicalNormalizationService.describesOtherStrengths(
+                                "250 mg/10 mL", "250", "mg/5 mL"))
+                .isTrue();
     }
 
     private io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto medication(Map<String, String> extra)

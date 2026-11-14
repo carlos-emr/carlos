@@ -25,16 +25,25 @@ import java.util.List;
 import java.util.Map;
 
 /** One external source contact with bounded native slots and separately preserved source purposes. */
-public record CdsContactDto(String firstName, String lastName, String email, String note,
-        Map<String, Phone> phones, List<String> roles, Boolean emergencyContact,
-        Boolean substituteDecisionMaker, List<CdsClinicalDiagnosticDto> diagnostics) {
-    public record Phone(String number, String extension) { }
+public record CdsContactDto(
+        String firstName,
+        String lastName,
+        String email,
+        String note,
+        Map<String, Phone> phones,
+        List<String> roles,
+        Boolean emergencyContact,
+        Boolean substituteDecisionMaker,
+        List<CdsClinicalDiagnosticDto> diagnostics) {
+    public record Phone(String number, String extension) {}
+
     public CdsContactDto {
         if (phones.size() > 3 || roles.isEmpty() || roles.size() > 1 || diagnostics.size() > 16) {
             throw new IllegalArgumentException("Invalid bounded contact representation");
         }
         // Deterministic iteration is essential when a prepared DTO is retried in another JVM.
         phones = java.util.Collections.unmodifiableMap(new java.util.TreeMap<>(phones));
-        roles = List.copyOf(roles); diagnostics = List.copyOf(diagnostics);
+        roles = List.copyOf(roles);
+        diagnostics = List.copyOf(diagnostics);
     }
 }

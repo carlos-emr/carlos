@@ -45,37 +45,108 @@ import static org.mockito.Mockito.*;
 class CdsImportValueVerificationUnitTest {
     @TempDir Path temp;
 
-    @Test void shouldReuseOnePhysicalBlobProofWithinEpoch_andRecheckBeforeResumeWrites() throws Exception {
+    @Test
+    void shouldReuseOnePhysicalBlobProofWithinEpoch_andRecheckBeforeResumeWrites()
+            throws Exception {
         assumeTrue(Files.getFileStore(temp).supportsFileAttributeView("posix"));
-        Path source=Files.writeString(temp.resolve("source.xml"),CdsXmlParserUnitTest.fixture());
-        List<CdsRecordDto> records=new ArrayList<>();
-        var parsed=new CdsXmlParser().parse(source,temp.resolve("parsed"),CdsInputLimitsDto.defaults(),()->false,records::add);
-        var ledger=mock(CdsImportLedgerService.class);var files=mock(CdsImportFileService.class);
-        var configuration=mock(CdsImportConfigurationService.class);when(configuration.limits()).thenReturn(CdsInputLimitsDto.defaults());
-        var jobs=mock(CdsImportJobService.class);when(jobs.root("run")).thenReturn(temp);
+        Path source = Files.writeString(temp.resolve("source.xml"), CdsXmlParserUnitTest.fixture());
+        List<CdsRecordDto> records = new ArrayList<>();
+        var parsed =
+                new CdsXmlParser()
+                        .parse(
+                                source,
+                                temp.resolve("parsed"),
+                                CdsInputLimitsDto.defaults(),
+                                () -> false,
+                                records::add);
+        var ledger = mock(CdsImportLedgerService.class);
+        var files = mock(CdsImportFileService.class);
+        var configuration = mock(CdsImportConfigurationService.class);
+        when(configuration.limits()).thenReturn(CdsInputLimitsDto.defaults());
+        var jobs = mock(CdsImportJobService.class);
+        when(jobs.root("run")).thenReturn(temp);
         when(ledger.status("run")).thenReturn(status(1));
-        Set<String> verified=new HashSet<>();
-        when(files.verifiedFor(anyString(),anyLong(),anyString(),anyString(),anyLong())).thenAnswer(call->
-                verified.contains(call.getArgument(1)+":"+call.getArgument(2)));
-        doAnswer(call->{verified.add(call.getArgument(1)+":"+call.getArgument(2));return null;})
-                .when(files).publishedVerified(anyString(),anyLong(),anyString(),anyString(),anyLong());
-        var service=new CdsImportPlanningService(ledger,configuration,new CdsSnapshotService(),new CdsXmlParser(),new CdsFieldParser(),
-                mock(CdsPatientIdentityResolver.class),mock(CdsImportNativeService.class),mock(CdsCourseService.class),files,jobs,mock(CdsPreflightIdentityService.class));
-        var work=new CdsImportWorkDto(records.get(0),null,"source.xml",parsed.sourceSha256(),temp.resolve("parsed/parse-result.json"),null,null);
-        service.publishValues("run",1,work);
+        Set<String> verified = new HashSet<>();
+        when(files.verifiedFor(anyString(), anyLong(), anyString(), anyString(), anyLong()))
+                .thenAnswer(
+                        call -> verified.contains(call.getArgument(1) + ":" + call.getArgument(2)));
+        doAnswer(
+                        call -> {
+                            verified.add(call.getArgument(1) + ":" + call.getArgument(2));
+                            return null;
+                        })
+                .when(files)
+                .publishedVerified(anyString(), anyLong(), anyString(), anyString(), anyLong());
+        var service =
+                new CdsImportPlanningService(
+                        ledger,
+                        configuration,
+                        new CdsSnapshotService(),
+                        new CdsXmlParser(),
+                        new CdsFieldParser(),
+                        mock(CdsPatientIdentityResolver.class),
+                        mock(CdsImportNativeService.class),
+                        mock(CdsCourseService.class),
+                        files,
+                        jobs,
+                        mock(CdsPreflightIdentityService.class));
+        var work =
+                new CdsImportWorkDto(
+                        records.get(0),
+                        null,
+                        "source.xml",
+                        parsed.sourceSha256(),
+                        temp.resolve("parsed/parse-result.json"),
+                        null,
+                        null);
+        service.publishValues("run", 1, work);
         // If a field-page publication rereads the blob, this second invocation cannot succeed.
-        Files.setPosixFilePermissions(parsed.valuesFile(),PosixFilePermissions.fromString("---------"));
-        try {service.publishValues("run",1,work);} finally {Files.setPosixFilePermissions(parsed.valuesFile(),PosixFilePermissions.fromString("rw-------"));}
-        verify(files,times(1)).publishedVerified("run",1,parsed.valuesFile().toString(),parsed.valuesSha256(),parsed.valuesBytes());
-        byte[] bytes=Files.readAllBytes(parsed.valuesFile());bytes[0]^=1;Files.write(parsed.valuesFile(),bytes);
+        Files.setPosixFilePermissions(
+                parsed.valuesFile(), PosixFilePermissions.fromString("---------"));
+        try {
+            service.publishValues("run", 1, work);
+        } finally {
+            Files.setPosixFilePermissions(
+                    parsed.valuesFile(), PosixFilePermissions.fromString("rw-------"));
+        }
+        verify(files, times(1))
+                .publishedVerified(
+                        "run",
+                        1,
+                        parsed.valuesFile().toString(),
+                        parsed.valuesSha256(),
+                        parsed.valuesBytes());
+        byte[] bytes = Files.readAllBytes(parsed.valuesFile());
+        bytes[0] ^= 1;
+        Files.write(parsed.valuesFile(), bytes);
         when(ledger.status("run")).thenReturn(status(2));
-        CdsImportException changed=assertThrows(CdsImportException.class,()->service.publishValues("run",2,work));
-        assertEquals("VALUE_SPOOL_HASH_MISMATCH",changed.getCode());
-        verify(files,never()).publishedVerified(eq("run"),eq(2L),anyString(),anyString(),anyLong());
+        CdsImportException changed =
+                assertThrows(CdsImportException.class, () -> service.publishValues("run", 2, work));
+        assertEquals("VALUE_SPOOL_HASH_MISMATCH", changed.getCode());
+        verify(files, never())
+                .publishedVerified(eq("run"), eq(2L), anyString(), anyString(), anyLong());
     }
 
     private static CdsImportJobDto status(long epoch) {
-        return new CdsImportJobDto("run","operator","1","source","omd-5.2","RUNNING","a".repeat(64),"b".repeat(64),
-                "c".repeat(64),"d".repeat(64),1,1,epoch,false,Instant.EPOCH,Instant.EPOCH,0,null,null);
+        return new CdsImportJobDto(
+                "run",
+                "operator",
+                "1",
+                "source",
+                "omd-5.2",
+                "RUNNING",
+                "a".repeat(64),
+                "b".repeat(64),
+                "c".repeat(64),
+                "d".repeat(64),
+                1,
+                1,
+                epoch,
+                false,
+                Instant.EPOCH,
+                Instant.EPOCH,
+                0,
+                null,
+                null);
     }
 }

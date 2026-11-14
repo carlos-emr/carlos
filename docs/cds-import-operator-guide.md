@@ -1,6 +1,6 @@
 # CDS import operator guide — release/2026.08
 
-Use the existing **Administration → Data Management → Demographic Import** page or the paired `carlos-ctl cds-import` command. Both call the same CARLOS import engine. This work implements import. Export tickets #3973, #3946, #3959 and #3968 remain separate; #3979 is the main import feature reference.
+Use the existing **Administration → Data Management → Demographic Import** page or the paired `carlos-ctl cds-import` command. Both call the same CARLOS import engine. This guide covers import; #3979 is the main import feature reference. The CDS 5.2 exporter that ships beside it, and the fixes to the legacy CDS 4 export, are described in the [export operator guide](cds-export-operator-guide.md).
 
 Read the [web workflow](cds-import-web.md), [clinical normalization contract](cds-clinical-import-contract.md), [maintenance admission procedure](cds-maintenance-admission.md), [legacy projection safeguards](cds-legacy-projection-contract.md) and [durable ledger contract](cds-import-ledger.md) before enabling a deployment.
 
@@ -9,7 +9,7 @@ Read the [web workflow](cds-import-web.md), [clinical normalization contract](cd
 1. Install the complete candidate application and forward Flyway migrations using the normal CARLOS deployment procedure. Keep `cds.import.enabled=false` during installation. Stop or drain every old application node, background clinical task, integration/feed and external writer before the migration window. The physical datasource barrier covers participating guarded connections; arbitrary external database clients and already copied clinical information require operational controls.
 2. Back up the database, configured document store, upload store and entire durable CDS state together. Verify a restore on a disposable instance. Imported source fields can reference durable spools, and documents can be adopted across verified runs. Deleting a run directory or restoring only the database breaks that evidence.
 3. Use the same frozen application classes, dependencies, Java 25 runtime and timezone data for browser and CLI operation. Their implementation fingerprint and effective normalization policy are durable provenance. A changed implementation or policy refuses unsafe execution/resume; retain the matching candidate for recovery. Never edit recorded hashes to force compatibility.
-4. Configure the private, absolute source, staging and upload roots, explicit source namespace/profile registration, clinical timezone and operator/provider delegation. `cds.import.clinicalZone` is required when admission is enabled; an empty value refuses with `IMPORT_CLINICAL_ZONE_REQUIRED`, and an invalid zone refuses with `IMPORT_CLINICAL_ZONE_INVALID`. The instance JVM calendar must agree with the configured zone; the web import refuses a mismatch. The one-shot CLI establishes its trusted configured timezone before application boot. Authorized web status remains available for diagnosing execution incompatibility. CLI recovery still requires the original source registration and applicable delegation; retain these during recovery.
+4. Configure the private, absolute source, staging and upload roots, explicit source namespace/profile registration, clinical timezone and operator/provider delegation. `cds.import.clinicalZone` is required when admission is enabled; an empty value refuses with `IMPORT_CLINICAL_ZONE_REQUIRED`, and an invalid zone refuses with `IMPORT_CLINICAL_ZONE_INVALID`. The instance JVM calendar must agree with the configured zone; the web import refuses a mismatch. The one-shot CLI establishes its trusted configured timezone before application boot. Provision the native-baseline witness key (`cds.nativeBaseline.keyRoot` and `cds.nativeBaseline.activeKey`, see the [import configuration](cds-import-configuration.md#native-baseline-witness-key)) before enabling admission: an import refuses with `NATIVE_BASELINE_KEY_UNAVAILABLE` without it, and the exporter needs the same key files to re-export imported charts. Packaged installs do not yet create this key ([carlos-ctl#26](https://github.com/carlos-emr/carlos-ctl/issues/26) tracks `carlos-ctl` support); escrow it with the other installation secrets. Authorized web status remains available for diagnosing execution incompatibility. CLI recovery still requires the original source registration and applicable delegation; retain these during recovery.
 5. A web importer requires live `_admin` write or explicitly granted `_cds_import` write capability, as well as its provider/patient scope. Migration `V1.0.59.21` registers `_cds_import` without granting it to roles. Ordinary clinical source-field readers require their own category and patient access. CLI operation requires an independently verified, expiring root-owned OS-operator delegation and the configured provider scope.
 6. CARLOS loads root-owned import configuration for each application context. Configuration edits require a controlled context/process restart. Database account, provider, role, facility/program and patient restrictions are rechecked at execution boundaries. Use the supported cancellation action for an active run; changing a properties file alone does not cancel a running JVM.
 7. Enable the datasource maintenance guard and follow the documented drain/activation procedure. `maintenanceMode` is explicit admission, not evidence that unguarded old software or external clients have stopped. The worker verifies physical ownership, native transactional engines, trigger visibility/approval and the actual target catalogue before writing. Keep normal clinical access closed while any chart remains held or reconciliation is incomplete.
@@ -20,9 +20,9 @@ The registered profiles are `pcon-2024-02` and `omd-5.2`. The supplied PCON and 
 
 ## Submit and verify a rehearsal
 
-The browser accepts XML or ZIP and transfers bounded, hashed chunks with resumable offsets. A batch with attachments should be one ZIP containing the patient XMLs and their permitted relative references. The host command additionally accepts an approved directory. Patient XML discovery uses bounded content detection and accepts the official suffix-free naming convention; XML-looking members whose root cannot be classified within the discovery budget remain explicit candidates for full validation. A bare XML includes only its referenced adjacent attachments. ZIP path traversal, links, collisions, CRC failures, excessive expansion and unsupported archive forms are explicit refusals. Ancillary audit/readme files remain in the immutable accepted snapshot.
+The browser accepts XML or ZIP and transfers bounded, hashed chunks with resumable offsets. A batch with attachments should be one ZIP containing the patient XMLs and their permitted relative references. The host command additionally accepts an approved directory. Patient XML discovery uses bounded content detection and accepts the official suffix-free naming convention; XML-looking members whose root cannot be classified within the discovery budget remain explicit candidates for full validation. A bare XML includes only its referenced adjacent attachments. ZIP path traversal, links, collisions, CRC failures and unsupported archive forms are explicit refusals. No size, entry count or compression ratio refuses an archive; it is expanded until its store would reach the free-disk reserve. Ancillary audit/readme files remain in the immutable accepted snapshot.
 
-Use the packaged Nginx/ModSecurity policy for browser transfers. It permits raw binary chunks only on the canonical `POST /carlos/form/cdsUpload` route with exactly one query `operation=chunk` and `Content-Type: application/octet-stream`. Other CRS checks and native authentication, CSRF, ownership and hash checks remain active. The application defaults to four-MiB chunks; its absolute configurable maximum and the WAF's binary ceiling are sixteen MiB. The global fifty-MiB request limit remains unchanged. Do not enable binary content types globally or disable CRS rules to work around a rejected upload. Verify this boundary with the [actual WAF gate](cds-import-waf-verification.md).
+Use the packaged Nginx/ModSecurity policy for browser transfers. It permits raw binary chunks only on the canonical `POST /carlos/form/cdsUpload` route with exactly one query `operation=chunk` and `Content-Type: application/octet-stream`. Other CRS checks and native authentication, CSRF, ownership and hash checks remain active. The application defaults to four-MiB chunks; its absolute configurable maximum and the WAF's binary ceiling are sixteen MiB. The global fifty-MiB request limit remains unchanged and applies to each chunk, not to the file: a file of any size is sent chunk by chunk, and no upload size or total is refused. A chunk is refused only when the upload store reaches its free-disk reserve (`UPLOAD_DISK_RESERVE_REFUSED`, HTTP 507); free space and resume the same upload. A chunk is failed only for silence, never for the time it takes: two minutes in which none of its bytes reach the server (`UPLOAD_CHUNK_STALLED`, HTTP 408) or the browser sees no progress, after which the page sends the same chunk again. A slow link that keeps moving needs no smaller chunk. Do not enable binary content types globally or disable CRS rules to work around a rejected upload. Verify this boundary with the [actual WAF gate](cds-import-waf-verification.md).
 
 Perform a dry run with the intended source contract, provider, facility/program, identity/merge options and synthetic policy. Existing-chart merge is off by default. Read all schema, identity and native-constraint diagnostics. Review the complete discovered XML/file/byte inventory separately from patient occurrences; an unreadable XML cannot justify a fabricated patient count.
 
@@ -50,21 +50,118 @@ Each immutable completion receipt describes its selected report generation and t
 
 For a generic CLI failure, retain the printed protected operation-evidence location. If that file cannot be delivered, the CLI explicitly reports the delivery failure and emits the same bounded, message-free projection as `CDS_TECHNICAL` JSON. Its `clinicalAcceptance=RECONCILE_DURABLE_STATE` requires checking the original submission/run; it does not certify nonacceptance or rollback. Preserve the nonce, run handle and this technical evidence together.
 
+When an import or resume ends without a clean completion, the CLI also prints, after its `RESULT` line, a `CDS_TECHNICAL` JSON line naming the run's latest unresolved blocking execution or preflight diagnostic (or, for a run that stopped before its seal, its recorded failure evidence). The line has the same shape as the generic failure line above (`code=CDS_OPERATION_FAILED`, `clinicalAcceptance=RECONCILE_DURABLE_STATE` and up to 16 `causes`), so one reader handles both. It adds the diagnostic's stable code as `diagnosticCode` and its `stage`. Its `causes` are the bounded, message-free failure evidence (exception types, SQLState/vendor codes and at most 32 class/method frames in all) that authorized web status shows for that diagnostic. A frame outside that grammar is left out and an unusual exception type is printed as `java.lang.Throwable`, so the rest of the cause chain is always kept. A unit that fails while writing names its failing layer rather than a bare `UNIT_WRITE_FAILED`; see the [ledger contract](cds-import-ledger.md#unit-failure-codes). If that evidence cannot be read, the CLI says so on a `CDS_DIAGNOSTIC` line; the exit status and durable outcome do not change.
+
 Use the existing run's supported **Resume** after correcting a transient operational problem. An authorized request is durable: `resumeRequested=true` means recovery is pending, including when the recorded state still says `RUNNING`. It does not prove the previous worker is dead. A successor must verify exclusive physical coordinator and maintenance ownership before advancing its preparation epoch or clearing an older cancellation. The resume request stays pending throughout that preparation. It is consumed only in the transaction that enters a durable planning or execution phase and resets report/cleanup acknowledgements to pending. A crash is therefore rediscovered through either the queued request or that committed active phase; an old delivered receipt cannot certify the new attempt. The latest cancellation and review restrictions are checked again at the phase transition. A live/busy owner leaves the request pending; a heartbeat timeout alone never authorizes takeover. The configured web dispatcher can rediscover and retry this durable work after restart. If a one-shot CLI returns before ownership becomes available, inspect the same run and retry its supported **Resume**; do not submit the source again.
 
 A later **Cancel** supersedes an earlier pending resume. Recovery still verifies current authorization, sealed expected work, immutable file hashes, row receipts and exact checkpoints, and skips only proven committed units. A lost commit acknowledgement requires reconciliation; blind whole-patient retry is unsafe. A changed existing chart or missing/corrupt referenced file is an explicit reconciliation conflict, never permission to overwrite it. Once any clinical unit was written, resume requires its matching accepted implementation, effective policy, runtime and dependencies; use retained compatible artifacts rather than forcing a new fingerprint or changing the namespace.
 
 CLI exit `1` (`CDS_ARGUMENTS`) means invalid or conflicting arguments, before runtime startup. Exit `3` (`CDS_AUTHORIZATION`) means root-issued delegation or operator/provider/source authorization failed. Exit `2` covers configuration, bootstrap, delivery or runtime failures; preserve protected diagnostics and inspect durable state before retrying. An interrupted operation exits `130`. Configure the command using the [server property reference](cds-import-configuration.md).
 
-For the CLI, import/resume exit `0` requires a clean completed import or valid dry run, delivered reports, complete cleanup and verified maintenance release. Exit `4` can mean an accepted but pending recovery request, a refusal, partial work or an uncertain outcome; inspect its run ID, `resumeRequested`, stable `safeCode`, uncertainty flag and protected receipts. Exit `0` from **status** or **report** means that query succeeded; the returned clinical and operational fields still determine whether the import completed. A `COMPLETE` state alone is insufficient. There is no force flag for bypassing these checks.
+An abandon always exits `4` ([below](#abandoning-an-import-that-cannot-complete)). For the CLI, import/resume exit `0` requires a clean completed import or valid dry run, delivered reports, complete cleanup and verified maintenance release. Exit `4` can mean an accepted but pending recovery request, a refusal, partial work or an uncertain outcome; inspect its run ID, `resumeRequested`, stable `safeCode`, uncertainty flag and protected receipts. Exit `0` from **status** or **report** means that query succeeded; the returned clinical and operational fields still determine whether the import completed. A `COMPLETE` state alone is insufficient. There is no force flag for bypassing these checks.
 
-**Cancel** is durable and cooperative at bounded work boundaries. It preserves committed units and their evidence. Closing the browser or losing the foreground command does not undo committed data. A failed/partial patient remains held until supported recovery proves its complete workset; do not clear holds manually.
+**Cancel** is durable and cooperative at bounded work boundaries. It preserves committed units and their evidence. Closing the browser or losing the foreground command does not undo committed data. A failed/partial patient remains held until supported recovery proves its complete workset, or until a root-delegated operator for its provider abandons a stopped import that cannot complete ([below](#abandoning-an-import-that-cannot-complete)); never clear holds or the maintenance window by editing the database.
 
 Corrections require the exact indexed field, original source identity, proposed logical value, clinical reason and current review version. Original XML/spools remain unchanged. A multi-error draft remains inactive until the combined corrected XML validates against the whole pinned schema and native preflight. Acknowledging a warning cannot remove a blocker. A decline remains a visible incomplete/refused disposition.
 
 `CDS_NATIVE_DATE_REQUIRES_REVIEW` and `CDS_NATIVE_TIMESTAMP_REQUIRES_REVIEW` can describe valid source data that the current native Calendar/DATETIME representation cannot carry faithfully, including a cutover day or the first occurrence of a repeated DST clock. They do not establish malformed XML. Retain the accepted source and review the representation/runtime capability; do not change a genuine date or offset merely to force import, and do not guess an instant. A preflight blocker means no clinical writes for that unsealed attempt. Source-only note/report timing or appointment warnings describe an explicit retained-source projection and remain visible in the corresponding category and reports. `CDS_CALENDAR_STORAGE_ANCHOR_NORMALIZED` describes a calendar-only storage anchor, while `CDS_IMMUNIZATION_SUBSECOND_PRECISION_RETAINED_IN_SOURCE` identifies the whole-second native projection; neither discards the original date, fraction or offset.
 
 When a source or effective policy changed after an actual zero-write failure, submit the revised immutable input/options and use the explicit **Approve unwritten revision** review. Both revisions must have no clinical target, checkpoint, hold or uncertain commit, checked under the same durable locks. Old provenance and plans remain retained. Any evidence of clinical writes requires recovery of the original run; changing the source namespace or deleting ledger rows is not a supported workaround.
+
+Finish or cancel every import before upgrading CARLOS. The `carlos-emr` package enforces this
+for the case that would leave the EMR closed: its preinst refuses an upgrade, before the service
+is stopped, while the import maintenance window is open or any imported patient is still held,
+and names the held runs. Finish such an import (resume it until it completes and releases
+maintenance), or abandon a stopped one that cannot complete (below), then upgrade. The check is read-only, never blocks a fresh install, and continues
+with a note when the local database cannot be reached. To upgrade anyway, for example to install
+a fix for the import itself, run
+`sudo env CARLOS_ALLOW_UPGRADE_DURING_CDS_IMPORT=1 apt install --no-remove <release files>` and then follow the
+recovery below. Any change to the deployed import or
+export classes changes the ruleset fingerprint, so after an upgrade an attempt accepted by the
+earlier build is refused before any claim with `IMPORT_RULESET_OR_OPTIONS_INCOMPATIBLE`; its
+committed units, patient holds and maintenance window are left exactly as they were, and its
+report and cleanup retries still run. An attempt that had already committed units
+(`PARTIAL_COMMITTED`) cannot be resumed or replayed on the new build: its checkpoints are bound
+to the earlier ruleset (`SOURCE_REVISION_REVIEW_REQUIRED` on reuse), and there is no automatic
+post-upgrade completion. Keep its run ID and reports, cancel it, and close it with the audited
+abandon below; its charts then need clinical reconciliation against the original package. An upgraded installation also
+needs the native-baseline key ([configuration](cds-import-configuration.md)) before any attempt
+is admitted (`NATIVE_BASELINE_KEY_UNAVAILABLE`). Base-release units carry no field witness;
+they stay readable (the exporter treats the absent witness as unknown evidence), and medication
+preparations sealed before #3958 decode as day durations.
+
+### Abandoning an import that cannot complete
+
+A stopped import that has written charts keeps them held, and keeps every ordinary clinical page
+closed (HTTP `503`), until it completes. When it cannot complete, because the same defect stops
+every resume or because an upgrade changed the ruleset it is bound to, its operator closes it
+with an audited **abandon**. This is the only supported way to release such holds: never set
+`held` or `maintenance_active` by hand.
+
+An abandon is a one-shot CLI control for a root-delegated operator acting for the run's provider:
+the run's own operator, or another operator whose delegation (`cds.import.operator.*`) covers the
+run's provider, facility and program. The web page has no abandon button, so an import started
+in the browser is abandoned this way; the run keeps its original operator, and the abandon's
+events and protected record name the operator who abandoned it. The same operator may also run
+`--status`, `--report` and `--cancel` on that run, so it can cancel the run first (cancelling in
+the browser works as well). `--resume` stays with the operator that started the run: a run started
+in the browser is resumed in the browser. It refuses (exit `4`, `CDS_REASON: safeCode=...`) and changes
+nothing unless the run is stopped after writing (`INCOMPLETE` or `RECONCILIATION_REQUIRED`),
+already cancelled (`ABANDON_CANCEL_REQUIRED` otherwise), and has no pending resume
+(`ABANDON_RESUME_PENDING`) or review (`ABANDON_REVIEW_PENDING`). An operator without such a
+delegation, or another provider, is refused with `CDS_AUTHORIZATION` (exit `3`). Like a resume, it needs import admission enabled and
+the maintenance window configured (`cds.import.enabled`, `cds.import.maintenanceGuardEnabled` and
+`cds.import.maintenanceMode` all `true`), and it takes the coordinator lock and a new maintenance
+owner, so no worker can still be running the import (`IMPORT_COORDINATOR_BUSY` or
+`MAINTENANCE_OWNER_BUSY` otherwise). A refused request never takes the maintenance window.
+
+The procedure:
+
+1. Record the run's state and keep its reports: `sudo carlos-ctl cds-import --provider <id>
+   --status <run-id>` and `--report <run-id>`.
+2. Cancel it, if it is not already cancelled: `sudo carlos-ctl cds-import --provider <id>
+   --cancel <run-id>`.
+3. Open the import window if it is closed (the three properties above, then restart the service).
+4. Abandon it, typing the run ID twice and stating the reason:
+   `sudo carlos-ctl cds-import --provider <id> --abandon --run <run-id> --confirm <run-id>
+   --reason "<reason>"`. The reason (at most 1000 characters on one line) is stored only in the
+   run's protected record; the engine never prints or logs it. It is a command-line argument,
+   though: other administrators can see it while the command runs, and the shell history and
+   `sudo`'s command log keep it afterwards. Name the defect or the decision, never a patient.
+5. Read the `RESULT` line: `state` is `ABANDONED`, the `outcomes` count the released charts as
+   `ABANDONED`, and `maintenanceReleaseState` is `RELEASED`, or `RELEASE_DEFERRED` while another
+   run still holds a chart (that run's own completion or abandon then reopens the clinic, and a
+   resume of the abandoned run retries only its release proof). The CLI also prints
+   `CDS_ABANDONED` and exits `4`: an abandoned import is never a clean completion.
+6. Close the import window again and restart, as after any import.
+7. Reconcile every released chart against the original package with clinical review.
+
+What an abandon does: no clinical row, unit, checkpoint, lineage, source field or file is
+deleted or changed. Each held chart's committed rows are re-verified against their sealed
+receipts and the result recorded: `VERIFIED`; `CHANGED` when a row differs from its receipt or
+its witness no longer verifies; `UNVERIFIABLE` when a unit's checkpoint disagrees with it or a
+receipt cannot be read at all (for example because the witness key file is gone, which is itself
+a reason a run cannot resume); or `NOT_WRITTEN`. Each receipt is checked on its own, so one that
+cannot be read never stops the abandon. A changed chart is still released, with an `ERROR`
+diagnostic. In one transaction each held chart
+becomes `ABANDONED` without its hold, with a `PATIENT_ABANDONED` diagnostic and event and a chart
+audit row (`import abandoned`), and the run becomes `ABANDONED` with a `RUN_ABANDONED` event that
+names the operator and a salted SHA-256 digest of the reason (the salt is kept with the reason in
+the protected record, so a short reason cannot be recovered by guessing) and a `RUN_ABANDONED`
+diagnostic that points to the protected record. Maintenance is then released through the ordinary release proof, and
+the reports are regenerated: `completion.json` gains an `abandonment` section (when and by whom,
+the reason's digest, the release counts and the protected record's location), and
+`ImportErrorLog` lists each released chart as `PATIENT_ABANDONED`.
+
+Afterwards the run is final: a second abandon is refused with `IMPORT_ABANDONED`, and so is a
+resume, except one that only retries a deferred or failed maintenance release. The released
+charts are not completed imports. The CDS exporter refuses each of them with
+`CDS_EXPORT_ABANDONED_IMPORT_REQUIRES_REVIEW`: an abandoned partial import has no verifiable
+complete source, and CARLOS does not yet record a clinical reconciliation that could release a
+chart (#6208). The run's lineage, units and checkpoints are kept, so each
+released chart stays bound to its source patient: a later import of that patient meets the
+earlier attempt and is refused (`PRIOR_IMPORT_MUST_RESUME`) rather than completing or replacing
+an abandoned partial import. Reconcile such a chart by hand in CARLOS.
 
 If an implementation update prevents an old zero-write attempt from resuming, cancel that attempt through the supported control and retain its run ID and evidence. Explicitly upload the original immutable package again under the same source namespace to create a new upload and acceptance on the current implementation, then review its **Approve unwritten revision** conflict. An upload already bound to an actual run does not become a new execution identity. Historical verification preserves the old acceptance, ruleset and cancellation, and checks its retained snapshot and, for web sources, the complete original chunk receipts. The source receipt digest and snapshot digest remain separate evidence. Cancellation alone does not prove that maintenance reopened: keep the retained window closed until a subsequent successful owner proves completion, zero holds and a verified maintenance release.
 
@@ -80,11 +177,11 @@ Before declaring the migration operationally complete or lifting separate clinic
 
 ## Resources, support and verification
 
-The upload size, archive expansion, entry count, XML depth/symbols, scalar/binary capacities, free-disk reserve and duration have explicit deployment limits. Parsing, base64, file publication, diagnostics and reports stream with bounded buffers. Native field pages and prepared DTOs have fixed bounds; increasing heap does not replace these limits. Allow disk/inodes for original snapshot, bounded spools, document publication, retained review/report generations and backups. Use measured workload admission before a large production migration.
+No setting limits how large an import is or how long it runs. The source, archive expansion, entry count, decoded binary values and browser upload have no size ceiling: the free-disk reserve (`cds.import.minimumFreeDiskBytes`), checked as every writer starts and after every 16 MiB, is what stops an import its storage cannot hold. `cds.import.maxDurationMillis` is a stall window, not a time limit: an import that keeps making progress runs to its end however long it takes, and only a worker silent for the whole window is stopped (`IMPORT_WORKER_STALLED`). Parsing, base64, file publication, diagnostics and reports stream with bounded buffers, and the roster, entries and plan are kept on disk and in the database, so memory does not grow with the size of the source; increasing heap is not how a larger import is admitted. The XML depth, name, namespace, path and constrained-value guards are hostile-input guards that a genuine CDS 5.2 file cannot reach. The former `cds.import.maxSourceBytes`, `maxExpandedBytes`, `maxEntries`, `maxBinaryBytes`, `maxCompressionRatio`, `upload.maxFileBytes` and `upload.maxTotalBytes` settings are retired: they are ignored, and the first import or upload logs `CDS_IMPORT_RETIRED_SETTINGS_IGNORED` once with the names of any still set; remove them when convenient. See the [configuration reference](cds-import-configuration.md#disk-reserve-and-stall-window). Allow disk and inodes for the original upload, the snapshot (the archive copy plus its expanded members), the parse and plan spools, document publication, retained review/report generations and backups.
 
 Explicit XML Schema identity types (`ID`, `IDREF`, and their list/union derivatives, including `xsi:type` overrides) can require a document-wide identity table. Each XML source admits at most 16,384 identity value occurrences and 1,048,576 aggregate lexical UTF16 units before the validator retains them. The importer counts values conservatively, including duplicates and whitespace. `CDS_XML_IDENTITY_RESOURCE_LIMIT` stops validation with the original source and partial protected diagnostics retained. The source remains unsealed and clinical writes cannot start. Treat this as incomplete validation requiring source/deployment review; the report must never be interpreted as a complete list of source errors. Existing CDS clinical identifier fields continue to follow their declared schema types and normalization rules.
 
-The CLI's `CDS_INPUT_DISK_RESERVE` reason means the required free-space reserve prevented further input work. `CDS_SOURCE_SNAPSHOT_FAILED` means the source-copy operation failed; inspect protected operational evidence and the relevant filesystem's capacity, access and health. Neither code alone proves acceptance, rollback or absence of clinical writes. Retain the printed submission nonce and any accepted run ID, recover a lost handle with `--status-submission`, and inspect its durable outcome before resuming or retrying. Preserve accepted source, reports and state while restoring capacity.
+The CLI's `CDS_INPUT_DISK_RESERVE` reason means the required free-space reserve prevented further input work. `CDS_SOURCE_SNAPSHOT_FAILED` means the source-copy operation failed; inspect protected operational evidence and the relevant filesystem's capacity, access and health. `IMPORT_WORKER_STALLED` means the worker reached no checkpoint for the whole stall window, because one read, lock or statement never answered; find that cause (the storage, the database), then resume the same run. A worker that hangs without returning is released by the database instead, which closes its silent ownership sessions after the window plus a 300-second unwind allowance, exactly as for a dead process. None of these codes alone proves acceptance, rollback or absence of clinical writes. Retain the printed submission nonce and any accepted run ID, recover a lost handle with `--status-submission`, and inspect its durable outcome before resuming or retrying. Preserve accepted source, reports and state while restoring capacity.
 
 The CARLOS project does not set a clinic's migration service cost or promise vendor support terms. Agree with the source vendor and migration operator on extraction/decryption, source correction, side-by-side clinical validation, downtime, reconciliation, retention and support ownership before the window. Supply support with the run ID, stable diagnostic code and protected evidence through an approved channel; ordinary chat/email logs should not contain source patient data or credentials.
 

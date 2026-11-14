@@ -23,8 +23,15 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.cli;
 
 /** Safe startup outcome and protected generated evidence reference; raw exception messages are excluded. */
 public final class CdsCliBootstrapException extends Exception {
-    private static final long serialVersionUID=1L;
+    private static final long serialVersionUID = 1L;
     private final String diagnostic;
-    public CdsCliBootstrapException(String diagnostic) { super("CDS_BOOTSTRAP_FAILED"); this.diagnostic=diagnostic; }
-    public String diagnostic(){return diagnostic; }
+
+    public CdsCliBootstrapException(String diagnostic) {
+        super("CDS_BOOTSTRAP_FAILED");
+        this.diagnostic = diagnostic;
+    }
+
+    public String diagnostic() {
+        return diagnostic;
+    }
 }

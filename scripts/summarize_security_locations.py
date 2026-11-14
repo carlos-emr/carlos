@@ -7,6 +7,32 @@ import re
 import sys
 from urllib.parse import unquote, urlsplit
 
+REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
+
+
+def syntax_error_locations(notice):
+    """Semgrep puts parse coordinates in prose; retain only verified repository coordinates."""
+    message = notice.get("message", {})
+    text = message.get("text") if isinstance(message, dict) else None
+    if not isinstance(text, str):
+        return []
+    match = re.match(r"\ASyntax error at line ([^:\r\n]{1,4096}):([1-9][0-9]{0,9}):", text)
+    if not match:
+        return []
+    path = PurePosixPath(match.group(1))
+    if path.is_absolute():
+        try:
+            path = path.relative_to(REPOSITORY_ROOT)
+        except ValueError:
+            return []
+    if (".." in path.parts or "\\" in str(path)
+            or not (REPOSITORY_ROOT / path).resolve().is_relative_to(REPOSITORY_ROOT)
+            or not (REPOSITORY_ROOT / path).is_file()
+            or (REPOSITORY_ROOT / path).is_symlink()):
+        return []
+    return [{"physicalLocation": {"artifactLocation": {"uri": path.as_posix()},
+                                  "region": {"startLine": int(match.group(2))}}}]
+
 
 def location_records(report):
     records = []
@@ -53,6 +79,44 @@ def location_records(report):
     return records
 
 
+def execution_records(report):
+    """Retain scanner status and coordinates, excluding diagnostic prose and snippets."""
+    records = []
+    for run_index, run in enumerate(report.get("runs", [])):
+        invocations = run.get("invocations", [])
+        if not isinstance(invocations, list):
+            raise ValueError("Invalid invocation list")
+        for invocation_index, invocation in enumerate(invocations):
+            success = invocation.get("executionSuccessful")
+            if success is not None and type(success) is not bool:
+                raise ValueError("Invalid execution status")
+            identity = {"runIndex": run_index, "invocationIndex": invocation_index}
+            records.append({"kind": "scannerExecution", **identity, "executionSuccessful": success})
+            notifications = invocation.get("toolExecutionNotifications", [])
+            if not isinstance(notifications, list) or len(notifications) > 10000:
+                raise ValueError("Invalid execution notifications")
+            for notice in notifications:
+                descriptor = notice.get("descriptor", {}).get("id", "SEMGREP_TOOL_NOTIFICATION")
+                if not isinstance(descriptor, str) or not re.fullmatch(r"[A-Za-z0-9_.:/ -]{1,512}", descriptor):
+                    raise ValueError("Invalid notification descriptor")
+                # SARIF notification descriptors are human labels, unlike rule identifiers.
+                # Semgrep's real parser reports "Syntax error", with no locations array.
+                rule = "Semgrep." + descriptor.replace(" ", "_") if " " in descriptor else descriptor
+                level = notice.get("level", "warning")
+                # Reuse the same strict identifier/coordinate validation as finding summaries.
+                locations = notice.get("locations", [])
+                if descriptor == "Syntax error" and not locations:
+                    locations = syntax_error_locations(notice)
+                selected = {"ruleId": rule, "level": level, "locations": locations}
+                locations = location_records({"runs": [{"results": [selected]}]})
+                base = {"kind": "scannerNotification", **identity}
+                if locations:
+                    records.extend({**base, **location} for location in locations)
+                else:
+                    records.append({**base, "ruleId": rule, "level": level})
+    return records
+
+
 def main(paths):
     records = []
     for path in paths:
@@ -62,7 +126,9 @@ def main(paths):
             continue
         if report.is_symlink() or not report.is_file():
             raise ValueError("Invalid report file")
-        records.extend(location_records(json.loads(report.read_text(encoding="utf-8"))))
+        document = json.loads(report.read_text(encoding="utf-8"))
+        records.extend(location_records(document))
+        records.extend(execution_records(document))
     # Validate every record before printing, so a malformed report cannot leave a partial summary.
     for record in records:
         print(json.dumps(record, ensure_ascii=True, separators=(",", ":")))

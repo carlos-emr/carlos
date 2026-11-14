@@ -24,7 +24,17 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.support;
 /** Safe transport diagnostic; source names and filesystem causes must remain protected. */
 public final class CdsUploadException extends RuntimeException {
     private final int status;
-    public CdsUploadException(String code, int status) { super(code); this.status = status; }
-    public String code() { return getMessage(); }
-    public int status() { return status; }
+
+    public CdsUploadException(String code, int status) {
+        super(code);
+        this.status = status;
+    }
+
+    public String code() {
+        return getMessage();
+    }
+
+    public int status() {
+        return status;
+    }
 }
