@@ -141,13 +141,13 @@ class CdsExportSectionWindowPlannerUnitTest {
     }
 
     @Test
-    void shouldRefuseAnOwnerPassWithAnotherRowCount_orAWindowAbandonedWithoutAReason() {
+    void shouldRefuseAWindowAbandonedWithoutAReason_orAnOwnerWithoutAnId() {
         assertThatThrownBy(
                         () ->
                                 CdsExportSectionWindowPlanner.forEachWindow(
                                         9,
                                         new Limits(2, 100),
-                                        owners -> owners.add("1"),
+                                        owners -> owners.add(null),
                                         (window, budget) -> true))
                 .hasMessage("CDS_EXPORT_SECTION_WINDOW_INVALID");
         assertThatThrownBy(
@@ -159,6 +159,46 @@ class CdsExportSectionWindowPlannerUnitTest {
                                         (window, budget) -> false))
                 .hasMessage("CDS_EXPORT_SECTION_WINDOW_INVALID");
         assertThatThrownBy(() -> new Limits(0, 1)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void shouldWindowTheOwnersTheCaptureDelivers_whenItsStatedCountDiffers() throws Exception {
+        // The section compares what its windows emitted with the stated count, under its own
+        // code; the planner only visits what the pass reports.
+        var visited = new ArrayList<Long>();
+        long windows =
+                CdsExportSectionWindowPlanner.forEachWindow(
+                        9,
+                        new Limits(2, 100),
+                        owners -> {
+                            for (String id : ids(3)) owners.add(id);
+                        },
+                        (window, budget) -> visited.add(window.size()));
+        assertThat(windows).isEqualTo(2);
+        assertThat(visited).containsExactly(2L, 1L);
+    }
+
+    @Test
+    void shouldStartFromWhatFitted_whenTheWholeChartPassedTheByteLimit() throws Exception {
+        var ids = ids(10);
+        int[] loads = {0};
+        var visited = new ArrayList<Long>();
+        CdsExportSectionWindowPlanner.forEachWindow(
+                10,
+                new Limits(100, 400),
+                owners -> {
+                    for (String id : ids) owners.add(id);
+                },
+                (window, budget) -> {
+                    loads[0]++;
+                    for (String id : ids) if (window.contains(id)) budget.owner(100);
+                    if (budget.exceeded()) return false;
+                    visited.add(window.size());
+                    return true;
+                });
+        assertThat(visited).containsExactly(4L, 4L, 2L);
+        // The whole chart once, then each window once: no window is read twice.
+        assertThat(loads[0]).isEqualTo(4);
     }
 
     @Test

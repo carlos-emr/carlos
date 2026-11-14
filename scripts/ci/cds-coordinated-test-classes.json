@@ -259,6 +259,7 @@
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportRetainedSourceScopeUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportRetentionServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportSchemaVisibilityMariaDbIntegrationTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportSectionWindowPlannerUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportSelectionFileServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportSelectionIntegrationTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportServiceUnitTest",

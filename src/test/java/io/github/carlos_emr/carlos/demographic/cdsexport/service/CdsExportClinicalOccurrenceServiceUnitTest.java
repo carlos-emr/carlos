@@ -801,8 +801,9 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
             assertThat(compose(windowed, false)).isEqualTo(expected);
             assertThat(windowed.receipts).isEqualTo(whole.receipts);
             assertThat(windowed.result).isEqualTo(whole.result);
-            // One witness pass for the whole chart that did not fit, then one for each window.
-            verify(windowed.witnesses, times(1 + (11 + window - 1) / window))
+            // More rows than one window holds: no attempt at the whole chart, one witness pass
+            // for each window.
+            verify(windowed.witnesses, times((11 + window - 1) / window))
                     .scan(any(), any(), any(), any(), anyLong(), anyLong(), any(), any());
         }
         // A byte limit smaller than the chart's witnesses (1,024 bytes each) windows it too.
@@ -926,6 +927,7 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
                         allergyPrecision(
                                 next++, Integer.parseInt(row.fields().get("allergyid")), "YYYY"));
         f.lookupRows = lookups;
+        f.documentBytes = 512L << 20;
         f.bounds =
                 new CdsExportClinicalOccurrenceService.Bounds(
                         CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
@@ -950,7 +952,7 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
         var columns = new ArrayList<CdsNativeRowDigest.Column>();
         var cells = new ArrayList<CdsNativeRowState.Cell>();
         for (int column = 0; column < 70; column++) {
-            columns.add(new CdsNativeRowDigest.Column("c" + column, "VARCHAR"));
+            columns.add(new CdsNativeRowDigest.Column("c" + column, "VARCHAR", 255, 0));
             cells.add(new CdsNativeRowState.Cell(true, 0, null));
         }
         var wide = new ArrayList<CdsExportNativeRowReceiptDto>();
@@ -961,8 +963,7 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
                     new CdsExportNativeRowReceiptDto(
                             "allergies", id, row.recordKey(), state.digest(), state));
         }
-        when(f.witnesses.scan(any(), any(), any(), any(), anyLong(), anyLong(), any(), any()))
-                .thenAnswer(
+        doAnswer(
                         call -> {
                             for (var witness : wide)
                                 ((CdsExportNativeRowReceiptReader.Receipts) call.getArgument(7))
@@ -970,7 +971,9 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
                             return new CdsExportNativeRowReceiptsDto(
                                     SOURCE, Map.of("allergies", (long) wide.size()), wide.size(), 0,
                                     Set.of());
-                        });
+                        })
+                .when(f.witnesses)
+                .scan(any(), any(), any(), any(), anyLong(), anyLong(), any(), any());
         f.bounds =
                 new CdsExportClinicalOccurrenceService.Bounds(
                         CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
@@ -1047,6 +1050,7 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
                         100000, 8L << 20, 1000, 8L << 20, 100, 1000);
         // Each lookup scan may hand out fresh rows, so a test can see which ones stay reachable.
         java.util.function.Supplier<List<CdsExportCapturedTextRowDto>> lookupSource;
+        long documentBytes = 8L << 20;
         Runnable beforeRow = () -> {};
     }
 
@@ -1297,7 +1301,7 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
                             }
                         },
                         ignored -> {},
-                        8L << 20,
+                        f.documentBytes,
                         () -> {});
         return output.toByteArray();
     }

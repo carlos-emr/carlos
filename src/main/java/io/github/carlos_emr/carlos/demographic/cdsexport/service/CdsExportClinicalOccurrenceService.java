@@ -866,8 +866,8 @@ public class CdsExportClinicalOccurrenceService {
                             }
                             if (row.table().equals("provider")) {
                                 // Providers are the clinic's, not the chart's rows: every
-                                // window holds the ones this chart names.
-                                if (!held(budget, row)) return;
+                                // window holds the ones this chart names, so a smaller
+                                // window would hold as many and they are not counted.
                                 String id = row.fields().get("provider_no");
                                 if (id == null
                                         || !row.fields()

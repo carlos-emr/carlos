@@ -217,16 +217,19 @@ final class CdsExportSectionWindowPlanner {
         Objects.requireNonNull(scan);
         Objects.requireNonNull(work);
         if (rows < 0) throw new IOException("CDS_EXPORT_SECTION_WINDOW_INVALID");
+        int size = limits.rows();
         if (rows <= limits.rows()) {
             var budget = new Budget(limits, rows > 1);
             if (work.run(new Window(null, rows), budget)) return 1;
             if (!budget.exceeded()) throw new IOException("CDS_EXPORT_SECTION_WINDOW_INVALID");
+            size = smaller((int) rows, budget);
         }
+        // The pass reports the owners the capture delivers. The section proves afterwards that
+        // its windows emitted as many rows as the capture states, under its own code.
         var owners = new Owners();
         scan.scan(owners);
-        if (owners.size() != rows) throw new IOException("CDS_EXPORT_SECTION_WINDOW_INVALID");
         long windows = 0;
-        int from = 0, size = limits.rows();
+        int from = 0;
         while (from < owners.count) {
             int length = Math.min(size, owners.count - from);
             var window = owners.window(from, length);
@@ -239,11 +242,18 @@ final class CdsExportSectionWindowPlanner {
             }
             if (!budget.exceeded() || length == 1)
                 throw new IOException("CDS_EXPORT_SECTION_WINDOW_INVALID");
-            // As many owners as were counted before the limit, when the load counted them;
-            // otherwise half. Always fewer than before, so the loop ends at one owner.
-            long hint = budget.fitted > 0 ? budget.fitted : length / 2;
-            size = (int) Math.max(1, Math.min(length - 1L, hint));
+            size = smaller(length, budget);
         }
         return windows;
+    }
+
+    /**
+     * The next window size after one of {@code length} owners was too large: as many owners as
+     * were counted before the limit, when the load counted them, otherwise half. Always fewer
+     * than before, so the loop ends at one owner.
+     */
+    private static int smaller(int length, Budget budget) {
+        long hint = budget.fitted > 0 ? budget.fitted : length / 2;
+        return (int) Math.max(1, Math.min(length - 1L, hint));
     }
 }
