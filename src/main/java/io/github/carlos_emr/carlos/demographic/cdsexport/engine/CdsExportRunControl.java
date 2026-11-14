@@ -31,6 +31,17 @@ public interface CdsExportRunControl {
     /** Inside an explicit read-only source transaction; metadata control uses an independent transaction. */
     void captureCheckpoint();
 
+    /**
+     * True once after each lease heartbeat: the moment for the packaging step to seal the charts
+     * it finished since the last time into the attempt's checkpoint and record the newest member
+     * on the attempt row. Reading it clears it. An adapter without a heartbeat answers false, and
+     * the packaging step then seals only when its batch is full, at the end of its roster and when
+     * it stops, which is always correct.
+     */
+    default boolean checkpointDue() {
+        return false;
+    }
+
     /** Before/after capture, outside its admission barrier; no stale source-snapshot permission check. */
     void authorizePatient(int patient);
 

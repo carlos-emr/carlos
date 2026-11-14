@@ -160,6 +160,42 @@ class CdsExportClinicalPackageServiceUnitTest {
                 fixture.control);
     }
 
+    /**
+     * What a stopped attempt leaves on disk besides its pre-staged inputs: the members of the
+     * checkpoint the ledger last recorded and the finished charts' outputs it names; nothing when
+     * the ledger recorded none.
+     */
+    private Set<String> kept() throws IOException {
+        var recorded =
+                mockingDetails(ledger).getInvocations().stream()
+                        .filter(call -> call.getMethod().getName().equals("recordCheckpoint"))
+                        .toList();
+        if (recorded.isEmpty()) return Set.of();
+        CdsExportChartCheckpointDto pointer = recorded.getLast().getArgument(1);
+        var chain =
+                CdsExportChartCheckpointReader.open(
+                        fixture.store, fixture.run, 1, pointer, () -> {});
+        var files = new TreeSet<String>();
+        for (var member : chain.members()) files.add(member.memberId() + ".stage");
+        try (var cursor = chain.cursor()) {
+            CdsExportChartCheckpointReader.Entry entry;
+            while ((entry = cursor.next()) != null) {
+                if (!entry.chartEntry()) continue;
+                files.add(entry.chart().path("xml").path("memberId").asText() + ".stage");
+                for (var attachment : entry.chart().path("attachments"))
+                    files.add(attachment.path("file").path("memberId").asText() + ".stage");
+            }
+        }
+        return files;
+    }
+
+    /** Only the pre-staged inputs and what the recorded checkpoint pins remain. */
+    private void assertOnlyKeptRemain(Set<String> before) throws IOException {
+        var expected = new TreeSet<>(before);
+        expected.addAll(kept());
+        assertThat(new TreeSet<>(fixture.members())).isEqualTo(expected);
+    }
+
     @Test
     void shouldKeepPatientMembershipInTheNormalAudit_afterPrivatePackagePreparation()
             throws Exception {
@@ -268,7 +304,9 @@ class CdsExportClinicalPackageServiceUnitTest {
     void shouldRefuseAnUnfinishedCohort_evenWhenEveryReturnedPatientHasValidXml() throws Exception {
         eof = false;
         assertThatThrownBy(this::compose).hasMessage("CDS_EXPORT_CLINICAL_PACKAGE_INVALID");
-        assertThat(fixture.members()).containsExactly(fixture.cohort.memberId() + ".stage");
+        // The finished chart and its checkpoint are kept for a resumed attempt; nothing else.
+        assertThat(kept()).hasSize(2);
+        assertOnlyKeptRemain(Set.of(fixture.cohort.memberId() + ".stage"));
         verify(ledger, never()).phase(any(), any());
     }
 
@@ -276,7 +314,7 @@ class CdsExportClinicalPackageServiceUnitTest {
     void shouldRefuseAnOmittedPatient_insteadOfPublishingASmallerPackage() throws Exception {
         when(ledger.status(fixture.run)).thenReturn(status(2L));
         assertThatThrownBy(this::compose).hasMessage("CDS_EXPORT_CLINICAL_PACKAGE_INVALID");
-        assertThat(fixture.members()).hasSize(1);
+        assertOnlyKeptRemain(Set.of(fixture.cohort.memberId() + ".stage"));
     }
 
     @Test
@@ -293,7 +331,7 @@ class CdsExportClinicalPackageServiceUnitTest {
                         new CdsExportReviewException(
                                 CdsExportReviewException.Reason.SOURCE_CHANGED));
         assertThatThrownBy(this::compose).hasMessage("CDS_EXPORT_SOURCE_CHANGED");
-        assertThat(fixture.members()).hasSize(1);
+        assertOnlyKeptRemain(Set.of(fixture.cohort.memberId() + ".stage"));
     }
 
     @Test
@@ -302,7 +340,7 @@ class CdsExportClinicalPackageServiceUnitTest {
                 .when(fixture.captures)
                 .authorizeSources(any(), any(), anySet(), any());
         assertThatThrownBy(this::compose).hasMessage("REVOKED");
-        assertThat(fixture.members()).hasSize(1);
+        assertOnlyKeptRemain(Set.of(fixture.cohort.memberId() + ".stage"));
         verify(ledger, never()).phase(fixture.lease, CdsExportState.PACKAGING);
     }
 
@@ -329,7 +367,7 @@ class CdsExportClinicalPackageServiceUnitTest {
                 .when(fixture.captures)
                 .authorizeSources(any(), any(), anySet(), any());
         assertThatThrownBy(this::compose).hasMessage("REVOKED");
-        assertThat(fixture.members()).hasSize(1);
+        assertOnlyKeptRemain(Set.of(fixture.cohort.memberId() + ".stage"));
         verify(ledger).phase(fixture.lease, CdsExportState.PACKAGING);
     }
 
@@ -342,7 +380,7 @@ class CdsExportClinicalPackageServiceUnitTest {
                         new CdsExportReviewException(
                                 CdsExportReviewException.Reason.SOURCE_CHANGED));
         assertThatThrownBy(this::compose).hasMessage("CDS_EXPORT_SOURCE_CHANGED");
-        assertThat(fixture.members()).hasSize(1);
+        assertOnlyKeptRemain(Set.of(fixture.cohort.memberId() + ".stage"));
     }
 
     private static CdsExportStagedFileDto unstaged(String purpose, int patient, int file) {
@@ -389,6 +427,9 @@ class CdsExportClinicalPackageServiceUnitTest {
                             // Mocked so a chart may carry more notes than one capture's bound.
                             var table = mock(CdsExportCapturedTableDto.class);
                             when(table.noteAccess()).thenReturn(access);
+                            when(table.columns()).thenReturn(Set.of("note_id"));
+                            when(table.receiptColumns()).thenReturn(List.of());
+                            when(table.schemaSha256()).thenReturn("d".repeat(64));
                             var capture = mock(CdsExportNativeCaptureDto.class);
                             when(capture.tables())
                                     .thenReturn(notes == 0 ? Map.of() : Map.of("casemgmt_note", table));
@@ -493,7 +534,9 @@ class CdsExportClinicalPackageServiceUnitTest {
                             .filter(message -> message.startsWith("CDS_EXPORT_PACKAGE_SPOOLED"))
                             .findFirst()
                             .orElseThrow();
-            assertThat(spooled).contains("charts=" + count, "members=" + (9L * count + 5));
+            // Nine owned members per chart, the step's five outputs and the one sealed member
+            // of the attempt's finished-chart checkpoint.
+            assertThat(spooled).contains("charts=" + count, "members=" + (9L * count + 6));
             // Far more protected segments than charts: nothing waited in memory for the roster.
             long segments = Long.parseLong(spooled.substring(spooled.lastIndexOf('=') + 1));
             assertThat(segments).isGreaterThan(count);
@@ -513,7 +556,7 @@ class CdsExportClinicalPackageServiceUnitTest {
             try (var input = fixture.store.open(prepared.ownership())) {
                 var lines = new CdsExportJsonLines(input, 1 << 20, () -> {});
                 long files = lines.next().path("files").asLong();
-                assertThat(files).isEqualTo(9L * count + 5);
+                assertThat(files).isEqualTo(9L * count + 6);
                 String previous = "";
                 for (long i = 0; i < files; i++) {
                     String id = lines.next().path("memberId").asText();
@@ -522,8 +565,9 @@ class CdsExportClinicalPackageServiceUnitTest {
                 }
                 assertThat(lines.next().path("kind").asText()).isEqualTo("END");
             }
-            // Added on disk: two members per chart and this step's six outputs, no segment.
-            assertThat(fixture.members()).hasSize(before + 2 * count + 6);
+            // Added on disk: two members per chart, this step's six outputs and the checkpoint,
+            // no segment.
+            assertThat(fixture.members()).hasSize(before + 2 * count + 7);
         }
         // Each pass re-authorized every chart's notes from the spool, one chart at a time.
         verify(fixture.control, times(3 * count))
@@ -565,17 +609,18 @@ class CdsExportClinicalPackageServiceUnitTest {
                                 LocalDate.of(1971, 3, 4)))
                 .when(naming)
                 .bind(any(), any(), anySet(), any(), any(), any(), any());
-        int before = fixture.members().size();
+        var before = fixture.members();
         assertThatThrownBy(this::compose).hasMessage("CDS_EXPORT_AMBIGUOUS_SOURCE");
-        // Nothing this attempt staged is left.
-        assertThat(fixture.members()).hasSize(before);
+        // Nothing this attempt staged is left but its finished charts and their checkpoint.
+        assertThat(kept()).hasSize(4);
+        assertOnlyKeptRemain(before);
     }
 
     @Test
     void shouldStopWithTheStoresOwnCode_andLeaveNothingBehindWhenStorageFails() throws Exception {
         roster(40, 5, 0);
         service.spoolBatchBytes = 1024;
-        int before = fixture.members().size();
+        var before = fixture.members();
         // The store refuses every write once 25 charts are staged: a genuine storage failure.
         int[] staged = {0};
         doAnswer(
@@ -611,8 +656,11 @@ class CdsExportClinicalPackageServiceUnitTest {
         assertThatThrownBy(this::compose)
                 .isInstanceOf(IOException.class)
                 .hasMessage("CDS_EXPORT_DISK_RESERVE");
-        // No package, no partial output: the 25 staged charts and every spool segment are gone.
-        assertThat(fixture.members()).hasSize(before);
+        // No package and no partial output: every spool segment and every capture is gone. The
+        // 25 finished charts stay, pinned by the checkpoint sealed and recorded as the job
+        // stopped, for a resumed attempt to adopt.
+        assertThat(kept()).hasSize(26);
+        assertOnlyKeptRemain(before);
         verify(ledger, never()).phase(fixture.lease, CdsExportState.RECONCILING);
     }
 
@@ -717,7 +765,7 @@ class CdsExportClinicalPackageServiceUnitTest {
         when(fixture.captures.capture(any(), eq(second), anySet(), anyLong(), anyLong(), any()))
                 .thenThrow(new IOException("DISK_FAILED"));
         assertThatThrownBy(this::compose).isInstanceOf(IOException.class).hasMessage("DISK_FAILED");
-        assertThat(fixture.members()).hasSize(1);
+        assertOnlyKeptRemain(Set.of(fixture.cohort.memberId() + ".stage"));
     }
 
     @Test
@@ -728,7 +776,7 @@ class CdsExportClinicalPackageServiceUnitTest {
                         new CdsExportReviewException(
                                 CdsExportReviewException.Reason.RESOURCE_LIMIT));
         assertThatThrownBy(this::compose).hasMessage("CDS_EXPORT_RESOURCE_LIMIT");
-        assertThat(fixture.members()).hasSize(1);
+        assertOnlyKeptRemain(Set.of(fixture.cohort.memberId() + ".stage"));
     }
 
     @Test
@@ -740,8 +788,10 @@ class CdsExportClinicalPackageServiceUnitTest {
         assertThatThrownBy(this::compose)
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("CDS_EXPORT_ACCESS_CHANGED");
-        // Nothing the job staged survives: only the fixture's own pre-staged inputs remain.
-        assertThat(fixture.members()).isEqualTo(before);
+        // Nothing the job staged survives but the checkpoint naming the two held patients, which
+        // a resumed attempt reads to evaluate them again.
+        assertThat(kept()).hasSize(1);
+        assertOnlyKeptRemain(before);
         verify(ledger, never()).phase(fixture.lease, CdsExportState.RECONCILING);
         assertThat(second.patient()).isEqualTo(28);
     }

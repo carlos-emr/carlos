@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "1375965897cc17df675ffe1999294cdc983a455f58f53e6a554c81f7e97eac9a",
+ "migration_sha256": "dd2a83d4832d4e2defd9344193ff8a804c94e18a530489571f125c370ca71eb4",
  "province": "bc",
  "schema": {
   "checks": [
@@ -13648,6 +13648,66 @@
     null,
     null,
     6
+   ],
+   [
+    "cds_export_attempt",
+    "adopted_charts",
+    "bigint(20)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    22
+   ],
+   [
+    "cds_export_attempt",
+    "checkpoint_bytes",
+    "bigint(20)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    20
+   ],
+   [
+    "cds_export_attempt",
+    "checkpoint_charts",
+    "bigint(20)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    21
+   ],
+   [
+    "cds_export_attempt",
+    "checkpoint_digest",
+    "varchar(64)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    19
+   ],
+   [
+    "cds_export_attempt",
+    "checkpoint_member",
+    "varchar(64)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    18
    ],
    [
     "cds_export_attempt",
