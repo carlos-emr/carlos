@@ -87,28 +87,32 @@ public class CdsExportConfigurationService {
      * the online web worker, which renders eForms, before running it in its own process
      * ({@code cds.export.cliRendererHandoffSeconds}, default 120, 0 to never hand off). A job the
      * CLI runs itself exports every eForm through its data summary, noted "rendered form
-     * unavailable"; it is never held for that.
+     * unavailable"; it is never held for that. Any whole number of seconds a {@code long} holds
+     * is accepted: the setting changes only how a job is run.
      */
     public long cliRendererHandoffMillis() {
         String value = properties.getProperty("cds.export.cliRendererHandoffSeconds", "120").strip();
-        if (!value.matches("[0-9]{1,5}")) invalid();
-        long seconds = Long.parseLong(value);
-        if (seconds > 86_400) invalid();
-        return seconds * 1000L;
+        try {
+            if (!value.matches("[0-9]{1,19}")) invalid();
+            return java.util.concurrent.TimeUnit.SECONDS.toMillis(Long.parseLong(value));
+        } catch (NumberFormatException malformed) {
+            throw new IllegalStateException("CDS_EXPORT_CONFIGURATION_INVALID");
+        }
     }
 
     /**
      * The stall window: how long the engine thread of an attempt may pass no checkpoint before the
      * attempt is treated as dead and its lease is allowed to expire. It is not a budget for the
      * attempt: an export that keeps working is never stopped for how long its roster takes, and
-     * nothing is truncated.
+     * nothing is truncated. Any positive number of milliseconds a {@code long} holds is accepted:
+     * a longer window only waits longer for a worker that has stopped.
      */
     public long maxDurationMillis() {
         String value = properties.getProperty("cds.export.maxDurationMillis", "86400000").strip();
         try {
-            if (!value.matches("[0-9]{1,10}")) invalid();
+            if (!value.matches("[0-9]{1,19}")) invalid();
             long selected = Long.parseLong(value);
-            if (selected < 1 || selected > 31L * 24 * 60 * 60 * 1000) invalid();
+            if (selected < 1) invalid();
             return selected;
         } catch (NumberFormatException malformed) {
             throw new IllegalStateException("CDS_EXPORT_CONFIGURATION_INVALID");

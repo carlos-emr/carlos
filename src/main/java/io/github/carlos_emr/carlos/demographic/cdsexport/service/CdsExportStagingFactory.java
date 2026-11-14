@@ -108,7 +108,7 @@ public class CdsExportStagingFactory {
                             lease.runId(),
                             lease.epoch(),
                             key,
-                            number("cds.export.minimumFreeBytes", 512L << 20, 1L << 40),
+                            number("cds.export.minimumFreeBytes", 512L << 20),
                             checkpoint);
             complete = true;
             return store;
@@ -134,7 +134,7 @@ public class CdsExportStagingFactory {
                 runId,
                 epoch,
                 key(binding),
-                number("cds.export.minimumFreeBytes", 512L << 20, 1L << 40),
+                number("cds.export.minimumFreeBytes", 512L << 20),
                 checkpoint);
     }
 
@@ -316,12 +316,16 @@ public class CdsExportStagingFactory {
         return value;
     }
 
-    private long number(String property, long fallback, long maximum) throws IOException {
+    /**
+     * A whole number of bytes a {@code long} holds. The free-space reserve has no maximum of ours:
+     * a reserve larger than the store only means the store refuses to fill.
+     */
+    private long number(String property, long fallback) throws IOException {
         String text = settings.getProperty(property, Long.toString(fallback));
         try {
-            if (!text.matches("[0-9]{1,13}")) invalid();
+            if (!text.matches("[0-9]{1,19}")) invalid();
             long value = Long.parseLong(text);
-            if (value < 0 || value > maximum) invalid();
+            if (value < 0) invalid();
             return value;
         } catch (NumberFormatException invalid) {
             throw new IOException("CDS_EXPORT_STORAGE_CONFIGURATION_INVALID");

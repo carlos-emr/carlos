@@ -537,6 +537,28 @@ class CdsExportEformRenderServiceUnitTest {
     }
 
     @Test
+    void shouldKeepTheConfiguredInterval_whenItIsLongerThanTheFormer60000Millis() throws Exception {
+        // The pause between two export renders was capped at 60,000 ms. It only paces how renders
+        // run, so a longer one is kept as configured.
+        var clock = new java.util.concurrent.atomic.AtomicLong();
+        var paused = new java.util.concurrent.atomic.AtomicLong();
+        var settings = new Properties();
+        settings.setProperty("cds.export.eformRenderIntervalMillis", "90000");
+        var service =
+                new CdsExportEformRenderService(
+                        (identity, fdid, waiting) -> output(PDF),
+                        settings,
+                        clock::get,
+                        nanos -> {
+                            paused.addAndGet(nanos);
+                            clock.addAndGet(nanos);
+                        });
+        assertThat(service.render(1, who, spool, () -> {}, () -> {}).rendered()).isTrue();
+        assertThat(service.render(2, who, new Spool(), () -> {}, () -> {}).rendered()).isTrue();
+        assertThat(TimeUnit.NANOSECONDS.toMillis(paused.get())).isEqualTo(90_000);
+    }
+
+    @Test
     void shouldStopTheJob_whenTheRenderersOwnReadLosesTheDatabase() {
         // Not a browser failure: the database is gone, and the job stops under its own code.
         var lost =

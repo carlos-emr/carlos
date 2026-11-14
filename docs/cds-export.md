@@ -1530,8 +1530,8 @@ size is a genuine storage failure, which is loud, has its own code and can be re
 follows says how each former ceiling was removed, what each remaining threshold does when it is
 crossed, and what is still fixed and why.
 
-**Time.** `cds.export.maxDurationMillis` (default 86,400,000, range 1 to 31 days) is a stall
-window, not a budget. Every checkpoint the engine thread passes is its proof of life
+**Time.** `cds.export.maxDurationMillis` (default 86,400,000; any positive number of
+milliseconds, where 31 days was the most until this change) is a stall window, not a budget. Every checkpoint the engine thread passes is its proof of life
 (`CdsExportExecutionService.Control`); the 20-second lease heartbeat is the only thing that can
 find it silent.
 
@@ -3597,7 +3597,7 @@ Keys contain exactly 32 raw random bytes and must be root owned and read-only to
 service (for example root:carlos 0640 below a root-owned 0750 directory). Writable
 service-owned secrets are refused. Key bytes and filesystem paths never enter a job
 response or accepted document. A staged member has no size bound (`cds.export.maxStagedFileBytes` is retired and
-ignored); the store's free-space reserve is `cds.export.minimumFreeBytes` (default 512MiB, maximum 1TiB).
+ignored); the store's free-space reserve is `cds.export.minimumFreeBytes` (default 512MiB, no maximum; 1TiB was the most until this change).
 
 An attempt that stops before READY keeps its finished charts (their XML and attachments, and the
 checkpoint that names them) in its own run/epoch directory, encrypted under the job's bound key,

@@ -288,7 +288,7 @@ public class CdsExportEformRenderService {
         long intervalNanos =
                 TimeUnit.MILLISECONDS.toNanos(
                         CdsExportActivePlanService.number(
-                                settings, "eformRenderIntervalMillis", 250, 0, 60_000));
+                                settings, "eformRenderIntervalMillis", 250, 0, Long.MAX_VALUE));
         acquire(waiting);
         try {
             // A renderer that failed three times in a row is left alone for five minutes; the

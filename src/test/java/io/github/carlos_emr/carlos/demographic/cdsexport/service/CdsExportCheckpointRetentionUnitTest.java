@@ -71,6 +71,7 @@ class CdsExportCheckpointRetentionUnitTest {
     private CdsExportStagingFactory stores;
     private CdsExportStagingService store;
     private CdsExportRetentionService retention;
+    private Properties settings;
 
     /**
      * A protected store root and key in a private directory. The store refuses any ancestor that
@@ -100,7 +101,7 @@ class CdsExportCheckpointRetentionUnitTest {
         var keyFile = keys.resolve("primary.key");
         Files.write(keyFile, key);
         Files.setPosixFilePermissions(keyFile, PosixFilePermissions.fromString("rw-------"));
-        var settings = new Properties();
+        settings = new Properties();
         settings.setProperty("cds.export.store.active", "primary");
         settings.setProperty("cds.export.masterKey.active", "primary");
         settings.setProperty("cds.export.store.primary.root", root.toString());
@@ -250,5 +251,18 @@ class CdsExportCheckpointRetentionUnitTest {
                 CdsExportLedgerService.TrimOutcome.REJECTED));
         verify(ledger, never()).finishTrim(any(), org.mockito.ArgumentMatchers.eq(
                 CdsExportLedgerService.TrimOutcome.TRIMMED));
+    }
+
+    @Test
+    void shouldAcceptAFreeSpaceReserve_largerThanTheFormer1TiB() throws Exception {
+        // The reserve was capped at 1 TiB. A larger one is accepted and applied as configured:
+        // larger than this disk, it refuses the first staged member.
+        settings.setProperty("cds.export.minimumFreeBytes", Long.toString(1L << 41));
+        var reserved =
+                new CdsExportStagingFactory(settings, ledger)
+                        .openExisting(run, 1, document.storage(), () -> {});
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> reserved.stage("PATIENT_XML", output -> output.write(1)))
+                .hasMessage("CDS_EXPORT_DISK_RESERVE");
     }
 }

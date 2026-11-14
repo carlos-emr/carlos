@@ -116,6 +116,7 @@
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportClinicalZoneServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportClinicalZoneUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportCohortServiceUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportConfigurationServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportCvcCatalogueMariaDbIntegrationTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDeliveryComposerUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDeliveryInteropIntegrationTest",

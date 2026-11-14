@@ -169,7 +169,8 @@ public class CdsExportActivePlanService {
             Properties settings, String suffix, long fallback, long minimum, long maximum) {
         String text = settings.getProperty("cds.export." + suffix, Long.toString(fallback)).strip();
         try {
-            if (!text.matches("[0-9]{1,15}")) invalid();
+            // Any whole number a long holds; Long.parseLong refuses a larger one.
+            if (!text.matches("[0-9]{1,19}")) invalid();
             long value = Long.parseLong(text);
             if (value < minimum || value > maximum) invalid();
             return value;

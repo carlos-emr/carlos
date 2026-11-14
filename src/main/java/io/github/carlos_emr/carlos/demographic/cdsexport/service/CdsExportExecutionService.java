@@ -454,7 +454,8 @@ public class CdsExportExecutionService {
 
         Control(CdsExportLeaseDto lease, long maximumMillis, long granted) {
             this.lease = lease;
-            maximumNanos = maximumMillis * 1_000_000L;
+            // A window of any length: a longer one than nanoseconds can count is never reached.
+            maximumNanos = java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(maximumMillis);
             renewed = new AtomicLong(granted);
             heartbeat = schedulers.get();
             waits =
