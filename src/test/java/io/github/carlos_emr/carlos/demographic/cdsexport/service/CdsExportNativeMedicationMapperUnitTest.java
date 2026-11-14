@@ -489,6 +489,68 @@ class CdsExportNativeMedicationMapperUnitTest {
     }
 
     @Test
+    void shouldWriteAQuantityUnitHoldingACharacterXmlCannotCarry_andRestoreItOnACarlosImport()
+            throws Exception {
+        // Before: review() held the chart (and a noncharacter, which JSON does not escape, held
+        // it again at the residual). Quantity shows U+FFFD where the character stood, the stored
+        // unitName is exact in CARLOS.Medication.Source.v1, and a CARLOS importer restores it
+        // because Quantity is the amount and that unit by the element rule.
+        for (String unit : List.of("m\u0007L", "m\ufffeL", "m\uffffL")) {
+            var fields = source();
+            fields.put("unit", "");
+            fields.put("unitName", unit);
+            fields.put("quantity", "100");
+            var exported = mapper.map(27, prescribed(fields), List.of(), Map.of());
+            assertThat(exported.value().fields()).containsEntry(Field.Quantity, "100 m\ufffdL");
+            assertThat(exported.fields().values())
+                    .noneMatch(
+                            field ->
+                                    field.outcome()
+                                            == io.github.carlos_emr.carlos.demographic.cdsexport
+                                                    .dto.CdsExportFieldAssessmentDto.Outcome
+                                                    .REQUIRES_REVIEW);
+            var received = receive(exported);
+            assertThat(received.quantity()).isEqualTo("100");
+            assertThat(received.quantityUnit()).isEqualTo(unit);
+            // Re-exported unchanged, the imported prescription writes the same Quantity beside
+            // the sender's carrier, and a further CARLOS import restores the same unit.
+            var again = new CdsExportPreparedMedicationMapper().map(received);
+            CdsExportMedicationXmlWriter.validate(again);
+            assertThat(again.fields()).containsEntry(Field.Quantity, "100 m\ufffdL");
+            var second =
+                    receive(
+                            new CdsExportNativeMedicationMapper.Result(
+                                    again, exported.metadata(), Map.of(), false, null));
+            assertThat(second.quantity()).isEqualTo("100");
+            assertThat(second.quantityUnit()).isEqualTo(unit);
+        }
+    }
+
+    @Test
+    void shouldWriteADoseUnitHoldingACharacterXmlCannotCarry_andRestoreItOnACarlosImport()
+            throws Exception {
+        // Before: the dose unit was left out, so a CARLOS import saved the prescription with no
+        // unit. DosageUnitOfMeasure now shows U+FFFD, as every element does, and the importer
+        // restores the stored unit that CARLOS.Medication.Source.v1 proves.
+        var fields = source();
+        fields.put("unit", "t\u0007ab");
+        fields.put("unitName", "");
+        var exported = mapper.map(27, prescribed(fields), List.of(), Map.of());
+        assertThat(exported.value().fields())
+                .containsEntry(Field.DosageUnitOfMeasure, "t\ufffdab");
+        var received = receive(exported);
+        assertThat(received.doseUnit()).isEqualTo("t\u0007ab");
+        var again = new CdsExportPreparedMedicationMapper().map(received);
+        CdsExportMedicationXmlWriter.validate(again);
+        assertThat(again.fields()).containsEntry(Field.DosageUnitOfMeasure, "t\ufffdab");
+        var second =
+                receive(
+                        new CdsExportNativeMedicationMapper.Result(
+                                again, exported.metadata(), Map.of(), false, null));
+        assertThat(second.doseUnit()).isEqualTo("t\u0007ab");
+    }
+
+    @Test
     void shouldRestoreTheQuantityUnitAndAsNeededFlag_whenTheCarlosImporterReadsTheExport()
             throws Exception {
         // #6198: a custom liquid "100 mL" with the as-needed box ticked beside BID. CDS has no
