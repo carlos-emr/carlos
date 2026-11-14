@@ -21,13 +21,19 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsexport.dto;
 
-/** Native single-day slot after exact timing checks; time remains in the documented clinical zone. */
+/**
+ * The schedule's date and start clock, in the documented clinical zone, with the slot's length in
+ * whole minutes. {@code durationMinutes} is 0 when the stored end states no length that CDS
+ * {@code Duration} (a positive integer) can hold; the element is then left out and the exact
+ * stored end travels in {@code CARLOS.Appointment.Source.v1}. A slot that ends on the next day
+ * can reach 1,440 minutes.
+ */
 public record CdsExportAppointmentTimingDto(CdsExportDateDto date, String time, int durationMinutes, java.time.ZoneOffset offset) {
     public CdsExportAppointmentTimingDto(CdsExportDateDto date, String time, int durationMinutes){this(date, time, durationMinutes, null); }
     public String wireTime(){return offset==null?time:time+offset.getId(); }
     public CdsExportAppointmentTimingDto {
         if (date == null || date.precision() != CdsExportDateDto.Precision.DATE || time == null
-                || !time.matches("(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]") || durationMinutes < 1 || durationMinutes >= 1440) {
+                || !time.matches("(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]") || durationMinutes < 0 || durationMinutes > 1440) {
             throw new IllegalArgumentException("CDS_EXPORT_APPOINTMENT_TIMING_INVALID");
         }
     }

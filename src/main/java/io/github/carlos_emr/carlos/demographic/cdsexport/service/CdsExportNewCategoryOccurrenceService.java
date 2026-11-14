@@ -41,7 +41,12 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
     private final CdsExportCareOccurrenceService care;
     private final CdsExportLaboratoryOccurrenceService laboratories;
     private final CdsExportPrescriptionOccurrenceService prescriptions;
+    private final CdsExportAppointmentOccurrenceService appointments;
 
+    /**
+     * Without appointment source records: a capture that holds appointments is refused when the
+     * document's expected occurrences are reconciled. Test fixtures without appointments only.
+     */
     public CdsExportNewCategoryOccurrenceService(
             CdsExportRetainedValuesService values,
             CdsExportRetainedReceiptVerificationService verification,
@@ -49,6 +54,19 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
             CdsExportCareOccurrenceService care,
             CdsExportLaboratoryOccurrenceService laboratories,
             CdsExportPrescriptionOccurrenceService prescriptions) {
+        this(values, verification, captures, care, laboratories, prescriptions, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public CdsExportNewCategoryOccurrenceService(
+            CdsExportRetainedValuesService values,
+            CdsExportRetainedReceiptVerificationService verification,
+            CdsExportNativeCaptureService captures,
+            CdsExportCareOccurrenceService care,
+            CdsExportLaboratoryOccurrenceService laboratories,
+            CdsExportPrescriptionOccurrenceService prescriptions,
+            CdsExportAppointmentOccurrenceService appointments) {
+        this.appointments = appointments;
         this.values = Objects.requireNonNull(values);
         this.verification = Objects.requireNonNull(verification);
         this.captures = Objects.requireNonNull(captures);
@@ -501,6 +519,70 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                     control.authorizeCategory(patient.patient(), category(), false);
                     control.checkpoint();
                 });
+        // One source record per current appointment (CARLOS.Appointment.Source.v1): Appointments
+        // has no ResidualInfo, so the complete stored row and the complete text of any element
+        // written in a schema-valid form travel here. Decided by the Appointments assembly's own
+        // mapping, in the order of its elements, after this category's retained values are closed.
+        if (appointments != null) {
+            appointments.forEachOccurrence(
+                    lease,
+                    patient,
+                    patientKey,
+                    tables,
+                    source,
+                    payloadManifest,
+                    bounds,
+                    control,
+                    occurrence -> {
+                        var carrier =
+                                CdsExportAppointmentSourceMapper.map(
+                                        occurrence.ordinal(),
+                                        occurrence.row(),
+                                        occurrence.lookups(),
+                                        occurrence.complete());
+                        new CdsExportNativeFieldAssessmentValidator()
+                                .requireRepresentable(
+                                        carrier.rows(),
+                                        carrier.fields(),
+                                        1_000_000,
+                                        control::checkpoint);
+                        var identity =
+                                new CdsExportIdentityDto(
+                                        patientKey,
+                                        category(),
+                                        CdsImportKeys.hash(
+                                                "carlos-native-occurrence-v1",
+                                                "appointment",
+                                                occurrence.id()));
+                        control.authorizeCategory(
+                                patient.patient(), CdsCategory.APPOINTMENTS, false);
+                        control.authorizeCategory(patient.patient(), category(), false);
+                        xml.emit(
+                                new CdsExportXmlComposer.Section(
+                                        identity,
+                                        body ->
+                                                CdsExportAppointmentSourceMapper.write(
+                                                        carrier, body)));
+                        output.accept(
+                                new CdsExportClinicalOccurrenceService.Receipt(
+                                        identity,
+                                        source.manifest().plaintextSha256(),
+                                        "appointment",
+                                        occurrence.id(),
+                                        null,
+                                        carrier.fields(),
+                                        Set.of(),
+                                        Set.of()));
+                        control.authorizeCategory(
+                                patient.patient(), CdsCategory.APPOINTMENTS, false);
+                        control.authorizeCategory(patient.patient(), category(), false);
+                        counts[0]++;
+                        counts[2]++;
+                    });
+            captures.authorizeSources(lease, patient, tables, control);
+            patient.require(lease);
+            control.checkpoint();
+        }
         return new CdsExportClinicalOccurrenceService.Result(
                 source.manifest().plaintextSha256(),
                 category(),

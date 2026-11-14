@@ -256,6 +256,24 @@ public class CdsExportPatientInventoryService {
                             }
                         });
         if (!actual.sourceManifestSha256().equals(source.manifest().plaintextSha256())) invalid();
+        boolean newCategory =
+                lease.document().command().categories().contains(CdsCategory.NEW_CATEGORY);
+        // Captured records whose NewCategory record is not written because the job did not select
+        // NewCategory: counted per ReadMe label, never a reason to hold the chart.
+        var notExported = new LinkedHashMap<String, Long>();
+        // Every current appointment has one NewCategory source record
+        // (CdsExportAppointmentSourceMapper), in the order of its Appointments element.
+        for (String appointment : new TreeSet<>(appointments)) {
+            if (newCategory)
+                add(
+                        expected,
+                        nativeIdentity(
+                                patientKey, CdsCategory.NEW_CATEGORY, "appointment", appointment),
+                        budget);
+            else
+                notExported.merge(
+                        CdsExportAppointmentSourceMapper.NOT_EXPORTED_LABEL, 1L, Long::sum);
+        }
         // An imported CareElements whose every observation was deleted in CARLOS is not in the
         // chart: its retained source fields are accounted as removed by the care assembly.
         var removedCare =
@@ -540,7 +558,7 @@ public class CdsExportPatientInventoryService {
         patient.require(lease);
         control.checkpoint();
         return new Inventory(
-                source.manifest().plaintextSha256(), patientKey, expected, sourceFields);
+                source.manifest().plaintextSha256(), patientKey, expected, sourceFields, notExported);
     }
 
     private static boolean applied(CdsExportRetainedIndexDto index, CdsCategory category) {
@@ -679,16 +697,28 @@ public class CdsExportPatientInventoryService {
         private final String sourceManifestSha256, patientKey;
         private final SortedSet<CdsExportIdentityDto> identities;
         private final Set<String> retainedFields;
+        private final Map<String, Long> notExported;
 
         private Inventory(
                 String source,
                 String patient,
                 SortedSet<CdsExportIdentityDto> identities,
-                Set<String> fields) {
+                Set<String> fields,
+                Map<String, Long> notExported) {
             sourceManifestSha256 = source;
             patientKey = patient;
             this.identities = Collections.unmodifiableSortedSet(new TreeSet<>(identities));
             retainedFields = Set.copyOf(fields);
+            this.notExported = Collections.unmodifiableMap(new LinkedHashMap<>(notExported));
+        }
+
+        /**
+         * Captured records with no CDS element whose NewCategory record was not written because
+         * the job did not select NewCategory, counted per package ReadMe label. The chart is
+         * exported without them; the ReadMe states each count for the patient.
+         */
+        public Map<String, Long> notExported() {
+            return notExported;
         }
 
         public String sourceManifestSha256() {

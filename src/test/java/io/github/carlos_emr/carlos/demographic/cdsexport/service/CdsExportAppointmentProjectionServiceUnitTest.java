@@ -65,10 +65,21 @@ class CdsExportAppointmentProjectionServiceUnitTest {
     }
 
     @Test
-    void shouldReturnExplicitReviewForMissingProvider_ratherThanACompleteClinicalRow()
+    void shouldProjectAnAppointmentWithoutProvider_whenItsProviderNumberHasNoRecord()
             throws Exception {
         var fields = CdsExportAppointmentMapperUnitTest.baseline();
         fields.put("provider_no", "MISSING");
+        var reader = fixture(false, false, CdsExportAppointmentMapperUnitTest.appointment(fields));
+        var output = new ArrayList<CdsExportAppointmentMappingDto>();
+        var result = project(reader, 10, 1L << 20, output);
+        assertThat(result.blockedRows()).isZero();
+        assertThat(output.getFirst().value().provider()).isNull();
+    }
+
+    @Test
+    void shouldCountAnAppointmentWhoseStartIsNotACalendarTime_asBlocked() throws Exception {
+        var fields = CdsExportAppointmentMapperUnitTest.baseline();
+        fields.put("appointment_date", "0000-00-00");
         var reader = fixture(false, false, CdsExportAppointmentMapperUnitTest.appointment(fields));
         var output = new ArrayList<CdsExportAppointmentMappingDto>();
         var result = project(reader, 10, 1L << 20, output);

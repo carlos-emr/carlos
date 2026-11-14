@@ -233,8 +233,12 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
 
     @Test
     void shouldVerifyUnknownCurrentStatusNeverFallsBack_toAnOldImportedLabel() throws Exception {
+        // A current code with no definition is written as stored; the old imported label is
+        // not resurrected and the chart is not held.
         current.put("status", "UNRESOLVED");
-        assertThat(reconcile().mapping().value()).isNull();
+        var result = reconcile();
+        assertThat(result.mapping().value().status()).isEqualTo("UNRESOLVED");
+        assertThat(result.currentPaths()).contains("AppointmentStatus");
     }
 
     @Test
@@ -330,6 +334,33 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
                         CdsExportAppointmentMapper.withLines(
                                 imported, List.of("Remarks: Additional appointment remark")));
         assertThat(remarked.preparedPaths()).doesNotContain("AppointmentNotes");
+    }
+
+    @Test
+    void shouldCutEditedNotesPastTheCdsLimit_andReturnTheCompleteTextForTheSourceRecord()
+            throws Exception {
+        // Was CDS_EXPORT_APPOINTMENT_NOTES_CAPACITY_REQUIRES_REVIEW (and a generic hold for the
+        // notes alone): the Edit Appointment form admits 32,768 characters, the element 32,000.
+        current.put("notes", "n".repeat(32768));
+        current.put("remarks", "Additional appointment remark");
+        var result = reconcile();
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.mapping().value().notes())
+                .hasSize(32000)
+                .endsWith(CdsExportAppointmentMapper.SHORTENED_MARK);
+        assertThat(result.mapping().complete())
+                .containsEntry(
+                        "AppointmentNotes",
+                        "n".repeat(32768) + "\nRemarks: Additional appointment remark");
+        assertThat(result.currentPaths()).contains("AppointmentNotes");
+        var notes =
+                result.mapping().fields().entrySet().stream()
+                        .filter(field -> field.getKey().column().equals("notes"))
+                        .map(Map.Entry::getValue)
+                        .findFirst()
+                        .orElseThrow();
+        assertThat(notes.destination()).isEqualTo("AppointmentNotes,NewCategory/ResidualInfo");
+        assertThat(notes.rule()).isEqualTo(CdsExportAppointmentMapper.SHORTENED_RULE);
     }
 
     @Test
@@ -552,10 +583,14 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
     }
 
     @Test
-    void shouldVerifyOvernightTimingIsNotReconstructed_andAmbiguousLocalTimingKeepsTheScheduleClock() throws Exception {
+    void shouldExportAnOvernightSlotByTheNativeRule_andKeepTheScheduleClockForAmbiguousLocalTiming() throws Exception {
+        // A booking moved in CARLOS to 23:30 for 60 minutes stores an end of 00:29 (the end is
+        // on the next day): exported with the stored start and 60 minutes, never held.
         current.put("start_time", "23:30:00");
-        current.put("end_time", "00:30:00");
-        assertThat(reconcile().mapping().value()).isNull();
+        current.put("end_time", "00:29:00");
+        var overnight = reconcile().mapping().value().timing();
+        assertThat(overnight.time()).isEqualTo("23:30:00");
+        assertThat(overnight.durationMinutes()).isEqualTo(60);
         // A slot in the fall-back overlap is exported as the schedule's wall-clock time with no
         // offset (none is invented), as on a never-imported chart; nothing is read from old fields.
         current.put("appointment_date", "2024-11-03");

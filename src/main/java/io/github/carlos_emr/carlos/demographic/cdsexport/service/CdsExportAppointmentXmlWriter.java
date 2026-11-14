@@ -38,7 +38,11 @@ public final class CdsExportAppointmentXmlWriter {
         validate(appointment);
         Objects.requireNonNull(xml);
         xml.element("cds", "AppointmentTime", appointment.timing().wireTime());
-        xml.element("cds", "Duration", Integer.toString(appointment.timing().durationMinutes()));
+        // No positive length is stored (CdsExportAppointmentTimingMapper.Length.NOT_STATED):
+        // Duration is optional and is left out rather than invented.
+        if (appointment.timing().durationMinutes() > 0)
+            xml.element(
+                    "cds", "Duration", Integer.toString(appointment.timing().durationMinutes()));
         optional(xml, "AppointmentStatus", appointment.status());
         xml.start("cds", "AppointmentDate");
         xml.element("cds_dt", "FullDate", appointment.timing().date().lexical());

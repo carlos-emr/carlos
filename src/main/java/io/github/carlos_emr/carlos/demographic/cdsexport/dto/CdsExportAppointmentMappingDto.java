@@ -23,11 +23,22 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.dto;
 
 import java.util.Map;
 
-/** One native appointment and its used reference fields; retained source and complete category coverage remain separate. */
+/**
+ * One native appointment and its used reference fields; retained source and complete category
+ * coverage remain separate. {@code complete} holds, by element name, the complete value of each
+ * element whose text is only its schema-valid form (notes cut at the CDS limit, text without
+ * XML-illegal characters); the appointment's NewCategory source record carries it.
+ */
 public record CdsExportAppointmentMappingDto(CdsExportAppointmentDto value,
-        Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields) {
+        Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields,
+        Map<String, String> complete) {
+    public CdsExportAppointmentMappingDto(CdsExportAppointmentDto value,
+            Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields) {
+        this(value, fields, Map.of());
+    }
     public CdsExportAppointmentMappingDto {
         fields = Map.copyOf(fields);
+        complete = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(complete));
         if (fields.isEmpty() || value != null && fields.values().stream().anyMatch(field ->
                 field.outcome() == CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW)) {
             throw new IllegalArgumentException("CDS_EXPORT_APPOINTMENT_MAPPING_INVALID");

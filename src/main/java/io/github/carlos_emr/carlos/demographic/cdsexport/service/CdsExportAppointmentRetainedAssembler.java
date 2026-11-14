@@ -69,7 +69,12 @@ public final class CdsExportAppointmentRetainedAssembler {
         var value = decision.mapping().value();
         var parts = new LinkedHashMap<String, CdsExportXmlComposer.Content>();
         text(parts, "AppointmentTime", value.timing().wireTime());
-        text(parts, "Duration", Integer.toString(value.timing().durationMinutes()));
+        text(
+                parts,
+                "Duration",
+                value.timing().durationMinutes() > 0
+                        ? Integer.toString(value.timing().durationMinutes())
+                        : null);
         text(parts, "AppointmentStatus", value.status());
         parts.put(
                 "AppointmentDate",

@@ -38,7 +38,8 @@ import java.util.*;
  * {@code " (" + alias + ")"} when an alias is recorded. A name in one of these exact forms of the
  * current patient, or of one of the patient's own earlier captured {@code demographicArchive}
  * snapshots (a booking made before a rename), is the patient's display text. Any other value,
- * including a case or spacing variant, stays a review gate.
+ * including a case or spacing variant, is the booking's own text and is exported as a labelled
+ * line of AppointmentNotes. The stored column is also whole in the appointment's source record.
  */
 final class CdsExportAppointmentNativeMetadata {
     private CdsExportAppointmentNativeMetadata() {}
@@ -84,28 +85,22 @@ final class CdsExportAppointmentNativeMetadata {
         else
             // The program a booking was made under (OSCAR 19 with its program view on; CARLOS
             // always stores 0) is scheduler context like the booking site and template, which
-            // have no CDS Appointments field either. It never holds a chart.
+            // have no CDS Appointments field either: it travels in the source record.
             mark(
                     row,
                     fields,
                     "program_id",
-                    Outcome.OPERATIONAL,
-                    "BOOKING_PROGRAM_NOT_A_CDS_APPOINTMENT_FIELD");
+                    Outcome.MAPPED,
+                    CdsExportAppointmentMapper.CARRIER,
+                    CdsExportAppointmentMapper.CONTEXT_RULE);
         String name = row.fields().get("name");
         if (name != null && !name.isEmpty()) name(row, demographic, earlierDisplays, fields, lines);
         String remarks = row.fields().get("remarks");
         if (remarks != null && !remarks.isBlank()) {
-            if (CdsExportNativeFieldAssessments.legal(remarks, Integer.MAX_VALUE)) {
-                lines.add(REMARKS_LABEL + remarks);
-                mark(row, fields, "remarks", Outcome.MAPPED, "AppointmentNotes", REMARKS_IN_NOTES);
-            } else
-                mark(
-                        row,
-                        fields,
-                        "remarks",
-                        Outcome.REQUIRES_REVIEW,
-                        "AppointmentNotes",
-                        "WIRE_TEXT_REQUIRES_REVIEW");
+            // Text no XML document can hold is left out when the notes are composed
+            // (CdsExportAppointmentMapper.fitNotes); the exact column is in the source record.
+            lines.add(REMARKS_LABEL + remarks);
+            mark(row, fields, "remarks", Outcome.MAPPED, "AppointmentNotes", REMARKS_IN_NOTES);
         } else if (remarks != null && !remarks.isEmpty())
             mark(row, fields, "remarks", Outcome.OPERATIONAL, "BLANK_REMARKS_NOT_DISPLAYED");
         return List.copyOf(lines);
@@ -156,19 +151,12 @@ final class CdsExportAppointmentNativeMetadata {
                     "EXACT_EARLIER_PATIENT_DISPLAY_FROM_CAPTURED_ARCHIVE_NOT_APPOINTMENT_NOTE");
         else if (name.isBlank())
             mark(row, fields, "name", Outcome.OPERATIONAL, "BLANK_BOOKING_NAME_NOT_DISPLAYED");
-        else if (CdsExportNativeFieldAssessments.legal(name, Integer.MAX_VALUE)) {
+        else {
             // Any other text is what the user left in the booking's name box: exported as a
             // labelled line of the notes instead of holding the chart.
             lines.add(NAME_LABEL + name);
             mark(row, fields, "name", Outcome.MAPPED, "AppointmentNotes", NAME_IN_NOTES);
-        } else
-            mark(
-                    row,
-                    fields,
-                    "name",
-                    Outcome.REQUIRES_REVIEW,
-                    "AppointmentNotes",
-                    "WIRE_TEXT_REQUIRES_REVIEW");
+        }
     }
 
     /**

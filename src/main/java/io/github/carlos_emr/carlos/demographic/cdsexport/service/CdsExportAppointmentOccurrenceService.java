@@ -118,6 +118,7 @@ public class CdsExportAppointmentOccurrenceService implements CdsExportCategoryO
             CdsExportClinicalOccurrenceService.Receipts output)
             throws IOException {
         Objects.requireNonNull(xml);
+        Objects.requireNonNull(output);
         var result = new CdsExportClinicalOccurrenceService.Result[1];
         xml.source(
                 emitter ->
@@ -131,9 +132,88 @@ public class CdsExportAppointmentOccurrenceService implements CdsExportCategoryO
                                         payloadManifest,
                                         bounds,
                                         control,
-                                        emitter,
-                                        output));
+                                        occurrence -> {
+                                            emitter.emit(
+                                                    new CdsExportXmlComposer.Section(
+                                                            occurrence.identity(),
+                                                            occurrence.content()));
+                                            output.accept(
+                                                    new CdsExportClinicalOccurrenceService.Receipt(
+                                                            occurrence.identity(),
+                                                            source.manifest().plaintextSha256(),
+                                                            "appointment",
+                                                            occurrence.id(),
+                                                            occurrence.importedUnit(),
+                                                            occurrence.fields(),
+                                                            occurrence.retainedFields(),
+                                                            occurrence.replacedFields()));
+                                        }));
         return Objects.requireNonNull(result[0]);
+    }
+
+    /**
+     * One current appointment, decided once for both of its records: the Appointments element
+     * (content, field decisions, retained fields) and its NewCategory source record
+     * ({@link CdsExportAppointmentSourceMapper}), which needs the element's position, the stored
+     * row, the lookups and the complete text of every element written in a schema-valid form.
+     *
+     * @param ordinal 1-based position of the element among the patient's Appointments elements
+     * @param identity the Appointments occurrence identity
+     * @param importedUnit address of the applied import unit, or null for a native booking
+     */
+    public record Occurrence(
+            long ordinal,
+            String id,
+            CdsExportIdentityDto identity,
+            CdsExportCapturedTextRowDto row,
+            String importedUnit,
+            Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields,
+            CdsExportXmlComposer.Content content,
+            Set<String> retainedFields,
+            Set<String> replacedFields,
+            Map<String, String> complete,
+            CdsExportAppointmentLookupsDto lookups) {
+        @Override
+        public String toString() {
+            return "CdsExportAppointmentOccurrenceService.Occurrence[protected]";
+        }
+    }
+
+    /** Receives every current appointment in element order. */
+    @FunctionalInterface
+    public interface Visitor {
+        void accept(Occurrence occurrence) throws IOException;
+    }
+
+    /**
+     * Every current appointment of the capture, in the order of its Appointments elements, decided
+     * by the same mapping and reconciliation the Appointments category emits. The NewCategory
+     * assembly uses it to write each appointment's source record; a capture without appointments
+     * (Appointments not selected) has none.
+     */
+    public void forEachOccurrence(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            String patientKey,
+            Set<String> requiredTables,
+            CdsExportPatientCaptureDto source,
+            CdsExportStagedFileDto payloadManifest,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control,
+            Visitor visitor)
+            throws IOException {
+        Objects.requireNonNull(visitor);
+        if (!requiredTables.contains("appointment")) return;
+        assemble(
+                lease,
+                patient,
+                patientKey,
+                requiredTables,
+                source,
+                payloadManifest,
+                bounds,
+                control,
+                visitor);
     }
 
     private CdsExportClinicalOccurrenceService.Result assemble(
@@ -145,8 +225,7 @@ public class CdsExportAppointmentOccurrenceService implements CdsExportCategoryO
             CdsExportStagedFileDto payloadManifest,
             CdsExportClinicalOccurrenceService.Bounds bounds,
             CdsExportRunControl control,
-            CdsExportXmlComposer.SectionEmitter xml,
-            CdsExportClinicalOccurrenceService.Receipts output)
+            Visitor output)
             throws IOException {
         Objects.requireNonNull(output);
         Objects.requireNonNull(bounds);
@@ -168,6 +247,10 @@ public class CdsExportAppointmentOccurrenceService implements CdsExportCategoryO
                         lease, patient, tables, source, bounds.fields(), bounds.bytes(), control);
         if (!zone.sourceManifestSha256().equals(source.manifest().plaintextSha256())) scope();
         var clinicalZone = zone.zone();
+        // Without NewCategory the appointment's source record is not written: the values only it
+        // would hold are decided OPERATIONAL (not selected) instead of holding the chart.
+        boolean sourceRecords =
+                lease.document().command().categories().contains(CdsCategory.NEW_CATEGORY);
         // Decision 17: appointment edit history is superseded. Archive rows no longer hold the
         // patient here; each one is read and assessed below, after the current rows.
         long[] counts = new long[4];
@@ -419,6 +502,7 @@ public class CdsExportAppointmentOccurrenceService implements CdsExportCategoryO
                                         Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>
                                                 fields;
                                         CdsExportXmlComposer.Content content;
+                                        Map<String, String> complete;
                                         Set<String> kept = Set.of(), replaced = Set.of();
                                         if (address == null) {
                                             var mapped =
@@ -429,8 +513,10 @@ public class CdsExportAppointmentOccurrenceService implements CdsExportCategoryO
                                                                     lookups,
                                                                     clinicalZone,
                                                                     demographic[0]);
-                                            if (!mapped.nativeRowRepresentable()) review();
+                                            if (!mapped.nativeRowRepresentable())
+                                                hold(mapped.fields());
                                             fields = mapped.fields();
+                                            complete = mapped.complete();
                                             content =
                                                     writer ->
                                                             new CdsExportAppointmentXmlWriter()
@@ -452,7 +538,7 @@ public class CdsExportAppointmentOccurrenceService implements CdsExportCategoryO
                                                                     streams,
                                                                     control::checkpoint);
                                             if (!decision.mapping().nativeRowRepresentable())
-                                                review();
+                                                hold(decision.mapping().fields());
                                             var prepared =
                                                     new CdsExportAppointmentRetainedAssembler()
                                                             .prepare(
@@ -464,10 +550,14 @@ public class CdsExportAppointmentOccurrenceService implements CdsExportCategoryO
                                                                     streams,
                                                                     control::checkpoint);
                                             fields = decision.mapping().fields();
+                                            complete = decision.mapping().complete();
                                             content = prepared.content();
                                             kept = prepared.retainedFields();
                                             replaced = prepared.replacedFields();
                                         }
+                                        fields =
+                                                CdsExportDemographicSupportingMapper.withSelection(
+                                                        fields, sourceRecords);
                                         var inputs =
                                                 new LinkedHashMap<
                                                         String, CdsExportCapturedTextRowDto>();
@@ -500,19 +590,19 @@ public class CdsExportAppointmentOccurrenceService implements CdsExportCategoryO
                                                                 "carlos-native-occurrence-v1",
                                                                 "appointment",
                                                                 id));
-                                        xml.emit(
-                                                new CdsExportXmlComposer.Section(
-                                                        identity, content));
                                         output.accept(
-                                                new CdsExportClinicalOccurrenceService.Receipt(
-                                                        identity,
-                                                        index.sourceManifestSha256(),
-                                                        "appointment",
+                                                new Occurrence(
+                                                        counts[0] + 1,
                                                         id,
+                                                        identity,
+                                                        row,
                                                         address,
                                                         fields,
+                                                        content,
                                                         kept,
-                                                        replaced));
+                                                        replaced,
+                                                        complete,
+                                                        lookups));
                                         counts[0]++;
                                         counts[address == null ? 2 : 1]++;
                                         counts[3] =
@@ -619,6 +709,21 @@ public class CdsExportAppointmentOccurrenceService implements CdsExportCategoryO
 
     private static void review() {
         throw new CdsExportReviewException(CdsExportReviewException.Reason.UNMAPPED_DATA);
+    }
+
+    /**
+     * A booking that cannot be exported. A stored date or start that is not a calendar date or a
+     * time of day is held under its own name; anything else is unmapped data.
+     */
+    private static void hold(Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields)
+            throws IOException {
+        for (var field : fields.values())
+            if (field.outcome() == CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW
+                    && CdsExportAppointmentMapper.NOT_A_CALENDAR_TIME_RULE.equals(field.rule()))
+                throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                        .CdsExportMappingReviewException(
+                        CdsExportAppointmentTimingMapper.NOT_A_CALENDAR_TIME);
+        review();
     }
 
     private static void deletion() throws IOException {

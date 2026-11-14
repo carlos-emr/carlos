@@ -463,6 +463,53 @@ class CdsExportPatientInventoryServiceUnitTest {
     }
 
     @Test
+    void shouldExpectOneSourceRecordPerAppointment_whenNewCategoryIsSelected() throws Exception {
+        var f = fixture(CdsCategory.APPOINTMENTS, CdsCategory.NEW_CATEGORY);
+        for (int id : List.of(77, 78))
+            f.nativeRows.add(
+                    new CdsExportNativeRowReceiptDto(
+                            "appointment",
+                            Integer.toString(id),
+                            CdsExportPatientTableSourceReader.key(id),
+                            "f".repeat(64)));
+        var inventory = capture(f);
+        // Each appointment: its Appointments element and its CARLOS.Appointment.Source.v1 record.
+        assertThat(inventory.identities()).hasSize(5);
+        for (var category : List.of(CdsCategory.APPOINTMENTS, CdsCategory.NEW_CATEGORY))
+            assertThat(inventory.identities())
+                    .contains(
+                            new CdsExportIdentityDto(
+                                    "c".repeat(64),
+                                    category,
+                                    CdsImportKeys.hash(
+                                            "carlos-native-occurrence-v1", "appointment", "78")));
+        assertThat(inventory.notExported()).isEmpty();
+    }
+
+    @Test
+    void shouldCountAppointmentSourceRecordsAsNotExported_whenNewCategoryIsNotSelected()
+            throws Exception {
+        var f = fixture(CdsCategory.APPOINTMENTS);
+        for (int id : List.of(77, 78))
+            f.nativeRows.add(
+                    new CdsExportNativeRowReceiptDto(
+                            "appointment",
+                            Integer.toString(id),
+                            CdsExportPatientTableSourceReader.key(id),
+                            "f".repeat(64)));
+        var inventory = capture(f);
+        // The chart is exported, not held: only the Appointments elements are expected and the
+        // ReadMe is told how many source records the selection left out.
+        assertThat(inventory.identities()).hasSize(3);
+        assertThat(inventory.notExported())
+                .containsExactly(
+                        Map.entry(
+                                "Appointment source records"
+                                        + " (NO_CDS_ELEMENT_NEW_CATEGORY_NOT_SELECTED)",
+                                2L));
+    }
+
+    @Test
     void shouldNotExpectTheRetainedFields_ofAnImportedAppointmentDeletedInCarlos()
             throws Exception {
         for (boolean deleted : List.of(true, false)) {

@@ -50,9 +50,7 @@ class CdsExportAppointmentMapperUnitTest {
     }
 
     @Test
-    void
-            shouldRefuseMissingDuplicateAndFirstCharacterOnlyStatusMatches_forAppointmentMapperContract()
-                    throws Exception {
+    void shouldWriteTheStoredStatusCode_whenItHasNoSingleDefinition() throws Exception {
         var original = lookups();
         var definition = status();
         for (var candidates :
@@ -71,9 +69,41 @@ class CdsExportAppointmentMapperUnitTest {
                                     Map.of(),
                                     Set.of()),
                             ZONE);
-            assertThat(mapped.nativeRowRepresentable()).isFalse();
+            // A missing, first-letter-only or duplicated definition never holds the chart:
+            // AppointmentStatus is the stored code and the source record carries it.
+            assertThat(mapped.nativeRowRepresentable()).isTrue();
+            assertThat(mapped.value().status()).isEqualTo("Q1");
             assertThat(mapped.fields().get(key("status")).rule())
-                    .isEqualTo("EXACT_STATUS_DEFINITION_REQUIRED");
+                    .isEqualTo("STATUS_CODE_WITHOUT_SINGLE_DEFINITION_WRITTEN_AS_STORED");
+            assertThat(mapped.fields().get(key("status")).destination())
+                    .isEqualTo("AppointmentStatus,NewCategory/ResidualInfo");
+        }
+    }
+
+    @Test
+    void shouldWriteTheStoredStatusCode_whenItsDefinitionHasNoUsableLabel() throws Exception {
+        var original = lookups();
+        for (String label : Arrays.asList(null, "", "  ", "x".repeat(251), "bad\u0001label")) {
+            var fields = new LinkedHashMap<>(status().fields());
+            fields.put("description", label);
+            var definition =
+                    new CdsExportCapturedTextRowDto(
+                            "appointment_status", status().recordKey(), fields);
+            var mapped =
+                    mapper.map(
+                            27,
+                            appointment(baseline()),
+                            new CdsExportAppointmentLookupsDto(
+                                    "a".repeat(64),
+                                    original.providers(),
+                                    Map.of("Q1", List.of(definition)),
+                                    Map.of(),
+                                    Set.of()),
+                            ZONE);
+            assertThat(mapped.nativeRowRepresentable()).isTrue();
+            assertThat(mapped.value().status()).isEqualTo("Q1");
+            assertThat(mapped.fields().get(key("status")).rule())
+                    .isEqualTo("STATUS_DEFINITION_WITHOUT_USABLE_LABEL_WRITTEN_AS_STORED_CODE");
         }
     }
 
@@ -106,23 +136,59 @@ class CdsExportAppointmentMapperUnitTest {
             assertThat(mapped.fields().get(key("status")).rule())
                     .isEqualTo("CAPTURED_STATUS_DEFINITION_WITH_SIGNED_OR_VERIFIED_MARK");
         }
-        // Any other second letter still needs an exact definition.
+        // Any other second letter has no definition: the stored code is written, never held.
         var unknown = baseline();
         unknown.put("status", "HX");
         var mapped = mapper.map(27, appointment(unknown), lookups, ZONE);
-        assertThat(mapped.nativeRowRepresentable()).isFalse();
+        assertThat(mapped.nativeRowRepresentable()).isTrue();
+        assertThat(mapped.value().status()).isEqualTo("HX");
         assertThat(mapped.fields().get(key("status")).rule())
-                .isEqualTo("EXACT_STATUS_DEFINITION_REQUIRED");
+                .isEqualTo("STATUS_CODE_WITHOUT_SINGLE_DEFINITION_WRITTEN_AS_STORED");
     }
 
     @Test
-    void shouldRefuseAProviderCollationAlias_insteadOfNormalizingItsIdentity() throws Exception {
+    void shouldExportWithoutProvider_whenTheProviderNumberHasNoExactProviderRecord()
+            throws Exception {
+        // A collation alias is not the stored number's record, and migrated data can name a
+        // provider that no longer exists: no Provider is invented and the chart is not held.
         var fields = baseline();
         fields.put("provider_no", "0É27");
         var mapped = mapper.map(27, appointment(fields), lookups(), ZONE);
-        assertThat(mapped.nativeRowRepresentable()).isFalse();
+        assertThat(mapped.nativeRowRepresentable()).isTrue();
+        assertThat(mapped.value().provider()).isNull();
         assertThat(mapped.fields().get(key("provider_no")).rule())
-                .isEqualTo("EXACT_PUBLIC_PROVIDER_REFERENCE_REQUIRED");
+                .isEqualTo("PROVIDER_NUMBER_WITHOUT_PROVIDER_RECORD_IN_APPOINTMENT_SOURCE_RECORD");
+        assertThat(mapped.fields().get(key("provider_no")).destination())
+                .isEqualTo("NewCategory/ResidualInfo");
+    }
+
+    @Test
+    void shouldExportWithoutProvider_whenTheProviderRecordCannotFormACdsProvider()
+            throws Exception {
+        var provider = new LinkedHashMap<>(provider().fields());
+        provider.put("last_name", "L".repeat(51));
+        var row =
+                new CdsExportCapturedTextRowDto(
+                        "provider", CdsExportPublicProviderSourceReader.key("0é27"), provider);
+        var lookups =
+                new CdsExportAppointmentLookupsDto(
+                        "a".repeat(64),
+                        Map.of("0é27", row),
+                        lookups().statuses(),
+                        Map.of(),
+                        Set.of());
+        var mapped = mapper.map(27, appointment(baseline()), lookups, ZONE);
+        assertThat(mapped.nativeRowRepresentable()).isTrue();
+        assertThat(mapped.value().provider()).isNull();
+        assertThat(mapped.fields().get(key("provider_no")).rule())
+                .isEqualTo("PROVIDER_RECORD_NOT_A_CDS_PROVIDER_IN_APPOINTMENT_SOURCE_RECORD");
+        assertThat(
+                        mapped.fields()
+                                .get(
+                                        new CdsExportNativeFieldKeyDto(
+                                                "provider", row.recordKey(), "last_name"))
+                                .destination())
+                .isEqualTo("NewCategory/ResidualInfo");
     }
 
     @Test
@@ -177,25 +243,73 @@ class CdsExportAppointmentMapperUnitTest {
         fields.put("program_id", "10016");
         var remarks = mapper.map(27, appointment(fields), lookups(), ZONE, demographic);
         assertThat(remarks.value().notes()).isEqualTo("Remarks: Emailed:2019-03-04");
-        assertThat(remarks.fields().get(key("program_id")).outcome())
-                .isEqualTo(Outcome.OPERATIONAL);
-        // A reason longer than its element is still explicit.
+        assertThat(remarks.fields().get(key("program_id")).outcome()).isEqualTo(Outcome.MAPPED);
+        assertThat(remarks.fields().get(key("program_id")).destination())
+                .isEqualTo("NewCategory/ResidualInfo");
+        // A reason longer than its element is cut at 250 characters; the complete reason is
+        // returned for the appointment's source record.
         fields.put("reason", "x".repeat(251));
-        assertThat(mapper.map(27, appointment(fields), lookups(), ZONE, demographic)
-                        .nativeRowRepresentable())
-                .isFalse();
+        var longReason = mapper.map(27, appointment(fields), lookups(), ZONE, demographic);
+        assertThat(longReason.nativeRowRepresentable()).isTrue();
+        assertThat(longReason.value().purpose()).isEqualTo("x".repeat(250));
+        assertThat(longReason.complete()).containsEntry("AppointmentPurpose", "x".repeat(251));
+        assertThat(longReason.fields().get(key("reason")).destination())
+                .isEqualTo("AppointmentPurpose,NewCategory/ResidualInfo");
     }
 
     @Test
-    void shouldRefuseOvernightAndAmbiguousTimes_withoutRoundingOrInventingTheNextDay()
+    void shouldLeaveXmlIllegalCharactersOutOfTheElement_andReturnTheExactText() throws Exception {
+        var demographic = demographic("Fixture", "Synthetic", null);
+        var fields = baseline();
+        fields.put("notes", "Bring\u0001 results");
+        fields.put("reason", "Follow\u000bup");
+        fields.put("name", "Call\u0002 first");
+        fields.put("remarks", "ok\uffff");
+        var mapped = mapper.map(27, appointment(fields), lookups(), ZONE, demographic);
+        assertThat(mapped.nativeRowRepresentable()).isTrue();
+        assertThat(mapped.value().purpose()).isEqualTo("Followup");
+        assertThat(mapped.value().notes())
+                .isEqualTo("Bring results\nBooking name: Call first\nRemarks: ok");
+        assertThat(mapped.complete())
+                .containsEntry("AppointmentPurpose", "Follow\u000bup")
+                .containsEntry(
+                        "AppointmentNotes",
+                        "Bring\u0001 results\nBooking name: Call\u0002 first\nRemarks: ok\uffff");
+        assertThat(mapped.fields().get(key("notes")).rule())
+                .isEqualTo(CdsExportAppointmentMapper.CLEANED_RULE);
+    }
+
+    @Test
+    void shouldExportAnOvernightSlotAndASlotWithNoLength_byTheDocumentedTimingRule()
             throws Exception {
         var fields = baseline();
         fields.put("start_time", "23:30:00");
-        fields.put("end_time", "00:30:00");
+        fields.put("end_time", "00:29:00");
+        var mapped = mapper.map(27, appointment(fields), lookups(), ZONE);
+        assertThat(mapped.nativeRowRepresentable()).isTrue();
+        assertThat(mapped.value().timing().time()).isEqualTo("23:30:00");
+        assertThat(mapped.value().timing().durationMinutes()).isEqualTo(60);
+        assertThat(mapped.fields().get(key("end_time")).destination())
+                .isEqualTo("Duration,NewCategory/ResidualInfo");
+        assertThat(mapped.fields().get(key("end_time")).rule())
+                .isEqualTo("END_ON_NEXT_DAY_EXACT_END_IN_APPOINTMENT_SOURCE_RECORD");
+        fields.put("start_time", "09:00:00");
+        fields.put("end_time", "08:59:00");
+        var none = mapper.map(27, appointment(fields), lookups(), ZONE);
+        assertThat(none.nativeRowRepresentable()).isTrue();
+        assertThat(none.value().timing().durationMinutes()).isZero();
+        assertThat(none.fields().get(key("end_time")).destination())
+                .isEqualTo("NewCategory/ResidualInfo");
+    }
+
+    @Test
+    void shouldRequireReview_onlyForADateOrStartThatIsNotACalendarTime() throws Exception {
+        var fields = baseline();
+        fields.put("appointment_date", "0000-00-00");
         var mapped = mapper.map(27, appointment(fields), lookups(), ZONE);
         assertThat(mapped.nativeRowRepresentable()).isFalse();
-        assertThat(mapped.fields().get(key("end_time")).outcome())
-                .isEqualTo(Outcome.REQUIRES_REVIEW);
+        assertThat(mapped.fields().get(key("appointment_date")).rule())
+                .isEqualTo(CdsExportAppointmentMapper.NOT_A_CALENDAR_TIME_RULE);
     }
 
     @Test
@@ -250,8 +364,7 @@ class CdsExportAppointmentMapperUnitTest {
     }
 
     @Test
-    void shouldVerifyDictionaryThirtyTwoThousandCharacterLimitCountsUnicode_withoutTruncation()
-            throws Exception {
+    void shouldCutNotesPastTheCdsLimitAtTheMark_andReturnTheCompleteText() throws Exception {
         var fields = baseline();
         String exact = "😀".repeat(32000);
         fields.put("notes", exact);
@@ -259,14 +372,35 @@ class CdsExportAppointmentMapperUnitTest {
         assertThat(good.nativeRowRepresentable()).isTrue();
         assertThat(good.value().notes()).isEqualTo(exact);
         fields.put("notes", exact + "x");
-        var blocked = mapper.map(27, appointment(fields), lookups(), ZONE);
-        assertThat(blocked.nativeRowRepresentable()).isFalse();
-        assertThat(blocked.fields().get(key("notes")).outcome()).isEqualTo(Outcome.REQUIRES_REVIEW);
-        assertThat(fields.get("notes")).isEqualTo(exact + "x");
+        // The Edit Appointment form admits 32,768 characters; the element holds 32,000. The
+        // element keeps the first characters that fit before the mark, counted in code points;
+        // the complete text is returned for the appointment's source record.
+        var cut = mapper.map(27, appointment(fields), lookups(), ZONE);
+        assertThat(cut.nativeRowRepresentable()).isTrue();
+        String mark = CdsExportAppointmentMapper.SHORTENED_MARK;
+        assertThat(cut.value().notes())
+                .isEqualTo("😀".repeat(32000 - mark.length()) + mark)
+                .matches(text -> text.codePointCount(0, text.length()) == 32000);
+        assertThat(cut.complete()).containsEntry("AppointmentNotes", exact + "x");
+        assertThat(cut.fields().get(key("notes")).outcome()).isEqualTo(Outcome.MAPPED);
+        assertThat(cut.fields().get(key("notes")).destination())
+                .isEqualTo("AppointmentNotes,NewCategory/ResidualInfo");
+        assertThat(cut.fields().get(key("notes")).rule())
+                .isEqualTo(CdsExportAppointmentMapper.SHORTENED_RULE);
+        // The same rule after labelled lines: the booking name and remarks are whole in the
+        // source record even when the cut removes their lines from the element.
+        var demographic = demographic("Fixture", "Synthetic", null);
+        fields.put("notes", "n".repeat(32000));
+        fields.put("remarks", "Emailed:2019-03-04");
+        var lined = mapper.map(27, appointment(fields), lookups(), ZONE, demographic);
+        assertThat(lined.nativeRowRepresentable()).isTrue();
+        assertThat(lined.value().notes()).endsWith(mark).hasSize(32000);
+        assertThat(lined.complete().get("AppointmentNotes"))
+                .isEqualTo("n".repeat(32000) + "\nRemarks: Emailed:2019-03-04");
     }
 
     @Test
-    void shouldClassifySchedulerAndBookingContextAsOperational_forUiBookedAppointment()
+    void shouldCarrySchedulerAndBookingContextInTheSourceRecord_forUiBookedAppointment()
             throws Exception {
         var fields = baseline();
         var context =
@@ -282,9 +416,11 @@ class CdsExportAppointmentMapperUnitTest {
         var mapped = mapper.map(27, appointment(fields), lookups(), ZONE);
         assertThat(mapped.nativeRowRepresentable()).isTrue();
         for (String column : context.keySet()) {
-            assertThat(mapped.fields().get(key(column)).outcome()).isEqualTo(Outcome.OPERATIONAL);
+            assertThat(mapped.fields().get(key(column)).outcome()).isEqualTo(Outcome.MAPPED);
+            assertThat(mapped.fields().get(key(column)).destination())
+                    .isEqualTo("NewCategory/ResidualInfo");
             assertThat(mapped.fields().get(key(column)).rule())
-                    .endsWith("_NOT_A_CDS_APPOINTMENT_FIELD");
+                    .isEqualTo(CdsExportAppointmentMapper.CONTEXT_RULE);
         }
         assertThat(mapped.value().notes()).isEqualTo("Literal café 😀\r\nnotes");
         assertThat(mapped.value().purpose()).isEqualTo("Exact purpose");

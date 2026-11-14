@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 
 import io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport;
 import io.github.carlos_emr.carlos.commn.dto.CdsExportProviderRowDto;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsAppointmentSourceContract;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFieldAssessmentDto.Outcome;
 import java.io.IOException;
@@ -34,11 +35,19 @@ import java.util.Set;
 
 /**
  * Native-only interpretation of exact captured appointment values and references. Imported
- * status is never a fallback for a changed/cleared local status. Extra values cannot be put
- * in Notes or ResidualInfo; this schema has no such residual field, so a populated value
- * without a reviewed rule (for example {@code remarks}, which only the SOAP schedule service
- * and legacy data fill) still requires review. The caller must reconcile retained imported
- * facts, superseded archive versions and complete source coverage before publication.
+ * status is never a fallback for a changed/cleared local status.
+ *
+ * <p>CDS 5.2 Appointments has no ResidualInfo, so every booking also has one NewCategory record,
+ * {@code CARLOS.Appointment.Source.v1} ({@link CdsExportAppointmentSourceMapper}), that holds the
+ * complete stored row. A value the element cannot hold exactly is written in its schema-valid
+ * form by a named rule and is whole in that record: notes past 32,000 characters are cut and
+ * marked ({@link #SHORTENED_MARK}); characters no XML document can hold are left out of the
+ * element text; a status code with no usable definition is written as the stored code; a
+ * provider number with no provider record, or whose record cannot form a CDS Provider, is
+ * exported without Provider; scheduler context (style, billing, location, resources, urgency,
+ * type, booking source, program) has no element at all. No such value holds the chart. The
+ * caller must reconcile retained imported facts, superseded archive versions and complete source
+ * coverage before publication.
  */
 public final class CdsExportAppointmentMapper {
     /**
@@ -46,20 +55,84 @@ public final class CdsExportAppointmentMapper {
      * falls in, or the appointment spans, a daylight-saving transition of the clinical zone.
      */
     static final String LOCAL_TIME_RULE = "LOCAL_WALL_CLOCK_TIME_AT_DAYLIGHT_SAVING_TRANSITION";
+
+    /** Destination of a value held by the appointment's NewCategory source record. */
+    static final String CARRIER = CdsExportDemographicSupportingMapper.DESTINATION;
+
+    /** Rule of the stored date or start that is not a calendar date or time of day (a hold). */
+    static final String NOT_A_CALENDAR_TIME_RULE = "APPOINTMENT_START_NOT_A_CALENDAR_TIME";
+
+    /** AppointmentNotes holds 32,000 characters (CDS 5.2 schema). */
+    static final int NOTES_MAXIMUM = CdsAppointmentSourceContract.NOTES_MAXIMUM;
+
+    /**
+     * Ends AppointmentNotes when the complete text is longer than the element: the element holds
+     * the first characters that fit before this mark, the source record the complete text. The
+     * importer recomputes the same rule ({@link CdsAppointmentSourceContract#notesElement}).
+     */
+    public static final String SHORTENED_MARK = CdsAppointmentSourceContract.SHORTENED_MARK;
+
+    static final String SHORTENED_RULE =
+            "NOTES_CUT_AT_CDS_LIMIT_COMPLETE_TEXT_IN_APPOINTMENT_SOURCE_RECORD";
+    static final String CUT_RULE =
+            "TEXT_CUT_AT_CDS_LIMIT_COMPLETE_TEXT_IN_APPOINTMENT_SOURCE_RECORD";
+    static final String CLEANED_RULE =
+            "XML_ILLEGAL_CHARACTERS_LEFT_OUT_EXACT_VALUE_IN_APPOINTMENT_SOURCE_RECORD";
+    static final String CONTEXT_RULE = "NO_CDS_APPOINTMENT_FIELD_IN_APPOINTMENT_SOURCE_RECORD";
+
     /**
      * Scheduler, site, billing-workflow and booking-provenance columns CARLOS writes with every
-     * booking. CDS 5.2 Appointments has no field for them and no ResidualInfo; the appointment
-     * template's reason and notes already reach AppointmentPurpose/AppointmentNotes.
+     * booking. CDS 5.2 Appointments has no field for them; they travel in the appointment's
+     * source record. The appointment template's reason and notes already reach
+     * AppointmentPurpose/AppointmentNotes.
      */
-    private static final Map<String, String> SCHEDULER_CONTEXT =
-            Map.of(
-                    "style", "SCHEDULER_DISPLAY_STYLE_NOT_A_CDS_APPOINTMENT_FIELD",
-                    "billing", "BILLING_WORKFLOW_STATE_NOT_A_CDS_APPOINTMENT_FIELD",
-                    "location", "BOOKING_SITE_NOT_A_CDS_APPOINTMENT_FIELD",
-                    "resources", "SCHEDULER_RESOURCE_TEXT_NOT_A_CDS_APPOINTMENT_FIELD",
-                    "urgency", "SCHEDULER_URGENCY_FLAG_NOT_A_CDS_APPOINTMENT_FIELD",
-                    "type", "APPOINTMENT_TEMPLATE_NAME_NOT_A_CDS_APPOINTMENT_FIELD",
-                    "bookingSource", "BOOKING_PROVENANCE_NOT_A_CDS_APPOINTMENT_FIELD");
+    private static final List<String> SCHEDULER_CONTEXT =
+            List.of("style", "billing", "location", "resources", "urgency", "type", "bookingSource");
+
+    /**
+     * An element's schema-valid text and, when that is not the complete value, the complete
+     * value and the rule that produced the element text.
+     */
+    record Fitted(String element, String complete, String rule) {
+        @Override
+        public String toString() {
+            return "CdsExportAppointmentMapper.Fitted[protected]";
+        }
+    }
+
+    /** The text without the code points no XML 1.0 document can hold. */
+    static String xmlText(String value) {
+        return CdsAppointmentSourceContract.xmlText(value);
+    }
+
+    /**
+     * AppointmentNotes for the complete notes text: the text itself when the element can hold it,
+     * otherwise without XML-illegal characters and, past 32,000 characters, its first characters
+     * followed by {@link #SHORTENED_MARK}.
+     */
+    static Fitted fitNotes(String complete) {
+        if (complete == null) return new Fitted(null, null, null);
+        String text = CdsAppointmentSourceContract.notesElement(complete);
+        if (text.equals(complete)) return new Fitted(text, null, null);
+        String legal = xmlText(complete);
+        return new Fitted(
+                text,
+                complete,
+                legal.codePointCount(0, legal.length()) > NOTES_MAXIMUM
+                        ? SHORTENED_RULE
+                        : CLEANED_RULE);
+    }
+
+    /** A 250-character element: without XML-illegal characters, cut at 250 when longer. */
+    static Fitted fitShort(String complete) {
+        if (complete == null) return new Fitted(null, null, null);
+        String text = xmlText(complete);
+        boolean cut = text.codePointCount(0, text.length()) > 250;
+        if (cut) text = text.substring(0, text.offsetByCodePoints(0, 250));
+        return text.equals(complete)
+                ? new Fitted(text, null, null)
+                : new Fitted(text, complete, cut ? CUT_RULE : CLEANED_RULE);
+    }
 
     public CdsExportAppointmentMappingDto map(
             int patient,
@@ -83,41 +156,35 @@ public final class CdsExportAppointmentMapper {
     }
 
     /**
-     * A native appointment with the candidate's labelled lines appended to its notes. A booking
-     * whose notes cannot take them (AppointmentNotes holds 32,000 characters) still requires
-     * review: the category has no other carrier.
+     * A native appointment with the candidate's labelled lines appended to its notes. Notes the
+     * element cannot hold whole are written by {@link #fitNotes}; the complete text is returned
+     * for the appointment's source record.
      */
     private static CdsExportAppointmentMappingDto complete(
             CdsExportCapturedTextRowDto row,
             CdsExportAppointmentLookupsDto lookups,
             Candidate result) {
         var fields = new LinkedHashMap<>(result.fields());
+        var complete = new LinkedHashMap<>(result.complete());
         var value = result.value();
+        String purpose = value == null ? null : value.purpose();
+        String notes = result.notes();
         var codeKey = new CdsExportNativeFieldKeyDto(row.table(), row.recordKey(), "reasonCode");
         var reasonKey = new CdsExportNativeFieldKeyDto(row.table(), row.recordKey(), "reason");
         var code = fields.get(codeKey);
-        if (value != null
-                && code.outcome() == Outcome.REQUIRES_REVIEW
+        if (code.outcome() == Outcome.REQUIRES_REVIEW
                 && "LABELLED_PURPOSE_REQUIRES_REVIEW".equals(code.rule())) {
             // The reason-list label and the reason together exceed AppointmentPurpose's 250
             // characters. Neither is cut, as for an imported purpose: the reason stays the
             // purpose and the label is the first line of AppointmentNotes ("Reason: <label>").
             var items = lookups.reasonCodes().getOrDefault(row.fields().get("reasonCode"), List.of());
             String label = items.size() == 1 ? items.getFirst().fields().get("label") : null;
-            String reason = row.fields().get("reason");
-            if (label != null
-                    && !label.isBlank()
-                    && CdsExportNativeFieldAssessments.legal(label, Integer.MAX_VALUE)
-                    && (reason == null || CdsExportNativeFieldAssessments.legal(reason, 250))) {
+            if (label != null && !label.isBlank()) {
                 String line = "Reason: " + label.trim();
-                String notes = value.notes();
-                value =
-                        new CdsExportAppointmentDto(
-                                value.timing(),
-                                value.status(),
-                                value.provider(),
-                                reason,
-                                notes == null || notes.isEmpty() ? line : line + "\n" + notes);
+                notes = notes == null || notes.isEmpty() ? line : line + "\n" + notes;
+                var reason = fitShort(row.fields().get("reason"));
+                purpose = reason.element();
+                if (reason.complete() != null) complete.put("AppointmentPurpose", reason.complete());
                 fields.put(
                         codeKey,
                         new CdsExportFieldAssessmentDto(
@@ -129,40 +196,47 @@ public final class CdsExportAppointmentMapper {
                 if (stored.outcome() == Outcome.REQUIRES_REVIEW)
                     fields.put(
                             reasonKey,
-                            new CdsExportFieldAssessmentDto(
-                                    stored.presence(),
-                                    Outcome.MAPPED,
-                                    "AppointmentPurpose",
-                                    "EXACT_NATIVE_TEXT"));
+                            reason.complete() == null
+                                    ? new CdsExportFieldAssessmentDto(
+                                            stored.presence(),
+                                            Outcome.MAPPED,
+                                            "AppointmentPurpose",
+                                            "EXACT_NATIVE_TEXT")
+                                    : new CdsExportFieldAssessmentDto(
+                                            stored.presence(),
+                                            Outcome.MAPPED,
+                                            "AppointmentPurpose," + CARRIER,
+                                            reason.rule()));
             }
         }
-        if (value != null && !result.noteLines().isEmpty())
-            value =
-                    new CdsExportAppointmentDto(
-                            value.timing(),
-                            value.status(),
-                            value.provider(),
-                            value.purpose(),
-                            withLines(value.notes(), result.noteLines()));
-        if (value != null
-                && value.notes() != null
-                && !CdsExportNativeFieldAssessments.legal(value.notes(), 32000)) {
-            // Text no XML document can hold, or notes beyond the schema's 32,000 characters:
-            // decided by the caller (see notesOverflow).
+        var fitted =
+                fitNotes(result.noteLines().isEmpty() ? notes : withLines(notes, result.noteLines()));
+        if (fitted.complete() != null) {
+            complete.put("AppointmentNotes", fitted.complete());
             var notesKey = new CdsExportNativeFieldKeyDto(row.table(), row.recordKey(), "notes");
-            var prior = fields.get(notesKey);
             fields.put(
                     notesKey,
                     new CdsExportFieldAssessmentDto(
-                            prior.presence(),
-                            Outcome.REQUIRES_REVIEW,
-                            "AppointmentNotes",
-                            "APPOINTMENT_NOTES_CAPACITY_REQUIRES_REVIEW"));
+                            fields.get(notesKey).presence(),
+                            Outcome.MAPPED,
+                            "AppointmentNotes," + CARRIER,
+                            fitted.rule()));
         }
         boolean blocked =
-                fields.values().stream()
-                        .anyMatch(field -> field.outcome() == Outcome.REQUIRES_REVIEW);
-        return new CdsExportAppointmentMappingDto(blocked ? null : value, fields);
+                value == null
+                        || fields.values().stream()
+                                .anyMatch(field -> field.outcome() == Outcome.REQUIRES_REVIEW);
+        return new CdsExportAppointmentMappingDto(
+                blocked
+                        ? null
+                        : new CdsExportAppointmentDto(
+                                value.timing(),
+                                value.status(),
+                                value.provider(),
+                                purpose,
+                                fitted.element()),
+                fields,
+                complete);
     }
 
     /** The notes followed by each labelled line on its own line. */
@@ -176,17 +250,23 @@ public final class CdsExportAppointmentMapper {
     }
 
     /**
+     * @param value the timing, status, provider and purpose; its notes are always null
      * @param noteLines labelled lines the caller appends to AppointmentNotes
-     *     ({@link CdsExportAppointmentNativeMetadata#qualify}); {@code value}'s notes are the
-     *     stored notes alone
+     *     ({@link CdsExportAppointmentNativeMetadata#qualify})
+     * @param notes the stored notes alone, exactly as stored and of any length; the caller
+     *     composes AppointmentNotes and fits it with {@link #fitNotes}
+     * @param complete the complete value of each element whose text is only its schema-valid form
      */
     record Candidate(
             CdsExportAppointmentDto value,
             Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields,
-            List<String> noteLines) {
+            List<String> noteLines,
+            String notes,
+            Map<String, String> complete) {
         Candidate {
             fields = Map.copyOf(fields);
             noteLines = List.copyOf(noteLines);
+            complete = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(complete));
         }
 
         @Override
@@ -248,20 +328,22 @@ public final class CdsExportAppointmentMapper {
         }
         var decisions =
                 new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
+        var complete = new LinkedHashMap<String, String>();
         var source = new CdsExportNativeFieldAssessments(row, decisions);
         source.operational("appointment_no", "NATIVE_OCCURRENCE_IDENTITY");
         source.operational("demographic_no", "SEALED_PATIENT_IDENTITY");
         source.operational("updatedatetime", "CAPTURED_MODIFICATION_CLOCK_NOT_APPOINTMENT_DATE");
         CdsExportAppointmentTimingDto timing = null;
         try {
-            timing =
+            var planned =
                     new CdsExportAppointmentTimingMapper()
-                            .map(
+                            .plan(
                                     source.raw("appointment_date"),
                                     source.raw("start_time"),
                                     source.raw("end_time"),
                                     clinicalZone,
                                     endConvention);
+            timing = planned.value();
             source.set(
                     "appointment_date",
                     Outcome.MAPPED,
@@ -274,21 +356,33 @@ public final class CdsExportAppointmentMapper {
                     timing.offset() == null
                             ? LOCAL_TIME_RULE
                             : "EXACT_NATIVE_APPOINTMENT_CLOCK");
-            source.set(
-                    "end_time", Outcome.MAPPED, "Duration", "EXACT_SAME_DAY_WHOLE_MINUTE_DURATION");
-        } catch (IOException review) {
+            switch (planned.length()) {
+                case EXACT -> source.set("end_time", Outcome.MAPPED, "Duration", planned.length().rule());
+                case PARTIAL_MINUTE, NEXT_DAY ->
+                        source.set(
+                                "end_time",
+                                Outcome.MAPPED,
+                                "Duration," + CARRIER,
+                                planned.length().rule());
+                default -> source.set("end_time", Outcome.MAPPED, CARRIER, planned.length().rule());
+            }
+        } catch (io.github.carlos_emr.carlos.demographic.cdsexport.support
+                        .CdsExportMappingReviewException
+                impossible) {
+            // Not a calendar date or a time of day at all: AppointmentDate and AppointmentTime
+            // are required, so nothing could be written. The one remaining timing hold.
             for (String column : List.of("appointment_date", "start_time", "end_time"))
                 source.review(
-                        column,
-                        "AppointmentDate,AppointmentTime,Duration",
-                        "APPOINTMENT_TIMING_REQUIRES_REVIEW");
+                        column, "AppointmentDate,AppointmentTime,Duration", NOT_A_CALENDAR_TIME_RULE);
         }
-        String purpose = purpose(source, lookups, decisions);
-        String notes = source.text("notes", "AppointmentNotes", 32000);
-        if ("".equals(source.raw("notes"))) {
-            notes = "";
-            source.set("notes", Outcome.MAPPED, "AppointmentNotes", "EXACT_NATIVE_EMPTY_TEXT");
-        }
+        String purpose = purpose(source, lookups, decisions, complete);
+        String notes = source.raw("notes");
+        if (notes != null)
+            source.set(
+                    "notes",
+                    Outcome.MAPPED,
+                    "AppointmentNotes",
+                    notes.isEmpty() ? "EXACT_NATIVE_EMPTY_TEXT" : "EXACT_NATIVE_TEXT");
         String status = status(source, lookups, decisions);
         var provider = provider(source, lookups, decisions);
         if (source.raw("imported_status") != null && !source.raw("imported_status").isEmpty()) {
@@ -297,10 +391,10 @@ public final class CdsExportAppointmentMapper {
                     "AppointmentStatus",
                     "RETAINED_APPOINTMENT_STATUS_REQUIRES_RECONCILIATION");
         }
-        for (var column : SCHEDULER_CONTEXT.entrySet()) {
-            String value = source.raw(column.getKey());
+        for (String column : SCHEDULER_CONTEXT) {
+            String value = source.raw(column);
             if (value != null && !value.isEmpty())
-                source.operational(column.getKey(), column.getValue());
+                source.set(column, Outcome.MAPPED, CARRIER, CONTEXT_RULE);
         }
         var noteLines =
                 CdsExportAppointmentNativeMetadata.qualify(
@@ -308,18 +402,26 @@ public final class CdsExportAppointmentMapper {
         return new Candidate(
                 timing == null
                         ? null
-                        : new CdsExportAppointmentDto(timing, status, provider, purpose, notes),
+                        : new CdsExportAppointmentDto(timing, status, provider, purpose, null),
                 decisions,
-                noteLines);
+                noteLines,
+                notes,
+                complete);
     }
 
+    /**
+     * AppointmentStatus is the label the schedule shows for the stored code. A code that has no
+     * single definition, or whose definition has no label CDS text can hold, is written as the
+     * stored code itself; the code and its captured definitions are in the source record.
+     */
     private static String status(
             CdsExportNativeFieldAssessments source,
             CdsExportAppointmentLookupsDto lookups,
             Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> decisions)
             throws IOException {
-        String code = source.raw("status");
-        if (code == null || code.isEmpty()) return null;
+        String stored = source.raw("status");
+        if (stored == null || stored.isEmpty()) return null;
+        String code = stored;
         // Signing or verifying an encounter appends S or V to the appointment's status (H becomes
         // HS); the chart shows the first letter's status with "/Signed" or "/Verified"
         // (ApptStatusData). Every other code needs its own exact definition.
@@ -329,10 +431,8 @@ public final class CdsExportAppointmentMapper {
             code = code.substring(0, 1);
         }
         var candidates = lookups.statuses().getOrDefault(code, List.of());
-        if (candidates.size() != 1) {
-            source.review("status", "AppointmentStatus", "EXACT_STATUS_DEFINITION_REQUIRED");
-            return null;
-        }
+        if (candidates.size() != 1)
+            return storedCode(source, stored, "STATUS_CODE_WITHOUT_SINGLE_DEFINITION_WRITTEN_AS_STORED");
         var row = candidates.getFirst();
         if (!"appointment_status".equals(row.table())
                 || !row.fields()
@@ -360,31 +460,42 @@ public final class CdsExportAppointmentMapper {
                         "short_letters"))
             lookup.operational(column, "CAPTURED_STATUS_DISPLAY_CONFIGURATION");
         lookup.set("status", Outcome.MAPPED, "AppointmentStatus", "EXACT_NATIVE_STATUS_REFERENCE");
-        String label = lookup.text("description", "AppointmentStatus", 250);
-        if (label == null || label.isBlank()) {
-            source.review(
-                    "status", "AppointmentStatus", "STATUS_DEFINITION_HAS_NO_MEANINGFUL_LABEL");
-            return null;
+        String label = lookup.raw("description");
+        String marked =
+                label == null ? null : label + (mark.isEmpty() ? "" : mark.equals("S") ? "/Signed" : "/Verified");
+        if (label == null
+                || label.isBlank()
+                || !CdsExportNativeFieldAssessments.legal(marked, 250)) {
+            if (label != null && !label.isEmpty())
+                lookup.set(
+                        "description",
+                        Outcome.MAPPED,
+                        CARRIER,
+                        "STATUS_LABEL_NOT_USABLE_AS_CDS_TEXT_IN_APPOINTMENT_SOURCE_RECORD");
+            return storedCode(
+                    source, stored, "STATUS_DEFINITION_WITHOUT_USABLE_LABEL_WRITTEN_AS_STORED_CODE");
         }
-        if (mark.isEmpty()) {
-            source.set(
-                    "status",
-                    Outcome.MAPPED,
-                    "AppointmentStatus",
-                    "EXACT_CAPTURED_STATUS_DEFINITION");
-            return label;
-        }
-        String marked = label + (mark.equals("S") ? "/Signed" : "/Verified");
-        if (marked.codePointCount(0, marked.length()) > 250) {
-            source.review("status", "AppointmentStatus", "EXACT_STATUS_DEFINITION_REQUIRED");
-            return null;
-        }
+        lookup.set("description", Outcome.MAPPED, "AppointmentStatus", "EXACT_NATIVE_TEXT");
         source.set(
                 "status",
                 Outcome.MAPPED,
                 "AppointmentStatus",
-                "CAPTURED_STATUS_DEFINITION_WITH_SIGNED_OR_VERIFIED_MARK");
+                mark.isEmpty()
+                        ? "EXACT_CAPTURED_STATUS_DEFINITION"
+                        : "CAPTURED_STATUS_DEFINITION_WITH_SIGNED_OR_VERIFIED_MARK");
         return marked;
+    }
+
+    /** The stored status code as AppointmentStatus; a code of only XML-illegal text is left out. */
+    private static String storedCode(
+            CdsExportNativeFieldAssessments source, String stored, String rule) {
+        String text = xmlText(stored);
+        source.set(
+                "status",
+                Outcome.MAPPED,
+                text.isBlank() ? CARRIER : "AppointmentStatus," + CARRIER,
+                rule);
+        return text.isBlank() ? null : text;
     }
 
     /**
@@ -397,7 +508,8 @@ public final class CdsExportAppointmentMapper {
     private static String purpose(
             CdsExportNativeFieldAssessments source,
             CdsExportAppointmentLookupsDto lookups,
-            Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> decisions)
+            Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> decisions,
+            Map<String, String> complete)
             throws IOException {
         String reason = source.raw("reason");
         String code = source.raw("reasonCode");
@@ -421,16 +533,26 @@ public final class CdsExportAppointmentMapper {
             }
         }
         if (label.isEmpty()) {
-            String exact = source.text("reason", "AppointmentPurpose", 250);
-            if ("".equals(reason)) {
+            if (reason == null) return null;
+            if (reason.isEmpty()) {
                 source.set(
                         "reason", Outcome.MAPPED, "AppointmentPurpose", "EXACT_NATIVE_EMPTY_TEXT");
                 return "";
             }
-            return exact;
+            var fitted = fitShort(reason);
+            if (fitted.complete() == null)
+                source.set("reason", Outcome.MAPPED, "AppointmentPurpose", "EXACT_NATIVE_TEXT");
+            else {
+                complete.put("AppointmentPurpose", fitted.complete());
+                source.set(
+                        "reason", Outcome.MAPPED, "AppointmentPurpose," + CARRIER, fitted.rule());
+            }
+            return fitted.element();
         }
         String purpose = (label + " " + (reason == null ? "" : reason.trim())).trim();
-        if (!CdsExportNativeFieldAssessments.legal(purpose, 250)) {
+        String text = xmlText(purpose);
+        if (text.codePointCount(0, text.length()) > 250) {
+            // Resolved by the caller: the label becomes the first line of AppointmentNotes.
             source.review("reasonCode", "AppointmentPurpose", "LABELLED_PURPOSE_REQUIRES_REVIEW");
             if (reason != null && !reason.isEmpty())
                 source.review("reason", "AppointmentPurpose", "LABELLED_PURPOSE_REQUIRES_REVIEW");
@@ -441,13 +563,14 @@ public final class CdsExportAppointmentMapper {
                 Outcome.MAPPED,
                 "AppointmentPurpose",
                 "EXACT_CAPTURED_REASON_CODE_LABEL");
+        if (!text.equals(purpose)) complete.put("AppointmentPurpose", purpose);
         if (reason != null)
             source.set(
                     "reason",
                     Outcome.MAPPED,
-                    "AppointmentPurpose",
+                    text.equals(purpose) ? "AppointmentPurpose" : "AppointmentPurpose," + CARRIER,
                     "REASON_TEXT_AFTER_SCHEDULE_REASON_LABEL");
-        return purpose;
+        return text;
     }
 
     /** @return the trimmed label, "" when the item's label is blank, or null after a review */
@@ -504,7 +627,14 @@ public final class CdsExportAppointmentMapper {
         if (id == null || id.isEmpty()) return null;
         var row = lookups.providers().get(id);
         if (row == null) {
-            source.review("provider_no", "Provider", "EXACT_PUBLIC_PROVIDER_REFERENCE_REQUIRED");
+            // A provider number with no provider record (migrated data): exported without
+            // Provider, as a prescription is without its prescriber; the stored number is in
+            // the appointment's source record.
+            source.set(
+                    "provider_no",
+                    Outcome.MAPPED,
+                    CARRIER,
+                    "PROVIDER_NUMBER_WITHOUT_PROVIDER_RECORD_IN_APPOINTMENT_SOURCE_RECORD");
             return null;
         }
         if (!"provider".equals(row.table())
@@ -514,11 +644,29 @@ public final class CdsExportAppointmentMapper {
         var mapped =
                 new CdsExportPublicProviderMapper()
                         .map(row, CdsExportPublicProviderMapper.Target.APPOINTMENT);
-        decisions.putAll(mapped.fields());
         if (!mapped.representable()) {
-            source.review("provider_no", "Provider", "PUBLIC_PROVIDER_VALUES_REQUIRES_REVIEW");
+            // A provider record that cannot form a CDS Provider (a name part that is missing,
+            // longer than the element or not XML text): no Provider element; the record's public
+            // columns travel whole in the appointment's source record.
+            for (var field : mapped.fields().entrySet())
+                decisions.put(
+                        field.getKey(),
+                        field.getValue().outcome() == Outcome.MAPPED
+                                        || field.getValue().outcome() == Outcome.REQUIRES_REVIEW
+                                ? new CdsExportFieldAssessmentDto(
+                                        field.getValue().presence(),
+                                        Outcome.MAPPED,
+                                        CARRIER,
+                                        "PROVIDER_RECORD_NOT_A_CDS_PROVIDER_IN_APPOINTMENT_SOURCE_RECORD")
+                                : field.getValue());
+            source.set(
+                    "provider_no",
+                    Outcome.MAPPED,
+                    CARRIER,
+                    "PROVIDER_RECORD_NOT_A_CDS_PROVIDER_IN_APPOINTMENT_SOURCE_RECORD");
             return null;
         }
+        decisions.putAll(mapped.fields());
         source.set("provider_no", Outcome.MAPPED, "Provider", "EXACT_CAPTURED_PUBLIC_PROVIDER");
         return mapped.value();
     }

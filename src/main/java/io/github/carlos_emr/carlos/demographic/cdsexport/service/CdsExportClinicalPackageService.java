@@ -1187,10 +1187,13 @@ public class CdsExportClinicalPackageService {
                 dataSummaries == null
                         ? Map.<String, Long>of()
                         : dataSummaries.kinds(lease, patient, tables, source, bounds, control);
-        var withheld =
-                dataSummaries == null
-                        ? Map.<String, Long>of()
-                        : dataSummaries.notExported(lease, patient, tables, source, bounds, control);
+        // Not exported, per ReadMe label: removed and patient-independent eForms, then the records
+        // whose NewCategory record was not written because NewCategory was not selected.
+        var withheld = new java.util.LinkedHashMap<String, Long>();
+        if (dataSummaries != null)
+            withheld.putAll(
+                    dataSummaries.notExported(lease, patient, tables, source, bounds, control));
+        document.notExported().forEach((label, count) -> withheld.merge(label, count, Long::sum));
         return new Captured(
                 source,
                 document,

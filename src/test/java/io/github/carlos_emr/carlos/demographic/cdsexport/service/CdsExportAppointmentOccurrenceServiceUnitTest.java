@@ -395,7 +395,126 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
                         io.github.carlos_emr.carlos.commn.dto.CdsExportProviderRowDto.COLUMNS,
                         0,
                         HASH));
-        assertThatThrownBy(() -> compose(alias, false)).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+        // A provider number with no exact provider record exports without Provider; nothing is
+        // invented from a collation alias and the chart is not held.
+        compose(alias, false);
+        assertThat(alias.receipts).hasSize(1);
+        assertThat(
+                        alias.receipts.getFirst().fields().entrySet().stream()
+                                .filter(field -> field.getKey().column().equals("provider_no"))
+                                .map(field -> field.getValue().rule())
+                                .toList())
+                // This job did not select NewCategory: the number has no element and its source
+                // record is not written, which is an explicit decision, not a hold.
+                .containsExactly(CdsExportDemographicSupportingMapper.NOT_SELECTED_RULE);
+    }
+
+    @Test
+    void shouldGiveEveryAppointmentItsSourceRecord_inTheOrderOfItsElement() throws Exception {
+        // The values a screen saved that Appointments cannot hold: a slot past midnight, a
+        // status code with no definition, a provider number with no record and scheduler context.
+        var stored = new TreeMap<String, String>();
+        stored.put("start_time", "23:30:00");
+        stored.put("end_time", "00:29:00");
+        stored.put("status", "ZZ");
+        stored.put("provider_no", "GONE");
+        stored.put("location", "Main Clinic");
+        stored.put("type", "Follow-up visit");
+        stored.put("notes", "n".repeat(32001));
+        var f =
+                fixture(
+                        new CdsExportAppointmentFieldReconcilerUnitTest().nativeFixture(stored),
+                        false);
+        selectNewCategory(f);
+        var records = parse(compose(f, false));
+        var parser = new CdsFieldParser();
+        assertThat(parser.firstText(records.get(1), "AppointmentTime", 64))
+                .isEqualTo("23:30:00-05:00");
+        assertThat(parser.firstText(records.get(1), "Duration", 8)).isEqualTo("60");
+        assertThat(parser.firstText(records.get(1), "AppointmentStatus", 250)).isEqualTo("ZZ");
+        assertThat(parser.firstText(records.get(1), "Provider/Name/LastName", 50)).isNull();
+        assertThat(parser.firstText(records.get(1), "AppointmentNotes", 32000))
+                .endsWith(CdsExportAppointmentMapper.SHORTENED_MARK)
+                .hasSize(32000);
+        // With NewCategory selected the carried values name the source record.
+        assertThat(
+                        f.receipts.getFirst().fields().entrySet().stream()
+                                .filter(field -> field.getKey().column().equals("location"))
+                                .map(field -> field.getValue().destination())
+                                .toList())
+                .containsExactly("NewCategory/ResidualInfo");
+        var appointments =
+                new CdsExportAppointmentOccurrenceService(
+                        f.values, f.verification, f.witnesses, f.captures, f.rows, f.zones);
+        var seen = new ArrayList<CdsExportAppointmentOccurrenceService.Occurrence>();
+        appointments.forEachOccurrence(
+                f.lease,
+                f.patient,
+                PATIENT,
+                f.tables,
+                f.source,
+                file("4", "RETAINED_MANIFEST"),
+                new CdsExportClinicalOccurrenceService.Bounds(
+                        100000, 8L << 20, 1000, 8L << 20, 100, 1000),
+                f.control,
+                seen::add);
+        assertThat(seen).hasSize(1);
+        var occurrence = seen.getFirst();
+        assertThat(occurrence.ordinal()).isEqualTo(1);
+        assertThat(occurrence.identity()).isEqualTo(f.receipts.getFirst().identity());
+        assertThat(occurrence.complete()).containsEntry("AppointmentNotes", "n".repeat(32001));
+        var carrier =
+                CdsExportAppointmentSourceMapper.map(
+                        occurrence.ordinal(),
+                        occurrence.row(),
+                        occurrence.lookups(),
+                        occurrence.complete());
+        var json =
+                new com.fasterxml.jackson.databind.ObjectMapper()
+                        .readTree(carrier.json().replace("\\u0020", " "));
+        assertThat(json.path("appointment").asLong()).isEqualTo(1);
+        assertThat(json.path("fields").path("end_time").asText()).isEqualTo("00:29:00");
+        assertThat(json.path("fields").path("status").asText()).isEqualTo("ZZ");
+        assertThat(json.path("fields").path("provider_no").asText()).isEqualTo("GONE");
+        assertThat(json.path("fields").path("location").asText()).isEqualTo("Main Clinic");
+        assertThat(json.path("complete").path("AppointmentNotes").asText())
+                .isEqualTo("n".repeat(32001));
+        assertThat(json.path("publicProvider").isNull()).isTrue();
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(carrier.rows(), carrier.fields(), 1_000_000, () -> {});
+    }
+
+    private static void selectNewCategory(Fixture f) {
+        var old = f.lease.document();
+        var command =
+                new CdsExportCommand(
+                        "appointment-assembly",
+                        "999998",
+                        null,
+                        CdsLogicalProfile.ONTARIO_MD_5_2,
+                        CdsExportCommand.Selection.SELECTED_PATIENTS,
+                        List.of(),
+                        List.of(27),
+                        Set.of(
+                                CdsCategory.DEMOGRAPHICS,
+                                CdsCategory.APPOINTMENTS,
+                                CdsCategory.NEW_CATEGORY),
+                        "recipient",
+                        "audit");
+        f.lease =
+                new CdsExportLeaseDto(
+                        f.lease.runId(),
+                        f.lease.epoch(),
+                        f.lease.token(),
+                        new CdsExportJobDocumentDto(
+                                old.protocol(),
+                                old.actor(),
+                                command,
+                                old.compatibilityDigest(),
+                                old.senderNamespace(),
+                                old.recipientFingerprint(),
+                                old.auditPlanDigest(),
+                                old.storage()));
     }
 
     @Test

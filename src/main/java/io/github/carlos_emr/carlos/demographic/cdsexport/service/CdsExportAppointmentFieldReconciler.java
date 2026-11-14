@@ -37,7 +37,10 @@ import java.util.*;
  * calendar/clock values replace source timing so prior import options cannot be undone. A
  * reason-list label chosen in CARLOS prefixes the preserved imported purpose, as the day sheet
  * shows it; when both do not fit AppointmentPurpose the label opens AppointmentNotes instead.
- * Unknown native extras, calendar history, aliases and missing projection evidence need review.
+ * Notes that no longer fit the element after such a line, a booking name or remarks are cut by
+ * the native rule ({@link CdsExportAppointmentMapper#fitNotes}); the complete text is returned for
+ * the appointment's source record. Calendar history, aliases and missing projection evidence
+ * need review.
  */
 public final class CdsExportAppointmentFieldReconciler {
     /** Rule of a reason-list label carried in AppointmentNotes beside a long imported purpose. */
@@ -169,6 +172,7 @@ public final class CdsExportAppointmentFieldReconciler {
                                         : CdsExportAppointmentTimingMapper.EndConvention
                                                 .IMPORTED_EXCLUSIVE);
         var fields = new LinkedHashMap<>(candidate.fields());
+        var complete = new LinkedHashMap<String, String>();
         var prior = new HashSet<String>();
         var current = new HashSet<String>();
         String purpose = candidate.value() == null ? null : candidate.value().purpose();
@@ -208,8 +212,6 @@ public final class CdsExportAppointmentFieldReconciler {
                 // day sheet shows before it may not fit beside it. Neither is cut: the imported
                 // purpose stays exactly in AppointmentPurpose and the label is the first line of
                 // AppointmentNotes ("Reason: <label>").
-                if (!CdsExportNativeFieldAssessments.legal(label, Integer.MAX_VALUE))
-                    review("CDS_EXPORT_APPOINTMENT_LABELLED_PURPOSE_CAPACITY");
                 labelInNotes = label;
                 prior.add("AppointmentPurpose");
                 mark(
@@ -245,8 +247,12 @@ public final class CdsExportAppointmentFieldReconciler {
                         "AppointmentPurpose",
                         "VERIFIED_UNCHANGED_PREPARED_PURPOSE_AFTER_SCHEDULE_REASON_LABEL");
             }
-        } else current.add("AppointmentPurpose");
-        String notes = candidate.value() == null ? null : candidate.value().notes();
+        } else {
+            current.add("AppointmentPurpose");
+            if (candidate.complete().containsKey("AppointmentPurpose"))
+                complete.put("AppointmentPurpose", candidate.complete().get("AppointmentPurpose"));
+        }
+        String notes = candidate.notes();
         if (!difference.changedColumns().contains("notes")) {
             if (!Objects.equals(original.notes(), prepared.notes()))
                 review("CDS_EXPORT_APPOINTMENT_ORIGINAL_NOTES_REQUIRED");
@@ -263,8 +269,6 @@ public final class CdsExportAppointmentFieldReconciler {
         if (labelInNotes != null) {
             String line = "Reason: " + labelInNotes;
             notes = notes == null || notes.isEmpty() ? line : line + "\n" + notes;
-            if (!CdsExportNativeFieldAssessments.legal(notes, 32000))
-                review("CDS_EXPORT_APPOINTMENT_LABELLED_PURPOSE_CAPACITY");
             prior.remove("AppointmentNotes");
             current.add("AppointmentNotes");
         }
@@ -272,11 +276,26 @@ public final class CdsExportAppointmentFieldReconciler {
             // A booking name that is not the patient's, and remarks: the same labelled lines as
             // on a never-imported appointment, after the notes, which are then current.
             notes = CdsExportAppointmentMapper.withLines(notes, candidate.noteLines());
-            if (!CdsExportNativeFieldAssessments.legal(notes, 32000))
-                review("CDS_EXPORT_APPOINTMENT_NOTES_CAPACITY_REQUIRES_REVIEW");
             prior.remove("AppointmentNotes");
             current.add("AppointmentNotes");
         }
+        // Notes the element cannot hold whole (current notes of up to 32,768 characters, or
+        // imported notes with a label, booking-name or remarks line): cut by the native rule,
+        // never held; the complete text goes to the appointment's source record.
+        var fittedNotes = CdsExportAppointmentMapper.fitNotes(notes);
+        if (fittedNotes.complete() != null) {
+            complete.put("AppointmentNotes", fittedNotes.complete());
+            mark(
+                    row,
+                    fields,
+                    "notes",
+                    Outcome.MAPPED,
+                    "AppointmentNotes," + CdsExportAppointmentMapper.CARRIER,
+                    fittedNotes.rule());
+            prior.remove("AppointmentNotes");
+            current.add("AppointmentNotes");
+        }
+        notes = fittedNotes.element();
         var provider = candidate.value() == null ? null : candidate.value().provider();
         if (!difference.changedColumns().contains("provider_no")) {
             if (prepared.providerNo() != null
@@ -305,16 +324,23 @@ public final class CdsExportAppointmentFieldReconciler {
         String status = candidate.value() == null ? null : candidate.value().status();
         String code = row.fields().get("status");
         if (code == null || code.isEmpty()) {
-            status = row.fields().get("imported_status");
-            if (status != null && !CdsExportNativeFieldAssessments.legal(status, 250))
-                review("CDS_EXPORT_APPOINTMENT_STATUS_REQUIRES_REVIEW");
+            var imported = CdsExportAppointmentMapper.fitShort(row.fields().get("imported_status"));
+            status = imported.element();
+            if (imported.complete() != null)
+                complete.put("AppointmentStatus", imported.complete());
             mark(
                     row,
                     fields,
                     "imported_status",
-                    status == null || status.isEmpty() ? Outcome.ABSENT : Outcome.MAPPED,
-                    "AppointmentStatus",
-                    "EXACT_CURRENT_RECORDED_IMPORTED_STATUS");
+                    imported.element() == null || row.fields().get("imported_status").isEmpty()
+                            ? Outcome.ABSENT
+                            : Outcome.MAPPED,
+                    imported.complete() == null
+                            ? "AppointmentStatus"
+                            : "AppointmentStatus," + CdsExportAppointmentMapper.CARRIER,
+                    imported.complete() == null
+                            ? "EXACT_CURRENT_RECORDED_IMPORTED_STATUS"
+                            : imported.rule());
             (difference.changedColumns().contains("imported_status") ? current : prior)
                     .add("AppointmentStatus");
         } else if (!difference.changedColumns().contains("imported_status")) {
@@ -341,7 +367,7 @@ public final class CdsExportAppointmentFieldReconciler {
         return new Result(
                 index.sourceManifestSha256(),
                 address,
-                new CdsExportAppointmentMappingDto(result, fields),
+                new CdsExportAppointmentMappingDto(result, fields, complete),
                 prior,
                 current);
     }

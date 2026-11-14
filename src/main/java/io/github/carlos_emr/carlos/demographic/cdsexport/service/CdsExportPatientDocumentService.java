@@ -378,7 +378,8 @@ public class CdsExportPatientDocumentService {
                             xml[0],
                             reconciliation,
                             checked,
-                            List.copyOf(attachments.values()));
+                            List.copyOf(attachments.values()),
+                            expected.notExported());
             complete = true;
             return result;
         } catch (IOException | RuntimeException | Error failure) {
@@ -545,6 +546,7 @@ public class CdsExportPatientDocumentService {
         private final CdsExportStagedFileDto xml, reconciliation;
         private final CdsExportXmlValidationDto validation;
         private final List<CdsExportPackageMemberDto> attachments;
+        private final Map<String, Long> notExported;
 
         private Document(
                 String run,
@@ -554,7 +556,8 @@ public class CdsExportPatientDocumentService {
                 CdsExportStagedFileDto xml,
                 CdsExportStagedFileDto reconciliation,
                 CdsExportXmlValidationDto validation,
-                List<CdsExportPackageMemberDto> attachments) {
+                List<CdsExportPackageMemberDto> attachments,
+                Map<String, Long> notExported) {
             runId = run;
             this.epoch = epoch;
             this.patient = patient;
@@ -563,6 +566,15 @@ public class CdsExportPatientDocumentService {
             this.reconciliation = reconciliation;
             this.validation = validation;
             this.attachments = List.copyOf(attachments);
+            this.notExported = Collections.unmodifiableMap(new LinkedHashMap<>(notExported));
+        }
+
+        /**
+         * Captured records not exported because the job did not select NewCategory, counted per
+         * package ReadMe label ({@link CdsExportPatientInventoryService.Inventory#notExported}).
+         */
+        public Map<String, Long> notExported() {
+            return notExported;
         }
 
         public String runId() {

@@ -86,6 +86,7 @@
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportAppointmentMapperUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportAppointmentOccurrenceServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportAppointmentProjectionServiceUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportAppointmentSourceMapperUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportAppointmentTimingMapperUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportAppointmentXmlWriterUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportArtifactServiceUnitTest",
