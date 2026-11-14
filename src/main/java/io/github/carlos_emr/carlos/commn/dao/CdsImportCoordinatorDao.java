@@ -82,7 +82,7 @@ public class CdsImportCoordinatorDao {
                                 }
                             });
             String name = "cds.coordinator." + CdsImportKeys.hash(database).substring(0, 40);
-            long acquired = scalar(waits, connection, LockStatement.ACQUIRE, name);
+            long acquired = takeLock(waits, connection, name);
             if (acquired == 1) return new Lease(connection, name, waits);
             if (acquired != 0) throw new SQLException("Invalid coordinator acquisition result");
         } catch (SQLException | RuntimeException | Error failure) {
@@ -98,39 +98,46 @@ public class CdsImportCoordinatorDao {
         return null;
     }
 
-    /** The two lock statements; each binds only the lock name, never text built at run time. */
-    private enum LockStatement {
-        ACQUIRE,
-        RELEASE
-    }
-
-    private static long scalar(
-            CdsOwnedStatementWaits waits,
-            Connection connection,
-            LockStatement statement,
-            String name)
+    /**
+     * Takes the coordinator lock. Each lock statement is its own literal, passed straight to
+     * {@code prepareStatement}; the lock name is its only parameter.
+     */
+    private static long takeLock(CdsOwnedStatementWaits waits, Connection connection, String name)
             throws SQLException {
         return waits.await(
                 connection,
                 seconds -> {
-                    // Each statement is a literal here, so the text sent is fixed at compile time.
                     try (PreparedStatement query =
-                            connection.prepareStatement(
-                                    switch (statement) {
-                                        case ACQUIRE -> "SELECT GET_LOCK(?,0)";
-                                        case RELEASE -> "SELECT RELEASE_LOCK(?)";
-                                    })) {
-                        query.setQueryTimeout(seconds);
-                        query.setString(1, name);
-                        try (ResultSet rows = query.executeQuery()) {
-                            if (!rows.next()) throw new SQLException("Missing coordinator response");
-                            long value = rows.getLong(1);
-                            if (rows.wasNull() || rows.next())
-                                throw new SQLException("Invalid coordinator response");
-                            return value;
-                        }
+                            connection.prepareStatement("SELECT GET_LOCK(?,0)")) {
+                        return lockAnswer(query, seconds, name);
                     }
                 });
+    }
+
+    /** Releases the coordinator lock, as {@link #takeLock} takes it. */
+    private static long releaseLock(
+            CdsOwnedStatementWaits waits, Connection connection, String name) throws SQLException {
+        return waits.await(
+                connection,
+                seconds -> {
+                    try (PreparedStatement query =
+                            connection.prepareStatement("SELECT RELEASE_LOCK(?)")) {
+                        return lockAnswer(query, seconds, name);
+                    }
+                });
+    }
+
+    /** A lock statement's one numeric answer, sent with the given deadline. */
+    private static long lockAnswer(PreparedStatement query, int seconds, String name)
+            throws SQLException {
+        query.setQueryTimeout(seconds);
+        query.setString(1, name);
+        try (ResultSet rows = query.executeQuery()) {
+            if (!rows.next()) throw new SQLException("Missing coordinator response");
+            long value = rows.getLong(1);
+            if (rows.wasNull() || rows.next()) throw new SQLException("Invalid coordinator response");
+            return value;
+        }
     }
 
     /** Only fixed lock and typed control operations are available on an acquired lease. */
@@ -238,7 +245,7 @@ public class CdsImportCoordinatorDao {
             try (Connection retiring = connection;
                     PreparedStatement retiredPhysical = physical;
                     PreparedStatement retiredControl = control) {
-                if (scalar(waits, retiring, LockStatement.RELEASE, name) != 1)
+                if (releaseLock(waits, retiring, name) != 1)
                     throw new SQLException("Coordinator release failed");
             }
         }
