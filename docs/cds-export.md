@@ -4964,10 +4964,18 @@ database, or the owner's decision:
   row; so an unchanged row is its own baseline even for an import that kept none. Likewise their
   removal while the observation date is unchanged
   (`CDS_EXPORT_HISTORY_DATE_EXTENSION_DELETION_REQUIRES_REVIEW`).
-- A column that cannot be compared with its baseline (`..._FIELD_CODEC_REQUIRES_REVIEW`): only a
-  schema change of `casemgmt_note`, `casemgmt_note_ext`, `casemgmt_issue` or
-  `casemgmt_issue_notes` after the import produces one, and no migration since baselines were
-  added (V1.0.59.40) changes those tables.
+- A column that cannot be compared with its baseline (`..._FIELD_CODEC_REQUIRES_REVIEW`,
+  `CdsNativeRowComparison`): a schema change of `casemgmt_note`, `casemgmt_note_ext`,
+  `casemgmt_issue` or `casemgmt_issue_notes` after the import, or a numeric cell without the exact
+  numeric evidence every witness records (none of these tables has a `TIMESTAMP`). No migration
+  since baselines were added (V1.0.59.40) changes those tables, and an import that kept no
+  baseline compares a row only with its own current witness.
+- An imported Notes element longer than the schema lets an import store
+  (`CDS_EXPORT_HISTORY_SOURCE_NARRATIVE_CAPACITY`, 131,072 UTF-16 units for a `text64K` of
+  65,536 characters): the importer validates every element against the schema, so only a damaged
+  ledger holds one. Likewise every `*_SCOPE_INVALID`, `*_CONTEXT_INVALID`, `*_SOURCE_INVALID` and
+  `*_PREPARATION_MISMATCH` of these classes fails the job only for a capture or ledger that
+  disagrees with its own witnesses or seals.
 - An import unit's references that do not name the one note, tag issue and link the importer
   writes for a CPP item (`..._ISSUE_ASSOCIATION_REQUIRES_REVIEW`, and in the occurrence plan a
   unit naming no note or two notes, a note two units name, or two imported notes in one chain,
