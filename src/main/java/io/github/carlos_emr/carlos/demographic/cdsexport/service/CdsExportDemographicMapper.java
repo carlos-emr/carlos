@@ -534,6 +534,8 @@ public final class CdsExportDemographicMapper {
      * (CdsDemographicDetailsService), so the name survives a round trip. An arbitrary
      * three-letter string or an unlisted name is not evidence of an ISO 639-2 code.
      */
+    // FindSecBugs IMPROPER_UNICODE: Lower-cases the three upper-case ASCII letters of an ISO 639-2 code from CARLOS's own language table (checked as [A-Z]{3}) into the code's standard spelling; a fixed code, not user text or a trust decision.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "lower-cases the three upper-case ASCII letters of an ISO 639-2 code from CARLOS's own language table (checked as [A-Z]{3}) into the code's standard spelling; a fixed code, not user text or a trust decision")
     private static String spoken(State state) {
         if (!state.present("spoken_lang")) return null;
         String value = state.value("spoken_lang");

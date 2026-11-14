@@ -487,6 +487,8 @@ final class CdsDemographicCarriedValuesResolver {
     }
 
     /** Whether the receiving column can store the carried value exactly. */
+    // FindSecBugs IMPROPER_UNICODE: Compares a carried province with the trimmed upper-case form the patient record itself stores, to decide whether the column can hold it exactly; a value kept or reported as not restored either way, not a trust decision.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "compares a carried province with the trimmed upper-case form the patient record itself stores, to decide whether the column can hold it exactly; a value kept or reported as not restored either way, not a trust decision")
     static boolean storable(String column, String value) {
         if (value == null)
             // first_name, last_name and sex are NOT NULL, and the patient record writes a NULL

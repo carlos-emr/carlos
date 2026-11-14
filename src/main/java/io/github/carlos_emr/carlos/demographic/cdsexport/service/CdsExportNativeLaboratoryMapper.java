@@ -726,11 +726,21 @@ final class CdsExportNativeLaboratoryMapper {
                 }
                 case 10, 12 -> {
                     // Hour or minute precision: the date the laboratory wrote, never an invented
-                    // ":00"; the exact time stays in the complete source message.
-                    LocalTime.of(
-                            Integer.parseInt(digits.substring(8, 10)),
-                            digits.length() == 12 ? Integer.parseInt(digits.substring(10, 12)) : 0);
-                    return new Reading(date(digits), true);
+                    // ":00"; the exact time stays in the complete source message. The hour and
+                    // minute must still be a time of day (atTime refuses another), or the text
+                    // is no calendar time.
+                    var sent =
+                            LocalDate.parse(digits.substring(0, 8), DateTimeFormatter.BASIC_ISO_DATE)
+                                    .atTime(
+                                            Integer.parseInt(digits.substring(8, 10)),
+                                            digits.length() == 12
+                                                    ? Integer.parseInt(digits.substring(10, 12))
+                                                    : 0);
+                    return new Reading(
+                            new CdsExportDateDto(
+                                    CdsExportDateDto.Precision.DATE,
+                                    sent.toLocalDate().toString()),
+                            true);
                 }
                 default -> {
                     String iso =
