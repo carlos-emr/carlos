@@ -783,7 +783,8 @@ omitted, and the other selected patients are still exported. The job reaches
 READY with a nonzero held count; the browser labels it "Transfer package ready
 without N held patient(s) — not a complete migration", and the CLI prints
 `CDS_EXPORT_PATIENTS_HELD` and exits 5. The diagnostic report (`--report`, or the
-browser's report download) lists each held chart number with its safe code, and
+browser's report download) lists every held chart number with its safe code, however
+many there are, and every event of the job, and
 the encrypted package ReadMe lists the same patients for the recipient. Correct
 or review those charts and export them in a new job. A failure that concerns the
 whole job (storage, recipient policy, audit arrangement, limits, runtime change)

@@ -402,9 +402,7 @@ public class CdsExportService {
                 row.safeCode(),
                 row.createdAt().toString(),
                 row.updatedAt().toString(),
-                report.eventsTruncated(),
                 report.recentEvents(),
-                report.heldPatientsTruncated(),
                 report.heldPatients(),
                 report.unlinkedSourceRows(),
                 report.legacyLabReports());

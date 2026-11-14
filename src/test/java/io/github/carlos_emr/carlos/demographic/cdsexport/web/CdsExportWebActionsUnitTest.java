@@ -177,7 +177,6 @@ class CdsExportWebActionsUnitTest {
                         null,
                         "2026-11-10T00:00:00Z",
                         "2026-11-10T00:00:01Z",
-                        false,
                         java.util.List.of());
         when(exports.report(viewer, id)).thenReturn(report);
         var action = new CdsExportReport2Action(web, exports, security);
