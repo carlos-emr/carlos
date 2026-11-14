@@ -242,10 +242,12 @@ public final class CdsExportNativeHistoryMapper {
                 || revisions.isEmpty()
                 || !CdsExportNoteSourceReader.CATEGORIES.contains(category)) invalid();
         var current = revisions.getLast();
-        // An imported note later re-filed under another CPP category is a chart condition for
-        // review (this patient is held), not an integrity failure of the whole job.
-        if (category(current) != category)
-            review("CDS_EXPORT_NATIVE_HISTORY_CATEGORY_CHANGED_REQUIRES_REVIEW");
+        // The caller decides the category from the same captured links of the current revision
+        // (CdsExportHistoryCurrentContext.category, by this class's own rule), and an imported
+        // item re-filed into another section is exported under that current section
+        // (CdsExportHistoryOccurrenceService.refiled). Another category is an integrity fault,
+        // never a chart condition (it was CDS_EXPORT_NATIVE_HISTORY_CATEGORY_CHANGED_REQUIRES_REVIEW).
+        if (category(current) != category) invalid();
         var decisions =
                 new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
         var rows = new LinkedHashMap<String, CdsExportCapturedTextRowDto>();
@@ -256,6 +258,8 @@ public final class CdsExportNativeHistoryMapper {
         var bodies = new ArrayList<String>();
         // CPP extension values the standard element cannot hold exactly (A25): written in Notes.
         var overflow = new LinkedHashSet<String>();
+        // The current revision's extension rows, placed once every row is read (extensions()).
+        var currentExtensions = new ArrayList<Extension>();
         long previous = 0;
         String uuid = null;
         List<Map<String, String>> attachedTo = List.of();
@@ -326,6 +330,13 @@ public final class CdsExportNativeHistoryMapper {
             var signer =
                     provider(state, "signing_provider_no", providers, decisions, category, true);
             if (signer != null) detail.put("signingProvider", publicName(signer));
+            else if (recordedProvider(state.raw("signing_provider_no")))
+                detail.put("signingProviderNo", state.raw("signing_provider_no"));
+            // A provider number with no provider record (one of migrated data whose provider was
+            // deleted there; CARLOS deletes no provider) names no public author: the stored
+            // number travels exactly here, as an appointment's does in its source record.
+            if (author == null && recordedProvider(state.raw("provider_no")))
+                detail.put("providerNo", state.raw("provider_no"));
             String updated = state.raw("update_date"), observed = state.raw("observation_date");
             if (updated != null) {
                 detail.put("updated", updated);
@@ -347,12 +358,15 @@ public final class CdsExportNativeHistoryMapper {
                 detail.put("author", publicName(author));
                 if (category == CdsCategory.CLINICAL_NOTES) {
                     if (updated == null) review("CDS_EXPORT_NATIVE_NOTE_AUTHOR_TIME_REQUIRED");
-                    var time = clock(updated, zone);
+                    // DateTimeNoteCreated is required: a revision time that is not a calendar
+                    // time gives no participant (the author and time stay in the details).
+                    var time = storedClock(updated, zone);
                     // One participant per distinct author, at that author's first revision. Every
                     // revision's author and time stay in the note details. A repeated entry for
                     // the same author made a receiving CARLOS treat the note as multi-author and
                     // store it with no author at all.
-                    if (participants.stream().noneMatch(p -> p.provider().equals(author)))
+                    if (time != null
+                            && participants.stream().noneMatch(p -> p.provider().equals(author)))
                         participants.add(new CdsExportNativeHistoryDto.Participant(author, time));
                 }
             }
@@ -401,8 +415,7 @@ public final class CdsExportNativeHistoryMapper {
                             Outcome.MAPPED,
                             metadataPath(category),
                             "COMPLETE_NATIVE_NOTE_EXTENSION");
-                if (revision == current)
-                    extension(category, key, value, date, text, dates, overflow);
+                if (revision == current) currentExtensions.add(new Extension(key, value, date));
             }
             if (!extensions.isEmpty()) detail.put("extensions", extensions);
             var issues = new ArrayList<Map<String, String>>();
@@ -499,6 +512,7 @@ public final class CdsExportNativeHistoryMapper {
         if (refiledSource != null) context.put("refiledImportedSource", refiledSource);
         // A character XML cannot carry is its JSON escape; the decoded details are unchanged.
         String json = CdsExportResidualJson.text(JSON.writeValueAsString(context));
+        extensions(category, currentExtensions, text, dates, overflow);
         var codes = codes(category, current);
         // DiagnosisProcedureCode and DiagnosisCode hold one code. An item with several assigned
         // diagnoses (A24) writes none of them there rather than choosing one: every code is
@@ -538,8 +552,13 @@ public final class CdsExportNativeHistoryMapper {
             }
             full.append(CdsNativeExtensionContract.NOTE_DETAILS_HEADING).append(json);
             text.put("MyClinicalNotesContent", full.toString());
-            String observed = current.note().value().fields().get("observation_date");
-            if (observed != null) dates.put("EventDateTime", clock(observed, zone));
+            // An observation time that is not a calendar time (MariaDB's zero date, which the
+            // packaged non-strict sql_mode stores for a time the column cannot hold) gives no
+            // EventDateTime; the stored value is in the details. It held the patient
+            // (CDS_EXPORT_NATIVE_HISTORY_DATE_REQUIRES_REVIEW).
+            var event =
+                    storedClock(current.note().value().fields().get("observation_date"), zone);
+            if (event != null) dates.put("EventDateTime", event);
         } else if (category == CdsCategory.PERSONAL_HISTORY) {
             text.put("NativePersonalNarrative", body);
             // PersonalHistory has no element but ResidualInfo, so no Notes either: its CPP values
@@ -665,8 +684,9 @@ public final class CdsExportNativeHistoryMapper {
                     || !type.matches("-?[0-9]{1,11}")
                     || record == null
                     || !record.matches("-?[0-9]{1,11}")) invalid();
-            if (part != null && !CdsExportNativeFieldAssessments.legal(part, 25))
-                review("CDS_EXPORT_NATIVE_NOTE_LINK_TEXT_INVALID");
+            // other_id (varchar(25)) is carried exactly in the details, where a character XML
+            // cannot carry is its JSON escape; the statement naming the record shows U+FFFD
+            // (attachmentStatement). It held the patient (CDS_EXPORT_NATIVE_NOTE_LINK_TEXT_INVALID).
             var facts = new LinkedHashMap<String, String>();
             facts.put("record", LINKED_RECORDS.getOrDefault(type, "record type " + type));
             facts.put("table_name", type);
@@ -686,7 +706,8 @@ public final class CdsExportNativeHistoryMapper {
         for (var facts : attached) {
             String name = facts.get("record") + " " + facts.get("table_id");
             String part = facts.get("other_id");
-            if (part != null && !part.isEmpty()) name += " (part " + part + ")";
+            if (part != null && !part.isEmpty())
+                name += " (part " + CdsExportXmlText.element(part) + ")";
             names.add(name);
         }
         return attached.size() == 1
@@ -941,7 +962,18 @@ public final class CdsExportNativeHistoryMapper {
             return null;
         }
         var row = providers.get(id);
-        if (row == null) review("CDS_EXPORT_NATIVE_NOTE_PROVIDER_REQUIRED");
+        if (row == null) {
+            // No provider record for the number (data migrated from a system that deleted the
+            // provider; CARLOS deletes none): no public author or signer, as an appointment's
+            // provider without a record has no Provider. The caller carries the stored number
+            // in the revision details. It held the patient (CDS_EXPORT_NATIVE_NOTE_PROVIDER_REQUIRED).
+            state.set(
+                    field,
+                    Outcome.MAPPED,
+                    metadataPath(category),
+                    "NATIVE_PROVIDER_NUMBER_WITHOUT_PROVIDER_RECORD_CARRIED");
+            return null;
+        }
         var mapped =
                 new CdsExportPublicProviderMapper()
                         .map(
@@ -1090,25 +1122,60 @@ public final class CdsExportNativeHistoryMapper {
         return tokenValue(String.join("\n\n", parts));
     }
 
+    /** One extension row of the current revision: its key, value and date, as stored. */
+    private record Extension(String key, String value, String date) {
+        @Override
+        public String toString() {
+            return "CdsExportNativeHistoryMapper.Extension[protected]";
+        }
+    }
+
     /**
-     * Places one current CPP extension value: in its section's standard element when it has one
-     * and the value fits it, otherwise labelled in {@code overflow} (the item's Notes, or the
-     * plain-text copy of a PersonalHistory item, which has no Notes). The editor shows fields a
-     * section has no element for (Medical History's Treatment and Procedure, Family History's
-     * Resolution Date, Social History's dates), and a re-filed item keeps the values of its
-     * former section; none is left only in the CARLOS revision context.
+     * Places the current revision's CPP extension values, each key decided from all its rows: in
+     * the section's standard element when it has one and the key's rows give it one value that
+     * fits, otherwise labelled in {@code overflow} (the item's Notes, or the plain-text copy of a
+     * PersonalHistory item, which has no Notes). The editor shows fields a section has no element
+     * for (Medical History's Treatment and Procedure, Family History's Resolution Date, Social
+     * History's dates), and a re-filed item keeps the values of its former section; none is left
+     * only in the CARLOS revision context.
+     *
+     * <p>A key whose rows hold different values (two Relationship rows of one revision, which a
+     * note kept from older OSCAR data can carry: {@code copyRevisionMetadata} copies duplicate
+     * legacy keys, and the chart's screens read different rows of them) writes none of them in
+     * the element rather than choosing one, as several assigned diagnoses do (A24): each value
+     * is written, labelled, in Notes, and every row is exact in the revision's extension facts.
+     * It held the patient ({@code CDS_EXPORT_NATIVE_HISTORY_EXTENSION_CONFLICT}).
      */
-    private static void extension(
+    private static void extensions(
             CdsCategory category,
-            String key,
-            String value,
-            String date,
+            List<Extension> rows,
             Map<String, String> text,
             Map<String, CdsExportDateDto> dates,
             Set<String> overflow)
             throws IOException {
         // An encounter note carries every extension in its own text (the revision details).
         if (category == CdsCategory.CLINICAL_NOTES) return;
+        var byKey = new LinkedHashMap<String, List<Extension>>();
+        for (var row : rows) byKey.computeIfAbsent(row.key(), ignored -> new ArrayList<>()).add(row);
+        for (var entry : byKey.entrySet()) {
+            String key = entry.getKey();
+            if (CPP_DATES.contains(key)) dateExtension(category, key, entry.getValue(), dates, overflow);
+            else valueExtension(category, key, entry.getValue(), text, overflow);
+        }
+    }
+
+    /**
+     * A CPP date key: its rows as the chart shows them ({@link #partialDate}). A row with no date
+     * names nothing; one whose stored date is not a calendar day gives nothing either and stays
+     * exact in the extension facts.
+     */
+    private static void dateExtension(
+            CdsCategory category,
+            String key,
+            List<Extension> rows,
+            Map<String, CdsExportDateDto> dates,
+            Set<String> overflow)
+            throws IOException {
         String datePath =
                 switch (key) {
                     case "Start Date" ->
@@ -1130,22 +1197,36 @@ public final class CdsExportNativeHistoryMapper {
                             category == CdsCategory.PAST_HEALTH ? "ProcedureDate" : null;
                     default -> null;
                 };
-        if (CPP_DATES.contains(key)) {
+        var shown = new LinkedHashSet<CdsExportDateDto>();
+        for (var row : rows) {
             // A date row stores the date and its precision marker; with no date it names nothing.
-            if (date == null) return;
-            var parsed = partialDate(date, value);
-            if (datePath == null) {
-                // No date element in this section (a family history's Resolution Date, a social
-                // history's dates): written in its precision, labelled, like any other value.
-                overflow.add(key + ":\n" + parsed.lexical());
-                return;
-            }
-            var old = dates.putIfAbsent(datePath, parsed);
-            if (old != null && !old.equals(parsed))
-                review("CDS_EXPORT_NATIVE_HISTORY_EXTENSION_CONFLICT");
+            if (row.date() == null) continue;
+            var parsed = partialDate(row.date(), row.value());
+            if (parsed != null) shown.add(parsed);
+        }
+        if (shown.isEmpty()) return;
+        if (datePath != null && shown.size() == 1) {
+            if (dates.putIfAbsent(datePath, shown.iterator().next()) != null) invalid();
             return;
         }
-        if (value == null || value.isEmpty()) return;
+        // No date element in this section (a family history's Resolution Date, a social
+        // history's dates), or rows of one key with different dates: each written in its
+        // precision, labelled, like any other value.
+        for (var date : shown) overflow.add(key + ":\n" + date.lexical());
+    }
+
+    /** A CPP value key (Age at Onset, Treatment, ...): see {@link #extensions}. */
+    private static void valueExtension(
+            CdsCategory category,
+            String key,
+            List<Extension> rows,
+            Map<String, String> text,
+            Set<String> overflow)
+            throws IOException {
+        var values = new LinkedHashSet<String>();
+        for (var row : rows)
+            if (row.value() != null && !row.value().isEmpty()) values.add(row.value());
+        if (values.isEmpty()) return;
         String target =
                 switch (key) {
                     case "Age at Onset" ->
@@ -1178,26 +1259,37 @@ public final class CdsExportNativeHistoryMapper {
         if (target == null) {
             // A CPP field with no element in this section (Medical History's Treatment and
             // Procedure, ...) is written, labelled, as a value too long for its element is.
+            // Other keys (Hide Cpp, the importer's cdsDate* rows) are not clinical values.
             if (CPP_VALUES.contains(key))
-                overflow.add(key + ":\n" + CdsExportXmlText.element(value));
+                for (String value : values)
+                    overflow.add(key + ":\n" + CdsExportXmlText.element(value));
             return;
         }
+        String value = values.size() == 1 ? values.iterator().next() : null;
+        if (value != null && fits(target, value)) {
+            put(text, target, value);
+            return;
+        }
+        // A25: the CPP editor sets no maximum length or format on these boxes. A value the
+        // element cannot hold exactly, and the different values of one key's rows, are omitted
+        // from it, never truncated or chosen between; each is written, labelled, in the item's
+        // Notes for every receiver, and exactly in the revision's extension facts in
+        // CARLOS.NativeHistory.v1.
+        for (String each : values) overflow.add(key + ":\n" + CdsExportXmlText.element(each));
+    }
+
+    /** Whether the CPP element {@code target} holds {@code value} exactly. */
+    private static boolean fits(String target, String value) {
+        // The editor's select (N, I, C, T, A) is LifeStage's list. The REST notes service stores
+        // the value it is sent (NotesService), so any other value is written, labelled, in the
+        // item's Notes, as a value too long for its element is.
+        if (target.equals("LifeStage")) return Set.of("N", "I", "C", "T", "A").contains(value);
         int maximum =
                 switch (target) {
                     case "Treatment", "ProblemDescription" -> 250;
                     case "ExposureDetails" -> 120;
-                    case "LifeStage" -> 1;
                     default -> 50;
                 };
-        if (target.equals("LifeStage")) {
-            // The editor's select (N, I, C, T, A) is the element's list. The REST notes service
-            // stores the value it is sent (NotesService), so any other value is written, labelled,
-            // in the item's Notes and exactly in the extension facts, as a value too long for its
-            // element is.
-            if (Set.of("N", "I", "C", "T", "A").contains(value)) put(text, target, value);
-            else overflow.add(key + ":\n" + CdsExportXmlText.element(value));
-            return;
-        }
         boolean fits = CdsExportNativeFieldAssessments.legal(value, maximum);
         // AgeAtOnset is an xs:nonNegativeInteger and AgeOfOnset an xs:positiveInteger, but the CPP
         // editor's Age at Onset is free text ("childhood", "40s", a risk factor's "0").
@@ -1206,22 +1298,14 @@ public final class CdsExportNativeHistoryMapper {
                     value.matches("[0-9]+")
                             && !(target.equals("AgeOfOnset")
                                     && new java.math.BigInteger(value).signum() == 0);
-        if (!fits) {
-            // A25: the CPP editor sets no maximum length or format on these boxes. A value the
-            // element cannot hold exactly is omitted from it, never truncated; it is written,
-            // labelled, in the item's Notes for every receiver, and exactly in the revision's
-            // extension facts in CARLOS.NativeHistory.v1.
-            overflow.add(key + ":\n" + CdsExportXmlText.element(value));
-            return;
-        }
-        put(text, target, value);
+        return fits;
     }
 
+    /** One element's text; each element has one source, so a second value is an integrity fault. */
     private static void put(Map<String, String> text, String path, String value)
             throws IOException {
         var old = text.putIfAbsent(path, value);
-        if (old != null && !old.equals(value))
-            review("CDS_EXPORT_NATIVE_HISTORY_EXTENSION_CONFLICT");
+        if (old != null && !old.equals(value)) invalid();
     }
 
     /**
@@ -1291,30 +1375,66 @@ public final class CdsExportNativeHistoryMapper {
         }
     }
 
-    /** The native CPP writer stores a date anchor and an explicit precision marker together. */
-    static CdsExportDateDto partialDate(String stored, String marker) throws IOException {
+    /**
+     * A CPP date row as the chart shows it ({@code viewNotes.jsp} {@code readPartialDate}): the
+     * marker {@code YYYY} keeps the year and {@code YYYY-MM} the year-month of the stored date,
+     * and any other marker or none is the stored full date. The CPP editor stores a marker with
+     * the first day of its year or month ({@code CaseManagementEntry2Action.writePartialDate});
+     * a date that is not that day, or a marker the editor does not write, held the patient
+     * ({@code CDS_EXPORT_NATIVE_HISTORY_DATE_PRECISION_CONFLICT}) and is now what the chart shows.
+     * The row stays exact in the revision's extension facts either way.
+     *
+     * @return null when the stored value is not a calendar day (MariaDB's zero date, which the
+     *     packaged non-strict {@code sql_mode} stores for a date the column cannot hold, as the
+     *     REST notes service can save for a year it is sent); it held the patient
+     *     ({@code CDS_EXPORT_NATIVE_HISTORY_DATE_REQUIRES_REVIEW})
+     */
+    static CdsExportDateDto partialDate(String stored, String marker) {
+        var date = calendarDay(stored);
+        if (date == null) return null;
+        if ("YYYY".equals(marker))
+            return new CdsExportDateDto(
+                    CdsExportDateDto.Precision.YEAR,
+                    String.format(Locale.ROOT, "%04d", date.getYear()));
+        if ("YYYY-MM".equals(marker))
+            return new CdsExportDateDto(
+                    CdsExportDateDto.Precision.YEAR_MONTH,
+                    String.format(
+                            Locale.ROOT, "%04d-%02d", date.getYear(), date.getMonthValue()));
+        return new CdsExportDateDto(CdsExportDateDto.Precision.DATE, date.toString());
+    }
+
+    /**
+     * The calendar day of a stored DATE or DATETIME value (the chart shows a CPP date's day, so
+     * a clock, which a DATE column never holds, is not part of it), or null when the value is not
+     * a calendar day of the Common Era: MariaDB's zero date, a zero month or day, year 0.
+     */
+    private static LocalDate calendarDay(String stored) {
+        if (stored == null) return null;
         try {
-            var local =
+            var date =
                     stored.length() == 10
-                            ? LocalDate.parse(stored).atStartOfDay()
-                            : LocalDateTime.parse(stored.replace(' ', 'T'));
-            if (!local.toLocalTime().equals(LocalTime.MIDNIGHT))
-                review("CDS_EXPORT_NATIVE_HISTORY_DATE_HAS_CLOCK");
-            var date = local.toLocalDate();
-            if (marker == null || marker.isEmpty())
-                return new CdsExportDateDto(CdsExportDateDto.Precision.DATE, date.toString());
-            if (marker.equals("YYYY") && date.getDayOfYear() == 1)
-                return new CdsExportDateDto(
-                        CdsExportDateDto.Precision.YEAR, java.time.Year.from(date).toString());
-            if (marker.equals("YYYY-MM") && date.getDayOfMonth() == 1)
-                return new CdsExportDateDto(
-                        CdsExportDateDto.Precision.YEAR_MONTH,
-                        java.time.YearMonth.from(date).toString());
-            review("CDS_EXPORT_NATIVE_HISTORY_DATE_PRECISION_CONFLICT");
-        } catch (DateTimeException malformed) {
-            review("CDS_EXPORT_NATIVE_HISTORY_DATE_REQUIRES_REVIEW");
+                            ? LocalDate.parse(stored)
+                            : LocalDateTime.parse(stored.replace(' ', 'T')).toLocalDate();
+            return date.getYear() < 1 ? null : date;
+        } catch (DateTimeException notACalendarDay) {
+            return null;
         }
-        return null;
+    }
+
+    /**
+     * {@link #clock} of a stored DATETIME, or null when the value is not a calendar time of the
+     * Common Era (MariaDB's zero date, which the packaged non-strict {@code sql_mode} stores for
+     * a time the column cannot hold). The stored value travels exactly in the revision details
+     * either way, so no element is written for it rather than holding the patient.
+     */
+    private static CdsExportDateDto storedClock(String value, ZoneId zone) throws IOException {
+        return calendarDay(value) == null ? null : clock(value, zone);
+    }
+
+    /** A provider column that names a provider: not SQL NULL, empty or {@code 0}. */
+    private static boolean recordedProvider(String id) {
+        return id != null && !id.isEmpty() && !id.equals("0");
     }
 
     private static String bodyPath(CdsCategory c) {

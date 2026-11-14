@@ -709,10 +709,13 @@ note, a discontinued prescription or a shared group note was held (the ON demo d
   `[CARLOS: this note is attached to another record in the sending system: document 12.]`
   naming the current revision's records (`part <other_id>` when one is stored); a CPP item
   keeps the facts only in its `CARLOS.NativeHistory.v1` residual, so its description and
-  Notes are unchanged. Nothing about the linked record itself is read. An `other_id` that is
-  not writable XML text holds the patient (`CDS_EXPORT_NATIVE_NOTE_LINK_TEXT_INVALID`). The
-  CARLOS importer writes no links; an imported note that CARLOS attached later is routed
-  through the native revision context, which is the only carrier for the link.
+  Notes are unchanged. Nothing about the linked record itself is read. An `other_id` holding a
+  character XML cannot carry is shown with U+FFFD in the statement and is exact in the details
+  (its JSON escape); it held the patient (`CDS_EXPORT_NATIVE_NOTE_LINK_TEXT_INVALID`). CARLOS
+  writes `other_id` only by copying it to a new revision (`copyRevisionMetadata`), so such a
+  value can only come from older OSCAR annotation screens. The CARLOS importer writes no links;
+  an imported note that CARLOS attached later is routed through the native revision context,
+  which is the only carrier for the link.
 - Why not the annotated item's own Notes (PhysiciansNotes, allergy, medication or report
   Notes): the note is chart text under per-note program authorization, which the item's
   category does not apply; the item may be unselected, deleted (a discontinuation note
@@ -4720,6 +4723,34 @@ instead of holding the patient; the exact rows still travel in `CARLOS.NativeHis
   (below). The CPP editor's "Hide Cpp" select is a display setting of the chart's CPP boxes, as a
   prescription's hide-from-CPP flag is, and the importer's `cdsDate*` rows are import metadata;
   neither is written in Notes. Every extension row stays exact in `CARLOS.NativeHistory.v1`.
+- Rows of one key in one revision that hold different values: a note kept from older OSCAR data
+  can carry two Relationship rows, or two Start Dates (`copyRevisionMetadata` copies duplicate
+  legacy keys, and the chart's screens read different rows of them). No element is written from
+  them rather than one chosen: each value is written in Notes the same way, labelled with its
+  key, and every row is exact in the revision's extension facts. Equal rows are one value. It
+  held the patient (`CDS_EXPORT_NATIVE_HISTORY_EXTENSION_CONFLICT`).
+- A CPP date is the date the chart's CPP view shows (`viewNotes.jsp` `readPartialDate`): the
+  marker `YYYY` keeps the stored date's year and `YYYY-MM` its year-month, any other marker or
+  none the full date. The CPP editor stores a marker with the first day of its year or month; a
+  row whose date is another day, or whose marker the editor does not write, held the patient
+  (`CDS_EXPORT_NATIVE_HISTORY_DATE_PRECISION_CONFLICT`). A stored date that is not a calendar day
+  (MariaDB's zero date, which the packaged non-strict `sql_mode` stores for a date the column
+  cannot hold, as the REST notes service saves for a year it is sent) gives no element and no
+  Notes line; the row is exact in the extension facts. It held the patient
+  (`CDS_EXPORT_NATIVE_HISTORY_DATE_REQUIRES_REVIEW`).
+
+An encounter note's revision time and observation time are DATETIME columns, and a value that is
+not a calendar time (the zero date, stored as above) held the patient
+(`CDS_EXPORT_NATIVE_HISTORY_DATE_REQUIRES_REVIEW`). An observation time that is not one gives no
+EventDateTime, and a revision time that is not one gives that revision's author no
+ParticipatingProviders entry (DateTimeNoteCreated is required); both stored values stay exact in
+the note details (`observed`, `updated`). A note's author or signer number with no provider record
+(data migrated from a system that deleted the provider; CARLOS deletes no provider) held the
+patient (`CDS_EXPORT_NATIVE_NOTE_PROVIDER_REQUIRED`). It now has no ParticipatingProviders entry
+and no public name in the details, as an appointment with no provider record has no Provider, and
+the stored number travels in the revision details (`providerNo`, `signingProviderNo`, rule
+`NATIVE_PROVIDER_NUMBER_WITHOUT_PROVIDER_RECORD_CARRIED`). A sending CARLOS provider number is
+local to the sender and is never restored, as a primary physician's is not.
 - A coded issue description with edge, repeated or line-break spaces (the seeded `ICSW420` ends in
   a space) is written token-normalized in StandardCodeDescription, an `xs:token`, as any
   schema-aware reader keeps it anyway (A26); the exact description is in the context. One longer

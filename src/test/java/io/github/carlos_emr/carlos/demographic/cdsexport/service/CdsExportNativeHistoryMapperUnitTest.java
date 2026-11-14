@@ -303,7 +303,7 @@ class CdsExportNativeHistoryMapperUnitTest {
     }
 
     @Test
-    void shouldPreserveNativePartialDatePrecision_andRejectAnInconsistentAnchor() throws Exception {
+    void shouldPreserveNativePartialDatePrecision_asTheChartShowsIt() throws Exception {
         for (var precision : List.of("YYYY", "YYYY-MM", "")) {
             var ext =
                     row(
@@ -329,8 +329,32 @@ class CdsExportNativeHistoryMapperUnitTest {
                                     : precision.equals("YYYY-MM") ? "2020-01" : "2020-01-01");
             render(result.value());
         }
-        assertThatThrownBy(() -> CdsExportNativeHistoryMapper.partialDate("2020-02-01", "YYYY"))
-                .hasMessage("CDS_EXPORT_NATIVE_HISTORY_DATE_PRECISION_CONFLICT");
+        // A marker with a date that is not its first day, or a marker the editor does not write,
+        // held the patient (CDS_EXPORT_NATIVE_HISTORY_DATE_PRECISION_CONFLICT). Each is what the
+        // chart's CPP view shows (viewNotes.jsp readPartialDate): the year or year-month of the
+        // stored date, else the full date.
+        assertThat(CdsExportNativeHistoryMapper.partialDate("2020-02-01", "YYYY"))
+                .isEqualTo(new CdsExportDateDto(CdsExportDateDto.Precision.YEAR, "2020"));
+        assertThat(CdsExportNativeHistoryMapper.partialDate("2020-02-07", "YYYY-MM"))
+                .isEqualTo(new CdsExportDateDto(CdsExportDateDto.Precision.YEAR_MONTH, "2020-02"));
+        assertThat(CdsExportNativeHistoryMapper.partialDate("0999-02-07", "YYYY").lexical())
+                .isEqualTo("0999");
+        assertThat(CdsExportNativeHistoryMapper.partialDate("2020-02-07", "DD"))
+                .isEqualTo(new CdsExportDateDto(CdsExportDateDto.Precision.DATE, "2020-02-07"));
+        // MariaDB's zero date (stored by the packaged non-strict sql_mode for a date the column
+        // cannot hold) is no calendar day: no element, the row exact in the details. It held
+        // the patient (CDS_EXPORT_NATIVE_HISTORY_DATE_REQUIRES_REVIEW).
+        for (String stored : List.of("0000-00-00", "0000-01-01", "2020-00-10"))
+            assertThat(CdsExportNativeHistoryMapper.partialDate(stored, "")).as(stored).isNull();
+        var zero = dated(101, "Start Date", "", "0000-00-00");
+        var result =
+                map(
+                        CdsCategory.FAMILY_HISTORY,
+                        List.of(note(91, "Narrative", "FamHistory", List.of(zero))));
+        assertThat(result.value().dates()).isEmpty();
+        assertThat(result.value().text()).doesNotContainKey("Notes");
+        assertThat(result.value().metadata()).contains("0000-00-00");
+        render(result.value());
     }
 
     @Test
@@ -361,7 +385,12 @@ class CdsExportNativeHistoryMapperUnitTest {
     }
 
     @Test
-    void shouldRefuseConflictingDuplicateExtensions_insteadOfSelectingAnArbitraryValue() {
+    void shouldWriteEveryValueOfDuplicateExtensionRows_inNotesInsteadOfSelectingOne()
+            throws Exception {
+        // A note kept from older OSCAR data can carry two rows of one key with different values
+        // (copyRevisionMetadata copies duplicate legacy keys). It held the patient
+        // (CDS_EXPORT_NATIVE_HISTORY_EXTENSION_CONFLICT). Neither is chosen for the element: each
+        // is written, labelled, in Notes, and both rows travel exactly in the details.
         var one =
                 row(
                         Plan.CASE_NOTE_EXT,
@@ -372,31 +401,92 @@ class CdsExportNativeHistoryMapperUnitTest {
                         Plan.CASE_NOTE_EXT,
                         102,
                         Map.of("note_id", "91", "key_val", "Relationship", "value", "Father"));
-        assertThatThrownBy(
-                        () ->
-                                map(
-                                        CdsCategory.FAMILY_HISTORY,
-                                        List.of(
-                                                note(
-                                                        91,
-                                                        "History",
-                                                        "FamHistory",
-                                                        List.of(one, two)))))
-                .hasMessage("CDS_EXPORT_NATIVE_HISTORY_EXTENSION_CONFLICT");
+        var start = dated(103, "Start Date", "YYYY", "2019-01-01");
+        var later = dated(104, "Start Date", "", "2020-05-06");
+        var same = dated(105, "Resolution Date", "YYYY-MM", "2021-03-01");
+        var repeated = dated(106, "Resolution Date", "YYYY-MM", "2021-03-01");
+        var result =
+                map(
+                        CdsCategory.FAMILY_HISTORY,
+                        List.of(
+                                note(
+                                        91,
+                                        "History",
+                                        "FamHistory",
+                                        List.of(one, two, start, later, same, repeated))));
+        assertThat(result.value().text())
+                .doesNotContainKey("Relationship")
+                .containsEntry(
+                        "Notes",
+                        "Relationship:\nMother\n\nRelationship:\nFather\n\nStart Date:\n2019"
+                                + "\n\nStart Date:\n2020-05-06\n\nResolution Date:\n2021-03");
+        assertThat(result.value().dates()).doesNotContainKey("StartDate");
+        String xml = new String(render(result.value()), StandardCharsets.UTF_8);
+        assertThat(xml).doesNotContain("<Relationship>");
+        // Equal rows of one key are one value: a ProblemList item writes its element.
+        var problem =
+                map(
+                        CdsCategory.PROBLEM_LIST,
+                        List.of(
+                                note(
+                                        91,
+                                        "Back pain",
+                                        "Concerns",
+                                        List.of(same, repeated))));
+        assertThat(problem.value().dates().get("ResolutionDate"))
+                .isEqualTo(new CdsExportDateDto(CdsExportDateDto.Precision.YEAR_MONTH, "2021-03"));
+        assertThat(problem.value().text()).doesNotContainKey("Notes");
     }
 
     @Test
-    void shouldRefuseMissingAuthorLookup_andWriteAnAmbiguousClockAsItsWallClockTime()
+    void shouldCarryAProviderNumberWithNoRecord_andWriteAnAmbiguousClockAsItsWallClockTime()
             throws Exception {
-        assertThatThrownBy(
-                        () ->
-                                mapper.map(
-                                        27,
-                                        CdsCategory.CLINICAL_NOTES,
-                                        List.of(note(91, "Native", null, List.of())),
+        // A note whose author and signer numbers have no provider record (migrated data whose
+        // provider was deleted there) held the patient (CDS_EXPORT_NATIVE_NOTE_PROVIDER_REQUIRED).
+        // It has no participant now, as an appointment without a provider record has no
+        // Provider, and both stored numbers travel exactly in the note details.
+        var orphan =
+                mapper.map(
+                        27,
+                        CdsCategory.CLINICAL_NOTES,
+                        List.of(note(91, "Native", null, List.of())),
+                        Map.of(),
+                        ZONE);
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(orphan.rows(), orphan.fields(), () -> {});
+        assertThat(orphan.value().participants()).isEmpty();
+        String content = orphan.value().text().get("MyClinicalNotesContent");
+        var details =
+                new com.fasterxml.jackson.databind.ObjectMapper()
+                        .readTree(content.substring(content.indexOf("\n{") + 1))
+                        .get("revisions")
+                        .get(0);
+        assertThat(details.get("providerNo").asText()).isEqualTo("17");
+        assertThat(details.get("signingProviderNo").asText()).isEqualTo("17");
+        assertThat(details.has("author")).isFalse();
+        render(orphan.value());
+        // A revision time that is not a calendar time (MariaDB's zero date) gives no
+        // participant and an observation time likewise no EventDateTime; both stored values
+        // stay in the details. They held the patient (CDS_EXPORT_NATIVE_HISTORY_DATE_REQUIRES_REVIEW).
+        var written = note(91, "Native", null, List.of());
+        var zero = new LinkedHashMap<>(written.note().value().fields());
+        zero.put("update_date", "0000-00-00 00:00:00");
+        zero.put("observation_date", "0000-00-00 00:00:00");
+        var undated =
+                map(
+                        CdsCategory.CLINICAL_NOTES,
+                        List.of(
+                                new CdsExportHistoryFieldReconciler.Current(
+                                        row(Plan.CASE_NOTES, 91, zero),
+                                        List.of(),
+                                        List.of(),
                                         Map.of(),
-                                        ZONE))
-                .hasMessage("CDS_EXPORT_NATIVE_NOTE_PROVIDER_REQUIRED");
+                                        Map.of())));
+        assertThat(undated.value().participants()).isEmpty();
+        assertThat(undated.value().dates()).doesNotContainKey("EventDateTime");
+        assertThat(undated.value().text().get("MyClinicalNotesContent"))
+                .contains("\"updated\":\"0000-00-00 00:00:00\"", "\"observed\":\"0000-00-00 00:00:00\"");
+        render(undated.value());
         // A note written in the hour the autumn change repeats, one timed in the spring gap, and
         // one before standard time held the patient (CDS_EXPORT_NATIVE_HISTORY_CLOCK_AMBIGUOUS,
         // ..._OFFSET_NOT_REPRESENTABLE). Each is its wall-clock time with no offset now, as an
@@ -1482,7 +1572,7 @@ class CdsExportNativeHistoryMapperUnitTest {
     }
 
     @Test
-    void shouldRefuseALinkOfAnotherNote_andHoldASecondaryIdItCannotWrite() {
+    void shouldRefuseALinkOfAnotherNote_andCarryASecondaryIdXmlCannotCarry() throws Exception {
         assertThatThrownBy(
                         () ->
                                 map(
@@ -1492,14 +1582,26 @@ class CdsExportNativeHistoryMapperUnitTest {
                                                         note(91, "Body", null, List.of()),
                                                         noteLink(301, 92, "5", "12", null)))))
                 .hasMessage("CDS_EXPORT_NATIVE_HISTORY_SCOPE_INVALID");
-        assertThatThrownBy(
-                        () ->
-                                map(
-                                        CdsCategory.CLINICAL_NOTES,
-                                        List.of(
-                                                linked(
-                                                        note(91, "Body", null, List.of()),
-                                                        noteLink(301, 91, "5", "12", "a\u0001")))))
-                .hasMessage("CDS_EXPORT_NATIVE_NOTE_LINK_TEXT_INVALID");
+        // A secondary id holding a character XML cannot carry held the patient
+        // (CDS_EXPORT_NATIVE_NOTE_LINK_TEXT_INVALID). The statement shows U+FFFD and the details
+        // carry the stored id exactly.
+        var note =
+                map(
+                        CdsCategory.CLINICAL_NOTES,
+                        List.of(
+                                linked(
+                                        note(91, "Body", null, List.of()),
+                                        noteLink(301, 91, "5", "12", "a\u0001"))));
+        String content = note.value().text().get("MyClinicalNotesContent");
+        assertThat(content)
+                .startsWith(
+                        "[CARLOS: this note is attached to another record in the sending system:"
+                                + " document 12 (part a\ufffd).]");
+        var details =
+                new com.fasterxml.jackson.databind.ObjectMapper()
+                        .readTree(content.substring(content.indexOf("\n{") + 1));
+        assertThat(details.get("revisions").get(0).get("attachedTo").get(0).get("other_id").asText())
+                .isEqualTo("a\u0001");
+        render(note.value());
     }
 }
