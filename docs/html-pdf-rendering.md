@@ -253,6 +253,7 @@ Each row is tried in order; an error reaches the caller only from the last colum
 | Safe mode fails, or the HTML is over the size limit | Text-only mode, with the note (`TEXT_ONLY`) | `PDFGenerationException("HTML could not be converted to PDF", cause)` |
 | No webapp root | A private empty base directory; webapp styles and images show as boxes (`WEBAPP_ROOT_UNAVAILABLE`) | |
 | A fallback font cannot load | The characters print as U+FFFD (`FALLBACK_FONT_UNAVAILABLE`) | |
+| A caller needs to know beforehand whether a character will print as U+FFFD | `HtmlPdfRenderService.drawsEveryCharacter(text)` answers by the same fonts and rule as the render (`FallbackFontRuns.drawsEvery`); nothing is rendered or logged | The CDS export's data summary uses it: the PDF is a record's carrier there, so it attaches the exact record inside the PDF instead of losing the text |
 | The font directory is foreign-owned or a symlink | A fresh private directory for this JVM | |
 | DejaVu Sans cannot load (a build defect) | | `PDFGenerationException`, at once |
 | `ConvertToEdoc` cannot save the temporary file | (a full disk does not heal on retry) | `null`, as before |

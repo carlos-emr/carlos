@@ -91,6 +91,44 @@ public class CdsExportDataSummaryOccurrenceService {
                 CdsExportDataSummaryPlanner.Group group,
                 CdsExportDataSummaryHtmlComposer.Patient patient)
                 throws IOException;
+
+        /**
+         * The PDF and, when its pages cannot show all of the record, the fixed notice (never a
+         * patient value) that says where the exact record travels; the notice is written in the
+         * Reports entry's Notes. A renderer that always shows everything needs only {@link
+         * #render}.
+         */
+        default Rendered document(
+                CdsExportDataSummaryPlanner.Group group,
+                CdsExportDataSummaryHtmlComposer.Patient patient)
+                throws IOException {
+            return new Rendered(render(group, patient), null);
+        }
+
+        /** A rendered record; {@code notice} is null when the pages show all of it. */
+        record Rendered(byte[] pdf, String notice) {
+            public Rendered {
+                Objects.requireNonNull(pdf);
+            }
+
+            // Records compare arrays by identity; a rendering is equal by its bytes.
+            @Override
+            public boolean equals(Object other) {
+                return other instanceof Rendered that
+                        && java.util.Arrays.equals(pdf, that.pdf)
+                        && Objects.equals(notice, that.notice);
+            }
+
+            @Override
+            public int hashCode() {
+                return Objects.hash(java.util.Arrays.hashCode(pdf), notice);
+            }
+
+            @Override
+            public String toString() {
+                return "CdsExportDataSummaryOccurrenceService.Renderer.Rendered[protected]";
+            }
+        }
     }
 
     static final String NOTES =
@@ -264,9 +302,30 @@ public class CdsExportDataSummaryOccurrenceService {
         this(
                 captures,
                 stores,
-                Objects.requireNonNull(pdfs)::render,
+                summaries(Objects.requireNonNull(pdfs)),
                 Map.of(),
                 printers.orderedStream().toList());
+    }
+
+    /** The data summary itself: a record its pages cannot show completely carries a notice. */
+    private static Renderer summaries(CdsExportDataSummaryPdfService pdfs) {
+        return new Renderer() {
+            @Override
+            public byte[] render(
+                    CdsExportDataSummaryPlanner.Group group,
+                    CdsExportDataSummaryHtmlComposer.Patient patient)
+                    throws IOException {
+                return pdfs.render(group, patient);
+            }
+
+            @Override
+            public Rendered document(
+                    CdsExportDataSummaryPlanner.Group group,
+                    CdsExportDataSummaryHtmlComposer.Patient patient)
+                    throws IOException {
+                return pdfs.document(group, patient);
+            }
+        };
     }
 
     CdsExportDataSummaryOccurrenceService(
@@ -742,9 +801,14 @@ public class CdsExportDataSummaryOccurrenceService {
                 var summary = notice == null ? group : group.withNotice(notice);
                 new CdsExportNativeFieldAssessmentValidator()
                         .requireRepresentable(rows, assessments, 1_000_000, control::checkpoint);
-                byte[] pdf =
-                        renderings.getOrDefault(group.kind(), summaries).render(summary, plan.patient());
+                var rendered =
+                        renderings
+                                .getOrDefault(group.kind(), summaries)
+                                .document(summary, plan.patient());
+                byte[] pdf = rendered.pdf();
                 CdsExportDataSummaryPdfService.requirePdf(pdf);
+                // The pages cannot show all of the record: Notes say where the exact one is.
+                if (rendered.notice() != null) notes = notes + " " + rendered.notice();
                 var staged = store.stage("REPORT_ATTACHMENT", outputBytes -> outputBytes.write(pdf));
                 attachments.add(staged);
                 java.util.Arrays.fill(pdf, (byte) 0);

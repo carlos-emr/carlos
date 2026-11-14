@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.documentManager.htmlpdf.dto.HtmlPdfRenderRequ
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.dto.HtmlPdfRenderResult;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.dto.HtmlPdfRenderSource;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.BundledFontSet;
+import io.github.carlos_emr.carlos.documentManager.htmlpdf.support.FallbackFontRuns;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import org.apache.logging.log4j.Level;
@@ -261,6 +262,19 @@ public class HtmlPdfRenderService {
             }
             PreparedPrintImages.deleteRecursively(privateBase);
         }
+    }
+
+    /**
+     * Whether a render would print every character of a text as itself, or would replace at least one
+     * with U+FFFD because no bundled face has a glyph for it. It asks the same fonts by the same rule
+     * as the render ({@link FallbackFontRuns#drawsEvery}); nothing is rendered, changed or logged.
+     *
+     * @param text the text, as it would stand in the document
+     * @return {@code false} when the render would print at least one U+FFFD in place of a character
+     * @throws PDFGenerationException if the bundled fonts cannot be loaded
+     */
+    public boolean drawsEveryCharacter(CharSequence text) throws PDFGenerationException {
+        return FallbackFontRuns.drawsEvery(text, fontFiles.fontSet());
     }
 
     // ---- one attempt ------------------------------------------------------------------------

@@ -863,9 +863,14 @@ not exported, like any other unselected category. Long form histories (years of
 Rourke visits, for example) export in full. No number or size of such records
 holds a chart: a single record too large for one PDF (more than 400,000 fields of
 one table, 1,000,000 fields, 64 MiB of text or 32 MiB of embedded images) is
-written as several Reports entries whose Notes say "Part n of m". Only a chart
-whose summary cannot be printed completely is held with a
-`CDS_EXPORT_DATA_SUMMARY_*` code.
+written as several Reports entries whose Notes say "Part n of m". A summary whose
+PDF cannot show everything never holds the chart either. When a value has a
+character the bundled fonts cannot draw (Hindi, Punjabi, Tamil and Thai text, a
+pasted control character), an image could not be drawn, or no PDF could be made at
+all, the entry's Notes and the page say so and the exact record is attached inside
+the PDF: open the PDF's attachments (or run `pdfdetach -saveall`) for
+`carlos-data-summary-record.json`, which holds every stored text value exactly,
+and for each image as its own file.
 
 eForms get more than a data summary. Every eForm the chart lists also travels as the
 form itself: a second Reports entry holding a PDF of the saved eForm as CARLOS displays

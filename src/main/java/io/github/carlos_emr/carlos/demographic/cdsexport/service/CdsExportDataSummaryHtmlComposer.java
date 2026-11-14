@@ -244,6 +244,75 @@ final class CdsExportDataSummaryHtmlComposer {
                     .append("</div>");
     }
 
+    /** An image the summary shows for a binary value: the bytes and their media type. */
+    record ShownImage(byte[] bytes, String type) {
+        // Records compare arrays by identity; an image is equal by its bytes.
+        @Override
+        public boolean equals(Object other) {
+            return other instanceof ShownImage that
+                    && java.util.Arrays.equals(bytes, that.bytes)
+                    && Objects.equals(type, that.type);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(java.util.Arrays.hashCode(bytes), type);
+        }
+
+        @Override
+        public String toString() {
+            return "CdsExportDataSummaryHtmlComposer.ShownImage[protected]";
+        }
+    }
+
+    /**
+     * The image {@link #compose} embeds for a binary value, by the same decisions, or null when it
+     * shows none: a stored PNG, JPEG or GIF (or the stored Base64 of one), a signature decrypted
+     * as the chart prints it, or a legacy signature stored unencrypted.
+     */
+    static ShownImage shownImage(
+            byte[] content, CdsExportDataSummaryRegistry.BinaryPresentation presentation) {
+        if (content == null || presentation == null) return null;
+        if (presentation == CdsExportDataSummaryRegistry.BinaryPresentation.IMAGE) {
+            String type = imageType(content);
+            if (type != null) return new ShownImage(content, type);
+            byte[] decoded = base64(content);
+            type = decoded == null ? null : imageType(decoded);
+            return type == null ? null : new ShownImage(decoded, type);
+        }
+        if (presentation != CdsExportDataSummaryRegistry.BinaryPresentation.ENCRYPTED_SIGNATURE)
+            return null;
+        var read =
+                io.github.carlos_emr.carlos.managers.DigitalSignatureManagerImpl.readStoredImage(
+                        content);
+        switch (read.form()) {
+            case DECRYPTED -> {
+                String type = imageType(read.image());
+                return type == null ? null : new ShownImage(read.image(), type);
+            }
+            case LEGACY_PLAINTEXT -> {
+                String type = decodable(content) ? imageType(content) : null;
+                return type == null ? null : new ShownImage(content, type);
+            }
+            default -> {
+                return null;
+            }
+        }
+    }
+
+    /**
+     * The text {@link #compose} prints for a binary value registered as Base64 text, or null when
+     * it prints none.
+     */
+    static String shownText(
+            byte[] content, CdsExportDataSummaryRegistry.BinaryPresentation presentation) {
+        if (content == null
+                || presentation != CdsExportDataSummaryRegistry.BinaryPresentation.BASE64_TEXT)
+            return null;
+        byte[] decoded = base64(content);
+        return decoded == null ? null : utf8(decoded);
+    }
+
     /** The note a stored signature that cannot be shown carries, as the printed letter's. */
     static final String SIGNATURE_UNDECRYPTABLE =
             "Stored encrypted. It could not be decrypted when it was exported, so the signature"

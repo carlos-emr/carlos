@@ -1581,6 +1581,48 @@ Required limits that no longer hold a patient (second pass):
 | A character XML 1.0 cannot carry (a control character, U+FFFE, U+FFFF, an unpaired surrogate) | the same mappers, `CdsExportInboxReviewMapper`, `CdsExportDemographicSupportingMapper`, every carrier written through `CdsExportScreeningMapper.tokenSafe` | the patient | in a JSON carrier it is its `\uXXXX` escape (`CdsExportResidualJson`); in an element it is U+FFFD, one for one (`CdsExportXmlText`), and the exact text travels in the record's carrier: a note's revision details (`exactNarrative`), the Notes context of stored HTML, the `note` of `CARLOS.Demographic.v1`, the message of `CARLOS.Laboratory.v1` |
 | 16,777,216 characters per carrier | `CdsExportDemographicSupportingMapper`, `CdsExportNativeHistoryMapper`, `CdsExportHistoryFieldReconciler`, `CdsExportNativeLaboratoryMapper`, `CdsExportInboxReviewMapper` | the patient | removed, with no number in its place (ours, not the schema's) |
 
+### A summary the PDF cannot show completely
+
+The data summary's PDF is the only carrier of a record that has no CDS element, and until this
+change `CdsExportDataSummaryPdfService` held the chart when the PDF was not complete
+(`CDS_EXPORT_DATA_SUMMARY_RENDER_INCOMPLETE`, `CDS_EXPORT_DATA_SUMMARY_RENDER_FAILED`). Both
+holds are gone. What happens, exactly:
+
+| What the page cannot show | When it happens | What is exported |
+| --- | --- | --- |
+| A character with no glyph in the bundled fonts | The HTML-to-PDF module draws DejaVu Sans, then the bundled CJK and symbol faces, then U+FFFD (`FallbackFontRuns`). Hindi, Punjabi, Tamil and Thai are among the scripts no bundled face draws (`docs/html-pdf-rendering.md`). The module reported this only when a fallback face failed to load, so with the fonts installed such text printed as U+FFFD with no hold and no notice: the stored text was lost from the export. | The page prints U+FFFD for each such character, carries the notice below, and the exact record is attached inside the PDF. |
+| A character the summary's HTML cannot carry, or that draws nothing | A control character other than tab and the line breaks, a lone surrogate or a non-character is written as a space by the HTML encoder; a format character (a zero-width joiner, a soft hyphen), a variation selector, a private-use or unassigned code point has no glyph of its own. Pasted text reaches all of these. | The same: notice and attached exact record. |
+| An image | The module found no render slot within its wait (two renders at a time for the whole server; it then prints raster images as boxes, `IMAGES_OMITTED_FOR_MEMORY`), could not decode the image (`IMAGE_UNAVAILABLE`), or printed text only because the document was over its size limit or its layout failed (`TEXT_ONLY`; that mode draws no image, and until this change lost a photo with no hold). | A record with an image is rendered up to six times while the module reports no free slot (`SLOT_ATTEMPTS`). If its image still did not print, the page shows the box, carries the notice, and the image itself is attached inside the PDF as its own file. |
+| Anything: no PDF could be made | Every rung of the module's ladder failed for this record, or its output is not a loadable PDF. | A one-page PDF holding only a notice, written with PDFBox and the bundled DejaVu Sans (not the module that failed), with the same attachments. An interrupted wait is the one exception: it is the job being cancelled. |
+
+**The attachments** are PDF embedded files, which every PDF reader lists as attachments and
+`pdfdetach` extracts:
+
+- `carlos-data-summary-record.json` (`CARLOS.DataSummary.Record.v1`): the record's table and
+  identifier, the part numbers, and every source row with each stored text value exactly (JSON
+  escapes for the characters a text file cannot hold, so the file is valid UTF-8 and decodes to
+  the stored text), SQL NULL and empty kept apart, and the size and SHA-256 of each binary value.
+  A value registered as Base64 text also has its decoded text. An e-mail access credential is
+  withheld there as on the page.
+- `carlos-data-summary-image-<n>.png|jpg|gif`: each image the summary shows (a stored photo, a
+  signature decrypted as the chart prints it, a legacy unencrypted signature), as its own bytes;
+  the record file names it beside the stored value's size and SHA-256.
+
+The notice is printed under the summary's statement and written in the Reports entry's Notes:
+"This PDF cannot show every character or image of this record exactly: ... The exact record is
+attached inside this PDF. ..." (`ATTACHED_NOTICE`), or "CARLOS EMR could not print this record as
+a PDF, so this PDF holds only this notice. ..." (`UNPRINTED_NOTICE`). The Reports entry, its
+identity, its one FilePath and its receipt are unchanged: the attachments travel inside the one
+member the inventory already predicts, so nothing about a render outcome has to be predicted.
+
+**On import.** A CARLOS import files the Reports entry as a document and stores the PDF's bytes
+unchanged, so the attachments stay inside the stored document and open from it. No importer reads
+a data summary back into tables (that was already so for every data summary), so the attached
+record is for the reader and for a later conversion, not a restore.
+
+A record without an image that the module printed in safe mode or as text only still shows every
+character and is accepted as it is. Tests: `CdsExportDataSummaryPdfServiceUnitTest`.
+
 ### Data summaries and last holds
 
 A third pass removed what the table above left:
@@ -1792,9 +1834,8 @@ says it could not be decrypted (`SIGNATURE_UNAVAILABLE`). The password and passw
 summary states that a value is held and withheld and never prints it or its length.
 `CdsExportDataSummaryPdfService` renders it through
 `HtmlPdfRenderService` (bundled fonts only) and checks the `%PDF-` header, that PDFBox loads it and
-that it has a page. A render that fails, prints replacement glyphs, or loses an embedded photo or
-signature holds the patient (`CDS_EXPORT_DATA_SUMMARY_RENDER_FAILED` /
-`CDS_EXPORT_DATA_SUMMARY_RENDER_INCOMPLETE`). `CdsExportDataSummaryOccurrenceService.Renderer` is
+that it has a page. A record its pages cannot show completely is never held: see
+"A summary the PDF cannot show completely" below. `CdsExportDataSummaryOccurrenceService.Renderer` is
 the per-kind seam for a rendering that replaces the data summary of one kind without changing
 capture or emission; the printed forms below are added beside the summary instead.
 
