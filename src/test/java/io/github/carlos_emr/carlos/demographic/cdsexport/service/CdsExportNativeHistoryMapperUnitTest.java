@@ -387,6 +387,34 @@ class CdsExportNativeHistoryMapperUnitTest {
     }
 
     @Test
+    void shouldLeaveOutANoteTypeNoTokenHolds_andKeepTheExactTypeInTheNoteDetails() throws Exception {
+        // The encounter screen and the REST API store the encounter type as sent. One longer than
+        // NoteType's 50 characters, or with a doubled space, held the chart
+        // (CDS_EXPORT_NATIVE_NOTE_TYPE_REQUIRES_REVIEW).
+        for (String typed :
+                List.of("Telephone follow-up with the patient's substitute decision maker", "Phone  call")) {
+            var written = note(91, "Seen today.", null, List.of());
+            var fields = new LinkedHashMap<>(written.note().value().fields());
+            fields.put("encounter_type", typed);
+            var current =
+                    new CdsExportHistoryFieldReconciler.Current(
+                            row(Plan.CASE_NOTES, 91, fields),
+                            written.extensions(),
+                            written.links(),
+                            written.patientIssues(),
+                            written.definitions());
+            var note = map(CdsCategory.CLINICAL_NOTES, List.of(current));
+            assertThat(note.value().text()).as(typed).doesNotContainKey("NoteType");
+            String content = note.value().text().get("MyClinicalNotesContent");
+            var details =
+                    new com.fasterxml.jackson.databind.ObjectMapper()
+                            .readTree(content.substring(content.indexOf("\n{") + 1));
+            assertThat(details.get("revisions").get(0).get("encounterType").asText()).isEqualTo(typed);
+            render(note.value());
+        }
+    }
+
+    @Test
     void shouldExportANoteHoldingACharacterXmlCannotCarry_andKeepItsExactText() throws Exception {
         // Before: one pasted control character in an encounter note or a CPP item held the chart
         // (CDS_EXPORT_NATIVE_HISTORY_UNMAPPED_FIELD).
