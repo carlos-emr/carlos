@@ -650,6 +650,109 @@ class CdsExportHistoryImportedEditUnitTest {
                 .contains("importedSource", "Imported narrative");
     }
 
+    /**
+     * The rows the CARLOS importer also writes for an item its sender filed under another CPP
+     * section ({@code CdsHistoryPersister.otherSections}): that section's patient issue and the
+     * note's link to it, named in the unit's receipt, and the section in the prepared item.
+     */
+    private void alsoFiledUnder(String tag, long issueId, long definitionId) {
+        prepared =
+                new CdsHistoryNativeDto(
+                        prepared.content(),
+                        prepared.issueCode(),
+                        prepared.observationMillis(),
+                        prepared.createdMillis(),
+                        prepared.providerNo(),
+                        prepared.observationDate(),
+                        prepared.observationField(),
+                        prepared.diagnostics(),
+                        prepared.archived(),
+                        List.of(tag));
+        var issues = new HashMap<>(imported.patientIssues());
+        var definitions = new HashMap<>(imported.definitions());
+        var links = new ArrayList<>(imported.links());
+        issues.put(Long.toString(issueId), keep(issue(issueId, definitionId)));
+        definitions.put(Long.toString(definitionId), definition(definitionId, tag, "system"));
+        links.add(keep(link(91, issueId)).value());
+        imported =
+                new CdsExportHistoryFieldReconciler.Current(
+                        imported.note(), imported.extensions(), links, issues, definitions);
+    }
+
+    /** Every captured row of one revision, as the occurrence service assesses them. */
+    private static List<CdsExportCapturedTextRowDto> rows(
+            CdsExportHistoryFieldReconciler.Current current) {
+        var rows = new ArrayList<CdsExportCapturedTextRowDto>();
+        rows.add(current.note().value());
+        current.extensions().forEach(row -> rows.add(row.value()));
+        rows.addAll(current.links());
+        current.patientIssues().values().forEach(row -> rows.add(row.value()));
+        current.definitions().values().forEach(row -> rows.add(row.value()));
+        return rows;
+    }
+
+    @Test
+    void shouldExportAnImportedItemFiledUnderTwoSectionsAgain_asTheRecordItWasImportedFrom()
+            throws Exception {
+        // CARLOS to CARLOS to CARLOS: an item the first chart filed under Family History and Past
+        // Health was imported under both. Exported again unchanged, it is still filed under the
+        // first (the rule depends on the tags alone), so it is the imported record, its retained
+        // source carrying the sender's sections. Its second link held it
+        // (CDS_EXPORT_HISTORY_ISSUE_ASSOCIATION_REQUIRES_REVIEW).
+        imported(CdsCategory.FAMILY_HISTORY, "FamHistory", true);
+        alsoFiledUnder("MedHistory", 42, 52);
+        source("ProblemDiagnosisProcedureDescription[1]", "Imported narrative");
+        source("StartDate[1]/FullDate[1]", "2020-01-01");
+        assertThat(CdsExportNativeHistoryMapper.category(imported))
+                .isEqualTo(CdsCategory.FAMILY_HISTORY);
+        var ids = new HashSet<String>();
+        retained.forEach(field -> ids.add(field.id()));
+        var result =
+                new CdsExportHistoryFieldReconciler()
+                        .choose(
+                                27,
+                                category,
+                                prepared,
+                                imported.note().witness().state(),
+                                imported,
+                                references,
+                                baseline,
+                                retained,
+                                List.of(),
+                                ids,
+                                HASH,
+                                RUN + ":" + HASH,
+                                () -> {});
+        assertThat(result.representable()).isTrue();
+        assertThat(result.changes()).isEmpty();
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(rows(imported), result.fields(), () -> {});
+    }
+
+    @Test
+    void shouldExportAnEditedImportedItemFiledUnderTwoSections_namingAndCarryingBoth()
+            throws Exception {
+        // The receiving clinician edits the item; its revision keeps both links. The native
+        // context carries both tags as sections, so a third CARLOS files it under both too.
+        imported(CdsCategory.FAMILY_HISTORY, "FamHistory", true);
+        alsoFiledUnder("MedHistory", 42, 52);
+        source("ProblemDiagnosisProcedureDescription[1]", "Imported narrative");
+        source("StartDate[1]/FullDate[1]", "2020-01-01");
+        String xml =
+                export(
+                        edited(
+                                92,
+                                Map.of("note", "Imported narrative, reviewed"),
+                                List.of(),
+                                Map.of()));
+        assertThat(xml)
+                .contains(
+                        "Imported narrative, reviewed",
+                        "Also filed under:\nPast Health",
+                        "\"sections\":[\"FamHistory\",\"MedHistory\"]")
+                .doesNotContain("<PastHealth");
+    }
+
     private void source(String path, String value) throws Exception {
         var type =
                 CdsWireSchema.schemaModel()

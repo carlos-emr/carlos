@@ -820,16 +820,19 @@ public final class CdsExportHistoryFieldReconciler {
     }
 
     /**
-     * The imported item's category tag (the only issue the CARLOS importer links) must be the
-     * unchanged imported one. In native context (B5), an issue a clinician assigned to or removed
-     * from the item since the import is accepted: the native revision context carries every
-     * revision's links, patient issues and catalogue rows exactly, and the native reconciler
-     * writes the current diagnosis codes. A removed or changed category tag is decided by the
-     * native mapper's category check; that includes the imported tag row itself pointed at
-     * another issue definition in the chart's issue list while the item carries its section's tag
-     * through another row (it was a hold).
+     * The imported item's section tags must be the unchanged imported ones. The CARLOS importer
+     * links an item to no other issue: to its own section's tag, and to each other CPP section a
+     * CARLOS sender filed it under ({@link CdsHistoryNativeDto#additionalIssueCodes}, from the
+     * sender's {@code sections}), one patient issue and one link each, which its receipt names. In
+     * native context (B5), an issue a clinician assigned to or removed from the item since the
+     * import is accepted: the native revision context carries every revision's links, patient
+     * issues and catalogue rows exactly, and the native reconciler writes the current diagnosis
+     * codes. A removed or changed category tag is decided by the native mapper's category check;
+     * that includes the imported tag row itself pointed at another issue definition in the
+     * chart's issue list while the item carries its section's tag through another row (it was a
+     * hold).
      *
-     * <p>A changed flag of the tag row (acute, certain, major, resolved: the chart's issue list
+     * <p>A changed flag of a tag row (acute, certain, major, resolved: the chart's issue list
      * edits them on any issue, CPP tags included) travels in the revision context too, so the
      * occurrence service gives such an item native context even when the item itself has no
      * CARLOS revision ({@link #issueContextChanged}).
@@ -844,28 +847,26 @@ public final class CdsExportHistoryFieldReconciler {
             Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> decisions,
             Runnable checkpoint)
             throws IOException {
+        var tags = new HashSet<String>(prepared.additionalIssueCodes());
+        if (prepared.issueCode() != null) tags.add(prepared.issueCode());
         var expected =
                 references.stream().filter(ref -> ref.table().equals("casemgmt_issue")).toList();
         var expectedLinks =
                 references.stream()
                         .filter(ref -> ref.table().equals("casemgmt_issue_notes"))
                         .toList();
-        if (prepared.issueCode() == null
-                ? !expected.isEmpty() || !expectedLinks.isEmpty()
-                : expected.size() != 1 || expectedLinks.size() != 1)
+        var expectedIds = new HashSet<String>();
+        for (var ref : expected) expectedIds.add(ref.id());
+        if (expected.size() != tags.size()
+                || expectedLinks.size() != tags.size()
+                || expectedIds.size() != expected.size())
             review("CDS_EXPORT_HISTORY_ISSUE_ASSOCIATION_REQUIRES_REVIEW");
         var importedLinks =
                 current.links().stream()
-                        .filter(
-                                link ->
-                                        !expected.isEmpty()
-                                                && expected.getFirst()
-                                                        .id()
-                                                        .equals(link.fields().get("id")))
+                        .filter(link -> expectedIds.contains(link.fields().get("id")))
                         .toList();
-        if (prepared.issueCode() == null
-                ? !current.links().isEmpty()
-                : importedLinks.size() != 1 || current.links().size() != 1) {
+        if (importedLinks.size() != expected.size()
+                || current.links().size() != expected.size()) {
             if (!nativeContext) review("CDS_EXPORT_HISTORY_ISSUE_ASSOCIATION_REQUIRES_REVIEW");
             for (var link : current.links())
                 if (!importedLinks.contains(link)) {
@@ -877,6 +878,15 @@ public final class CdsExportHistoryFieldReconciler {
                                 "CHANGED_ISSUE_ASSOCIATION_IN_NATIVE_CONTEXT");
                 }
         }
+        String importedNote =
+                references.stream()
+                        .filter(ref -> ref.table().equals("casemgmt_note"))
+                        .findFirst()
+                        .orElseThrow()
+                        .id();
+        // Each section tag once: two links whose catalogue entries carry one code are a changed
+        // association, as a code the import did not link is.
+        var linkedTags = new HashSet<String>();
         for (var link : importedLinks) {
             checkpoint.run();
             if (!link.table().equals("casemgmt_issue_notes")
@@ -884,17 +894,26 @@ public final class CdsExportHistoryFieldReconciler {
                     || !link.exactNumbers().isEmpty()
                     || !Objects.equals(
                             link.fields().get("note_id"),
-                            current.note().value().fields().get("note_id"))
-                    || !expected.getFirst().id().equals(link.fields().get("id"))) scope();
-            String importedNote =
-                    references.stream()
-                            .filter(ref -> ref.table().equals("casemgmt_note"))
+                            current.note().value().fields().get("note_id"))) scope();
+            var issueRef =
+                    expected.stream()
+                            .filter(ref -> ref.id().equals(link.fields().get("id")))
                             .findFirst()
-                            .orElseThrow()
-                            .id();
-            var linkRef = expectedLinks.getFirst();
-            var oldLink = baseline.get(key("casemgmt_issue_notes", linkRef.id()));
-            if (!linkRef.id().equals(importedNote + "_" + link.fields().get("id"))
+                            .orElseThrow();
+            var linkRef =
+                    expectedLinks.stream()
+                            .filter(
+                                    ref ->
+                                            ref.id()
+                                                    .equals(
+                                                            importedNote
+                                                                    + "_"
+                                                                    + link.fields().get("id")))
+                            .findFirst()
+                            .orElse(null);
+            var oldLink =
+                    linkRef == null ? null : baseline.get(key("casemgmt_issue_notes", linkRef.id()));
+            if (linkRef == null
                     || oldLink == null
                     || !oldLink.digest().equals(linkRef.digest())
                     || !Set.copyOf(
@@ -921,9 +940,9 @@ public final class CdsExportHistoryFieldReconciler {
             // edits its flags) with no baseline in an import made before units kept them.
             if (old == null) review("CDS_EXPORT_HISTORY_ISSUE_BASELINE_REQUIRED");
             var difference = compare(old, issue.witness().state());
-            boolean redefined =
-                    !Objects.equals(prepared.issueCode(), definition.value().fields().get("code"));
-            if (!old.digest().equals(expected.getFirst().digest())
+            String code = definition.value().fields().get("code");
+            boolean redefined = !tags.contains(code) || !linkedTags.add(code);
+            if (!old.digest().equals(issueRef.digest())
                     || difference.schemaChanged()
                     || !difference.unqualifiedColumns().isEmpty()
                     // In native context a changed flag or definition of the patient issue
