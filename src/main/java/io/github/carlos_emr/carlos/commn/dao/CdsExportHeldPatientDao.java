@@ -36,17 +36,24 @@ public class CdsExportHeldPatientDao extends AbstractDaoImpl<CdsExportHeldPatien
         super(CdsExportHeldPatient.class);
     }
 
-    /** Ordered by chart number; {@code limit} bounds the read for diagnostic reports. */
-    public List<CdsExportHeldRowDto> held(String runId, long epoch, int limit) {
+    /**
+     * One page of an attempt's held patients in chart-number order, after chart {@code after} (0
+     * for the first page); a chart is held at most once an attempt, so the number is the page's
+     * key. Callers read every page.
+     */
+    public List<CdsExportHeldRowDto> held(String runId, long epoch, int after, int page) {
+        if (page < 1) throw new IllegalArgumentException("CDS_EXPORT_HELD_PAGE_INVALID");
         return entityManager
                 .createQuery(
                         "select new io.github.carlos_emr.carlos.commn.dto.CdsExportHeldRowDto("
                                 + "h.demographicNo,h.safeCode) from CdsExportHeldPatient h where"
-                                + " h.runId=:run and h.epoch=:epoch order by h.demographicNo",
+                                + " h.runId=:run and h.epoch=:epoch and h.demographicNo>:after"
+                                + " order by h.demographicNo",
                         CdsExportHeldRowDto.class)
                 .setParameter("run", runId)
                 .setParameter("epoch", epoch)
-                .setMaxResults(limit)
+                .setParameter("after", after)
+                .setMaxResults(page)
                 .getResultList();
     }
 

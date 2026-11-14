@@ -27,8 +27,9 @@ import java.util.List;
  * Diagnostic report for an authorized observer of the job. No native row, clinical value,
  * clinical intent, stored member, key or grant is serialized. The only patient-correlating values
  * are the chart numbers of patients the current attempt held back, each with its safe reason
- * code, because the operator must know which charts to correct before exporting them; the list is
- * bounded and {@code heldPatientsTruncated} says when the encrypted ReadMe holds more.
+ * code, because the operator must know which charts to correct before exporting them. The report
+ * names every held chart and every event of the job (newest first), whatever their number: it is
+ * read page by page from the ledger, and nothing is cut.
  *
  * <p>{@code unlinkedSourceRows} counts, per reviewed inbox table, the rows the current attempt
  * found linked to no patient (an unmatched lab or HRM report, an incoming document not yet
@@ -42,8 +43,8 @@ import java.util.List;
 public record CdsExportDiagnosticDto(int apiVersion, String event, String runId, String state, long epoch,
         Long totalPatients, long processedPatients, long blockedPatients, boolean cancelRequested,
         boolean complete, boolean artifactAvailable, String safeCode, String createdAt, String updatedAt,
-        boolean eventsTruncated, List<Audit> recentEvents, boolean heldPatientsTruncated,
-        List<Held> heldPatients, List<Unlinked> unlinkedSourceRows, long legacyLabReports) {
+        List<Audit> recentEvents, List<Held> heldPatients, List<Unlinked> unlinkedSourceRows,
+        long legacyLabReports) {
     public CdsExportDiagnosticDto {
         recentEvents = List.copyOf(recentEvents);
         heldPatients = List.copyOf(heldPatients);
@@ -51,36 +52,14 @@ public record CdsExportDiagnosticDto(int apiVersion, String event, String runId,
         if (legacyLabReports < 0) throw new IllegalArgumentException("CDS_EXPORT_DIAGNOSTIC_INVALID");
     }
 
-    /** Report shape without legacy laboratory reports written in Reports. */
+    /** Report shape without held-back patients, unlinked inbox counts or legacy reports. */
     public CdsExportDiagnosticDto(int apiVersion, String event, String runId, String state, long epoch,
             Long totalPatients, long processedPatients, long blockedPatients, boolean cancelRequested,
             boolean complete, boolean artifactAvailable, String safeCode, String createdAt, String updatedAt,
-            boolean eventsTruncated, List<Audit> recentEvents, boolean heldPatientsTruncated,
-            List<Held> heldPatients, List<Unlinked> unlinkedSourceRows) {
+            List<Audit> recentEvents) {
         this(apiVersion, event, runId, state, epoch, totalPatients, processedPatients, blockedPatients,
-                cancelRequested, complete, artifactAvailable, safeCode, createdAt, updatedAt, eventsTruncated,
-                recentEvents, heldPatientsTruncated, heldPatients, unlinkedSourceRows, 0);
-    }
-
-    /** Report shape without unlinked inbox counts, for attempts that recorded none. */
-    public CdsExportDiagnosticDto(int apiVersion, String event, String runId, String state, long epoch,
-            Long totalPatients, long processedPatients, long blockedPatients, boolean cancelRequested,
-            boolean complete, boolean artifactAvailable, String safeCode, String createdAt, String updatedAt,
-            boolean eventsTruncated, List<Audit> recentEvents, boolean heldPatientsTruncated,
-            List<Held> heldPatients) {
-        this(apiVersion, event, runId, state, epoch, totalPatients, processedPatients, blockedPatients,
-                cancelRequested, complete, artifactAvailable, safeCode, createdAt, updatedAt, eventsTruncated,
-                recentEvents, heldPatientsTruncated, heldPatients, List.of());
-    }
-
-    /** Report shape without held-back patients, for jobs and attempts that held none. */
-    public CdsExportDiagnosticDto(int apiVersion, String event, String runId, String state, long epoch,
-            Long totalPatients, long processedPatients, long blockedPatients, boolean cancelRequested,
-            boolean complete, boolean artifactAvailable, String safeCode, String createdAt, String updatedAt,
-            boolean eventsTruncated, List<Audit> recentEvents) {
-        this(apiVersion, event, runId, state, epoch, totalPatients, processedPatients, blockedPatients,
-                cancelRequested, complete, artifactAvailable, safeCode, createdAt, updatedAt, eventsTruncated,
-                recentEvents, false, List.of());
+                cancelRequested, complete, artifactAvailable, safeCode, createdAt, updatedAt, recentEvents,
+                List.of(), List.of(), 0);
     }
 
     public record Audit(String type, long epoch, String safeCode, String at) { }

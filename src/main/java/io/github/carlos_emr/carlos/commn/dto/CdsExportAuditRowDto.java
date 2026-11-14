@@ -21,5 +21,9 @@
  */
 package io.github.carlos_emr.carlos.commn.dto;
 
-/** Bounded metadata-only owning audit projection. */
-public record CdsExportAuditRowDto(String type, long epoch, String safeCode, java.time.Instant at) { }
+/**
+ * Metadata-only owning audit projection. {@code id} only orders the rows for paging
+ * (newest first, then by id); it is never reported.
+ */
+public record CdsExportAuditRowDto(
+        String id, String type, long epoch, String safeCode, java.time.Instant at) { }

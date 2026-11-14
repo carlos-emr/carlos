@@ -89,8 +89,11 @@ public class CdsExportLedgerService {
     static final String KEEPING = "KEEPING";
     /** A kept attempt holding only its checkpoint and the members the checkpoint pins. */
     static final String KEPT = "KEPT";
-    /** The diagnostic report names at most this many held charts; the encrypted ReadMe names all. */
-    private static final int MAX_REPORTED_HELD = 4096;
+    /**
+     * How many held charts and events one statement of a report or a held-list check reads. Every
+     * page is read: the report names every held chart and every event, whatever their number.
+     */
+    private static final int HELD_PAGE = 4096, EVENT_PAGE = 1024;
     private static final JsonMapper JSON =
             JsonMapper.builder(
                             com.fasterxml.jackson.core.JsonFactory.builder()
@@ -235,8 +238,10 @@ public class CdsExportLedgerService {
     }
 
     /**
-     * One consistent, bounded metadata snapshot, available without a clinical engine, policy files
-     * or decryption keys.
+     * One consistent metadata snapshot, available without a clinical engine, policy files or
+     * decryption keys. It names every event of the job, newest first, and every chart the current
+     * attempt held back, in chart-number order, read page by page in one repeatable-read
+     * transaction; nothing is cut or marked truncated.
      */
     public io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDiagnosticDto diagnostic(
             String id) {
@@ -245,39 +250,52 @@ public class CdsExportLedgerService {
                 reportRead,
                 () -> {
                     var row = dto(required(runs.get(id)), runs.now());
-                    var recent = events.recent(id, 129);
+                    // One instance of each safe code, however many rows carry it.
+                    var codes = new java.util.HashMap<String, String>();
                     var audit =
                             new java.util.ArrayList<
                                     io.github.carlos_emr.carlos.demographic.cdsexport.dto
                                             .CdsExportDiagnosticDto.Audit>();
-                    for (var value : recent.stream().limit(128).toList()) {
-                        if (value.type() == null
-                                || !value.type().matches("[A-Z][A-Z0-9_]{0,63}")
-                                || value.epoch() < 0
-                                || value.at() == null)
-                            throw new IllegalStateException("CDS_EXPORT_DIAGNOSTIC_INVALID");
-                        if (value.safeCode() != null) safeCode(value.safeCode());
-                        audit.add(
-                                new io.github.carlos_emr.carlos.demographic.cdsexport.dto
-                                        .CdsExportDiagnosticDto.Audit(
-                                        value.type(),
-                                        value.epoch(),
-                                        value.safeCode(),
-                                        value.at().toString()));
+                    io.github.carlos_emr.carlos.commn.dto.CdsExportAuditRowDto last = null;
+                    for (List<io.github.carlos_emr.carlos.commn.dto.CdsExportAuditRowDto> page;
+                            !(page = events.page(id, last, EVENT_PAGE)).isEmpty();
+                            last = page.getLast()) {
+                        for (var value : page) {
+                            if (value.type() == null
+                                    || !value.type().matches("[A-Z][A-Z0-9_]{0,63}")
+                                    || value.epoch() < 0
+                                    || value.at() == null)
+                                throw new IllegalStateException("CDS_EXPORT_DIAGNOSTIC_INVALID");
+                            if (value.safeCode() != null) safeCode(value.safeCode());
+                            audit.add(
+                                    new io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                            .CdsExportDiagnosticDto.Audit(
+                                            codes.computeIfAbsent(value.type(), code -> code),
+                                            value.epoch(),
+                                            value.safeCode() == null
+                                                    ? null
+                                                    : codes.computeIfAbsent(
+                                                            value.safeCode(), code -> code),
+                                            value.at().toString()));
+                        }
+                        if (page.size() < EVENT_PAGE) break;
                     }
-                    var heldRows = heldPatients.held(id, row.epoch(), MAX_REPORTED_HELD + 1);
                     var held =
                             new java.util.ArrayList<
                                     io.github.carlos_emr.carlos.demographic.cdsexport.dto
                                             .CdsExportDiagnosticDto.Held>();
-                    for (var value : heldRows.stream().limit(MAX_REPORTED_HELD).toList()) {
-                        if (value.patient() <= 0) throw new IllegalStateException("CDS_EXPORT_DIAGNOSTIC_INVALID");
-                        safeCode(value.safeCode());
-                        held.add(
-                                new io.github.carlos_emr.carlos.demographic.cdsexport.dto
-                                        .CdsExportDiagnosticDto.Held(
-                                        value.patient(), value.safeCode()));
-                    }
+                    forEachHeld(
+                            id,
+                            row.epoch(),
+                            value -> {
+                                safeCode(value.safeCode());
+                                held.add(
+                                        new io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                                .CdsExportDiagnosticDto.Held(
+                                                value.patient(),
+                                                codes.computeIfAbsent(
+                                                        value.safeCode(), code -> code)));
+                            });
                     var unlinked =
                             new java.util.ArrayList<
                                     io.github.carlos_emr.carlos.demographic.cdsexport.dto
@@ -324,13 +342,33 @@ public class CdsExportLedgerService {
                             row.safeCode(),
                             row.createdAt().toString(),
                             row.updatedAt().toString(),
-                            recent.size() > 128,
                             audit,
-                            heldRows.size() > MAX_REPORTED_HELD,
                             held,
                             unlinked,
                             row.legacyLabReports());
                 });
+    }
+
+    /**
+     * Every chart an attempt held back, in chart-number order, page by page; each page continues
+     * after the last chart number of the one before.
+     */
+    private void forEachHeld(
+            String id,
+            long epoch,
+            java.util.function.Consumer<io.github.carlos_emr.carlos.commn.dto.CdsExportHeldRowDto>
+                    each) {
+        int after = 0;
+        for (List<io.github.carlos_emr.carlos.commn.dto.CdsExportHeldRowDto> page;
+                !(page = heldPatients.held(id, epoch, after, HELD_PAGE)).isEmpty(); ) {
+            for (var value : page) {
+                if (value.patient() <= after)
+                    throw new IllegalStateException("CDS_EXPORT_DIAGNOSTIC_INVALID");
+                each.accept(value);
+                after = value.patient();
+            }
+            if (page.size() < HELD_PAGE) return;
+        }
     }
 
     /**
@@ -899,8 +937,7 @@ public class CdsExportLedgerService {
         }
         if (existing != rows.size()) artifactInvalid();
         var recorded = new java.util.TreeMap<Integer, String>();
-        for (var row : heldPatients.held(run.getId(), epoch, rows.size() + 1))
-            recorded.put(row.patient(), row.safeCode());
+        forEachHeld(run.getId(), epoch, row -> recorded.put(row.patient(), row.safeCode()));
         if (!recorded.equals(rows)) artifactInvalid();
     }
 

@@ -1089,6 +1089,15 @@ The diagnostic report lists them as `unlinkedSourceRows`, the ReadMe as "Unlinke
 tables not exported" (checked again by the supporting-files validator), and the log line
 `CDS_EXPORT_UNLINKED_SOURCE_ROWS` names tables and counts. No migration was needed.
 
+**The diagnostic report names everything.** `CdsExportLedgerService.diagnostic` (the browser's
+report download and the command line's `--report`) lists every event of the job, newest first
+(`recentEvents`), and every chart the current attempt held back, in chart-number order
+(`heldPatients`), reading the ledger 1,024 events and 4,096 held charts a statement
+(`CdsExportEventDao.page`, `CdsExportHeldPatientDao.held`, each continuing after the last row of
+the page before) in one repeatable-read transaction. Until this change it named the 128 newest
+events and 4,096 held charts and set `eventsTruncated` and `heldPatientsTruncated`; both flags
+are gone with the caps. The held-list replay check of a retained package reads the same pages.
+
 Native HL7 reports carry their inbox acknowledgements. `providerLabRouting` is a mapped
 source: `Plan.LABORATORY_REVIEWERS` captures every route of the patient's HL7 labs, scoped as
 the presence scope scopes them (a `patientLabRouting` row of the same lab number and

@@ -1238,7 +1238,6 @@ class CdsExportLedgerIntegrationTest {
                 .containsExactly(f.lease().epoch() + ":28:CDS_EXPORT_UNMAPPED_DATA");
         assertThat(ledger.status(f.lease().runId()).blockedPatients()).isEqualTo(1);
         var report = ledger.diagnostic(f.lease().runId());
-        assertThat(report.heldPatientsTruncated()).isFalse();
         assertThat(report.heldPatients())
                 .containsExactly(
                         new io.github.carlos_emr.carlos.demographic.cdsexport.dto
@@ -1723,15 +1722,67 @@ class CdsExportLedgerIntegrationTest {
     }
 
     @Test
-    void shouldExplicitlyMarkTruncatedDiagnosticHistory_insteadOfSilentlyDroppingEvents() {
+    void shouldListEveryEvent_inTheDiagnosticReportNewestFirst() throws Exception {
+        // The report once named the 128 most recent events and marked the rest truncated.
         var job = ledger.accept(document("recipient"));
         for (int i = 0; i < 65; i++) {
             var lease = ledger.claim(job.id(), COMPATIBLE);
             ledger.release(lease);
         }
+        // More events than one page of the report's read, many sharing one time.
+        var at = java.sql.Timestamp.from(java.time.Instant.parse("2026-11-01T00:00:00Z"));
+        for (int i = 0; i < 1_500; i++)
+            sql.update(
+                    "insert into cds_export_event (id, run_id, epoch, event_type, operator,"
+                            + " safe_code, created_at) values (?, ?, 0, 'SYNTHETIC_EVENT', ?, null, ?)",
+                    UUID.randomUUID().toString(),
+                    job.id(),
+                    operator,
+                    at);
+        long recorded =
+                sql.queryForObject(
+                        "select count(*) from cds_export_event where run_id=?", Long.class, job.id());
+        assertThat(recorded).isGreaterThan(1_500 + 128);
         var report = ledger.diagnostic(job.id());
-        assertThat(report.eventsTruncated()).isTrue();
-        assertThat(report.recentEvents()).hasSize(128);
+        assertThat(report.recentEvents()).hasSize((int) recorded);
+        assertThat(report.recentEvents().getFirst().type()).isNotEqualTo("SYNTHETIC_EVENT");
+        assertThat(report.recentEvents().getLast().type()).isEqualTo("SYNTHETIC_EVENT");
+        assertThat(
+                        report.recentEvents().stream()
+                                .filter(event -> event.type().equals("SYNTHETIC_EVENT"))
+                                .count())
+                .isEqualTo(1_500);
+        assertThat(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(report))
+                .doesNotContain("Truncated");
+    }
+
+    @Test
+    void shouldNameEveryHeldChart_inTheDiagnosticReportWhenFiveThousandAreHeld() throws Exception {
+        // The report once named at most 4,096 held charts and marked the rest truncated.
+        var patients = java.util.stream.IntStream.rangeClosed(1, 5_001).boxed().toList();
+        var held =
+                patients.subList(1, 5_001).stream()
+                        .map(
+                                patient ->
+                                        new io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                                .CdsExportHeldPatientDto(
+                                                patient, "CDS_EXPORT_UNMAPPED_DATA"))
+                        .toList();
+        var f = artifactFixture(patients, held);
+        ledger.retainPrepared(f.lease(), f.prepared());
+        // A replay checks the recorded list page by page against the same 5,000 charts.
+        ledger.retainPrepared(f.lease(), f.prepared());
+        var report = ledger.diagnostic(f.lease().runId());
+        assertThat(report.heldPatients())
+                .hasSize(5_000)
+                .extracting(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDiagnosticDto
+                                        .Held
+                                ::patient)
+                .containsExactlyElementsOf(patients.subList(1, 5_001));
+        assertThat(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(report))
+                .contains("{\"patient\":5001,\"safeCode\":\"CDS_EXPORT_UNMAPPED_DATA\"}")
+                .doesNotContain("Truncated");
     }
 
     @Test
