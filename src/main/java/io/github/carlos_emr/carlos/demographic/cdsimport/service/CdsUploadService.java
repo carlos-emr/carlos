@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.commn.model.CdsUpload;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsUploadChunkDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsUploadDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsUploadException;
+import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import java.io.IOException;
 import java.io.InputStream;
@@ -150,6 +151,8 @@ public class CdsUploadService {
         return write(() -> uploads.page(operator, cursor, count).stream().map(this::dto).toList());
     }
 
+    // FindSecBugs UNSAFE_HASH_EQUALS: SHA-256 of the chunk bytes the uploader just sent, compared with the digest the same uploader declared for that chunk; a transfer checksum, not a secret.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "UNSAFE_HASH_EQUALS", justification = "SHA-256 of the chunk bytes the uploader just sent, compared with the digest the same uploader declared for that chunk; a transfer checksum, not a secret")
     public CdsUploadDto append(
             String operator,
             String id,
@@ -523,7 +526,8 @@ public class CdsUploadService {
                                             .contains(row.getState())
                                     || !runId.equals(row.getRunId())
                                     || (row.getSnapshotDigest() != null
-                                            && !snapshotDigest.equals(row.getSnapshotDigest()))) {
+                                            && !CdsImportKeys.sameDigest(
+                                                    snapshotDigest, row.getSnapshotDigest()))) {
                                 throw problem("UPLOAD_SNAPSHOT_PUBLICATION_CONFLICT", 409);
                             }
                             if (!"RETIRED".equals(row.getState())) {
@@ -555,7 +559,9 @@ public class CdsUploadService {
                     () -> {
                         CdsImportAdmission budget = admission.lock("UPLOAD_BUDGET");
                         CdsUpload row = uploads.lockActualRun(runId);
-                        if (row == null || !snapshotDigest.equals(row.getSnapshotDigest()))
+                        if (row == null
+                                || !CdsImportKeys.sameDigest(
+                                        snapshotDigest, row.getSnapshotDigest()))
                             throw problem("UPLOAD_SNAPSHOT_PUBLICATION_CONFLICT", 409);
                         if (!row.isQuotaReleased()) {
                             if (budget == null

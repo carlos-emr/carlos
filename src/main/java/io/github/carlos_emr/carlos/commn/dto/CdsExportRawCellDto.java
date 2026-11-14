@@ -26,6 +26,8 @@ public record CdsExportRawCellDto(boolean sqlNull, long bytes, String sha256, by
         io.github.carlos_emr.carlos.demographic.cds.contract.CdsExactNumeric exactNumeric) {
     public CdsExportRawCellDto(boolean sqlNull, long bytes, String sha256, byte[] inlineBytes) { this(sqlNull, bytes, sha256, inlineBytes, null); }
     public static final String EMPTY_SHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+    // FindSecBugs UNSAFE_HASH_EQUALS: Compares a cell's digest with the published SHA-256 of zero bytes to validate an empty or NULL cell; a public constant, not a secret.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "UNSAFE_HASH_EQUALS", justification = "compares a cell's digest with the published SHA-256 of zero bytes to validate an empty or NULL cell; a public constant, not a secret")
     public CdsExportRawCellDto {
         if (bytes < 0 || bytes > (1L << 40) || sha256 == null || !sha256.matches("[0-9a-f]{64}")
                 || inlineBytes != null && (inlineBytes.length != bytes || inlineBytes.length > 16_384)

@@ -369,6 +369,8 @@ public final class CdsExportDemographicProjectionEvidence {
      * Their single receipt proves patient association and must never select demographic
      * source values or weaken the rejection of a second actual demographic projection.
      */
+    // FindSecBugs UNSAFE_HASH_EQUALS: SHA-256 of the current demographic row, compared with the digest the receipt verification computed for the same row; not a secret.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "UNSAFE_HASH_EQUALS", justification = "SHA-256 of the current demographic row, compared with the digest the receipt verification computed for the same row; not a secret")
     static boolean association(
             int patient,
             String demographicAddress,

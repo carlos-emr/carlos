@@ -138,6 +138,8 @@ final class CdsExportImmunizationImportReceipts {
         }
     }
 
+    // FindSecBugs UNSAFE_HASH_EQUALS: SHA-256 of an import unit's receipt reference list, compared with the target digest the import ledger recorded for that list; not a secret.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "UNSAFE_HASH_EQUALS", justification = "SHA-256 of an import unit's receipt reference list, compared with the target digest the import ledger recorded for that list; not a secret")
     static Integer named(
             Set<Integer> candidates,
             String category,

@@ -156,6 +156,8 @@ public class CdsNativePreparationService {
     }
 
     /** A single at-most-1MiB row is decoded in the already-owned clinical unit. */
+    // FindSecBugs UNSAFE_HASH_EQUALS: SHA-256 digests of the unit's source, options, ruleset and prepared payload, compared with the values stored on the prepared row to detect a stale or altered preparation; not a secret.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "UNSAFE_HASH_EQUALS", justification = "SHA-256 digests of the unit's source, options, ruleset and prepared payload, compared with the values stored on the prepared row to detect a stale or altered preparation; not a secret")
     public <T> T load(
             String run,
             long epoch,

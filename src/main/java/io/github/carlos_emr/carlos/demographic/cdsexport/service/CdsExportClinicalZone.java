@@ -59,6 +59,8 @@ final class CdsExportClinicalZone {
         }
     }
 
+    // FindSecBugs UNSAFE_HASH_EQUALS: Unkeyed SHA-256 of the zone id and tzdb version, recomputed to detect a damaged job document; both inputs travel beside it in the same document, so it is not a secret.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "UNSAFE_HASH_EQUALS", justification = "unkeyed SHA-256 of the zone id and tzdb version, recomputed to detect a damaged job document; both inputs travel beside it in the same document, so it is not a secret")
     static ZoneId restore(String id, String version, String sha256) throws IOException {
         if (id == null
                 || version == null

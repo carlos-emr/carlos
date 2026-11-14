@@ -61,6 +61,19 @@ public final class CdsImportKeys {
         return value;
     }
 
+    /**
+     * Whether two hex content digests are the same text. For the lower-case hex digests compared
+     * in CDS import and export this is exactly {@code left.equals(right)}: a null {@code left}
+     * still fails fast and a null {@code right} is unequal. The comparison goes through
+     * {@link MessageDigest#isEqual} for call sites inside lambda bodies, where SpotBugs cannot
+     * apply a per-site suppression of UNSAFE_HASH_EQUALS. These are content digests of files,
+     * rows and manifests, not secrets; the constant-time comparison is incidental.
+     */
+    public static boolean sameDigest(String left, String right) {
+        byte[] expected = left.getBytes(StandardCharsets.UTF_8);
+        return right != null && MessageDigest.isEqual(expected, right.getBytes(StandardCharsets.UTF_8));
+    }
+
     public static String digestValue(String value, String name) {
         if (value == null || !value.matches("[a-f0-9]{64}")) throw new IllegalArgumentException("Invalid " + name);
         return value;

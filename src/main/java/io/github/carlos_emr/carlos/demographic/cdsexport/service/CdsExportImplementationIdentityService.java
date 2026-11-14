@@ -68,6 +68,8 @@ public class CdsExportImplementationIdentityService {
         }
     }
 
+    // FindSecBugs UNSAFE_HASH_EQUALS: The flagged comparison is a class-path resource name against the literal carlos-build.properties; no digest or secret is compared.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "UNSAFE_HASH_EQUALS", justification = "the flagged comparison is a class-path resource name against the literal carlos-build.properties; no digest or secret is compared")
     private String calculate(String runtime) {
         try {
             URL anchor = loader.getResource(ANCHOR);

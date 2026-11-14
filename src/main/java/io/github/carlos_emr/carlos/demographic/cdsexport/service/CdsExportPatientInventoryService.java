@@ -568,6 +568,8 @@ public class CdsExportPatientInventoryService {
      *
      * @param documentDigests current witness digest of every captured document row, by number
      */
+    // FindSecBugs UNSAFE_HASH_EQUALS: SHA-256 of a document row as it is now, compared with the digest the import receipt recorded, to find reports reviewed since import; not a secret.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "UNSAFE_HASH_EQUALS", justification = "SHA-256 of a document row as it is now, compared with the digest the import receipt recorded, to find reports reviewed since import; not a secret")
     private List<String> reviewedImportedReports(
             CdsExportLeaseDto lease,
             CdsExportCohortService.Patient patient,

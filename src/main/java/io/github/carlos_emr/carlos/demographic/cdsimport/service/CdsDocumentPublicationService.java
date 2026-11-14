@@ -75,6 +75,8 @@ public class CdsDocumentPublicationService {
     }
 
     /** No replacement, no global content deduplication, and no patient/source text in the native filename. */
+    // FindSecBugs UNSAFE_HASH_EQUALS: SHA-256 of the document bytes just written, compared with the digest planned for that document from the same import source; not a secret.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "UNSAFE_HASH_EQUALS", justification = "SHA-256 of the document bytes just written, compared with the digest planned for that document from the same import source; not a secret")
     public Publication publish(
             String run,
             long epoch,

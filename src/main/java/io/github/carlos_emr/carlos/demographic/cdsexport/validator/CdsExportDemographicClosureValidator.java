@@ -44,6 +44,8 @@ public final class CdsExportDemographicClosureValidator {
     }
 
     /** Requires all represented fields, no outstanding hand-offs and exact expected identities before returning a receipt. */
+    // FindSecBugs UNSAFE_HASH_EQUALS: SHA-256 identifying the sealed capture, compared with the source manifest digest the reconciled result names; an identity of the export's own artefact, not a secret.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "UNSAFE_HASH_EQUALS", justification = "SHA-256 identifying the sealed capture, compared with the source manifest digest the reconciled result names; an identity of the export's own artefact, not a secret")
     public Receipt validate(String captureDigest, List<CdsExportCapturedTextRowDto> expectedRows,
             Set<String> expectedSourceFields, CdsExportDemographicRetainedCoreReconciler.Result actual,
             long maximumFields, Runnable checkpoint) throws IOException {

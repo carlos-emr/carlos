@@ -102,6 +102,8 @@ final class CdsExportAppointmentProjectionEvidence {
     /**
      * Derivation is evidence only when its exact old physical digest matches the recorded receipt.
      */
+    // FindSecBugs UNSAFE_HASH_EQUALS: SHA-256 of an appointment row re-derived without its later location column, compared with the digest the import receipt recorded for that row; not a secret.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "UNSAFE_HASH_EQUALS", justification = "SHA-256 of an appointment row re-derived without its later location column, compared with the digest the import receipt recorded for that row; not a secret")
     static CdsNativeRowState legacyNullLocationBaseline(
             CdsNativeRowState current, String recordedDigest) {
         var compatible = withoutAddedNullLocation(current);

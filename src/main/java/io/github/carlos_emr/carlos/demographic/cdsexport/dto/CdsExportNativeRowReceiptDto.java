@@ -30,6 +30,8 @@ public record CdsExportNativeRowReceiptDto(String table, String id, String recor
     private static final java.util.regex.Pattern TABLE = java.util.regex.Pattern.compile("[A-Za-z0-9_]{1,64}");
     private static final java.util.regex.Pattern ID = java.util.regex.Pattern.compile("[A-Za-z0-9_-]{1,64}");
     private static final java.util.regex.Pattern SHA256 = java.util.regex.Pattern.compile("[0-9a-f]{64}");
+    // FindSecBugs UNSAFE_HASH_EQUALS: SHA-256 of a captured native row, compared with the digest of the row state the same capture carries; internal consistency of one record, not a secret.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "UNSAFE_HASH_EQUALS", justification = "SHA-256 of a captured native row, compared with the digest of the row state the same capture carries; internal consistency of one record, not a secret")
     public CdsExportNativeRowReceiptDto {
         if (table == null || !TABLE.matcher(table).matches() || id == null || !ID.matcher(id).matches()
                 || recordKey == null || recordKey.isEmpty() || recordKey.length() > 2048 || digest != null && !SHA256.matcher(digest).matches()) {

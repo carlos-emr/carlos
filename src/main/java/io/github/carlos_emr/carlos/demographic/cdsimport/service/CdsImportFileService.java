@@ -131,7 +131,7 @@ public class CdsImportFileService {
                     if (existing != null) {
                         existing = files.lock(existing.getId());
                         if (!"PUBLISHED".equals(existing.getState())
-                                || !existing.getDigest().equals(digest)
+                                || !CdsImportKeys.sameDigest(existing.getDigest(), digest)
                                 || existing.getByteLength() != byteLength)
                             throw new CdsImportException("DURABLE_FILE_CONFLICT");
                         // A verified prior-run immutable publication may be adopted. Its owner's

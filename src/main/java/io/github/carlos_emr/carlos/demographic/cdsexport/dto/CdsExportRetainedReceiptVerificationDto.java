@@ -67,6 +67,8 @@ public record CdsExportRetainedReceiptVerificationDto(
             this(expected, currentDigest, reason, fields, null);
         }
 
+        // FindSecBugs UNSAFE_HASH_EQUALS: SHA-256 of a native row as the import receipt recorded it, compared with the digest of the row as it is now, to tell an unchanged row from a changed one; not a secret.
+        @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "UNSAFE_HASH_EQUALS", justification = "SHA-256 of a native row as the import receipt recorded it, compared with the digest of the row as it is now, to tell an unchanged row from a changed one; not a secret")
         public CheckedReference {
             if (expected == null
                     || expected.digest() == null

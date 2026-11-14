@@ -90,6 +90,9 @@ public final class CdsNativeRowDigest {
             CdsImportKeys.add(digest, "carlos-native-row-v2");
         }
 
+        // FindSecBugs UNSAFE_HASH_EQUALS: Compares a NULL cell's digest with the published SHA-256 of zero bytes; a public constant, not a secret.
+        // FindSecBugs IMPROPER_UNICODE: Lower-cases a 64-character hexadecimal digest already checked by hex64 before it is hashed; not an identity or authorization decision.
+        @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = {"UNSAFE_HASH_EQUALS", "IMPROPER_UNICODE"}, justification = "UNSAFE_HASH_EQUALS: compares a NULL cell's digest with the published SHA-256 of zero bytes; a public constant, not a secret; IMPROPER_UNICODE: lower-cases a 64-character hexadecimal digest already checked by hex64 before it is hashed; not an identity or authorization decision")
         public void append(boolean sqlNull, long bytes, String sha256) {
             try {
                 if (closed

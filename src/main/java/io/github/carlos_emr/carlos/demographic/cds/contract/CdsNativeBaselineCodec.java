@@ -354,6 +354,8 @@ public final class CdsNativeBaselineCodec {
         }
     }
 
+    // FindSecBugs UNSAFE_HASH_EQUALS: SHA-256 of an import unit's receipt reference list and of native rows, compared with the digests recorded beside them in the same ledger; integrity of stored evidence, not a secret.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "UNSAFE_HASH_EQUALS", justification = "SHA-256 of an import unit's receipt reference list and of native rows, compared with the digests recorded beside them in the same ledger; integrity of stored evidence, not a secret")
     private static void verify(Document document, String references, String targetDigest)
             throws IOException {
         if (document == null

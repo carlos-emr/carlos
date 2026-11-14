@@ -47,6 +47,8 @@ public final class CdsExportCoverageValidator {
      * @param maximumOccurrences server-owned bound applied separately to both inputs
      * @param checkpoint caller's deadline, cancellation and physical-ownership probe
      */
+    // FindSecBugs UNSAFE_HASH_EQUALS: SHA-256 identifying the sealed capture, compared with the capture identity each disposition was written for; an identity of the export's own artefact, not a secret.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "UNSAFE_HASH_EQUALS", justification = "SHA-256 identifying the sealed capture, compared with the capture identity each disposition was written for; an identity of the export's own artefact, not a secret")
     public CdsExportCoverageDto validate(String captureDigest, Iterator<CdsExportIdentityDto> expected,
             Iterator<CdsExportDispositionDto> actual, long maximumOccurrences, Runnable checkpoint) {
         if (captureDigest == null || !captureDigest.matches("[0-9a-f]{64}")) {
