@@ -54,6 +54,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class CdsExportSelectionService {
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final int PAGE = 256;
+    /** Physicians named by one roster statement; the DAO accepts no more in one statement. */
+    private static final int GROUP = 100;
     private final DemographicDao demographics;
     private final CdsExportRunDao clock;
     private final TransactionTemplate read;
@@ -145,28 +147,85 @@ public class CdsExportSelectionService {
         }
     }
 
+    /**
+     * Every patient of the named physicians, in ascending patient number. The physicians are
+     * asked for in groups of {@link #GROUP} (the roster query takes at most that many), each
+     * group through its own keyset cursor, and the groups' pages are merged by patient number;
+     * a patient has one physician, so no patient is in two groups. A list of any length is
+     * therefore read with statements of a fixed size, and up to one group it is exactly the
+     * single cursor it always was.
+     */
     private void roster(
             List<String> physicians,
             OutputStream output,
             long[] count,
             Runnable checkpoint)
             throws IOException {
-        Integer after = null;
-        while (true) {
+        var cursors =
+                new java.util.PriorityQueue<RosterCursor>(
+                        java.util.Comparator.comparingInt(RosterCursor::head));
+        for (int offset = 0; offset < physicians.size(); offset += GROUP) {
+            var cursor =
+                    new RosterCursor(
+                            physicians.subList(
+                                    offset, Math.min(physicians.size(), offset + GROUP)));
+            if (cursor.fill(checkpoint)) cursors.add(cursor);
+        }
+        Integer previous = null;
+        while (!cursors.isEmpty()) {
             checkpoint.run();
-            List<CdsExportSelectionRowDto> page =
+            var cursor = cursors.poll();
+            var row = cursor.take();
+            if (previous != null && row.demographicNo() <= previous)
+                throw new IOException("CDS_EXPORT_SELECTION_SCOPE_REQUIRES_REVIEW");
+            append(row, output, count);
+            previous = row.demographicNo();
+            if (cursor.fill(checkpoint)) cursors.add(cursor);
+        }
+    }
+
+    /** One group of physicians read by keyset pages; holds at most one page. */
+    private final class RosterCursor {
+        private final List<String> physicians;
+        private final Set<String> members;
+        private final java.util.ArrayDeque<CdsExportSelectionRowDto> page =
+                new java.util.ArrayDeque<>();
+        private Integer after;
+        private boolean exhausted;
+
+        RosterCursor(List<String> physicians) {
+            this.physicians = physicians;
+            // A HashSet answers a row with no physician; an immutable set would throw.
+            members = new HashSet<>(physicians);
+        }
+
+        int head() {
+            return page.element().demographicNo();
+        }
+
+        CdsExportSelectionRowDto take() {
+            return page.remove();
+        }
+
+        /** Reads the next page when this one is used up; false when the group has no more. */
+        boolean fill(Runnable checkpoint) throws IOException {
+            if (!page.isEmpty()) return true;
+            if (exhausted) return false;
+            checkpoint.run();
+            List<CdsExportSelectionRowDto> rows =
                     demographics.findCdsExportRosterAfter(physicians, after, PAGE);
-            if (page.size() > PAGE) throw new IOException("CDS_EXPORT_SELECTION_PAGE_INVALID");
-            for (var row : page) {
+            if (rows.size() > PAGE) throw new IOException("CDS_EXPORT_SELECTION_PAGE_INVALID");
+            for (var row : rows) {
                 checkpoint.run();
                 if (row.demographicNo() < 1
                         || after != null && row.demographicNo() <= after
-                        || !physicians.contains(row.physicianNo()))
+                        || !members.contains(row.physicianNo()))
                     throw new IOException("CDS_EXPORT_SELECTION_SCOPE_REQUIRES_REVIEW");
-                append(row, output, count);
+                page.add(row);
                 after = row.demographicNo();
             }
-            if (page.size() < PAGE) return;
+            exhausted = rows.size() < PAGE;
+            return !page.isEmpty();
         }
     }
 

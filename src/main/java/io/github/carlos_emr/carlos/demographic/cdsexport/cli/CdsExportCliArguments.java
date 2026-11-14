@@ -127,7 +127,6 @@ public record CdsExportCliArguments(
             if (options.containsKey("--physicians")) {
                 physicians = Arrays.asList(options.get("--physicians").split(",", -1));
                 if (physicians.isEmpty()
-                        || physicians.size() > 100
                         || new HashSet<>(physicians).size() != physicians.size()
                         || physicians.stream()
                                 .anyMatch(value -> !value.matches("[A-Za-z0-9_-]{1,16}")))

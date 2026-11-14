@@ -26,7 +26,11 @@ import io.github.carlos_emr.carlos.demographic.cds.contract.CdsLogicalProfile;
 import java.util.List;
 import java.util.Set;
 
-/** Immutable disclosure intent; provider discovery and current authorization belong to the worker. */
+/**
+ * Immutable disclosure intent; provider discovery and current authorization belong to the worker.
+ * A selection names as many physicians or patients as the operator listed: no count refuses a
+ * request. Both lists are kept sorted, so membership is a binary search.
+ */
 public record CdsExportCommand(
         String submissionKey,
         String providerNo,
@@ -61,8 +65,6 @@ public record CdsExportCommand(
         patientNos = List.copyOf(patientNos);
         categories = Set.copyOf(categories);
         if (!categories.contains(CdsCategory.DEMOGRAPHICS)
-                || physicianNos.size() > 100
-                || patientNos.size() > 10_000
                 || Set.copyOf(physicianNos).size() != physicianNos.size()
                 || Set.copyOf(patientNos).size() != patientNos.size()
                 || physicianNos.stream().anyMatch(value -> !value.matches("[A-Za-z0-9_-]{1,16}"))

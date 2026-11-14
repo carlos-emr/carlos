@@ -1669,6 +1669,102 @@ class CdsExportLedgerIntegrationTest {
         return "unix:" + operator;
     }
 
+    @Test
+    void shouldAcceptClaimAndProveAnExplicitSelection_ofAnyLength() {
+        // 120,000 patients make a job document of about 800,000 characters; a document past
+        // 262,144 was once refused (CDS_EXPORT_REQUEST_TOO_LARGE) and the command past 10,000.
+        var patients = java.util.stream.IntStream.rangeClosed(1, 120_000).boxed().toList();
+        var document = document("recipient", "long-selection", patients);
+
+        var job = ledger.accept(document);
+
+        String stored =
+                sql.queryForObject(
+                        "select request_document from cds_export_run where id=?",
+                        String.class,
+                        job.id());
+        assertThat(stored.length()).isGreaterThan(262_144);
+        assertThat(stored.indexOf('\n')).isBetween(1, 262_144);
+        assertThat(ledger.document(job.id())).isEqualTo(document);
+        assertThat(ledger.document(job.id()).command().patientNos()).isEqualTo(patients);
+        assertThat(ledger.owner(job.id()).operatorKey()).isEqualTo(operatorKey());
+        // The same submission is the same job; one patient fewer is another intent.
+        assertThat(ledger.accept(document("recipient", "long-selection", patients)).id())
+                .isEqualTo(job.id());
+        var fewer = document("recipient", "long-selection", patients.subList(0, 119_999));
+        assertThatThrownBy(() -> ledger.accept(fewer))
+                .isInstanceOf(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                .CdsExportSubmissionConflictException.class);
+
+        var lease = ledger.claim(job.id(), COMPATIBLE);
+        assertThat(lease.document()).isEqualTo(document);
+        ledger.checkpoint(lease);
+        ledger.checkpoint(lease);
+        assertThat(ledger.status(job.id()).workerOwned()).isTrue();
+    }
+
+    @Test
+    void shouldBindALongRosterOfPhysicians_theSameWay() {
+        var physicians =
+                java.util.stream.IntStream.rangeClosed(1, 40_000)
+                        .mapToObj(number -> "PHY-" + number)
+                        .toList();
+        var command =
+                new CdsExportCommand(
+                        "long-roster",
+                        "999998",
+                        null,
+                        CdsLogicalProfile.ONTARIO_MD_5_2,
+                        CdsExportCommand.Selection.PHYSICIAN_ROSTER,
+                        physicians,
+                        List.of(),
+                        EnumSet.allOf(CdsCategory.class),
+                        "recipient",
+                        "retained-source");
+        var document =
+                new CdsExportJobDocumentDto(
+                        1,
+                        new CdsExportActorDto(operator, "999998", null, null),
+                        command,
+                        COMPATIBLE,
+                        "fixture-sender",
+                        "c".repeat(64),
+                        "d".repeat(64));
+
+        var job = ledger.accept(document);
+
+        assertThat(ledger.document(job.id())).isEqualTo(document);
+        assertThat(ledger.claim(job.id(), COMPATIBLE).document().command().physicianNos())
+                .hasSize(40_000)
+                .isSorted();
+    }
+
+    @Test
+    void shouldRefuseALongSelection_whenItsStoredListIsNotTheOneTheDocumentNames() {
+        var patients = java.util.stream.IntStream.rangeClosed(1, 120_000).boxed().toList();
+        var job = ledger.accept(document("recipient", "tampered-selection", patients));
+        String stored =
+                sql.queryForObject(
+                        "select request_document from cds_export_run where id=?",
+                        String.class,
+                        job.id());
+        // One patient replaced in the second line; the first line and its digest are untouched.
+        int cut = stored.indexOf('\n') + 1;
+        String changed =
+                stored.substring(0, cut)
+                        + stored.substring(cut).replace("[1,2,3,", "[1,2,130000,");
+        assertThat(changed).isNotEqualTo(stored);
+        sql.update("update cds_export_run set request_document=? where id=?", changed, job.id());
+
+        assertThatThrownBy(() -> ledger.document(job.id()))
+                .hasMessage("CDS_EXPORT_JOB_DOCUMENT_INVALID");
+        assertThatThrownBy(() -> ledger.claim(job.id(), COMPATIBLE))
+                .hasMessage("CDS_EXPORT_JOB_DOCUMENT_INVALID");
+        // Ownership metadata never depended on the selection.
+        assertThat(ledger.owner(job.id()).operatorKey()).isEqualTo(operatorKey());
+    }
+
     private CdsExportJobDocumentDto document(String recipient) {
         return document(recipient, "fixture");
     }

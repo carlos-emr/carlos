@@ -66,6 +66,12 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @Service
 public class CdsExportLedgerService {
+    /**
+     * The size of a job document's own line, of an artifact context and of the prefix the owner
+     * query reads. It does not bound a request: an explicit selection that would carry the job
+     * document past it is written on a second line of the same column (see {@link
+     * #encode(CdsExportJobDocumentDto)}), whatever its length.
+     */
     private static final int MAX_DOCUMENT = 262_144;
     private static final long LEASE_SECONDS = 120;
     /** The diagnostic report names at most this many held charts; the encrypted ReadMe names all. */
@@ -85,6 +91,10 @@ public class CdsExportLedgerService {
                     .enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS)
                     .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
                     .build();
+    private final java.util.concurrent.atomic.AtomicReferenceArray<LeaseDigest> leaseDigests =
+            new java.util.concurrent.atomic.AtomicReferenceArray<>(8);
+    private final java.util.concurrent.atomic.AtomicInteger nextLeaseDigest =
+            new java.util.concurrent.atomic.AtomicInteger();
     private final CdsExportRunDao runs;
     private final CdsExportEventDao events;
     private final CdsExportAttemptDao attempts;
@@ -135,7 +145,7 @@ public class CdsExportLedgerService {
      */
     public CdsExportJobDto accept(CdsExportJobDocumentDto document) {
         verifyDocument(document);
-        String encoded = encode(document), digest = digest(encoded);
+        String encoded = encode(document), digest = digest(fixed(encoded));
         try {
             return transaction(
                     write,
@@ -324,7 +334,9 @@ public class CdsExportLedgerService {
                     var run = runs.owner(id);
                     if (run == null) throw new IllegalStateException("CDS_EXPORT_RUN_NOT_FOUND");
                     Integer facility = null;
-                    String text = run.requestDocument();
+                    // The query reads a prefix; the document's own line lies wholly inside it and
+                    // is what the digest names, so a long selection is never read here.
+                    String text = run.requestDocument() == null ? null : fixed(run.requestDocument());
                     if (text != null
                             && text.length() <= MAX_DOCUMENT
                             && digest(text).equals(run.requestDigest())) {
@@ -1345,7 +1357,7 @@ public class CdsExportLedgerService {
                 || run.getOwnerEpoch() != lease.epoch()
                 || !liveOwner(run, now)
                 || !state(run).executing()
-                || !digest(encode(lease.document())).equals(run.getRequestDigest())) {
+                || !requestDigest(lease.document()).equals(run.getRequestDigest())) {
             throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
                     .CdsExportOwnerFencedException();
         }
@@ -1381,7 +1393,7 @@ public class CdsExportLedgerService {
                             || run.getOwnerEpoch() != lease.epoch()
                             || liveOwner(run, now)
                             || !state(run).executing()
-                            || !digest(encode(lease.document())).equals(run.getRequestDigest()))
+                            || !requestDigest(lease.document()).equals(run.getRequestDigest()))
                         return false;
                     finish(
                             run,
@@ -1461,14 +1473,18 @@ public class CdsExportLedgerService {
     }
 
     private static CdsExportJobDocumentDto document(CdsExportRun run) {
-        String text = run.getRequestDocument();
+        String stored = run.getRequestDocument();
+        String text = stored == null ? null : fixed(stored);
         if (text == null
                 || text.length() > MAX_DOCUMENT
                 || !digest(text).equals(run.getRequestDigest())) {
             throw new IllegalStateException("CDS_EXPORT_JOB_DOCUMENT_INVALID");
         }
         try {
-            CdsExportJobDocumentDto result = JSON.readValue(text, CdsExportJobDocumentDto.class);
+            CdsExportJobDocumentDto result =
+                    text.length() == stored.length()
+                            ? JSON.readValue(text, CdsExportJobDocumentDto.class)
+                            : selected(text, stored.substring(text.length() + 1));
             verifyDocument(result);
             if (!result.actor().operatorKey().equals(run.getOperator())
                     || !result.command().providerNo().equals(run.getProviderNo())
@@ -1499,16 +1515,112 @@ public class CdsExportLedgerService {
         token(document.senderNamespace(), 128);
     }
 
+    /**
+     * The stored form of a job document. A document of at most {@link #MAX_DOCUMENT} bytes is its
+     * JSON, byte for byte as before. A longer one, which only an explicit selection can make, is
+     * two lines: the same JSON with both selection lists empty and a {@code selection} member
+     * giving the count of each list and the SHA-256 of the second line; then the second line,
+     * {@code {"patientNos":[...],"physicianNos":[...]}} in the command's own sorted order. No
+     * length refuses a request. The request digest names the first line ({@link #fixed}), which
+     * names the selection by its digest, so a job stays bound to exactly its selection.
+     */
     private static String encode(CdsExportJobDocumentDto document) {
         try {
             String text = JSON.writeValueAsString(document);
-            if (text.getBytes(StandardCharsets.UTF_8).length > MAX_DOCUMENT)
-                throw new IllegalArgumentException("CDS_EXPORT_REQUEST_TOO_LARGE");
-            return text;
+            if (text.getBytes(StandardCharsets.UTF_8).length <= MAX_DOCUMENT) return text;
+            var command = document.command();
+            var selection = new StringBuilder("{\"patientNos\":[");
+            String separator = "";
+            for (Integer patient : command.patientNos()) {
+                selection.append(separator).append(patient.intValue());
+                separator = ",";
+            }
+            selection.append("],\"physicianNos\":[");
+            separator = "";
+            // A provider number is letters, digits, "_" and "-" (CdsExportCommand): no escape.
+            for (String physician : command.physicianNos()) {
+                selection.append(separator).append('"').append(physician).append('"');
+                separator = ",";
+            }
+            String second = selection.append("]}").toString();
+            // The same members the one-line form has, so a member added to the document later
+            // is carried here too; only the two lists move to the second line.
+            com.fasterxml.jackson.databind.node.ObjectNode head = JSON.valueToTree(document);
+            var intent = (com.fasterxml.jackson.databind.node.ObjectNode) head.get("command");
+            intent.putArray("patientNos");
+            intent.putArray("physicianNos");
+            head.putObject("selection")
+                    .put("patients", command.patientNos().size())
+                    .put("physicians", command.physicianNos().size())
+                    .put("sha256", digest(second));
+            String first = JSON.writeValueAsString(head);
+            // Everything left on the first line has a fixed greatest length; this cannot happen.
+            if (first.getBytes(StandardCharsets.UTF_8).length > MAX_DOCUMENT || first.indexOf('\n') >= 0)
+                throw new IllegalArgumentException("CDS_EXPORT_JOB_ENCODING_FAILED");
+            return first + "\n" + second;
         } catch (IOException failure) {
             throw new IllegalArgumentException("CDS_EXPORT_JOB_ENCODING_FAILED");
         }
     }
+
+    /** The document's own line: all of a one-line document, or the part before the selection. */
+    private static String fixed(String stored) {
+        int end = stored.indexOf('\n');
+        return end < 0 ? stored : stored.substring(0, end);
+    }
+
+    /**
+     * Reads a two-line document back. The second line must be exactly the selection the first
+     * line names (SHA-256 and both counts) before either list is used.
+     */
+    private static CdsExportJobDocumentDto selected(String first, String second)
+            throws IOException {
+        var head = JSON.readTree(first);
+        if (!(head instanceof com.fasterxml.jackson.databind.node.ObjectNode document)
+                || !(document.remove("selection")
+                        instanceof com.fasterxml.jackson.databind.node.ObjectNode named)
+                || !(document.get("command")
+                        instanceof com.fasterxml.jackson.databind.node.ObjectNode command)
+                || named.size() != 3
+                || !named.path("patients").isInt()
+                || !named.path("physicians").isInt()
+                || !named.path("sha256").isTextual()
+                || !digest(second).equals(named.get("sha256").textValue())
+                || !command.path("patientNos").isEmpty()
+                || !command.path("physicianNos").isEmpty())
+            throw new IllegalStateException("CDS_EXPORT_JOB_DOCUMENT_INVALID");
+        var lists = JSON.readTree(second);
+        if (lists == null
+                || lists.size() != 2
+                || !lists.path("patientNos").isArray()
+                || !lists.path("physicianNos").isArray()
+                || lists.get("patientNos").size() != named.get("patients").intValue()
+                || lists.get("physicianNos").size() != named.get("physicians").intValue())
+            throw new IllegalStateException("CDS_EXPORT_JOB_DOCUMENT_INVALID");
+        command.set("patientNos", lists.get("patientNos"));
+        command.set("physicianNos", lists.get("physicianNos"));
+        return JSON.treeToValue(document, CdsExportJobDocumentDto.class);
+    }
+
+    /**
+     * The request digest of a lease's document. A lease keeps one immutable document for its
+     * whole attempt and every checkpoint proves it again, so the digests of the documents last
+     * proven are remembered by identity: a long explicit selection is encoded once, not at every
+     * checkpoint.
+     */
+    private String requestDigest(CdsExportJobDocumentDto document) {
+        for (int index = 0; index < leaseDigests.length(); index++) {
+            var known = leaseDigests.get(index);
+            if (known != null && known.document() == document) return known.digest();
+        }
+        String digest = digest(fixed(encode(document)));
+        leaseDigests.set(
+                Math.floorMod(nextLeaseDigest.getAndIncrement(), leaseDigests.length()),
+                new LeaseDigest(document, digest));
+        return digest;
+    }
+
+    private record LeaseDigest(CdsExportJobDocumentDto document, String digest) {}
 
     private static String digest(String text) {
         try {

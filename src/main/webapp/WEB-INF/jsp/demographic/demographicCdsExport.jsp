@@ -66,9 +66,9 @@
                 <option value="SELECTED_PATIENTS"><fmt:message key="selectionPatients" bundle="${cdsx}"/></option>
             </select>
             <label for="physicianNos" class="form-label"><fmt:message key="physicians" bundle="${cdsx}"/></label>
-            <input id="physicianNos" name="physicianNos" class="form-control mb-2" maxlength="1699">
+            <input id="physicianNos" name="physicianNos" class="form-control mb-2">
             <label for="patientNos" class="form-label"><fmt:message key="patients" bundle="${cdsx}"/></label>
-            <textarea id="patientNos" name="patientNos" class="form-control mb-3" rows="2" maxlength="119999" disabled></textarea>
+            <textarea id="patientNos" name="patientNos" class="form-control mb-3" rows="2" disabled></textarea>
             <fieldset class="mb-3"><legend class="h6"><fmt:message key="categories" bundle="${cdsx}"/></legend>
                 <c:forEach items="${model.categories}" var="category">
                     <label for="exportCategory-${carlos:forHtmlAttribute(category.value)}" class="form-check"><input id="exportCategory-${carlos:forHtmlAttribute(category.value)}" type="checkbox" class="form-check-input export-category" checked

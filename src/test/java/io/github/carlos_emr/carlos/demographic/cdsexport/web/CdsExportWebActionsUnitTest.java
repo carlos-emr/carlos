@@ -751,4 +751,69 @@ class CdsExportWebActionsUnitTest {
                 Instant.parse("2026-11-01T00:00:00Z"),
                 false);
     }
+    @Test
+    void shouldParseEveryListedPatientAndPhysician_whenTheListsPassTheFormerLimits() {
+        // The form once refused more than 10,000 patients, 100 physicians or 120,000 characters.
+        var parser = new CdsExportWebCommandParser();
+        String patients =
+                java.util.stream.IntStream.rangeClosed(1, 40_000)
+                        .mapToObj(Integer::toString)
+                        .collect(java.util.stream.Collectors.joining(", "));
+        assertThat(patients.length()).isGreaterThan(120_000);
+        var selected =
+                parser.parse(
+                        "submission",
+                        "999998",
+                        "",
+                        "omd-5.2",
+                        "SELECTED_PATIENTS",
+                        "",
+                        patients,
+                        "Demographics",
+                        "recipient",
+                        "audit");
+        assertThat(selected.patientNos()).hasSize(40_000).isSorted().contains(1, 40_000);
+
+        String physicians =
+                java.util.stream.IntStream.rangeClosed(1, 400)
+                        .mapToObj(number -> "P" + number)
+                        .collect(java.util.stream.Collectors.joining(","));
+        var roster =
+                parser.parse(
+                        "submission",
+                        "999998",
+                        "",
+                        "omd-5.2",
+                        "PHYSICIAN_ROSTER",
+                        physicians,
+                        "",
+                        "Demographics",
+                        "recipient",
+                        "audit");
+        assertThat(roster.physicianNos()).hasSize(400).contains("P1", "P400");
+    }
+
+    @Test
+    void shouldStillRefuseARepeatedPatient_inAListOfAnyLength() {
+        String patients =
+                java.util.stream.IntStream.rangeClosed(1, 40_000)
+                                .mapToObj(Integer::toString)
+                                .collect(java.util.stream.Collectors.joining(","))
+                        + ",777";
+        assertThatThrownBy(
+                        () ->
+                                new CdsExportWebCommandParser()
+                                        .parse(
+                                                "submission",
+                                                "999998",
+                                                "",
+                                                "omd-5.2",
+                                                "SELECTED_PATIENTS",
+                                                "",
+                                                patients,
+                                                "Demographics",
+                                                "recipient",
+                                                "audit"))
+                .hasMessage("CDS_EXPORT_SELECTION_INVALID");
+    }
 }

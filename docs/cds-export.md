@@ -1367,12 +1367,49 @@ text. The job can be resumed.
 | 1 MiB for one line of a manifest this step writes | `CdsExportClinicalPackageService.line`, `CdsExportJsonLines` | Cannot be reached: the only line that grew with a chart is split at 8,192 notes. A longer line is a defect (`CDS_EXPORT_CLINICAL_PACKAGE_INVALID`). |
 | 65,536 characters in one ReadMe line | `CdsExportSupportingFilesValidator` | Cannot be reached by a line the composer wrote (each is one bounded field); a longer one fails validation as not this exporter's. |
 
+**Request size.** A request names as many physicians or patients as the operator listed. `CdsExportCommand` once
+refused more than 100 physicians or 10,000 patients, the form more than 120,000 characters, the
+patients file more than 262,144 bytes, and the ledger a job document of more than 262,144
+characters (`CDS_EXPORT_REQUEST_TOO_LARGE`). All five numbers are gone. Every check that is
+about correctness stays: no physician or patient named twice, valid identifiers, one selection
+mode, and the authorization of the request and of each patient exactly as before.
+
+| Where | What it does now |
+| --- | --- |
+| `CdsExportCommand` | Keeps both lists sorted and refuses a duplicate; no count. |
+| `CdsExportWebCommandParser`, the form | No count and no character limit of ours. The servlet container still bounds a form post (Tomcat `maxPostSize`, 2 MiB unless the deployment changed it, about 250,000 patient numbers); a longer list goes through the patients file. |
+| `CdsExportCliArguments` | `--physicians` takes any number the command line holds. |
+| `CdsExportSelectionFileService` | Reads the patients file as a stream, one number at a time, with the same strict rules (UTF-8, the two members once each, version 1, positive numbers, none twice) and the same proof that the file did not change while it was read. It keeps one `int` per patient. |
+| `CdsExportSelectionService` | A roster of more than 100 physicians is read as statements of 100 physicians each, every group through its own keyset cursor, merged by patient number; the staged selection is in ascending patient number as before. Explicit patients were already read 256 at a time. |
+| `CdsExportCohortService` | Checks a roster row's physician by binary search of the sorted list, not by scanning it for every patient. |
+| `CdsExportLedgerService` | See below. |
+
+**The job document.** `cds_export_run.request_document` is `LONGTEXT`; no table changed. A job
+document of at most 262,144 bytes is stored as before, byte for byte. A longer one, which only an
+explicit selection can make, is stored as two lines:
+
+1. the same JSON with `command.patientNos` and `command.physicianNos` empty and one more member,
+   `selection`: `{"patients": <count>, "physicians": <count>, "sha256": <SHA-256 of line 2>}`;
+2. `{"patientNos":[...],"physicianNos":[...]}` in the command's sorted order.
+
+`request_digest` is the SHA-256 of the first line (of the whole document when there is one
+line). The first line names the selection by its digest and counts, so the job is bound to
+exactly that selection: reading the document back checks the second line against both before
+either list is used and fails with `CDS_EXPORT_JOB_DOCUMENT_INVALID` otherwise; a resubmission
+with one patient more or fewer is another intent (`CdsExportSubmissionConflictException`). The
+ownership query (`CdsExportRunDao.owner`) still reads only the first 262,145 characters, which
+always hold the whole first line. A worker proves its lease's document at every checkpoint; the
+digest of a lease's document is remembered by identity, so a long selection is encoded once per
+attempt and not once per checkpoint.
+
+What a long explicit selection costs: the run row carries the list (about 7 characters a patient,
+so 3.5 MB for 500,000 patients), and every ledger transaction that loads the run row reads it.
+Checkpoints are at most one a second, and a job history page loads at most 100 runs. A roster
+chosen by physician stores only the physicians.
+
 **Still fixed, and why.**
 
-- A request names at most 100 physicians or 10,000 selected patients (`CdsExportCommand`). The
-  request is stored whole in the job document, a ledger column the status and every claim read
-  (`CdsExportLedgerService.MAX_DOCUMENT`, 262,144 characters). A roster selected by physician has
-  no bound; a longer explicit list needs the selection moved out of the job document.
+- Nothing about the size of a request (see "Request size" above).
 - An attempt's staged members live in one directory and each is fsynced; neither is a limit.
 - The cleanup of one attempt directory gives up after 15 minutes and is retried by the next
   sweep (`CdsExportRetentionService.retire`). It validates the whole directory before deleting
@@ -1572,12 +1609,6 @@ Still open after this pass, each of which can hold an ordinary chart:
   dictionary length before a mark, with the complete text in the category's ResidualInfo where
   the category has one and in a NewCategory record where it has none (Appointments,
   LaboratoryResults, ClinicalNotes, Reports, Demographics), predicted by the inventory.
-- **A request naming more than 100 physicians or 10,000 patients**
-  (`CdsExportCommand`, `CdsExportWebCommandParser`, `CdsExportCliArguments`), because the
-  request travels in the job document, which `CdsExportLedgerService` bounds at 262,144
-  characters. The column (`cds_export_run.request_document`) is `LONGTEXT`, so no table change is
-  needed to lift it.
-
 Limits that remain in these families, and why:
 
 - **Data summaries.** None: see

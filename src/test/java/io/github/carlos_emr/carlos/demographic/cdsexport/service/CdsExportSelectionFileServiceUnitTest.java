@@ -27,6 +27,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.util.List;
 import java.util.Properties;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -96,7 +97,7 @@ class CdsExportSelectionFileServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseSharedWritableRoots_andOversizedSelectionFiles() throws Exception {
+    void shouldRefuseSharedWritableRoots_andFilesThatAreNotASelection() throws Exception {
         var loader = loader();
         Path file = selected("{\"version\":1,\"patients\":[27]}");
         Files.setPosixFilePermissions(root, PosixFilePermissions.fromString("rwxrwx---"));
@@ -105,6 +106,36 @@ class CdsExportSelectionFileServiceUnitTest {
         Files.setPosixFilePermissions(root, PosixFilePermissions.fromString("rwx------"));
         Files.write(file, new byte[262145]);
         assertThatThrownBy(() -> loader.capture(file))
+                .hasMessage("CDS_EXPORT_SELECTION_FILE_INVALID");
+    }
+
+    @Test
+    void shouldCaptureEveryPatient_whenTheFilePassesTheFormerSizeAndCount() throws Exception {
+        // 300,000 patients in about 2 MB: the file was once refused past 262,144 bytes and the
+        // list past 10,000 patients.
+        var json = new StringBuilder("{\"patients\":[");
+        for (int patient = 300_000; patient >= 1; patient--)
+            json.append(patient).append(patient == 1 ? "" : ",");
+        json.append("],\"version\":1}");
+        Path file = selected(json.toString());
+        assertThat(Files.size(file)).isGreaterThan(262_144L);
+
+        List<Integer> captured = loader().capture(file);
+
+        assertThat(captured).hasSize(300_000).isSorted().doesNotHaveDuplicates();
+        assertThat(captured.get(0)).isEqualTo(1);
+        assertThat(captured.get(299_999)).isEqualTo(300_000);
+    }
+
+    @Test
+    void shouldRefuseANumberNamedTwice_anywhereInALongList() throws Exception {
+        var json = new StringBuilder("{\"version\":1,\"patients\":[");
+        for (int patient = 1; patient <= 20_000; patient++) json.append(patient).append(',');
+        json.append("12345]}");
+        assertThatThrownBy(
+                        () ->
+                                CdsExportSelectionFileService.parse(
+                                        json.toString().getBytes(StandardCharsets.UTF_8)))
                 .hasMessage("CDS_EXPORT_SELECTION_FILE_INVALID");
     }
 

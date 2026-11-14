@@ -236,6 +236,24 @@ class CdsExportCliArgumentsUnitTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
+    @Test
+    void shouldKeepEveryNamedPhysicianAndCapturedPatient_whenTheyPassTheFormerLimits() {
+        // 500 physicians were once refused past 100, and 20,000 captured patients past 10,000.
+        String[] argv = fresh();
+        var named = new java.util.ArrayList<String>();
+        for (int physician = 500; physician >= 1; physician--) named.add("P" + physician);
+        argv[7] = String.join(",", named);
+        var roster = CdsExportCliArguments.parse(argv).command(java.util.List.of(), "nonce");
+        assertThat(roster.physicianNos()).hasSize(500).isSorted().contains("P1", "P500");
+
+        argv[6] = "--patients-file";
+        argv[7] = "/etc/carlos-emr/cds-selections/transfer.json";
+        var patients = java.util.stream.IntStream.rangeClosed(1, 20_000).boxed().toList();
+        var selected = CdsExportCliArguments.parse(argv).command(patients, "nonce");
+        assertThat(selected.patientNos()).hasSize(20_000).isSorted();
+        assertThat(selected.physicianNos()).isEmpty();
+    }
+
     private static String[] fresh() {
         return new String[] {
             "--operation",

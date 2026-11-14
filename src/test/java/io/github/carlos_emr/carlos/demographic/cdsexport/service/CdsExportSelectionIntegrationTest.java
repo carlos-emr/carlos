@@ -316,6 +316,33 @@ class CdsExportSelectionIntegrationTest {
     }
 
     @Test
+    void shouldListEveryPatientInAscendingOrder_whenMoreThanOneStatementOfPhysiciansIsNamed()
+            throws Exception {
+        // 250 physicians are read as three statements of at most 100; 100 was once the most a
+        // request could name. Their patients interleave, and one physician has more than a page.
+        String stem = physician.substring(0, 3);
+        var physicians = new ArrayList<String>();
+        for (int index = 0; index < 250; index++)
+            physicians.add(stem + String.format("%03d", index));
+        var expected = new ArrayList<Integer>();
+        for (int index = 0; index < 600; index++) {
+            // The first 300 belong to one physician of the last statement.
+            insert(first + index, physicians.get(index < 300 ? 249 : (index * 7) % 249), "AC");
+            expected.add(first + index);
+        }
+        insert(first + 700, "OTHER", "AC");
+        var command =
+                command(CdsExportCommand.Selection.PHYSICIAN_ROSTER, physicians, List.of());
+
+        var result = selections.capture(command, store, () -> {});
+
+        assertThat(result.patients()).isEqualTo(600);
+        assertThat(rows(result))
+                .extracting(CdsExportSelectionRowDto::demographicNo)
+                .containsExactlyElementsOf(expected);
+    }
+
+    @Test
     void shouldPropagateCancellation_duringDiscoveryWithoutReturningAHandle() throws Exception {
         for (int i = 0; i < 12; i++) insert(first + i, physician, "AC");
         AtomicInteger probes = new AtomicInteger();

@@ -29,7 +29,11 @@ import java.util.List;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 
-/** Strict bounded form decoding; duplicate/empty/unknown selections are rejected without shrinking intent. */
+/**
+ * Strict form decoding; duplicate, empty and unknown selections are rejected without shrinking
+ * intent. A list of physicians or patients has no length of ours: the request reaches this
+ * parser whole or not at all (the servlet container bounds a form post).
+ */
 @Service
 public class CdsExportWebCommandParser {
     public CdsExportCommand parse(
@@ -44,11 +48,11 @@ public class CdsExportWebCommandParser {
             String recipient,
             String audit) {
         var selected = CdsExportCommand.Selection.valueOf(required(selection));
-        List<String> roster = tokens(physicians, 100);
-        List<String> ids = tokens(patients, 10_000);
+        List<String> roster = tokens(physicians);
+        List<String> ids = tokens(patients);
         List<Integer> patientsSelected =
                 ids.stream().map(CdsExportWebCommandParser::positive).toList();
-        var domainNames = tokens(categories, CdsCategory.values().length);
+        var domainNames = tokens(categories);
         Set<CdsCategory> domains =
                 domainNames.stream()
                         .map(CdsCategory::fromWireName)
@@ -66,13 +70,10 @@ public class CdsExportWebCommandParser {
                 audit);
     }
 
-    private static List<String> tokens(String text, int max) {
+    private static List<String> tokens(String text) {
         if (text == null || text.isEmpty()) return List.of();
-        if (text.length() > 120_000)
-            throw new IllegalArgumentException("CDS_EXPORT_SELECTION_INVALID");
         var list = Arrays.stream(text.split(",", -1)).map(String::strip).toList();
-        if (list.size() > max
-                || list.stream().anyMatch(String::isEmpty)
+        if (list.stream().anyMatch(String::isEmpty)
                 || Set.copyOf(list).size() != list.size()) {
             throw new IllegalArgumentException("CDS_EXPORT_SELECTION_INVALID");
         }

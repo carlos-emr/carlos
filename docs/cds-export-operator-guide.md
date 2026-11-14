@@ -554,6 +554,13 @@ sudo carlos-ctl cds-export --provider 123456 \
   --submission-key transfer-2026-11-08
 ```
 
+The file may list any number of patients and `--physicians` any number of
+physicians; no count or file size refuses a request. A patient named twice, a
+number that is not a positive integer, or anything beside the two members still
+refuses the file. The web form takes the same lists; a list too long for the
+web server's form limit (Tomcat `maxPostSize`, 2 MiB by default) goes through the
+patients file.
+
 Replace the example provider, protected path and registered identifiers with
 approved deployment values. To discover a physician roster, replace
 `--patients-file ...` with `--physicians 123456,234567`. Omit

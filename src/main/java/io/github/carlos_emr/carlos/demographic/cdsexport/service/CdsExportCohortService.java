@@ -421,7 +421,10 @@ public class CdsExportCohortService {
             if (command.selection() == CdsExportCommand.Selection.SELECTED_PATIENTS) {
                 if (count >= command.patientNos().size()
                         || command.patientNos().get((int) count) != patient) invalid();
-            } else if (provider == null || !command.physicianNos().contains(provider)) invalid();
+            } else if (provider == null
+                    // The command keeps its physicians sorted: no scan of the list per patient.
+                    || java.util.Collections.binarySearch(command.physicianNos(), provider) < 0)
+                invalid();
             count++;
             previous = patient;
             return new CdsExportSelectionRowDto(patient, provider);
