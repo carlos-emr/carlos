@@ -82,7 +82,7 @@ public class CdsImportCoordinatorDao {
                                 }
                             });
             String name = "cds.coordinator." + CdsImportKeys.hash(database).substring(0, 40);
-            long acquired = scalar(waits, connection, "SELECT GET_LOCK(?,0)", name);
+            long acquired = scalar(waits, connection, LockStatement.ACQUIRE, name);
             if (acquired == 1) return new Lease(connection, name, waits);
             if (acquired != 0) throw new SQLException("Invalid coordinator acquisition result");
         } catch (SQLException | RuntimeException | Error failure) {
@@ -98,13 +98,28 @@ public class CdsImportCoordinatorDao {
         return null;
     }
 
+    /** The two lock statements; each binds only the lock name, never text built at run time. */
+    private enum LockStatement {
+        ACQUIRE,
+        RELEASE
+    }
+
     private static long scalar(
-            CdsOwnedStatementWaits waits, Connection connection, String sql, String name)
+            CdsOwnedStatementWaits waits,
+            Connection connection,
+            LockStatement statement,
+            String name)
             throws SQLException {
         return waits.await(
                 connection,
                 seconds -> {
-                    try (PreparedStatement query = connection.prepareStatement(sql)) {
+                    // Each statement is a literal here, so the text sent is fixed at compile time.
+                    try (PreparedStatement query =
+                            connection.prepareStatement(
+                                    switch (statement) {
+                                        case ACQUIRE -> "SELECT GET_LOCK(?,0)";
+                                        case RELEASE -> "SELECT RELEASE_LOCK(?)";
+                                    })) {
                         query.setQueryTimeout(seconds);
                         query.setString(1, name);
                         try (ResultSet rows = query.executeQuery()) {
@@ -223,7 +238,7 @@ public class CdsImportCoordinatorDao {
             try (Connection retiring = connection;
                     PreparedStatement retiredPhysical = physical;
                     PreparedStatement retiredControl = control) {
-                if (scalar(waits, retiring, "SELECT RELEASE_LOCK(?)", name) != 1)
+                if (scalar(waits, retiring, LockStatement.RELEASE, name) != 1)
                     throw new SQLException("Coordinator release failed");
             }
         }
