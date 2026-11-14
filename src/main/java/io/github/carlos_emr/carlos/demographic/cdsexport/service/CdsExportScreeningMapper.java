@@ -53,6 +53,18 @@ public final class CdsExportScreeningMapper {
             PROCEDURE_DATE = "PastHealth/ProcedureDate;ResidualInfo";
     private static final String CARRIED = "EXACT_NATIVE_PREVENTION_SOURCE_CONTEXT";
     private static final int DESCRIPTION_LIMIT = 250, NOTES_LIMIT = 65_536;
+
+    /**
+     * Description of a screening whose type and status do not fit the 250 characters of
+     * ProblemsProcedure: they are the first lines of Notes, whole.
+     */
+    static final String LONG_TYPE = "Screening (type and status in Notes)";
+
+    /**
+     * Rule of a value that fits neither the description nor Notes: it is left out whole, never
+     * clipped, and travels exactly in {@code CARLOS.Prevention.Source.v1}.
+     */
+    static final String OVERLONG_IN_RESIDUAL = "OVERLONG_NATIVE_TEXT_EXACT_IN_RESIDUAL_ONLY";
     private static final JsonMapper JSON = JsonMapper.builder().build();
     /** Native refused codes; the UI saves 3 for "Completed externally". Others need review. */
     private static final Map<String, String> STATUS =
@@ -114,9 +126,7 @@ public final class CdsExportScreeningMapper {
                 || !Integer.toString(patient).equals(row.fields().get("demographic_no"))
                 || !row.recordKey().equals(CdsExportPatientTableSourceReader.key(id))
                 || extensions == null
-                || extensions.size() > 1024
                 || precision == null
-                || precision.size() > 256
                 || classifier == null) scope();
         classifier.sourceManifestSha256();
         var decisions =
@@ -149,7 +159,7 @@ public final class CdsExportScreeningMapper {
         if (classifier.classify(type, source.raw("snomedId")).kind()
                 != CdsExportPreventionClassifier.Kind.NON_IMMUNIZATION)
             source.review("prevention_type", DESCRIPTION, "CAPTURED_TYPE_IS_NOT_PROVEN_SCREENING");
-        else if (!CdsExportNativeFieldAssessments.legal(type, DESCRIPTION_LIMIT) || type.isBlank())
+        else if (!CdsExportNativeFieldAssessments.legal(type, Integer.MAX_VALUE) || type.isBlank())
             source.review("prevention_type", DESCRIPTION, "WIRE_TEXT_REQUIRES_REVIEW");
         else source.set("prevention_type", Outcome.MAPPED, DESCRIPTION, "EXACT_NATIVE_SCREENING_TYPE");
         String refused = source.raw("refused"),
@@ -236,6 +246,7 @@ public final class CdsExportScreeningMapper {
         full.addAll(details);
         String description = String.join("\n", full), notes = comment;
         String detailDestination = DESCRIPTION;
+        boolean typeCarried = false;
         if (description.codePointCount(0, description.length()) > DESCRIPTION_LIMIT) {
             // Never clip: an over-long result/reason moves whole to Notes, ahead of the comments.
             description = String.join("\n", lines);
@@ -243,22 +254,40 @@ public final class CdsExportScreeningMapper {
             if (comment != null) moved.add(comment);
             notes = String.join("\n", moved);
             detailDestination = NOTES;
-            if (description.codePointCount(0, description.length()) > DESCRIPTION_LIMIT)
-                source.review(
-                        "prevention_type",
-                        DESCRIPTION,
-                        "SCREENING_DESCRIPTION_CAPACITY_REQUIRES_REVIEW");
+            if (description.codePointCount(0, description.length()) > DESCRIPTION_LIMIT) {
+                // The type and status lines alone exceed the description (a prevention type
+                // longer than 250 characters): the entry is named by the fixed label and the
+                // complete type and status are the first lines of Notes.
+                moved.addAll(0, lines);
+                notes = String.join("\n", moved);
+                description = LONG_TYPE;
+                typeCarried = true;
+            }
         }
         for (var fields : detailFields)
             fields.set("val", Outcome.MAPPED, detailDestination, "EXACT_NATIVE_SCREENING_DETAIL");
         if (comment != null)
             comments.set("val", Outcome.MAPPED, NOTES, "EXACT_NATIVE_SCREENING_COMMENTS");
         if (notes != null && notes.codePointCount(0, notes.length()) > NOTES_LIMIT) {
+            // Beyond Notes too: nothing is clipped. Notes is left out and every part is exact in
+            // CARLOS.Prevention.Source.v1 (the complete parent and extension rows).
+            notes = null;
             for (var fields : detailFields)
-                fields.review("val", NOTES, "SCREENING_NOTES_CAPACITY_REQUIRES_REVIEW");
-            if (comment != null)
-                comments.review("val", NOTES, "SCREENING_NOTES_CAPACITY_REQUIRES_REVIEW");
+                fields.set("val", Outcome.MAPPED, RESIDUAL, OVERLONG_IN_RESIDUAL);
+            if (comment != null) comments.set("val", Outcome.MAPPED, RESIDUAL, OVERLONG_IN_RESIDUAL);
+            if (!detailDestination.equals(NOTES)) {
+                // The details still fit the description; only the comments were too long.
+                for (var fields : detailFields)
+                    fields.set(
+                            "val", Outcome.MAPPED, DESCRIPTION, "EXACT_NATIVE_SCREENING_DETAIL");
+            }
         }
+        if (typeCarried)
+            source.set(
+                    "prevention_type",
+                    Outcome.MAPPED,
+                    (notes == null ? "" : NOTES + ";") + RESIDUAL,
+                    OVERLONG_IN_RESIDUAL);
         boolean blocked =
                 decisions.values().stream()
                         .anyMatch(field -> field.outcome() == Outcome.REQUIRES_REVIEW);

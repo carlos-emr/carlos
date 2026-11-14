@@ -450,8 +450,7 @@ public final class CdsExportMedicationMapper {
         long id = integer(row.fields().get("drugid"));
         if (patient < 1
                 || !Integer.toString(patient).equals(row.fields().get("demographic_no"))
-                || !CdsExportPatientTableSourceReader.key(id).equals(row.recordKey())
-                || precision.size() > 256) scope();
+                || !CdsExportPatientTableSourceReader.key(id).equals(row.recordKey())) scope();
         return id;
     }
 

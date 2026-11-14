@@ -610,21 +610,30 @@ class CdsExportImmunizationMapperUnitTest {
     }
 
     @Test
-    void shouldStillHoldMovedTextThatNotesCannotHold_withTheNotesCapacityRule() throws Exception {
+    void shouldLeaveOutWholeWhatNotesCannotHold_andCarryItInTheResidual() throws Exception {
+        // The moved name and the comments together exceed Notes' 32,000 characters: nothing is
+        // clipped and nobody is held. The comments, last in Notes, are left out whole and stay
+        // exact in CARLOS.Prevention.Source.v1; the moved name still leads Notes.
         extra(30, "name", "N".repeat(121));
         extra(31, "comments", "C".repeat(31_900));
         var result = map();
-        assertThat(result.value()).isNull();
-        assertThat(
-                        result.fields().values().stream()
-                                .filter(
-                                        field ->
-                                                field.outcome()
-                                                        == CdsExportFieldAssessmentDto.Outcome
-                                                                .REQUIRES_REVIEW)
-                                .map(CdsExportFieldAssessmentDto::rule)
-                                .distinct())
-                .containsExactly("IMMUNIZATION_NOTES_CAPACITY_REQUIRES_REVIEW");
+        assertThat(result.value()).isNotNull();
+        assertThat(result.value().notes()).endsWith("Name: " + "N".repeat(121));
+        assertThat(result.value().notes()).doesNotContain("CCCC");
+        assertThat(result.fields().values())
+                .noneMatch(
+                        field ->
+                                field.outcome()
+                                        == CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW);
+        assertThat(result.fields().values().stream().map(CdsExportFieldAssessmentDto::rule))
+                .contains(CdsExportImmunizationMapper.OVERLONG_IN_RESIDUAL);
+        // Comments longer than Notes on their own are carried the same way.
+        extras.clear();
+        extra(31, "comments", "C".repeat(32_001));
+        var alone = map();
+        assertThat(alone.value()).isNotNull();
+        assertThat(alone.fields().values().stream().map(CdsExportFieldAssessmentDto::rule))
+                .contains(CdsExportImmunizationMapper.OVERLONG_IN_RESIDUAL);
     }
 
     @Test
@@ -828,8 +837,14 @@ class CdsExportImmunizationMapperUnitTest {
         assertThat(map().value().notes().codePointCount(0, map().value().notes().length()))
                 .isEqualTo(32000);
         extras.clear();
+        // One code point more than Notes holds: left out whole (never truncated, never held)
+        // and exact in the residual.
         extra(30, "comments", "😀".repeat(32001));
-        assertThat(map().value()).isNull();
+        var over = map();
+        assertThat(over.value()).isNotNull();
+        assertThat(over.value().notes()).isNull();
+        assertThat(over.fields().values().stream().map(CdsExportFieldAssessmentDto::rule))
+                .contains(CdsExportImmunizationMapper.OVERLONG_IN_RESIDUAL);
     }
 
     @Test

@@ -409,23 +409,53 @@ public final class CdsExportImmunizationMapper {
                 fitted(byKey, List.of("instructions"), "Instructions", 250, "Instructions",
                         moved, movedFields);
         var commentsFields = byKey.getOrDefault("comments", List.of());
-        String notes = oneOf(byKey, List.of("comments"), "Notes", 32000);
+        String notes;
+        if (commentsFields.size() == 1
+                && commentsFields.getFirst().raw("val") != null
+                && !CdsExportNativeFieldAssessments.legal(
+                        commentsFields.getFirst().raw("val"), 32000)
+                && CdsExportNativeFieldAssessments.legal(
+                        commentsFields.getFirst().raw("val"), Integer.MAX_VALUE)) {
+            // Comments longer than Notes itself: never clipped, and exact in the residual.
+            commentsFields
+                    .getFirst()
+                    .set("val", Outcome.MAPPED, RESIDUAL, OVERLONG_IN_RESIDUAL);
+            notes = null;
+        } else notes = oneOf(byKey, List.of("comments"), "Notes", 32000);
         if (statusNote != null || !moved.isEmpty()) {
-            // The status label opens Notes, then the over-long values, then the comments.
+            // The status label opens Notes, then the over-long values, then the comments. Notes
+            // holds 32,000 characters. When everything does not fit, whole parts are left out,
+            // last first (the comments, then the moved values), never clipped: each left-out
+            // value is exact in CARLOS.Prevention.Source.v1, and the status line, which no other
+            // element says in words, stays.
             var lines = new ArrayList<String>();
             if (statusNote != null) lines.add(statusNote);
             lines.addAll(moved);
             if (notes != null) lines.add(notes);
-            notes = String.join("\n", lines);
-            if (!CdsExportNativeFieldAssessments.legal(notes, 32000)) {
+            String all = String.join("\n", lines);
+            if (CdsExportNativeFieldAssessments.legal(all, 32000)) notes = all;
+            else if (!CdsExportNativeFieldAssessments.legal(all, Integer.MAX_VALUE)) {
+                // Text no XML document can hold.
                 if (statusNote != null)
-                    source.review(
-                            "refused", "Notes", "IMMUNIZATION_NOTES_CAPACITY_REQUIRES_REVIEW");
+                    source.review("refused", "Notes", "WIRE_TEXT_REQUIRES_REVIEW");
                 for (var fields : commentsFields)
-                    fields.review("val", "Notes", "IMMUNIZATION_NOTES_CAPACITY_REQUIRES_REVIEW");
+                    fields.review("val", "Notes", "WIRE_TEXT_REQUIRES_REVIEW");
                 for (var fields : movedFields)
-                    fields.review("val", "Notes", "IMMUNIZATION_NOTES_CAPACITY_REQUIRES_REVIEW");
+                    fields.review("val", "Notes", "WIRE_TEXT_REQUIRES_REVIEW");
                 notes = null;
+            } else {
+                var kept = new ArrayList<String>();
+                if (statusNote != null) kept.add(statusNote);
+                kept.addAll(moved);
+                if (notes != null)
+                    for (var fields : commentsFields)
+                        fields.set("val", Outcome.MAPPED, RESIDUAL, OVERLONG_IN_RESIDUAL);
+                if (!CdsExportNativeFieldAssessments.legal(String.join("\n", kept), 32000)) {
+                    kept.removeAll(moved);
+                    for (var fields : movedFields)
+                        fields.set("val", Outcome.MAPPED, RESIDUAL, OVERLONG_IN_RESIDUAL);
+                }
+                notes = kept.isEmpty() ? null : String.join("\n", kept);
             }
         }
         var context = new LinkedHashMap<String, Object>();
@@ -534,9 +564,7 @@ public final class CdsExportImmunizationMapper {
                 || !Integer.toString(patient).equals(row.fields().get("demographic_no"))
                 || !row.recordKey().equals(CdsExportPatientTableSourceReader.key(id))
                 || extensions == null
-                || extensions.size() > 1024
                 || precision == null
-                || precision.size() > 256
                 || classifier == null) scope();
         classifier.sourceManifestSha256();
         return id;
@@ -571,6 +599,12 @@ public final class CdsExportImmunizationMapper {
      * comments) and stays exact in the prevention residual. Never clipped, never held.
      */
     static final String OVERLONG_MOVED_TO_NOTES = "OVERLONG_NATIVE_TEXT_MOVED_WHOLE_TO_NOTES";
+
+    /**
+     * Rule of a value that fits neither its element nor Notes (32,000 characters): it is left
+     * out whole, never clipped, and travels exactly in {@code CARLOS.Prevention.Source.v1}.
+     */
+    static final String OVERLONG_IN_RESIDUAL = "OVERLONG_NATIVE_TEXT_EXACT_IN_RESIDUAL_ONLY";
 
     /**
      * {@link #oneOf}, except that a single legal value longer than {@code maximum} code points

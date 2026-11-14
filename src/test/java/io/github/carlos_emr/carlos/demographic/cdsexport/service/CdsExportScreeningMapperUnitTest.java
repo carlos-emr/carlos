@@ -455,7 +455,7 @@ class CdsExportScreeningMapperUnitTest {
     }
 
     @Test
-    void shouldHoldATypeAndStatusTooLongForTheDescription_forReview() throws Exception {
+    void shouldMoveATypeAndStatusTooLongForTheDescription_wholeToNotes() throws Exception {
         String name = "S".repeat(240);
         var definitions =
                 CdsExportPreventionClassifier.fromCaptured(
@@ -465,9 +465,10 @@ class CdsExportScreeningMapperUnitTest {
                         List.of());
         var row = parent(31, Map.of("prevention_type", name, "refused", "3"));
         var result = mapper.map(27, row, List.of(), List.of(), definitions);
-        assertThat(result.representable()).isFalse();
+        // Neither clipped nor held: a fixed label names the entry and Notes opens with the type.
+        assertThat(result.representable()).isTrue();
         assertThat(field(result, row, "prevention_type").rule())
-                .isEqualTo("SCREENING_DESCRIPTION_CAPACITY_REQUIRES_REVIEW");
+                .isEqualTo(CdsExportScreeningMapper.OVERLONG_IN_RESIDUAL);
     }
 
     @Test
