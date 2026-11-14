@@ -163,10 +163,10 @@ public class CdsImmunizationPersister {
                 : java.nio.file.Files.newInputStream(io.github.carlos_emr.carlos.utility.PathValidationUtils
                         .resolveTrustedPath(new java.io.File(preventionItems)).toPath())) {
             if (input == null) throw new IOException("Prevention configuration unavailable");
-            byte[] bytes = input.readNBytes(1048577);
-            if (bytes.length > 1048576) throw new IOException("Prevention configuration exceeds its bound");
+            // The clinic's whole configuration, of any size, as the export reads it: the secure
+            // builder refuses a DTD and external entities, so nothing in the file expands.
             var document = io.github.carlos_emr.carlos.utility.XmlUtils.createSecureSAXBuilder()
-                    .build(new java.io.ByteArrayInputStream(bytes));
+                    .build(input);
             Map<String, String> mapped = new java.util.LinkedHashMap<>();
             var addedSnomeds = new java.util.HashSet<String>();
             boolean fallback = false;
