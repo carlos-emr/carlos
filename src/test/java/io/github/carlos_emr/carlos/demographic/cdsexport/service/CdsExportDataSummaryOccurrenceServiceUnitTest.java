@@ -166,63 +166,6 @@ class CdsExportDataSummaryOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldHoldTheChart_whenItsDataSummariesWouldExhaustThePatientAuditBudget() throws Exception {
-        var values = new LinkedHashMap<String, Value>();
-        for (int i = 0; i < 400; i++) values.put("c" + i, Value.text("1"));
-        var rows = new ArrayList<Row>();
-        for (int i = 1; i <= 100; i++)
-            rows.add(new Row("formRourke2009", CdsExportPatientTableSourceReader.key(i), values));
-        var group = new Group(Kind.ENCOUNTER_FORM, "formRourke2009", "1", rows, 1, 1, null, false);
-        // About 620 KB of grouped decisions: above three quarters of a 512 KiB budget.
-        var small = new CdsExportClinicalOccurrenceService.Bounds(1_000_000, 1L << 30, 1000, 512L << 10, 100, 100);
-        org.assertj.core.api.Assertions.assertThatThrownBy(
-                        () -> CdsExportDataSummaryOccurrenceService.requireAuditCapacity(List.of(group), small))
-                .isInstanceOf(io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException.class)
-                .hasMessage("CDS_EXPORT_DATA_SUMMARY_AUDIT_LIMIT");
-        var standard = new CdsExportClinicalOccurrenceService.Bounds(1_000_000, 1L << 30, 1000, 64L << 20, 100, 100);
-        CdsExportDataSummaryOccurrenceService.requireAuditCapacity(List.of(group), standard);
-    }
-
-    @Test
-    void shouldFitTheDefaultAuditBudget_forALongEncounterFormHistory() throws Exception {
-        // The demo chart's shape: 80 wide Rourke revisions and about 35,900 checkbox rows.
-        var wide = new LinkedHashMap<String, Value>();
-        for (int i = 0; i < 1227; i++) wide.put("rourke_field_" + i, Value.text("1"));
-        var checkbox = new LinkedHashMap<String, Value>();
-        checkbox.put("form_name", Value.text("formRourke2020"));
-        checkbox.put("form_id", Value.text("12"));
-        checkbox.put("field_name", Value.text("p1_checkbox_name"));
-        checkbox.put("value", Value.sqlNull());
-        var groups = new ArrayList<Group>();
-        int key = 0;
-        for (int revision = 1; revision <= 80; revision++) {
-            var rows = new ArrayList<Row>();
-            rows.add(new Row("formRourke2009", CdsExportPatientTableSourceReader.key(++key), wide));
-            for (int i = 0; i < 449; i++)
-                rows.add(
-                        new Row(
-                                "form_boolean_value",
-                                CdsExportPatientTableSourceReader.key(++key),
-                                checkbox));
-            groups.add(
-                    new Group(
-                            Kind.ENCOUNTER_FORM,
-                            "formRourke2009",
-                            Integer.toString(revision),
-                            rows,
-                            revision,
-                            80,
-                            null,
-                            false));
-        }
-        var standard = new CdsExportClinicalOccurrenceService.Bounds(1_000_000, 1L << 30, 1000, 64L << 20, 100, 100);
-
-        CdsExportDataSummaryOccurrenceService.requireAuditCapacity(groups, standard);
-
-        assertThat(CdsExportDataSummaryOccurrenceService.auditBytes(groups)).isLessThan(16L << 20);
-    }
-
-    @Test
     void shouldAssessAWithheldEmailCredential_asOperationalNotMapped() throws Exception {
         var values = new LinkedHashMap<String, Value>();
         values.put("subject", Value.text("Your results"));

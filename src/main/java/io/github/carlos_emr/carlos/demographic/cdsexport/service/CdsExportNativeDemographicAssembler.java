@@ -334,8 +334,9 @@ public final class CdsExportNativeDemographicAssembler {
     /**
      * The legacy patient alert ({@code demographiccust.cust3}, the Alert box of the demographic
      * forms) is exported as AlertsAndSpecialNeeds/AlertDescription when that category is selected
-     * (CdsExportPatientAlertMapper). Only text no XML document can hold requires review; the
-     * 255-character column always fits the 1,024-character element.
+     * (CdsExportPatientAlertMapper). No alert requires review: the 255-character column always
+     * fits the element, and a character XML cannot carry is U+FFFD there with the stored text
+     * exact in the occurrence's residual.
      */
     static CdsExportFieldAssessmentDto alert(String value) {
         var presence = CdsExportDemographicSupportingMapper.presence(value);
@@ -345,17 +346,7 @@ public final class CdsExportNativeDemographicAssembler {
                     CdsExportFieldAssessmentDto.Outcome.ABSENT,
                     "",
                     "ABSENT_LEGACY_PATIENT_ALERT_CARRIER");
-        return CdsExportPatientAlertMapper.legal(value)
-                ? new CdsExportFieldAssessmentDto(
-                        presence,
-                        CdsExportFieldAssessmentDto.Outcome.MAPPED,
-                        CdsExportDemographicSupportingMapper.ALERT_DESTINATION,
-                        "NATIVE_PATIENT_ALERT_AS_ALERT_DESCRIPTION")
-                : new CdsExportFieldAssessmentDto(
-                        presence,
-                        CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW,
-                        CdsExportDemographicSupportingMapper.ALERT_DESTINATION,
-                        "PATIENT_ALERT_WIRE_TEXT_REQUIRES_REVIEW");
+        return CdsExportPatientAlertMapper.decision(value);
     }
 
     private static CdsExportDemographicMappingDto.Assessment baseAssessment(

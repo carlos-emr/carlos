@@ -472,13 +472,24 @@ class CdsExportPersonalContactMapperUnitTest {
                                                             pair.getValue())))
                                     .nativeRepresentable())
                     .isTrue();
-        // A name longer than the CDS name part still requires review.
-        assertThat(
-                        map(
-                                        List.of(association(-1, 9)),
-                                        List.of(changed(contact(9), "firstName", "😀".repeat(51))))
-                                .nativeRepresentable())
-                .isFalse();
+        // A name part longer than the CDS name part is left out of the element and travels whole
+        // in the native record; one holding a character XML cannot carry is written with U+FFFD
+        // and carried exactly. Neither holds the chart.
+        for (String name : List.of("😀".repeat(51), "Bad\u0001name")) {
+            var named =
+                    map(
+                            List.of(association(-1, 9)),
+                            List.of(changed(contact(9), "firstName", name)));
+            assertThat(named.nativeRepresentable()).isTrue();
+            assertThat(
+                            named.fields().entrySet().stream()
+                                    .filter(entry -> entry.getKey().column().equals("firstName"))
+                                    .map(entry -> entry.getValue().destination())
+                                    .findFirst()
+                                    .orElseThrow())
+                    .contains(CdsExportDemographicSupportingMapper.DESTINATION);
+            parse(named, HASH);
+        }
     }
 
     @Test

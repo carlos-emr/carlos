@@ -101,9 +101,11 @@ an active link to a pharmacy row that no longer exists is
 `CDS_EXPORT_NATIVE_PHARMACY_LINK_DANGLING`, an unknown link status
 `CDS_EXPORT_NATIVE_PHARMACY_LINK_STATUS_UNKNOWN`, two first preferences
 `CDS_EXPORT_NATIVE_PHARMACY_FIRST_PREFERENCE_TIED`, an unknown consent flag
-`CDS_EXPORT_NATIVE_PHARMACY_CONSENT_UNKNOWN`, a missing name
-`CDS_EXPORT_NATIVE_PHARMACY_NAME_REQUIRED` and text no XML document can hold
-`CDS_EXPORT_NATIVE_PHARMACY_WIRE_TEXT_REQUIRES_REVIEW`. No screen writes a dangling link: Manage
+`CDS_EXPORT_NATIVE_PHARMACY_CONSENT_UNKNOWN` and a missing name
+`CDS_EXPORT_NATIVE_PHARMACY_NAME_REQUIRED`. Text XML cannot carry no longer holds
+(`CDS_EXPORT_NATIVE_PHARMACY_WIRE_TEXT_REQUIRES_REVIEW` is gone): a name shows U+FFFD in its
+place and is carried exactly, and any other such value is carried in the native demographic
+record. No screen writes a dangling link: Manage
 Pharmacy and the REST service only mark a pharmacy deleted (status 0), never remove its row. The
 census-2 holds of charts A05-A07 on build 108a were such links: a probe script's cleanup
 (`DELETE FROM pharmacyInfo WHERE name LIKE 'FAKE-C2 %'`) removed the census pharmacies after they
@@ -124,7 +126,7 @@ unlisted spoken or official language are left out of their optional elements and
 keep the receipt truthful (`withNativeCarriers`), follow an imported contact the user removed or
 made inactive and an imported pharmacy preference that was removed or re-ranked (see "Imported
 charts edited in CARLOS" below), and the contact-mapping and original-relationship checks that
-used to fail the whole job are patient holds. Remaining holds: text no XML document can hold, required values that are
+used to fail the whole job are patient holds. Remaining holds: required values that are
 missing (name, birth date, sex, status), duplicate or hidden extension rows, tied first pharmacy
 preferences, a dangling pharmacy or contact link, two family or two referring physicians, an
 unknown contact consent or purpose flag, and provider values (OHIP number over six characters,
@@ -683,11 +685,10 @@ measurements in a chart with little else or nine a day for twenty years, is held
 `CDS_EXPORT_NATIVE_CARE_PATIENT_LIMIT_EXCEEDED`; the job continues. That is a ceiling of
 memory, not of the care capture, and far above a chart entered through the screens; before,
 the inventory would have stopped the whole job with `RESOURCE_LIMIT` there (the care capture
-held the chart much earlier, at 8,192 observations). The patient's reconciliation audit,
-streamed to an encrypted staged file, is bounded by `maxIndexBytes` plus 16 KiB for each
-expected occurrence (`CdsExportPatientDocumentService.auditLimit`): a native measurement's two
-receipts and dispositions take about 6 KiB, so `maxIndexBytes` alone would have stopped the job
-at about 11,000 measurements. A chart's capture has no size limit (see "No limit on the
+held the chart much earlier, at 8,192 observations). The patient's reconciliation audit is
+streamed to an encrypted staged file and has no size limit (a native measurement's two receipts
+and dispositions take about 6 KiB; the former bound, `maxIndexBytes` plus 16 KiB for each
+expected occurrence, was a job stop and is removed). A chart's capture has no size limit (see "No limit on the
 capture" below); every per-job limit still applies. A measurement is ten captured fields.
 
 `measurementsDeleted` is read by patient (every capture count and page, and the extension scope,
@@ -865,8 +866,9 @@ now is instead of against the import's digest. Its current bytes are staged and 
 the native attachment path at `Reports/<hash>.<ext>`, declared by their own signature
 (`CdsExportReportFileFormats.extension`): a referenced representation's FilePath names them; an
 embedded-only report's Content is removed and a FilePath added; an embedded representation
-beside a referenced one (whose FilePath is taken) becomes inline `Content/Media`, bounded at
-32 MiB (`CDS_EXPORT_IMPORTED_REPORT_REPLACED_CONTENT_CAPACITY`)
+beside a referenced one (whose FilePath is taken) becomes inline `Content/Media`, streamed from
+the captured file as the entry is written and so of any size: the former 32 MiB bound
+(`CDS_EXPORT_IMPORTED_REPORT_REPLACED_CONTENT_CAPACITY`, a patient hold) is removed
 (`CdsExportReportOccurrenceService.representationChanges`, `inlineReplacement`). With one
 representation, `FileExtensionAndVersion` follows the replacement and `Format` becomes Binary.
 The replaced elements are the receipt's replaced fields. The file's captured content is
@@ -1438,14 +1440,54 @@ Required limits that no longer hold a patient (second pass):
 | A character XML 1.0 cannot carry (a control character, U+FFFE, U+FFFF, an unpaired surrogate) | the same mappers, `CdsExportInboxReviewMapper`, `CdsExportDemographicSupportingMapper`, every carrier written through `CdsExportScreeningMapper.tokenSafe` | the patient | in a JSON carrier it is its `\uXXXX` escape (`CdsExportResidualJson`); in an element it is U+FFFD, one for one (`CdsExportXmlText`), and the exact text travels in the record's carrier: a note's revision details (`exactNarrative`), the Notes context of stored HTML, the `note` of `CARLOS.Demographic.v1`, the message of `CARLOS.Laboratory.v1` |
 | 16,777,216 characters per carrier | `CdsExportDemographicSupportingMapper`, `CdsExportNativeHistoryMapper`, `CdsExportHistoryFieldReconciler`, `CdsExportNativeLaboratoryMapper`, `CdsExportInboxReviewMapper` | the patient | removed, with no number in its place (ours, not the schema's) |
 
+Required limits that no longer hold a patient (second pass):
+
+| Limit | Where | What it stopped | Now |
+| --- | --- | --- | --- |
+| Reports/Notes, 32,000 characters | `CdsExportNativeReportMapper`, `CdsExportLaboratoryDocumentMapper`, `CdsExportHospitalReportMapper`, `CdsExportReportOccurrenceService.importedReviews` | the patient | the complete context travels in a companion or supplementary Reports record (`CdsExportReportContext`, see Reports above) |
+| NoteAboutPatient, 64,000 characters (`demographiccust.content` holds 65,535 bytes) | `CdsExportPatientNoteMapper` | the patient (`PATIENT_NOTE_DICTIONARY_LENGTH_REQUIRES_REVIEW`) | the element is left out, never cut, and the whole column travels in `CARLOS.Demographic.v1` under `note` (`CdsExportPatientNoteMapper.note`); without NewCategory it is accounted as not selected, like every value of that record |
+| CPP Notes, 32,000 / 64,000 / 1,000 characters | `CdsExportNativeHistoryMapper`, `CdsExportHistoryNativeReconciler` | the patient (`CDS_EXPORT_NATIVE_HISTORY_NARRATIVE_CAPACITY`, `CDS_EXPORT_HISTORY_COMBINED_NARRATIVE_CAPACITY`, `..._SOURCE_NARRATIVE_CAPACITY`) | Notes holds whole parts only; parts that do not fit together are left out whole, last first, and each has an exact carrier: a statement (a CPP field its element cannot hold) in the revision's extension facts of `CARLOS.NativeHistory.v1`, the current narrative in `CARLOS.History.Narrative.v1`, and imported Notes that had to make way in the item's `CARLOS.NativeHistory.v1` residual as `importedNotes` |
+| A character XML 1.0 cannot carry (a control character, U+FFFE, U+FFFF, an unpaired surrogate) | the same mappers, `CdsExportInboxReviewMapper`, `CdsExportDemographicSupportingMapper`, every carrier written through `CdsExportScreeningMapper.tokenSafe` | the patient | in a JSON carrier it is its `\uXXXX` escape (`CdsExportResidualJson`); in an element it is U+FFFD, one for one (`CdsExportXmlText`), and the exact text travels in the record's carrier: a note's revision details (`exactNarrative`), the Notes context of stored HTML, the `note` of `CARLOS.Demographic.v1`, the message of `CARLOS.Laboratory.v1` |
+| 16,777,216 characters per carrier | `CdsExportDemographicSupportingMapper`, `CdsExportNativeHistoryMapper`, `CdsExportHistoryFieldReconciler`, `CdsExportNativeLaboratoryMapper`, `CdsExportInboxReviewMapper` | the patient | removed, with no number in its place (ours, not the schema's) |
+
+### Data summaries and last holds
+
+A third pass removed what the table above left:
+
+| Limit or hold | Where | What it stopped | Now |
+| --- | --- | --- | --- |
+| Data-summary rows, fields, text, embedded values and audit | `CdsExportDataSummarySourceReader`, `CdsExportDataSummaryRowsReader`, `CdsExportDataSummaryOccurrenceService`, `CdsExportPatientDocumentService.auditLimit` | the patient (the audit bound: the job) | removed; see [Size: stored rows and record parts](#size-stored-rows-and-record-parts) |
+| A character XML cannot carry in a prevention value (lot, comments, name, any extension) | `CdsExportImmunizationMapper` | the patient | U+FFFD in the element (`CHARACTER_XML_CANNOT_CARRY_REPLACED_EXACT_IN_RESIDUAL`); every stored value exact in `CARLOS.Prevention.Source.v1`. A reconciled imported vaccine has no native residual and still requires review, but no screen edits a vaccine in place |
+| The same in the master record's Alert box | `CdsExportPatientAlertMapper` (`CDS_EXPORT_PATIENT_ALERT_WIRE_TEXT_REQUIRES_REVIEW`) | the patient | U+FFFD in AlertDescription; the stored alert exact in the occurrence's own ResidualInfo, DataElement `CARLOS.PatientAlert.v1` (`{"version":1,"alert":...}`), written only then. The CARLOS importer files AlertDescription as the Reminders note and does not read this element back yet |
+| The same in a pharmacy, a contact or a professional contact | `CdsExportNativeFieldAssessments.token` / `carriedText`, `CdsExportPharmacyMapper`, `CdsExportPersonalContactMapper`, `CdsExportProfessionalContactMapper` | the patient | a name or note shows U+FFFD and is carried exactly in `CARLOS.Demographic.v1`; a telephone, e-mail or postal code is carried instead of written. A contact name part longer than 50 characters is carried too, instead of holding |
+| The same in a provider's name | `CdsExportPublicProviderMapper` | every chart naming the provider | U+FFFD in the name (`PROVIDER_NAME_CHARACTER_XML_CANNOT_CARRY_SHOWN_AS_U_FFFD`); the name is provider-record data and stays exact there, not in the chart's file |
+| The same in a prescription or an allergy | `CdsExportNativeMedicationMapper`, `CdsExportMedicationFieldReconciler`, `CdsExportAllergyMapper`, `CdsExportAllergyFieldReconciler`, `CdsExportNativeFieldAssessments.text` | the patient | the element shows U+FFFD (or is left out when a number or code cannot be read); the stored row is exact in `CARLOS.Medication.Source.v1` / `CARLOS.Allergy.Source.v1` |
+| The same in a stored laboratory message; non-UTF-8 hexadecimal escape data | `CdsExportNativeLaboratoryParser` (`CDS_EXPORT_NATIVE_LAB_MESSAGE_ENCODING`), `CdsExportNativeLaboratoryMapper` (`..._WIRE_TEXT_REQUIRES_REVIEW`, `..._ESCAPE_REQUIRES_REVIEW`) | the patient | U+FFFD in every element; the escape as sent; the stored message exact in `CARLOS.NativeLaboratory.v1` |
+| Replaced file of an imported report with both representations, 32 MiB | `CdsExportReportOccurrenceService.currentBytes` (`CDS_EXPORT_IMPORTED_REPORT_REPLACED_CONTENT_CAPACITY`) | the patient | streamed from the captured file into the inline Media; any size |
+
+Still open after this pass, each of which can hold an ordinary chart:
+
+- **Imported text between the dictionary and schema lengths.** The importer accepts a `text1K`,
+  `text32K` or `text64K` element up to the XSD's 1,024 / 32,768 / 65,536 characters, an unchanged
+  imported element is re-exported as it was sent, and `CdsExportXmlValidator.dictionaryLength`
+  holds every such element to 1,000 / 32,000 / 64,000
+  (`CDS_EXPORT_DICTIONARY_LENGTH_REQUIRES_REVIEW`). An imported record with, say, Notes of 32,500
+  characters therefore cannot be exported, edited or not
+  (`CdsExportImportedReviewAppendUnitTest.shouldStillRefuseUnchangedImportedNotesInTheDictionaryGap_untilTheyHaveACarrier`
+  pins it). It needs the native rule for retained text: the retained element cut at the
+  dictionary length before a mark, with the complete text in the category's ResidualInfo where
+  the category has one and in a NewCategory record where it has none (Appointments,
+  LaboratoryResults, ClinicalNotes, Reports, Demographics), predicted by the inventory.
+- **A request naming more than 100 physicians or 10,000 patients**
+  (`CdsExportCommand`, `CdsExportWebCommandParser`, `CdsExportCliArguments`), because the
+  request travels in the job document, which `CdsExportLedgerService` bounds at 262,144
+  characters. The column (`cds_export_run.request_document`) is `LONGTEXT`, so no table change is
+  needed to lift it.
+
 Limits that remain in these families, and why:
 
-- **Data summaries.** 100,000 rows and 400,000 fields per table and chart
-  (`CDS_EXPORT_DATA_SUMMARY_ROW_LIMIT`), 64 MiB of text and 32 MiB of retained values per record
-  (`CDS_EXPORT_DATA_SUMMARY_SIZE_LIMIT`) and three quarters of `maxIndexBytes` of audit
-  (`CDS_EXPORT_DATA_SUMMARY_AUDIT_LIMIT`) hold one chart. They bound what is held while one
-  summary is planned and rendered; removing them means planning and rendering a record's rows
-  as a stream.
+- **Data summaries.** None: see
+  [Size: stored rows and record parts](#size-stored-rows-and-record-parts).
 - **Schema facets of retained import source** read back during reconciliation (a name part of
   50 characters, a phone extension of 5): the import validated them, so they are integrity
   checks.
@@ -1590,10 +1632,10 @@ text (`CAST(.. AS BINARY)`), binary columns as raw bytes, SQL NULL distinct from
 values in byte ranges verified against the page's SHA-256; wide legacy forms in column groups whose
 row keys must agree. A table of the other province's profile reads as absent and its schema
 digest is the absent descriptor; `formRourke2009` (Aria on ON, MyISAM on BC) is read only under
-`CdsExportSourceReadLock`. A table's rows for one patient over 100,000 rows or 400,000 fields hold
-that patient (`CDS_EXPORT_DATA_SUMMARY_ROW_LIMIT`; a long Rourke history, about 36,000 checkbox
-rows of four fields, is well inside both), as does a row identity that proves not unique
-(`CDS_EXPORT_DATA_SUMMARY_ROW_IDENTITY_NOT_UNIQUE`). `CdsExportListedSourceReader` captures, as
+`CdsExportSourceReadLock`. No number of rows or fields holds a patient (see
+[Size: stored rows and record parts](#size-stored-rows-and-record-parts)); a row identity that
+proves not unique does (`CDS_EXPORT_DATA_SUMMARY_ROW_IDENTITY_NOT_UNIQUE`, an integrity check: keyed
+paging could skip a row). `CdsExportListedSourceReader` captures, as
 the synthetic `listed_sources` scope of every export, only each listed table's name and the
 patient's row count.
 
@@ -1641,12 +1683,62 @@ is assessed `MAPPED` to `Reports/FilePath` (a withheld e-mail credential `OPERAT
 `CARLOS_DATA_SUMMARY_CREDENTIAL_WITHHELD`) and checked by `CdsExportNativeFieldAssessmentValidator`;
 the patient inventory expects one Reports identity per planned record. The per-patient
 reconciliation audit records each receipt's field decisions grouped by table and assessment (each
-row key with the columns so decided), not one line per field, so a long encounter-form history stays
-well inside `cds.export.maxIndexBytes`; only a chart whose data summaries alone would still take
-three quarters of that budget is held (`CDS_EXPORT_DATA_SUMMARY_AUDIT_LIMIT`) rather than stopping
-the job. The package ReadMe counts
-the data summaries of each patient by record kind and lists the patient's listed tables and the
-job's unlinked listed tables.
+row key with the columns so decided), not one line per field. The audit is streamed to an
+encrypted staged file and has no size limit: neither the former per-patient bound
+(`maxIndexBytes` plus an allowance per occurrence, a job stop) nor
+`CDS_EXPORT_DATA_SUMMARY_AUDIT_LIMIT`, which held a chart before that bound could be reached,
+exists any more. The package ReadMe counts
+the data summary records of each patient by record kind (a record in several parts counts once)
+and lists the patient's listed tables and the job's unlinked listed tables.
+
+### Size: stored rows and record parts
+
+No count or size of a chart's data-summary rows holds the chart or fails the job. The former
+numbers (100,000 rows and 400,000 fields per table and chart, `CDS_EXPORT_DATA_SUMMARY_ROW_LIMIT`;
+64 MiB of text and 32 MiB of embedded binary values per chart, 16 MiB per embedded value,
+`CDS_EXPORT_DATA_SUMMARY_SIZE_LIMIT`; the audit limit above) existed because every row of every
+data-summary table of the chart was held as objects while its records were planned and rendered.
+The design that replaces them:
+
+- **Stored rows.** `CdsExportDataSummaryRowsReader` reads the authenticated capture once. Each
+  verified row is written whole to one protected member of the attempt's encrypted staging store
+  (purpose `DATA_SUMMARY_ROWS`, erased when the plan is closed) and then dropped from memory. What
+  stays in memory per row is its *index entry*: the table, the capture key, the place, length and
+  SHA-256 of its stored copy, three counters (fields, text bytes, embedded binary bytes) and the
+  row's *planning columns* only: the columns `CdsExportDataSummaryRegistry` names for identity,
+  links, revision groups, dates, the save time and the eForm listing columns
+  (`CdsExportDataSummaryPlanner.planning`). A planning value longer than 512 characters is kept
+  as its SHA-256 (links compare for equality only; no date, number or listing value is that long).
+  That is about half a kibibyte per row and does not depend on what the row holds. It is the
+  stated cost: memory grows by that much per data-summary row and by nothing else.
+- **Planning.** `CdsExportDataSummaryPlanner.plan` runs unchanged on the index entries, so the
+  records, their order, identities, revisions and dates are exactly those of the former in-memory
+  plan (`CdsExportDataSummaryStoredRowsUnitTest` plans the same rows both ways and compares the
+  records, the rendered HTML and the field decisions exactly).
+- **One record at a time.** The inventory, the emission and a printer load a record's rows from
+  the stored member by verified range (`CdsExportStagingService.VerifiedRanges`: each row is read
+  against its length and SHA-256, and the member is authenticated whole when the plan closes),
+  render it, and release it. The ReadMe counts use the index alone and store nothing.
+- **Record parts.** A record is rendered as one HTML document and one PDF, so its rows are in
+  memory together. The former numbers now decide only how such a record is written, never whether:
+  a record is divided into parts when its rows would pass 400,000 fields of one table, 1,000,000
+  fields in all (the most one field-decision receipt accounts), 64 MiB of text or 32 MiB of
+  embedded binary values (`CdsExportDataSummaryPlanner.Division.STANDARD`). Every chart that
+  exported before was inside all of these for every record, so its records have one part and its
+  output is byte for byte what it was. A part is a Reports entry of its own: the same Class,
+  SubClass and EventDateTime, its own identity and attachment (the first part keeps the record's
+  identity), Notes and a title that say "part n of m", and the receipt of exactly the rows it
+  lists. Every part begins with the record's root row, so each names its record; the root row's
+  fields are accounted by the first part only. Rows are never split and never reordered: the parts
+  in order list the record's rows in the record's order, each once. A rendered eForm and a printed
+  form belong to the record and are emitted once, after its first part; a printer is given the
+  whole record.
+- **What one value still needs.** One row is held in memory whole while it is written, loaded or
+  rendered, so a single value must fit a Java array (2,147,483,639 bytes). MariaDB cannot store or
+  return a value over 1 GiB (`max_allowed_packet`), so no chart reaches that; a text value past it
+  is refused as `CDS_EXPORT_DATA_SUMMARY_SIZE_LIMIT` and a binary value past it is listed by size
+  and SHA-256 and not embedded. An embedded binary value of any smaller size is now embedded
+  (before, one over 16 MiB was listed by size and SHA-256 only, without saying so).
 
 Report classes chosen (a maintainer decision, recorded per kind in the registry): Consultant Report
 for consultation responses; Other Letter for consultation requests, e-mails, faxes and messages;
@@ -2418,11 +2510,11 @@ held it; the receipt lists its content field as replaced. `CHANGED_PRECISION_DEP
 group are gone. Still held on an imported allergy: `PREPARED_NATIVE_PROJECTION_NOT_PROVEN` (the
 unit's sealed preparation does not describe the row its receipt says the import wrote, so the
 unit's retained source fields cannot be shown to belong to this row), the baseline, codec,
-deletion, witness and alias codes, and text no XML document can hold.
+deletion, witness and alias codes. Text XML cannot carry no longer holds an allergy (see
+"Data summaries and last holds").
 
 A CARLOS importer keeps the carrier as protected source (it is not one of the markers it
-restores). Still held: text no XML document can hold, and an archive flag that is neither 0 nor
-1. An imported allergy is unaffected: the importer writes none of these columns, and CARLOS
+restores). Still held: an archive flag that is neither 0 nor 1. An imported allergy is unaffected: the importer writes none of these columns, and CARLOS
 amends an allergy by archiving it and adding a row. A brand allergen saved after
 the DrugRef lookup returned no DIN (`TYPECODE` 13 without a DIN, which `RxAddAllergy2Action` keeps)
 is named by its description, with its product ATC class in `CARLOS.Allergy.Atc.v1` when DrugRef gave
@@ -3916,8 +4008,11 @@ written whole there as `Abnormal flags (complete):` with the flag element Unknow
 value longer than its element (a unit, a reference range over 1,024 characters, a status) is
 left out of that element, never clipped. The complete message and rows travel in the report's
 `CARLOS.Laboratory.v1` record. `CDS_EXPORT_NATIVE_LAB_RESULT_VALUE_CAPACITY`,
-`..._FLAG_CAPACITY` and `..._WIRE_CAPACITY` are gone; text no XML document can hold is
-`CDS_EXPORT_NATIVE_LAB_WIRE_TEXT_REQUIRES_REVIEW`. Focused verification passed
+`..._FLAG_CAPACITY` and `..._WIRE_CAPACITY` are gone, and so are
+`CDS_EXPORT_NATIVE_LAB_WIRE_TEXT_REQUIRES_REVIEW` and `..._ESCAPE_REQUIRES_REVIEW`: a
+character XML cannot carry in a stored message is shown as U+FFFD in every element (the parser
+replaces it before parsing; it is never an HL7 delimiter), and hexadecimal escape data that is
+not UTF-8 text is written as the laboratory sent it. Focused verification passed
 156 checks plus 13 real MariaDB/CLI-startup checks; final packaging and genuine
 installed laboratory import/export qualification are pending. This component does
 not qualify the remaining native laboratory catalogue or clinical publication.
@@ -4465,7 +4560,8 @@ the unit box are stored as `d`, `w` and `m`. The rule (`CdsExportMedicationMappe
   The exact `duration`, `durunit` and `freqcode` travel in `CARLOS.Medication.Source.v1`.
 - An imported prescription whose duration was changed in CARLOS follows the same rule; its
   values travel in `CARLOS.Medication.CurrentSource.v1` (below).
-- Only text no XML document can hold still requires review.
+- Text XML cannot carry no longer requires review: its element shows U+FFFD and the stored
+  row is exact in the residual (see "Data summaries and last holds").
 
 The same residual carries, instead of holding the patient (`CdsExportNativeMedicationMapper
 .CONTEXT_RULES`): a quantity that is not a plain number ("30 tabs", "1 bottle": the legacy Rx
@@ -4556,8 +4652,8 @@ is removed (the receipt lists its fields as replaced) and the typed text travels
 gone).
 
 Still held on an imported prescription: an import projection the receipt cannot prove
-(`PREPARED_NATIVE_PROJECTION_NOT_PROVEN`, the baseline and codec codes), text no XML document can
-hold, and a physically deleted row. `PREPARED_NATIVE_PROJECTION_NOT_PROVEN` is an integrity hold,
+(`PREPARED_NATIVE_PROJECTION_NOT_PROVEN`, the baseline and codec codes) and a physically
+deleted row. `PREPARED_NATIVE_PROJECTION_NOT_PROVEN` is an integrity hold,
 not a data condition: the baseline row is authenticated by the receipt digest, and the unit's
 sealed preparation does not reproduce it, so the retained source fields of that unit cannot be
 shown to describe the row; neither they nor the current row alone would be a proven export of

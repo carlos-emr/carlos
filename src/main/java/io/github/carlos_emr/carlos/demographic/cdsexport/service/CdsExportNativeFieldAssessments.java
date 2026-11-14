@@ -105,15 +105,17 @@ final class CdsExportNativeFieldAssessments {
     }
 
     /**
-     * An optional xs:token element: untrimmed or doubled whitespace is written collapsed, as every
-     * schema reader sees it, and the exact value is carried; a value longer than the element is
-     * carried instead. Only text no XML document can hold requires review.
+     * An optional xs:token element of a row the native demographic record carries: untrimmed or
+     * doubled whitespace is written collapsed, as every schema reader sees it, and the exact value
+     * is carried; a value longer than the element, or holding a character XML cannot carry, is
+     * carried instead (the record writes such a character as its JSON escape). Nothing requires
+     * review.
      */
     String token(String column, String destination, int maximum) {
         String value = raw(column);
         if (value == null || value.isEmpty()) return null;
         if (!legal(value, Integer.MAX_VALUE)) {
-            review(column, destination, "WIRE_TEXT_REQUIRES_REVIEW");
+            carry(column);
             return null;
         }
         String collapsed = value.strip().replaceAll("[ \t\r\n]+", " ");
@@ -131,15 +133,53 @@ final class CdsExportNativeFieldAssessments {
         return collapsed;
     }
 
+    /**
+     * An element's text. A value longer than the element requires review and gives no text. A
+     * value that fits but holds a character XML 1.0 cannot carry gives the text with U+FFFD in
+     * place of each such character ({@link CdsExportXmlText}) and still requires review under
+     * the same rule: the caller's family decides it, carrying the exact value in its own carrier,
+     * or holds as before.
+     */
     String text(String column, String destination, int maximum) {
         String value = raw(column);
         if (value == null || value.isEmpty()) return null;
-        if (!legal(value, maximum)) {
+        String shown = CdsExportXmlText.element(value);
+        if (shown.codePointCount(0, shown.length()) > maximum) {
             review(column, destination, "WIRE_TEXT_REQUIRES_REVIEW");
             return null;
         }
+        if (!shown.equals(value)) {
+            review(column, destination, "WIRE_TEXT_REQUIRES_REVIEW");
+            return shown;
+        }
         set(column, Outcome.MAPPED, destination, "EXACT_NATIVE_TEXT");
         return value;
+    }
+
+    /** Rule of a value whose element shows U+FFFD for a character XML 1.0 cannot carry. */
+    static final String REPLACED = "CHARACTER_XML_CANNOT_CARRY_SHOWN_AS_U_FFFD_EXACT_VALUE_CARRIED";
+
+    /**
+     * {@link #text} for a row the native demographic record carries: a value longer than the
+     * element is carried and gives no text; one holding a character XML cannot carry is written
+     * with U+FFFD in its place and carried exactly. Nothing requires review.
+     */
+    String carriedText(String column, String destination, int maximum) {
+        String value = raw(column);
+        if (value == null || value.isEmpty()) return null;
+        String shown = CdsExportXmlText.element(value);
+        if (shown.codePointCount(0, shown.length()) > maximum) {
+            carry(column);
+            return null;
+        }
+        if (shown.equals(value)) set(column, Outcome.MAPPED, destination, "EXACT_NATIVE_TEXT");
+        else
+            set(
+                    column,
+                    Outcome.MAPPED,
+                    destination + "," + CdsExportDemographicSupportingMapper.DESTINATION,
+                    REPLACED);
+        return shown;
     }
 
     static boolean legal(String value, int maximum) {

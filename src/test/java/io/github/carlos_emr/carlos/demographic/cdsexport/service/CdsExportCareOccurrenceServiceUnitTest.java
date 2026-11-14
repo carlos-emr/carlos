@@ -318,8 +318,8 @@ class CdsExportCareOccurrenceServiceUnitTest {
             assertThat(ids).hasSize(9_000).isSortedAccordingTo(Comparator.naturalOrder());
             assertThat(fixture.rowScans).isGreaterThan(2);
             assertThat(fixture.witnessScans).isEqualTo(2);
-            // Each receipt's audit lines (its header and grouped field decisions) stay well
-            // inside the audit allowance each occurrence brings (auditLimit).
+            // Each receipt's audit lines (its header and grouped field decisions) stay small:
+            // the audit has no size limit, and grouped decisions keep it a few KiB a receipt.
             var json = com.fasterxml.jackson.databind.json.JsonMapper.builder().build();
             for (var receipt : composed.receipts()) {
                 long bytes =
@@ -340,7 +340,7 @@ class CdsExportCareOccurrenceServiceUnitTest {
                                                 .CdsExportRunControl.class)))
                     bytes += json.writeValueAsBytes(line).length + 1;
                 assertThat(bytes)
-                        .isLessThan(CdsExportPatientDocumentService.AUDIT_BYTES_PER_OCCURRENCE / 4);
+                        .isLessThan(4L << 10);
             }
         }
     }

@@ -366,7 +366,6 @@ class CdsExportDataSummaryMariaDbIntegrationTest {
             String digest = validator.verify(reader.table(), reader.schema(), reader.columns());
             assertThat(validator.acceptedSha256(reader.table(), reader.columns())).contains(digest);
             long rows = reader.count(chart);
-            reader.requireCapacity(rows, 1_000_000);
             plan.put(reader.table(), new CdsExportNativeCaptureReader.Table(reader.columns(), rows));
         }
         var values = new ByteArrayOutputStream();
@@ -386,20 +385,59 @@ class CdsExportDataSummaryMariaDbIntegrationTest {
                                 writer.endTable();
                             }
                         });
-        var collector = new CdsExportDataSummaryRowsReader.Collector(readers.keySet());
-        new CdsExportNativeCaptureReader()
-                .scan(
-                        new ByteArrayInputStream(values.toByteArray()),
-                        new ByteArrayInputStream(index.toByteArray()),
-                        plan,
-                        1_000_000,
-                        1L << 30,
-                        () -> {},
-                        collector);
-        collector.finish();
-        var listed = summaries.listed(chart, () -> {});
-        var clinic = summaries.listedClinicSources();
-        return new Captured(collector.rows(), listed, clinic);
+        // The production path: every whole row goes to a protected member, the collector keeps
+        // its index entry, and the rows are read back from the member by verified range.
+        Path root = Files.createTempDirectory("cds-data-summary-rows");
+        try {
+            Files.setPosixFilePermissions(
+                    root, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+            var store =
+                    new CdsExportStagingService(
+                            root,
+                            java.util.UUID.randomUUID().toString(),
+                            1,
+                            new javax.crypto.spec.SecretKeySpec(new byte[32], "AES"),
+                            0,
+                            () -> {});
+            var collector = new CdsExportDataSummaryRowsReader.Collector(readers.keySet());
+            var member =
+                    store.stage(
+                            CdsExportDataSummaryRowsReader.ROWS_PURPOSE,
+                            output -> {
+                                collector.store(output);
+                                new CdsExportNativeCaptureReader()
+                                        .scan(
+                                                new ByteArrayInputStream(values.toByteArray()),
+                                                new ByteArrayInputStream(index.toByteArray()),
+                                                plan,
+                                                1_000_000,
+                                                1L << 30,
+                                                () -> {},
+                                                collector);
+                                collector.finish();
+                                collector.stored();
+                            });
+            var rows = new TreeMap<String, List<Row>>();
+            try (var result = collector.result(store, member)) {
+                for (var table : result.rows().entrySet()) {
+                    var whole = new ArrayList<Row>();
+                    for (Row entry : table.getValue()) {
+                        assertThat(entry.values().keySet())
+                                .isSubsetOf(CdsExportDataSummaryPlanner.planning(table.getKey()));
+                        whole.add(result.load(entry));
+                    }
+                    rows.put(table.getKey(), whole);
+                }
+            }
+            try (var left = Files.list(root)) {
+                assertThat(left).isEmpty();
+            }
+            var listed = summaries.listed(chart, () -> {});
+            var clinic = summaries.listedClinicSources();
+            return new Captured(rows, listed, clinic);
+        } finally {
+            Files.deleteIfExists(root);
+        }
     }
 
     @Test

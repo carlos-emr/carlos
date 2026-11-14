@@ -530,7 +530,8 @@ class CdsExportImportedDocumentEditUnitTest {
         both.add(field("Reports[1]/Content[1]/Media[1]", "unused"));
         both.add(field("Reports[1]/Class[1]", "Consultant Report"));
         var inlineChange =
-                CdsExportReportOccurrenceService.inlineReplacement(both, REPLACEMENT_BYTES);
+                CdsExportReportOccurrenceService.inlineReplacement(
+                        both, () -> new java.io.ByteArrayInputStream(REPLACEMENT_BYTES));
         var inlined =
                 new CdsExportRetainedSectionWriter()
                         .prepareChanges(both, inline(), List.of(inlineChange), () -> {});
@@ -541,6 +542,101 @@ class CdsExportImportedDocumentEditUnitTest {
                                 render(CdsCategory.REPORTS, inlined.content()),
                                 StandardCharsets.UTF_8))
                 .contains(Base64.getEncoder().encodeToString(REPLACEMENT_BYTES))
+                .doesNotContain("unused");
+    }
+
+    @Test
+    void shouldStreamAReplacementOfAnySize_asTheInlineMediaWithoutHoldingIt() throws Exception {
+        // 33 MiB: past the former 32 MiB inline bound
+        // (CDS_EXPORT_IMPORTED_REPORT_REPLACED_CONTENT_CAPACITY), which held the chart. The
+        // source is never materialized: it is read a block at a time as the entry is written.
+        long size = 33L << 20;
+        var both = new ArrayList<CdsExportRetainedFieldDto>();
+        both.add(field("Reports[1]/Format[1]", "Binary"));
+        both.add(field("Reports[1]/FileExtensionAndVersion[1]", "pdf"));
+        both.add(field("Reports[1]/FilePath[1]", "Reports/" + "c".repeat(64) + ".pdf"));
+        both.add(field("Reports[1]/Content[1]/Media[1]", "unused"));
+        both.add(field("Reports[1]/Class[1]", "Consultant Report"));
+        int[] opened = {0};
+        long[] read = {0};
+        var change =
+                CdsExportReportOccurrenceService.inlineReplacement(
+                        both,
+                        () -> {
+                            opened[0]++;
+                            return new java.io.InputStream() {
+                                private long left = size;
+
+                                @Override
+                                public int read() {
+                                    if (left == 0) return -1;
+                                    left--;
+                                    read[0]++;
+                                    return 'A';
+                                }
+
+                                @Override
+                                public int read(byte[] target, int offset, int length) {
+                                    if (left == 0) return -1;
+                                    int count = (int) Math.min(length, left);
+                                    java.util.Arrays.fill(target, offset, offset + count, (byte) 'A');
+                                    left -= count;
+                                    read[0] += count;
+                                    return count;
+                                }
+                            };
+                        });
+        assertThat(opened[0]).isZero();
+        var written =
+                new CdsExportRetainedSectionWriter()
+                        .prepareChanges(both, inline(), List.of(change), () -> {});
+        // The entry is written to a sink that keeps its first bytes and counts the rest.
+        long[] writtenBytes = {0};
+        var head = new java.io.ByteArrayOutputStream();
+        var sink =
+                new java.io.OutputStream() {
+                    @Override
+                    public void write(int value) {
+                        if (writtenBytes[0]++ < 16_384) head.write(value);
+                    }
+
+                    @Override
+                    public void write(byte[] source, int offset, int length) {
+                        for (int i = 0; i < length && writtenBytes[0] + i < 16_384; i++)
+                            head.write(source[offset + i]);
+                        writtenBytes[0] += length;
+                    }
+                };
+        String hash = "a".repeat(64);
+        new CdsExportXmlComposer()
+                .compose(
+                        sink,
+                        hash,
+                        hash,
+                        "2026.08.0-test",
+                        io.github.carlos_emr.carlos.demographic.cds.contract.CdsLogicalProfile.ONTARIO_MD_5_2,
+                        java.util.Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.REPORTS),
+                        List.of(
+                                        new CdsExportXmlComposer.Section(
+                                                new io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                                        .CdsExportIdentityDto(
+                                                        hash, CdsCategory.DEMOGRAPHICS, hash),
+                                                xml -> xml.element("cds", "Gender", "U")),
+                                        new CdsExportXmlComposer.Section(
+                                                new io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                                        .CdsExportIdentityDto(
+                                                        hash, CdsCategory.REPORTS, hash),
+                                                written.content()))
+                                .iterator(),
+                        ignored -> {},
+                        64L << 20,
+                        () -> {});
+        assertThat(opened[0]).isEqualTo(1);
+        assertThat(read[0]).isEqualTo(size);
+        // Base64 of 33 MiB of 'A' is 44 MiB of "QUFB".
+        assertThat(writtenBytes[0]).isGreaterThan(size / 3 * 4);
+        assertThat(head.toString(StandardCharsets.UTF_8))
+                .contains("Media>QUFBQUFB")
                 .doesNotContain("unused");
     }
 

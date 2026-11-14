@@ -438,14 +438,45 @@ class CdsExportDemographicSupportingMapperUnitTest {
     }
 
     @Test
-    void shouldHoldOnlyAMalformedPatientAlert_forPatientAlertContract() throws Exception {
+    void shouldExportAnAlertHoldingACharacterXmlCannotCarry_withItsExactTextInTheResidual()
+            throws Exception {
+        // A control character pasted into the Alert box held the chart
+        // (CDS_EXPORT_PATIENT_ALERT_WIRE_TEXT_REQUIRES_REVIEW). The element now shows U+FFFD in
+        // its place and the stored text is exact in the occurrence's own residual.
         custom("101", "102", "103", "bell\u0007", true);
-        assertThatThrownBy(() -> assemble(ALL)).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
-        assertThatThrownBy(
-                        () ->
-                                CdsExportPatientAlertMapper.map(
-                                        27, rows.get("demographiccust").getFirst()))
-                .hasMessage("CDS_EXPORT_PATIENT_ALERT_WIRE_TEXT_REQUIRES_REVIEW");
+        assertThat(assemble(ALL).fields().values())
+                .noneMatch(field -> field.outcome() == Outcome.REQUIRES_REVIEW);
+        var alert = CdsExportPatientAlertMapper.map(27, rows.get("demographiccust").getFirst());
+        assertThat(alert.element()).isEqualTo("bell\uFFFD");
+        assertThat(alert.exact()).isFalse();
+        assertThat(
+                        CdsExportPatientAlertMapper.fields(alert).values().stream()
+                                .map(field -> field.outcome() + " " + field.destination())
+                                .toList())
+                .contains(
+                        "MAPPED AlertsAndSpecialNeeds/AlertDescription;AlertsAndSpecialNeeds/ResidualInfo");
+        String xml =
+                new String(
+                        CdsExportNativeHistoryMapperUnitTest.render(
+                                CdsCategory.ALERTS_AND_SPECIAL_NEEDS,
+                                writer -> CdsExportPatientAlertMapper.write(alert, writer)),
+                        java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(xml)
+                .containsSubsequence(
+                        "<cdsd:Name>CARLOS.PatientAlert.v1</cdsd:Name>",
+                        "{\"version\":1,\"alert\":\"bell\\u0007\"}",
+                        "<AlertDescription>bell\uFFFD</AlertDescription>");
+        // An alert the element holds exactly has no residual.
+        custom("101", "102", "103", ALERT, true);
+        var exact = CdsExportPatientAlertMapper.map(27, rows.get("demographiccust").getFirst());
+        assertThat(exact.exact()).isTrue();
+        assertThat(
+                        new String(
+                                CdsExportNativeHistoryMapperUnitTest.render(
+                                        CdsCategory.ALERTS_AND_SPECIAL_NEEDS,
+                                        writer -> CdsExportPatientAlertMapper.write(exact, writer)),
+                                java.nio.charset.StandardCharsets.UTF_8))
+                .doesNotContain("ResidualInfo");
         // Not selected: the alert column is not captured and there is no occurrence.
         custom("101", "102", "103", null, false);
         assertThat(CdsExportPatientAlertMapper.map(27, rows.get("demographiccust").getFirst()))

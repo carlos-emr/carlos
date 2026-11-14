@@ -556,6 +556,29 @@ class CdsExportNativeLaboratoryMapperUnitTest {
     }
 
     @Test
+    void shouldExportAReportHoldingACharacterXmlCannotCarry_insteadOfHoldingTheChart()
+            throws Exception {
+        // A control character a sending system left in a result, or hexadecimal escape data
+        // that is not UTF-8 text, held the chart (CDS_EXPORT_NATIVE_LAB_MESSAGE_ENCODING,
+        // ..._WIRE_TEXT_REQUIRES_REVIEW, ..._ESCAPE_REQUIRES_REVIEW). The value now shows U+FFFD
+        // for the character and the escape as it was sent; the stored message travels exactly
+        // in the report's CARLOS.NativeLaboratory.v1 record.
+        var mapper = new CdsExportNativeLaboratoryMapper();
+        var values =
+                mapper.map(
+                        source(
+                                message()
+                                        .replace(
+                                                "|ST|COMMENT^Narrative^L||A\\T\\B|",
+                                                "|ST|COMMENT^Narrative^L||bell\u0007 caf\\XE9\\ end|")),
+                        ZoneId.of("America/Toronto"));
+        assertThat(values.get(1).text().get("ResultValue")).isEqualTo("bell\uFFFD caf\\XE9\\ end");
+        for (var value : values)
+            CdsExportNativeHistoryMapperUnitTest.render(
+                    CdsCategory.LABORATORY_RESULTS, xml -> mapper.write(value, xml));
+    }
+
+    @Test
     void shouldParseTheWholeMessage_whenItIsLongerOrHasMoreResultsThanTheFormerLimits()
             throws Exception {
         // Before: a message past about 2.1 MB (CDS_EXPORT_NATIVE_LAB_MESSAGE_CAPACITY), 8,192

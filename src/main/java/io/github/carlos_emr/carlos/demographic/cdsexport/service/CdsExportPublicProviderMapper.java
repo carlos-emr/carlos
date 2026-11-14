@@ -62,8 +62,8 @@ public final class CdsExportPublicProviderMapper {
                 new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
         var state = new CdsExportNativeFieldAssessments(row, decisions);
         state.set("provider_no", Outcome.MAPPED, target.path, "EXACT_NATIVE_PROVIDER_REFERENCE");
-        String first = state.text("first_name", target.path + "/Name/FirstName", 50);
-        String last = state.text("last_name", target.path + "/Name/LastName", 50);
+        String first = name(state, "first_name", target.path + "/Name/FirstName");
+        String last = name(state, "last_name", target.path + "/Name/LastName");
         if ("".equals(state.raw("first_name"))) first = "";
         if ("".equals(state.raw("last_name"))) last = "";
         // The schema type is only a six-character token, but the data dictionary defines the
@@ -130,6 +130,24 @@ public final class CdsExportPublicProviderMapper {
         if (decisions.values().stream()
                 .anyMatch(field -> field.outcome() == Outcome.REQUIRES_REVIEW)) value = null;
         return new CdsExportPublicProviderMappingDto(value, decisions);
+    }
+
+    /**
+     * A provider's name part. One holding a character XML 1.0 cannot carry (pasted into the
+     * Add/Edit Provider form) is written with U+FFFD in its place instead of holding every chart
+     * that names the provider: the name belongs to the provider record, not to a patient's
+     * chart, and stays exact there.
+     */
+    private static String name(
+            CdsExportNativeFieldAssessments state, String column, String destination) {
+        String shown = state.text(column, destination, 50);
+        if (shown != null && !shown.equals(state.raw(column)))
+            state.set(
+                    column,
+                    Outcome.MAPPED,
+                    destination,
+                    "PROVIDER_NAME_CHARACTER_XML_CANNOT_CARRY_SHOWN_AS_U_FFFD");
+        return shown;
     }
 
     /** A value the six-character xs:token type carries exactly, with no normalization. */

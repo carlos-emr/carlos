@@ -111,11 +111,10 @@ public final class CdsExportAllergyMapper {
             String stored =
                     entry.getKey().table().equals("allergies") ? row.fields().get(column) : null;
             // A value longer than its element or marker (an ATC column of 55 characters against
-            // the seven of a code) is carried too; only text no XML document can hold is not.
+            // the seven of a code) is carried too, and so is one holding a character XML cannot
+            // carry: the source context is JSON that writes such a character as its escape.
             boolean overlong =
-                    "WIRE_TEXT_REQUIRES_REVIEW".equals(decision.rule())
-                            && stored != null
-                            && CdsExportNativeFieldAssessments.legal(stored, Integer.MAX_VALUE);
+                    "WIRE_TEXT_REQUIRES_REVIEW".equals(decision.rule()) && stored != null;
             if (!CARRIED_RULES.contains(decision.rule()) && !overlong) continue;
             carried = true;
             fields.put(
@@ -534,19 +533,16 @@ public final class CdsExportAllergyMapper {
         private String text(String column, String destination, int maximum) {
             String value = raw(column);
             if (value == null || value.isEmpty()) return null;
-            if (value.codePointCount(0, value.length()) > maximum
-                    || value.codePoints()
-                            .anyMatch(
-                                    code ->
-                                            code < 0x20
-                                                            && code != '\t'
-                                                            && code != '\r'
-                                                            && code != '\n'
-                                                    || code >= 0xd800 && code <= 0xdfff
-                                                    || code == 0xfffe
-                                                    || code == 0xffff)) {
+            // A character XML cannot carry is shown as U+FFFD; the rule stays, so the stored value
+            // is carried exactly in the allergy's source context.
+            String shown = CdsExportXmlText.element(value);
+            if (shown.codePointCount(0, shown.length()) > maximum) {
                 review(column, destination, "WIRE_TEXT_REQUIRES_REVIEW");
                 return null;
+            }
+            if (!shown.equals(value)) {
+                review(column, destination, "WIRE_TEXT_REQUIRES_REVIEW");
+                return shown;
             }
             set(column, Outcome.MAPPED, destination, "EXACT_NATIVE_TEXT");
             return value;

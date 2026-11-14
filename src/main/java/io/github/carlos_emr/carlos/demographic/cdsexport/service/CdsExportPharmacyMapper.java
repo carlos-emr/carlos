@@ -64,9 +64,6 @@ public final class CdsExportPharmacyMapper {
         codes.put(
                 "REQUIRED_PHARMACY_NAME_MISSING_OR_UNREPRESENTABLE",
                 "CDS_EXPORT_NATIVE_PHARMACY_NAME_REQUIRED");
-        codes.put(
-                "WIRE_TEXT_REQUIRES_REVIEW",
-                "CDS_EXPORT_NATIVE_PHARMACY_WIRE_TEXT_REQUIRES_REVIEW");
         return Collections.unmodifiableMap(codes);
     }
 
@@ -305,12 +302,11 @@ public final class CdsExportPharmacyMapper {
         if (!"1".equals(state.raw("status"))) {
             if (present(state.raw("status"))) state.carry("status");
         } else state.operational("status", "EXACT_ACTIVE_NATIVE_PHARMACY");
-        String name = state.text("name", root + "/Name", 50);
+        // A name holding a character XML cannot carry is written with U+FFFD in its place and
+        // carried exactly; a longer chain-store name is carried, and the whole pharmacy then
+        // travels in the native record.
+        String name = state.carriedText("name", root + "/Name", 50);
         if (name == null) {
-            // A longer chain-store name: the whole pharmacy travels in the native record.
-            if (present(state.raw("name"))
-                    && CdsExportNativeFieldAssessments.legal(state.raw("name"), Integer.MAX_VALUE))
-                state.carry("name");
             if (!present(state.raw("name")))
                 state.review(
                         "name",

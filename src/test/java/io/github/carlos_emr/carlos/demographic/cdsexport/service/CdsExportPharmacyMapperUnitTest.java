@@ -319,13 +319,18 @@ class CdsExportPharmacyMapperUnitTest {
             assertThat(result.nativeRepresentable()).isTrue();
             assertCarried(result, pharmacy(9), pair.getKey());
         }
-        // Text no XML document can hold still requires review.
-        assertThat(
-                        map(
-                                        List.of(link(-1, 9)),
-                                        List.of(changed(pharmacy(9), "name", "Bad\u0001value")))
-                                .nativeRepresentable())
-                .isFalse();
+        // A character XML cannot carry no longer holds: the name shows U+FFFD in its place and
+        // is carried exactly, and such a telephone is carried instead of written.
+        var named =
+                map(List.of(link(-1, 9)), List.of(changed(pharmacy(9), "name", "Bad\u0001value")));
+        assertThat(named.nativeRepresentable()).isTrue();
+        assertThat(named.preferred().name()).isEqualTo("Bad\uFFFDvalue");
+        assertCarried(named, pharmacy(9), "name");
+        var telephone =
+                map(List.of(link(-1, 9)), List.of(changed(pharmacy(9), "phone1", "613\u0001555")));
+        assertThat(telephone.nativeRepresentable()).isTrue();
+        assertThat(telephone.preferred().phone()).isNull();
+        assertCarried(telephone, pharmacy(9), "phone1");
     }
 
     @Test

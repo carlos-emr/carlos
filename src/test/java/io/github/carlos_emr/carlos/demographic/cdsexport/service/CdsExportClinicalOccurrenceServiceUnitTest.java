@@ -434,9 +434,10 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
             throws Exception {
         var f = nativeOnly();
         var fields = new LinkedHashMap<>(f.nativeRows.getFirst().fields());
-        // Native "Severe" and an unlisted drug/non-drug flag now travel in residuals; text no
-        // XML document can hold still has no representation and must hold the patient.
-        fields.put("reaction", "rash\u0001");
+        // Native "Severe", an unlisted drug/non-drug flag and text XML cannot carry now travel in
+        // residuals; an archive flag that is neither 0 nor 1 (no screen writes one) still has no
+        // representation and must hold the patient.
+        fields.put("archived", "2");
         f.nativeRows =
                 List.of(
                         new CdsExportCapturedTextRowDto(

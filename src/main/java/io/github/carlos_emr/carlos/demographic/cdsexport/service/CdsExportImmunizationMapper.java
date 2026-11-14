@@ -237,11 +237,11 @@ public final class CdsExportImmunizationMapper {
         if ((nameMoved || !byKey.containsKey("name") && !byKey.containsKey("cdsName"))
                 && nativeType != null
                 && !nativeType.equals(CATCH_ALL_TYPE)
-                && CdsExportNativeFieldAssessments.legal(nativeType, 120))
+                && nativeType.codePointCount(0, nativeType.length()) <= 120)
             name =
                     category.rule() == CdsExportPreventionClassifier.Rule.RH_IMMUNE_GLOBULIN
                             ? RH_LABEL
-                            : nativeType;
+                            : CdsExportXmlText.element(nativeType);
         if ((name == null || name.isBlank())
                 && category.rule() == CdsExportPreventionClassifier.Rule.CATCH_ALL_INJECTION
                 && (nameMoved || !byKey.containsKey("cdsName"))) name = CATCH_ALL_LABEL;
@@ -412,10 +412,7 @@ public final class CdsExportImmunizationMapper {
         String notes;
         if (commentsFields.size() == 1
                 && commentsFields.getFirst().raw("val") != null
-                && !CdsExportNativeFieldAssessments.legal(
-                        commentsFields.getFirst().raw("val"), 32000)
-                && CdsExportNativeFieldAssessments.legal(
-                        commentsFields.getFirst().raw("val"), Integer.MAX_VALUE)) {
+                && codePoints(commentsFields.getFirst().raw("val")) > 32000) {
             // Comments longer than Notes itself: never clipped, and exact in the residual.
             commentsFields
                     .getFirst()
@@ -432,25 +429,17 @@ public final class CdsExportImmunizationMapper {
             if (statusNote != null) lines.add(statusNote);
             lines.addAll(moved);
             if (notes != null) lines.add(notes);
+            // Every line is already text XML can carry (oneOf, fitted), so only length decides.
             String all = String.join("\n", lines);
-            if (CdsExportNativeFieldAssessments.legal(all, 32000)) notes = all;
-            else if (!CdsExportNativeFieldAssessments.legal(all, Integer.MAX_VALUE)) {
-                // Text no XML document can hold.
-                if (statusNote != null)
-                    source.review("refused", "Notes", "WIRE_TEXT_REQUIRES_REVIEW");
-                for (var fields : commentsFields)
-                    fields.review("val", "Notes", "WIRE_TEXT_REQUIRES_REVIEW");
-                for (var fields : movedFields)
-                    fields.review("val", "Notes", "WIRE_TEXT_REQUIRES_REVIEW");
-                notes = null;
-            } else {
+            if (codePoints(all) <= 32000) notes = all;
+            else {
                 var kept = new ArrayList<String>();
                 if (statusNote != null) kept.add(statusNote);
                 kept.addAll(moved);
                 if (notes != null)
                     for (var fields : commentsFields)
                         fields.set("val", Outcome.MAPPED, RESIDUAL, OVERLONG_IN_RESIDUAL);
-                if (!CdsExportNativeFieldAssessments.legal(String.join("\n", kept), 32000)) {
+                if (codePoints(String.join("\n", kept)) > 32000) {
                     kept.removeAll(moved);
                     for (var fields : movedFields)
                         fields.set("val", Outcome.MAPPED, RESIDUAL, OVERLONG_IN_RESIDUAL);
@@ -580,9 +569,9 @@ public final class CdsExportImmunizationMapper {
                 fields.set(entry.getKey(), Outcome.ABSENT, "", "SQL_NULL_CARRIED_IN_RESIDUAL");
             else if (entry.getValue().isEmpty())
                 fields.set(entry.getKey(), Outcome.ABSENT, "", "EMPTY_TEXT_CARRIED_IN_RESIDUAL");
-            else if (CdsExportNativeFieldAssessments.legal(entry.getValue(), Integer.MAX_VALUE))
-                fields.set(entry.getKey(), Outcome.MAPPED, RESIDUAL, CARRIED);
-            else fields.review(entry.getKey(), RESIDUAL, "WIRE_TEXT_REQUIRES_REVIEW");
+            // The residual is JSON in which a character XML cannot carry is its escape
+            // (CdsExportResidualJson), so every stored value travels exactly.
+            else fields.set(entry.getKey(), Outcome.MAPPED, RESIDUAL, CARRIED);
         return fields;
     }
 
@@ -625,11 +614,9 @@ public final class CdsExportImmunizationMapper {
         if (present.size() == 1) {
             var fields = present.getFirst();
             String value = fields.raw("val");
-            if (value != null
-                    && value.codePointCount(0, value.length()) > maximum
-                    && CdsExportNativeFieldAssessments.legal(value, Integer.MAX_VALUE)) {
+            if (value != null && codePoints(value) > maximum) {
                 fields.set("val", Outcome.MAPPED, "Notes;" + RESIDUAL, OVERLONG_MOVED_TO_NOTES);
-                moved.add(label + ": " + value);
+                moved.add(label + ": " + CdsExportXmlText.element(value));
                 movedFields.add(fields);
                 return null;
             }
@@ -655,12 +642,31 @@ public final class CdsExportImmunizationMapper {
         var fields = present.getFirst();
         String value = fields.raw("val");
         if (value == null) return null;
-        if (!CdsExportNativeFieldAssessments.legal(value, maximum)) {
+        if (codePoints(value) > maximum) {
+            // Only an import-written key (cdsType, cdsCode, cdsCodeSystem) reaches this: the
+            // form's own values are moved to Notes (fitted) or carried (comments) before it.
             fields.review("val", destination, "WIRE_TEXT_REQUIRES_REVIEW");
             return null;
         }
+        String element = CdsExportXmlText.element(value);
+        if (!element.equals(value)) {
+            // A pasted control character: the element shows U+FFFD in its place and the stored
+            // value is exact in CARLOS.Prevention.Source.v1.
+            fields.set("val", Outcome.MAPPED, destination + ";" + RESIDUAL, REPLACED_IN_ELEMENT);
+            return element;
+        }
         fields.set("val", Outcome.MAPPED, destination, "EXACT_NATIVE_EXTENSION_TEXT");
         return value;
+    }
+
+    /**
+     * Rule of a value holding a character XML 1.0 cannot carry: its element shows U+FFFD for each
+     * such character and the stored value travels exactly in {@code CARLOS.Prevention.Source.v1}.
+     */
+    static final String REPLACED_IN_ELEMENT = "CHARACTER_XML_CANNOT_CARRY_REPLACED_EXACT_IN_RESIDUAL";
+
+    private static int codePoints(String value) {
+        return value.codePointCount(0, value.length());
     }
 
     private static void shape(

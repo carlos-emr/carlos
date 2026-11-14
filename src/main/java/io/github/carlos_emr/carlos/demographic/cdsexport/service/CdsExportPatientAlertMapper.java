@@ -26,7 +26,6 @@ import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFieldAsses
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFieldAssessmentDto.Outcome;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFieldAssessmentDto.Presence;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNativeFieldKeyDto;
-import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Objects;
@@ -39,12 +38,26 @@ import java.util.Objects;
  * element that means the same thing; the 255-character column always fits it, and a carriage
  * return is written as a character reference, so the text travels exactly. The CARLOS importer
  * files the occurrence as a Reminders note. The occurrence exists only when AlertsAndSpecialNeeds
- * is selected (the alert column is captured only then) and the alert is populated; text that no
- * XML document can hold is genuinely malformed and still holds the chart.
+ * is selected (the alert column is captured only then) and the alert is populated.
+ *
+ * <p>No alert holds a chart. A character XML 1.0 cannot carry (a control character pasted into
+ * the Alert box) is written as U+FFFD in AlertDescription, one for one, and the stored text
+ * travels exactly in the occurrence's own ResidualInfo as {@value #RESIDUAL_NAME} (JSON, {@link
+ * CdsExportResidualJson}). Text longer than the element (the column cannot hold it) would leave
+ * AlertDescription out and travel in the same residual.
  */
 public final class CdsExportPatientAlertMapper {
     /** Occurrence identity table: one alert per patient, keyed by the patient number. */
     public static final String TABLE = "demographiccust";
+
+    /** The residual DataElement that carries an alert AlertDescription cannot hold exactly. */
+    public static final String RESIDUAL_NAME = "CARLOS.PatientAlert.v1";
+
+    /** Destination of the residual carrier. */
+    static final String RESIDUAL_DESTINATION = "AlertsAndSpecialNeeds/ResidualInfo";
+
+    /** AlertDescription is text1K: 1,000 characters as the data dictionary counts them. */
+    static final int MAXIMUM = 1000;
 
     private CdsExportPatientAlertMapper() {}
 
@@ -56,8 +69,19 @@ public final class CdsExportPatientAlertMapper {
                     || !row.table().equals(TABLE)
                     || !Integer.toString(patient).equals(row.fields().get("demographic_no"))
                     || !text.equals(row.fields().get("cust3"))
-                    || !legal(text))
+                    || text.isEmpty())
                 throw new IllegalArgumentException("CDS_EXPORT_PATIENT_ALERT_SCOPE_INVALID");
+        }
+
+        /** AlertDescription as written, or null when the element cannot hold the alert at all. */
+        String element() {
+            String shown = CdsExportXmlText.element(text);
+            return shown.codePointCount(0, shown.length()) > MAXIMUM ? null : shown;
+        }
+
+        /** True when AlertDescription is the stored text exactly, so no residual is written. */
+        boolean exact() {
+            return text.equals(element());
         }
 
         @Override
@@ -66,18 +90,35 @@ public final class CdsExportPatientAlertMapper {
         }
     }
 
-    /** Whether the populated alert is legal XML text within AlertDescription's 1,024 characters. */
+    /** Whether AlertDescription holds the populated alert exactly, with no residual. */
     static boolean legal(String value) {
         return value != null
                 && !value.isEmpty()
-                && CdsExportNativeFieldAssessments.legal(value, 1024);
+                && CdsExportNativeFieldAssessments.legal(value, MAXIMUM);
+    }
+
+    /** The decision for a populated alert: always exported, exact in the element or the residual. */
+    static CdsExportFieldAssessmentDto decision(String value) {
+        return legal(value)
+                ? new CdsExportFieldAssessmentDto(
+                        Presence.VALUE,
+                        Outcome.MAPPED,
+                        CdsExportDemographicSupportingMapper.ALERT_DESTINATION,
+                        "NATIVE_PATIENT_ALERT_AS_ALERT_DESCRIPTION")
+                : new CdsExportFieldAssessmentDto(
+                        Presence.VALUE,
+                        Outcome.MAPPED,
+                        CdsExportDemographicSupportingMapper.ALERT_DESTINATION
+                                + ";"
+                                + RESIDUAL_DESTINATION,
+                        "NATIVE_PATIENT_ALERT_EXACT_IN_RESIDUAL");
     }
 
     /**
      * The patient's alert, or null when the row is absent, was captured without the alert column
      * (AlertsAndSpecialNeeds not selected) or holds no alert.
      *
-     * @throws IOException review when the populated alert cannot be written as XML text
+     * @throws IOException when the row is not the patient's own
      */
     public static Alert map(int patient, CdsExportCapturedTextRowDto custom) throws IOException {
         if (custom == null || !custom.fields().containsKey("cust3")) return null;
@@ -86,9 +127,6 @@ public final class CdsExportPatientAlertMapper {
             throw new IOException("CDS_EXPORT_PATIENT_ALERT_SCOPE_INVALID");
         String text = custom.fields().get("cust3");
         if (text == null || text.isEmpty()) return null;
-        if (!legal(text))
-            throw new CdsExportMappingReviewException(
-                    "CDS_EXPORT_PATIENT_ALERT_WIRE_TEXT_REQUIRES_REVIEW");
         return new Alert(patient, custom, text);
     }
 
@@ -97,11 +135,7 @@ public final class CdsExportPatientAlertMapper {
         var row = alert.row();
         return Map.of(
                 new CdsExportNativeFieldKeyDto(row.table(), row.recordKey(), "cust3"),
-                new CdsExportFieldAssessmentDto(
-                        Presence.VALUE,
-                        Outcome.MAPPED,
-                        CdsExportDemographicSupportingMapper.ALERT_DESTINATION,
-                        "NATIVE_PATIENT_ALERT_AS_ALERT_DESCRIPTION"),
+                decision(alert.text()),
                 new CdsExportNativeFieldKeyDto(row.table(), row.recordKey(), "demographic_no"),
                 new CdsExportFieldAssessmentDto(
                         Presence.VALUE, Outcome.OPERATIONAL, "", "EXACT_PATIENT_OWNER"));
@@ -110,6 +144,22 @@ public final class CdsExportPatientAlertMapper {
     /** Schema-ordered AlertsAndSpecialNeeds content. */
     public static void write(Alert alert, CdsExportXmlComposer.ContentWriter xml)
             throws IOException {
-        xml.element("cds", "AlertDescription", alert.text());
+        String element = alert.element();
+        if (!alert.exact()) {
+            var context = new java.util.LinkedHashMap<String, Object>();
+            context.put("version", 1);
+            context.put("alert", alert.text());
+            xml.start("cds", "ResidualInfo");
+            CdsExportNativeHistoryXmlWriter.residualElement(
+                    xml,
+                    RESIDUAL_NAME,
+                    "string",
+                    CdsExportScreeningMapper.tokenSafe(
+                            com.fasterxml.jackson.databind.json.JsonMapper.builder()
+                                    .build()
+                                    .writeValueAsString(context)));
+            xml.end();
+        }
+        if (element != null) xml.element("cds", "AlertDescription", element);
     }
 }

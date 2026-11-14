@@ -333,8 +333,8 @@ public final class CdsExportProfessionalContactMapper {
             }
             state.operational("type", "EXACT_EXTERNAL_PROFESSIONAL_CONTACT_SUBTYPE");
             state.operational("deleted", "EXACT_CURRENT_NATIVE_PROFESSIONAL_CONTACT");
-            String first = state.text("firstName", "ProfessionalPhysician/FirstName", 50),
-                    last = state.text("lastName", "ProfessionalPhysician/LastName", 50);
+            String first = state.carriedText("firstName", "ProfessionalPhysician/FirstName", 50),
+                    last = state.carriedText("lastName", "ProfessionalPhysician/LastName", 50);
             if ("".equals(state.raw("firstName"))) first = "";
             if ("".equals(state.raw("lastName"))) last = "";
             if (first == null || last == null || first.isBlank() && last.isBlank()) {

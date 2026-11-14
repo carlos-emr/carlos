@@ -326,7 +326,8 @@ class CdsExportDemographicAssemblerUnitTest {
             assertThat(result.fields().get(key).destination())
                     .isEqualTo(CdsExportDemographicSupportingMapper.ALERT_DESTINATION);
         }
-        // Text no XML document can hold is genuinely malformed and still withholds the XML.
+        // A character XML cannot carry no longer withholds the XML: the element shows U+FFFD and
+        // the stored alert is exact in the occurrence's residual.
         var custom =
                 new CdsExportCapturedTextRowDto(
                         "demographiccust", "0000000027", Map.of("cust3", "bell\u0007"));
@@ -342,8 +343,12 @@ class CdsExportDemographicAssemblerUnitTest {
                         Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.ALERTS_AND_SPECIAL_NEEDS),
                         () -> {});
         assertThat(malformed.fields().get(key).outcome())
-                .isEqualTo(CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW);
-        assertThat(malformed.proposedChanges()).isEmpty();
+                .isEqualTo(CdsExportFieldAssessmentDto.Outcome.MAPPED);
+        assertThat(malformed.fields().get(key).destination())
+                .isEqualTo(
+                        CdsExportDemographicSupportingMapper.ALERT_DESTINATION
+                                + ";AlertsAndSpecialNeeds/ResidualInfo");
+        assertThat(malformed.demographicComplete()).isTrue();
     }
 
     @Test

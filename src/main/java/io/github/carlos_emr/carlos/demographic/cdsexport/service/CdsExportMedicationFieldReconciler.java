@@ -428,13 +428,9 @@ public final class CdsExportMedicationFieldReconciler {
             var prior = entry.getValue();
             if (prior.outcome() != Outcome.REQUIRES_REVIEW) continue;
             boolean row = key.table().equals(current.table());
-            // A value longer than its element is left out and carried, never clipped; only
-            // text no XML document can hold still requires review.
-            boolean overlong =
-                    row
-                            && "WIRE_TEXT_REQUIRES_REVIEW".equals(prior.rule())
-                            && CdsExportNativeFieldAssessments.legal(
-                                    current.fields().get(key.column()), Integer.MAX_VALUE);
+            // A value longer than its element is left out and carried, never clipped; one
+            // holding a character XML cannot carry is carried the same way (JSON escapes).
+            boolean overlong = row && "WIRE_TEXT_REQUIRES_REVIEW".equals(prior.rule());
             if (!(row || key.table().equals("partial_date"))
                     || !CARRIED_RULES.contains(prior.rule()) && !overlong) continue;
             carried = true;

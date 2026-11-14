@@ -113,20 +113,6 @@ public class CdsExportPatientDocumentService {
                     store.stage(
                             "PATIENT_RECONCILIATION",
                             audit -> {
-                                long[] auditBytes = {0};
-                                // Each expected occurrence and each record named as not
-                                // selected adds to the audit.
-                                long named = 0;
-                                for (long count : expected.notExported().values())
-                                    named = Math.addExact(named, count);
-                                long auditMaximum =
-                                        auditLimit(
-                                                bounds,
-                                                Math.toIntExact(
-                                                        Math.min(
-                                                                Integer.MAX_VALUE,
-                                                                expected.identities().size()
-                                                                        + named)));
                                 var sink =
                                         new CdsExportClinicalOccurrenceService.Receipts() {
                                             @Override
@@ -171,9 +157,7 @@ public class CdsExportPatientDocumentService {
                                                                                     .retainedFields()),
                                                                     new TreeSet<>(
                                                                             receipt
-                                                                                    .replacedFields())),
-                                                            auditBytes,
-                                                            auditMaximum);
+                                                                                    .replacedFields())));
                                                     for (var decisions :
                                                             fieldDecisions(
                                                                     receipt.identity(),
@@ -181,9 +165,7 @@ public class CdsExportPatientDocumentService {
                                                                     control)) {
                                                         line(
                                                                 audit,
-                                                                decisions,
-                                                                auditBytes,
-                                                                auditMaximum);
+                                                                decisions);
                                                     }
                                                 } catch (IOException
                                                         | RuntimeException
@@ -329,7 +311,7 @@ public class CdsExportPatientDocumentService {
                                 for (var owner : attachmentOwners.values())
                                     if (!receipts.contains(owner)) invalid();
                                 for (var disposition : dispositions.values())
-                                    line(audit, disposition, auditBytes, auditMaximum);
+                                    line(audit, disposition);
                                 // Captured records with no CDS element whose NewCategory record
                                 // was not written because NewCategory was not selected: each is
                                 // an explicit OPERATIONAL decision here, not a hold and not a
@@ -345,9 +327,7 @@ public class CdsExportPatientDocumentService {
                                                                 .OPERATIONAL,
                                                         CdsExportDemographicSupportingMapper
                                                                 .NOT_SELECTED_RULE,
-                                                        table.getValue()),
-                                                auditBytes,
-                                                auditMaximum);
+                                                        table.getValue()));
                                 var coverage =
                                         new CdsExportCoverageValidator()
                                                 .validate(
@@ -357,7 +337,7 @@ public class CdsExportPatientDocumentService {
                                                         bounds.indexRows(),
                                                         control::checkpoint);
                                 if (!coverage.sourceCoverageComplete()) invalid();
-                                line(audit, coverage, auditBytes, auditMaximum);
+                                line(audit, coverage);
                             });
             owned.add(reconciliation);
             var references = new ArrayList<CdsExportReportReferenceDto>();
@@ -547,35 +527,13 @@ public class CdsExportPatientDocumentService {
     }
 
     /**
-     * The audit bytes each expected occurrence may add to the reconciliation audit, on top of
-     * {@code maxIndexBytes}: a receipt header, its grouped field decisions and a disposition line.
-     * A native measurement's two receipts and dispositions (CareElements and NewCategory) take
-     * about 6 KiB.
+     * One line of the patient's reconciliation audit. The audit is streamed to an encrypted staged
+     * file, never held in memory, and has no size limit: it grows with what the chart holds, and
+     * no chart is refused for that.
      */
-    static final long AUDIT_BYTES_PER_OCCURRENCE = 16L << 10;
-
-    /**
-     * The size bound of one patient's reconciliation audit. The audit is streamed to an encrypted
-     * staged file, never held in memory, and grows with the patient's occurrences, which the
-     * inventory already bounds ({@code maxIndexRows}, {@code maxIndexBytes} / 512). Before
-     * charts with many measurements were exported, {@code maxIndexBytes} alone bounded it, so a
-     * chart of about 11,000 measurements would have stopped the whole job here; a runaway audit
-     * is still refused.
-     */
-    static long auditLimit(CdsExportClinicalOccurrenceService.Bounds bounds, int occurrences) {
-        if (occurrences < 0) throw new IllegalArgumentException("CDS_EXPORT_AUDIT_LIMIT_INVALID");
-        return Math.addExact(
-                bounds.indexBytes(),
-                Math.multiplyExact((long) occurrences, AUDIT_BYTES_PER_OCCURRENCE));
-    }
-
-    private static void line(OutputStream out, Object value, long[] used, long maximum)
-            throws IOException {
-        byte[] bytes = JSON.writeValueAsBytes(value);
-        if (bytes.length > maximum - used[0] - 1) limit();
-        out.write(bytes);
+    private static void line(OutputStream out, Object value) throws IOException {
+        out.write(JSON.writeValueAsBytes(value));
         out.write('\n');
-        used[0] += bytes.length + 1L;
     }
 
     /** Private validated document evidence; package/disclosure services must still prove their own gates. */

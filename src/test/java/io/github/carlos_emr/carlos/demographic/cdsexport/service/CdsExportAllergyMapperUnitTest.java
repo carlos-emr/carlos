@@ -618,10 +618,14 @@ class CdsExportAllergyMapperUnitTest {
         assertThat(undated.value().start().precision())
                 .isEqualTo(CdsExportDateDto.Precision.ABSENT);
         assertThat(carried(undated).get("start_date").asText()).isEqualTo("0000-00-00");
-        // Text no XML document can hold is the one value that still holds.
+        // A character XML cannot carry no longer holds: the element shows U+FFFD in its place
+        // and the stored reaction is exact in the allergy's source context.
         var control = baseline();
         control.put("reaction", "rash\u0001");
-        assertThat(mapper.map(27, allergy(control), List.of()).nativeRowRepresentable()).isFalse();
+        var replaced = mapper.map(27, allergy(control), List.of());
+        assertThat(replaced.nativeRowRepresentable()).isTrue();
+        assertThat(replaced.value().reaction()).isEqualTo("rash\uFFFD");
+        assertThat(carried(replaced).get("reaction").asText()).isEqualTo("rash\u0001");
     }
 
     @Test

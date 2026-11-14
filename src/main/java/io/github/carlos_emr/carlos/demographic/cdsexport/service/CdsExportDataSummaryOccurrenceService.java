@@ -38,7 +38,6 @@ import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.EnumMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -295,18 +294,82 @@ public class CdsExportDataSummaryOccurrenceService {
      * The exported records, the captured records that are not exported, the patient header, the
      * patient's captured demographic row (the printed forms show the patient as the chart does)
      * and, when asked for, each listed eForm's captured render outcome by eForm identity.
+     *
+     * <p>A record in {@code groups} or {@code withheld} is one part of a record ({@link
+     * CdsExportDataSummaryPlanner#divide}; nearly always its only one). When the plan was read from
+     * a capture ({@code stored} is set) the rows of a record are index entries holding its planning
+     * columns only, and {@link #load} reads the whole rows from protected storage when the record
+     * is written; closing the plan erases them. A plan built from rows in memory loads nothing.
      */
     record Plan(
             List<CdsExportDataSummaryPlanner.Group> groups,
             CdsExportDataSummaryHtmlComposer.Patient patient,
             List<Hidden> withheld,
             Map<String, CdsExportEformRenderings.Rendering> renderings,
-            Map<String, String> demographic) {
+            Map<String, String> demographic,
+            CdsExportDataSummaryRowsReader.Result stored)
+            implements AutoCloseable {
         Plan {
             groups = List.copyOf(groups);
             withheld = List.copyOf(withheld);
             renderings = java.util.Collections.unmodifiableMap(new TreeMap<>(renderings));
             demographic = java.util.Collections.unmodifiableMap(new java.util.HashMap<>(demographic));
+        }
+
+        Plan(
+                List<CdsExportDataSummaryPlanner.Group> groups,
+                CdsExportDataSummaryHtmlComposer.Patient patient,
+                List<Hidden> withheld,
+                Map<String, CdsExportEformRenderings.Rendering> renderings,
+                Map<String, String> demographic) {
+            this(groups, patient, withheld, renderings, demographic, null);
+        }
+
+        /** The record (or part) with its whole rows. */
+        CdsExportDataSummaryPlanner.Group load(CdsExportDataSummaryPlanner.Group group)
+                throws IOException {
+            if (stored == null) return group;
+            var rows = new ArrayList<CdsExportDataSummaryPlanner.Row>(group.rows().size());
+            for (var row : group.rows()) rows.add(stored.load(row));
+            return group.withRows(rows);
+        }
+
+        /**
+         * The whole record a part belongs to, with its whole rows, for a printer: a record in one
+         * piece as it is, a divided one put together from its parts in order.
+         */
+        CdsExportDataSummaryPlanner.Group whole(CdsExportDataSummaryPlanner.Group group)
+                throws IOException {
+            if (group.parts() == 0) return load(group);
+            var rows = new ArrayList<CdsExportDataSummaryPlanner.Row>();
+            int next = 1;
+            for (var other : groups)
+                if (other.table().equals(group.table())
+                        && other.id().equals(group.id())
+                        && other.detached() == group.detached()
+                        && other.parts() == group.parts()) {
+                    if (other.part() != next++)
+                        throw new IOException("CDS_EXPORT_DATA_SUMMARY_SCOPE_INVALID");
+                    rows.addAll(other.accounted());
+                }
+            if (next != group.parts() + 1) throw new IOException("CDS_EXPORT_DATA_SUMMARY_SCOPE_INVALID");
+            return load(
+                    new CdsExportDataSummaryPlanner.Group(
+                            group.kind(),
+                            group.table(),
+                            group.id(),
+                            rows,
+                            group.revision(),
+                            group.revisions(),
+                            group.event(),
+                            group.detached(),
+                            group.notice()));
+        }
+
+        /** Erases the stored rows of a plan read from a capture. */
+        @Override
+        public void close() throws IOException {
+            if (stored != null) stored.close();
         }
 
         Plan(
@@ -349,7 +412,7 @@ public class CdsExportDataSummaryOccurrenceService {
             CdsExportClinicalOccurrenceService.Bounds bounds,
             CdsExportRunControl control)
             throws IOException {
-        return plan(lease, patient, tables, source, bounds, control, false);
+        return plan(lease, patient, tables, source, bounds, control, false, true);
     }
 
     Plan plan(
@@ -361,36 +424,96 @@ public class CdsExportDataSummaryOccurrenceService {
             CdsExportRunControl control,
             boolean withRenderings)
             throws IOException {
+        return plan(lease, patient, tables, source, bounds, control, withRenderings, true);
+    }
+
+    /**
+     * Plans the chart's records from its capture.
+     *
+     * @param withRows false when the caller needs the plan alone (the ReadMe counts): no row is
+     *     then kept in protected storage and no record of the plan can be loaded
+     */
+    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that
+    // failure.
+    @SuppressWarnings("java:S1143")
+    Plan plan(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> tables,
+            CdsExportPatientCaptureDto source,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control,
+            boolean withRenderings,
+            boolean withRows)
+            throws IOException {
         if (!lease.document().command().categories().contains(CdsCategory.REPORTS)
                 || !tables.equals(source.capture().tables().keySet()))
             throw new IOException("CDS_EXPORT_DATA_SUMMARY_SCOPE_INVALID");
         var read =
                 new CdsExportDataSummaryRowsReader(captures)
-                        .read(lease, patient, tables, source.manifest(), bounds, control);
-        var zone =
-                new CdsExportClinicalZoneService(captures)
-                        .read(lease, patient, tables, source, bounds.fields(), bounds.bytes(), control)
-                        .zone();
-        var exported = new ArrayList<CdsExportDataSummaryPlanner.Group>();
-        var withheld = new ArrayList<Hidden>();
-        for (var group : CdsExportDataSummaryPlanner.plan(read.rows(), zone)) {
-            var why = withheld(group);
-            if (why == null) exported.add(group);
-            else withheld.add(new Hidden(group, why));
+                        .read(
+                                lease,
+                                patient,
+                                tables,
+                                source.manifest(),
+                                bounds,
+                                control,
+                                withRows
+                                        ? stores.openExisting(
+                                                lease.runId(),
+                                                lease.epoch(),
+                                                lease.document().storage(),
+                                                control::checkpoint)
+                                        : null);
+        Throwable primary = null;
+        boolean complete = false;
+        try {
+            var zone =
+                    new CdsExportClinicalZoneService(captures)
+                            .read(lease, patient, tables, source, bounds.fields(), bounds.bytes(), control)
+                            .zone();
+            var exported = new ArrayList<CdsExportDataSummaryPlanner.Group>();
+            var withheld = new ArrayList<Hidden>();
+            for (var record : CdsExportDataSummaryPlanner.plan(read.rows(), zone)) {
+                control.checkpoint();
+                var why = withheld(record);
+                for (var group :
+                        CdsExportDataSummaryPlanner.divide(
+                                record,
+                                read::weight,
+                                CdsExportDataSummaryPlanner.Division.STANDARD))
+                    if (why == null) exported.add(group);
+                    else withheld.add(new Hidden(group, why));
+            }
+            Map<String, CdsExportEformRenderings.Rendering> renderings = Map.of();
+            if (withRenderings) {
+                renderings =
+                        CdsExportEformRenderings.read(
+                                captures, lease, patient, tables, source, bounds, control);
+                requireRenderingScope(exported, tables, renderings);
+            }
+            var plan =
+                    new Plan(
+                            exported,
+                            CdsExportDataSummaryHtmlComposer.Patient.of(read.demographic()),
+                            withheld,
+                            renderings,
+                            read.demographic(),
+                            read);
+            complete = true;
+            return plan;
+        } catch (IOException | RuntimeException | Error failure) {
+            primary = failure;
+            throw failure;
+        } finally {
+            if (!complete)
+                try {
+                    read.close();
+                } catch (IOException cleanup) {
+                    if (primary != null) primary.addSuppressed(cleanup);
+                    else throw cleanup;
+                }
         }
-        Map<String, CdsExportEformRenderings.Rendering> renderings = Map.of();
-        if (withRenderings) {
-            renderings =
-                    CdsExportEformRenderings.read(
-                            captures, lease, patient, tables, source, bounds, control);
-            requireRenderingScope(exported, tables, renderings);
-        }
-        return new Plan(
-                exported,
-                CdsExportDataSummaryHtmlComposer.Patient.of(read.demographic()),
-                withheld,
-                renderings,
-                read.demographic());
     }
 
     /**
@@ -425,7 +548,7 @@ public class CdsExportDataSummaryOccurrenceService {
         }
         var listed = new java.util.TreeSet<String>();
         for (var group : exported)
-            if (listed(group) && !listed.add(group.id()))
+            if (listed(group) && group.first() && !listed.add(group.id()))
                 throw new IOException("CDS_EXPORT_EFORM_RENDERING_SCOPE_INVALID");
         if (!listed.equals(renderings.keySet()))
             throw new IOException("CDS_EXPORT_EFORM_RENDERING_SCOPE_INVALID");
@@ -449,21 +572,22 @@ public class CdsExportDataSummaryOccurrenceService {
             CdsExportRunControl control)
             throws IOException {
         var result = new ArrayList<CdsExportIdentityDto>();
-        var plan = plan(lease, patient, tables, source, bounds, control, true);
-        for (var group : plan.groups()) {
-            control.checkpoint();
-            result.add(identity(patientKey, group));
-            // The printed form is expected only when it can be printed; the emission prints the
-            // same captured record again and reaches the same answer.
-            var outcome = printed(group, plan, patient.patient(), control);
-            if (outcome != null && outcome.printed() != null) {
-                result.add(printedIdentity(patientKey, group));
-                java.util.Arrays.fill(outcome.printed().pdf(), (byte) 0);
+        try (var plan = plan(lease, patient, tables, source, bounds, control, true)) {
+            for (var group : plan.groups()) {
+                control.checkpoint();
+                result.add(identity(patientKey, group));
+                // The printed form is expected only when it can be printed; the emission prints
+                // the same captured record again and reaches the same answer.
+                var outcome = printed(group, plan, patient.patient(), control);
+                if (outcome != null && outcome.printed() != null) {
+                    result.add(printedIdentity(patientKey, group));
+                    java.util.Arrays.fill(outcome.printed().pdf(), (byte) 0);
+                }
             }
+            // One more Reports entry for each listed eForm whose rendered form was captured.
+            for (var rendering : plan.renderings().values())
+                if (rendering.rendered()) result.add(renderedIdentity(patientKey, rendering.fdid()));
         }
-        // One more Reports entry for each listed eForm whose rendered form was captured.
-        for (var rendering : plan.renderings().values())
-            if (rendering.rendered()) result.add(renderedIdentity(patientKey, rendering.fdid()));
         return List.copyOf(result);
     }
 
@@ -481,8 +605,10 @@ public class CdsExportDataSummaryOccurrenceService {
             throws IOException {
         if (!captured(tables)) return Map.of();
         var counts = new EnumMap<Withheld, Long>(Withheld.class);
-        for (var hidden : plan(lease, patient, tables, source, bounds, control).withheld())
-            counts.merge(hidden.why(), 1L, Long::sum);
+        try (var plan = plan(lease, patient, tables, source, bounds, control, false, false)) {
+            for (var hidden : plan.withheld())
+                if (hidden.group().first()) counts.merge(hidden.why(), 1L, Long::sum);
+        }
         var result = new LinkedHashMap<String, Long>();
         counts.forEach((why, count) -> result.put(why.label(), count));
         return java.util.Collections.unmodifiableMap(result);
@@ -503,8 +629,10 @@ public class CdsExportDataSummaryOccurrenceService {
         if (!captured(tables)) return Map.of();
         var counts = new EnumMap<CdsExportDataSummaryRegistry.Kind, Long>(
                 CdsExportDataSummaryRegistry.Kind.class);
-        for (var group : plan(lease, patient, tables, source, bounds, control).groups())
-            counts.merge(group.kind(), 1L, Long::sum);
+        try (var plan = plan(lease, patient, tables, source, bounds, control, false, false)) {
+            for (var group : plan.groups())
+                if (group.first()) counts.merge(group.kind(), 1L, Long::sum);
+        }
         var result = new LinkedHashMap<String, Long>();
         counts.forEach((kind, count) -> result.put(kind.label(), count));
         return java.util.Collections.unmodifiableMap(result);
@@ -533,17 +661,40 @@ public class CdsExportDataSummaryOccurrenceService {
         if (patientKey == null || !patientKey.matches("[0-9a-f]{64}"))
             throw new IOException("CDS_EXPORT_DATA_SUMMARY_SCOPE_INVALID");
         if (!captured(tables)) return 0;
-        var plan = plan(lease, patient, tables, source, bounds, control, true);
-        requireAuditCapacity(plan.groups(), bounds);
+        try (var plan = plan(lease, patient, tables, source, bounds, control, true)) {
+            return append(lease, patient, patientKey, tables, source, control, xml, output, plan);
+        }
+    }
+
+    /**
+     * Emits the records of an open plan, one record (or part) in memory at a time. A plan read
+     * from a capture and a plan of the same records held in memory emit the same entries,
+     * documents and receipts.
+     */
+    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that
+    // failure.
+    @SuppressWarnings("java:S1143")
+    long append(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            String patientKey,
+            Set<String> tables,
+            CdsExportPatientCaptureDto source,
+            CdsExportRunControl control,
+            CdsExportXmlComposer.SectionEmitter xml,
+            CdsExportClinicalOccurrenceService.Receipts output,
+            Plan plan)
+            throws IOException {
         // Records the chart does not list: every captured field accounted, nothing emitted.
         for (var hidden : plan.withheld()) {
             control.checkpoint();
+            var whole = new Hidden(plan.load(hidden.group()), hidden.why());
             new CdsExportNativeFieldAssessmentValidator()
                     .requireRepresentable(
-                            hidden.group().rows().stream()
+                            whole.group().accounted().stream()
                                     .map(CdsExportDataSummaryPlanner.Row::assessed)
                                     .toList(),
-                            withheldAssessments(hidden),
+                            withheldAssessments(whole),
                             1_000_000,
                             control::checkpoint);
         }
@@ -559,27 +710,36 @@ public class CdsExportDataSummaryOccurrenceService {
         Throwable primary = null;
         long emitted = 0;
         try {
-            for (var group : plan.groups()) {
+            for (var planned : plan.groups()) {
                 control.checkpoint();
                 control.authorizeCategory(patient.patient(), CdsCategory.REPORTS, false);
-                var rendering = listed(group) ? plan.renderings().get(group.id()) : null;
+                // One record (or one part of a divided record) is in memory at a time.
+                var group = plan.load(planned);
+                // The rendered and the printed form belong to the record: once, with its first part.
+                var rendering =
+                        listed(group) && group.first() ? plan.renderings().get(group.id()) : null;
                 var assessments = new LinkedHashMap<>(assessments(group));
                 var rows = new ArrayList<CdsExportCapturedTextRowDto>();
-                for (var row : group.rows()) rows.add(row.assessed());
+                for (var row : group.accounted()) rows.add(row.assessed());
                 // The clinician's printed form of the record, when it has one; the summary says
                 // whether it was produced.
-                var outcome = printed(group, plan, patient.patient(), control);
+                var outcome = printed(planned, plan, patient.patient(), control);
                 String notes = notes(group, outcome);
-                var summary = group;
+                String notice = null;
+                if (group.parts() > 0) {
+                    notice = partNote(group);
+                    notes = notes + " " + notice;
+                }
                 if (rendering != null && !rendering.rendered()) {
                     // The rendered form is unavailable: this summary says so, on the PDF and in
                     // Notes, with a fixed reason and never a patient value.
                     String note = unavailableNote(rendering.reason());
                     notes = notes + " " + note;
-                    summary = group.withNotice(note);
+                    notice = notice == null ? note : notice + " " + note;
                     rows.add(rendering.row());
                     assessments.putAll(unavailableAssessments(rendering));
                 }
+                var summary = notice == null ? group : group.withNotice(notice);
                 new CdsExportNativeFieldAssessmentValidator()
                         .requireRepresentable(rows, assessments, 1_000_000, control::checkpoint);
                 byte[] pdf =
@@ -591,11 +751,19 @@ public class CdsExportDataSummaryOccurrenceService {
                 var identity = identity(patientKey, group);
                 String relative =
                         "Reports/"
-                                + CdsImportKeys.hash(
-                                        "cds-export-data-summary-file-v1",
-                                        patientKey,
-                                        group.table(),
-                                        group.id())
+                                + (group.first()
+                                        ? CdsImportKeys.hash(
+                                                "cds-export-data-summary-file-v1",
+                                                patientKey,
+                                                group.table(),
+                                                group.id())
+                                        : CdsImportKeys.hash(
+                                                "cds-export-data-summary-file-v1",
+                                                patientKey,
+                                                group.table(),
+                                                group.id(),
+                                                "part",
+                                                Integer.toString(group.part())))
                                 + ".pdf";
                 output.attachment(identity, new CdsExportPackageMemberDto(relative, staged));
                 String written = notes;
@@ -732,6 +900,15 @@ public class CdsExportDataSummaryOccurrenceService {
                         Set.of()));
     }
 
+    /** What a part of a divided record says of itself, in Notes and on the summary; fixed text. */
+    static String partNote(CdsExportDataSummaryPlanner.Group group) {
+        return group.partLabel()
+                + " of this record's data summary: the record's rows are divided over "
+                + group.parts()
+                + " Reports entries because of their number or size, and each part begins with the"
+                + " record's first source row.";
+    }
+
     /** The data summary's note when the eForm's rendered form is unavailable; fixed text only. */
     static String unavailableNote(CdsExportEformRenderService.Reason reason) {
         return "The eForm as CARLOS displays it could not be rendered for this export ("
@@ -743,7 +920,7 @@ public class CdsExportDataSummaryOccurrenceService {
     static Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> withheldAssessments(
             Hidden hidden) {
         var result = new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
-        for (var row : hidden.group().rows())
+        for (var row : hidden.group().accounted())
             row.values()
                     .forEach(
                             (column, value) -> {
@@ -919,60 +1096,6 @@ public class CdsExportDataSummaryOccurrenceService {
     }
 
     /**
-     * The data summaries' share of the patient's reconciliation audit, whose size is bounded per
-     * patient ({@code maxIndexBytes} plus an allowance per occurrence, {@link
-     * CdsExportPatientDocumentService#auditLimit}) and stops the whole job when exceeded. This
-     * check stays against {@code maxIndexBytes} alone, the stricter of the two. The audit groups a
-     * record's field decisions by table and assessment, so its size grows with rows and column
-     * names, not with one line per field; a long encounter-form history fits. Only a chart whose
-     * data summaries alone would still take most of the budget is held, with this code, instead of
-     * stopping every patient's export.
-     */
-    static void requireAuditCapacity(
-            List<CdsExportDataSummaryPlanner.Group> groups,
-            CdsExportClinicalOccurrenceService.Bounds bounds)
-            throws IOException {
-        if (auditBytes(groups) > bounds.indexBytes() / 4 * 3)
-            throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
-                    .CdsExportMappingReviewException(AUDIT_LIMIT);
-    }
-
-    /** A generous upper bound of the audit bytes the data summaries' field decisions take. */
-    static long auditBytes(List<CdsExportDataSummaryPlanner.Group> groups) {
-        long bytes = 0;
-        for (var group : groups) {
-            var lines = new HashSet<String>();
-            for (var row : group.rows()) {
-                // A row's key repeats in each line (one per presence) that holds its columns.
-                var presences = java.util.EnumSet.noneOf(Presence.class);
-                for (var value : row.values().entrySet()) {
-                    presences.add(presence(value.getValue()));
-                    lines.add(row.table() + '\0' + presence(value.getValue()));
-                    bytes =
-                            Math.addExact(
-                                    bytes, AUDIT_BYTES_PER_COLUMN + 2L * value.getKey().length());
-                }
-                bytes =
-                        Math.addExact(
-                                bytes,
-                                presences.size()
-                                        * (AUDIT_BYTES_PER_ROW + 2L * row.recordKey().length()));
-            }
-            bytes = Math.addExact(bytes, AUDIT_BYTES_PER_LINE * lines.size());
-        }
-        return bytes;
-    }
-
-    /** Upper bounds of one grouped audit line's fixed part, one row's key and one column name. */
-    static final long AUDIT_BYTES_PER_LINE = 1024;
-
-    static final long AUDIT_BYTES_PER_ROW = 16;
-
-    static final long AUDIT_BYTES_PER_COLUMN = 8;
-
-    static final String AUDIT_LIMIT = "CDS_EXPORT_DATA_SUMMARY_AUDIT_LIMIT";
-
-    /**
      * The printed form of a record a printer prints: null when no printer prints it, otherwise
      * the printed PDF (made reproducible) or the reason category it could not be made. Whether
      * the exporting identities may read the record is checked afresh each time.
@@ -989,11 +1112,12 @@ public class CdsExportDataSummaryOccurrenceService {
                     throw new IllegalStateException("CDS_EXPORT_PRINTED_FORM_PRINTER_AMBIGUOUS");
                 printer = candidate;
             }
-        if (printer == null) return null;
+        // A record is printed once, with its first part, from the whole record.
+        if (printer == null || !group.first()) return null;
         if (!control.recordReadable(patient, printer.readObject()))
             return new PrintOutcome(null, NOT_AUTHORIZED);
         try {
-            var printed = printer.print(group, plan);
+            var printed = printer.print(plan.whole(group), plan);
             byte[] pdf =
                     CdsExportPrintedPdf.reproducible(
                             printed.pdf(),
@@ -1173,7 +1297,8 @@ public class CdsExportDataSummaryOccurrenceService {
 
     /**
      * Every captured field of the record is carried, with its exact value, by the summary, except
-     * a credential value the registry withholds (assessed OPERATIONAL, never printed).
+     * a credential value the registry withholds (assessed OPERATIONAL, never printed). A part of a
+     * divided record accounts the rows it adds, not the root row it repeats.
      */
     static Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> assessments(
             CdsExportDataSummaryPlanner.Group group) {
@@ -1181,7 +1306,7 @@ public class CdsExportDataSummaryOccurrenceService {
                 java.util.Comparator.comparing(CdsExportNativeFieldKeyDto::table)
                         .thenComparing(CdsExportNativeFieldKeyDto::recordKey)
                         .thenComparing(CdsExportNativeFieldKeyDto::column));
-        for (var row : group.rows())
+        for (var row : group.accounted())
             row.values()
                     .forEach(
                             (column, value) -> {
@@ -1211,11 +1336,23 @@ public class CdsExportDataSummaryOccurrenceService {
         return java.util.Collections.unmodifiableMap(new LinkedHashMap<>(result));
     }
 
+    /**
+     * The identity of a record's data summary; a part after the first of a divided record has its
+     * own, and the first keeps the record's.
+     */
     static CdsExportIdentityDto identity(
             String patientKey, CdsExportDataSummaryPlanner.Group group) {
         return new CdsExportIdentityDto(
                 patientKey,
                 CdsCategory.REPORTS,
-                CdsImportKeys.hash("carlos-native-occurrence-v1", group.table(), group.id()));
+                group.first()
+                        ? CdsImportKeys.hash(
+                                "carlos-native-occurrence-v1", group.table(), group.id())
+                        : CdsImportKeys.hash(
+                                "carlos-native-occurrence-v1",
+                                group.table(),
+                                group.id(),
+                                "part",
+                                Integer.toString(group.part())));
     }
 }

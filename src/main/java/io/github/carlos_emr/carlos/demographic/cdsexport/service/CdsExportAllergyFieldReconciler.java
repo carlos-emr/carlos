@@ -260,9 +260,7 @@ public final class CdsExportAllergyFieldReconciler {
             boolean row = entry.getKey().table().equals(current.table());
             String stored = row ? current.fields().get(entry.getKey().column()) : null;
             boolean overlong =
-                    "WIRE_TEXT_REQUIRES_REVIEW".equals(decision.rule())
-                            && stored != null
-                            && CdsExportNativeFieldAssessments.legal(stored, Integer.MAX_VALUE);
+                    "WIRE_TEXT_REQUIRES_REVIEW".equals(decision.rule()) && stored != null;
             if (!CdsExportAllergyMapper.CARRIED_RULES.contains(decision.rule()) && !overlong)
                 continue;
             carried = true;

@@ -612,7 +612,8 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                     unitReviews.add(row);
                                 }
                                 // A replaced embedded representation beside a referenced one has
-                                // no free FilePath: its current bytes become the inline Media.
+                                // no free FilePath: its current bytes become the inline Media,
+                                // streamed from the captured file when the entry is written.
                                 boolean inline =
                                         replaced
                                                 && variant.name().equals("embedded")
@@ -625,10 +626,21 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                             fileAssessments);
                                 else assessFile(file, variant.name(), fileAssessments);
                                 if (inline) {
-                                    byte[] bytes =
-                                            currentBytes(
-                                                    captured, file, control, patient.patient());
-                                    changes.add(inlineReplacement(fields, bytes));
+                                    changes.add(
+                                            inlineReplacement(
+                                                    fields,
+                                                    () ->
+                                                            captured.open(
+                                                                    file.content(),
+                                                                    control::checkpoint,
+                                                                    () ->
+                                                                            control
+                                                                                    .authorizeCategory(
+                                                                                            patient
+                                                                                                    .patient(),
+                                                                                            CdsCategory
+                                                                                                    .REPORTS,
+                                                                                            false))));
                                     // Media is binary content (a report with a FilePath already is).
                                     if (!"Binary".equals(prepared.values().get("Format")))
                                         changes.add(
@@ -1775,16 +1787,29 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
         return List.copyOf(changes);
     }
 
-    /** The inline Media of a replaced embedded representation beside a referenced one. */
+    /** Opens the current bytes of a replaced representation; each call reads them afresh. */
+    @FunctionalInterface
+    interface ContentSource {
+        java.io.InputStream open() throws IOException;
+    }
+
+    /**
+     * The inline Media of a replaced embedded representation beside a referenced one. The bytes
+     * are streamed from their captured file into the entry as it is written (the composer encodes
+     * a block at a time), never held, so a replacement of any size is exported; the captured
+     * range is authenticated against its recorded length and SHA-256 as it is read.
+     */
     static CdsExportRetainedSectionWriter.Change inlineReplacement(
-            List<CdsExportRetainedFieldDto> fields, byte[] bytes) throws IOException {
-        byte[] copy = bytes.clone();
+            List<CdsExportRetainedFieldDto> fields, ContentSource current) throws IOException {
+        java.util.Objects.requireNonNull(current);
         return new CdsExportRetainedSectionWriter.Change(
                 "Content[1]",
                 CdsExportImportedDocumentEditReconciler.priorIds(fields, "Content[1]"),
                 content -> {
                     content.start("cds_dt", "Media");
-                    content.binary(new ByteArrayInputStream(copy));
+                    try (var input = current.open()) {
+                        content.binary(input);
+                    }
                     content.end();
                 });
     }
@@ -1815,32 +1840,6 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
         result.put("current", current);
         return result;
     }
-
-    /** The replacement bytes of an inline representation, read once and bounded. */
-    private static byte[] currentBytes(
-            CdsExportCapturedValues captured,
-            CdsExportCapturedDocumentFiles.File file,
-            CdsExportRunControl control,
-            int patient)
-            throws IOException {
-        if (file.content().bytes() > INLINE_CONTENT_BYTES)
-            throw new CdsExportMappingReviewException(
-                    "CDS_EXPORT_IMPORTED_REPORT_REPLACED_CONTENT_CAPACITY");
-        var buffer = new ByteArrayOutputStream();
-        try (var input =
-                captured.open(
-                        file.content(),
-                        control::checkpoint,
-                        () -> control.authorizeCategory(patient, CdsCategory.REPORTS, false))) {
-            transfer(input, buffer, control::checkpoint);
-        }
-        byte[] bytes = buffer.toByteArray();
-        if (bytes.length != file.content().bytes()) invalid();
-        return bytes;
-    }
-
-    /** The largest replacement written inline as Media (32 MiB, as the composer bounds it). */
-    private static final long INLINE_CONTENT_BYTES = 32L << 20;
 
     /** One captured file's fields, under {@code rule}, exported at {@code destination}. */
     private static void assessFile(

@@ -208,27 +208,18 @@ class CdsExportDataSummaryRegistryUnitTest {
     }
 
     @Test
-    void shouldHoldOnlyThisChart_whenADataSummaryTableExceedsItsPerPatientBound() throws Exception {
+    void shouldRefuseNoRowCount_forADataSummaryTable() throws Exception {
         var reader =
                 new CdsExportDataSummarySourceReader(
                         org.mockito.Mockito.mock(CdsExportDataSummaryReadDao.class),
                         CdsExportDataSummaryReadDao.plan("formRourke2009"));
-        assertThatThrownBy(
-                        () ->
-                                reader.requireCapacity(
-                                        CdsExportDataSummarySourceReader.MAXIMUM_ROWS + 1,
-                                        100_000_000))
-                .isInstanceOf(
-                        io.github.carlos_emr.carlos.demographic.cdsexport.support
-                                .CdsExportMappingReviewException.class)
-                .hasMessage("CDS_EXPORT_DATA_SUMMARY_ROW_LIMIT");
-        // The legacy 1,227-column form is bounded by fields as well as rows, and by a smaller
-        // configured capture limit, and each excess holds rather than stopping the job.
-        assertThatThrownBy(() -> reader.requireCapacity(400, 100_000_000))
-                .hasMessage("CDS_EXPORT_DATA_SUMMARY_ROW_LIMIT");
-        assertThatThrownBy(() -> reader.requireCapacity(100, 100_000))
-                .hasMessage("CDS_EXPORT_DATA_SUMMARY_ROW_LIMIT");
-        reader.requireCapacity(300, 100_000_000);
+        // Past the former 100,000 rows, the former 400,000 fields (1,227 columns a row) and any
+        // field bound a caller states: none of them holds a chart any more.
+        reader.requireCapacity(100_001, 100_000_000);
+        reader.requireCapacity(400, 100_000_000);
+        reader.requireCapacity(5_000_000, 1);
+        assertThatThrownBy(() -> reader.requireCapacity(-1, 100_000_000))
+                .hasMessage("CDS_EXPORT_CAPTURE_COUNT_INVALID");
         assertThat(reader.categories()).containsExactly(CdsCategory.REPORTS);
     }
 

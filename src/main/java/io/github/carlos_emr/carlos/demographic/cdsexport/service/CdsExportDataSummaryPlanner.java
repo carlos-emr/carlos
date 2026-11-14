@@ -142,6 +142,11 @@ final class CdsExportDataSummaryPlanner {
      * One exported record: its kind, the table and identity of its root row (or of a child row
      * standing alone), every source row in it, its revision number among the form's revisions and
      * its clinical date when the source holds a valid one.
+     *
+     * <p>A record whose rows pass a {@link Division} is written as several parts ({@link
+     * #divide}): {@code part} of {@code parts}, both 0 for a record in one piece. Every part
+     * begins with the record's root row; a part after the first lists it again so that it names
+     * its record, and accounts only the rows after it ({@link #accounted}).
      */
     record Group(
             CdsExportDataSummaryRegistry.Kind kind,
@@ -152,9 +157,26 @@ final class CdsExportDataSummaryPlanner {
             int revisions,
             CdsExportDateDto event,
             boolean detached,
-            String notice) {
+            String notice,
+            int part,
+            int parts) {
         Group {
             rows = List.copyOf(rows);
+            if (part < 0 || parts < 0 || part > parts || (part == 0) != (parts == 0) || parts == 1)
+                throw new IllegalArgumentException("CDS_EXPORT_DATA_SUMMARY_PART_INVALID");
+        }
+
+        Group(
+                CdsExportDataSummaryRegistry.Kind kind,
+                String table,
+                String id,
+                List<Row> rows,
+                int revision,
+                int revisions,
+                CdsExportDateDto event,
+                boolean detached,
+                String notice) {
+            this(kind, table, id, rows, revision, revisions, event, detached, notice, 0, 0);
         }
 
         Group(
@@ -171,15 +193,41 @@ final class CdsExportDataSummaryPlanner {
 
         /**
          * The same record with a fixed, PHI-free notice printed under the summary's statement
-         * (an eForm whose rendered form could not be produced).
+         * (an eForm whose rendered form could not be produced, or which part of a record this is).
          */
         Group withNotice(String text) {
-            return new Group(kind, table, id, rows, revision, revisions, event, detached, text);
+            return new Group(
+                    kind, table, id, rows, revision, revisions, event, detached, text, part, parts);
+        }
+
+        /** The same record, part and notice over other copies of its rows (the stored rows). */
+        Group withRows(List<Row> other) {
+            return new Group(
+                    kind, table, id, other, revision, revisions, event, detached, notice, part,
+                    parts);
         }
 
         /** The root row of the record (the row itself for a detached child). */
         Row root() {
             return rows.getFirst();
+        }
+
+        /** True for the whole of a record in one piece and for the first part of a divided one. */
+        boolean first() {
+            return part <= 1;
+        }
+
+        /**
+         * The rows this entry accounts for: all of them, or, for a part after the first, the rows
+         * after the root row it repeats.
+         */
+        List<Row> accounted() {
+            return first() ? rows : rows.subList(1, rows.size());
+        }
+
+        /** "Part n of m" of a divided record; empty for a record in one piece. */
+        String partLabel() {
+            return parts == 0 ? "" : "Part " + part + " of " + parts;
         }
 
         /** The CDS SubClass: the record kind, the form and its revision (at most 60 characters). */
@@ -189,8 +237,16 @@ final class CdsExportDataSummaryPlanner {
             return kind.label();
         }
 
-        /** The document title; a revision names its number and, when stored, when it was saved. */
+        /**
+         * The document title; a revision names its number and, when stored, when it was saved, and
+         * a part of a divided record its number.
+         */
         String title() {
+            String whole = wholeTitle();
+            return parts == 0 ? whole : whole + ", part " + part + " of " + parts;
+        }
+
+        private String wholeTitle() {
             if (detached)
                 return "CARLOS data summary: " + kind.label() + " (" + table + " record)";
             if (revisions > 0)
@@ -260,6 +316,133 @@ final class CdsExportDataSummaryPlanner {
                     "consultationRequestsArchive", "lastUpdateDate");
 
     private CdsExportDataSummaryPlanner() {}
+
+    /**
+     * The columns of a table that planning reads, in name order: its identity, the columns its own
+     * links and the links of its children compare, its revision group, its date and time, its save
+     * time and, for an eForm, the two columns that say whether the chart lists it. A row reduced
+     * to these columns plans exactly as the whole row does, which lets the whole row stay in
+     * protected storage until its record is written ({@link CdsExportDataSummaryRowsReader}).
+     */
+    static java.util.SortedSet<String> planning(String table) {
+        var rule = CdsExportDataSummaryRegistry.rule(table);
+        var plan = CdsExportDataSummaryReadDao.plan(table);
+        var result = new java.util.TreeSet<String>();
+        if (plan.numericIdentity()) result.add(plan.keys().getFirst());
+        for (var link : rule.links()) {
+            result.addAll(link.childColumns());
+            if (link.constantColumn() != null) result.add(link.constantColumn());
+        }
+        for (String other : CdsExportDataSummaryRegistry.tables())
+            for (var link : CdsExportDataSummaryRegistry.rule(other).links())
+                if (link.parent().equals(table)) result.addAll(link.parentColumns());
+        if (rule.revisionGroup() != null) result.add(rule.revisionGroup());
+        if (rule.event() != null) {
+            result.add(rule.event().dateColumn());
+            if (rule.event().timeColumn() != null) result.add(rule.event().timeColumn());
+        }
+        result.add(SAVED.getOrDefault(table, "formEdited"));
+        if (table.equals("eform_data")) {
+            result.add("patient_independent");
+            result.add("status");
+        }
+        return java.util.Collections.unmodifiableSortedSet(result);
+    }
+
+    /**
+     * When a record is written as several parts. The numbers are thresholds of how a record is
+     * written, never of whether: a part closes before the row that would take it past one of
+     * them, and a part always holds at least one row of its own, however large that row is.
+     *
+     * @param tableFields fields of one table in one part
+     * @param fields fields of one part in all (one field-decision receipt accounts a part)
+     * @param text UTF-8 bytes of text in one part
+     * @param binary bytes of embedded binary values in one part
+     */
+    record Division(long tableFields, long fields, long text, long binary) {
+        /**
+         * The numbers that once held a chart, per table or per chart. Every record of a chart
+         * that was exported under them lies inside all four, so it has one part and is written
+         * exactly as before.
+         */
+        static final Division STANDARD = new Division(400_000, 1_000_000, 64L << 20, 32L << 20);
+
+        Division {
+            if (tableFields < 1 || fields < 1 || text < 1 || binary < 1)
+                throw new IllegalArgumentException("CDS_EXPORT_DATA_SUMMARY_PART_INVALID");
+        }
+    }
+
+    /** What one row counts toward a part: its fields, its text bytes and its embedded bytes. */
+    record Weight(long fields, long text, long binary) {
+        Weight {
+            if (fields < 0 || text < 0 || binary < 0)
+                throw new IllegalArgumentException("CDS_EXPORT_DATA_SUMMARY_PART_INVALID");
+        }
+    }
+
+    /**
+     * The parts of one record, in order. A record inside the division is returned as it is. A
+     * larger one is divided without splitting or reordering a row: the parts' {@link
+     * Group#accounted accounted} rows, one part after the other, are the record's rows in the
+     * record's order, each exactly once, and every part begins with the record's root row.
+     */
+    static List<Group> divide(
+            Group record, java.util.function.Function<Row, Weight> weigh, Division division) {
+        if (record.parts() != 0)
+            throw new IllegalArgumentException("CDS_EXPORT_DATA_SUMMARY_PART_INVALID");
+        var root = record.root();
+        var rootWeight = weigh.apply(root);
+        var parts = new ArrayList<List<Row>>();
+        var current = new ArrayList<Row>();
+        var tableFields = new HashMap<String, Long>();
+        long fields = 0, text = 0, binary = 0;
+        int own = 0;
+        for (var row : record.rows()) {
+            var weight = row == root ? rootWeight : weigh.apply(row);
+            boolean past =
+                    tableFields.getOrDefault(row.table(), 0L) + weight.fields()
+                                    > division.tableFields()
+                            || fields + weight.fields() > division.fields()
+                            || text + weight.text() > division.text()
+                            || binary + weight.binary() > division.binary();
+            if (past && own > 0) {
+                parts.add(current);
+                current = new ArrayList<>();
+                current.add(root);
+                tableFields.clear();
+                tableFields.put(root.table(), rootWeight.fields());
+                fields = rootWeight.fields();
+                text = rootWeight.text();
+                binary = rootWeight.binary();
+                own = 0;
+            }
+            current.add(row);
+            tableFields.merge(row.table(), weight.fields(), Long::sum);
+            fields += weight.fields();
+            text += weight.text();
+            binary += weight.binary();
+            own++;
+        }
+        parts.add(current);
+        if (parts.size() == 1) return List.of(record);
+        var result = new ArrayList<Group>(parts.size());
+        for (int index = 0; index < parts.size(); index++)
+            result.add(
+                    new Group(
+                            record.kind(),
+                            record.table(),
+                            record.id(),
+                            parts.get(index),
+                            record.revision(),
+                            record.revisions(),
+                            record.event(),
+                            record.detached(),
+                            record.notice(),
+                            index + 1,
+                            parts.size()));
+        return List.copyOf(result);
+    }
 
     /**
      * Groups every row of the supplied data-summary tables.

@@ -213,9 +213,11 @@ class CdsExportPublicProviderMapperUnitTest {
     }
 
     @Test
-    void shouldHoldOnlyAnXmlIllegalProviderName_asGenuinelyMalformed() throws Exception {
-        // first_name/last_name are varchar(30) on the pinned schema, so only a control character
-        // CARLOS's provider form cannot enter can make a name unrepresentable.
+    void shouldShowAProviderNameHoldingACharacterXmlCannotCarry_withoutHoldingItsCharts()
+            throws Exception {
+        // first_name/last_name are varchar(30) on the pinned schema, so no stored name is too
+        // long. A control character pasted into the provider form once held every chart naming
+        // the provider; the name is now written with U+FFFD in its place.
         var fields = new LinkedHashMap<>(provider("CPSO", "000123").fields());
         fields.put("last_name", "Bad\u0001Name");
         var mapped =
@@ -226,9 +228,10 @@ class CdsExportPublicProviderMapperUnitTest {
                                         CdsExportPublicProviderSourceReader.key("0é27"),
                                         fields),
                                 CdsExportPublicProviderMapper.Target.APPOINTMENT);
-        assertThat(mapped.representable()).isFalse();
+        assertThat(mapped.representable()).isTrue();
+        assertThat(mapped.value().lastName()).isEqualTo("Bad\uFFFDName");
         assertThat(mapped.fields().get(key("last_name")).rule())
-                .isEqualTo("WIRE_TEXT_REQUIRES_REVIEW");
+                .isEqualTo("PROVIDER_NAME_CHARACTER_XML_CANNOT_CARRY_SHOWN_AS_U_FFFD");
     }
 
     static CdsExportCapturedTextRowDto provider(String authority, String number) {

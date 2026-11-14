@@ -169,7 +169,9 @@ final class CdsExportNativeLaboratoryMapper {
                 if (!order.isEmpty() && !order.equals(accession))
                     information.add("Order number: " + order);
                 if (!value.isEmpty()) {
-                    if (CdsExportNativeFieldAssessments.legal(value, 120)) {
+                    // The parser already shows U+FFFD for a character XML cannot carry.
+                    value = CdsExportXmlText.element(value);
+                    if (value.codePointCount(0, value.length()) <= 120) {
                         put(text, "ResultValue", value, 120);
                         String unit = scalar(obx, 6, 0, 1);
                         // Units sent only as the CE text component are still the result's unit.
@@ -201,11 +203,10 @@ final class CdsExportNativeLaboratoryMapper {
                     flag = String.join("; ", flags);
                 }
                 if (!CdsExportNativeFieldAssessments.legal(flag, 50)) {
-                    if (!CdsExportNativeFieldAssessments.legal(flag, Integer.MAX_VALUE))
-                        review("CDS_EXPORT_NATIVE_LAB_WIRE_TEXT_REQUIRES_REVIEW");
-                    // Flags longer than the element (several repetitions joined): written whole
-                    // with the laboratory's facts; the flag element says Unknown.
-                    information.add("Abnormal flags (complete): " + flag);
+                    // Flags longer than the element (several repetitions joined), or holding a
+                    // character XML cannot carry: written whole with the laboratory's facts
+                    // (U+FFFD for such a character); the flag element says Unknown.
+                    information.add("Abnormal flags (complete): " + CdsExportXmlText.element(flag));
                     flag = "";
                 }
                 // The data dictionary translates a result with no flag to Unknown.
@@ -767,7 +768,11 @@ final class CdsExportNativeLaboratoryMapper {
                                                             java.util.HexFormat.of()
                                                                     .parseHex(code.substring(1)))));
                         } catch (java.nio.charset.CharacterCodingException invalid) {
-                            review("CDS_EXPORT_NATIVE_LAB_ESCAPE_REQUIRES_REVIEW");
+                            // Hexadecimal data that is not UTF-8 text (another character set):
+                            // the escape is written as the laboratory sent it, like any escape
+                            // this reader does not interpret, and the message travels exactly
+                            // in the report's CARLOS.NativeLaboratory.v1 record.
+                            out.append(text, index, end + 1);
                         }
                     } else out.append(text, index, end + 1);
                 }
@@ -784,15 +789,12 @@ final class CdsExportNativeLaboratoryMapper {
     private static void put(Map<String, String> values, String name, String value, int maximum)
             throws IOException {
         if (value == null || value.isEmpty()) return;
-        if (!CdsExportNativeFieldAssessments.legal(value, maximum)) {
-            // Text no XML document can hold still requires review. A value longer than its
-            // element is left out whole, never clipped: the complete laboratory message and rows
-            // travel in the report's CARLOS.Laboratory.v1 record.
-            if (!CdsExportNativeFieldAssessments.legal(value, Integer.MAX_VALUE))
-                review("CDS_EXPORT_NATIVE_LAB_WIRE_TEXT_REQUIRES_REVIEW");
-            return;
-        }
-        values.put(name, value);
+        // A character XML cannot carry is shown as U+FFFD. A value longer than its element is
+        // left out whole, never clipped. Either way the complete laboratory message and rows
+        // travel exactly in the report's CARLOS.NativeLaboratory.v1 record.
+        String element = CdsExportXmlText.element(value);
+        if (element.codePointCount(0, element.length()) > maximum) return;
+        values.put(name, element);
     }
 
     private static void text(Value value, String name, CdsExportXmlComposer.ContentWriter xml)

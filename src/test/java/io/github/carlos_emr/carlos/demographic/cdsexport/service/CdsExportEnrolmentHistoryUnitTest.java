@@ -407,10 +407,11 @@ class CdsExportEnrolmentHistoryUnitTest {
     void shouldVerifyACaughtBadRowPermanentlyInvalidatesTheHistory_forEnrolmentHistoryContract() throws Exception {
         var history = history();
         // A provider value no CDS name can hold is the remaining hold: one patient, never the job.
-        // Since A17 a non-OHIP billing number is only left unasserted, so the bad row is a name
-        // with an XML-illegal control character (names are varchar(30), so none is over-long).
+        // Since A17 a non-OHIP billing number is only left unasserted, and a control character in
+        // a name is shown as U+FFFD, so the bad row is a name longer than the 50 characters of a
+        // CDS name part (the column is varchar(30): no stored name is that long).
         var fields = new TreeMap<>(provider("A").fields());
-        fields.put("last_name", "Bad\u0001Name");
+        fields.put("last_name", "N".repeat(51));
         var unrepresentable =
                 new CdsExportCapturedTextRowDto("provider", provider("A").recordKey(), fields);
         assertThatThrownBy(

@@ -142,9 +142,12 @@ final class CdsExportNativeLaboratoryParser {
             } finally {
                 Arrays.fill(bytes, (byte) 0);
             }
-            if (!text.startsWith("MSH")
-                    || !CdsExportNativeFieldAssessments.legal(text, Integer.MAX_VALUE))
-                review("CDS_EXPORT_NATIVE_LAB_MESSAGE_ENCODING");
+            if (!text.startsWith("MSH")) review("CDS_EXPORT_NATIVE_LAB_MESSAGE_ENCODING");
+            // A stored message may hold a character XML 1.0 cannot carry (a control character a
+            // sending system left in a field). It is not an HL7 delimiter, so the message parses
+            // the same with U+FFFD in its place; every element then shows U+FFFD there, and the
+            // stored message travels exactly in the report's CARLOS.NativeLaboratory.v1 record.
+            text = CdsExportXmlText.element(text);
             // PipeParser never accepts XML, entities, DTDs or network schema locations.
             var parser = new PipeParser();
             // Default primitive rules trim/correct authored text. Retain source lexical values;

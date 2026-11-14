@@ -9,6 +9,7 @@
   "CdsExportDataSummaryOccurrenceServiceUnitTest",
   "CdsExportDataSummaryPlannerUnitTest",
   "CdsExportDataSummaryRegistryUnitTest",
+  "CdsExportDataSummaryStoredRowsUnitTest",
   "CdsExportDocumentFileSourceReaderUnitTest",
   "CdsExportDocumentInputStreamUnitTest",
   "CdsExportDocumentReadMariaDbIntegrationTest",

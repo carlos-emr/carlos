@@ -703,8 +703,8 @@ exported as no OHIP number; the provider is still named. A practitioner number w
 "Practitioner No. Type", or a CPSO number with spaces or more than six characters, is not sent
 as PrimaryPhysicianCPSO. Receivers use the CPSO number to match the physician, so set the type
 and number on the provider record (Administration > Providers) before exporting if you want
-them sent. Only a provider name with a control character no CARLOS screen can enter still holds
-the patients that name it.
+them sent. A provider name holding a control character (pasted from another program) no longer
+holds the patients that name it: the character is written as the replacement character U+FFFD.
 
 A chart with many measurements (years of INR, glucose or blood pressure flowsheet
 entries) is exported whole. The export reads its measurements in windows of 8,192
@@ -843,9 +843,12 @@ its font libraries (freetype and fontconfig) and at least one installed system f
 to load them; a server image without fonts exports these records as data summaries
 with `FONT_UNAVAILABLE`. When Reports is not selected these records are
 not exported, like any other unselected category. Long form histories (years of
-Rourke visits, for example) export in full. Only a chart with more than 100,000
-rows or 400,000 fields in one such table, or whose summary cannot be printed
-completely, is held with a `CDS_EXPORT_DATA_SUMMARY_*` code.
+Rourke visits, for example) export in full. No number or size of such records
+holds a chart: a single record too large for one PDF (more than 400,000 fields of
+one table, 1,000,000 fields, 64 MiB of text or 32 MiB of embedded images) is
+written as several Reports entries whose Notes say "Part n of m". Only a chart
+whose summary cannot be printed completely is held with a
+`CDS_EXPORT_DATA_SUMMARY_*` code.
 
 eForms get more than a data summary. Every eForm the chart lists also travels as the
 form itself: a second Reports entry holding a PDF of the saved eForm as CARLOS displays

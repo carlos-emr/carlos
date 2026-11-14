@@ -517,6 +517,48 @@ class CdsExportImmunizationMapperUnitTest {
     }
 
     @Test
+    void shouldExportAVaccineHoldingACharacterXmlCannotCarry_withTheStoredValuesInTheResidual()
+            throws Exception {
+        // A control character pasted into the prevention form's lot, comments or brand name box
+        // held the chart (WIRE_TEXT_REQUIRES_REVIEW). Each element now shows U+FFFD in its place,
+        // an over-long value still moves to Notes, and the stored values are exact in
+        // CARLOS.Prevention.Source.v1 (JSON escapes).
+        String longName = "FAKE tetanus\u0001 diphtheria booster ".repeat(5);
+        int id = 30;
+        extra(id++, "lot", "LOT\u0007-1");
+        extra(id++, "comments", "given\u000bleft arm");
+        extra(id, "name", longName);
+        var result = map();
+        assertThat(result.nativeRowRepresentable()).isTrue();
+        var value = result.value();
+        assertThat(value.lot()).isEqualTo("LOT\uFFFD-1");
+        assertThat(value.notes())
+                .isEqualTo("Name: " + longName.replace('\u0001', '\uFFFD') + "\ngiven\uFFFDleft arm");
+        assertThat(value.sourceContext())
+                .containsIgnoringCase("LOT\\u0007-1")
+                .containsIgnoringCase("given\\u000bleft")
+                .containsIgnoringCase("tetanus\\u0001")
+                .doesNotContain("\u0001")
+                .doesNotContain("\u0007")
+                .doesNotContain("\u000b");
+        assertThat(
+                        result.fields().values().stream()
+                                .filter(
+                                        field ->
+                                                CdsExportImmunizationMapper.REPLACED_IN_ELEMENT
+                                                        .equals(field.rule()))
+                                .map(CdsExportFieldAssessmentDto::destination)
+                                .toList())
+                .containsExactlyInAnyOrder(
+                        "LotNumber;" + CdsExportImmunizationMapper.RESIDUAL,
+                        "Notes;" + CdsExportImmunizationMapper.RESIDUAL);
+        // The entry is schema-valid XML.
+        CdsExportNativeHistoryMapperUnitTest.render(
+                io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory.IMMUNIZATIONS,
+                body -> new CdsExportImmunizationXmlWriter().write(value, body));
+    }
+
+    @Test
     void shouldMoveAnOverlongRecordedName_wholeToNotesInsteadOfHoldingTheVaccine()
             throws Exception {
         // Census chart FAKE-C2N-A31a, as the prevention form stored it: a 160-character brand

@@ -641,15 +641,45 @@ class CdsExportNativeMedicationMapperUnitTest {
                         Map.of("cds_currentness", "CURRENT"),
                         Map.of("cds_dose_text", "1"),
                         Map.of("cds_projection_incomplete", "1"),
-                        Map.of("archived", "yes"),
-                        // Text no XML document can hold is the one value that still holds.
-                        Map.of("duration", "7\u0001"),
-                        Map.of("special", "take\u0001one"))) {
+                        Map.of("archived", "yes"))) {
             var fields = source();
             fields.putAll(changes);
             assertThatThrownBy(() -> mapper.map(27, medication(fields), List.of(), Map.of()))
                     .isInstanceOf(java.io.IOException.class);
         }
+    }
+
+    @Test
+    void shouldExportAPrescriptionHoldingACharacterXmlCannotCarry_withTheStoredRowInTheResidual()
+            throws Exception {
+        // A control character pasted into the Rx page held the chart. Now the instructions show
+        // U+FFFD in its place, a duration that is not a number has no Duration, and the stored
+        // row is exact in CARLOS.Medication.Source.v1 (JSON escapes).
+        var fields = source();
+        fields.put("special", "take\u0001one");
+        fields.put("duration", "7\u0001");
+        fields.put("customName", "Bad\u0007name");
+        fields.put("BN", null);
+        var result = mapper.map(27, medication(fields), List.of(), Map.of());
+        assertThat(result.fields().values())
+                .noneMatch(
+                        field ->
+                                field.outcome()
+                                        == io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                                .CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW);
+        var stored = JsonMapper.builder().build().readTree(result.metadata()).get("fields");
+        assertThat(stored.get("special").asText()).isEqualTo("take\u0001one");
+        assertThat(stored.get("duration").asText()).isEqualTo("7\u0001");
+        assertThat(stored.get("customName").asText()).isEqualTo("Bad\u0007name");
+        assertThat(result.metadata()).doesNotContain("\u0001").doesNotContain("\u0007");
+        String xml =
+                new String(
+                        render(CdsCategory.MEDICATIONS_AND_TREATMENTS, writer -> mapper.write(result, writer)),
+                        java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(xml)
+                .contains("take\uFFFDone")
+                .contains("<DrugName>Bad\uFFFDname</DrugName>")
+                .doesNotContain("<Duration>");
     }
 
     @Test

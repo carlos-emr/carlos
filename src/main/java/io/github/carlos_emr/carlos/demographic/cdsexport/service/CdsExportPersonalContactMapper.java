@@ -269,8 +269,8 @@ public final class CdsExportPersonalContactMapper {
                 state.operational("deleted", "EXACT_CURRENT_NATIVE_CONTACT");
             else
                 state.review("deleted", root, "DELETED_OR_UNKNOWN_CONTACT_HISTORY_REQUIRES_REVIEW");
-            String first = state.text("firstName", root + "/Name/FirstName", 50),
-                    last = state.text("lastName", root + "/Name/LastName", 50);
+            String first = state.carriedText("firstName", root + "/Name/FirstName", 50),
+                    last = state.carriedText("lastName", root + "/Name/LastName", 50);
             if (first == null && last == null)
                 state.review(
                         "firstName", root + "/Name", "CONTACT_NAME_MISSING_OR_UNREPRESENTABLE");
@@ -383,13 +383,15 @@ public final class CdsExportPersonalContactMapper {
         // Contact has one Note of 200 characters: distinct notes on the contact and its
         // associations, or a longer note, travel exactly in the native demographic record.
         String value = values.size() == 1 ? values.iterator().next() : null;
-        boolean fits = value != null && CdsExportNativeFieldAssessments.legal(value, 200);
+        // A note holding a character XML cannot carry is written with U+FFFD and carried exactly.
+        String shown = value == null ? null : CdsExportXmlText.element(value);
+        boolean fits = shown != null && shown.codePointCount(0, shown.length()) <= 200;
         for (var row : sources)
             if (present(row.fields().get("note"))) {
-                if (fits) states.get(row).text("note", root + "/Note", 200);
+                if (fits) states.get(row).carriedText("note", root + "/Note", 200);
                 else states.get(row).carry("note");
             }
-        return fits ? value : null;
+        return fits ? shown : null;
     }
 
     private static void purposeFlag(

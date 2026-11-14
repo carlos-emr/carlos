@@ -44,24 +44,14 @@ import java.util.Set;
  * for them only when Reports is selected.
  *
  * <p>Character, number and date columns are captured as their exact UTF-8 text; binary columns as
- * their exact bytes; SQL NULL stays distinct from empty. A table whose rows for one patient exceed
- * {@link #MAXIMUM_ROWS} rows or {@link #MAXIMUM_FIELDS} fields, or whose row identity proves not
- * unique, holds only that patient ({@code CDS_EXPORT_DATA_SUMMARY_*}); the job continues.
+ * their exact bytes; SQL NULL stays distinct from empty. No number of rows or fields is refused:
+ * rows are streamed into the capture a page at a time. A table whose row identity proves not
+ * unique holds only that patient ({@value #KEY_NOT_UNIQUE}), because keyed paging could then skip
+ * a row; the job continues.
  *
  * @since 2026-11-13
  */
 final class CdsExportDataSummarySourceReader implements CdsExportNativeSourceReader {
-    /**
-     * Per patient and table: far above any CARLOS chart, small enough to render and hold. The field
-     * bound is the memory guard; the row bound only stops very narrow tables from carrying a
-     * per-row overhead out of proportion (a long Rourke history is about 36,000 four-field
-     * checkbox rows).
-     */
-    static final long MAXIMUM_ROWS = 100_000;
-
-    static final long MAXIMUM_FIELDS = 400_000;
-
-    static final String ROW_LIMIT = "CDS_EXPORT_DATA_SUMMARY_ROW_LIMIT";
     static final String KEY_NOT_UNIQUE = "CDS_EXPORT_DATA_SUMMARY_ROW_IDENTITY_NOT_UNIQUE";
 
     private final CdsExportDataSummaryReadDao source;
@@ -117,20 +107,11 @@ final class CdsExportDataSummarySourceReader implements CdsExportNativeSourceRea
         return source.count(plan, patient);
     }
 
-    /** One patient's excess holds that patient; the job continues with the other charts. */
-    @Override
-    public void requireCapacity(long rows, long maximumFields) throws IOException {
-        if (rows < 0
-                || rows > MAXIMUM_ROWS
-                || rows * plan.columns().size() > Math.min(MAXIMUM_FIELDS, maximumFields))
-            throw new CdsExportMappingReviewException(ROW_LIMIT);
-    }
-
     @Override
     public void capture(int patient, CdsExportNativeCaptureComposer.Writer output)
             throws IOException {
         long expected = count(patient);
-        requireCapacity(expected, MAXIMUM_FIELDS);
+        if (expected < 0) throw new IOException("CDS_EXPORT_CAPTURE_COUNT_INVALID");
         int limit = Math.max(1, Math.min(256, 4096 / plan.columns().size()));
         List<Object> after = null;
         long ordinal = 0;

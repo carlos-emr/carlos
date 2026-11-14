@@ -201,26 +201,30 @@ public final class CdsExportNativeMedicationMapper {
         if (reference != null) values.put(Field.DrugIdentificationNumber, reference.din());
         String longName = null;
         boolean named = populated(name) && !name.isBlank();
-        if (named && CdsExportNativeFieldAssessments.legal(name, Field.DrugName.maximum()))
-            values.put(Field.DrugName, name);
+        // A character XML cannot carry is shown as U+FFFD in every element; the stored row is
+        // exact in the residual (CARLOS.Medication.Source.v1, JSON escapes).
+        String shownName = named ? CdsExportXmlText.element(name) : null;
+        if (named && codePoints(shownName) <= Field.DrugName.maximum())
+            values.put(Field.DrugName, shownName);
         else if (reference != null && !(populated(custom) && !custom.isBlank()))
             values.remove(Field.DrugName);
         else if (!named)
             // No drug is named: the Rx page's Note button (free text only), or a migrated row
             // with empty names. The entry says so instead of holding the chart.
             values.put(Field.DrugName, "1".equals(source.get("custom_note")) ? NOTE_NAME : UNNAMED);
-        else if (CdsExportNativeFieldAssessments.legal(name, Integer.MAX_VALUE)) {
+        else {
             // Longer than DrugName: never clipped. It leads Notes when Notes can hold it, and
             // is exact in the residual either way.
-            longName = name;
+            longName = shownName;
             values.put(Field.DrugName, LONG_NAME);
-        } else review();
+        }
         String strength = source.get("dosage");
         if (populated(strength)) {
             // A strength longer than DrugDescription is left out, never clipped (residual).
-            if (CdsExportNativeFieldAssessments.legal(strength, Field.DrugDescription.maximum()))
-                values.put(Field.DrugDescription, strength);
-            else if (!CdsExportNativeFieldAssessments.legal(strength, Integer.MAX_VALUE)) review();
+            String shown = CdsExportXmlText.element(strength);
+            if (codePoints(shown) <= Field.DrugDescription.maximum())
+                values.put(Field.DrugDescription, shown);
+            else values.remove(Field.DrugDescription);
         }
         // The shared candidate wrote days, weeks as exact days, and months/years with their
         // unit (never the calculator's 30-day month). It wrote no Duration for one the
@@ -231,17 +235,17 @@ public final class CdsExportNativeMedicationMapper {
         String sig = source.get("special");
         if (populated(sig)) {
             String pharmacy = source.get("special_instruction");
+            boolean both = populated(pharmacy) && !pharmacy.equals(sig);
+            sig = CdsExportXmlText.element(sig);
             String instructions =
-                    populated(pharmacy) && !pharmacy.equals(sig)
-                            ? sig + "\n[Native pharmacy instructions]\n" + pharmacy
+                    both
+                            ? sig
+                                    + "\n[Native pharmacy instructions]\n"
+                                    + CdsExportXmlText.element(pharmacy)
                             : sig;
-            if (CdsExportNativeFieldAssessments.legal(
-                    instructions, Field.PrescriptionInstructions.maximum()))
+            if (codePoints(instructions) <= Field.PrescriptionInstructions.maximum())
                 values.put(Field.PrescriptionInstructions, instructions);
-            else if (!CdsExportNativeFieldAssessments.legal(instructions, Integer.MAX_VALUE))
-                review();
-            else if (CdsExportNativeFieldAssessments.legal(
-                    sig, Field.PrescriptionInstructions.maximum()))
+            else if (codePoints(sig) <= Field.PrescriptionInstructions.maximum())
                 // Together they exceed the element: the SIG as printed is written, and the
                 // pharmacy instructions travel in the residual with the rest of the row.
                 values.put(Field.PrescriptionInstructions, sig);
@@ -377,11 +381,10 @@ public final class CdsExportNativeMedicationMapper {
                     // dispense interval of 100 characters against DispenseInterval's 10, a
                     // protocol of 255 against 20, a MEDIUMTEXT comment against Notes' 32,000)
                     // is an ordinary saved prescription: the element is omitted, never
-                    // truncated, and the exact value travels in the residual. Only text no XML
-                    // document can hold still requires review.
-                    && !(assessment.rule().equals("WIRE_TEXT_REQUIRES_REVIEW")
-                            && CdsExportNativeFieldAssessments.legal(
-                                    source.get(key.column()), Integer.MAX_VALUE)))
+                    // truncated, and the exact value travels in the residual. So does a value
+                    // holding a character XML cannot carry: its element shows U+FFFD (or is
+                    // omitted) and the residual's JSON carries the stored value exactly.
+                    && !assessment.rule().equals("WIRE_TEXT_REQUIRES_REVIEW"))
                 review();
             // The context contains SQL NULL and empty values distinctly, and contains every
             // physical field. This disposition does not claim a standard clinical projection.
@@ -630,6 +633,10 @@ public final class CdsExportNativeMedicationMapper {
         if ("1".equals(value)) return true;
         review();
         return false;
+    }
+
+    private static int codePoints(String value) {
+        return value.codePointCount(0, value.length());
     }
 
     private static void review() throws IOException {
