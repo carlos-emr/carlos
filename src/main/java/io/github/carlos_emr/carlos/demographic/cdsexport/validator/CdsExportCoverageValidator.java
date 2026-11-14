@@ -43,23 +43,22 @@ public final class CdsExportCoverageValidator {
     /**
      * @param expected independently sealed in-scope source identities, never derived from output
      * @param captureDigest identity of the sealed capture providing the expected inventory
-     * @param actual dispositions collected from actual serialization, including blockers
-     * @param maximumOccurrences server-owned bound applied separately to both inputs
+     * @param actual dispositions collected from actual serialization, including blockers; both
+     *     inputs are streamed, so no count of occurrences is refused
      * @param checkpoint caller's deadline, cancellation and physical-ownership probe
      */
     // FindSecBugs UNSAFE_HASH_EQUALS: SHA-256 identifying the sealed capture, compared with the capture identity each disposition was written for; an identity of the export's own artefact, not a secret.
     @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "UNSAFE_HASH_EQUALS", justification = "SHA-256 identifying the sealed capture, compared with the capture identity each disposition was written for; an identity of the export's own artefact, not a secret")
     public CdsExportCoverageDto validate(String captureDigest, Iterator<CdsExportIdentityDto> expected,
-            Iterator<CdsExportDispositionDto> actual, long maximumOccurrences, Runnable checkpoint) {
+            Iterator<CdsExportDispositionDto> actual, Runnable checkpoint) {
         if (captureDigest == null || !captureDigest.matches("[0-9a-f]{64}")) {
             throw new IllegalArgumentException("CDS_EXPORT_CAPTURE_INVALID");
         }
-        if (maximumOccurrences < 1) throw new IllegalArgumentException("CDS_EXPORT_COVERAGE_LIMIT_INVALID");
         Objects.requireNonNull(checkpoint, "checkpoint");
         OrderedInput<CdsExportIdentityDto> inventory = new OrderedInput<>(expected,
-                Function.identity(), maximumOccurrences, checkpoint);
+                Function.identity(), checkpoint);
         OrderedInput<CdsExportDispositionDto> dispositions = new OrderedInput<>(actual,
-                CdsExportDispositionDto::identity, maximumOccurrences, checkpoint);
+                CdsExportDispositionDto::identity, checkpoint);
         long emitted = 0, blocked = 0, missing = 0, unexpected = 0;
         List<IssueDto> issues = new ArrayList<>();
         CdsExportIdentityDto wanted = inventory.next();
@@ -95,16 +94,14 @@ public final class CdsExportCoverageValidator {
     private static final class OrderedInput<T> {
         private final Iterator<T> input;
         private final Function<T, CdsExportIdentityDto> identity;
-        private final long maximum;
         private final Runnable checkpoint;
         private CdsExportIdentityDto previous;
         private long count;
 
         private OrderedInput(Iterator<T> input, Function<T, CdsExportIdentityDto> identity,
-                long maximum, Runnable checkpoint) {
+                Runnable checkpoint) {
             this.input = Objects.requireNonNull(input, "input");
             this.identity = identity;
-            this.maximum = maximum;
             this.checkpoint = checkpoint;
         }
 
@@ -114,7 +111,6 @@ public final class CdsExportCoverageValidator {
                 throw new IllegalStateException("CDS_EXPORT_COVERAGE_INTERRUPTED");
             }
             if (!input.hasNext()) return null;
-            if (count == maximum) throw new IllegalStateException("CDS_EXPORT_COVERAGE_LIMIT_EXCEEDED");
             T value = Objects.requireNonNull(input.next(), "inventory occurrence");
             CdsExportIdentityDto current = Objects.requireNonNull(identity.apply(value), "occurrence identity");
             if (previous != null) {

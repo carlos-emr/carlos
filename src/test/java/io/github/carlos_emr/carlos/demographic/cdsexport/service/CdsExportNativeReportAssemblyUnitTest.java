@@ -116,7 +116,7 @@ class CdsExportNativeReportAssemblyUnitTest {
         Arrays.fill(key, (byte) 41);
         store =
                 new CdsExportStagingService(
-                        root, RUN, 1, new SecretKeySpec(key, "AES"), 64L << 20, 0, () -> {});
+                        root, RUN, 1, new SecretKeySpec(key, "AES"), 0, () -> {});
         service = spy(store);
         when(stores.openExisting(any(), anyLong(), any(), any())).thenReturn(service);
         when(patient.patient()).thenReturn(PATIENT);

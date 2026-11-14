@@ -582,7 +582,7 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
                             importedReviews.fields(), chart.supportingRecords));
             assessedRows.addAll(importedReviews.rows());
             new CdsExportNativeFieldAssessmentValidator()
-                    .requireRepresentable(assessedRows, assessments, 1_000_000, control::checkpoint);
+                    .requireRepresentable(assessedRows, assessments, control::checkpoint);
             var changes =
                     new ArrayList<CdsExportRetainedSectionWriter.Change>(sourceValue.changes());
             changes.addAll(appendedReviewers(fields, importedReviews));
@@ -647,7 +647,7 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
             var assessedRows = new ArrayList<>(nativeSource.rows());
             assessedRows.addAll(reviews.rows());
             new CdsExportNativeFieldAssessmentValidator()
-                    .requireRepresentable(assessedRows, assessments, 1_000_000, control::checkpoint);
+                    .requireRepresentable(assessedRows, assessments, control::checkpoint);
             for (var row : nativeSource.rows())
                 if (!owned.add(key(row.table(), nativeId(row)))) invalid();
             var mapped = mapper.map(nativeSource, zone, reviews);

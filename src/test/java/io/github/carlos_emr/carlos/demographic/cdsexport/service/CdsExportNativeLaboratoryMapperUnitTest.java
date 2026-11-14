@@ -245,7 +245,7 @@ class CdsExportNativeLaboratoryMapperUnitTest {
                 .isNotEmpty();
         var assessments = CdsExportNativeLaboratoryMapper.assessments(source);
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(source.rows(), assessments, 100000, () -> {});
+                .requireRepresentable(source.rows(), assessments, () -> {});
         assertThat(assessments)
                 .hasSize(source.rows().stream().mapToInt(r -> r.fields().size()).sum());
     }

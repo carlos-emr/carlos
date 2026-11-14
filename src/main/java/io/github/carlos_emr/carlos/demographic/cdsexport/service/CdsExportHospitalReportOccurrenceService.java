@@ -491,7 +491,7 @@ public class CdsExportHospitalReportOccurrenceService {
                 state.operational(column, "HRM_LINK_TO_NO_STORED_REPORT_NOT_SHOWN_IN_CHART");
         }
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(links, danglingFields, 1_000_000, control::checkpoint);
+                .requireRepresentable(links, danglingFields, control::checkpoint);
     }
 
     /**
@@ -531,7 +531,7 @@ public class CdsExportHospitalReportOccurrenceService {
                 var result = mapper.map(report, message.parsed(), part, content, providers, zone);
                 new CdsExportNativeFieldAssessmentValidator()
                         .requireRepresentable(
-                                result.rows(), result.fields(), 1_000_000, control::checkpoint);
+                                result.rows(), result.fields(), control::checkpoint);
                 CdsExportStagedFileDto copied = null;
                 if (content.kind() == CdsExportHospitalReportMapper.ContentKind.BINARY) {
                     authorize.run();

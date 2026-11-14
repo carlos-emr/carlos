@@ -1850,7 +1850,6 @@ class CdsExportLedgerIntegrationTest {
                         lease.runId(),
                         lease.epoch(),
                         new javax.crypto.spec.SecretKeySpec(new byte[32], "AES"),
-                        1L << 20,
                         0,
                         () -> {});
         var factory =

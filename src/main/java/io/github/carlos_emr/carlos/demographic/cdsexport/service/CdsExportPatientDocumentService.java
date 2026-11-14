@@ -328,7 +328,6 @@ public class CdsExportPatientDocumentService {
                                                         expected.identities().iterator(),
                                                         index.dispositions(
                                                                 expected.sourceManifestSha256()),
-                                                        Long.MAX_VALUE,
                                                         control::checkpoint);
                                 if (!coverage.sourceCoverageComplete()) invalid();
                                 line(audit, coverage);

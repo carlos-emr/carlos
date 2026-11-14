@@ -52,7 +52,7 @@ class CdsExportStagingServiceUnitTest {
         Arrays.fill(key, (byte) 37);
         store =
                 new CdsExportStagingService(
-                        root, RUN, 1, new SecretKeySpec(key, "AES"), 16L << 20, 0, () -> {});
+                        root, RUN, 1, new SecretKeySpec(key, "AES"), 0, () -> {});
     }
 
     @Test
@@ -137,7 +137,7 @@ class CdsExportStagingServiceUnitTest {
         var file = store.stage("PATIENT_XML", output -> output.write(1));
         var wrongEpoch =
                 new CdsExportStagingService(
-                        root, RUN, 2, new SecretKeySpec(key, "AES"), 16L << 20, 0, () -> {});
+                        root, RUN, 2, new SecretKeySpec(key, "AES"), 0, () -> {});
         assertThatThrownBy(() -> wrongEpoch.open(file))
                 .hasMessage("CDS_EXPORT_STAGED_SCOPE_MISMATCH");
         var wrongPurpose =
@@ -171,12 +171,17 @@ class CdsExportStagingServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseResourceLimits_withoutTruncatingTheStoredFile() throws Exception {
-        var small =
-                new CdsExportStagingService(
-                        root, RUN, 1, new SecretKeySpec(key, "AES"), 3, 0, () -> {});
-        assertThatThrownBy(() -> small.stage("PATIENT_XML", output -> output.write(new byte[4])))
-                .hasMessage("CDS_EXPORT_STAGED_BYTE_LIMIT");
+    void shouldLeaveNoTruncatedFile_whenTheProducerFailsPartWay() throws Exception {
+        // A member has no size bound; a write that fails part way still leaves nothing behind.
+        assertThatThrownBy(
+                        () ->
+                                store.stage(
+                                        "PATIENT_XML",
+                                        output -> {
+                                            output.write(new byte[100_000]);
+                                            throw new IOException("PRODUCER_FAILED");
+                                        }))
+                .hasMessage("PRODUCER_FAILED");
         try (var files = Files.list(root)) {
             assertThat(files).isEmpty();
         }
@@ -191,7 +196,6 @@ class CdsExportStagingServiceUnitTest {
                         RUN,
                         1,
                         new SecretKeySpec(key, "AES"),
-                        16L << 20,
                         0,
                         () -> {
                             throw new IllegalStateException("FENCED");
@@ -208,7 +212,7 @@ class CdsExportStagingServiceUnitTest {
                         output -> output.write("private".getBytes(StandardCharsets.UTF_8)));
         var wrong =
                 new CdsExportStagingService(
-                        root, RUN, 2, new SecretKeySpec(key, "AES"), 16L << 20, 0, () -> {});
+                        root, RUN, 2, new SecretKeySpec(key, "AES"), 0, () -> {});
         assertThatThrownBy(() -> wrong.discardUnpublished(file))
                 .hasMessage("CDS_EXPORT_STAGED_SCOPE_MISMATCH");
         assertThat(Files.exists(path(file))).isTrue();
@@ -237,7 +241,6 @@ class CdsExportStagingServiceUnitTest {
                         RUN,
                         1,
                         new SecretKeySpec(key, "AES"),
-                        16L << 20,
                         0,
                         () -> {
                             throw new IllegalStateException("CDS_EXPORT_CANCELLED");
@@ -248,25 +251,35 @@ class CdsExportStagingServiceUnitTest {
 
     @Test
     void shouldNeverAttestAWrite_whenTheProducerSwallowsItsFailure() throws Exception {
-        var small =
+        // The first chunk's write is fenced (its checkpoint fails); the producer carries on.
+        var checks = new java.util.concurrent.atomic.AtomicInteger();
+        var fenced =
                 new CdsExportStagingService(
-                        root, RUN, 1, new SecretKeySpec(key, "AES"), 3, 0, () -> {});
+                        root,
+                        RUN,
+                        1,
+                        new SecretKeySpec(key, "AES"),
+                        0,
+                        () -> {
+                            if (checks.incrementAndGet() > 1)
+                                throw new IllegalStateException("FENCED");
+                        });
         assertThatThrownBy(
                         () ->
-                                small.stage(
+                                fenced.stage(
                                         "PATIENT_XML",
                                         output -> {
                                             output.write(1);
                                             try {
-                                                output.write(new byte[4]);
-                                            } catch (IOException swallowed) {
+                                                output.write(new byte[70_000]);
+                                            } catch (IllegalStateException swallowed) {
                                                 /* deliberately broken producer */
                                             }
                                         }))
                 .hasMessage("CDS_EXPORT_STAGED_WRITE_FAILED");
         assertThatThrownBy(
                         () ->
-                                small.stage(
+                                store.stage(
                                         "PATIENT_XML",
                                         output -> {
                                             output.write(1);

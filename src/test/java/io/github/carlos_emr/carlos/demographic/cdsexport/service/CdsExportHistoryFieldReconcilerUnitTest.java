@@ -186,7 +186,7 @@ class CdsExportHistoryFieldReconcilerUnitTest {
         assertThat(result.representable()).isTrue();
         assertThat(result.changes()).isEmpty();
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(rows(), result.fields(), 1000, () -> {});
+                .requireRepresentable(rows(), result.fields(), () -> {});
         assertThat(
                         result.fields()
                                 .get(
@@ -328,7 +328,7 @@ class CdsExportHistoryFieldReconcilerUnitTest {
         var result = choose();
         assertThat(result.representable()).isTrue();
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(rows(), result.fields(), 1000, () -> {});
+                .requireRepresentable(rows(), result.fields(), () -> {});
     }
 
     @Test

@@ -793,7 +793,6 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                         .requireRepresentable(
                                                 nativeRows,
                                                 assessments,
-                                                1_000_000,
                                                 control::checkpoint);
                                 for (var entry : fileAssessments.entrySet())
                                     if (assessments.putIfAbsent(entry.getKey(), entry.getValue())
@@ -905,7 +904,6 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                             .requireRepresentable(
                                                     removedRows,
                                                     removedFields,
-                                                    1_000_000,
                                                     control::checkpoint);
                                     continue;
                                 }
@@ -960,7 +958,6 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                         .requireRepresentable(
                                                 mapped.rows(),
                                                 mapped.fields(),
-                                                1_000_000,
                                                 control::checkpoint);
                                 natives.add(
                                         new NativeDocument(
@@ -1025,7 +1022,6 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                             .requireRepresentable(
                                                     mapped.rows(),
                                                     mapped.fields(),
-                                                    1_000_000,
                                                     control::checkpoint);
                                 }
                                 var section = mapped;
@@ -1622,7 +1618,7 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
             var rows = new ArrayList<>(laboratory.rows());
             rows.addAll(reviews.rows());
             new CdsExportNativeFieldAssessmentValidator()
-                    .requireRepresentable(rows, assessments, 1_000_000, control::checkpoint);
+                    .requireRepresentable(rows, assessments, control::checkpoint);
             for (int i = 0; i < laboratory.parsed().documents().size(); i++) {
                 control.checkpoint();
                 String id = laboratory.id() + ":" + laboratory.parsed().documents().get(i).ordinal();

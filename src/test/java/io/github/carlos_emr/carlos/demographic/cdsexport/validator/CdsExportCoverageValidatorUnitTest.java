@@ -101,7 +101,7 @@ class CdsExportCoverageValidatorUnitTest {
     @Test void shouldBindCoverageToTheCapture_thatProvidedItsInventory() {
         assertThat(reconcile(List.of(id(1)), List.of(emitted(1))).captureDigest()).isEqualTo(CAPTURE);
         assertThatThrownBy(() -> validator.validate("", List.of(id(1)).iterator(),
-                List.of(emitted(1)).iterator(), 10, () -> {})).hasMessage("CDS_EXPORT_CAPTURE_INVALID");
+                List.of(emitted(1)).iterator(), () -> {})).hasMessage("CDS_EXPORT_CAPTURE_INVALID");
     }
 
     @Test void shouldPreserveThreadInterruption_withoutReturningAResult() {
@@ -123,21 +123,12 @@ class CdsExportCoverageValidatorUnitTest {
         assertThat(result.issuePreviewsLimited()).isTrue();
     }
 
-    @Test void shouldEnforceBothInputLimits_withoutReturningPartialSuccess() {
-        assertThatThrownBy(() -> validator.validate(CAPTURE, List.of(id(1), id(2)).iterator(),
-                List.of(emitted(1)).iterator(), 1, () -> {}))
-                .hasMessage("CDS_EXPORT_COVERAGE_LIMIT_EXCEEDED");
-        assertThatThrownBy(() -> validator.validate(CAPTURE, List.of(id(1)).iterator(),
-                List.of(emitted(1), emitted(2)).iterator(), 1, () -> {}))
-                .hasMessage("CDS_EXPORT_COVERAGE_LIMIT_EXCEEDED");
-    }
-
     @Test void shouldPropagateIteratorFailures_insteadOfReturningAZeroOrPartialCount() {
         Iterator<CdsExportDispositionDto> failing = new Iterator<>() {
             public boolean hasNext() { throw new IllegalStateException("fixture storage unavailable"); }
             public CdsExportDispositionDto next() { throw new AssertionError("unreachable"); }
         };
-        assertThatThrownBy(() -> validator.validate(CAPTURE, List.of(id(1)).iterator(), failing, 100, () -> {}))
+        assertThatThrownBy(() -> validator.validate(CAPTURE, List.of(id(1)).iterator(), failing, () -> {}))
                 .hasMessage("fixture storage unavailable");
     }
 
@@ -148,7 +139,7 @@ class CdsExportCoverageValidatorUnitTest {
         };
         assertThatThrownBy(() -> validator.validate(CAPTURE,
                 IntStream.rangeClosed(1, 10000).mapToObj(this::id).iterator(),
-                IntStream.rangeClosed(1, 10000).mapToObj(this::emitted).iterator(), 10000, checkpoint))
+                IntStream.rangeClosed(1, 10000).mapToObj(this::emitted).iterator(), checkpoint))
                 .hasMessage("fixture ownership lost");
         assertThat(calls).hasValue(20);
     }
@@ -156,7 +147,7 @@ class CdsExportCoverageValidatorUnitTest {
     @Test void shouldReconcileLargeLazyInputs_withoutCollectingTheInventory() {
         var result = validator.validate(CAPTURE,
                 IntStream.rangeClosed(1, 10000).mapToObj(this::id).iterator(),
-                IntStream.rangeClosed(1, 10000).mapToObj(this::emitted).iterator(), 10000, () -> {});
+                IntStream.rangeClosed(1, 10000).mapToObj(this::emitted).iterator(), () -> {});
         assertThat(result.expected()).isEqualTo(10000);
         assertThat(result.sourceCoverageComplete()).isTrue();
     }
@@ -172,7 +163,7 @@ class CdsExportCoverageValidatorUnitTest {
 
     private CdsExportCoverageDto reconcile(List<CdsExportIdentityDto> expected,
             List<CdsExportDispositionDto> actual) {
-        return validator.validate(CAPTURE, expected.iterator(), actual.iterator(), 100000, () -> {});
+        return validator.validate(CAPTURE, expected.iterator(), actual.iterator(), () -> {});
     }
 
     private CdsExportIdentityDto id(int number) {

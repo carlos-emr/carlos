@@ -299,7 +299,6 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                                         .requireRepresentable(
                                                 mapped.rows(),
                                                 mapped.fields(),
-                                                1_000_000,
                                                 control::checkpoint);
                                 var identity =
                                         new CdsExportIdentityDto(
@@ -361,7 +360,6 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                                 .requireRepresentable(
                                         assessedRows,
                                         assessments,
-                                        1_000_000,
                                         control::checkpoint);
                         var identity =
                                 new CdsExportIdentityDto(
@@ -434,7 +432,6 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                                 .requireRepresentable(
                                         comments.routes(),
                                         assessments,
-                                        1_000_000,
                                         control::checkpoint);
                         var identity =
                                 new CdsExportIdentityDto(
@@ -484,7 +481,6 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                                 .requireRepresentable(
                                         prescription.rows(),
                                         assessments,
-                                        1_000_000,
                                         control::checkpoint);
                         var identity =
                                 new CdsExportIdentityDto(
@@ -558,7 +554,6 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                                 .requireRepresentable(
                                         carrier.rows(),
                                         carrier.fields(),
-                                        1_000_000,
                                         control::checkpoint);
                         var identity =
                                 new CdsExportIdentityDto(

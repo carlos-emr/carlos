@@ -209,7 +209,7 @@ class CdsExportHistoryImportedEditUnitTest {
                                 () -> {});
         assertThat(result.representable()).isTrue();
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(nativeHistory.rows(), result.fields(), 10000, () -> {});
+                .requireRepresentable(nativeHistory.rows(), result.fields(), () -> {});
         var output =
                 new CdsExportRetainedSectionWriter()
                         .prepareChanges(retained, values, result.changes(), () -> {});
@@ -559,7 +559,7 @@ class CdsExportHistoryImportedEditUnitTest {
                                 program -> false,
                                 carried);
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(mapped.rows(), mapped.fields(), 10000, () -> {});
+                .requireRepresentable(mapped.rows(), mapped.fields(), () -> {});
         assertThat(mapped.value().text())
                 .containsEntry(
                         "PastHealthProblemDescriptionOrProcedures",

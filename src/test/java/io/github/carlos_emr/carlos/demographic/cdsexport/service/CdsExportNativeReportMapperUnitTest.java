@@ -103,7 +103,7 @@ class CdsExportNativeReportMapperUnitTest {
                         providers(),
                         ZoneId.of("America/Toronto"));
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(mapped.rows(), mapped.fields(), 10000, () -> {});
+                .requireRepresentable(mapped.rows(), mapped.fields(), () -> {});
         return mapped;
     }
 
@@ -213,7 +213,7 @@ class CdsExportNativeReportMapperUnitTest {
                         program -> asked.add(program));
         assertThat(asked).containsExactly("57");
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(mapped.rows(), mapped.fields(), 10000, () -> {});
+                .requireRepresentable(mapped.rows(), mapped.fields(), () -> {});
         // The restriction travels with every other document column in Notes.
         assertThat(mapped.text().get("Notes")).contains("\"restrictToProgram\":\"1\"");
         assertThatThrownBy(
@@ -315,7 +315,7 @@ class CdsExportNativeReportMapperUnitTest {
                         providers(),
                         ZoneId.of("America/Toronto"));
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(mapped.rows(), mapped.fields(), 10000, () -> {});
+                .requireRepresentable(mapped.rows(), mapped.fields(), () -> {});
         return mapped;
     }
 

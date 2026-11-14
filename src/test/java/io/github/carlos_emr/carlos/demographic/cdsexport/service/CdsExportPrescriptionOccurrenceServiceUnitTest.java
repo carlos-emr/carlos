@@ -342,7 +342,7 @@ class CdsExportPrescriptionOccurrenceServiceUnitTest {
         var source = new CdsExportPrescriptionOccurrenceService.Source(parent, author);
         var assessments = CdsExportPrescriptionOccurrenceService.assessments(source);
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(source.rows(), assessments, 1000, () -> {});
+                .requireRepresentable(source.rows(), assessments, () -> {});
         render(
                 CdsCategory.NEW_CATEGORY,
                 xml -> CdsExportPrescriptionOccurrenceService.write(source, xml));
@@ -370,7 +370,7 @@ class CdsExportPrescriptionOccurrenceServiceUnitTest {
                 CdsExportPrescriptionOccurrenceService.assessments(
                         new CdsExportPrescriptionOccurrenceService.Source(parent, null));
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(List.of(parent), fields, 1000, () -> {});
+                .requireRepresentable(List.of(parent), fields, () -> {});
         String xml =
                 new String(
                         render(

@@ -360,7 +360,6 @@ class CdsExportEformRenderMariaDbIntegrationTest {
                                 group.rows().stream().map(CdsExportDataSummaryPlanner.Row::assessed).toList(),
                                 CdsExportDataSummaryOccurrenceService.withheldAssessments(
                                         new CdsExportDataSummaryOccurrenceService.Hidden(group, why)),
-                                1000,
                                 () -> {});
             }
         }

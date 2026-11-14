@@ -278,7 +278,7 @@ class CdsExportScreeningMapperUnitTest {
         assertThat(result.fields()).hasSize(16 + 4 * 2 + 5);
         var checked =
                 new CdsExportNativeFieldAssessmentValidator()
-                        .validate(result.rows(), result.fields(), 1000, () -> {});
+                        .validate(result.rows(), result.fields(), () -> {});
         assertThat(checked.representable()).isTrue();
         assertThat(checked.mapped()).isEqualTo(29);
         assertThat(field(result, row, "prevention_type").destination())

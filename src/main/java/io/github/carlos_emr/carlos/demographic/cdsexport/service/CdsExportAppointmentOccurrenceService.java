@@ -575,7 +575,6 @@ public class CdsExportAppointmentOccurrenceService implements CdsExportCategoryO
                                                 .requireRepresentable(
                                                         List.copyOf(inputs.values()),
                                                         fields,
-                                                        1_000_000,
                                                         control::checkpoint);
                                         for (String field : kept) if (!used.add(field)) scope();
                                         for (String field : replaced) if (!used.add(field)) scope();
@@ -674,7 +673,6 @@ public class CdsExportAppointmentOccurrenceService implements CdsExportCategoryO
                                                                 row,
                                                                 currentNumbers,
                                                                 imported.keySet()),
-                                                        1_000_000,
                                                         control::checkpoint);
                                         archivedNumbers.add(row.fields().get("appointment_no"));
                                         versions[0]++;

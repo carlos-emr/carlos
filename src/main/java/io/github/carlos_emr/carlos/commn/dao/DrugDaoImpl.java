@@ -84,8 +84,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     @Override
     @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
     public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportDrugReferenceInputDto>
-            readCdsExportDrugReferenceInputs(int patient, int maximum) {
-        if (patient < 1 || maximum < 1)
+            readCdsExportDrugReferenceInputs(int patient) {
+        if (patient < 1)
             throw new IllegalArgumentException("CDS_EXPORT_DRUG_REFERENCE_SCOPE_INVALID");
         @SuppressWarnings("unchecked")
         // The read waits for its answer; a statement the server ends at its deadline is sent again
@@ -93,9 +93,7 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
         java.util.List<Object[]> rows = CdsExportStatementWaitReadSupport.waiting(entityManager, entityManager.createNativeQuery(
                 "SELECT drugid, GCN_SEQNO, regional_identifier FROM drugs WHERE demographic_no=:patient ORDER BY drugid", Object[].class))
                 .setParameter("patient", patient)
-                .setMaxResults(maximum == Integer.MAX_VALUE ? maximum : maximum + 1).getResultList();
-        if (rows.size() > maximum) throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException(
-                io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException.Reason.RESOURCE_LIMIT);
+                .getResultList();
         var result = new java.util.ArrayList<io.github.carlos_emr.carlos.commn.dto.CdsExportDrugReferenceInputDto>();
         Long previous = null;
         for (var row : rows) {

@@ -759,7 +759,6 @@ public class CdsExportDataSummaryOccurrenceService {
                                     .map(CdsExportDataSummaryPlanner.Row::assessed)
                                     .toList(),
                             withheldAssessments(whole),
-                            1_000_000,
                             control::checkpoint);
         }
         var store =
@@ -809,7 +808,7 @@ public class CdsExportDataSummaryOccurrenceService {
                 }
                 var summary = notice == null ? group : group.withNotice(notice);
                 new CdsExportNativeFieldAssessmentValidator()
-                        .requireRepresentable(rows, assessments, 1_000_000, control::checkpoint);
+                        .requireRepresentable(rows, assessments, control::checkpoint);
                 var rendered =
                         renderings
                                 .getOrDefault(group.kind(), summaries)
@@ -927,7 +926,6 @@ public class CdsExportDataSummaryOccurrenceService {
                 .requireRepresentable(
                         List.of(group.root().assessed(), rendering.row()),
                         entry.fields(),
-                        1_000_000,
                         control::checkpoint);
         var content = rendering.content();
         var staged =

@@ -229,7 +229,7 @@ class CdsExportRetainedFieldListUnitTest {
         Arrays.fill(key, (byte) 47);
         var store =
                 new CdsExportStagingService(
-                        root, RUN, 1, new SecretKeySpec(key, "AES"), 64L << 20, 0, () -> {});
+                        root, RUN, 1, new SecretKeySpec(key, "AES"), 0, () -> {});
         var values = store.stage("RETAINED_VALUES", output -> {});
         var members = store.stage("RETAINED_INDEX", output -> output.write(1));
         var indices = mock(CdsExportRetainedIndexService.class);

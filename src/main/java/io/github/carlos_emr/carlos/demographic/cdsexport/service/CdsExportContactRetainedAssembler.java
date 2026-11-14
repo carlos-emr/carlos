@@ -404,7 +404,7 @@ public final class CdsExportContactRetainedAssembler {
                             xml -> CdsExportPersonalContactXmlWriter.content(contact, xml)));
         }
         new CdsExportNativeFieldAssessmentValidator()
-                .validate(concat(associations, contacts), fields, 1_000_000, checkpoint);
+                .validate(concat(associations, contacts), fields, checkpoint);
         // Every contact row is claimed once: by its imported unit, or by the current associations
         // decided above. A new contact that is removed or inactive is decided, not emitted, so the
         // count is of rows, never of emitted Contact elements.

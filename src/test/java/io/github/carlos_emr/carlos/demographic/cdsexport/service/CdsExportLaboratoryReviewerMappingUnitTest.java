@@ -149,7 +149,7 @@ class CdsExportLaboratoryReviewerMappingUnitTest {
         var rows = new ArrayList<>(source.rows());
         rows.addAll(reviews.rows());
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(rows, assessments, 100000, () -> {});
+                .requireRepresentable(rows, assessments, () -> {});
         assertThat(rule(reviews, unclaimed, "provider_no"))
                 .isEqualTo("UNCLAIMED_INBOX_ROUTING_PLACEHOLDER");
         assertThat(rule(reviews, filed, "status"))
@@ -201,7 +201,7 @@ class CdsExportLaboratoryReviewerMappingUnitTest {
                 CdsExportInboxReviewMapper.carriedFields(
                         reviews.carried(), "NewCategory/ResidualInfo");
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(reviews.carried(), carried, 100000, () -> {});
+                .requireRepresentable(reviews.carried(), carried, () -> {});
     }
 
     @Test

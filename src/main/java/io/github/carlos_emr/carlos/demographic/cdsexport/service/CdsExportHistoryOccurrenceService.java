@@ -540,7 +540,6 @@ public class CdsExportHistoryOccurrenceService {
                                     .requireRepresentable(
                                             mapped.rows(),
                                             mapped.fields(),
-                                            1_000_000,
                                             control::checkpoint);
                             var identity =
                                     new CdsExportIdentityDto(
@@ -625,7 +624,6 @@ public class CdsExportHistoryOccurrenceService {
                                                 ? assessedRows(context.note(occurrence.noteId()))
                                                 : nativeHistory.rows(),
                                         decision.fields(),
-                                        1_000_000,
                                         control::checkpoint);
                         var sourceFields =
                                 new CdsExportRetainedOccurrenceFields()
@@ -852,7 +850,7 @@ public class CdsExportHistoryOccurrenceService {
                                     carried);
             new CdsExportNativeFieldAssessmentValidator()
                     .requireRepresentable(
-                            mapped.rows(), mapped.fields(), 1_000_000, control::checkpoint);
+                            mapped.rows(), mapped.fields(), control::checkpoint);
             var identity =
                     new CdsExportIdentityDto(
                             patientKey,

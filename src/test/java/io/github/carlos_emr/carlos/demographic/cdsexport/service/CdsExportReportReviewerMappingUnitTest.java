@@ -91,7 +91,7 @@ class CdsExportReportReviewerMappingUnitTest {
                                         "document_review", dated.recordKey(), "date_reviewed"));
         assertThat(time.rule()).isEqualTo("REVIEW_DATE_ON_THE_WIRE_EXACT_TIME_IN_SOURCE_CONTEXT");
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(reviews.rows(), reviews.fields(), 100000, () -> {});
+                .requireRepresentable(reviews.rows(), reviews.fields(), () -> {});
     }
 
     @Test
@@ -112,7 +112,7 @@ class CdsExportReportReviewerMappingUnitTest {
                                 assertThat(entry.getValue().destination())
                                         .isEqualTo("Reports/Notes"));
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(reviews.rows(), reviews.fields(), 100000, () -> {});
+                .requireRepresentable(reviews.rows(), reviews.fields(), () -> {});
     }
 
     @Test

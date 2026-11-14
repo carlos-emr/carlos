@@ -231,26 +231,19 @@ class CdsExportMedicationCaptureMariaDbIntegrationTest {
                 patient);
         try {
             var inputs =
-                    read.execute(status -> drugs.readCdsExportDrugReferenceInputs(patient, 8192));
+                    read.execute(status -> drugs.readCdsExportDrugReferenceInputs(patient));
             assertThat(inputs).hasSize(35);
             assertThat(inputs.getFirst().drugId()).isEqualTo(patient);
             assertThat(inputs.getFirst().catalogueId()).isEqualTo(java.math.BigInteger.valueOf(17));
             assertThat(inputs.getFirst().regionalIdentifier()).isEqualTo("00123456");
             var otherPatient =
                     read.execute(
-                            status -> drugs.readCdsExportDrugReferenceInputs(patient + 1, 8192));
+                            status -> drugs.readCdsExportDrugReferenceInputs(patient + 1));
             assertThat(otherPatient)
                     .extracting(
                             io.github.carlos_emr.carlos.commn.dto.CdsExportDrugReferenceInputDto
                                     ::drugId)
                     .containsExactly((long) patient + 40);
-            assertThatThrownBy(
-                            () ->
-                                    read.execute(
-                                            status ->
-                                                    drugs.readCdsExportDrugReferenceInputs(
-                                                            patient, 1)))
-                    .hasMessage("CDS_EXPORT_RESOURCE_LIMIT");
         } finally {
             sql.update(
                     "UPDATE drugs SET GCN_SEQNO=0,regional_identifier=NULL WHERE drugid=? AND"

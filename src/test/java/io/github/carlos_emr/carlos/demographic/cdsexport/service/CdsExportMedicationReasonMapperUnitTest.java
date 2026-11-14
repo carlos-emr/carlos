@@ -116,7 +116,7 @@ class CdsExportMedicationReasonMapperUnitTest {
         assertThat(fields.get(key(7, "demographicNo")).outcome()).isEqualTo(Outcome.OPERATIONAL);
         var validated =
                 new CdsExportNativeFieldAssessmentValidator()
-                        .validate(List.of(row(primary), row(other)), fields, 1000, () -> {});
+                        .validate(List.of(row(primary), row(other)), fields, () -> {});
         assertThat(validated.representable()).isTrue();
         assertThat(validated.fields()).isEqualTo(22);
     }

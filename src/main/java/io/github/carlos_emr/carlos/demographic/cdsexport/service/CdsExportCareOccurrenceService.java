@@ -236,7 +236,6 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
                                         .requireRepresentable(
                                                 retiredRows(nativeSource),
                                                 retired,
-                                                1_000_000,
                                                 control::checkpoint);
                                 for (var extension : nativeSource.extensions())
                                     claim(key(extension.table(), id(extension)), importedOwned, claimed);
@@ -263,7 +262,6 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
                                     .requireRepresentable(
                                             mapped.rows(),
                                             mapped.fields(),
-                                            1_000_000,
                                             control::checkpoint);
                             if (mapped.element() == null) continue;
                             var identity =
@@ -641,7 +639,7 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
                                 checkpoint);
         new CdsExportNativeFieldAssessmentValidator()
                 .requireRepresentable(
-                        actualRows, assessments, 1_000_000, checkpoint);
+                        actualRows, assessments, checkpoint);
         for (String field : sourceValues.sourceFields())
             if (!consumed.add(field)) invalid();
         for (var removed : removedFields.values())

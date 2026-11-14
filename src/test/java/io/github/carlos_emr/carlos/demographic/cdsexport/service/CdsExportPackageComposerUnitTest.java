@@ -58,7 +58,6 @@ class CdsExportPackageComposerUnitTest {
                         UUID.randomUUID().toString(),
                         1,
                         new SecretKeySpec(new byte[32], "AES"),
-                        16L << 20,
                         0,
                         () -> {});
     }

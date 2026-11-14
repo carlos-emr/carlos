@@ -43,7 +43,6 @@ public final class CdsExportReviewException extends RuntimeException {
         MISSING_ATTACHMENT,
         AUDIT_ACCESS_UNAVAILABLE,
         RECIPIENT_UNAVAILABLE,
-        RESOURCE_LIMIT,
         CLINICAL_VALIDATION_FAILED,
         RUNTIME_CHANGED,
         NO_PATIENTS_SELECTED,

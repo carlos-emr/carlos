@@ -112,7 +112,6 @@ class CdsExportPreventionConfigurationServiceUnitTest {
                         lease.runId(),
                         1,
                         new SecretKeySpec(new byte[32], "AES"),
-                        8L << 20,
                         0,
                         () -> {});
         when(stores.openExisting(eq(lease.runId()), eq(1L), eq(lease.document().storage()), any()))

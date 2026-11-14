@@ -256,7 +256,7 @@ class CdsExportAllergyMapperUnitTest {
         assertThat(bare.value().codeValue()).isNull();
         assertThat(bare.value().description()).isEqualTo("FAKE-CDS agent");
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(List.of(allergy(unresolved)), bare.fields(), 1000, () -> {});
+                .requireRepresentable(List.of(allergy(unresolved)), bare.fields(), () -> {});
         // An ingredient (14) search result is named by its description; its id is not a code.
         var ingredient = baseline();
         ingredient.putAll(Map.of("TYPECODE", "14", "drugref_id", "987"));
@@ -288,7 +288,7 @@ class CdsExportAllergyMapperUnitTest {
         assertThat(picked.fields().get(key("drugref_id")).rule())
                 .isEqualTo("DRUGREF_SEARCH_ID_IS_NOT_A_DRUG_CODE");
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(List.of(allergy(fields)), picked.fields(), 1000, () -> {});
+                .requireRepresentable(List.of(allergy(fields)), picked.fields(), () -> {});
         String xml =
                 new String(
                         CdsExportNativeHistoryMapperUnitTest.render(
@@ -346,7 +346,7 @@ class CdsExportAllergyMapperUnitTest {
         assertThat(result.value().severity()).isNull();
         assertThat(result.value().onsetOfReaction()).isNull();
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(List.of(allergy(fields)), result.fields(), 1000, () -> {});
+                .requireRepresentable(List.of(allergy(fields)), result.fields(), () -> {});
     }
 
     @Test
@@ -391,7 +391,7 @@ class CdsExportAllergyMapperUnitTest {
         }
         assertThat(result.fields()).hasSize(24);
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(List.of(allergy(fields)), result.fields(), 1000, () -> {});
+                .requireRepresentable(List.of(allergy(fields)), result.fields(), () -> {});
         // The standard elements are what they would be without those columns, and a receiving
         // CARLOS reads the allergy with the carrier present (an unknown residual stays source).
         assertThat(result.value().codeType()).isEqualTo("DIN");
@@ -454,7 +454,7 @@ class CdsExportAllergyMapperUnitTest {
                     .isEqualTo("Notes;ResidualInfo/" + CdsNativeExtensionContract.ALLERGY_REACTION);
             new CdsExportNativeFieldAssessmentValidator()
                     .requireRepresentable(
-                            List.of(allergy(fields)), mapped.fields(), 1000, () -> {});
+                            List.of(allergy(fields)), mapped.fields(), () -> {});
             String xml =
                     new String(
                             CdsExportNativeHistoryMapperUnitTest.render(

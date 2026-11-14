@@ -35,7 +35,7 @@ class CdsExportNativeFieldAssessmentValidatorUnitTest {
     @Test
     void shouldVerifyValidatesExactIdentitiesAndSeparatelyCountsNullEmptyValueAndOutcomes_forNativeFieldAssessmentValidatorContract() throws Exception {
         var row = row();
-        var result = validator.validate(List.of(row), assessments(row), 100, () -> {});
+        var result = validator.validate(List.of(row), assessments(row), () -> {});
         assertThat(result)
                 .isEqualTo(
                         new CdsExportNativeFieldAssessmentValidator.Result(3, 1, 1, 1, 2, 1, 0, 0));
@@ -116,9 +116,9 @@ class CdsExportNativeFieldAssessmentValidatorUnitTest {
                 key("value"),
                 new CdsExportFieldAssessmentDto(
                         Presence.VALUE, Outcome.REQUIRES_REVIEW, "", "UNMAPPED_NATIVE_VALUE"));
-        assertThat(validator.validate(List.of(row), fields, 100, () -> {}).blocked()).isEqualTo(1);
+        assertThat(validator.validate(List.of(row), fields, () -> {}).blocked()).isEqualTo(1);
         assertThatThrownBy(
-                        () -> validator.requireRepresentable(List.of(row), fields, 100, () -> {}))
+                        () -> validator.requireRepresentable(List.of(row), fields, () -> {}))
                 .hasMessage("CDS_EXPORT_FIELD_ASSESSMENT_REQUIRES_REVIEW");
     }
 
@@ -130,7 +130,7 @@ class CdsExportNativeFieldAssessmentValidatorUnitTest {
                 key("value"),
                 new CdsExportFieldAssessmentDto(
                         Presence.VALUE, Outcome.OPERATIONAL, "", "CAPTURED_NATIVE_IDENTITY"));
-        assertThat(validator.validate(List.of(row), fields, 100, () -> {}).operational())
+        assertThat(validator.validate(List.of(row), fields, () -> {}).operational())
                 .isEqualTo(1);
         fields.put(
                 key("value"),
@@ -144,7 +144,7 @@ class CdsExportNativeFieldAssessmentValidatorUnitTest {
         var row = row();
         // Before: more fields than the caller's bound refused the occurrence
         // (CDS_EXPORT_FIELD_ASSESSMENT_RESOURCE_LIMIT). No count of fields refuses one.
-        assertThat(validator.validate(List.of(row), assessments(row), 2, () -> {}).fields())
+        assertThat(validator.validate(List.of(row), assessments(row), () -> {}).fields())
                 .isEqualTo(row.fields().size())
                 .isGreaterThan(2);
         var calls = new java.util.concurrent.atomic.AtomicInteger();
@@ -153,7 +153,6 @@ class CdsExportNativeFieldAssessmentValidatorUnitTest {
                                 validator.validate(
                                         List.of(row),
                                         assessments(row),
-                                        100,
                                         () -> {
                                             if (calls.incrementAndGet() == 5)
                                                 throw new java.util.concurrent
@@ -165,7 +164,7 @@ class CdsExportNativeFieldAssessmentValidatorUnitTest {
 
     @Test
     void shouldVerifyEmptyInputCannotBorrowUnrelatedDecisionsOrClaimWholeChartCoverage_forNativeFieldAssessmentValidatorContract() throws Exception {
-        assertThat(validator.validate(List.of(), Map.of(), 100, () -> {}).fields()).isZero();
+        assertThat(validator.validate(List.of(), Map.of(), () -> {}).fields()).isZero();
         refused(List.of(), assessments(row()));
     }
 
@@ -181,7 +180,7 @@ class CdsExportNativeFieldAssessmentValidatorUnitTest {
     private void refused(
             List<CdsExportCapturedTextRowDto> rows,
             Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields) {
-        assertThatThrownBy(() -> validator.validate(rows, fields, 100, () -> {}))
+        assertThatThrownBy(() -> validator.validate(rows, fields, () -> {}))
                 .hasMessage("CDS_EXPORT_FIELD_ASSESSMENT_SCOPE_INVALID");
     }
 

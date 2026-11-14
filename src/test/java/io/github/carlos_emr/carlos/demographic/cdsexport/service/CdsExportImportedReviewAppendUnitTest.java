@@ -167,7 +167,7 @@ class CdsExportImportedReviewAppendUnitTest {
                 .extracting(CdsExportRetainedSectionWriter.Change::relativePath)
                 .containsExactly("ReportReviewed[2]", "Notes[1]");
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(rows, assessments, 100000, () -> {});
+                .requireRepresentable(rows, assessments, () -> {});
         var prepared =
                 new CdsExportRetainedSectionWriter().prepareChanges(fields, inline(), changes, () -> {});
         // Every imported element is still retained exactly; nothing imported is replaced.
@@ -216,7 +216,7 @@ class CdsExportImportedReviewAppendUnitTest {
                 .isEqualTo("Seen 200 " + "x".repeat(200) + "\u0007");
         assertThat(supplementary.text()).doesNotContain("\u0007");
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(rows, supplementary.fields(), 100000, () -> {});
+                .requireRepresentable(rows, supplementary.fields(), () -> {});
         // The same rule the patient inventory applies to expect the record.
         var reviews =
                 CdsExportInboxReviewMapper.report().map(routes, List.of(), providers(), ZONE);
@@ -253,7 +253,7 @@ class CdsExportImportedReviewAppendUnitTest {
                 .extracting(CdsExportFieldAssessmentDto::destination)
                 .doesNotContain("Reports/Notes");
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(rows, supplementary.fields(), 100000, () -> {});
+                .requireRepresentable(rows, supplementary.fields(), () -> {});
         var prepared =
                 new CdsExportRetainedSectionWriter().prepareChanges(fields, inline(), changes, () -> {});
         assertThat(prepared.replacedFields()).isEmpty();
@@ -289,7 +289,7 @@ class CdsExportImportedReviewAppendUnitTest {
                 CdsExportInboxReviewMapper.laboratory()
                         .map(List.of(commented), List.of(), providers(), ZONE);
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(reviews.rows(), reviews.fields(), 100000, () -> {});
+                .requireRepresentable(reviews.rows(), reviews.fields(), () -> {});
         var changes = CdsExportLaboratoryOccurrenceService.appendedReviewers(fields, reviews);
         assertThat(changes)
                 .extracting(CdsExportRetainedSectionWriter.Change::relativePath)
@@ -315,7 +315,7 @@ class CdsExportImportedReviewAppendUnitTest {
         var carried =
                 CdsExportInboxReviewMapper.carriedFields(comments.routes(), "NewCategory/ResidualInfo");
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(comments.routes(), carried, 100000, () -> {});
+                .requireRepresentable(comments.routes(), carried, () -> {});
         assertThat(Set.copyOf(reviews.carried())).containsExactly(commented);
     }
 

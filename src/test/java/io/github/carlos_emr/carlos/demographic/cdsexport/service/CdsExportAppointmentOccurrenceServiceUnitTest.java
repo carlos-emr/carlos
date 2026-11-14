@@ -483,7 +483,7 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
                 .isEqualTo("n".repeat(32001));
         assertThat(json.path("publicProvider").isNull()).isTrue();
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(carrier.rows(), carrier.fields(), 1_000_000, () -> {});
+                .requireRepresentable(carrier.rows(), carrier.fields(), () -> {});
     }
 
     @Test

@@ -330,7 +330,7 @@ public class CdsExportScreeningOccurrenceService {
                                 var retired = CdsExportPreventionVersions.dispositions(current);
                                 new CdsExportNativeFieldAssessmentValidator()
                                         .requireRepresentable(
-                                                current, retired, 1_000_000, control::checkpoint);
+                                                current, retired, control::checkpoint);
                                 if (retired.size() != 16 + 4L * child.size() + 5L * dates.size())
                                     scope();
                                 counts[1] = Math.addExact(counts[1], retired.size());
@@ -351,7 +351,6 @@ public class CdsExportScreeningOccurrenceService {
                                     .requireRepresentable(
                                             current,
                                             mapping.fields(),
-                                            1_000_000,
                                             control::checkpoint);
                             if (mapping.fields().size()
                                     != 16 + 4L * child.size() + 5L * dates.size()) scope();

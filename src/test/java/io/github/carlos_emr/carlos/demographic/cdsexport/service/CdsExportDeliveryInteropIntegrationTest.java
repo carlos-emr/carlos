@@ -283,7 +283,6 @@ class CdsExportDeliveryInteropIntegrationTest {
                         java.util.UUID.randomUUID().toString(),
                         1,
                         new SecretKeySpec(new byte[32], "AES"),
-                        16L << 20,
                         0,
                         () -> {});
         var xml = staging.stage("PATIENT_XML", output -> output.write(patientXml));

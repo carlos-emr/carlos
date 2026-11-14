@@ -177,7 +177,6 @@ class CdsExportRetainedPayloadServiceUnitTest {
                         lease.runId(),
                         1,
                         new SecretKeySpec(new byte[32], "AES"),
-                        16L << 20,
                         0,
                         () -> {});
         when(stores.openExisting(eq(lease.runId()), eq(1L), eq(lease.document().storage()), any()))
@@ -716,7 +715,6 @@ class CdsExportRetainedPayloadServiceUnitTest {
                         lease.runId(),
                         1,
                         new SecretKeySpec(new byte[32], "AES"),
-                        16L << 20,
                         0,
                         () -> {
                             if (finalScan.get()) revoked.set(true);
