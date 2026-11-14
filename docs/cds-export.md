@@ -5256,8 +5256,15 @@ database, or the owner's decision:
   does it), and a revision saved locked (`LOCKED_NOTE_REQUIRES_AUTHORIZATION_REVIEW`: privacy,
   owner decision, #6213).
 - A retained date of a synthetic course copy that its date shift cannot move
-  (`CDS_EXPORT_HISTORY_SOURCE_DATE_REQUIRES_REVIEW`, a partial date with a shift): only the
-  separately authorized course-copy workflow shifts dates, and its patients are synthetic.
+  (`CDS_EXPORT_HISTORY_SOURCE_DATE_REQUIRES_REVIEW`, a partial date with a shift). Kept by the
+  owner's decision (2026-11-14): course copies are not ordinary charts. It is reachable only
+  through the separately authorized course-copy workflow: `CdsImportCommand` refuses a date shift
+  (`timeshiftDays`) unless the import is synthetic and names a course, and the retained source
+  applies the shift it recorded (`CdsExportHistoryRetainedSource`, through
+  `CdsExportRetainedImportOptionsReader`). An ordinary chart's import has no shift
+  (`CdsTemporal.shift` returns a date unchanged for zero days) and its retained dates passed the
+  importer's schema validation, so they are re-emitted as received; only a damaged ledger could
+  give one that does not parse.
 
 No CARLOS screen or API changes an imported note row's text in place. The CPP editor
 (`issueNoteSave`, `issueNoteSaveJson`), the REST note service (`saveIssueNote`, `saveNote`) and
