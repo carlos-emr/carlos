@@ -68,10 +68,7 @@ public final class CdsExportAppointmentMapper {
             ZoneId clinicalZone)
             throws IOException {
         var result = candidate(patient, row, lookups, clinicalZone);
-        boolean blocked =
-                result.fields().values().stream()
-                        .anyMatch(field -> field.outcome() == Outcome.REQUIRES_REVIEW);
-        return new CdsExportAppointmentMappingDto(blocked ? null : result.value(), result.fields());
+        return complete(row, lookups, result);
     }
 
     public CdsExportAppointmentMappingDto map(
@@ -82,17 +79,114 @@ public final class CdsExportAppointmentMapper {
             CdsExportCapturedTextRowDto demographic)
             throws IOException {
         var result = candidate(patient, row, lookups, clinicalZone, demographic);
-        boolean blocked =
-                result.fields().values().stream()
-                        .anyMatch(field -> field.outcome() == Outcome.REQUIRES_REVIEW);
-        return new CdsExportAppointmentMappingDto(blocked ? null : result.value(), result.fields());
+        return complete(row, lookups, result);
     }
 
+    /**
+     * A native appointment with the candidate's labelled lines appended to its notes. A booking
+     * whose notes cannot take them (AppointmentNotes holds 32,000 characters) still requires
+     * review: the category has no other carrier.
+     */
+    private static CdsExportAppointmentMappingDto complete(
+            CdsExportCapturedTextRowDto row,
+            CdsExportAppointmentLookupsDto lookups,
+            Candidate result) {
+        var fields = new LinkedHashMap<>(result.fields());
+        var value = result.value();
+        var codeKey = new CdsExportNativeFieldKeyDto(row.table(), row.recordKey(), "reasonCode");
+        var reasonKey = new CdsExportNativeFieldKeyDto(row.table(), row.recordKey(), "reason");
+        var code = fields.get(codeKey);
+        if (value != null
+                && code.outcome() == Outcome.REQUIRES_REVIEW
+                && "LABELLED_PURPOSE_REQUIRES_REVIEW".equals(code.rule())) {
+            // The reason-list label and the reason together exceed AppointmentPurpose's 250
+            // characters. Neither is cut, as for an imported purpose: the reason stays the
+            // purpose and the label is the first line of AppointmentNotes ("Reason: <label>").
+            var items = lookups.reasonCodes().getOrDefault(row.fields().get("reasonCode"), List.of());
+            String label = items.size() == 1 ? items.getFirst().fields().get("label") : null;
+            String reason = row.fields().get("reason");
+            if (label != null
+                    && !label.isBlank()
+                    && CdsExportNativeFieldAssessments.legal(label, Integer.MAX_VALUE)
+                    && (reason == null || CdsExportNativeFieldAssessments.legal(reason, 250))) {
+                String line = "Reason: " + label.trim();
+                String notes = value.notes();
+                value =
+                        new CdsExportAppointmentDto(
+                                value.timing(),
+                                value.status(),
+                                value.provider(),
+                                reason,
+                                notes == null || notes.isEmpty() ? line : line + "\n" + notes);
+                fields.put(
+                        codeKey,
+                        new CdsExportFieldAssessmentDto(
+                                code.presence(),
+                                Outcome.MAPPED,
+                                "AppointmentNotes",
+                                CdsExportAppointmentFieldReconciler.LABEL_IN_NOTES));
+                var stored = fields.get(reasonKey);
+                if (stored.outcome() == Outcome.REQUIRES_REVIEW)
+                    fields.put(
+                            reasonKey,
+                            new CdsExportFieldAssessmentDto(
+                                    stored.presence(),
+                                    Outcome.MAPPED,
+                                    "AppointmentPurpose",
+                                    "EXACT_NATIVE_TEXT"));
+            }
+        }
+        if (value != null && !result.noteLines().isEmpty())
+            value =
+                    new CdsExportAppointmentDto(
+                            value.timing(),
+                            value.status(),
+                            value.provider(),
+                            value.purpose(),
+                            withLines(value.notes(), result.noteLines()));
+        if (value != null
+                && value.notes() != null
+                && !CdsExportNativeFieldAssessments.legal(value.notes(), 32000)) {
+            // Text no XML document can hold, or notes beyond the schema's 32,000 characters:
+            // decided by the caller (see notesOverflow).
+            var notesKey = new CdsExportNativeFieldKeyDto(row.table(), row.recordKey(), "notes");
+            var prior = fields.get(notesKey);
+            fields.put(
+                    notesKey,
+                    new CdsExportFieldAssessmentDto(
+                            prior.presence(),
+                            Outcome.REQUIRES_REVIEW,
+                            "AppointmentNotes",
+                            "APPOINTMENT_NOTES_CAPACITY_REQUIRES_REVIEW"));
+        }
+        boolean blocked =
+                fields.values().stream()
+                        .anyMatch(field -> field.outcome() == Outcome.REQUIRES_REVIEW);
+        return new CdsExportAppointmentMappingDto(blocked ? null : value, fields);
+    }
+
+    /** The notes followed by each labelled line on its own line. */
+    static String withLines(String notes, List<String> lines) {
+        var text = new StringBuilder(notes == null ? "" : notes);
+        for (String line : lines) {
+            if (!text.isEmpty()) text.append('\n');
+            text.append(line);
+        }
+        return text.toString();
+    }
+
+    /**
+     * @param noteLines labelled lines the caller appends to AppointmentNotes
+     *     ({@link CdsExportAppointmentNativeMetadata#qualify}); {@code value}'s notes are the
+     *     stored notes alone
+     */
     record Candidate(
             CdsExportAppointmentDto value,
-            Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields) {
+            Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields,
+            List<String> noteLines) {
         Candidate {
             fields = Map.copyOf(fields);
+            noteLines = List.copyOf(noteLines);
         }
 
         @Override
@@ -208,13 +302,15 @@ public final class CdsExportAppointmentMapper {
             if (value != null && !value.isEmpty())
                 source.operational(column.getKey(), column.getValue());
         }
-        CdsExportAppointmentNativeMetadata.qualify(
-                row, demographic, lookups.earlierPatientDisplays(), decisions);
+        var noteLines =
+                CdsExportAppointmentNativeMetadata.qualify(
+                        row, demographic, lookups.earlierPatientDisplays(), decisions);
         return new Candidate(
                 timing == null
                         ? null
                         : new CdsExportAppointmentDto(timing, status, provider, purpose, notes),
-                decisions);
+                decisions,
+                noteLines);
     }
 
     private static String status(

@@ -268,6 +268,15 @@ public final class CdsExportAppointmentFieldReconciler {
             prior.remove("AppointmentNotes");
             current.add("AppointmentNotes");
         }
+        if (!candidate.noteLines().isEmpty()) {
+            // A booking name that is not the patient's, and remarks: the same labelled lines as
+            // on a never-imported appointment, after the notes, which are then current.
+            notes = CdsExportAppointmentMapper.withLines(notes, candidate.noteLines());
+            if (!CdsExportNativeFieldAssessments.legal(notes, 32000))
+                review("CDS_EXPORT_APPOINTMENT_NOTES_CAPACITY_REQUIRES_REVIEW");
+            prior.remove("AppointmentNotes");
+            current.add("AppointmentNotes");
+        }
         var provider = candidate.value() == null ? null : candidate.value().provider();
         if (!difference.changedColumns().contains("provider_no")) {
             if (prepared.providerNo() != null

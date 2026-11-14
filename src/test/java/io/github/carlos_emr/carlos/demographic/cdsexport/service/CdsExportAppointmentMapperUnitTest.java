@@ -150,26 +150,40 @@ class CdsExportAppointmentMapperUnitTest {
     }
 
     @Test
-    void shouldKeepUnmappedExtrasAndOversizeValuesExplicit_withoutAppendingThemToNotes()
+    void shouldExportABookingNameThatIsNotThePatientsAndRemarks_asLabelledNotesLines()
             throws Exception {
-        // "location" left this list: the booking site is reviewed scheduler context now
-        // (shouldClassifySchedulerAndBookingContextAsOperational_forUiBookedAppointment).
-        for (var extra :
-                Map.of(
-                                "name",
-                                "Different patient display",
-                                "remarks",
-                                "Additional clinical information",
-                                "reason",
-                                "x".repeat(251))
-                        .entrySet()) {
-            var fields = baseline();
-            fields.put(extra.getKey(), extra.getValue());
-            var mapped = mapper.map(27, appointment(fields), lookups(), ZONE);
-            assertThat(mapped.nativeRowRepresentable()).isFalse();
-            assertThat(mapped.fields().get(key(extra.getKey())).outcome())
-                    .isEqualTo(Outcome.REQUIRES_REVIEW);
-        }
+        // The Edit Appointment form stores whatever its name box holds
+        // (AppointmentUpdateRecord2Action: keyword), and remarks are filled by the SOAP schedule
+        // service and OSCAR 19 data (its reminder mailer's "Emailed:" marks). Appointments has no
+        // ResidualInfo, so each is a labelled line after the notes; neither holds the chart.
+        var demographic = demographic("Fixture", "Synthetic", null);
+        var fields = baseline();
+        fields.put("notes", "Bring results");
+        fields.put("name", "Fixture, Synthetic - needs interpreter");
+        fields.put("remarks", "Emailed:2019-03-04");
+        var mapped = mapper.map(27, appointment(fields), lookups(), ZONE, demographic);
+        assertThat(mapped.nativeRowRepresentable()).isTrue();
+        assertThat(mapped.value().notes())
+                .isEqualTo(
+                        "Bring results\nBooking name: Fixture, Synthetic - needs interpreter"
+                                + "\nRemarks: Emailed:2019-03-04");
+        assertThat(mapped.fields().get(key("name")).destination()).isEqualTo("AppointmentNotes");
+        assertThat(mapped.fields().get(key("remarks")).rule())
+                .isEqualTo(CdsExportAppointmentNativeMetadata.REMARKS_IN_NOTES);
+        // With no notes the lines are the notes; the program a booking was made under (OSCAR 19
+        // data) is scheduler context and holds no one.
+        fields.put("notes", null);
+        fields.put("name", "Fixture,Synthetic");
+        fields.put("program_id", "10016");
+        var remarks = mapper.map(27, appointment(fields), lookups(), ZONE, demographic);
+        assertThat(remarks.value().notes()).isEqualTo("Remarks: Emailed:2019-03-04");
+        assertThat(remarks.fields().get(key("program_id")).outcome())
+                .isEqualTo(Outcome.OPERATIONAL);
+        // A reason longer than its element is still explicit.
+        fields.put("reason", "x".repeat(251));
+        assertThat(mapper.map(27, appointment(fields), lookups(), ZONE, demographic)
+                        .nativeRowRepresentable())
+                .isFalse();
     }
 
     @Test
@@ -328,20 +342,24 @@ class CdsExportAppointmentMapperUnitTest {
     }
 
     @Test
-    void shouldKeepReview_whenTheLabelledPurposeExceedsTheDictionaryLimit() throws Exception {
+    void shouldMoveTheReasonLabelToNotes_whenTheLabelledPurposeExceedsItsElement() throws Exception {
         var fields = baseline();
         fields.put("reason", "r".repeat(80));
         fields.put("reasonCode", "2");
+        fields.put("notes", "Bring results");
         var fits =
                 mapper.map(27, appointment(fields), lookups(reasonItem("2", "L".repeat(169))), ZONE);
         assertThat(fits.value().purpose()).hasSize(250);
-        var blocked =
+        // One character more than AppointmentPurpose holds: nothing is cut and nobody is held.
+        var moved =
                 mapper.map(27, appointment(fields), lookups(reasonItem("2", "L".repeat(170))), ZONE);
-        assertThat(blocked.nativeRowRepresentable()).isFalse();
-        assertThat(blocked.fields().get(key("reasonCode")).rule())
-                .isEqualTo("LABELLED_PURPOSE_REQUIRES_REVIEW");
-        assertThat(blocked.fields().get(key("reason")).outcome())
-                .isEqualTo(Outcome.REQUIRES_REVIEW);
+        assertThat(moved.nativeRowRepresentable()).isTrue();
+        assertThat(moved.value().purpose()).isEqualTo("r".repeat(80));
+        assertThat(moved.value().notes())
+                .isEqualTo("Reason: " + "L".repeat(170) + "\nBring results");
+        assertThat(moved.fields().get(key("reasonCode")).rule())
+                .isEqualTo(CdsExportAppointmentFieldReconciler.LABEL_IN_NOTES);
+        assertThat(moved.fields().get(key("reason")).outcome()).isEqualTo(Outcome.MAPPED);
     }
 
     @Test
@@ -392,9 +410,13 @@ class CdsExportAppointmentMapperUnitTest {
                         "Maiden,Synthetic")) {
             var fields = baseline();
             fields.put("name", name);
-            assertThatThrownBy(
-                            () -> mapper.map(27, appointment(fields), lookups(), ZONE, demographic))
-                    .hasMessage("CDS_EXPORT_APPOINTMENT_PATIENT_DISPLAY_REQUIRES_REVIEW");
+            // Any other text is the booking's own name text: a labelled line of the notes.
+            var mapped = mapper.map(27, appointment(fields), lookups(), ZONE, demographic);
+            assertThat(mapped.nativeRowRepresentable()).isTrue();
+            assertThat(mapped.value().notes())
+                    .endsWith(CdsExportAppointmentNativeMetadata.NAME_LABEL + name);
+            assertThat(mapped.fields().get(key("name")).rule())
+                    .isEqualTo(CdsExportAppointmentNativeMetadata.NAME_IN_NOTES);
         }
     }
 

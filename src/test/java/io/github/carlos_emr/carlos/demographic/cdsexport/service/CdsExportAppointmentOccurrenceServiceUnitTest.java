@@ -226,9 +226,9 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
             throws Exception {
         var renamed = new TreeMap<>(uiBooking());
         renamed.put("name", "Maiden,Synthetic");
-        var held = uiBooked(renamed);
-        assertThatThrownBy(() -> compose(held, false))
-                .hasMessage("CDS_EXPORT_APPOINTMENT_PATIENT_DISPLAY_REQUIRES_REVIEW");
+        // Without the archived name the text is the booking's own: a labelled notes line.
+        assertThat(new String(compose(uiBooked(renamed), false), java.nio.charset.StandardCharsets.UTF_8))
+                .contains("Booking name: Maiden,Synthetic");
         var f = uiBooked(renamed);
         f.auxiliary = new ArrayList<>(f.auxiliary);
         f.auxiliary.add(

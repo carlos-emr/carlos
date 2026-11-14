@@ -43,13 +43,33 @@ import java.util.*;
 final class CdsExportAppointmentNativeMetadata {
     private CdsExportAppointmentNativeMetadata() {}
 
-    static void qualify(
+    /** Leads the booking's own name text in AppointmentNotes when it is not the patient's name. */
+    static final String NAME_LABEL = "Booking name: ";
+
+    /** Leads the appointment's remarks in AppointmentNotes. */
+    static final String REMARKS_LABEL = "Remarks: ";
+
+    static final String NAME_IN_NOTES = "BOOKING_NAME_NOT_THE_PATIENT_DISPLAY_AS_LABELLED_NOTES_LINE";
+    static final String REMARKS_IN_NOTES = "APPOINTMENT_REMARKS_AS_LABELLED_NOTES_LINE";
+
+    /**
+     * Decides the storage, program, booking-name and remarks columns.
+     *
+     * @return the labelled lines to append to AppointmentNotes, in order: a booking name that is
+     *     not one of the patient's own name forms (the Edit Appointment form stores whatever its
+     *     name box holds, so a typed annotation is chart text), then the remarks (kept by the add
+     *     and edit forms, filled by the SOAP schedule service and by OSCAR 19 data such as its
+     *     reminder mailer's "Emailed:" marks, and shown in the appointment history). The
+     *     Appointments category has no ResidualInfo, so these lines are their carrier.
+     */
+    static List<String> qualify(
             CdsExportCapturedTextRowDto row,
             CdsExportCapturedTextRowDto demographic,
             Set<String> earlierDisplays,
             Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields)
             throws IOException {
         Objects.requireNonNull(earlierDisplays);
+        var lines = new java.util.ArrayList<String>();
         for (String column :
                 List.of("creator", "creatorSecurityId", "lastupdateuser", "createdatetime"))
             mark(
@@ -62,14 +82,43 @@ final class CdsExportAppointmentNativeMetadata {
         if (program == null || program.equals("0"))
             mark(row, fields, "program_id", Outcome.OPERATIONAL, "NO_RECORDED_PROGRAM_AFFILIATION");
         else
+            // The program a booking was made under (OSCAR 19 with its program view on; CARLOS
+            // always stores 0) is scheduler context like the booking site and template, which
+            // have no CDS Appointments field either. It never holds a chart.
             mark(
                     row,
                     fields,
                     "program_id",
-                    Outcome.REQUIRES_REVIEW,
-                    "PROGRAM_AFFILIATION_REQUIRES_REVIEW");
+                    Outcome.OPERATIONAL,
+                    "BOOKING_PROGRAM_NOT_A_CDS_APPOINTMENT_FIELD");
         String name = row.fields().get("name");
-        if (name == null || name.isEmpty()) return;
+        if (name != null && !name.isEmpty()) name(row, demographic, earlierDisplays, fields, lines);
+        String remarks = row.fields().get("remarks");
+        if (remarks != null && !remarks.isBlank()) {
+            if (CdsExportNativeFieldAssessments.legal(remarks, Integer.MAX_VALUE)) {
+                lines.add(REMARKS_LABEL + remarks);
+                mark(row, fields, "remarks", Outcome.MAPPED, "AppointmentNotes", REMARKS_IN_NOTES);
+            } else
+                mark(
+                        row,
+                        fields,
+                        "remarks",
+                        Outcome.REQUIRES_REVIEW,
+                        "AppointmentNotes",
+                        "WIRE_TEXT_REQUIRES_REVIEW");
+        } else if (remarks != null && !remarks.isEmpty())
+            mark(row, fields, "remarks", Outcome.OPERATIONAL, "BLANK_REMARKS_NOT_DISPLAYED");
+        return List.copyOf(lines);
+    }
+
+    private static void name(
+            CdsExportCapturedTextRowDto row,
+            CdsExportCapturedTextRowDto demographic,
+            Set<String> earlierDisplays,
+            Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields,
+            List<String> lines)
+            throws IOException {
+        String name = row.fields().get("name");
         if (demographic == null) {
             mark(
                     row,
@@ -91,16 +140,35 @@ final class CdsExportAppointmentNativeMetadata {
                         .recordKey()
                         .equals(String.format(Locale.ROOT, "%010d", Integer.parseInt(owner))))
             throw new IOException("CDS_EXPORT_APPOINTMENT_PATIENT_DISPLAY_SCOPE_INVALID");
-        String rule;
         if (displays(demographic.fields()).contains(name))
-            rule = "EXACT_CURRENT_PATIENT_DISPLAY_NOT_APPOINTMENT_NOTE";
+            mark(
+                    row,
+                    fields,
+                    "name",
+                    Outcome.OPERATIONAL,
+                    "EXACT_CURRENT_PATIENT_DISPLAY_NOT_APPOINTMENT_NOTE");
         else if (earlierDisplays.contains(name))
-            rule = "EXACT_EARLIER_PATIENT_DISPLAY_FROM_CAPTURED_ARCHIVE_NOT_APPOINTMENT_NOTE";
-        else
-            throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
-                    .CdsExportMappingReviewException(
-                    "CDS_EXPORT_APPOINTMENT_PATIENT_DISPLAY_REQUIRES_REVIEW");
-        mark(row, fields, "name", Outcome.OPERATIONAL, rule);
+            mark(
+                    row,
+                    fields,
+                    "name",
+                    Outcome.OPERATIONAL,
+                    "EXACT_EARLIER_PATIENT_DISPLAY_FROM_CAPTURED_ARCHIVE_NOT_APPOINTMENT_NOTE");
+        else if (name.isBlank())
+            mark(row, fields, "name", Outcome.OPERATIONAL, "BLANK_BOOKING_NAME_NOT_DISPLAYED");
+        else if (CdsExportNativeFieldAssessments.legal(name, Integer.MAX_VALUE)) {
+            // Any other text is what the user left in the booking's name box: exported as a
+            // labelled line of the notes instead of holding the chart.
+            lines.add(NAME_LABEL + name);
+            mark(row, fields, "name", Outcome.MAPPED, "AppointmentNotes", NAME_IN_NOTES);
+        } else
+            mark(
+                    row,
+                    fields,
+                    "name",
+                    Outcome.REQUIRES_REVIEW,
+                    "AppointmentNotes",
+                    "WIRE_TEXT_REQUIRES_REVIEW");
     }
 
     /**
@@ -151,9 +219,20 @@ final class CdsExportAppointmentNativeMetadata {
             Outcome outcome,
             String rule)
             throws IOException {
+        mark(row, fields, column, outcome, "", rule);
+    }
+
+    private static void mark(
+            CdsExportCapturedTextRowDto row,
+            Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields,
+            String column,
+            Outcome outcome,
+            String destination,
+            String rule)
+            throws IOException {
         var key = new CdsExportNativeFieldKeyDto(row.table(), row.recordKey(), column);
         var old = fields.get(key);
         if (old == null) throw new IOException("CDS_EXPORT_APPOINTMENT_METADATA_SCOPE_INVALID");
-        fields.put(key, new CdsExportFieldAssessmentDto(old.presence(), outcome, "", rule));
+        fields.put(key, new CdsExportFieldAssessmentDto(old.presence(), outcome, destination, rule));
     }
 }

@@ -305,20 +305,31 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
     }
 
     @Test
-    void shouldVerifyPatientNameMismatchProgramAffiliationAndUnmappedNativeValuesNeedReview_forAppointmentFieldReconcilerContract() throws Exception {
+    void shouldAppendAnEditedBookingNameAndRemarks_toTheImportedNotesInsteadOfHolding()
+            throws Exception {
+        // Edit Appointment stores its name box; remarks come from the SOAP service or older data.
+        String imported = reconcile().mapping().value().notes();
         current.put("name", "Another patient");
-        assertThatThrownBy(this::reconcile)
-                .hasMessage("CDS_EXPORT_APPOINTMENT_PATIENT_DISPLAY_REQUIRES_REVIEW");
+        var named = reconcile();
+        assertThat(named.mapping().value().notes())
+                .isEqualTo(
+                        CdsExportAppointmentMapper.withLines(
+                                imported, List.of("Booking name: Another patient")));
+        assertThat(named.currentPaths()).contains("AppointmentNotes");
         current.put("name", old.get("name"));
+        // The program a booking was made under and the booking site are scheduler context.
         current.put("program_id", "1");
-        assertThat(reconcile().mapping().value()).isNull();
+        assertThat(reconcile().mapping().value()).isNotNull();
         current.put("program_id", "0");
-        // The booking site (location) is now operational scheduler context; remarks, which only
-        // the SOAP schedule service and legacy data fill, is still an unmapped value.
         current.put("location", "Additional appointment location");
         assertThat(reconcile().mapping().value()).isNotNull();
         current.put("remarks", "Additional appointment remark");
-        assertThat(reconcile().mapping().value()).isNull();
+        var remarked = reconcile();
+        assertThat(remarked.mapping().value().notes())
+                .isEqualTo(
+                        CdsExportAppointmentMapper.withLines(
+                                imported, List.of("Remarks: Additional appointment remark")));
+        assertThat(remarked.preparedPaths()).doesNotContain("AppointmentNotes");
     }
 
     @Test
