@@ -1077,8 +1077,8 @@ longestMs=<max>` (counts and times only).
 
 | Property | Default | Meaning |
 | --- | --- | --- |
-| `cds.export.eformRenderIntervalMillis` | `250` | Pause between two export renders (0 to 60000). |
-| `cds.export.cliRendererHandoffSeconds` | `120` | How long a foreground command-line export that selects Reports leaves its job to the web application before running it itself (0 to 86400; 0 never hands off). |
+| `cds.export.eformRenderIntervalMillis` | `250` | Pause between two export renders (0 or more, no maximum). |
+| `cds.export.cliRendererHandoffSeconds` | `120` | How long a foreground command-line export that selects Reports leaves its job to the web application before running it itself (0 or more, no maximum; 0 never hands off). |
 | `eform_pdf_browser_base_url` | derived | Where the renderer reaches the application. A render without a request uses `http://127.0.0.1:<port>/<context>` from Tomcat's single plain-HTTP connector (18080 on the packaged install); set it when Tomcat has several plain connectors or only TLS. |
 
 The command-line process cannot render. A foreground `--export` or `--resume` that
