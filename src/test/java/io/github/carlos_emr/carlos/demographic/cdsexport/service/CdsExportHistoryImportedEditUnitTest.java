@@ -178,9 +178,16 @@ class CdsExportHistoryImportedEditUnitTest {
 
     /** Exports the edited item and returns its rendered occurrence. */
     private String export(CdsExportHistoryFieldReconciler.Current current) throws Exception {
+        return export(current, List.of(imported, current));
+    }
+
+    /** Exports the item from the given captured revisions, the last being {@code current}. */
+    private String export(
+            CdsExportHistoryFieldReconciler.Current current,
+            List<CdsExportHistoryFieldReconciler.Current> revisions)
+            throws Exception {
         var nativeHistory =
-                new CdsExportNativeHistoryMapper()
-                        .map(27, category, List.of(imported, current), providers(), ZONE);
+                new CdsExportNativeHistoryMapper().map(27, category, revisions, providers(), ZONE);
         var ids = new HashSet<String>();
         retained.forEach(field -> ids.add(field.id()));
         var result =
@@ -346,6 +353,117 @@ class CdsExportHistoryImportedEditUnitTest {
                 .contains("Imported narrative", "definition.code", "250 entry")
                 .contains("2021-03-04")
                 .doesNotContain("2020-01-01</");
+    }
+
+    @Test
+    void shouldRemoveTheImportedDateElement_whenTheNoteApiChangedACppItemsObservationDate()
+            throws Exception {
+        // The REST note API (NotesService.saveIssueNote) sets the observation date on every save
+        // of a CPP item; the CPP editor leaves it. The import had projected the source StartDate
+        // into that date, and such an edit held the chart
+        // (CDS_EXPORT_HISTORY_NATIVE_SOURCE_RECONCILIATION_REQUIRED). A CPP item's observation
+        // date has no element: the imported StartDate is removed (its source field replaced)
+        // and both dates travel in the revision context.
+        imported(CdsCategory.FAMILY_HISTORY, "FamHistory", true);
+        source("ProblemDiagnosisProcedureDescription[1]", "Imported narrative");
+        source("StartDate[1]/FullDate[1]", "2020-01-01");
+        String xml =
+                export(
+                        edited(
+                                92,
+                                Map.of("observation_date", "2026-11-10 10:00:00"),
+                                List.of(),
+                                Map.of()));
+        assertThat(xml)
+                .contains(
+                        "Imported narrative",
+                        "CARLOS.NativeHistory.v1",
+                        "\"observed\":\"2020-01-01\\u002000:00:00\"",
+                        "\"observed\":\"2026-11-10\\u002010:00:00\"")
+                .doesNotContain("<StartDate>", "<cdsd:FullDate>2020-01-01</cdsd:FullDate>");
+    }
+
+    @Test
+    void shouldWriteTheTypedStartDate_whenTheSameEditChangedTheObservationDate()
+            throws Exception {
+        // A CPP start date typed in the edit that changed the observation date is the
+        // StartDate, as on any item written in CARLOS; the imported one is replaced.
+        imported(CdsCategory.FAMILY_HISTORY, "FamHistory", true);
+        source("ProblemDiagnosisProcedureDescription[1]", "Imported narrative");
+        source("StartDate[1]/FullDate[1]", "2020-01-01");
+        String xml =
+                export(
+                        edited(
+                                92,
+                                Map.of("observation_date", "2026-11-10 10:00:00"),
+                                List.of(extension(301, 92, "Start Date", "", "2021-05-01 00:00:00")),
+                                Map.of()));
+        assertThat(xml)
+                .contains("<cdsd:FullDate>2021-05-01</cdsd:FullDate>")
+                .doesNotContain("<cdsd:FullDate>2020-01-01</cdsd:FullDate>");
+    }
+
+    @Test
+    void shouldExportAnImportedCppItem_whenAFlagOfItsSectionIssueChangedWithNoRevision()
+            throws Exception {
+        // The chart's issue list (CaseManagementEntry2Action.issueChange) lists every patient
+        // issue, CPP section tags included, and saves a flag without a new revision of the items
+        // the issue files. It held every imported item of the section
+        // (CDS_EXPORT_HISTORY_ISSUE_EDIT_REQUIRES_RECONCILIATION). The item is now given native
+        // context, whose revision details carry the issue row exactly.
+        imported(CdsCategory.FAMILY_HISTORY, "FamHistory", true);
+        source("ProblemDiagnosisProcedureDescription[1]", "Imported narrative");
+        source("StartDate[1]/FullDate[1]", "2020-01-01");
+        var changed = new LinkedHashMap<>(imported.patientIssues().get("41").value().fields());
+        changed.put("resolved", "1");
+        changed.put("update_date", "2026-11-12 08:00:00");
+        var issues = new HashMap<>(imported.patientIssues());
+        issues.put("41", row(Plan.CASE_ISSUES, "41", changed));
+        var current =
+                new CdsExportHistoryFieldReconciler.Current(
+                        imported.note(),
+                        imported.extensions(),
+                        imported.links(),
+                        issues,
+                        imported.definitions());
+        // What the receipt check reports for the unit, and the routing decision made from it.
+        var old = baseline.get("casemgmt_issue/41");
+        var now = issues.get("41").witness().state();
+        var reference =
+                references.stream()
+                        .filter(ref -> ref.table().equals("casemgmt_issue"))
+                        .findFirst()
+                        .orElseThrow();
+        assertThat(
+                        CdsExportHistoryFieldReconciler.issueContextChanged(
+                                List.of(
+                                        new CdsExportRetainedReceiptVerificationDto.CheckedReference(
+                                                reference,
+                                                now.digest(),
+                                                CdsExportRetainedReceiptVerificationDto.Reason
+                                                        .CHANGED_ROW,
+                                                CdsNativeRowComparison.compare(old, now)))))
+                .isTrue();
+        String xml = export(current, List.of(current));
+        assertThat(xml)
+                .contains(
+                        "Imported narrative",
+                        "<cdsd:FullDate>2020-01-01</cdsd:FullDate>",
+                        "CARLOS.NativeHistory.v1");
+        // Only the update time, which every save stamps, is not a reason for native context.
+        var stamped = new LinkedHashMap<>(imported.patientIssues().get("41").value().fields());
+        stamped.put("update_date", "2026-11-12 08:00:00");
+        var touched = row(Plan.CASE_ISSUES, "41", stamped).witness().state();
+        assertThat(
+                        CdsExportHistoryFieldReconciler.issueContextChanged(
+                                List.of(
+                                        new CdsExportRetainedReceiptVerificationDto.CheckedReference(
+                                                reference,
+                                                touched.digest(),
+                                                CdsExportRetainedReceiptVerificationDto.Reason
+                                                        .CHANGED_ROW,
+                                                CdsNativeRowComparison.compare(old, touched)))))
+                .isFalse();
     }
 
     @Test

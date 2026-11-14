@@ -195,10 +195,16 @@ current relationships. An imported preferred pharmacy removed on the
 prescription pharmacy screen is not exported, and when another pharmacy was made the first
 preference that pharmacy is exported as PreferredPharmacy and the imported one travels in the
 native demographic record. In each case the imported values stay in the import's protected
-source fields, listed as replaced in the export audit. Still held: a value with a character no
-XML file can hold, a second relationship added to an imported contact whose file gave it
-several purposes (CARLOS keeps only a placeholder for them), and an imported chart that matched an
-existing CARLOS chart whose values the import cannot prove.
+source fields, listed as replaced in the export audit. An imported contact edited in the contact
+editor or saved again in Manage Contacts is exported with what the chart now says: an edited
+first name replaces the imported first and middle names, an edited phone replaces the imported
+number of that kind, a changed relationship or emergency-contact or decision-maker box replaces
+the purposes it stood for, and everything not edited stays as imported. A contact whose file gave
+it several purposes (the relationship box then reads "Multiple source purposes; see imported
+Contact details") keeps those purposes until that relationship is changed. A family or referring
+doctor added to the health care team of an imported chart is exported as that chart's physician.
+Still held: an imported chart that matched an existing CARLOS chart whose values the import
+cannot prove.
 
 Native chart support includes demographics/external physicians, all seven history/note
 categories, prescriptions and printed scripts, current measurements, supported
@@ -528,7 +534,11 @@ Procedure or a Family History Resolution Date (in the item's Notes, labelled), o
 Start or Resolution Date (in its plain-text copy, `CARLOS.History.NarrativeText.v1`). The CPP
 editor's "Hide Cpp" choice is a display setting and stays in the CARLOS residual only. An item
 imported from a CDS file and then archived, edited, given a new issue or
-CPP date, or (for an encounter note) given a new observation date in CARLOS is also exported. An
+CPP date, or given a new observation date in CARLOS is also exported (for a CPP item saved
+through the note API, which sets that date, the imported start or onset date is then no longer
+written as an element: the chart no longer holds it, and both dates are in the CARLOS residual).
+An imported CPP item is exported as well after its section's issue was marked resolved, acute,
+certain or major in the chart's issue list. An
 imported CPP item moved into another CPP section is exported under its new section, with the
 elements of its imported record kept in the CARLOS residual. An allergy reaction over 120
 characters is also sent in a CARLOS residual that a receiving CARLOS restores in full. A

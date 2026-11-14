@@ -181,6 +181,30 @@ final class CdsExportHistoryNativeReconciler {
                         sourceFields,
                         entry.getKey() + "[1]",
                         xml -> CdsExportNativeHistoryXmlWriter.dateContents(xml, entry.getValue()));
+            // The import projected one source date into the item's observation date
+            // (CdsHistoryPersister#observationField). A revision that changed that date (the
+            // REST note API sets it on every save; the CPP editor leaves it) no longer holds the
+            // source date, and by the rule of an item written in CARLOS a CPP item's observation
+            // date has no element: it travels in the revision context (EXACT_NATIVE_EVENT_TIME).
+            // The imported date element is therefore removed, its source fields replaced, unless
+            // a CPP date of the current revision was written to it above. It was a hold.
+            String observationElement = prepared.observationField();
+            if (observationElement != null
+                    && !nativeValue.dates().containsKey(observationElement)
+                    && !CdsExportCaseManagementProjectionEvidence.matches(
+                            original,
+                            "observation_date",
+                            current.note().value().fields().get("observation_date"))) {
+                String dateRoot =
+                        CdsExportRetainedOccurrencePath.root(sourceFields.getFirst(), category);
+                String datePath = dateRoot + "/" + observationElement + "[1]";
+                if (sourceFields.stream()
+                        .anyMatch(
+                                f ->
+                                        f.sourcePath().equals(datePath)
+                                                || f.sourcePath().startsWith(datePath + "/")))
+                    replace(changes, sourceFields, observationElement + "[1]", null);
+            }
             String codeName =
                     category == CdsCategory.PROBLEM_LIST ? "DiagnosisCode" : "DiagnosisProcedureCode";
             boolean importedCode =

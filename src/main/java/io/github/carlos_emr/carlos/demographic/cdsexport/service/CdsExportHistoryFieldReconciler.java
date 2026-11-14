@@ -329,6 +329,12 @@ public final class CdsExportHistoryFieldReconciler {
      *   <li>a changed observation date of an encounter note, written as EventDateTime (B5);
      *   <li>an issue assigned to or removed from the item (B5): see {@link #checkIssues}.
      * </ul>
+     *
+     * <p>Beside these, a changed observation date
+     * ({@code CHANGED_OBSERVATION_AND_PRECISION_REQUIRE_RECONCILIATION}) is accounted for in every
+     * section: on a CPP item the REST note API sets it on each save (the CPP editor leaves it), a
+     * CPP item's observation date has no element (it travels in the revision context), and the
+     * native reconciler removes the source date element the import had projected into it.
      */
     static final Set<String> NATIVE_CONTEXT_RULES =
             Set.of(
@@ -363,8 +369,8 @@ public final class CdsExportHistoryFieldReconciler {
             CdsExportRetainedSectionWriter.Values values,
             Runnable checkpoint)
             throws IOException {
-        // Native revision context qualifies audit, narrative, extension and issue changes, but
-        // must not bypass the import's own date precision on a CPP item.
+        // Native revision context qualifies audit, narrative, extension, issue and observation
+        // date changes.
         var guard =
                 choose(
                         patient,
@@ -386,10 +392,11 @@ public final class CdsExportHistoryFieldReconciler {
                         f ->
                                 f.outcome() == Outcome.REQUIRES_REVIEW
                                         && !NATIVE_CONTEXT_RULES.contains(f.rule())
-                                        && !(category == CdsCategory.CLINICAL_NOTES
-                                                && f.rule()
-                                                        .equals(
-                                                                "CHANGED_OBSERVATION_AND_PRECISION_REQUIRE_RECONCILIATION"))))
+                                        // It held an imported CPP item
+                                        // (CDS_EXPORT_HISTORY_NATIVE_SOURCE_RECONCILIATION_REQUIRED).
+                                        && !f.rule()
+                                                .equals(
+                                                        "CHANGED_OBSERVATION_AND_PRECISION_REQUIRE_RECONCILIATION")))
             review("CDS_EXPORT_HISTORY_NATIVE_SOURCE_RECONCILIATION_REQUIRED");
         return new CdsExportHistoryNativeReconciler()
                 .reconcile(
@@ -652,7 +659,7 @@ public final class CdsExportHistoryFieldReconciler {
                 references,
                 baseline,
                 dateChanged,
-                nativeContext && category == CdsCategory.CLINICAL_NOTES,
+                nativeContext && (category == CdsCategory.CLINICAL_NOTES || dateChanged),
                 decisions,
                 checkpoint);
         checkIssues(
@@ -669,9 +676,10 @@ public final class CdsExportHistoryFieldReconciler {
     }
 
     /**
-     * @param nativeDate an encounter note in native context: a changed observation date is
-     *     written as EventDateTime from the current revision, and the import's date metadata rows
-     *     travel, exactly, in the revision context, so they need not survive unchanged
+     * @param nativeDate in native context, an encounter note, or a CPP item whose observation
+     *     date changed: the current date is written by the native rule (EventDateTime; no element
+     *     for a CPP item, whose imported date element is removed), and the import's date metadata
+     *     rows travel, exactly, in the revision context, so they need not survive unchanged
      */
     private static void checkExtensions(
             CdsHistoryNativeDto prepared,
@@ -762,7 +770,14 @@ public final class CdsExportHistoryFieldReconciler {
      * from the item since the import is accepted: the native revision context carries every
      * revision's links, patient issues and catalogue rows exactly, and the native reconciler
      * writes the current diagnosis codes. A removed or changed category tag is decided by the
-     * native mapper's category check.
+     * native mapper's category check; that includes the imported tag row itself pointed at
+     * another issue definition in the chart's issue list while the item carries its section's tag
+     * through another row (it was a hold).
+     *
+     * <p>A changed flag of the tag row (acute, certain, major, resolved: the chart's issue list
+     * edits them on any issue, CPP tags included) travels in the revision context too, so the
+     * occurrence service gives such an item native context even when the item itself has no
+     * CARLOS revision ({@link #issueContextChanged}).
      */
     private static void checkIssues(
             int patient,
@@ -848,25 +863,56 @@ public final class CdsExportHistoryFieldReconciler {
                     definition.value(), definition.witness());
             var old = baseline.get(key("casemgmt_issue", row.fields().get("id")));
             var difference = old == null ? null : compare(old, issue.witness().state());
+            boolean redefined =
+                    !Objects.equals(prepared.issueCode(), definition.value().fields().get("code"));
             if (old == null
                     || !old.digest().equals(expected.getFirst().digest())
                     || difference.schemaChanged()
                     || !difference.unqualifiedColumns().isEmpty()
-                    // In native context a changed flag of the patient issue (acute, certain,
-                    // major, resolved) travels exactly in the revision context.
+                    // In native context a changed flag or definition of the patient issue
+                    // travels exactly in the revision context.
                     || !nativeContext
-                            && difference.changedColumns().stream()
-                                    .anyMatch(column -> !column.equals("update_date"))
-                    || !Objects.equals(
-                            prepared.issueCode(), definition.value().fields().get("code")))
+                            && (redefined
+                                    || difference.changedColumns().stream()
+                                            .anyMatch(column -> !column.equals("update_date"))))
                 review("CDS_EXPORT_HISTORY_ISSUE_EDIT_REQUIRES_RECONCILIATION");
             for (var evidence : List.of(row, definition.value(), link)) {
                 var fields = new CdsExportNativeFieldAssessments(evidence, decisions);
                 for (String column : evidence.fields().keySet())
-                    fields.operational(
-                            column, "EXACT_UNCHANGED_PREPARED_HISTORY_CATEGORY_ASSOCIATION");
+                    if (redefined)
+                        fields.review(
+                                column,
+                                "ResidualInfo",
+                                "CHANGED_ISSUE_ASSOCIATION_IN_NATIVE_CONTEXT");
+                    else
+                        fields.operational(
+                                column, "EXACT_UNCHANGED_PREPARED_HISTORY_CATEGORY_ASSOCIATION");
             }
         }
+    }
+
+    /**
+     * Whether a patient issue row of an imported item changed since the import in a column other
+     * than its update time (the entity stamps that on every save). The chart's issue list edits
+     * the flags and the definition of any patient issue, CPP section tags included, without a
+     * new revision of the items the issue files; only the native revision context carries the
+     * row, so such an item is given it. A change the receipt check could not compare column by
+     * column counts as one, and the reconciler then decides it against the baseline as before.
+     */
+    static boolean issueContextChanged(
+            List<CdsExportRetainedReceiptVerificationDto.CheckedReference> references) {
+        if (references == null) return false;
+        for (var reference : references)
+            if (reference.expected().table().equals("casemgmt_issue")
+                    && reference.reason()
+                            == CdsExportRetainedReceiptVerificationDto.Reason.CHANGED_ROW
+                    && (reference.fields() == null
+                            || reference.fields().schemaChanged()
+                            || !reference.fields().unqualifiedColumns().isEmpty()
+                            || reference.fields().changedColumns().stream()
+                                    .anyMatch(column -> !column.equals("update_date"))))
+                return true;
+        return false;
     }
 
     private static CdsNativeRowComparison compare(CdsNativeRowState old, CdsNativeRowState actual) {
