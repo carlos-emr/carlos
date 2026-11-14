@@ -32,6 +32,7 @@
   "CdsExportReportPublicationEvidenceUnitTest",
   "CdsExportReportRetainedSourceUnitTest",
   "CdsExportReportReviewerMappingUnitTest",
+  "CdsExportResumeMariaDbIntegrationTest",
   "CdsExportRetainedContactBindingUnitTest",
   "CdsExportRourkeChartComposerUnitTest",
   "CdsExportScreeningMapperUnitTest",
