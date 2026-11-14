@@ -13,7 +13,8 @@ def verify_export_migration_reapply(repository: Path, query):
              'V1.0.59.42__cds_export_artifact_attempts.sql',
              'V1.0.59.44__index_cds_hrm_patient_scope.sql',
              'V1.0.59.45__cds_export_held_patients.sql',
-             'V1.0.59.46__index_measurements_deleted_owners.sql')
+             'V1.0.59.46__index_measurements_deleted_owners.sql',
+             'V1.0.59.47__index_cds_laboratory_result_native_lab.sql')
     migrations = [folder.joinpath(name).read_text() for name in names]
     def first_statement(sql):
         # Semicolons in explanatory comments are not SQL statement boundaries.
@@ -122,12 +123,39 @@ def verify_export_migration_reapply(repository: Path, query):
             refused = True
         if not refused:
             raise RuntimeError('A same-name measurementsDeleted index of another shape was accepted')
+        # cds_laboratory_result index by local report: a replay changes nothing, no imported
+        # result is changed, and a same-name index of another shape is refused.
+        execute('CREATE TABLE cds_laboratory_result (id CHAR(64) PRIMARY KEY, demographicNo INT NOT NULL, '
+                'nativeLabNo INT NULL, resultText MEDIUMTEXT NULL);'
+                "INSERT INTO cds_laboratory_result VALUES ('a',27,7,'6.1'),('b',27,NULL,'7.2'),('c',28,8,'5.0');")
+        results = 'SELECT id,demographicNo,COALESCE(nativeLabNo,-1),HEX(resultText) FROM cds_laboratory_result ORDER BY id'
+        imported = execute(results)
+        execute(migrations[6]); execute(migrations[6])
+        laboratory_indexes = ("SELECT index_name,GROUP_CONCAT(column_name ORDER BY seq_in_index) "
+                              "FROM information_schema.statistics WHERE table_schema=DATABASE() "
+                              "AND table_name='cds_laboratory_result' AND index_name<>'PRIMARY' "
+                              "GROUP BY index_name ORDER BY index_name")
+        if execute(laboratory_indexes) != [
+                'idx_cds_laboratory_result_nativeLabNo_demographicNo\tnativeLabNo,demographicNo']:
+            raise RuntimeError('cds_laboratory_result index replay did not end with exactly its index')
+        if execute(results) != imported:
+            raise RuntimeError('cds_laboratory_result index replay changed an imported result')
+        execute('ALTER TABLE cds_laboratory_result DROP INDEX idx_cds_laboratory_result_nativeLabNo_demographicNo, '
+                'ADD INDEX idx_cds_laboratory_result_nativeLabNo_demographicNo (demographicNo)')
+        try:
+            execute(migrations[6])
+            refused = False
+        except Exception:
+            refused = True
+        if not refused:
+            raise RuntimeError('A same-name cds_laboratory_result index of another shape was accepted')
         return {'protocol': 1, 'status': 'PARTIAL_DDL_REPLAY_PASSED',
                 'nativeWitnessPreserved': True, 'existingAttemptPreserved': True,
                 'missingAttemptBackfilledOnce': True, 'explicitDenialPreserved': True,
                 'hrmSourceOwnersPreserved': True, 'hrmPatientIndexRecovered': True,
                 'hrmLegacyInsertCompatible': True, 'heldPatientsPreserved': True,
                 'measurementsDeletedIndexesRecovered': True,
+                'laboratoryResultIndexReplayed': True,
                 'migrations': {name: hashlib.sha256(folder.joinpath(name).read_bytes()).hexdigest() for name in names}}
     finally:
         query('DROP DATABASE ' + database)

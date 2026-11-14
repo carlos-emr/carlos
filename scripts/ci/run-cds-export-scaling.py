@@ -148,9 +148,10 @@ MARGINAL = {
 #   carlos-ctl adapter RSS 24 MiB
 # Growth: ~7,050 statements, ~2,930 privilege statements and ~4-4.5 s per extra chart; per extra
 # note 11.2 statements and 0.02 privilege statements native (chart-128 to chart-2048), 19.6 and
-# 0.29 imported (chart-128 to chart-512). The imported chart-2048 export does not complete: a
-# laboratory association check times out (docs/cds-export.md), so its budget is extrapolated
-# from the smaller imported charts and that case fails until the export is fixed.
+# 0.29 imported (chart-128 to chart-512). When these were measured the imported chart-2048 export
+# did not complete: a laboratory association check timed out (docs/cds-export.md; fixed by
+# migration V1.0.59.47 and the query that starts from the patient's rows), so its budget is the
+# one extrapolated from the smaller imported charts.
 #
 # The per-note privilege budget is the regression detector for the census slowdown: before the
 # per-patient authorization session (CdsExportPatientAuthorization, CdsExportAccessService

@@ -600,6 +600,10 @@ a chart entered through the screens) is held with
 Upgrading applies migration `V1.0.59.46`, which indexes `measurementsDeleted` (deleted
 and superseded measurements) by patient and by original measurement id. On a clinic
 with many refiled lab results the index build adds a little time to the upgrade.
+Migration `V1.0.59.47` indexes `cds_laboratory_result` (laboratory results brought in by a
+CDS import) by the local report each is bound to. Without it, exporting an imported chart
+slowed as the clinic's imported results grew, and a chart of about two thousand imported
+results failed on a statement timeout.
 
 An appointment that came from an earlier CDS import and was later deleted, or cut to be
 pasted elsewhere, is not exported, as the day sheet no longer shows it; CARLOS's archive copy of

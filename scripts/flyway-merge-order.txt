@@ -105,3 +105,4 @@ common/V1.0.59.43__seed_admin_cds_import_permission.sql
 common/V1.0.59.44__index_cds_hrm_patient_scope.sql
 common/V1.0.59.45__cds_export_held_patients.sql
 common/V1.0.59.46__index_measurements_deleted_owners.sql
+common/V1.0.59.47__index_cds_laboratory_result_native_lab.sql

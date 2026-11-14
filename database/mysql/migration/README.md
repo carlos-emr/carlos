@@ -87,6 +87,7 @@ migration/
            V1.0.59.44__index_cds_hrm_patient_scope.sql
            V1.0.59.45__cds_export_held_patients.sql
            V1.0.59.46__index_measurements_deleted_owners.sql
+           V1.0.59.47__index_cds_laboratory_result_native_lab.sql
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
            V1.0.4__on_performance_indexes.sql
@@ -108,7 +109,7 @@ migration/
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
-`V1.0.3` onward is a forward delta. The highest migration in this branch is `common/V1.0.59.46`.
+`V1.0.3` onward is a forward delta. The highest migration in this branch is `common/V1.0.59.47`.
 `V1.0.48`–`V1.0.51` are claimed by open pull requests. `develop` already uses
 `V1.0.60` and above, so this release line stays below its floor (`scripts/flyway-released-migrations.txt`):
 `common/V1.0.59.2` is #5089's, the two BC migrations of #5062 and #5051 are `V1.0.59.3` and `V1.0.59.4`,
@@ -117,8 +118,8 @@ and the collation/index corrections occupy `common/V1.0.59.6` and `common/V1.0.5
 The Messenger's PDF attachment column widening (#5444) is `common/V1.0.59.8`.
 The CDS import migrations occupy `V1.0.59.8.1` and `V1.0.59.9`–`V1.0.59.26`.
 OSCAR 19 text capacities are preserved by common `V1.0.59.27`, Ontario `V1.0.59.28`, and BC `V1.0.59.29` plus `V1.0.59.31` for the BCAR 2007 urine-culture field; common `V1.0.59.30` enforces the audited Consent history rule, and common `V1.0.59.32` keeps native archive text capacities and update timestamps aligned with the live fields (issue #5503).
-The CDS export migrations occupy `common/V1.0.59.40`–`V1.0.59.46`.
-The next unallocated number for ANY location — shared or province — is `V1.0.59.47`.
+The CDS export migrations occupy `common/V1.0.59.40`–`V1.0.59.47`.
+The next unallocated number for ANY location — shared or province — is `V1.0.59.48`.
 `V1.0.59.1` is an intentional gap: #5067's migration was renumbered as release migrations merged first.
 PR #3996's unpublished attachment migrations were renumbered from V1.0.37/V1.0.38 to
 V1.0.42/V1.0.43 so databases already running release migrations through V1.0.41 apply them.
@@ -288,7 +289,7 @@ changed any BC antenatal row in Select Forms. Full linked-patient appointment na
 the `V1.0.60` floor. The collation and index corrections follow at `V1.0.59.6` and `V1.0.59.7`, and the
 widening of `messagetbl.pdfattachment` to `MEDIUMBLOB` (#5444) at `V1.0.59.8`.
 The CDS import migrations follow at `V1.0.59.8.1` and `V1.0.59.9`–`V1.0.59.26`.
-The next unallocated version is `V1.0.59.47`. Apply/merge these forward migrations in version order; if their merge
+The next unallocated version is `V1.0.59.48`. Apply/merge these forward migrations in version order; if their merge
 order changes after a release, renumber the still-unreleased migration before
 shipping it. The coordination table contains no clinical data and does not
 rewrite legacy memberships. All application instances must run the serialized
@@ -302,10 +303,12 @@ merged back, so its unpublished migrations were renumbered behind them: the BC h
 numbers (`bc/V1.0.59.34`, common `V1.0.59.35`–`V1.0.59.37`) fails Flyway validation against this set and
 must be rebuilt; no published package ever carried them.
 
-The coordinated CDS transfer follows at common `V1.0.59.40`–`V1.0.59.46`: nullable native-field
+The coordinated CDS transfer follows at common `V1.0.59.40`–`V1.0.59.47`: nullable native-field
 witnesses (`59.40`), the export ledger (`59.41`), artifact attempts (`59.42`), the independent admin
-import grant (`59.43`), the indexed HRM patient key (`59.44`), the held-patient record (`59.45`) and
-`measurementsDeleted` indexes by patient and by original measurement id (`59.46`, #6200). They were
+import grant (`59.43`), the indexed HRM patient key (`59.44`), the held-patient record (`59.45`),
+`measurementsDeleted` indexes by patient and by original measurement id (`59.46`, #6200) and the
+`cds_laboratory_result` index by local report (`59.47`), which the export's laboratory ownership
+check needs for imported charts. The first seven were
 numbered `59.38`–`59.44` until main's signature migrations moved the release line; a development or
 test database built with those unpublished numbers fails Flyway validation and must be rebuilt. No
 existing permission decision or clinical row is overwritten.

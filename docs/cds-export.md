@@ -1022,7 +1022,7 @@ importer, MariaDB Connector/J 3.5.11 and DAO/API fixes. It excludes develop-only
 portal, SMS and email features. Historical WAR hashes and workflow results below
 describe their recorded checkpoints; they do not qualify this release integration.
 
-The new, unpublished migrations are `V1.0.59.40` through `V1.0.59.46`, following
+The new, unpublished migrations are `V1.0.59.40` through `V1.0.59.47`, following
 the release's common `V1.0.59.39`. All 89 released SQL files remain unchanged.
 The billing filename audit already shipped at common `V1.0.59.33` is reused. Fresh
 ON/BC installations and upgrades from the pinned release are checked separately.
@@ -1068,6 +1068,7 @@ carlos-ctl 1.3.3; no maintainer script uses the export or abandon commands.
 | `V1.0.59.44` | Indexed virtual HRM numeric patient key; original owner strings remain unchanged | — |
 | `V1.0.59.45` | Protected record of patients held back from an export package (chart number and safe code only) | — |
 | `V1.0.59.46` | `measurementsDeleted` indexed by patient and by original measurement id; no row changes (#6200) | — |
+| `V1.0.59.47` | `cds_laboratory_result` indexed by local report and patient, for the laboratory ownership check of imported charts; no row changes | — |
 
 The earlier `V1.0.86` consent forward-merge repair does not apply to the retained
 release history and is excluded. The release catalogue contains 510 rulings for
@@ -3545,15 +3546,23 @@ These are the current baseline, recorded rather than optimized by the lane; the 
 authorization cost (the per-category gates and the closing re-check of the session) is the
 largest remaining per-patient cost.
 
-**Imported 2048-note chart: open defect.** Its export ends `FAILED` with
-`CDS_EXPORT_EXECUTION_FAILED` after about 144 s: a statement timeout (SQL state 70100) in
-`CdsExportPatientTableReadSupport.requireLocalLaboratoryAssociations`, called from
-`CdsLaboratoryResultDao.findCdsExportRowsAfter`. That check runs for every laboratory page and
-value chunk, and its correlated subqueries on `cds_laboratory_result.nativeLabNo` have no index
-to use, so each check scans the patient's imported results per result. The same growth already
-shows at 512 results (253 s imported against 39 s native). The `imported-charts` job fails on
-this case until the export is fixed; its budget is extrapolated from chart-128 and chart-512
-rather than raised to hide the failure.
+**Imported 2048-note chart: the defect this lane found.** Measured before the fix, its export
+ended `FAILED` with `CDS_EXPORT_EXECUTION_FAILED` after about 144 s: a statement timeout (SQL
+state 70100) in `CdsExportPatientTableReadSupport.requireLocalLaboratoryAssociations`, called
+from `CdsLaboratoryResultDao.findCdsExportRowsAfter`. That check runs before every laboratory
+page, and `cds_laboratory_result` had no index on `nativeLabNo`: for each imported result of
+the patient, the check that no other imported result is bound to the same local report scanned
+the whole table. The cost therefore grew with the chart times the clinic's imported results
+(253 s imported against 39 s native at 512 results), for every imported chart, not only a
+large one.
+
+Migration `V1.0.59.47` adds the index (`nativeLabNo, demographicNo`), and the check that no
+other chart routes one of the patient's reports now starts from the patient's own routes and
+imported results instead of scanning every other chart's routes. On a synthetic clinic of
+300,000 lab routes and 50,000 imported results, for a patient with 2,048 of each, one check
+fell from 14.9 s to 13 ms for the bound-report test and from 127 ms to 9 ms for the shared-route
+test (MariaDB 11.8.8). The imported figures in the table above predate this fix, and the
+imported chart-2048 budget is still the one extrapolated from chart-128 and chart-512.
 
 The same lane on the revision before the per-patient authorization session (the five classes
 that commit changed, compiled from its parent and overlaid on an earlier packaged WAR of this

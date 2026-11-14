@@ -1751,20 +1751,33 @@ public final class CdsExportPatientTableReadSupport {
                     .CdsExportReviewException(
                     io.github.carlos_emr.carlos.demographic.cdsexport.support
                             .CdsExportReviewException.Reason.UNMAPPED_DATA);
-        String selected =
-                "(exists (select 1 from patientLabRouting p where p.lab_type='HL7' and"
-                    + " p.demographic_no=:patient and p.lab_no=r.lab_no) or exists (select 1 from"
-                    + " cds_laboratory_result l where l.demographicNo=:patient and"
-                    + " l.nativeLabNo=r.lab_no))";
-        var shared =
+        // Another chart routing one of this patient's reports: its own HL7 routes, and the local
+        // reports its imported results are bound to. Both reads start from the patient's rows and
+        // probe the other routes by report (all_index: lab_type, lab_no, demographic_no), so
+        // their cost follows the chart, not the clinic's whole inbox.
+        var sharedRoute =
                 query(
                                 em,
-                                "select 1,1 from patientLabRouting r where r.lab_type='HL7' and"
-                                        + " r.demographic_no<>:patient and "
-                                        + selected)
+                                """
+                                select 1,1 from patientLabRouting p join patientLabRouting r
+                                on r.lab_type='HL7' and r.lab_no=p.lab_no and r.demographic_no<>:patient
+                                where p.lab_type='HL7' and p.demographic_no=:patient
+                                """)
                         .setParameter("patient", patient)
                         .setMaxResults(1)
                         .getResultList();
+        var sharedResult =
+                query(
+                                em,
+                                """
+                                select 1,1 from cds_laboratory_result l join patientLabRouting r
+                                on r.lab_type='HL7' and r.lab_no=l.nativeLabNo and r.demographic_no<>:patient
+                                where l.demographicNo=:patient
+                                """)
+                        .setParameter("patient", patient)
+                        .setMaxResults(1)
+                        .getResultList();
+        boolean shared = !sharedRoute.isEmpty() || !sharedResult.isEmpty();
         var dangling =
                 query(
                                 em,
@@ -1799,7 +1812,7 @@ public final class CdsExportPatientTableReadSupport {
                         .setParameter("patient", patient)
                         .setMaxResults(1)
                         .getResultList();
-        if (!shared.isEmpty() || !dangling.isEmpty() || !duplicate.isEmpty() || !broken.isEmpty())
+        if (shared || !dangling.isEmpty() || !duplicate.isEmpty() || !broken.isEmpty())
             throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
                     .CdsExportReviewException(
                     io.github.carlos_emr.carlos.demographic.cdsexport.support
