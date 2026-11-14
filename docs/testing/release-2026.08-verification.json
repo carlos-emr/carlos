@@ -4454,6 +4454,31 @@
               "name": "shouldWaitForAWriterOfTheLegacyTable_andPinItOnceTheWriterIsDone",
               "container": "",
               "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldReadASharedUnitAgainWhole_whenTheServerEndsAStatementTheSharedCodeSwallowed",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldPassASharedReadsOwnFailureOn_withoutReadingTheUnitAgain",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldKeepItsTransactionAndEarlierWrites_whenTheServerEndsAStatementAtItsDeadline",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldWriteAUnitOnce_whenTheServerEndsItsLockedStatementAndItIsWrittenAgain",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldWriteAUnitAgain_whenItsLockWaitRunsOutBeforeItsDeadline",
+              "container": "",
+              "check": "java-cds-transfer-export"
             }
           ]
         },
