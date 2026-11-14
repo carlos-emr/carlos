@@ -130,11 +130,9 @@ public class CdsExportRetainedIndexService {
             plans.put("cds_import_file", Plan.IMPORT_FILES);
             plans.put("cds_import_file_reference", Plan.IMPORT_FILE_REFERENCES);
         }
-        if (!requiredTables.containsAll(plans.keySet())
-                || maximumRows < 1
-                || maximumRows > 1_000_000
-                || maximumIndexBytes < 1
-                || maximumIndexBytes > 64L << 20)
+        // maximumRows and maximumIndexBytes are the caller's former bounds. They are not applied
+        // and not checked: no value of either refuses an index.
+        if (!requiredTables.containsAll(plans.keySet()))
             throw new IllegalArgumentException("CDS_EXPORT_RETAINED_INDEX_SCOPE_INVALID");
         patient.require(lease);
         // Every section of the chart asks for the same index, which unseals each unit's witness.
@@ -173,7 +171,11 @@ public class CdsExportRetainedIndexService {
                 manifest,
                 maximumFields,
                 maximumBytes,
-                // One row's text: its sealed witness and the rest of its columns.
+                // One row's text. This is the import ledger's own stored format, not a
+                // limit of the export: the importer seals a witness of at most
+                // MAX_SEALED_BYTES, writes a receipt of at most 65,536 characters and inline
+                // field values of at most 98,304, and the preparation payload column is
+                // checked at 1 MiB, so no row the importer can write is larger.
                 (int)
                         (2_097_152L
                                 + io.github.carlos_emr.carlos.demographic.cds.contract
@@ -405,7 +407,6 @@ public class CdsExportRetainedIndexService {
             }
         var effectiveOptions = new HashMap<String, String>();
         var verifiedOptions = new HashMap<String, CdsExportRetainedImportOptionsReader.Options>();
-        long verifiedOptionBytes = 0;
         for (var prepared : tables.get("cds_import_preparation").values()) {
             control.checkpoint();
             String run = value(prepared, "run_id"), key = address(run, value(prepared, "unit_key"));
@@ -423,12 +424,8 @@ public class CdsExportRetainedIndexService {
                     if (options == null)
                         throw new IOException("CDS_EXPORT_RETAINED_COPY_OPTIONS_REQUIRED");
                     CdsExportRetainedImportOptionsReader.requireBinding(origin, options);
-                    verifiedOptionBytes =
-                            Math.addExact(
-                                    verifiedOptionBytes,
-                                    CdsExportRetainedImportOptionsReader.retainedWeight(options));
-                    if (verifiedOptionBytes > 8L << 20)
-                        throw new IOException("CDS_EXPORT_IMPORT_OPTIONS_BYTE_LIMIT");
+                    // However many import runs brought this chart in: their options are not
+                    // added up against a limit.
                     verifiedOptions.put(run, options);
                 }
                 expectedOptions = options.copyOptionsSha256().get(copy);
@@ -456,6 +453,9 @@ public class CdsExportRetainedIndexService {
 
     private static List<CdsExportRetainedIndexDto.Reference> references(String encoded, int patient)
             throws IOException {
+        // The importer's own receipt format (CdsTargetReceiptService: at most 192 references in
+        // at most 65,536 characters). A stored receipt outside it was not written by the
+        // importer, so these two are integrity checks of the ledger, not export limits.
         if (encoded.length() > 65536) invalid();
         JsonNode root = JSON.readTree(encoded);
         exact(root, Set.of("protocol", "refs"));

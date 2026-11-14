@@ -65,9 +65,8 @@ public class CdsExportRetainedReceiptVerificationService {
             throws IOException {
         patient.require(lease);
         java.util.Objects.requireNonNull(control);
-        if (maximumReferences < 1
-                || maximumReferences > 1_000_000
-                || !source.manifest().plaintextSha256().equals(retained.sourceManifestSha256())
+        // maximumReferences is the caller's former bound: not applied and not checked.
+        if (!source.manifest().plaintextSha256().equals(retained.sourceManifestSha256())
                 || !retained.references().keySet().equals(retained.appliedUnits())) scope();
         // Each section asks for the same comparison of the captured rows with their sealed import
         // witnesses. Within the patient's session it is made once, from the checked capture and
