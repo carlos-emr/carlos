@@ -103,6 +103,34 @@ class CdsSchemaContentOrderUnitTest {
                 .isInstanceOf(UnsupportedOperationException.class);
     }
 
+    @Test
+    void shouldOrderEveryReviewer_whenARetainedResultHasMoreThan131072() throws Exception {
+        // The order once refused more than 131,072 children of one element, which failed the
+        // whole job for a schema-valid imported result.
+        var root = CdsWireSchema.schemaModel().element("cds", "OmdCds");
+        var result = root.child("cds", "PatientRecord").child("cds", "LaboratoryResults");
+        var supplied = new java.util.ArrayList<CdsSchemaContentOrder.Occurrence>();
+        supplied.add(occurrence("ResultNormalAbnormalFlag", 1));
+        for (long ordinal = 131_073; ordinal >= 1; ordinal--)
+            supplied.add(occurrence("ResultReviewer", ordinal));
+        supplied.add(occurrence("CollectionDateTime", 1));
+        supplied.add(occurrence("LaboratoryName", 1));
+        var ordered = new CdsSchemaContentOrder().order(result, supplied);
+        assertThat(ordered).hasSize(131_076);
+        assertThat(ordered.get(0).name().local()).isEqualTo("LaboratoryName");
+        assertThat(ordered.get(1).name().local()).isEqualTo("CollectionDateTime");
+        for (int index = 0; index < 131_073; index++) {
+            assertThat(ordered.get(index + 2).name().local()).isEqualTo("ResultReviewer");
+            assertThat(ordered.get(index + 2).ordinal()).isEqualTo(index + 1L);
+        }
+        assertThat(ordered.getLast().name().local()).isEqualTo("ResultNormalAbnormalFlag");
+    }
+
+    private static CdsSchemaContentOrder.Occurrence occurrence(String name, long ordinal) {
+        return new CdsSchemaContentOrder.Occurrence(
+                new CdsSchemaModel.ExpandedName("cds", name), ordinal);
+    }
+
     private static CdsSchemaContentOrder.Occurrence child(String name) {
         return new CdsSchemaContentOrder.Occurrence(
                 new CdsSchemaModel.ExpandedName("cds_dt", name), 1);
