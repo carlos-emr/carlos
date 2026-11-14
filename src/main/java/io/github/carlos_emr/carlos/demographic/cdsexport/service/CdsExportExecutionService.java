@@ -130,6 +130,8 @@ public class CdsExportExecutionService {
         long maximumMillis = configuration.maxDurationMillis();
         var lease = ledger.claim(runId, engine.compatibilityDigest());
         if (lease == null) return false;
+        stalledAttempt.set(null);
+        stallSettled.set(null);
         try (var control = new Control(lease, maximumMillis)) {
             control.startHeartbeat();
             access.requireScope(lease.document().actor(), lease.document().command());
@@ -139,16 +141,22 @@ public class CdsExportExecutionService {
                 stop(lease, CdsExportState.FAILED, "CDS_EXPORT_ENGINE_DID_NOT_PUBLISH");
             }
         } catch (CdsExportOwnerFencedException retired) {
-            // Retire only our own expired generation. A successor or publication remains
-            // authoritative; it must never be overwritten by the returning old worker.
-            finishUninterrupted(
-                    () -> {
-                        if (ledger.retireExpiredLease(lease))
-                            LOG.warn(
-                                    "CDS_EXPORT_EXECUTION_LEASE_EXPIRED run={} epoch={}",
-                                    runId,
-                                    lease.epoch());
-                    });
+            if (stalledAttempt.get() == lease) {
+                // This attempt was declared stalled. Whichever thread gets there first (the
+                // heartbeat that saw the silence, or this returning engine thread) records the
+                // one outcome a stall has; the other finds it recorded and changes nothing.
+                finishUninterrupted(() -> recordStall(lease));
+            } else
+                // Retire only our own expired generation. A successor or publication remains
+                // authoritative; it must never be overwritten by the returning old worker.
+                finishUninterrupted(
+                        () -> {
+                            if (ledger.retireExpiredLease(lease))
+                                LOG.warn(
+                                        "CDS_EXPORT_EXECUTION_LEASE_EXPIRED run={} epoch={}",
+                                        runId,
+                                        lease.epoch());
+                        });
         } catch (CdsExportControlOutcomeUnknownException unknown) {
             fatal.set(true);
             throw unknown;
@@ -179,24 +187,18 @@ public class CdsExportExecutionService {
                     lease.epoch(),
                     LogSafe.exceptionTrace(review));
         } catch (IOException failed) {
-            String ceiling = packageCeiling(failed);
             if (Thread.currentThread().isInterrupted())
                 finishUninterrupted(() -> ledger.release(lease));
-            else if (ceiling != null) {
-                // The export is larger than one package can hold. Nothing was truncated and no
-                // package was published; the job waits for review under the ceiling's own name.
-                stop(lease, CdsExportState.REVIEW_REQUIRED, ceiling);
-                technicalFailure(failed);
-                LOG.warn(
-                        "CDS_EXPORT_REVIEW_REQUIRED run={} epoch={} code={}",
-                        runId,
-                        lease.epoch(),
-                        ceiling);
-            } else {
-                stop(lease, CdsExportState.FAILED, "CDS_EXPORT_IO_FAILED");
+            else {
+                // A genuine storage failure is the only thing that ends an export for its size.
+                // It is a failure, under its own code, with nothing published or truncated, and
+                // the job can be resumed once the storage is fixed.
+                String code = storageFailure(failed);
+                stop(lease, CdsExportState.FAILED, code);
                 technicalFailure(failed);
                 LOG.error(
-                        "CDS_EXPORT_IO_FAILED run={} epoch={} {}",
+                        "{} run={} epoch={} {}",
+                        code,
                         runId,
                         lease.epoch(),
                         LogSafe.exceptionTrace(failed));
@@ -220,27 +222,81 @@ public class CdsExportExecutionService {
         return true;
     }
 
-    /**
-     * The structural ceilings of a single package, by the fixed code the component that enforces
-     * each one raises: the archive's size and member count, its on-disk inventory, the encrypted
-     * delivery's size, the roster a selection manifest can list and the supporting files. An
-     * export that reaches one is not a failed export: it is complete work that does not fit one
-     * package (splitting a package into volumes is not implemented), so it stops for review under
-     * that exact code instead of as a generic I/O failure.
-     */
-    static final java.util.Set<String> PACKAGE_CEILINGS =
-            java.util.Set.of(
-                    "CDS_EXPORT_PACKAGE_VOLUME_LIMIT",
-                    "CDS_EXPORT_PACKAGE_ENTRY_LIMIT",
-                    "CDS_EXPORT_PACKAGE_INVENTORY_LIMIT",
-                    "CDS_EXPORT_DELIVERY_BYTE_LIMIT",
-                    "CDS_EXPORT_COHORT_LIMIT_REQUIRES_REVIEW",
-                    "CDS_EXPORT_SUPPORTING_FILES_RESOURCE_LIMIT");
+    /** The staging store's free space fell below {@code cds.export.minimumFreeBytes}. */
+    static final String DISK_RESERVE = "CDS_EXPORT_DISK_RESERVE";
 
-    /** The ceiling an I/O refusal names, or null; only these exact fixed codes, never other text. */
-    private static String packageCeiling(IOException failed) {
-        String message = failed.getMessage();
-        return message != null && PACKAGE_CEILINGS.contains(message) ? message : null;
+    /** The file system refused a write for lack of space or quota. */
+    static final String DISK_FULL = "CDS_EXPORT_DISK_FULL";
+
+    /** Any other I/O failure. */
+    static final String IO_FAILED = "CDS_EXPORT_IO_FAILED";
+
+    /** The worker reached no checkpoint for the whole stall window. */
+    static final String WORKER_STALLED = "CDS_EXPORT_WORKER_STALLED";
+
+    /**
+     * The code of a storage failure: the store's own reserve refusal by its exact fixed code, the
+     * operating system's out-of-space or quota refusal wherever it sits in the cause chain, and
+     * otherwise the general I/O failure. Only these fixed codes are ever recorded; an exception's
+     * own text is not.
+     */
+    static String storageFailure(IOException failed) {
+        if (DISK_RESERVE.equals(failed.getMessage())) return DISK_RESERVE;
+        var seen = new java.util.HashSet<Throwable>();
+        for (Throwable cause = failed; cause != null && seen.add(cause); cause = cause.getCause()) {
+            String text =
+                    cause instanceof java.nio.file.FileSystemException file
+                                    && file.getReason() != null
+                            ? file.getReason()
+                            : cause.getMessage();
+            if (text != null
+                    && (text.contains("No space left on device")
+                            || text.contains("Disk quota exceeded")
+                            || text.contains("There is not enough space on the disk")))
+                return DISK_FULL;
+        }
+        return IO_FAILED;
+    }
+
+    /** The attempt whose engine thread was declared stalled; null for a healthy attempt. */
+    private final java.util.concurrent.atomic.AtomicReference<CdsExportLeaseDto> stalledAttempt =
+            new java.util.concurrent.atomic.AtomicReference<>();
+
+    /** The stalled attempt whose outcome the ledger has answered for; guards one record. */
+    private final java.util.concurrent.atomic.AtomicReference<CdsExportLeaseDto> stallSettled =
+            new java.util.concurrent.atomic.AtomicReference<>();
+
+    /**
+     * Ends a stalled attempt as FAILED under {@link #WORKER_STALLED}, from whichever thread calls
+     * first. A lease that is still live is stopped; one that already expired is retired under the
+     * same code, so the outcome does not depend on when the engine thread returns. A successor
+     * generation or a publication stays authoritative, and a stalled attempt can never publish:
+     * the ledger has cleared its ownership.
+     *
+     * @return true when this call recorded the outcome
+     */
+    private boolean recordStall(CdsExportLeaseDto lease) {
+        synchronized (stallSettled) {
+            if (stallSettled.get() == lease) return false;
+            boolean recorded;
+            try {
+                ledger.stop(lease, CdsExportState.FAILED, WORKER_STALLED);
+                recorded = true;
+            } catch (CdsExportOwnerFencedException expired) {
+                recorded =
+                        ledger.retireExpiredLease(lease, CdsExportState.FAILED, WORKER_STALLED);
+            }
+            // The ledger answered: this attempt's outcome is settled, by this call or by a
+            // successor generation or publication that is authoritative instead.
+            stallSettled.set(lease);
+            // Loud, once per attempt: the run and its outcome only.
+            if (recorded)
+                LOG.error(
+                        "CDS_EXPORT_WORKER_STALLED run={} epoch={} state=FAILED",
+                        lease.runId(),
+                        lease.epoch());
+            return recorded;
+        }
     }
 
     /** The CLI disables framework logging; this channel accepts only the bounded metadata projection. */
@@ -299,9 +355,10 @@ public class CdsExportExecutionService {
          * When the engine thread last passed a checkpoint. {@code cds.export.maxDurationMillis}
          * bounds the time since then and nothing else: it is a stall detector, not a budget. A
          * worker that keeps reaching checkpoints is alive and is never stopped for how long its
-         * roster takes; a worker that reaches none for that long is treated as dead. Only the
-         * heartbeat thread can observe that, because the engine thread's own checkpoint is the
-         * proof of life.
+         * roster takes; a worker that reaches none for that long is treated as dead, and its
+         * attempt ends FAILED under {@code CDS_EXPORT_WORKER_STALLED} whether or not the thread
+         * ever returns. Only the heartbeat thread can observe that, because the engine thread's
+         * own checkpoint is the proof of life.
          */
         private final AtomicLong alive = new AtomicLong(started);
 
@@ -327,6 +384,20 @@ public class CdsExportExecutionService {
                             ledger.checkpoint(lease);
                         } catch (RuntimeException failed) {
                             heartbeatFailure.compareAndSet(null, failed);
+                            // The engine thread cannot record its own silence: this thread does,
+                            // at once and again on every beat until the ledger has it, so the job
+                            // ends in one visible state instead of being claimed and restarted.
+                            if (stalled.get())
+                                try {
+                                    recordStall(lease);
+                                } catch (RuntimeException unrecorded) {
+                                    LOG.error(
+                                            "CDS_EXPORT_WORKER_STALLED run={} epoch={} outcome"
+                                                    + " not recorded yet {}",
+                                            lease.runId(),
+                                            lease.epoch(),
+                                            LogSafe.exceptionTrace(unrecorded));
+                                }
                         } catch (Error failed) {
                             fatal.set(true);
                             heartbeatFailure.compareAndSet(
@@ -379,14 +450,15 @@ public class CdsExportExecutionService {
                 throw new CancellationException("CDS_EXPORT_WAIT_INTERRUPTED");
             if (fatal.get()) throw new CdsExportControlOutcomeUnknownException();
             var failed = heartbeatFailure.get();
-            if (failed != null) throw failed;
+            // The heartbeat keeps trying to record a stall; every other failure is final here.
+            if (failed != null && (engine || !stalled.get())) throw failed;
             configuration.requireEnabled();
             long now = System.nanoTime();
             if (engine) {
                 alive.set(now);
                 return;
             }
-            if (now - alive.get() > maximumNanos) {
+            if (stalled.get() || now - alive.get() > maximumNanos) {
                 // Once per attempt; the run and times only, never a patient.
                 if (stalled.compareAndSet(false, true))
                     LOG.warn(
@@ -396,9 +468,12 @@ public class CdsExportExecutionService {
                             lease.epoch(),
                             (now - alive.get()) / 1_000_000L,
                             (now - started) / 1_000_000L);
-                // The stalled worker gives its ownership up: this heartbeat stops renewing the
-                // lease, so another worker can claim the job, and the engine thread, if it ever
-                // returns, retires its own expired generation instead of publishing.
+                // A stall is sticky: a worker that was silent for the whole window does not
+                // resume, even if it reaches a checkpoint later. The heartbeat stops renewing
+                // and records the attempt as FAILED under CDS_EXPORT_WORKER_STALLED; the engine
+                // thread, if it ever returns, is fenced at its next checkpoint and can publish
+                // nothing.
+                stalledAttempt.set(lease);
                 throw new CdsExportOwnerFencedException();
             }
         }

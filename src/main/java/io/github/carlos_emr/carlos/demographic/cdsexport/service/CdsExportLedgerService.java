@@ -1349,8 +1349,24 @@ public class CdsExportLedgerService {
 
     /** An expired worker can record its failure, but cannot renew or replace a later generation. */
     public boolean retireExpiredLease(CdsExportLeaseDto lease) {
+        return retireExpiredLease(
+                lease, CdsExportState.REVIEW_REQUIRED, "CDS_EXPORT_EXECUTION_LEASE_EXPIRED");
+    }
+
+    /**
+     * Retires this attempt's own expired generation under the given outcome and code: a worker
+     * that was declared stalled ends as FAILED under its own code whether its lease had already
+     * expired or not. A successor generation, a publication or any other recorded outcome stays
+     * authoritative.
+     *
+     * @return true when this call recorded the outcome
+     */
+    public boolean retireExpiredLease(CdsExportLeaseDto lease, CdsExportState outcome, String code) {
         Objects.requireNonNull(lease);
         runId(lease.runId());
+        if (outcome != CdsExportState.FAILED && outcome != CdsExportState.REVIEW_REQUIRED)
+            throw new IllegalArgumentException("CDS_EXPORT_STOP_INVALID");
+        safeCode(code);
         return transaction(
                 write,
                 () -> {
@@ -1364,12 +1380,8 @@ public class CdsExportLedgerService {
                         return false;
                     finish(
                             run,
-                            run.isCancelRequested()
-                                    ? CdsExportState.CANCELLED
-                                    : CdsExportState.REVIEW_REQUIRED,
-                            run.isCancelRequested()
-                                    ? "CDS_EXPORT_CANCELLED"
-                                    : "CDS_EXPORT_EXECUTION_LEASE_EXPIRED",
+                            run.isCancelRequested() ? CdsExportState.CANCELLED : outcome,
+                            run.isCancelRequested() ? "CDS_EXPORT_CANCELLED" : code,
                             now);
                     return true;
                 });

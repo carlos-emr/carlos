@@ -424,12 +424,11 @@ class CdsExportExecutionServiceUnitTest {
         verify(ledger, atLeast(24)).checkpoint(lease);
     }
 
-    @Test
-    void shouldLetTheLeaseOfAStalledWorkerExpire_andRetireItsGenerationIfItReturns()
-            throws Exception {
-        var beat = org.mockito.ArgumentCaptor.forClass(Runnable.class);
-        var limited = stallWindow(100, beat);
-        when(ledger.retireExpiredLease(lease)).thenReturn(true);
+    /**
+     * An engine that passes one checkpoint, is then silent for longer than the 100 ms stall
+     * window while the heartbeat runs twice, and finally returns to a checkpoint.
+     */
+    private void stallingEngine(org.mockito.ArgumentCaptor<Runnable> beat) throws Exception {
         doAnswer(
                         call -> {
                             CdsExportRunControl control = call.getArgument(1);
@@ -458,12 +457,89 @@ class CdsExportExecutionServiceUnitTest {
                         })
                 .when(engine)
                 .execute(any(), any());
+    }
+
+    @Test
+    void shouldEndAStalledAttemptAsFailedUnderItsOwnCode_whenTheLeaseIsStillLive()
+            throws Exception {
+        var beat = org.mockito.ArgumentCaptor.forClass(Runnable.class);
+        var limited = stallWindow(100, beat);
+        stallingEngine(beat);
 
         limited.execute(RUN);
 
-        // It retires its own expired generation; it is never reported as a resource limit.
-        verify(ledger).retireExpiredLease(lease);
-        verify(ledger, never()).stop(any(), any(), anyString());
+        // The heartbeat that saw the silence recorded the outcome while the lease was live:
+        // one named, resumable state, not a silent restart and not a lease-expiry race.
+        verify(ledger).stop(lease, CdsExportState.FAILED, "CDS_EXPORT_WORKER_STALLED");
+        verify(ledger, never()).retireExpiredLease(any());
+        verify(ledger, never()).stop(any(), eq(CdsExportState.REVIEW_REQUIRED), anyString());
+        verify(ledger, never())
+                .stop(lease, CdsExportState.FAILED, "CDS_EXPORT_ENGINE_DID_NOT_PUBLISH");
+    }
+
+    @Test
+    void shouldEndAStalledAttemptUnderTheSameCode_whenItsLeaseHadAlreadyExpired()
+            throws Exception {
+        var beat = org.mockito.ArgumentCaptor.forClass(Runnable.class);
+        var limited = stallWindow(100, beat);
+        // The lease expired before anything could be recorded: a live stop is refused.
+        doThrow(new CdsExportOwnerFencedException())
+                .when(ledger)
+                .stop(lease, CdsExportState.FAILED, "CDS_EXPORT_WORKER_STALLED");
+        when(ledger.retireExpiredLease(lease, CdsExportState.FAILED, "CDS_EXPORT_WORKER_STALLED"))
+                .thenReturn(true);
+        stallingEngine(beat);
+
+        limited.execute(RUN);
+
+        // Retired under the stall's own code, never as a plain lease expiry, and only once: the
+        // returning engine thread finds the outcome recorded and changes nothing.
+        verify(ledger, atLeast(1))
+                .retireExpiredLease(lease, CdsExportState.FAILED, "CDS_EXPORT_WORKER_STALLED");
+        verify(ledger, never()).retireExpiredLease(lease);
+        verify(ledger, never()).stop(any(), eq(CdsExportState.REVIEW_REQUIRED), anyString());
+    }
+
+    @Test
+    void shouldKeepTryingToRecordAStall_untilTheLedgerAcceptsIt() throws Exception {
+        var beat = org.mockito.ArgumentCaptor.forClass(Runnable.class);
+        var limited = stallWindow(100, beat);
+        // The ledger is unreachable on the first beat that sees the stall, then answers.
+        doThrow(new IllegalStateException("LEDGER_UNAVAILABLE"))
+                .doNothing()
+                .when(ledger)
+                .stop(lease, CdsExportState.FAILED, "CDS_EXPORT_WORKER_STALLED");
+        stallingEngine(beat);
+
+        limited.execute(RUN);
+
+        verify(ledger, atLeast(2)).stop(lease, CdsExportState.FAILED, "CDS_EXPORT_WORKER_STALLED");
+        verify(ledger, never()).retireExpiredLease(any());
+    }
+
+    @Test
+    void shouldNeverPublishFromAStalledAttempt_evenIfItsEngineReturnsNormally() throws Exception {
+        var beat = org.mockito.ArgumentCaptor.forClass(Runnable.class);
+        var limited = stallWindow(100, beat);
+        doAnswer(
+                        call -> {
+                            CdsExportRunControl control = call.getArgument(1);
+                            control.checkpoint();
+                            Thread.sleep(300);
+                            beat.getValue().run();
+                            // The engine swallows nothing and reaches no further checkpoint: it
+                            // simply returns, as an engine that had finished its work would.
+                            return null;
+                        })
+                .when(engine)
+                .execute(any(), any());
+
+        limited.execute(RUN);
+
+        verify(ledger).stop(lease, CdsExportState.FAILED, "CDS_EXPORT_WORKER_STALLED");
+        // The closing checkpoint of a returned engine is fenced like any other.
+        verify(ledger, never())
+                .stop(lease, CdsExportState.FAILED, "CDS_EXPORT_ENGINE_DID_NOT_PUBLISH");
     }
 
     @Test
@@ -523,23 +599,40 @@ class CdsExportExecutionServiceUnitTest {
     }
 
     @Test
-    void shouldStopForReviewUnderTheCeilingsOwnName_whenTheExportDoesNotFitOnePackage()
-            throws Exception {
-        for (String ceiling : CdsExportExecutionService.PACKAGE_CEILINGS) {
-            doThrow(new IOException(ceiling)).when(engine).execute(any(), any());
-
-            execution.execute(RUN);
-
-            // Never the generic I/O failure: the work is intact, it only exceeds one package.
-            verify(ledger).stop(lease, CdsExportState.REVIEW_REQUIRED, ceiling);
-        }
-        verify(ledger, never()).stop(any(), eq(CdsExportState.FAILED), anyString());
-        // Any other I/O refusal, however it is worded, is still a failure.
-        doThrow(new IOException("CDS_EXPORT_PACKAGE_VOLUME_LIMIT and more"))
+    void shouldFailWithTheStorageFailuresOwnCode_andNeverStopAnExportForReview() throws Exception {
+        // The store's reserve, by its exact code.
+        doThrow(new IOException("CDS_EXPORT_DISK_RESERVE")).when(engine).execute(any(), any());
+        execution.execute(RUN);
+        verify(ledger).stop(lease, CdsExportState.FAILED, "CDS_EXPORT_DISK_RESERVE");
+        // The operating system's refusal, wherever it sits in the cause chain.
+        doThrow(
+                        new IOException(
+                                "CDS_EXPORT_STAGED_WRITE_FAILED",
+                                new java.nio.file.FileSystemException(
+                                        "member.stage", null, "No space left on device")))
                 .when(engine)
                 .execute(any(), any());
         execution.execute(RUN);
-        verify(ledger).stop(lease, CdsExportState.FAILED, "CDS_EXPORT_IO_FAILED");
+        doThrow(new IOException("Disk quota exceeded")).when(engine).execute(any(), any());
+        execution.execute(RUN);
+        verify(ledger, times(2)).stop(lease, CdsExportState.FAILED, "CDS_EXPORT_DISK_FULL");
+        // No size or count of a package is a review stop any more: the retired ceiling codes are
+        // ordinary failures if anything still raised them, and text around a code changes nothing.
+        for (String retired :
+                new String[] {
+                    "CDS_EXPORT_PACKAGE_VOLUME_LIMIT",
+                    "CDS_EXPORT_PACKAGE_ENTRY_LIMIT",
+                    "CDS_EXPORT_PACKAGE_INVENTORY_LIMIT",
+                    "CDS_EXPORT_DELIVERY_BYTE_LIMIT",
+                    "CDS_EXPORT_COHORT_LIMIT_REQUIRES_REVIEW",
+                    "CDS_EXPORT_SUPPORTING_FILES_RESOURCE_LIMIT",
+                    "CDS_EXPORT_DISK_RESERVE and more"
+                }) {
+            doThrow(new IOException(retired)).when(engine).execute(any(), any());
+            execution.execute(RUN);
+        }
+        verify(ledger, times(7)).stop(lease, CdsExportState.FAILED, "CDS_EXPORT_IO_FAILED");
+        verify(ledger, never()).stop(any(), eq(CdsExportState.REVIEW_REQUIRED), anyString());
     }
 
     @Test
