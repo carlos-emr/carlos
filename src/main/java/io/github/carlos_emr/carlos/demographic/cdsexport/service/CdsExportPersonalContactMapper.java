@@ -286,35 +286,18 @@ public final class CdsExportPersonalContactMapper {
                 var linkState = states.get(link);
                 String role = linkState.raw("role");
                 if (present(role)) {
-                    if (role.equals("Multiple source purposes; see imported Contact details"))
-                        linkState.review(
-                                "role",
-                                root + "/ContactPurpose",
-                                "RETAINED_CONTACT_PURPOSE_RECONCILIATION_REQUIRED");
-                    else if (!CdsExportNativeFieldAssessments.legal(role, 50))
-                        // A typed relationship longer than PurposeAsPlainText (50; the column
-                        // holds 100) or holding a character XML cannot carry: no ContactPurpose
-                        // is written from it and the stored text travels in the native record.
-                        linkState.carry("role");
-                    else if (legacyRelationshipId(role))
-                        // Older health-care-team data stored a CtlRelationships row id ("3" is
-                        // Parent in the shipped table); DemographicContactCreator still resolves
-                        // it for display. The export capture does not include that site-editable
-                        // table, so the id cannot be resolved from authenticated evidence, and
-                        // emitting the digits as a plain-text purpose would misstate the
-                        // relationship: no ContactPurpose is written from it and the stored id
-                        // travels exactly in the native record.
+                    var purpose = rolePurpose(role);
+                    if (purpose == null)
+                        // No ContactPurpose is written from it and the stored text travels in
+                        // the native record: see rolePurpose for the three cases.
                         linkState.carry("role");
                     else {
-                        String code = ROLES.get(role);
-                        purposes.add(
-                                new CdsExportPersonalContactDto.Purpose(
-                                        code != null, code == null ? role : code));
+                        purposes.add(purpose);
                         linkState.set(
                                 "role",
                                 Outcome.MAPPED,
                                 root + "/ContactPurpose",
-                                code != null
+                                purpose.coded()
                                         ? "EXACT_NATIVE_CONTACT_PURPOSE_LABEL"
                                         : "professional".equals(linkState.raw("category"))
                                                 ? "HEALTH_CARE_TEAM_ROLE_AS_PLAIN_TEXT_PURPOSE"
@@ -454,6 +437,35 @@ public final class CdsExportPersonalContactMapper {
         } catch (NumberFormatException | NullPointerException invalid) {
             scope();
         }
+    }
+
+    /**
+     * The ContactPurpose a populated relationship column states, or null when none is written
+     * from it and the stored text travels in the native demographic record instead:
+     *
+     * <ul>
+     *   <li>the importer's marker for a source contact with several purposes. It is not a
+     *       relationship; the purposes themselves stay in the imported Contact element while the
+     *       import's projection stands ({@link CdsExportContactFieldReconciler}). It was a hold
+     *       (RETAINED_CONTACT_PURPOSE_RECONCILIATION_REQUIRED);
+     *   <li>a typed relationship longer than PurposeAsPlainText (50; the column holds 100) or
+     *       holding a character XML cannot carry;
+     *   <li>a CtlRelationships row id of older health-care-team data ("3" is Parent in the
+     *       shipped table; DemographicContactCreator still resolves it for display). The export
+     *       capture does not include that site-editable table, so the id cannot be resolved from
+     *       authenticated evidence, and the digits as a plain-text purpose would misstate the
+     *       relationship.
+     * </ul>
+     */
+    static CdsExportPersonalContactDto.Purpose rolePurpose(String role) {
+        if (!present(role)
+                || role.equals(
+                        io.github.carlos_emr.carlos.demographic.cdsimport.service
+                                .CdsContactNormalizationService.MULTIPLE_PURPOSES)
+                || !CdsExportNativeFieldAssessments.legal(role, 50)
+                || legacyRelationshipId(role)) return null;
+        String code = ROLES.get(role);
+        return new CdsExportPersonalContactDto.Purpose(code != null, code == null ? role : code);
     }
 
     private static boolean present(String value) {

@@ -26,7 +26,7 @@ import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFieldAsses
 import java.io.IOException;
 import java.util.*;
 
-/** Reconciles exact original physician relationships and current witnessed names; missing, moved or conflicting links require review. */
+/** Reconciles exact original physician relationships and current witnessed names. A team edited in CARLOS states its current physician of each role, as on any chart; only a relationship row that left the capture requires review. */
 public final class CdsExportRetainedProfessionalContactReconciler {
     public record NativeRows(String sourceManifestSha256, List<CdsExportCapturedTextRowDto> associations,
             List<CdsExportCapturedTextRowDto> contacts, List<CdsExportNativeRowReceiptDto> witnesses) {
@@ -73,12 +73,17 @@ public final class CdsExportRetainedProfessionalContactReconciler {
                 // another role, or lists a second member in the role. As on any chart the element states the current physician of the role, or none; the native
                 // mapper has decided the imported association and its contact (not exported when removed, carried otherwise), and the imported element's source
                 // fields stay in the import's retained source, replaced. It was a hold.
-                if (physician==null||!link.recordKey().equals(physician.associationRecordKey())){changes.add(new CdsExportRetainedSectionWriter.Change(role.wireName()+"[1]", binding.sourceFields(), physician==null?null:xml-> new CdsExportProfessionalContactXmlWriter().writeNameContent(physician, xml))); continue; }
-                if (!CdsExportCapturedTextWitness.matches(binding.association(), "contactId", link.fields().get("contactId"))){blockers.add("ORIGINAL_PROFESSIONAL_CONTACT_REFERENCE_CHANGED"); continue; }
+                // The same holds when the imported association still fills the role but now names another contact row (the server accepts a changed
+                // contact on an existing team entry; the forms do not offer it): the element states the physician the chart names. It was a hold
+                // (ORIGINAL_PROFESSIONAL_CONTACT_REFERENCE_CHANGED).
+                if (physician==null||!link.recordKey().equals(physician.associationRecordKey())||!CdsExportCapturedTextWitness.matches(binding.association(), "contactId", link.fields().get("contactId"))){changes.add(new CdsExportRetainedSectionWriter.Change(role.wireName()+"[1]", binding.sourceFields(), physician==null?null:xml-> new CdsExportProfessionalContactXmlWriter().writeNameContent(physician, xml))); continue; }
                 if (!Objects.equals(physician.name().firstName(), binding.preparation().firstName())||!Objects.equals(physician.name().lastName(), binding.preparation().lastName()))changes.add(new CdsExportRetainedSectionWriter.Change(role.wireName()+"[1]", binding.sourceFields(), xml-> new CdsExportProfessionalContactXmlWriter().writeNameContent(physician, xml)));
             }else if (physician!=null) {
-                if (!binding.sourceFields().isEmpty()){blockers.add("UNPROJECTED_SOURCE_PROFESSIONAL_RELATIONSHIP_CONFLICT"); continue; }
-                changes.add(new CdsExportRetainedSectionWriter.Change(role.wireName()+"[1]", Set.of(), xml-> new CdsExportProfessionalContactXmlWriter().writeNameContent(physician, xml)));
+                // The import filed no physician for this role: the source had no element, or one the importer keeps as source only because it names
+                // nobody (a missing or blank name: CDS_CONTEXT_PHYSICIAN_SOURCE_ONLY). A Family or Referring Doctor added to the Health Care Team since
+                // is the chart's physician of the role and the element states it, as on any chart; the source element's fields stay in the import's
+                // retained source, replaced. Beside a source-only element it was a hold (UNPROJECTED_SOURCE_PROFESSIONAL_RELATIONSHIP_CONFLICT).
+                changes.add(new CdsExportRetainedSectionWriter.Change(role.wireName()+"[1]", binding.sourceFields(), xml-> new CdsExportProfessionalContactXmlWriter().writeNameContent(physician, xml)));
             }
         }
         if (!blockers.isEmpty())changes.clear(); values.requireActive(); checkpoint.run(); return new Result(index.sourceManifestSha256(), address, sourceIds, nativeMapping.fields(), deferred, nativeMapping.nameUses(), blockers, changes);

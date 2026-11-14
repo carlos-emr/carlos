@@ -61,6 +61,8 @@ class CdsExportContactFieldReconcilerUnitTest {
     private CdsExportRetainedIndexDto index;
     private CdsExportRetainedReceiptVerificationDto checked;
     private boolean active = true, baseline = true;
+    /** Further PhoneNumber elements of the source contact, after its home and work phones. */
+    private String extraPhones = "";
 
     @BeforeEach
     void setup() throws Exception {
@@ -124,13 +126,51 @@ class CdsExportContactFieldReconcilerUnitTest {
     }
 
     @Test
-    void shouldVerifyEditingTheCombinedGivenNameRequiresReview_insteadOfInventingASplitOrLosingTheMiddleName()
+    void shouldWriteTheCurrentFirstNameAndRemoveTheMiddleName_whenTheCombinedGivenNameIsEdited()
             throws Exception {
+        // The importer stores the source's first and middle names together in the first-name
+        // column, so the contact editor shows and edits both. Editing it held the chart
+        // (EDITED_COMPOUND_OR_UNPROJECTED_CONTACT_VALUE_REQUIRES_REVIEW). The column's current
+        // value replaces FirstName and MiddleName, by the rule of a contact added in CARLOS;
+        // everything else stays the import's own projection.
+        assertThat(oldContact.get("firstName")).isEqualTo("Ada Middle😀");
         contact.put("firstName", "Edited compound name");
         var result = invoke();
-        assertThat(result.representable()).isFalse();
-        assertThat(rule(result, "Contact", "firstName"))
-                .isEqualTo("EDITED_COMPOUND_OR_UNPROJECTED_CONTACT_VALUE_REQUIRES_REVIEW");
+        assertThat(result.representable()).isTrue();
+        assertThat(result.current()).isFalse();
+        assertThat(result.currentPaths()).containsExactly("Name/FirstName");
+        assertThat(result.changes())
+                .extracting(CdsExportRetainedSectionWriter.Change::relativePath)
+                .containsExactly("Contact[1]/Name[1]/FirstName[1]", "Contact[1]/Name[1]/MiddleName[1]");
+        // The receipt lists both source fields as replaced.
+        assertThat(result.changes())
+                .allSatisfy(change -> assertThat(change.expectedPriorFields()).hasSize(1));
+        assertThat(rule(result, "Contact", "firstName")).isEqualTo("EXACT_NATIVE_TEXT");
+        String xml = render(result);
+        assertThat(xml)
+                .contains(
+                        "<cdsd:FirstName>Edited compound name</cdsd:FirstName>",
+                        "<cdsd:LastName>Source family</cdsd:LastName>",
+                        "<cdsd:PurposeAsEnum>CG</cdsd:PurposeAsEnum>",
+                        "<cdsd:extension>0012</cdsd:extension>")
+                .doesNotContain("MiddleName", "<cdsd:FirstName>Ada</cdsd:FirstName>");
+    }
+
+    @Test
+    void shouldCarryAnEditedFirstNameTheElementCannotHold_andWriteNoGivenName() throws Exception {
+        // 60 characters fit the column (100) and not FirstName (50): no element, exact value in
+        // the native demographic record, as for a contact added in CARLOS.
+        contact.put("firstName", "N".repeat(60));
+        var result = invoke();
+        assertThat(result.representable()).isTrue();
+        assertThat(
+                        CdsExportDemographicSupportingMapper.carries(
+                                result.fields().get(key("Contact", "firstName"))))
+                .isTrue();
+        String xml = render(result);
+        assertThat(xml.substring(xml.indexOf("<Contact>")))
+                .contains("<cdsd:LastName>Source family</cdsd:LastName>")
+                .doesNotContain("<cdsd:FirstName>", "MiddleName");
     }
 
     @Test
@@ -155,13 +195,26 @@ class CdsExportContactFieldReconcilerUnitTest {
     }
 
     @Test
-    void shouldVerifyChangingAResidenceNumber_withAnEmbeddedHistoricalExtensionRequiresReview()
+    void shouldWriteTheCurrentNumber_whenAHomePhoneImportedWithAnExtensionIsEdited()
             throws Exception {
+        // The importer folds a home or cell extension into the column ("613-555-0101 ext 0012").
+        // Editing that phone held the chart. The column's current value is the PhoneNumber, by
+        // the native rule; the source's number and extension are listed as replaced.
+        assertThat(oldContact.get("residencePhone")).isEqualTo("613-555-0101 ext 0012");
         contact.put("residencePhone", "613-555-9999");
         var result = invoke();
-        assertThat(result.representable()).isFalse();
-        assertThat(rule(result, "Contact", "residencePhone"))
-                .isEqualTo("EDITED_COMPOUND_OR_UNPROJECTED_CONTACT_VALUE_REQUIRES_REVIEW");
+        assertThat(result.representable()).isTrue();
+        assertThat(result.currentPaths()).containsExactly("PhoneNumber[R]");
+        assertThat(result.changes()).hasSize(1);
+        assertThat(result.changes().getFirst().relativePath())
+                .isEqualTo("Contact[1]/PhoneNumber[1]");
+        assertThat(result.changes().getFirst().expectedPriorFields()).hasSize(3);
+        assertThat(render(result))
+                .contains(
+                        "<cdsd:phoneNumber>613-555-9999</cdsd:phoneNumber>",
+                        "<cdsd:phoneNumber>613-555-0102</cdsd:phoneNumber>",
+                        "<cdsd:MiddleName>Middle😀</cdsd:MiddleName>")
+                .doesNotContain("613-555-0101", "<cdsd:extension>0012</cdsd:extension>");
     }
 
     @Test
@@ -188,12 +241,62 @@ class CdsExportContactFieldReconcilerUnitTest {
     }
 
     @Test
-    void shouldVerifyEditedMultiplePurposePlaceholdersCannotEraseUnprojectedSourcePurposes_forContactFieldReconcilerContract() throws Exception {
-        association.put("role", "Next of Kin");
-        assertThat(invoke().representable()).isFalse();
-        association.put("role", oldAssociation.get("role"));
-        association.put("ec", null);
-        assertThat(invoke().representable()).isFalse();
+    void shouldReplaceOnlyThePurposesAColumnWasProjectedFrom_whenASeveralPurposeContactIsEdited()
+            throws Exception {
+        // The source contact is NK, CG and EC: the importer keeps the marker as the
+        // relationship and sets the emergency-contact flag. Any change of the relationship or
+        // of a flag held the chart (EDITED_COMPOUND_OR_UNPROJECTED_CONTACT_VALUE_REQUIRES_REVIEW).
+        assertThat(oldAssociation.get("role"))
+                .isEqualTo(CdsContactNormalizationService.MULTIPLE_PURPOSES);
+        // Manage Contacts saved with the emergency-contact box cleared: EC goes, NK and CG, which
+        // only the imported element holds, stay.
+        association.put("ec", "");
+        association.put("sdm", "");
+        var result = invoke();
+        assertThat(result.representable()).isTrue();
+        assertThat(result.changes())
+                .extracting(CdsExportRetainedSectionWriter.Change::relativePath)
+                .containsExactly("Contact[1]/ContactPurpose[3]");
+        assertThat(result.changes().getFirst().expectedPriorFields()).hasSize(1);
+        assertThat(rule(result, "DemographicContact", "role"))
+                .isEqualTo("VERIFIED_UNCHANGED_CONTACT_SOURCE_PROJECTION");
+        String xml = render(result);
+        assertThat(xml)
+                .contains(
+                        "<cdsd:PurposeAsEnum>NK</cdsd:PurposeAsEnum>",
+                        "<cdsd:PurposeAsEnum>CG</cdsd:PurposeAsEnum>",
+                        "<cdsd:MiddleName>Middle😀</cdsd:MiddleName>")
+                .doesNotContain("<cdsd:PurposeAsEnum>EC</cdsd:PurposeAsEnum>");
+        // The decision-maker box ticked: SDM joins the source purposes.
+        association.put("ec", "true");
+        association.put("sdm", "true");
+        result = invoke();
+        assertThat(result.representable()).isTrue();
+        assertThat(result.changes())
+                .extracting(CdsExportRetainedSectionWriter.Change::relativePath)
+                .containsExactly("Contact[1]/ContactPurpose[4]");
+        assertThat(render(result))
+                .contains(
+                        "<cdsd:PurposeAsEnum>NK</cdsd:PurposeAsEnum>",
+                        "<cdsd:PurposeAsEnum>CG</cdsd:PurposeAsEnum>",
+                        "<cdsd:PurposeAsEnum>EC</cdsd:PurposeAsEnum>",
+                        "<cdsd:PurposeAsEnum>SDM</cdsd:PurposeAsEnum>");
+        // The relationship itself chosen again: it replaces the purposes the marker stood for,
+        // and the emergency-contact purpose, from its own unchanged column, stays.
+        association.put("sdm", null);
+        association.put("role", "Sister");
+        result = invoke();
+        assertThat(result.representable()).isTrue();
+        assertThat(rule(result, "DemographicContact", "role"))
+                .isEqualTo("EXACT_NATIVE_FREE_TEXT_PURPOSE");
+        xml = render(result);
+        assertThat(xml)
+                .contains(
+                        "<cdsd:PurposeAsPlainText>Sister</cdsd:PurposeAsPlainText>",
+                        "<cdsd:PurposeAsEnum>EC</cdsd:PurposeAsEnum>")
+                .doesNotContain(
+                        "<cdsd:PurposeAsEnum>NK</cdsd:PurposeAsEnum>",
+                        "<cdsd:PurposeAsEnum>CG</cdsd:PurposeAsEnum>");
     }
 
     @Test
@@ -243,21 +346,135 @@ class CdsExportContactFieldReconcilerUnitTest {
                                     result.fields().get(key(table, "note"))))
                     .as(table)
                     .isTrue();
-        // An element with a separate middle name is not replaced by rows that never held it.
+        // An element with a separate middle name is not replaced by rows that never held it:
+        // it keeps its place and only its Note goes (it was a hold), both notes travelling
+        // exactly in the native record.
         fixture("Middle😀", "0012", false);
         association.put("note", "Call after 6 pm");
         result = invoke();
         assertThat(result.current()).isFalse();
-        assertThat(result.representable()).isFalse();
+        assertThat(result.representable()).isTrue();
+        assertThat(result.changes())
+                .extracting(CdsExportRetainedSectionWriter.Change::relativePath)
+                .containsExactly("Contact[1]/Note[1]");
+        for (String table : List.of("Contact", "DemographicContact"))
+            assertThat(
+                            CdsExportDemographicSupportingMapper.carries(
+                                    result.fields().get(key(table, "note"))))
+                    .as(table)
+                    .isTrue();
+        assertThat(render(result))
+                .contains("<cdsd:MiddleName>Middle😀</cdsd:MiddleName>")
+                .doesNotContain("Source note", "Call after 6 pm");
     }
 
     @Test
-    void shouldVerifyClearingOneOfTheTwoNoteCopiesCannotResurrectTheOther_forContactFieldReconcilerContract() throws Exception {
+    void shouldKeepTheAssociationsNote_whenTheContactsOwnCopyIsCleared() throws Exception {
+        // The contact editor cleared the contact's note; Manage Contacts still shows the
+        // association's. It held the chart beside source-only content. By the native rule the
+        // one note the chart shows is the Note; the cleared copy is not brought back.
         contact.put("note", null);
         var result = invoke();
-        assertThat(result.representable()).isFalse();
-        assertThat(rule(result, "Contact", "note"))
-                .isEqualTo("EDITED_COMPOUND_OR_UNPROJECTED_CONTACT_VALUE_REQUIRES_REVIEW");
+        assertThat(result.representable()).isTrue();
+        assertThat(result.fields().get(key("Contact", "note")).outcome())
+                .isEqualTo(CdsExportFieldAssessmentDto.Outcome.ABSENT);
+        assertThat(rule(result, "DemographicContact", "note")).isEqualTo("EXACT_NATIVE_TEXT");
+        assertThat(render(result))
+                .contains("Source note</Note>", "<cdsd:MiddleName>Middle😀</cdsd:MiddleName>");
+    }
+
+    @Test
+    void shouldKeepSourceOnlyPhonesAndAddTheTypedOne_whenTheImportProjectedNoneOfTheType()
+            throws Exception {
+        // Two differing cell phones: the import projects neither (the column stays empty) and
+        // keeps both as source only. A cell number typed since held the chart. The two source
+        // phones stay and the typed number is a further PhoneNumber.
+        extraPhones =
+                "<PhoneNumber phoneNumberType=\"C\"><dt:phoneNumber>613-555-0201</dt:phoneNumber></PhoneNumber>"
+                        + "<PhoneNumber phoneNumberType=\"C\"><dt:phoneNumber>613-555-0202</dt:phoneNumber></PhoneNumber>";
+        fixture("Middle😀", "0012", true);
+        assertThat(oldContact.get("cellPhone")).isNull();
+        contact.put("cellPhone", "613-555-0303");
+        var result = invoke();
+        assertThat(result.representable()).isTrue();
+        assertThat(result.changes())
+                .extracting(CdsExportRetainedSectionWriter.Change::relativePath)
+                .containsExactly("Contact[1]/PhoneNumber[5]");
+        assertThat(result.changes().getFirst().expectedPriorFields()).isEmpty();
+        assertThat(render(result))
+                .contains("613-555-0201", "613-555-0202", "613-555-0303", "613-555-0101");
+    }
+
+    @Test
+    void shouldReplaceEqualRepeatsOfOneType_whenTheirOneColumnIsEdited() throws Exception {
+        // Two equal cell phones are one column value: its edit replaces both (it was a hold).
+        extraPhones =
+                "<PhoneNumber phoneNumberType=\"C\"><dt:phoneNumber>613-555-0201</dt:phoneNumber></PhoneNumber>"
+                        + "<PhoneNumber phoneNumberType=\"C\"><dt:phoneNumber>613-555-0201</dt:phoneNumber></PhoneNumber>";
+        fixture("Middle😀", "0012", true);
+        assertThat(oldContact.get("cellPhone")).isEqualTo("613-555-0201");
+        contact.put("cellPhone", "613-555-0303");
+        var result = invoke();
+        assertThat(result.representable()).isTrue();
+        assertThat(result.changes())
+                .extracting(CdsExportRetainedSectionWriter.Change::relativePath)
+                .containsExactly("Contact[1]/PhoneNumber[3]", "Contact[1]/PhoneNumber[4]");
+        String xml = render(result);
+        assertThat(xml).contains("613-555-0303").doesNotContain("613-555-0201");
+        assertThat(xml.split("phoneNumberType=\"C\"", -1)).hasSize(2);
+    }
+
+    @Test
+    void shouldJoinAFurtherRelationshipToTheImportedElement_whenItHoldsSourceOnlyContent()
+            throws Exception {
+        // The person picked again from the contact search with another relationship. With the
+        // importer's marker in the imported association this held the chart
+        // (RETAINED_CONTACT_PURPOSE_RECONCILIATION_REQUIRED). The imported element stays with
+        // its three purposes and the further relationship joins them.
+        build();
+        var further = new LinkedHashMap<>(association);
+        further.put("id", "10");
+        further.put("role", "Sister");
+        further.put("ec", "true");
+        further.put("sdm", "true");
+        further.put("note", null);
+        var result =
+                new CdsExportContactFieldReconciler()
+                        .reconcile(
+                                27,
+                                ADDRESS,
+                                index,
+                                checked,
+                                fields,
+                                row("Contact", 7, contact),
+                                witness("Contact", 7, contact),
+                                row("DemographicContact", 9, association),
+                                witness("DemographicContact", 9, association),
+                                List.of(row("DemographicContact", 10, further)),
+                                values(),
+                                () -> {});
+        assertThat(result.representable()).isTrue();
+        assertThat(result.current()).isFalse();
+        // The further association's 18 columns are decided here, beside the imported pair's 40.
+        assertThat(result.fields()).hasSize(58);
+        var role =
+                result.fields()
+                        .get(new CdsExportNativeFieldKeyDto("DemographicContact", nativeKey(10), "role"));
+        assertThat(role.rule()).isEqualTo("EXACT_NATIVE_FREE_TEXT_PURPOSE");
+        assertThat(role.destination()).isEqualTo("Contact[1]/ContactPurpose");
+        // EC is already a source purpose: only Sister and SDM are added.
+        assertThat(result.changes())
+                .extracting(CdsExportRetainedSectionWriter.Change::relativePath)
+                .containsExactly("Contact[1]/ContactPurpose[4]", "Contact[1]/ContactPurpose[5]");
+        String xml = render(result);
+        assertThat(xml)
+                .contains(
+                        "<cdsd:PurposeAsEnum>NK</cdsd:PurposeAsEnum>",
+                        "<cdsd:PurposeAsEnum>CG</cdsd:PurposeAsEnum>",
+                        "<cdsd:PurposeAsPlainText>Sister</cdsd:PurposeAsPlainText>",
+                        "<cdsd:PurposeAsEnum>SDM</cdsd:PurposeAsEnum>",
+                        "<cdsd:MiddleName>Middle😀</cdsd:MiddleName>");
+        assertThat(xml.split("<cdsd:PurposeAsEnum>EC</cdsd:PurposeAsEnum>", -1)).hasSize(2);
     }
 
     @Test
@@ -530,7 +747,9 @@ class CdsExportContactFieldReconcilerUnitTest {
                         + (extension == null
                                 ? ""
                                 : "<dt:extension>" + extension + "</dt:extension>")
-                        + "</PhoneNumber><PhoneNumber phoneNumberType=\"W\"><dt:phoneNumber>613-555-0102</dt:phoneNumber><dt:extension>AB</dt:extension></PhoneNumber><EmailAddress>old@example.test</EmailAddress><Note>Source note</Note></Contact><PersonStatusCode><PersonStatusAsEnum>A</PersonStatusAsEnum></PersonStatusCode></Demographics></PatientRecord></OmdCds>";
+                        + "</PhoneNumber><PhoneNumber phoneNumberType=\"W\"><dt:phoneNumber>613-555-0102</dt:phoneNumber><dt:extension>AB</dt:extension></PhoneNumber>"
+                        + extraPhones
+                        + "<EmailAddress>old@example.test</EmailAddress><Note>Source note</Note></Contact><PersonStatusCode><PersonStatusAsEnum>A</PersonStatusAsEnum></PersonStatusCode></Demographics></PatientRecord></OmdCds>";
         Path folder = Files.createDirectory(directory.resolve(UUID.randomUUID().toString()));
         Path input = Files.writeString(folder.resolve("input.xml"), xml);
         var records = new ArrayList<CdsRecordDto>();

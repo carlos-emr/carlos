@@ -165,10 +165,10 @@ class CdsExportContactRetainedAssemblerUnitTest {
     @Test
     void shouldExportTheContactWithBothRelationships_whenTheImportedPersonIsAddedAgain()
             throws Exception {
-        // Updated: a second current association to an imported contact used to hold the chart
-        // (CDS_EXPORT_CONTACT_NEW_ASSOCIATION_REQUIRES_REVIEW). The person picked again from the
-        // contact search with another relationship is now one Contact with both purposes,
-        // appended, and the imported element is replaced.
+        // A second current association to an imported contact: the person picked again from the
+        // contact search with another relationship. The imported element here holds a separate
+        // MiddleName, which no CARLOS column keeps apart, so it stays where it is and the further
+        // relationship joins its purposes; nothing is appended.
         singlePurposeImport();
         var extra = copy(graph.association(), 10, Map.of("role", "Care Giver"));
         associations.add(extra);
@@ -176,25 +176,104 @@ class CdsExportContactRetainedAssemblerUnitTest {
         var result = prepare();
         assertThat(result.changes())
                 .extracting(CdsExportRetainedSectionWriter.Change::relativePath)
-                .containsExactlyInAnyOrder("Contact[1]", "Contact[2]");
+                .containsExactly("Contact[1]/ContactPurpose[2]");
+        assertThat(result.fields()).hasSize(58);
         String xml = render(result);
         assertThat(xml.split("<Contact>", -1)).hasSize(2);
         assertThat(xml)
                 .contains(
                         "Source family",
                         "<cdsd:PurposeAsEnum>NK</cdsd:PurposeAsEnum>",
-                        "<cdsd:PurposeAsEnum>CG</cdsd:PurposeAsEnum>")
-                // The current contact row is exported; the imported element, with its separate
-                // MiddleName, is replaced.
-                .doesNotContain("<cdsd:MiddleName>");
-        // An imported contact whose source had several purposes keeps only a placeholder role
-        // in CARLOS: grouping it with a new relationship cannot recover them, so it still holds.
+                        "<cdsd:PurposeAsEnum>CG</cdsd:PurposeAsEnum>",
+                        "<cdsd:MiddleName>");
+        // An imported contact whose source had several purposes keeps only a marker as its
+        // relationship in CARLOS. Picking that person again held the chart
+        // (CDS_EXPORT_CONTACT_MAPPING_REQUIRES_REVIEW). Its element keeps the source's three
+        // purposes; Care Giver is one of them already, so nothing changes.
         setup();
         extra = copy(graph.association(), 10, Map.of("role", "Care Giver"));
         associations.add(extra);
         witnesses.add(CdsExportContactFieldReconcilerUnitTest.capturedWitness(extra));
-        assertThatThrownBy(this::prepare)
-                .hasMessage("CDS_EXPORT_CONTACT_MAPPING_REQUIRES_REVIEW");
+        result = prepare();
+        assertThat(result.changes()).isEmpty();
+        assertThat(result.fields()).hasSize(58);
+        assertThat(render(result))
+                .contains(
+                        "<cdsd:PurposeAsEnum>NK</cdsd:PurposeAsEnum>",
+                        "<cdsd:PurposeAsEnum>CG</cdsd:PurposeAsEnum>",
+                        "<cdsd:PurposeAsEnum>EC</cdsd:PurposeAsEnum>");
+    }
+
+    @Test
+    void shouldRemoveTheImportedElementAndExportTheNamedContact_whenTheAssociationIsRepointed()
+            throws Exception {
+        // The server accepts another contact on an existing association (no form offers it).
+        // It stopped the job (CDS_EXPORT_CONTACT_RECONCILIATION_SCOPE_INVALID). The imported
+        // element is removed, its source fields replaced, and the association is exported with
+        // the contact it names, like any added contact. The imported contact row, named by no
+        // association any more, has left the capture.
+        var fixture = new CdsExportContactFieldReconcilerUnitTest();
+        fixture.directory = directory;
+        fixture.setup();
+        fixture.editAssociation("contactId", "8");
+        fixture.editAssociation("role", "Sister");
+        graph = fixture.snapshot();
+        var other = copy(graph.contact(), 8, Map.of("firstName", "Other", "lastName", "Person"));
+        contacts.clear();
+        contacts.add(other);
+        associations.clear();
+        associations.add(graph.association());
+        witnesses.clear();
+        witnesses.add(CdsExportContactFieldReconcilerUnitTest.capturedWitness(other));
+        witnesses.add(graph.witnesses().get(1));
+        // The receipt check of the imported contact row: not in this capture.
+        var slots = new LinkedHashMap<>(graph.checked().units());
+        String child =
+                graph.index().references().entrySet().stream()
+                        .filter(
+                                unit ->
+                                        unit.getValue().stream()
+                                                .anyMatch(ref -> ref.table().equals("Contact")))
+                        .findFirst()
+                        .orElseThrow()
+                        .getKey();
+        var references = new ArrayList<>(slots.get(child));
+        references.replaceAll(
+                ref ->
+                        ref.expected().table().equals("Contact")
+                                ? new CdsExportRetainedReceiptVerificationDto.CheckedReference(
+                                        ref.expected(),
+                                        null,
+                                        CdsExportRetainedReceiptVerificationDto.Reason
+                                                .ROW_NOT_IN_CAPTURE)
+                                : ref);
+        slots.put(child, references);
+        graph =
+                new CdsExportContactFieldReconcilerUnitTest.Graph(
+                        graph.index(),
+                        new CdsExportRetainedReceiptVerificationDto(
+                                graph.checked().sourceManifestSha256(),
+                                slots,
+                                graph.checked().unchangedUnits(),
+                                graph.checked().reviewUnits()),
+                        graph.fields(),
+                        graph.contact(),
+                        graph.association(),
+                        graph.witnesses());
+        var result = prepare();
+        assertThat(result.changes())
+                .extracting(CdsExportRetainedSectionWriter.Change::relativePath)
+                .containsExactly("Contact[1]", "Contact[2]");
+        assertThat(result.changes().getFirst().expectedPriorFields())
+                .isEqualTo(result.sourceContactFields());
+        assertThat(result.fields()).hasSize(40);
+        String xml = render(result);
+        assertThat(xml.split("<Contact>", -1)).hasSize(2);
+        assertThat(xml)
+                .contains(
+                        "<cdsd:FirstName>Other</cdsd:FirstName>",
+                        "<cdsd:PurposeAsPlainText>Sister</cdsd:PurposeAsPlainText>")
+                .doesNotContain("Source family", "MiddleName");
     }
 
     @Test
