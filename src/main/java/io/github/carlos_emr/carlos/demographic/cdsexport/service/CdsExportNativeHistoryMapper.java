@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionContract;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFieldAssessmentDto.Outcome;
 import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException;
@@ -464,6 +465,14 @@ public final class CdsExportNativeHistoryMapper {
             else if (!body.equals(exactBody)) detail.put("exactNarrative", exactBody);
             metadata.add(detail);
         }
+        // An encounter note that carries a body's exact text states every body's length as
+        // written, so a CARLOS importer places each body exactly (a body can quote a heading)
+        // before it restores the carried text (CdsHistoryPersister.exactNoteText).
+        if (category == CdsCategory.CLINICAL_NOTES
+                && metadata.stream().anyMatch(detail -> detail.containsKey("exactNarrative")))
+            for (int i = 0; i < bodies.size(); i++)
+                metadata.get(i)
+                        .put(CdsNativeExtensionContract.NOTE_BODY_LENGTH, bodies.get(i).length());
         var context = versioned("revisions", metadata);
         if (refiledSource != null) context.put("refiledImportedSource", refiledSource);
         // A character XML cannot carry is its JSON escape; the decoded details are unchanged.
@@ -494,11 +503,13 @@ public final class CdsExportNativeHistoryMapper {
             if (!attachedTo.isEmpty())
                 full.append(attachmentStatement(attachedTo)).append("\n\n");
             for (int i = 0; i < bodies.size(); i++) {
+                // One rule for both sides: the importer finds a revision's body by its heading
+                // when it restores the exact text of a body written with U+FFFD.
                 if (bodies.size() > 1)
-                    full.append(i == 0 ? "[Original note]\n" : "\n\n[Revision " + (i + 1) + "]\n");
+                    full.append(CdsNativeExtensionContract.noteRevisionHeading(i));
                 full.append(bodies.get(i));
             }
-            full.append("\n\n[CARLOS source note details]\n").append(json);
+            full.append(CdsNativeExtensionContract.NOTE_DETAILS_HEADING).append(json);
             text.put("MyClinicalNotesContent", full.toString());
             String observed = current.note().value().fields().get("observation_date");
             if (observed != null) dates.put("EventDateTime", clock(observed, zone));

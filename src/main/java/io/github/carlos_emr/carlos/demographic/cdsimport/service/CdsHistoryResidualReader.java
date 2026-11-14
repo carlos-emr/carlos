@@ -57,12 +57,20 @@ final class CdsHistoryResidualReader {
      *     the description element is absent, and in preference to the raw carrier
      * @param alert the exact patient Alert carried beside an AlertDescription that could not
      *     hold it, or null; the persister uses it only after proving it against the element
+     * @param revisionDetails the item's {@code CARLOS.NativeHistory.v1} revision details, or
+     *     null: the last such element in document order (a sender that edited an imported item
+     *     writes its own after the one it received). It carries the exact text of an item whose
+     *     element shows U+FFFD; the persister uses it only after proving it against the element
      */
     record NativeState(
-            boolean archived, CdsFieldDto personalNarrative, CdsFieldDto narrative, CdsFieldDto alert) {}
+            boolean archived,
+            CdsFieldDto personalNarrative,
+            CdsFieldDto narrative,
+            CdsFieldDto alert,
+            CdsFieldDto revisionDetails) {}
 
     NativeState read(CdsRecordDto record) throws IOException {
-        if (!CPP.contains(record.section())) return new NativeState(false, null, null, null);
+        if (!CPP.contains(record.section())) return new NativeState(false, null, null, null, null);
         var state = new State(record);
         try {
             fields.forEachField(
@@ -79,7 +87,8 @@ final class CdsHistoryResidualReader {
                     Boolean.TRUE.equals(state.archived),
                     state.personalNarrative,
                     state.narrative,
-                    state.alert);
+                    state.alert,
+                    state.revisionDetails);
         } catch (UncheckedIOException failure) {
             throw failure.getCause();
         }
@@ -94,6 +103,7 @@ final class CdsHistoryResidualReader {
         private CdsFieldDto personalNarrative;
         private CdsFieldDto narrative;
         private CdsFieldDto alert;
+        private CdsFieldDto revisionDetails;
 
         State(CdsRecordDto record) {
             this.record = record;
@@ -126,6 +136,16 @@ final class CdsHistoryResidualReader {
                 fields.verifyLogicalValue(record, descriptor);
                 return;
             }
+            if (name.equals(CdsNativeExtensionContract.NATIVE_HISTORY)) {
+                // Not one of the interpreted markers: an element that is not a readable string
+                // carrier is left as source data, never a reason to refuse the record. The
+                // persister proves what it reads before using it.
+                if (values.keySet().equals(Set.of("Name", "DataType", "Content"))
+                        && isString(record, values.get("DataType")))
+                    revisionDetails = values.get("Content");
+                values.clear();
+                return;
+            }
             if (!KNOWN.contains(name)) return;
             if (!seen.add(name) || !values.keySet().equals(Set.of("Name", "DataType", "Content")))
                 invalid();
@@ -151,6 +171,15 @@ final class CdsHistoryResidualReader {
                 alert = values.get("Content");
             } else narrative = values.get("Content");
             values.clear();
+        }
+    }
+
+    private boolean isString(CdsRecordDto record, CdsFieldDto type) throws IOException {
+        try {
+            return CdsNativeExtensionContract.STRING_TYPE.equals(fields.readToken(record, type, 7));
+        } catch (CdsInputException capacity) {
+            if (!capacity.code().equals("CDS_TARGET_TEXT_CAPACITY_EXCEEDED")) throw capacity;
+            return false;
         }
     }
 

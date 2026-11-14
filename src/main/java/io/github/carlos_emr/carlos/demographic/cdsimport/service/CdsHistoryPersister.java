@@ -158,6 +158,114 @@ public class CdsHistoryPersister {
         return null;
     }
 
+    /** Reported when a sender's exact note text could not be proven against its element. */
+    static final String EXACT_NARRATIVE_NOT_APPLIED = "CDS_HISTORY_EXACT_NARRATIVE_NOT_APPLIED";
+
+    /**
+     * The text of a CPP item with the exact text a CARLOS sender carries for it, or {@code shown}
+     * when there is nothing to restore or it cannot be proven.
+     *
+     * <p>A CARLOS export writes a CPP item's text (its description element, or {@code
+     * CARLOS.History.Narrative.v1} when the element cannot hold it or the item is a
+     * PersonalHistory) with U+FFFD for each character XML cannot carry, and the stored text in
+     * the current revision's details ({@code CARLOS.NativeHistory.v1}: {@code exactNarrative},
+     * or {@code narrative}). Only text that shows U+FFFD can stand for such a text, so no other
+     * item reads its details. The carried text is used only when the item's text is exactly what
+     * the exporter's rule writes from it ({@link CdsNativeExtensionContract#isElementTextOf}). A
+     * carried text equal to the element, or none at all, leaves the element as it is (the
+     * character is the sender's own U+FFFD). Details that are unreadable, or carry a text that
+     * does not prove itself, are never guessed at: the item is imported as any sender's and the
+     * report names {@link #EXACT_NARRATIVE_NOT_APPLIED}.
+     */
+    String exactItemText(
+            CdsRecordDto record,
+            CdsFieldDto details,
+            String shown,
+            long limit,
+            Consumer<CdsClinicalDiagnosticDto> notice)
+            throws IOException {
+        if (shown.indexOf('\ufffd') < 0) return shown;
+        try {
+            String exact =
+                    CdsHistoryExactNarrativeReader.currentText(
+                            () -> fields.openToken(record, details), units(limit));
+            if (exact == null || exact.equals(shown)) return shown;
+            if (CdsNativeExtensionContract.isElementTextOf(shown, exact)) return exact;
+        } catch (IllegalArgumentException malformed) {
+            // Not readable revision details: reported below, the element stands.
+        }
+        notice.accept(new CdsClinicalDiagnosticDto(EXACT_NARRATIVE_NOT_APPLIED, "ResidualInfo"));
+        return shown;
+    }
+
+    /**
+     * The text of an encounter note with the exact bodies a CARLOS sender carries for it, or
+     * {@code shown} when there is nothing to restore or it cannot be proven.
+     *
+     * <p>ClinicalNotes has no ResidualInfo, so a CARLOS export ends the note's text with {@link
+     * CdsNativeExtensionContract#NOTE_DETAILS_HEADING} and the revision details. Each revision
+     * whose body holds a character XML cannot carry is written with U+FFFD and has its stored
+     * body as {@code exactNarrative}; every revision then states its body's length as written
+     * ({@link CdsNativeExtensionContract#NOTE_BODY_LENGTH}). Counted back from the details, each
+     * body has one place, under the heading the exporter writes ({@link
+     * CdsNativeExtensionContract#noteRevisionHeading}; none when the note has one revision). A
+     * carried body replaces the text there only when every heading stands where the lengths put
+     * it and the text there is exactly its U+FFFD form; all carried bodies are restored, or
+     * none. Text whose body part shows no U+FFFD, or that merely ends like revision details
+     * (another sender's quotation), is left alone without a report; details that carry a body
+     * which cannot be placed are reported as {@link #EXACT_NARRATIVE_NOT_APPLIED} and nothing is
+     * changed.
+     */
+    static String exactNoteText(String shown, long limit, Consumer<CdsClinicalDiagnosticDto> notice)
+            throws IOException {
+        int details = shown.lastIndexOf(CdsNativeExtensionContract.NOTE_DETAILS_HEADING);
+        if (details < 1 || shown.lastIndexOf('\ufffd', details - 1) < 0) return shown;
+        java.util.List<CdsHistoryExactNarrativeReader.NoteRevision> revisions;
+        try {
+            revisions =
+                    CdsHistoryExactNarrativeReader.noteRevisions(
+                            new java.io.StringReader(
+                                    shown.substring(
+                                            details
+                                                    + CdsNativeExtensionContract
+                                                            .NOTE_DETAILS_HEADING
+                                                            .length())),
+                            units(limit));
+        } catch (IllegalArgumentException notDetails) {
+            return shown;
+        }
+        if (revisions.stream().allMatch(revision -> revision.exactNarrative() == null))
+            return shown;
+        char[] restored = shown.toCharArray();
+        int end = details;
+        for (int i = revisions.size() - 1; i >= 0 && end >= 0; i--) {
+            var revision = revisions.get(i);
+            String heading =
+                    revisions.size() == 1 ? "" : CdsNativeExtensionContract.noteRevisionHeading(i);
+            Long length = revision.bodyLength();
+            int start = length == null || length > end ? -1 : end - length.intValue();
+            if (start < heading.length() || !shown.startsWith(heading, start - heading.length()))
+                end = -1;
+            else if (revision.exactNarrative() != null
+                    && !CdsNativeExtensionContract.isElementTextOf(
+                            shown.substring(start, end), revision.exactNarrative())) end = -1;
+            else {
+                if (revision.exactNarrative() != null)
+                    revision.exactNarrative().getChars(0, end - start, restored, start);
+                end = start - heading.length();
+            }
+        }
+        if (end >= 0) return new String(restored);
+        notice.accept(
+                new CdsClinicalDiagnosticDto(EXACT_NARRATIVE_NOT_APPLIED, "MyClinicalNotesContent"));
+        return shown;
+    }
+
+    /** The native note bound in UTF-16 units: a text of more units cannot fit in fewer bytes. */
+    private static int units(long limit) {
+        return (int) Math.min(limit, Integer.MAX_VALUE - 1L);
+    }
+
     public void validate(CdsRecordDto record, CdsImportCommand command) {
         String code = ISSUES.get(record.section());
         if (code != null) requireIssue(code);
@@ -247,11 +355,22 @@ public class CdsHistoryPersister {
                                 "CDS_HISTORY_NATIVE_STATE_REQUIRES_REVIEW", "ResidualInfo");
                     }
                 } else logical = fields.readLogicalText(record, descriptor[0], (int) limit);
-                oversized =
-                        logical.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > limit;
             } catch (CdsInputException capacity) {
                 if (!capacity.code().equals("CDS_TARGET_TEXT_CAPACITY_EXCEEDED")) throw capacity;
                 oversized = true;
+            }
+            if (!oversized) {
+                // A CARLOS sender carries the exact text of a note or CPP item whose element shows
+                // U+FFFD for a character XML cannot carry; it is used only once proven. It is
+                // never longer in UTF-8 than the element, so it is restored before the size test.
+                if (record.section().equals("ClinicalNotes"))
+                    logical = exactNoteText(logical, limit, notice);
+                else if (nativeState.revisionDetails() != null)
+                    logical =
+                            exactItemText(
+                                    record, nativeState.revisionDetails(), logical, limit, notice);
+                oversized =
+                        logical.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > limit;
             }
             if (oversized) {
                 content =

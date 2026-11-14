@@ -66,10 +66,14 @@ import java.util.Objects;
  */
 public final class CdsExportDemographicSupportingMapper {
     /** NewCategory {@code CategoryName} of the native demographic record. */
-    public static final String CATEGORY_NAME = "CARLOS.NativeDemographic.v1";
+    public static final String CATEGORY_NAME =
+            io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionContract
+                    .NATIVE_DEMOGRAPHIC_CATEGORY;
 
     /** Residual {@code DataElement} name whose Content is the versioned JSON. */
-    public static final String ELEMENT_NAME = "CARLOS.Demographic.v1";
+    public static final String ELEMENT_NAME =
+            io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionContract
+                    .NATIVE_DEMOGRAPHIC;
 
     /** Destination of every value carried by the record. */
     public static final String DESTINATION = "NewCategory/ResidualInfo";

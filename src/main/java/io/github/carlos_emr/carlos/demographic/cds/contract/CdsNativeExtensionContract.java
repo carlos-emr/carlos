@@ -102,6 +102,107 @@ public final class CdsNativeExtensionContract {
     public static final String HISTORY_NARRATIVE_TEXT = "CARLOS.History.NarrativeText.v1";
 
     /**
+     * The revision details of a CPP item written from CARLOS notes: one JSON object with every
+     * revision's native facts. Beside an element that shows U+FFFD for a character XML 1.0
+     * cannot carry ({@link #xmlElementText}), the revision's {@code exactNarrative} (or {@code
+     * narrative}) member is the stored text. An encounter note has no ResidualInfo and carries
+     * the same document after {@link #NOTE_DETAILS_HEADING} in its text.
+     */
+    public static final String NATIVE_HISTORY = "CARLOS.NativeHistory.v1";
+
+    /** What precedes the revision details at the end of an exported encounter note's text. */
+    public static final String NOTE_DETAILS_HEADING = "\n\n[CARLOS source note details]\n";
+
+    /**
+     * The heading the exporter writes before a revision's body in an encounter note with
+     * several revisions; a note with one revision has none.
+     *
+     * @param index the revision's position, from 0
+     */
+    public static String noteRevisionHeading(int index) {
+        return index == 0 ? "[Original note]\n" : "\n\n[Revision " + (index + 1) + "]\n";
+    }
+
+    /**
+     * Member of every revision's details of an encounter note that carries an {@code
+     * exactNarrative}: the length, in UTF-16 code units, of the revision's body as the note's
+     * text holds it (after its heading, U+FFFD included). A body can quote a heading, so the
+     * text alone cannot say where one ends; with these lengths each body has one place, counted
+     * back from {@link #NOTE_DETAILS_HEADING}.
+     */
+    public static final String NOTE_BODY_LENGTH = "bodyLength";
+
+    /** CategoryName of the NewCategory record that carries a chart's native demographic values. */
+    public static final String NATIVE_DEMOGRAPHIC_CATEGORY = "CARLOS.NativeDemographic.v1";
+
+    /**
+     * The residual DataElement of that record: one JSON object. Its {@code note.content} member,
+     * written only when NoteAboutPatient cannot hold the stored patient note exactly, is the
+     * whole stored note column ({@link #patientNoteElement}).
+     */
+    public static final String NATIVE_DEMOGRAPHIC = "CARLOS.Demographic.v1";
+
+    /** NoteAboutPatient is a text64K: 64,000 characters as the migration dictionary counts it. */
+    public static final int PATIENT_NOTE_LENGTH = 64000;
+
+    /**
+     * Ends NoteAboutPatient when the note is longer than the element: the element holds the
+     * first characters that fit before this mark, and the native demographic record the whole
+     * stored note.
+     */
+    public static final String PATIENT_NOTE_SHORTENED_MARK =
+            "\n[CARLOS: shortened to the CDS limit of 64,000 characters]";
+
+    /**
+     * NoteAboutPatient for the patient note a chart shows: the text with each character XML 1.0
+     * cannot carry as U+FFFD ({@link #xmlElementText}) and, when that is longer than the
+     * element's 64,000 characters (code points), its first characters followed by {@link
+     * #PATIENT_NOTE_SHORTENED_MARK}. The exporter writes the element this way and carries the
+     * stored column whenever the element is not the note exactly; the importer proves the
+     * carried column against the element by the same rule.
+     *
+     * @param shown the note as the chart shows it ({@code DemographicCust.patientNotesText})
+     */
+    public static String patientNoteElement(String shown) {
+        String element = xmlElementText(shown);
+        if (element.codePointCount(0, element.length()) <= PATIENT_NOTE_LENGTH) return element;
+        int kept =
+                PATIENT_NOTE_LENGTH
+                        - PATIENT_NOTE_SHORTENED_MARK.codePointCount(
+                                0, PATIENT_NOTE_SHORTENED_MARK.length());
+        return element.substring(0, element.offsetByCodePoints(0, kept))
+                + PATIENT_NOTE_SHORTENED_MARK;
+    }
+
+    /**
+     * Whether {@code element} is what the exporter writes for the stored value {@code exact}
+     * ({@link #xmlElementText}: the same text with U+FFFD in place of each character XML 1.0
+     * cannot carry) and {@code exact} is a value a CARLOS column can hold (every surrogate is
+     * paired). The importer restores a carried value only when this holds for its element.
+     */
+    public static boolean isElementTextOf(String element, String exact) {
+        return element != null
+                && exact != null
+                && storable(exact)
+                && xmlElementText(exact).equals(element);
+    }
+
+    /**
+     * Whether a CARLOS text column (utf8mb4) can hold {@code value}: every surrogate in it is
+     * paired. A carried value that is not is no value a CARLOS chart stored.
+     */
+    public static boolean storable(String value) {
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (Character.isHighSurrogate(c)
+                    && i + 1 < value.length()
+                    && Character.isLowSurrogate(value.charAt(i + 1))) i++;
+            else if (Character.isSurrogate(c)) return false;
+        }
+        return true;
+    }
+
+    /**
      * The patient Alert (the master record's Alert box) exactly, written beside an
      * AlertsAndSpecialNeeds/AlertDescription that could not hold it: the element shows each
      * character XML 1.0 cannot carry as U+FFFD ({@link #xmlElementText}). Content is the JSON

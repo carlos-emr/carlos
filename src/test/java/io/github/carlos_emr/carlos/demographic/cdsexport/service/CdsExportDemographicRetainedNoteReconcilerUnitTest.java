@@ -186,10 +186,12 @@ class CdsExportDemographicRetainedNoteReconcilerUnitTest {
     }
 
     @Test
-    void shouldRemoveTheElementAndCarryTheNote_whenAnEditedNoteIsLongerThanTheElement()
+    void shouldShortenTheElementAndCarryTheNote_whenAnEditedNoteIsLongerThanTheElement()
             throws Exception {
-        // Before: PATIENT_NOTE_DICTIONARY_LENGTH_REQUIRES_REVIEW held the chart.
-        change("content", "<unotes>" + "n".repeat(64001) + "</unotes>");
+        // Before: PATIENT_NOTE_DICTIONARY_LENGTH_REQUIRES_REVIEW held the chart; then the
+        // imported element was removed and a receiving chart had no patient note at all.
+        String typed = "n".repeat(64001);
+        change("content", "<unotes>" + typed + "</unotes>");
         var result = reconcile();
         assertThat(result.noteRepresentable()).isTrue();
         var content =
@@ -199,10 +201,12 @@ class CdsExportDemographicRetainedNoteReconcilerUnitTest {
                         .orElseThrow()
                         .getValue();
         assertThat(content.outcome()).isEqualTo(CdsExportFieldAssessmentDto.Outcome.MAPPED);
-        assertThat(content.destination()).isEqualTo(CdsExportDemographicSupportingMapper.DESTINATION);
-        // The imported element is removed (replaced by nothing); the record carries the note.
+        assertThat(content.destination())
+                .isEqualTo("NoteAboutPatient," + CdsExportDemographicSupportingMapper.DESTINATION);
+        // The imported element is replaced by the note's shortened form; the record carries
+        // the whole note, which a CARLOS importer restores from it.
         assertThat(result.changes()).hasSize(1);
-        assertThat(result.changes().getFirst().content()).isNull();
+        assertThat(result.changes().getFirst().content()).isNotNull();
     }
 
     @Test
