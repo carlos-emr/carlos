@@ -4823,9 +4823,9 @@ Established dates, exact dose witnesses, supply, route, frequency, status and pu
 fields have standard destinations. The complete captured `drugs` row, including SQL NULL versus
 empty text and IEEE dose witnesses, is also preserved in `CARLOS.Medication.Source.v1` under the
 pinned medication `ResidualInfo`. A CARLOS importer restores the quantity unit (`unitName`,
-written in Quantity as `100 mL`) and the exact as-needed flag (`prn`) from it when the standard
-Quantity and Frequency/TreatmentType agree with the carrier (#6198); the other columns stay
-retained source. Every JSON residual carrier (`CARLOS.Medication.Source.v1`,
+written in Quantity as `100 mL`, with U+FFFD for a character XML cannot carry) and the exact
+as-needed flag (`prn`) from it when the standard Quantity and Frequency/TreatmentType agree with
+the carrier (#6198); the other columns stay retained source. Every JSON residual carrier (`CARLOS.Medication.Source.v1`,
 `CARLOS.Prescription.v1`, `CARLOS.Laboratory.v1`, `CARLOS.NativeHistory.v1` and the others named in
 this document) is written in one fixed key order with every space escaped as `\u0020`:
 residual `Content` is an `xs:token`, whose normalization would otherwise collapse a run of
@@ -4865,7 +4865,11 @@ the unit box are stored as `d`, `w` and `m`. The rule (`CdsExportMedicationMappe
 - An imported prescription whose duration was changed in CARLOS follows the same rule; its
   values travel in `CARLOS.Medication.CurrentSource.v1` (below).
 - Text XML cannot carry no longer requires review: its element shows U+FFFD and the stored
-  row is exact in the residual (see "Data summaries and last holds").
+  row is exact in the residual (see "Data summaries and last holds"). This includes the dose
+  unit (DosageUnitOfMeasure, formerly left out) and the quantity unit written in Quantity
+  (`100 m\uFFFDL`, formerly a hold of the patient); a CARLOS importer restores both from the
+  residual. The residual itself refuses no character: a noncharacter (U+FFFE, U+FFFF), which
+  JSON writes as it is, is its `\uXXXX` escape there like a control character.
 
 The same residual carries, instead of holding the patient (`CdsExportNativeMedicationMapper
 .CONTEXT_RULES`): a quantity that is not a plain number ("30 tabs", "1 bottle": the legacy Rx

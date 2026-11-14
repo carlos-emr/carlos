@@ -267,10 +267,13 @@ public final class CdsExportNativeMedicationMapper {
             // "month" as "1 month"; a bare number would misstate the amount dispensed. The CDS
             // importer copies the dose unit into both unit and unitName, so an equal pair is
             // that copy (kept by re-prescribing an imported drug), not a quantity unit.
-            String authored = values.get(Field.Quantity) + " " + quantityUnit.strip();
-            if (CdsExportNativeFieldAssessments.legal(authored, Field.Quantity.maximum()))
+            // A unit holding a character XML cannot carry is written with U+FFFD in its place,
+            // as every other value is; the stored unitName travels exactly in the residual, and
+            // a CARLOS importer restores it once Quantity proves it.
+            String authored =
+                    CdsExportXmlText.element(values.get(Field.Quantity) + " " + quantityUnit.strip());
+            if (codePoints(authored) <= Field.Quantity.maximum())
                 values.put(Field.Quantity, authored);
-            else if (!CdsExportNativeFieldAssessments.legal(authored, Integer.MAX_VALUE)) review();
             // An amount that no longer fits with its unit is left out, never written as a bare
             // number that would misstate the amount dispensed (residual).
             else values.remove(Field.Quantity);
@@ -431,10 +434,10 @@ public final class CdsExportNativeMedicationMapper {
                         "EXACT_FROZEN_PUBLIC_DRUG_REFERENCE");
         }
         details.put("currentness", knownStatus ? status : "UNESTABLISHED");
+        // No length bound and no character refused: write() carries this JSON through
+        // CdsExportResidualJson, where a character XML cannot carry (a control character, U+FFFE,
+        // U+FFFF) is its JSON escape and decodes to the stored value exactly.
         String metadata = JsonMapper.builder().build().writeValueAsString(details);
-        // No length bound: only text no XML document can hold would be refused, and JSON
-        // escapes control characters itself.
-        if (!CdsExportNativeFieldAssessments.legal(metadata, Integer.MAX_VALUE)) review();
         var reasons = new CdsExportMedicationReasonMapper().map(patient, row, reasonRows);
         if (reasons.problemCode() != null)
             values.put(Field.ProblemCode, reasons.problemCode());
@@ -505,8 +508,9 @@ public final class CdsExportNativeMedicationMapper {
      * that names the product's strength unit is never the dose unit; the count unit then comes
      * from the drug form when the form is a counted form (tablet, capsule, ...), as the legacy
      * exporter derived it. A {@code unit} the strength does not mention (a custom drug's "puff",
-     * an imported "tablet") is the dose unit as recorded. {@code unitName} is the quantity unit
-     * and is handled with Quantity.
+     * an imported "tablet") is the dose unit as recorded, in its element form (U+FFFD for a
+     * character XML cannot carry), or null when longer than DosageUnitOfMeasure.
+     * {@code unitName} is the quantity unit and is handled with Quantity.
      */
     static String doseUnit(String unit, String strength, String form) {
         if (!populated(unit)) return null;
@@ -516,10 +520,13 @@ public final class CdsExportNativeMedicationMapper {
             var matcher = STRENGTH_UNIT.matcher(strength);
             while (matcher.find()) strengthUnits.add(matcher.group(1).toLowerCase(Locale.ROOT));
         }
-        if (!strengthUnits.contains(recorded.toLowerCase(Locale.ROOT)))
-            return CdsExportNativeFieldAssessments.legal(recorded, Field.DosageUnitOfMeasure.maximum())
-                    ? recorded
-                    : null;
+        if (!strengthUnits.contains(recorded.toLowerCase(Locale.ROOT))) {
+            // A character XML cannot carry is shown as U+FFFD, as in every element; the stored
+            // unit is exact in the residual, and a CARLOS importer restores it. A unit longer
+            // than the element is left out, never clipped (residual).
+            String shown = CdsExportXmlText.element(recorded);
+            return codePoints(shown) <= Field.DosageUnitOfMeasure.maximum() ? shown : null;
+        }
         String shape = form == null ? "" : form.toLowerCase(Locale.ROOT);
         for (String count : COUNT_UNITS) if (shape.contains(count)) return count;
         return null;

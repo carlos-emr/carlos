@@ -266,10 +266,13 @@ public class CdsClinicalNormalizationService {
                     "CDS_MEDICATION_NATIVE_STATE_REQUIRES_REVIEW", "ResidualInfo");
         boolean recorded = amount != null && !amount.isEmpty();
         if (standard == null && !recorded) return null;
+        // The exporter writes a unit holding a character XML cannot carry with U+FFFD in its
+        // place; the carried unit is the one Quantity shows by that rule.
         if (standard == null
                 || !recorded
                 || !amount.matches("[0-9]+(?:\\.[0-9]+)?")
-                || !standard.equals(amount + " " + unit.strip()))
+                || !io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionContract
+                        .isElementTextOf(standard, amount + " " + unit.strip()))
             throw new CdsClinicalException("CDS_MEDICATION_NATIVE_FIELD_REQUIRES_REVIEW", "Quantity");
         return amount;
     }

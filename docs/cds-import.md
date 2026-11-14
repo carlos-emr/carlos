@@ -100,9 +100,12 @@ the import's retained source fields.
 - **Medication quantity unit.** On the Rx page `unitName` is the quantity's unit. A carried
   `unitName` that is not empty and differs from `unit` (the exporter's own reading) is restored
   to `drugs.unitName` with the carried amount in `drugs.quantity`, only when the standard
-  Quantity is exactly that amount, a space and the trimmed unit (`100 mL`). A bare, different or
-  absent Quantity is contradictory: `CDS_MEDICATION_NATIVE_FIELD_REQUIRES_REVIEW` (path
-  `Quantity`). Without a quantity unit the dose unit is copied to `unitName`, as before.
+  Quantity is exactly that amount, a space and the trimmed unit (`100 mL`), as the sender writes
+  it: a unit holding a character XML cannot carry shows U+FFFD in its place (`100 m\uFFFDL`, by
+  `isElementTextOf`, see "Exact text a CARLOS sender carries"), and the carried unit is restored
+  exactly. A bare, different or absent Quantity is contradictory:
+  `CDS_MEDICATION_NATIVE_FIELD_REQUIRES_REVIEW` (path `Quantity`). Without a quantity unit the
+  dose unit is copied to `unitName`, as before.
 - **Medication as-needed flag.** The carried `prn` (0 or 1) is restored to `drugs.prn` exactly,
   including the `BID PRN` case the frequency alone cannot show. The exporter always shows a set
   flag in Frequency (`PRN`, `BID PRN`) or a PRN TreatmentType, so a set flag beside elements that
