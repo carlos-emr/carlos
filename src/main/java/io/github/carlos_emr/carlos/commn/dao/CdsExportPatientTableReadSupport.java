@@ -1468,8 +1468,12 @@ public final class CdsExportPatientTableReadSupport {
         // any document value is read, and proves the restrictions unchanged inside this snapshot.
     }
 
-    /** At most this many program-restricted documents per chart are authorized one by one. */
-    public static final int MAXIMUM_PROGRAM_RESTRICTIONS = 100_000;
+    /**
+     * The restriction rows one statement returns. A chart may have any number of documents or
+     * preventions restricted to a program: they are read a page a statement, each continuing
+     * after the last key of the one before, and every one is authorized.
+     */
+    private static final int RESTRICTION_PAGE = 8192;
 
     /**
      * Restriction metadata only, before any document value is read: document number to program
@@ -1480,34 +1484,44 @@ public final class CdsExportPatientTableReadSupport {
      */
     public static java.util.SortedMap<Integer, Integer> documentProgramRestrictions(
             EntityManager em, int patient) {
+        return restrictions(
+                em,
+                patient,
+                "select d.document_no, d.program_id from document d where exists (select 1 from"
+                        + " ctl_document c where c.module='demographic' and c.module_id=:patient"
+                        + " and c.document_no=d.document_no) and d.program_id is not null and"
+                        + " d.program_id<>-1 and (d.restrictToProgram is null or"
+                        + " d.restrictToProgram<>0)",
+                "d.document_no");
+    }
+
+    /** Every restriction row of {@code select}, keyed and ordered by {@code key}, page by page. */
+    private static java.util.SortedMap<Integer, Integer> restrictions(
+            EntityManager em, int patient, String select, String key) {
         patient(patient);
-        var found =
-                rows(
-                        query(
-                                        em,
-                                        """
-                                        select d.document_no, d.program_id from document d
-                                        where exists (select 1 from ctl_document c
-                                          where c.module='demographic' and c.module_id=:patient
-                                          and c.document_no=d.document_no)
-                                        and d.program_id is not null and d.program_id<>-1
-                                        and (d.restrictToProgram is null or d.restrictToProgram<>0)
-                                        order by d.document_no
-                                        """)
-                                .setParameter("patient", patient)
-                                .setMaxResults(MAXIMUM_PROGRAM_RESTRICTIONS + 1));
-        if (found.size() > MAXIMUM_PROGRAM_RESTRICTIONS)
-            throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
-                    .CdsExportReviewException(
-                    io.github.carlos_emr.carlos.demographic.cdsexport.support
-                            .CdsExportReviewException.Reason.DOCUMENT_PROGRAM_SCOPE);
         var result = new java.util.TreeMap<Integer, Integer>();
-        for (Object[] row : found)
-            if (row.length != 2
-                    || result.put(
-                                    Math.toIntExact(number(row[0])),
-                                    Math.toIntExact(number(row[1])))
-                            != null) invalid();
+        Integer after = null;
+        while (true) {
+            var query =
+                    query(
+                                    em,
+                                    select
+                                            + (after == null ? "" : " and " + key + ">:after")
+                                            + " order by "
+                                            + key)
+                            .setParameter("patient", patient)
+                            .setMaxResults(RESTRICTION_PAGE);
+            if (after != null) query.setParameter("after", after);
+            var found = rows(query);
+            for (Object[] row : found) {
+                if (row.length != 2) invalid();
+                int id = Math.toIntExact(number(row[0]));
+                if (after != null && id <= after
+                        || result.put(id, Math.toIntExact(number(row[1]))) != null) invalid();
+                after = id;
+            }
+            if (found.size() < RESTRICTION_PAGE) break;
+        }
         return java.util.Collections.unmodifiableSortedMap(result);
     }
 
@@ -1907,31 +1921,14 @@ public final class CdsExportPatientTableReadSupport {
      */
     public static java.util.SortedMap<Integer, Integer> preventionProgramRestrictions(
             EntityManager em, int patient) {
-        patient(patient);
-        var found =
-                rows(
-                        query(
-                                        em,
-                                        "select d.`id`, d.`programNo` from `preventions` d where"
-                                            + " d.`demographic_no`=:patient and d.`programNo` is"
-                                            + " not null and d.`programNo`<>-1 and"
-                                            + " (d.`restrictToProgram` is null or"
-                                            + " d.`restrictToProgram`<>0) order by d.`id`")
-                                .setParameter("patient", patient)
-                                .setMaxResults(MAXIMUM_PROGRAM_RESTRICTIONS + 1));
-        if (found.size() > MAXIMUM_PROGRAM_RESTRICTIONS)
-            throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
-                    .CdsExportReviewException(
-                    io.github.carlos_emr.carlos.demographic.cdsexport.support
-                            .CdsExportReviewException.Reason.PREVENTION_PROGRAM_SCOPE);
-        var result = new java.util.TreeMap<Integer, Integer>();
-        for (Object[] row : found)
-            if (row.length != 2
-                    || result.put(
-                                    Math.toIntExact(number(row[0])),
-                                    Math.toIntExact(number(row[1])))
-                            != null) invalid();
-        return java.util.Collections.unmodifiableSortedMap(result);
+        return restrictions(
+                em,
+                patient,
+                "select d.`id`, d.`programNo` from `preventions` d where"
+                        + " d.`demographic_no`=:patient and d.`programNo` is not null and"
+                        + " d.`programNo`<>-1 and (d.`restrictToProgram` is null or"
+                        + " d.`restrictToProgram`<>0)",
+                "d.`id`");
     }
 
     /**

@@ -38,12 +38,13 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * @since 2026-11-13
  */
+// No transaction timeout: a chart may have any number of restricted rows, read a page a statement,
+// and each statement keeps its own bound.
 @Service
 @Transactional(
         readOnly = true,
         propagation = Propagation.REQUIRES_NEW,
-        isolation = Isolation.READ_COMMITTED,
-        timeout = 30)
+        isolation = Isolation.READ_COMMITTED)
 public class CdsExportDocumentProgramScopeService {
     private final DocumentDao documents;
 
