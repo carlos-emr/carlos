@@ -333,7 +333,8 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
         // Every fixture row starts as status A with stored HTML in docxml, which the chart
         // renders instead of any file. Make some of them ordinary uploads (empty or NULL
         // docxml), then soft-delete, unlink, convert to an Add HTML document (status H) or
-        // give a status that differs only in case (reviews R3 and R6).
+        // give another status. The chart shows the file of a document of any status but D, and
+        // the comparison is exact (reviews R3 and R6), so the lowercase status is read too.
         sql.update(
                 "update document set docxml='' where document_no in (?,?,?,?,?) and doctype=?",
                 patient + 1,
@@ -370,12 +371,15 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                 patient + 7);
         read.executeWithoutResult(
                 status -> {
-                    assertThat(documents.countCdsExportFileRows(patient)).isEqualTo(3);
+                    assertThat(documents.countCdsExportFileRows(patient)).isEqualTo(4);
                     var rows = documents.findCdsExportFileRowsAfter(patient, null, 32);
                     assertThat(rows)
                             .extracting(io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto::id)
                             .containsExactly(
-                                    (long) patient + 1, (long) patient + 2, (long) patient + 7);
+                                    (long) patient + 1,
+                                    (long) patient + 2,
+                                    (long) patient + 6,
+                                    (long) patient + 7);
                     assertThat(rows.getFirst().cells().keySet())
                             .containsExactly("docfilename", "document_no");
                     assertThat(

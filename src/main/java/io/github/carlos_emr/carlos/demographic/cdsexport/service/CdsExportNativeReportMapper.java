@@ -200,11 +200,9 @@ public final class CdsExportNativeReportMapper {
                 || representation == CdsExportDocumentRepresentation.FILE && content.storedHtml()
                 || representation == CdsExportDocumentRepresentation.STORED_HTML
                         && !content.storedHtml()) invalid();
-        String linkStatus = link.fields().get("status");
-        // An active (A) or HTML (H) association, or a legacy NULL one, is the chart's own link.
-        if (representation == CdsExportDocumentRepresentation.UNREPRESENTED
-                || linkStatus != null && !linkStatus.equals("A") && !linkStatus.equals("H"))
-            review("CDS_EXPORT_NATIVE_REPORT_STATUS_REQUIRES_REVIEW");
+        // Every link that is not deleted is the chart's own link, whatever its status says (the
+        // chart's list reads only the document's status), and a document status other than D
+        // is shown as any other: both statuses stay exact in Notes with their rows.
         String html = content.storedHtml() ? source.get("docxml") : null;
         // Stored HTML is exported exactly as it is stored, blank included. The Add HTML form
         // refuses only an empty body, so a body of spaces or line breaks is a document a user

@@ -907,9 +907,6 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                                     control::checkpoint);
                                     continue;
                                 }
-                                if (representation == CdsExportDocumentRepresentation.UNREPRESENTED)
-                                    throw new CdsExportMappingReviewException(
-                                            "CDS_EXPORT_NATIVE_REPORT_STATUS_REQUIRES_REVIEW");
                                 if (file != null && file.content().bytes() < 1)
                                     throw new CdsExportMappingReviewException(
                                             "CDS_EXPORT_NATIVE_REPORT_FILE_EMPTY");

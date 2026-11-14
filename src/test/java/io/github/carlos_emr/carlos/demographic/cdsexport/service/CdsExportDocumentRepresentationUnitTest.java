@@ -78,15 +78,23 @@ class CdsExportDocumentRepresentationUnitTest {
     }
 
     @Test
-    void shouldHoldForReview_whatTheChartCannotShowOrThisReleaseDoesNotKnow() {
-        // An HTML document whose stored HTML is empty: the chart reports a missing file.
+    void shouldExportWhatTheChartShows_forAnyStatusButD() {
+        // Before: these held the chart (CDS_EXPORT_NATIVE_REPORT_STATUS_REQUIRES_REVIEW). The
+        // chart lists every document whose status is not D and never reads it otherwise; the
+        // REST document API stores whatever status its caller sends, in the link as well.
+        assertThat(of(document("I", "20260305101400scan.pdf", ""), link("I")))
+                .isEqualTo(CdsExportDocumentRepresentation.FILE);
+        assertThat(of(document("X", "20260305101400scan.pdf", "<p>Shown</p>"), link("X")))
+                .isEqualTo(STORED_HTML);
+        assertThat(of(document("", "20260305101400scan.pdf", null), link("")))
+                .isEqualTo(CdsExportDocumentRepresentation.FILE);
+        // An HTML document whose stored HTML is empty shows its file; when it names none, the
+        // capture finds the file missing, as the chart does when it is opened.
         assertThat(of(document("H", "20260305101500html", ""), link("H")))
-                .isEqualTo(UNREPRESENTED);
-        assertThat(of(document("I", "20260305101400scan.pdf", ""), link("A")))
-                .isEqualTo(UNREPRESENTED);
+                .isEqualTo(CdsExportDocumentRepresentation.FILE);
         // Status comparison is exact, as the capture predicate's byte comparison is.
-        assertThat(of(document("a", "20260305101400scan.pdf", ""), link("A")))
-                .isEqualTo(UNREPRESENTED);
+        assertThat(of(document("d", "20260305101400scan.pdf", ""), link("A")))
+                .isEqualTo(CdsExportDocumentRepresentation.FILE);
     }
 
     @Test
