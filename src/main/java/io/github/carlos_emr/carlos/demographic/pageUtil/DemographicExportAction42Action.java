@@ -456,10 +456,7 @@ public class DemographicExportAction42Action extends ActionSupport {
             for (String patient : list) projection.requireWholeChartSupported(Integer.parseInt(patient));
         } catch (io.github.carlos_emr.carlos.commn.model.CdsLegacyProjectionException unsupported) {
             writeExportAuditLog(loggedInInfo, list.size(), "unsupported_structured_projection", "<unavailable>", null);
-            response.setStatus(HttpServletResponse.SC_CONFLICT);
-            response.setContentType("text/plain;charset=UTF-8");
-            response.setHeader("Cache-Control", "no-store");
-            response.getWriter().write(unsupported.getMessage());
+            refuseUnsupportedProjection(response, unsupported);
             return NONE;
         }
 
@@ -3429,6 +3426,22 @@ public class DemographicExportAction42Action extends ActionSupport {
             throw carryFailure;
         }
         return carried;
+    }
+
+    /**
+     * Answers 409 with the refusal's own sentence. A method of its own so that its one reviewed
+     * static-analysis exception does not cover the whole of {@link #execute()}.
+     */
+    // FindSecBugs XSS_SERVLET: Writes the message of CdsLegacyProjectionException, a fixed sentence set in its only constructor with no request or patient value, as text/plain UTF-8; nothing is rendered as HTML.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "writes the message of CdsLegacyProjectionException, a fixed sentence set in its only constructor with no request or patient value, as text/plain UTF-8; nothing is rendered as HTML")
+    private static void refuseUnsupportedProjection(
+            HttpServletResponse response,
+            io.github.carlos_emr.carlos.commn.model.CdsLegacyProjectionException unsupported)
+            throws IOException {
+        response.setStatus(HttpServletResponse.SC_CONFLICT);
+        response.setContentType("text/plain;charset=UTF-8");
+        response.setHeader("Cache-Control", "no-store");
+        response.getWriter().write(unsupported.getMessage());
     }
 
     /**
