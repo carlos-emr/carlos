@@ -418,8 +418,9 @@ class CdsExportDemographicSupportingMapperUnitTest {
         var result = assemble(ALL);
         var content = key("demographiccust", CdsExportPatientTableSourceReader.key(27), "content");
         assertThat(result.fields().get(content).outcome()).isEqualTo(Outcome.MAPPED);
+        // NoteAboutPatient holds the note's shortened form; the record holds the whole column.
         assertThat(result.fields().get(content).destination())
-                .isEqualTo(CdsExportDemographicSupportingMapper.DESTINATION);
+                .isEqualTo("NoteAboutPatient," + CdsExportDemographicSupportingMapper.DESTINATION);
         var record = CdsExportDemographicSupportingMapper.map(supportingRows(), () -> {});
         assertThat(record.fields()).containsKey(content);
         // The exact stored column, frame included.

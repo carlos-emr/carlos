@@ -76,7 +76,9 @@ public final class CdsExportPatientNoteMapper {
     }
 
     /** NoteAboutPatient is a text64K: 64,000 characters as the migration dictionary counts it. */
-    static final int NOTE_LENGTH = 64000;
+    static final int NOTE_LENGTH =
+            io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionContract
+                    .PATIENT_NOTE_LENGTH;
 
     /**
      * How one stored {@code demographiccust.content} value is exported.
@@ -109,7 +111,12 @@ public final class CdsExportPatientNoteMapper {
      *   <li>a character XML 1.0 cannot carry is written as U+FFFD ({@link CdsExportXmlText}), and
      *       the exact column travels in the record;
      *   <li>a note longer than the element's 64,000 characters (the column holds 65,535 bytes) is
-     *       not cut: the element is left out and the whole column travels in the record.
+     *       written as its first characters followed by the shortened mark ({@link
+     *       io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionContract#patientNoteElement}),
+     *       and the whole column travels in the record. A CARLOS importer restores the whole note
+     *       from the record once the element proves to be that note's shortened form; the element
+     *       is never absent for a note, so a record retained from an earlier sender cannot bring
+     *       back a note the chart no longer has.
      * </ul>
      *
      * <p>Without NewCategory the record is not written, and {@link
@@ -123,10 +130,16 @@ public final class CdsExportPatientNoteMapper {
         String shown = DemographicCust.patientNotesText(raw);
         // The chart's reader took an inner frame: the value is not what a screen wrote.
         boolean legacy = !framed && !shown.equals(raw);
-        String element = CdsExportXmlText.element(shown);
-        if (element.codePointCount(0, element.length()) > NOTE_LENGTH)
+        // One rule for both sides: the importer proves the carried column against the element
+        // with it before it restores the note.
+        String element =
+                io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionContract
+                        .patientNoteElement(shown);
+        if (!element.equals(CdsExportXmlText.element(shown)))
             return new Note(
-                    null, carrier, "PATIENT_NOTE_LONGER_THAN_THE_ELEMENT_CARRIED_WHOLE");
+                    element,
+                    "NoteAboutPatient," + carrier,
+                    "PATIENT_NOTE_LONGER_THAN_THE_ELEMENT_SHORTENED_EXACT_COLUMN_CARRIED");
         if (!element.equals(shown))
             return new Note(
                     element,

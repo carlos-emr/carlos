@@ -152,13 +152,61 @@ it is said here.
 | Carrier | What it holds beside the element | On import |
 | --- | --- | --- |
 | `CARLOS.History.Narrative.v1` | A CPP narrative too long for its description element (which is then left out), or a PersonalHistory narrative | Restored (the note body), as before. |
-| `CARLOS.NativeHistory.v1` `exactNarrative` / `narrative` | The exact body of a CPP item or note that holds a character XML cannot carry; the element and the narrative carrier show U+FFFD | Source only. The received note shows U+FFFD where the sender's had the character. |
+| `CARLOS.NativeHistory.v1` `exactNarrative` / `narrative` | The exact body of a CPP item or note that holds a character XML cannot carry; the element and the narrative carrier show U+FFFD | Restored, see "Exact text a CARLOS sender carries" below. |
 | `CARLOS.NativeHistory.v1` `importedNotes`, `revisions`, extension facts | Imported Notes left out of Notes on an edited imported item; every revision | Source only. No native value is changed: Notes was never a native column. |
-| `CARLOS.NativeDemographic.v1` (`CARLOS.Demographic.v1`) `note` | A patient note longer than NoteAboutPatient (64,000), with a character XML cannot carry, or in a legacy frame | Source only. For a note over 64,000 characters the element is absent, so the receiving chart has no patient note; with a character XML cannot carry it has the note with U+FFFD. |
+| `CARLOS.NativeDemographic.v1` (`CARLOS.Demographic.v1`) `note` | A patient note longer than NoteAboutPatient (64,000), with a character XML cannot carry, or in a legacy frame | Restored, see "Exact text a CARLOS sender carries" below. A legacy frame needs nothing: the element already holds the note as the sender's chart shows it. |
 | `CARLOS.NativeDemographic.v1` `demographic`, `roster`, `careTeam`, `properties`, `related` | Demographic, enrolment, contact, health care team and pharmacy values with no element | Source only; the standard elements are imported as from any sender. |
 | `CARLOS.Medication.Source.v1`, `CARLOS.Allergy.Source.v1`, `CARLOS.Prevention.Source.v1` | The complete native row, including text an element shows with U+FFFD | The fields listed above are restored (quantity unit, as-needed, "Other" provider, reminder date); the exact text of a value shown with U+FFFD is not. |
 | `CARLOS.Laboratory.v1`, `CARLOS.NativeLaboratory.v1`, `CARLOS.Observation.v1`, `CARLOS.NativeObservation.v1`, `CARLOS.Prescription.v1`, `CARLOS.ImportedLaboratoryReview.v1` | The stored message, measurement, script or comment | Source only. |
 | `carlos-data-summary-record.json` and image files inside a data-summary PDF | The exact record of a data summary whose PDF could not show everything | Not read. The PDF is stored unchanged (its bytes are checked against the planned digest), so the attachments stay inside the stored document. |
+
+### Exact text a CARLOS sender carries
+
+XML 1.0 cannot carry a control character (other than tab, line feed and carriage return), U+FFFE,
+U+FFFF or an unpaired surrogate, and CDS elements have lengths. A CARLOS sender writes such a
+value by one documented rule (`CdsNativeExtensionContract.xmlElementText`: the same text with
+U+FFFD in place of each such character, one for one) and carries the stored value beside it. The
+importer restores the stored value only after proving the carrier against its element: the
+element must be exactly what the sender's rule writes from the carried value, and the carried
+value must be one a CARLOS column can hold (`isElementTextOf`). Only an element that shows U+FFFD
+(or the patient note's shortened mark) can stand for another stored value, so no other element
+reads a carrier, and an element that is absent is never restored. A carrier that holds nothing
+for the element, or holds the element's own text, leaves it unchanged with no report: the U+FFFD
+is then the sender's own text. A carrier that is unreadable, or that does not prove itself, is
+never guessed at: the element is imported as from any sender and the patient's report names the
+code below. Text from a sender that is not CARLOS is unaffected, whatever it contains.
+
+- **CPP items** (`CdsHistoryPersister.exactItemText`). The item's text (its description element,
+  or `CARLOS.History.Narrative.v1`) shows U+FFFD; the current revision of the item's last
+  `CARLOS.NativeHistory.v1` (an edited imported item's sender writes its own after the one it
+  received) carries `exactNarrative`, or `narrative` for a PersonalHistory item. The details are
+  read twice as a stream and only the current revision's text is kept, so an earlier revision of
+  any length is never held. Not proven: `CDS_HISTORY_EXACT_NARRATIVE_NOT_APPLIED` (path
+  `ResidualInfo`).
+- **Encounter notes** (`CdsHistoryPersister.exactNoteText`). ClinicalNotes has no ResidualInfo:
+  the text ends with `[CARLOS source note details]` and the revision details. A revision whose
+  body was written with U+FFFD carries `exactNarrative`, and every revision then states
+  `bodyLength`, its body's UTF-16 length as written. Counted back from the details, each body has
+  one place, under the heading the sender writes (`[Original note]`, `[Revision n]`; none for one
+  revision). Every heading must stand where the lengths put it and every carried body must prove
+  itself there; then all are restored, otherwise none and `CDS_HISTORY_EXACT_NARRATIVE_NOT_APPLIED`
+  (path `MyClinicalNotesContent`). Text that merely ends like revision details is another
+  sender's quotation and is left alone.
+- **Patient note** (`CdsDemographicDetailsService.carriedPatientNote`). NoteAboutPatient shows
+  U+FFFD, or, for a note longer than its 64,000 characters, the first characters followed by the
+  mark `[CARLOS: shortened to the CDS limit of 64,000 characters]` on its own line
+  (`patientNoteElement`). The whole stored column is `note.content` of the last
+  `CARLOS.NativeDemographic.v1` record in the patient file (read from the file's sealed parse, its
+  records manifest checked against the parse seal); the note the sender's chart shows from it must
+  give exactly the element. A note too long for the receiving column then becomes the source-view
+  placeholder (`CDS_PATIENT_NOTE_COMPLETE_TEXT_SOURCE_VIEW`), as any long note does. Not proven:
+  `CDS_PATIENT_NOTE_CARRIER_NOT_APPLIED` (path `NoteAboutPatient`). Because the element is never
+  absent for a note, a record kept from an earlier sender cannot bring back a note the sending
+  chart no longer has.
+- **Patient Alert**: `CARLOS.PatientAlert.v1`, in the marker table above.
+
+The text is restored before the native note size is checked: the stored value is never longer in
+UTF-8 than its U+FFFD form.
 
 ### CARLOS appointment source record
 

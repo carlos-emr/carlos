@@ -110,9 +110,10 @@ class CdsExportPatientNoteMapperUnitTest {
     }
 
     @Test
-    void shouldCarryANoteLongerThanTheElementWhole_insteadOfHoldingTheChart() throws Exception {
+    void shouldShortenANoteLongerThanTheElement_andCarryTheWholeColumn() throws Exception {
         // Before: PATIENT_NOTE_DICTIONARY_LENGTH_REQUIRES_REVIEW held the chart for a master
-        // record note of 64,001 to 65,535 characters (the column is a TEXT).
+        // record note of 64,001 to 65,535 characters (the column is a TEXT); then the element
+        // was left out, and a receiving chart had no patient note at all.
         String fits = "n".repeat(CdsExportPatientNoteMapper.NOTE_LENGTH);
         var whole = mapper.map(27, DEMOGRAPHICS, row(DemographicCust.wrapPatientNotes(fits)));
         assertThat(whole.text()).isEqualTo(fits);
@@ -120,21 +121,27 @@ class CdsExportPatientNoteMapperUnitTest {
         var longer =
                 mapper.map(27, DEMOGRAPHICS, row(DemographicCust.wrapPatientNotes(fits + "x")));
         assertThat(longer.representable()).isTrue();
-        // Nothing is cut: the element is left out and the native demographic record carries it.
-        assertThat(longer.text()).isNull();
+        // Its first characters and the mark, never a silent cut: the native demographic record
+        // carries the whole column, from which a CARLOS importer restores the note.
+        String mark = CdsNativeExtensionContract.PATIENT_NOTE_SHORTENED_MARK;
+        assertThat(longer.text())
+                .hasSize(CdsExportPatientNoteMapper.NOTE_LENGTH)
+                .endsWith(mark)
+                .isEqualTo(fits.substring(0, fits.length() - mark.length()) + mark);
         assertThat(content(longer))
                 .isEqualTo(
                         new CdsExportFieldAssessmentDto(
                                 CdsExportFieldAssessmentDto.Presence.VALUE,
                                 CdsExportFieldAssessmentDto.Outcome.MAPPED,
-                                CdsExportDemographicSupportingMapper.DESTINATION,
-                                "PATIENT_NOTE_LONGER_THAN_THE_ELEMENT_CARRIED_WHOLE"));
-        assertThat(roundTrip(longer)).isNull();
-        // Without NewCategory the record is not written and the note is accounted as such.
-        assertThat(
-                        CdsExportDemographicSupportingMapper.withSelection(content(longer), false)
-                                .outcome())
-                .isEqualTo(CdsExportFieldAssessmentDto.Outcome.OPERATIONAL);
+                                "NoteAboutPatient," + CdsExportDemographicSupportingMapper.DESTINATION,
+                                "PATIENT_NOTE_LONGER_THAN_THE_ELEMENT_SHORTENED_EXACT_COLUMN_CARRIED"));
+        assertThat(CdsExportDemographicSupportingMapper.carries(content(longer))).isTrue();
+        assertThat(roundTrip(longer)).isEqualTo(longer.text());
+        // Without NewCategory the record is not written; the element still holds its shortened
+        // form.
+        var unselected = CdsExportDemographicSupportingMapper.withSelection(content(longer), false);
+        assertThat(unselected.outcome()).isEqualTo(CdsExportFieldAssessmentDto.Outcome.MAPPED);
+        assertThat(unselected.destination()).isEqualTo("NoteAboutPatient");
     }
 
     @Test
@@ -235,13 +242,18 @@ class CdsExportPatientNoteMapperUnitTest {
     void shouldKeepExactCodePointCapacity_andNeverTruncateOrHold() throws Exception {
         var valid = mapper.map(27, DEMOGRAPHICS, row("😀".repeat(64000)));
         assertThat(roundTrip(valid)).isEqualTo(valid.text());
+        String mark = CdsNativeExtensionContract.PATIENT_NOTE_SHORTENED_MARK;
         for (String text : List.of("😀".repeat(64001), "😀".repeat(65536), "😀".repeat(65537))) {
             var mapped = mapper.map(27, DEMOGRAPHICS, row(text));
-            // Longer than the element: carried whole, never cut.
+            // Longer than the element: its first characters, counted as code points so no pair
+            // is split, then the mark; the whole column is carried.
             assertThat(mapped.representable()).isTrue();
-            assertThat(mapped.text()).isNull();
+            assertThat(mapped.text())
+                    .isEqualTo("😀".repeat(64000 - mark.length()) + mark);
+            assertThat(mapped.text().codePointCount(0, mapped.text().length())).isEqualTo(64000);
             assertThat(content(mapped).destination())
-                    .isEqualTo(CdsExportDemographicSupportingMapper.DESTINATION);
+                    .isEqualTo("NoteAboutPatient," + CdsExportDemographicSupportingMapper.DESTINATION);
+            assertThat(roundTrip(mapped)).isEqualTo(mapped.text());
         }
         for (String text : List.of("Invalid\u0001XML", "Invalid\ud800surrogate")) {
             var mapped = mapper.map(27, DEMOGRAPHICS, row(text));

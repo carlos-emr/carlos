@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
 import com.google.common.base.Ascii;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionContract;
 import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.*;
 import io.github.carlos_emr.carlos.commn.model.CdsClinicalException;
@@ -79,6 +80,50 @@ public class CdsDemographicDetailsService {
 
     public void validate(CdsRecordDto record, CdsImportCommand command) throws IOException {
         prepare(record, command, false);
+    }
+
+    /** Reported when a sender's carried patient note could not be proven against its element. */
+    static final String PATIENT_NOTE_CARRIER_NOT_APPLIED = "CDS_PATIENT_NOTE_CARRIER_NOT_APPLIED";
+
+    /**
+     * The patient note with the exact text a CARLOS sender carries for it, or {@code element}
+     * (possibly null) when there is nothing to restore or it cannot be proven.
+     *
+     * <p>A CARLOS export writes NoteAboutPatient with U+FFFD for each character XML cannot carry
+     * and, for a note longer than the element (64,000 characters), as its first characters and
+     * the shortened mark; the whole stored column then travels in the native demographic record.
+     * Only an element showing U+FFFD or ending with that mark can stand for another stored note,
+     * so no other element reads the record. The carried column is used only when the element is
+     * exactly what the exporter's rule writes from it ({@link
+     * CdsNativeExtensionContract#patientNoteElement} of the text the sender's chart shows, a
+     * column a CARLOS chart can hold). The receiving chart then shows what the sender's did; a
+     * note too long for the receiving column becomes the source-view placeholder, as any long
+     * note does. A record with no note leaves the element as it is (the U+FFFD or the mark is
+     * the sender's own text). A record that is unreadable, or whose note does not match, is
+     * never guessed at: the element is imported as any sender's and the report names {@link
+     * #PATIENT_NOTE_CARRIER_NOT_APPLIED}. An absent element is never restored, so a record kept
+     * from an earlier sender cannot bring back a note the sending chart no longer has.
+     */
+    String carriedPatientNote(
+            CdsRecordDto record, String element, Consumer<CdsClinicalDiagnosticDto> notice)
+            throws IOException {
+        if (element == null
+                || element.indexOf('�') < 0
+                        && !element.endsWith(CdsNativeExtensionContract.PATIENT_NOTE_SHORTENED_MARK))
+            return element;
+        var carried = new CdsDemographicResidualReader(fields).note(record);
+        if (carried == null) return element;
+        if (carried.column() != null) {
+            String shown =
+                    io.github.carlos_emr.carlos.commn.model.DemographicCust.patientNotesText(
+                            carried.column());
+            if (CdsNativeExtensionContract.storable(shown)
+                    && element.equals(CdsNativeExtensionContract.patientNoteElement(shown)))
+                return shown;
+        }
+        notice.accept(
+                new CdsClinicalDiagnosticDto(PATIENT_NOTE_CARRIER_NOT_APPLIED, "NoteAboutPatient"));
+        return element;
     }
 
     private CdsDemographicDetailsDto prepare(
@@ -178,7 +223,7 @@ public class CdsDemographicDetailsService {
                         "HealthCard/Expirydate",
                         command,
                         notice);
-        String note = selected.get("NoteAboutPatient");
+        String note = carriedPatientNote(record, selected.get("NoteAboutPatient"), notice);
         if (note != null && note.getBytes(StandardCharsets.UTF_8).length > 65518) {
             note =
                     "[CDS patient note exceeds native storage. Read the complete original and"
