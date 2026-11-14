@@ -38645,7 +38645,7 @@
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java"
         ],
-        "normalization": "Complete narrative within configured byte budget. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
+        "normalization": "Complete narrative whenever its prepared record fits its column (cds_import_preparation.payload, checked at 1,048,576 bytes); no size setting. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
         "normativeBasis": [
           "EMR Data Migration Implementation Guide v1.1 section 17 (AlertsAndSpecialNeeds)",
           "EMR Data Migration Requirements v1.1 DP02.01",
@@ -38677,7 +38677,7 @@
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java"
         ],
-        "normalization": "Complete narrative within configured byte budget. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
+        "normalization": "Complete narrative whenever its prepared record fits its column (cds_import_preparation.payload, checked at 1,048,576 bytes); no size setting. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
         "normativeBasis": [
           "EMR Data Migration Implementation Guide v1.1 section 14 (ClinicalNotes)",
           "EMR Data Migration Requirements v1.1 DP02.01",
@@ -38707,7 +38707,7 @@
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java"
         ],
-        "normalization": "Complete narrative within configured byte budget. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
+        "normalization": "Complete narrative whenever its prepared record fits its column (cds_import_preparation.payload, checked at 1,048,576 bytes); no size setting. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
         "normativeBasis": [
           "EMR Data Migration Implementation Guide v1.1 section 5 (FamilyHistory)",
           "EMR Data Migration Requirements v1.1 DP02.01",
@@ -38739,7 +38739,7 @@
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java"
         ],
-        "normalization": "Complete narrative within configured byte budget. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
+        "normalization": "Complete narrative whenever its prepared record fits its column (cds_import_preparation.payload, checked at 1,048,576 bytes); no size setting. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
         "normativeBasis": [
           "EMR Data Migration Implementation Guide v1.1 section 6 (PastHealth)",
           "EMR Data Migration Requirements v1.1 DP02.01",
@@ -38771,7 +38771,7 @@
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java"
         ],
-        "normalization": "Complete narrative within configured byte budget. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
+        "normalization": "Complete narrative whenever its prepared record fits its column (cds_import_preparation.payload, checked at 1,048,576 bytes); no size setting. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
         "normativeBasis": [
           "EMR Data Migration Implementation Guide v1.1 section 7 (ProblemList)",
           "EMR Data Migration Requirements v1.1 DP02.01",
@@ -38801,7 +38801,7 @@
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java"
         ],
-        "normalization": "Complete narrative within configured byte budget. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
+        "normalization": "Complete narrative whenever its prepared record fits its column (cds_import_preparation.payload, checked at 1,048,576 bytes); no size setting. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
         "normativeBasis": [
           "EMR Data Migration Implementation Guide v1.1 section 8 (RiskFactors)",
           "EMR Data Migration Requirements v1.1 DP02.01",
