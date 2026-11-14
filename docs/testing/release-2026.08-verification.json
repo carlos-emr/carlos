@@ -4081,7 +4081,7 @@
               "check": "java-cds-transfer-export"
             },
             {
-              "name": "shouldCarryTheCurrentRowOfAStoredImportedPrescription_throughExportAndImport",
+              "name": "shouldCarryTheCurrentRowOfAStoredImportedPrescription_throughExportAndImport(Path)",
               "container": "",
               "check": "java-cds-transfer-export"
             }
