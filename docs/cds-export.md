@@ -3498,8 +3498,7 @@ the provider, one a day at local noon (a local time inside a daylight-saving cha
 review, which is the export's rule, not a scaling measurement). Imported charts are produced by
 the import lane's real-wire generator (`run-cds-performance.py`), so their export takes the
 retained receipt and witness reconciliation path. The imported 2048-note chart is imported
-first (about 19 minutes on a hosted runner); each profile is its own job so that job does not
-serialize the others.
+first; each profile is its own job so that job does not serialize the others.
 
 A case passes only when the job is READY and complete with every selected chart processed and
 none held, the package (decrypted with the fixture's own recipient key) holds exactly the
@@ -3521,37 +3520,46 @@ chart (`patients-1` to `patients-32`). The per-note privilege budget, 1.0, is th
 detector for the census slowdown fixed by the per-patient authorization session (see "One
 authorization session per patient" above): with the session the authorization tables are read
 per patient, not per note, so any return to per-read checks exceeds it whatever the total
-statement budget absorbs. Budgets are about twice the measurements below; RSS cannot take that
-headroom inside the 1536 MiB runtime, so its budget (1280 MiB) bounds growth beyond the 512 MiB
-heap. Each budget and its derivation is documented beside `BUDGETS` in the harness.
+statement budget absorbs: the measured growth is 0.02 (native) and 0.29 (imported) per note.
+The other budgets are about twice the measurements below; RSS cannot take that headroom inside the
+1536 MiB runtime, so its budget (1280 MiB, about 1.5 times the largest chart) bounds growth beyond
+the 512 MiB heap. Each budget and its derivation is documented beside `BUDGETS` in the harness.
 
-Native measurements on the reference runtime (two CPUs of a shared four-core host), each case a
-complete READY export whose package held exactly its notes and results:
+Measurements on the reference runtime (two CPUs of a shared four-core host); every listed case
+was a complete READY export whose package held exactly its notes and results:
 
-| Case | Elapsed | Statements | Privilege statements | Engine RSS |
-| --- | --- | --- | --- | --- |
-| patients-1 | 40 s | 8,122 | 3,201 | 546 MiB |
-| patients-8 | 179 s | 59,137 | 23,951 | 592 MiB |
-| patients-32 | 544 s | 232,827 | 95,039 | 590 MiB |
-| chart-128 | 136 s | 10,737 | 3,249 | 804 MiB |
-| chart-512 | 370 s | 18,138 | 3,369 | 836 MiB |
-| chart-2048 | 1,987 s | 55,333 | 4,217 | 836 MiB |
+| Case | Native: elapsed / statements / privilege / engine RSS | Imported: elapsed / statements / privilege / engine RSS |
+| --- | --- | --- |
+| patients-1 | 25 s / 7,952 / 3,213 / 538 MiB | 23 s / 7,899 / 3,167 / 535 MiB |
+| patients-8 | 56 s / 57,582 / 23,907 / 585 MiB | 55 s / 57,147 / 23,539 / 575 MiB |
+| patients-32 | 150 s / 227,495 / 94,851 / 578 MiB | 162 s / 225,979 / 93,387 / 603 MiB |
+| chart-128 | 30 s / 9,377 / 3,213 / 562 MiB | 41 s / 9,622 / 3,175 / 612 MiB |
+| chart-512 | 39 s / 13,664 / 3,221 / 783 MiB | 253 s / 17,131 / 3,287 / 855 MiB |
+| chart-2048 | 100 s / 30,971 / 3,253 / 831 MiB | fails (below) |
 
-The `carlos-ctl` adapter peaked at 24.5 MiB. That is about 7,250 statements, 2,960 privilege
-statements and 16 s per extra chart, and 23.2 statements and 0.50 privilege statements per extra
-note and result from 128 to 2048 notes. Time per note rises from about 0.6 s to about 1.05 s above
-512 notes: at 2048 notes the 512 MiB heap is near full and the engine spends a large share of its
-time in full collections. These are the current baseline, recorded rather than optimized by the
-lane. Two costs stand out for later work: every chart still costs about 2,960 authorization reads
-(the per-category gates and the closing re-check of the session), and the per-note CPU is
-dominated by repeated scans of the captured native rows (`CdsExportNativeCaptureReader.scan`,
-re-verifying each value, reached from several occurrence services).
+The `carlos-ctl` adapter peaked at 24 MiB. Each extra chart costs about 7,050 statements, 2,930
+privilege statements and 4 to 4.5 s; each extra note and result costs 11.2 statements and 0.02
+privilege statements on a native chart (chart-128 to chart-2048) and 19.6 and 0.29 on an imported
+one (chart-128 to chart-512). The imports of the three imported charts took 45, 110 and 415 s.
+These are the current baseline, recorded rather than optimized by the lane; the per-chart
+authorization cost (the per-category gates and the closing re-check of the session) is the
+largest remaining per-patient cost.
+
+**Imported 2048-note chart: open defect.** Its export ends `FAILED` with
+`CDS_EXPORT_EXECUTION_FAILED` after about 144 s: a statement timeout (SQL state 70100) in
+`CdsExportPatientTableReadSupport.requireLocalLaboratoryAssociations`, called from
+`CdsLaboratoryResultDao.findCdsExportRowsAfter`. That check runs for every laboratory page and
+value chunk, and its correlated subqueries on `cds_laboratory_result.nativeLabNo` have no index
+to use, so each check scans the patient's imported results per result. The same growth already
+shows at 512 results (253 s imported against 39 s native). The `imported-charts` job fails on
+this case until the export is fixed; its budget is extrapolated from chart-128 and chart-512
+rather than raised to hide the failure.
 
 The same lane on the revision before the per-patient authorization session (the five classes
-that commit changed, compiled from its parent and overlaid on the same packaged WAR) shows what
-the per-note budget catches. Its chart-128 export was stopped after 1,899 s, still capturing, at
-1,068,468 statements and 659,491 privilege statements, against 136 s, 10,737 and 3,249 for the
-whole export with the session. That is at least 5,000 authorization reads per note against a
+that commit changed, compiled from its parent and overlaid on an earlier packaged WAR of this
+branch) shows what the per-note budget catches. Its chart-128 export was stopped after 1,899 s,
+still capturing, at 1,068,468 statements and 659,491 privilege statements, against 136 s, 10,737
+and 3,249 for the whole export with the session on that same WAR. That is at least 5,000 authorization reads per note against a
 budget of 1.0, mostly `secObjPrivilege` and `secUserRole` reads, then the facility, admission,
 program membership and role reads of each note's program check. The harness unit tests keep
 these measured counters (`PRE_SESSION` in `scripts/ci/test_run_cds_export_scaling.py`) and

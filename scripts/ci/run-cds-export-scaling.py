@@ -135,61 +135,69 @@ MARGINAL = {
 # below). A case budget is linear: fixed command cost + per-chart cost + per-note cost, where a
 # "note" is one signed note and one laboratory result (every case grows both together).
 #
-# Native measurements on the reference runtime (1536 MiB, two CPUs, 512 MiB CLI heap), every
-# case a complete READY export with exact package counts:
-#   patients-1/8/32   40 s / 179 s / 544 s     8,122 / 59,137 / 232,827 statements
-#                     3,201 / 23,951 / 95,039 privilege statements, engine RSS <= 592 MiB
-#   chart-128/512/2048  136 s / 370 s / 1,987 s  10,737 / 18,138 / 55,333 statements
-#                     3,249 / 3,369 / 4,217 privilege statements, engine RSS <= 836 MiB
-#   carlos-ctl adapter RSS 24.5 MiB
-# Growth: ~7,250 statements, ~2,960 privilege statements and ~16 s per extra chart; 23.2
-# statements and 0.50 privilege statements per extra note from chart-128 to chart-2048. Time per
-# note rises from ~0.6 s to ~1.05 s above 512 notes as the 512 MiB heap fills, so the per-note
-# time budget is set from chart-2048.
+# Measurements on the reference runtime (1536 MiB, two CPUs, 512 MiB CLI heap); every listed
+# case a complete READY export with exact package counts (docs/cds-export.md has the tables):
+#   native   patients-1/8/32   25 / 56 / 150 s      7,952 / 57,582 / 227,495 statements
+#                              3,213 / 23,907 / 94,851 privilege statements
+#            chart-128/512/2048  30 / 39 / 100 s    9,377 / 13,664 / 30,971 statements
+#                              3,213 / 3,221 / 3,253 privilege statements; engine RSS <= 831 MiB
+#   imported patients-1/8/32   23 / 55 / 162 s      7,899 / 57,147 / 225,979 statements
+#                              3,167 / 23,539 / 93,387 privilege statements
+#            chart-128/512     41 / 253 s           9,622 / 17,131 statements
+#                              3,175 / 3,287 privilege statements; engine RSS <= 855 MiB
+#   carlos-ctl adapter RSS 24 MiB
+# Growth: ~7,050 statements, ~2,930 privilege statements and ~4-4.5 s per extra chart; per extra
+# note 11.2 statements and 0.02 privilege statements native (chart-128 to chart-2048), 19.6 and
+# 0.29 imported (chart-128 to chart-512). The imported chart-2048 export does not complete: a
+# laboratory association check times out (docs/cds-export.md), so its budget is extrapolated
+# from the smaller imported charts and that case fails until the export is fixed.
 #
 # The per-note privilege budget is the regression detector for the census slowdown: before the
 # per-patient authorization session (CdsExportPatientAuthorization, CdsExportAccessService
 # .PatientGrants) every capture, mapping and emission step re-ran the chart, category and note
-# program/role privilege queries for each note. With the session a note's live scope is still
-# read per note, but authorization tables are read per patient, not per note; the measured 0.50
-# per note is batched re-checks. Its budget, 1.0, is both twice that and the point at which every
-# note again costs an authorization read, so any per-read regression exceeds it (the measured
-# pre-session revision is in docs/cds-export.md), however much the total statement budget absorbs.
+# program/role privilege queries for each note, thousands of authorization reads per note (the
+# measured pre-session revision is in docs/cds-export.md). With the session authorization tables
+# are read per patient, not per note; the measured 0.02 (native) and 0.29 (imported) per note are
+# batched re-checks. Its budget, 1.0, is the point at which every note again costs an
+# authorization read, about 3.4 times the imported measurement: any per-read regression exceeds
+# it, however much the total statement budget absorbs.
 #
 # Service RSS cannot take 2x headroom inside the 1536 MiB runtime: the CLI heap is capped at
-# 512 MiB, so the budget (1280 MiB) bounds growth beyond the heap and stays under the cgroup.
+# 512 MiB, so the budget (1280 MiB, about 1.5x) bounds growth beyond the heap and stays under the
+# cgroup. Time budgets are about twice the measured cases, except the small imported chart cases,
+# whose per-note time is set from chart-512.
 BUDGETS = {
     "native": {
         "fixedStatements": 2000,
-        "statementsPerPatient": 14500,
-        "statementsPerNote": 48,
+        "statementsPerPatient": 14200,
+        "statementsPerNote": 24,
         "fixedPrivilegeStatements": 500,
         "privilegeStatementsPerPatient": 6000,
         "privilegeStatementsPerNote": 1.0,
-        "marginalStatementsPerNote": 48,
+        "marginalStatementsPerNote": 24,
         "marginalPrivilegeStatementsPerNote": 1.0,
-        "marginalStatementsPerPatient": 14500,
+        "marginalStatementsPerPatient": 14200,
         "marginalPrivilegeStatementsPerPatient": 6000,
-        "fixedSeconds": 60,
-        "secondsPerPatient": 33,
-        "secondsPerNote": 1.9,
+        "fixedSeconds": 45,
+        "secondsPerPatient": 8,
+        "secondsPerNote": 0.08,
         "serviceRssMiB": 1280,
         "cliRssMiB": 48,
     },
     "imported": {
         "fixedStatements": 2000,
-        "statementsPerPatient": 14500,
-        "statementsPerNote": 48,
+        "statementsPerPatient": 14100,
+        "statementsPerNote": 40,
         "fixedPrivilegeStatements": 500,
         "privilegeStatementsPerPatient": 6000,
         "privilegeStatementsPerNote": 1.0,
-        "marginalStatementsPerNote": 48,
+        "marginalStatementsPerNote": 40,
         "marginalPrivilegeStatementsPerNote": 1.0,
-        "marginalStatementsPerPatient": 14500,
+        "marginalStatementsPerPatient": 14100,
         "marginalPrivilegeStatementsPerPatient": 6000,
-        "fixedSeconds": 60,
-        "secondsPerPatient": 33,
-        "secondsPerNote": 1.9,
+        "fixedSeconds": 40,
+        "secondsPerPatient": 9,
+        "secondsPerNote": 1.1,
         "serviceRssMiB": 1280,
         "cliRssMiB": 48,
     },
@@ -726,9 +734,9 @@ def main() -> None:
     parser.add_argument("--java", default="/usr/bin/java")
     parser.add_argument("--cli", default="/usr/sbin/carlos-ctl")
     parser.add_argument("--mysql", default="mariadb")
-    # Above the largest elapsed budget (chart-2048, 3,984 s), so a slow case is judged by its
-    # budget instead of being stopped.
-    parser.add_argument("--timeout", type=int, default=4500)
+    # Above the largest elapsed budget (imported chart-2048, 2,302 s), so a slow case is judged
+    # by its budget instead of being stopped.
+    parser.add_argument("--timeout", type=int, default=3000)
     parser.add_argument("--import-timeout", type=int, default=3600)
     parser.add_argument("--expected-memory-mib", type=int)
     parser.add_argument("--expected-cpus", type=int)

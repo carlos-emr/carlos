@@ -45,8 +45,8 @@ jobs:
   installed-export-scaling:
     name: Installed CDS export ${{ matrix.profile }}
     runs-on: ubuntu-24.04
-    # The longest job, imported-charts, first imports its 2048-note chart (about 19 minutes on
-    # a hosted runner, as in the import scaling lane) and then exports all three charts.
+    # The longest job, imported-charts, first imports its three charts (about 10 minutes on the
+    # reference runtime) and then exports them; the native jobs export within minutes.
     timeout-minutes: 120
     strategy:
       fail-fast: false

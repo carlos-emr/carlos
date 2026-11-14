@@ -59,12 +59,13 @@ def verified_case(label="chart-128", origin="native", patients=1, records=128, *
 # The measured native shape (docs/cds-export.md, "Installed export scaling lane"): a fixed command
 # cost, then per extra chart and per extra note (one note and one laboratory result).
 MEASURED = {
-    "perPatient": 7249,
-    "privilegePerPatient": 2962,
-    "perNote": 23.2,
-    "privilegePerNote": 0.50,
+    "perPatient": 7082,
+    "privilegePerPatient": 2956,
+    "perNote": 11.25,
+    "privilegePerNote": 0.021,
 }
-# The same lane on the revision before the per-patient authorization session
+# The same lane, on an earlier head, with the classes of the revision before the per-patient
+# authorization session overlaid
 # (CdsExportPatientAuthorization): chart-128 was stopped after 1,899 s, still capturing, having
 # issued 1,068,468 statements and 659,491 authorization-table reads (the complete export with the
 # session: 136 s, 10,737 and 3,249). Lower bounds per note, against the one-note chart's cost.
