@@ -343,6 +343,7 @@
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImmunizationProjectionIntegrationTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportAttemptBudgetUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportCleanupServiceUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportConfigurationServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportCoordinatorMariaDbIntegrationTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportExecutionControlUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportFailureEvidenceServiceUnitTest",

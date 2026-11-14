@@ -45,14 +45,11 @@ public class CdsImportViewModelAssembler {
     }
 
     public CdsImportViewModel assemble(LoggedInInfo actor) {
+        // Every registered source is offered, however many the clinic lists.
         String configured = configuration.value("cds.import.sourceNamespaces", "");
-        if (configured.length() > 8192)
-            throw new IllegalStateException("IMPORT_SOURCE_REGISTRY_TOO_LARGE");
         Set<String> namespaces = new LinkedHashSet<>();
         for (String value : configured.split(",")) {
             if (!value.isBlank()) namespaces.add(value.trim());
-            if (namespaces.size() > 200)
-                throw new IllegalStateException("IMPORT_SOURCE_REGISTRY_TOO_LARGE");
         }
         List<CdsImportViewModel.Source> sources = new ArrayList<>();
         for (String namespace : namespaces) {

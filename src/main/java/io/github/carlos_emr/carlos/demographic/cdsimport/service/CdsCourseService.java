@@ -178,8 +178,7 @@ public class CdsCourseService {
                 || !io.github.carlos_emr.carlos.utility.CdsImportKeys.asciiKeyword("active", course.status())) deny();
         String authorized =
                 configuration.value("cds.import.course." + command.courseId() + ".educators", "");
-        if (authorized.length() > 8192
-                || Arrays.stream(authorized.split(","))
+        if (Arrays.stream(authorized.split(","))
                         .map(String::trim)
                         .noneMatch(actor.providerNo()::equals)) deny();
         Long membership =
