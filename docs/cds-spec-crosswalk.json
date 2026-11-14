@@ -38611,7 +38611,7 @@
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java"
         ],
-        "normalization": "Complete narrative within configured byte budget. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
+        "normalization": "Complete narrative whenever its prepared record fits its column (cds_import_preparation.payload, checked at 1,048,576 bytes); no size setting. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
         "normativeBasis": [
           "EMR Data Migration Implementation Guide v1.1 section 17 (AlertsAndSpecialNeeds)",
           "EMR Data Migration Requirements v1.1 DP02.01",
@@ -38643,7 +38643,7 @@
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java"
         ],
-        "normalization": "Complete narrative within configured byte budget. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
+        "normalization": "Complete narrative whenever its prepared record fits its column (cds_import_preparation.payload, checked at 1,048,576 bytes); no size setting. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
         "normativeBasis": [
           "EMR Data Migration Implementation Guide v1.1 section 14 (ClinicalNotes)",
           "EMR Data Migration Requirements v1.1 DP02.01",
@@ -38673,7 +38673,7 @@
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java"
         ],
-        "normalization": "Complete narrative within configured byte budget. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
+        "normalization": "Complete narrative whenever its prepared record fits its column (cds_import_preparation.payload, checked at 1,048,576 bytes); no size setting. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
         "normativeBasis": [
           "EMR Data Migration Implementation Guide v1.1 section 5 (FamilyHistory)",
           "EMR Data Migration Requirements v1.1 DP02.01",
@@ -38705,7 +38705,7 @@
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java"
         ],
-        "normalization": "Complete narrative within configured byte budget. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
+        "normalization": "Complete narrative whenever its prepared record fits its column (cds_import_preparation.payload, checked at 1,048,576 bytes); no size setting. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
         "normativeBasis": [
           "EMR Data Migration Implementation Guide v1.1 section 6 (PastHealth)",
           "EMR Data Migration Requirements v1.1 DP02.01",
@@ -38737,7 +38737,7 @@
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java"
         ],
-        "normalization": "Complete narrative within configured byte budget. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
+        "normalization": "Complete narrative whenever its prepared record fits its column (cds_import_preparation.payload, checked at 1,048,576 bytes); no size setting. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
         "normativeBasis": [
           "EMR Data Migration Implementation Guide v1.1 section 7 (ProblemList)",
           "EMR Data Migration Requirements v1.1 DP02.01",
@@ -38767,7 +38767,7 @@
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java"
         ],
-        "normalization": "Complete narrative within configured byte budget. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
+        "normalization": "Complete narrative whenever its prepared record fits its column (cds_import_preparation.payload, checked at 1,048,576 bytes); no size setting. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
         "normativeBasis": [
           "EMR Data Migration Implementation Guide v1.1 section 8 (RiskFactors)",
           "EMR Data Migration Requirements v1.1 DP02.01",
@@ -39910,7 +39910,7 @@
       }
     },
     "scope": "Reachable leaf/attribute/choice contract of the two pinned wire XSDs, shared by explicitly selected PCON-2024-02 and OntarioMD-5.2 logical profiles; documentary review is not certification of all CDS-S logical requirements. Reviewed path groups distinguish native projections from protected generic source preservation. Native projection eligibility can be conditional, as described. On 2026-11-05, Codex independently reviewed the FrmSetupForm2Action reader update for PR #5602: the ongoing-concerns prefill changed, while the reviewed medication dose, pharmacy-instruction and timing mappings and their getDrugList/medicationLine reader behavior remain unchanged. On 2026-11-10, the shared CPP archive and authored PersonalHistory residual contract, sealed-payload defaults and receiving importer were reviewed together with native export round-trip evidence. This documents conditional CARLOS extensions, not standard receiver support for those extensions.",
-    "sha256": "4793fa4888aac61f8c0b6b8ea63c415c4fb9e0838dbfd8d71ab2ca191116aec4"
+    "sha256": "f051e499b7290419c174447517ad8a368b44f41bac600025b2eb5eac569ecb52"
   },
   "root": "cds:OmdCds",
   "schemas": [

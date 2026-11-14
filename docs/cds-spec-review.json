@@ -2346,7 +2346,7 @@
       "implementation": [
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java"
       ],
-      "normalization": "Complete narrative within configured byte budget. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
+      "normalization": "Complete narrative whenever its prepared record fits its column (cds_import_preparation.payload, checked at 1,048,576 bytes); no size setting. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
       "normativeBasis": [
         "EMR Data Migration Implementation Guide v1.1 section 17 (AlertsAndSpecialNeeds)",
         "EMR Data Migration Requirements v1.1 DP02.01",
@@ -2381,7 +2381,7 @@
       "implementation": [
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java"
       ],
-      "normalization": "Complete narrative within configured byte budget. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
+      "normalization": "Complete narrative whenever its prepared record fits its column (cds_import_preparation.payload, checked at 1,048,576 bytes); no size setting. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
       "normativeBasis": [
         "EMR Data Migration Implementation Guide v1.1 section 14 (ClinicalNotes)",
         "EMR Data Migration Requirements v1.1 DP02.01",
@@ -2414,7 +2414,7 @@
       "implementation": [
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java"
       ],
-      "normalization": "Complete narrative within configured byte budget. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
+      "normalization": "Complete narrative whenever its prepared record fits its column (cds_import_preparation.payload, checked at 1,048,576 bytes); no size setting. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
       "normativeBasis": [
         "EMR Data Migration Implementation Guide v1.1 section 5 (FamilyHistory)",
         "EMR Data Migration Requirements v1.1 DP02.01",
@@ -2449,7 +2449,7 @@
       "implementation": [
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java"
       ],
-      "normalization": "Complete narrative within configured byte budget. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
+      "normalization": "Complete narrative whenever its prepared record fits its column (cds_import_preparation.payload, checked at 1,048,576 bytes); no size setting. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
       "normativeBasis": [
         "EMR Data Migration Implementation Guide v1.1 section 6 (PastHealth)",
         "EMR Data Migration Requirements v1.1 DP02.01",
@@ -2484,7 +2484,7 @@
       "implementation": [
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java"
       ],
-      "normalization": "Complete narrative within configured byte budget. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
+      "normalization": "Complete narrative whenever its prepared record fits its column (cds_import_preparation.payload, checked at 1,048,576 bytes); no size setting. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
       "normativeBasis": [
         "EMR Data Migration Implementation Guide v1.1 section 7 (ProblemList)",
         "EMR Data Migration Requirements v1.1 DP02.01",
@@ -2517,7 +2517,7 @@
       "implementation": [
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java"
       ],
-      "normalization": "Complete narrative within configured byte budget. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
+      "normalization": "Complete narrative whenever its prepared record fits its column (cds_import_preparation.payload, checked at 1,048,576 bytes); no size setting. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
       "normativeBasis": [
         "EMR Data Migration Implementation Guide v1.1 section 8 (RiskFactors)",
         "EMR Data Migration Requirements v1.1 DP02.01",
@@ -4040,12 +4040,12 @@
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedPreparationReader.java": "f3e75af626ae7e13527ab87660415bf4bf08026fe9adef010c320d48a9e58743",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsAllergyDto.java": "80a2aed1d9960d403ce86f51975a2872c63fdf3814511937072890a7ca6f1e0f",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsDemographicNativeDto.java": "3f903623636da5d822c5d539167f4efbb10220f0c8ef69727e698460c3e5e911",
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsHistoryNativeDto.java": "e193e07f9a4737553b8cdbcdcb8aeb082deb054382e735b1bf741f89e47cd6a0",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsHistoryNativeDto.java": "6eba196ba78eeb58c415cab5aa552488edbf21f9f93cd236aedefa1c95e8f60e",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsImmunizationDto.java": "b4128ba8d1340496db9df4cb7eb55ac545c001ed894164280cfaeaa85cb86b06",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsMedicationDto.java": "929b3f6768a913740b79d015eac3a689634d0566ef7e065e3999a1e1e3acf828",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsMedicationNativeDto.java": "38bf6d26dc4880e5dca515bdebf8e2c347782e59ed2d1242ed126b6e5c4382a4",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalDto.java": "dd9962f4871fac91c36dd829bbeef83c70cde778b1eafb9ed390a327bfe72c3b",
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAllergyPersister.java": "79ecbe6cf624fc1daaf1e73034eb90824cb07e628ae9f58bb70ad0970b641d4e",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAllergyPersister.java": "636ad17ba8cb3537f3ac0508acdb2cf16105e5cdb332313a31673ba992244c12",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAllergyResidualReader.java": "8677e3c2520c0e92d4d336f66589b7084496ba61136862e69b7dadd26a4c5d35",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAppointmentPersister.java": "297c42422f3089c994c083f3c8a5c950108df488259630e47b79c9b06a945a6b",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAppointmentResidualReader.java": "9316f6755a1f50bf8dd3166ea7eccbb5a013325ab2411b589a55d1e07cde48e1",
@@ -4061,17 +4061,17 @@
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicPersister.java": "dab512ddfbc7b68986b7f26ff5b904897b716bffbb4268700824436e94f09648",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicRelationsService.java": "9107ad8cde3b8ff8bded2f40c6b0afadba9f8ca68b258ee709ec070fc08e62f5",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDocumentPublicationService.java": "6c625e70068e8bdb8c77793af16c98f63a8e81b7815c2ff37465c07cca72e8e2",
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java": "e5ce5851240ffe828d8c747c7346d32cb93fb5a2f78d8a9a4c2c3c5bad3fe90e",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java": "2b2d40d1e57d4fcbf9ff252b8af524a38f5da4024f0e2e3c320a00b463671993",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryResidualReader.java": "2f5e82e1a8938400eb775c04f9fe7bd0ddbb041b9b195d71168704e77ba2f90e",
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImmunizationPersister.java": "80211e38830aebb01db4c2616a57d28a56d29b8c5ad110ae46c1650a30a93bee",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImmunizationPersister.java": "aeb01d5c6b129c2792ba8a0c279e8411334e074557527ef2e0962781647b5221",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImmunizationResidualReader.java": "b70ab43db94bca990221e30f2396ce35853c1443b2c9f3f0ac62e65bced40898",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java": "42721f4156fd018be1ca6e5a6828175435b369b2adce58bf71ecc4a791d7aa3e",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportNativeService.java": "c2fe35df2bc741883ea752d3f1f7887a53a28c679d8e75aa7377db2bb6b8606b",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsLaboratoryImportService.java": "30b5b490ad5ccd73e292f9468e93e4c4ddbdb29c394c3d11097cdebe1ec67694",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsLaboratoryReadService.java": "fbb895c9131095cbe85c7a4b065e130a38dc17e178e01483843a0e163260a458",
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationPersister.java": "a84df8b87906593cbd29eef15382474763de4ae0b786ea435afc52c25bdc64b0",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationPersister.java": "668166e1b4d8c71263cb85fb849562397cb96e2a44f4ad6bc8b286f72f0b0a47",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationResidualReader.java": "cb2871c0ab24f1d2d0a694e7d53e50b2582f779f9a5eac028b250bd949a9318d",
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsNativePreparationService.java": "dd8fcd8a588642fcda5b478622b72ea7f8441faf89f0ce4e693fd22b49f91c55",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsNativePreparationService.java": "6f75117c5101f51a860e8c4a26a2a0f52f6b3e4b242c18d41ac284880f331970",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsPatientIdentityResolver.java": "40db43175563ede57f27792317419bd6ce2c1b41bdab492c257fe8ff680c00fc",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsPreflightIdentityService.java": "887f4fd8eaceef00b0d4dd773458b80f1788b7cc568f8a0ade3e5bbf5d219f13",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsProviderResolver.java": "ae26b6565baa3455e3006fa5a45824f68cb03c4f4a7ff6a0f77854f1ed8f882e",
@@ -4079,7 +4079,7 @@
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportMediaService.java": "a5b21b2dfa9238fb4c92734d1d7130ab7075aec25a4b511dcbf8902867bfe470",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSourceContextParser.java": "12a193f29b4726d10fb666bfbb791edb4cb3f7d18a380e0efb59ff0b58b1fced",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSourceFieldService.java": "1f04657e1394b6d3fc7723f5583d10bbc16946d474fc561f48679fa66d6f7a5f",
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsTargetReceiptService.java": "c18c6c5927472077fddaebf33a5e73e4285a03aac2eae40f35c5daa8b60dfd6d",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsTargetReceiptService.java": "e9dbf76e0ca84df97db2c8deae9525620e8acd3e5a95aa597d2353234436464f",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsTemporalReadService.java": "b7dc0470ec69fa63a5c53cdd44316cba82fde12878329ff1f1ea22eedbb2caeb",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/web/ViewCdsSourceFields2Action.java": "5cc8bb39e7e37e897ecddd6117736e5d142b3f1bf565ee91d374d6c78f43228c",
     "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/MeasurementInfo.java": "839f44b1d5a7ff853d1c9aa434810b8c873ab635f49a350b7acc593d1bd1bc7b",
