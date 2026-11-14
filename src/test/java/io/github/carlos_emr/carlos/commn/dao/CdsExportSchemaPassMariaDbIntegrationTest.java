@@ -100,8 +100,19 @@ class CdsExportSchemaPassMariaDbIntegrationTest {
         open(properties.getProperty("jdbcUser"), properties.getProperty("jdbcPassword"));
     }
 
+    /** The database every installed table of the reviewed profile is read from, never changed. */
+    private static final String INSTALLED = "cds_export_test";
+
+    private String account, secret;
+
     /** One physical connection, so the session's own statement counter sees every statement. */
     private void open(String account, String secret) {
+        open(clone, account, secret);
+    }
+
+    private void open(String database, String account, String secret) {
+        this.account = account;
+        this.secret = secret;
         if (context != null) context.close();
         if (source != null)
             try {
@@ -109,7 +120,7 @@ class CdsExportSchemaPassMariaDbIntegrationTest {
             } catch (SQLException ignored) {
                 // The pool is discarded either way.
             }
-        source = pool(url.replace("/cds_export_test", "/" + clone), account, secret);
+        source = pool(url.replace("/cds_export_test", "/" + database), account, secret);
         source.setMaxTotal(1);
         context = new AnnotationConfigApplicationContext();
         context.register(Transactions.class);
@@ -347,6 +358,84 @@ class CdsExportSchemaPassMariaDbIntegrationTest {
                                             CdsExportPhysicalSchemaReadSupport.read(em, null)))
                             .isEmpty();
                 });
+    }
+
+    @Test
+    @DisplayName("should verify the whole reviewed profile from one read and probe each table once per attempt")
+    void shouldVerifyTheWholeReviewedProfile_fromOneReadForEachPatientOfAnAttempt()
+            throws Exception {
+        // The installed schema itself, read only: every table of the pinned profile is there.
+        open(INSTALLED, account, secret);
+        var probes = new HashSet<String>();
+        long[] cost = new long[2];
+        for (int patient = 0; patient < 2; patient++) {
+            int index = patient;
+            // The legacy form table may be non-transactional; the capture pins it, as here.
+            try (var pinned =
+                    io.github.carlos_emr.carlos.demographic.cdsexport.support
+                            .CdsExportSourceReadLock.acquireUnpooled(
+                            java.sql.DriverManager.getConnection(
+                                    source.getUrl(), account, secret))) {
+                capture.executeWithoutResult(
+                        status -> {
+                            var none = new Object[1];
+                            cost[index] =
+                                    statements(
+                                            () -> {
+                                                catalogue.openSchemaPass(probes);
+                                                assertThat(
+                                                                CdsExportPhysicalSchemaReadSupport
+                                                                        .current())
+                                                        .isNotNull();
+                                                var schema = catalogue.readSourceSchema();
+                                                try {
+                                                    new io.github.carlos_emr.carlos.demographic
+                                                                    .cdsexport.service
+                                                                    .CdsExportSourceSchemaValidator()
+                                                            .verify(
+                                                                    schema,
+                                                                    Set.of("catalogueSha256"));
+                                                } catch (java.io.IOException refused) {
+                                                    throw new java.io.UncheckedIOException(
+                                                            refused);
+                                                }
+                                                for (Plan plan :
+                                                        java.util.List.of(
+                                                                Plan.ALLERGIES,
+                                                                Plan.DRUGS,
+                                                                Plan.CASE_NOTES,
+                                                                Plan.CASE_ISSUES))
+                                                    assertThat(
+                                                                    CdsExportPatientTableReadSupport
+                                                                            .schema(em, plan)
+                                                                            .columns())
+                                                            .isNotEmpty();
+                                                catalogue.requireUnclassifiedSourcesEmpty(
+                                                        1, () -> {});
+                                                // Nothing changed: the second read agrees and the
+                                                // whole profile is compared again.
+                                                catalogue.verifySchemaPass();
+                                                return null;
+                                            },
+                                            none);
+                        });
+            }
+        }
+        var profileTables =
+                io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportSourceCatalogue
+                        .current()
+                        .profiles()
+                        .stream()
+                        .mapToInt(profile -> profile.tables().size())
+                        .min()
+                        .orElseThrow();
+        // The first patient of an attempt probes each table of the profile once ...
+        assertThat(probes.size()).isGreaterThanOrEqualTo(profileTables);
+        assertThat(cost[0]).isGreaterThan(profileTables);
+        // ... and every later patient verifies the same profile and tables with two complete
+        // reads and the few presence checks of the catalogue, however many tables there are.
+        assertThat(cost[1]).isLessThan(40);
+        assertThat(cost[0] - cost[1]).isEqualTo(probes.size());
     }
 
     @Test

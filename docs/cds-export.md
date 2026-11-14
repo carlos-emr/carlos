@@ -1016,10 +1016,96 @@ holds the legacy Rourke table's READ lock for at most the capture timeout plus
 timeout can therefore block writes to that legacy form for longer, up to 7,230
 seconds at the maximum setting. Raising metadata
 limits requires enough JVM heap for retained patient/file/note indexes and normal
-application work. These limits act together with member, row, byte and staging limits;
-raising the patient count alone does not qualify an arbitrarily large package.
+application work.
 Native clinical clocks use the same explicit `cds.export.clinicalZone` as the accepted
 plan; a configured import zone must agree. No JVM default zone is inferred.
+
+#### What can still stop a large export
+
+No setting ends an export for how long it runs or how many charts it holds. What remains is
+listed here with what it protects, where it is enforced and how the job ends.
+
+**Time.** `cds.export.maxDurationMillis` (default 86,400,000, range 1 to 31 days) is a stall
+window, not a budget. Every checkpoint the engine thread passes is its proof of life
+(`CdsExportExecutionService.Control`); the 20-second lease heartbeat is the only thing that can
+find it silent. A worker that keeps reaching checkpoints is never stopped, however long its
+roster takes. When it reaches none for the whole window, the heartbeat stops renewing the lease
+(`CDS_EXPORT_WORKER_STALLED run=<id> epoch=<n> silentMillis=<n> attemptMillis=<n>` in the log),
+the lease expires within two minutes and another worker may claim the job; the stalled thread,
+if it ever returns, retires its own expired generation
+(`CDS_EXPORT_EXECUTION_LEASE_EXPIRED`) and never publishes. Before this the same setting was a
+budget for the whole attempt: at 24 hours the attempt stopped as `CDS_EXPORT_RESOURCE_LIMIT`,
+every staged capture was discarded, and a resumed job captured every chart again under the same
+limit.
+
+An attempt still cannot be continued. Staging belongs to one attempt (its epoch): when an
+attempt ends without publishing, for any reason, its captures become eligible for the retention
+sweep, and the next claim or `--resume` starts a new attempt that captures every chart again.
+A long export is therefore protected by not stopping it, not by resuming it.
+
+**Roster, member count, inventory and supporting files.** `cds.export.maxPatients`,
+`maxPackageMembers`, `maxPackageIndexBytes` and `maxSupportingBytes` are no longer read
+(`CdsExportActivePlanService`). They counted things that are streamed to protected storage (the
+selection and cohort manifests, the externally sorted package inventory, the ReadMe and event
+log), so nothing in memory grows with them. An installation that still sets one gets one log
+line naming the settings (`CDS_EXPORT_RETIRED_SETTINGS_IGNORED`) and no refusal, whatever the
+value. What remains are the sizes the package formats themselves accept, which are fixed, not
+configurable:
+
+| Ceiling | Value | Enforced in | Outcome when reached |
+| --- | --- | --- | --- |
+| Charts in one job | 2,000,000 | `CdsExportSelectionService`, `CdsExportSelectionDto`, `CdsExportCohortService`, `CdsExportDisclosureScopeService`, `CdsExportArtifactContextDto` | `REVIEW_REQUIRED`, `CDS_EXPORT_COHORT_LIMIT_REQUIRES_REVIEW` (at selection) |
+| Members in one package (one per chart, one per document or report file, plus two) | 2,000,000 | `CdsExportClinicalPackageService` (while charts are captured), `CdsExportPackageInventoryService`, `CdsExportPackageComposer`, `CdsExportPackageDto` | `REVIEW_REQUIRED`, `CDS_EXPORT_RESOURCE_LIMIT` (during capture) or `CDS_EXPORT_PACKAGE_ENTRY_LIMIT` |
+| Package inventory on disk | 64 GiB | `CdsExportPackageInventoryService` | `REVIEW_REQUIRED`, `CDS_EXPORT_PACKAGE_INVENTORY_LIMIT` |
+| ReadMe and event log together | 64 GiB | `CdsExportClinicalPackageService`, `CdsExportSupportingFilesValidator` | `REVIEW_REQUIRED`, `CDS_EXPORT_RESOURCE_LIMIT` or `CDS_EXPORT_SUPPORTING_FILES_RESOURCE_LIMIT` |
+
+The member ceiling is the one a real clinic can meet: 20,000 charts with 100 stored documents
+each is 2,000,000 members.
+
+**The per-chart index held in memory.** `cds.export.maxMetadataBytes` (default 256 MiB, maximum
+4 GiB) is not a plain counter. `CdsExportClinicalPackageService.compose` keeps, for every chart
+it has captured, that chart's file names, validation counts, its note scopes and one
+descriptor for each staged member, in the JVM heap, until the package is sealed: the three
+cohort re-authorizations, the disclosure manifest, the supporting files and the archive order
+are all produced from that index. The setting bounds it by estimate: 4,096 bytes for each
+chart plus 8 for each character of its path, 512 for each of its notes and 512 for each staged
+member (eight for every chart plus one for each document or report file). At the default that
+is about 31,000 charts with no notes and no documents, about 3,800 charts of 100 notes and 20
+documents, and about 1,400 charts of 300 notes and 50 documents; at the maximum, sixteen times
+as many, with a heap sized for it. A job that exceeds it stops as `REVIEW_REQUIRED`,
+`CDS_EXPORT_RESOURCE_LIMIT`, after the charts captured so far, and nothing is kept. Removing
+this limit safely means not holding the index in memory: spooling each chart's record to an
+encrypted staged member as it is captured and reading it back, in cohort order for the
+re-authorizations and the disclosure manifest and through the existing external sort for the
+archive order. That is a redesign of `compose` and is not done.
+
+**The size of one package.** `cds.export.maxZipBytes` (default and maximum 64 GiB;
+`CdsExportPackageComposer`, and `CdsExportPackageDto` also refuses more than 512 GiB of member
+bytes) and `cds.export.maxCiphertextBytes` (default and maximum 128 GiB;
+`CdsExportDeliveryComposer`) bound a single archive and its encrypted delivery. An export is
+one package: there is no continuation into a second file. An export that reaches either stops
+as `REVIEW_REQUIRED` with `CDS_EXPORT_PACKAGE_VOLUME_LIMIT` or
+`CDS_EXPORT_DELIVERY_BYTE_LIMIT` (they used to end `FAILED` as `CDS_EXPORT_IO_FAILED`); no
+package is published and nothing is truncated. The same is true of the fixed ceilings in the
+table. `CdsExportExecutionService.PACKAGE_CEILINGS` lists the six codes; any other I/O refusal
+is still a failure. Resuming such a job runs the whole export again and reaches the same
+ceiling: until an export can be split into several package files (multi-volume packaging,
+issue #6187), the only way through is a smaller selection, for example one job per physician
+or per list of patients. Multi-volume packaging would need a volume boundary rule in
+`CdsExportPackageComposer` (close an archive before a member that would cross the size or
+member ceiling, never splitting one chart's XML from its files), a numbered volume set in the
+package proof, the disclosure manifest, the artifact context and the ledger (which hold one
+archive and one ciphertext per attempt today), one encrypted delivery and one download per
+volume with the whole set verified together, a ReadMe and event log that say which volume
+holds which chart, and a receiving importer that accepts a set and refuses an incomplete one.
+
+**Not covered here.** The per-capture limits (`maxCapturedFields`, `maxCapturedBytes` and the
+index and row bounds beside them) and the per-table mapper limits hold one chart or stop the
+job on their own rules. The XML validator allows two hours for one chart's document
+(`CdsExportXmlLimitsDto`, `CDS_EXPORT_XML_DEADLINE`). A download of a finished package is
+bounded by `cds.export.downloadTimeoutSeconds` plus three times its first cohort verification,
+never more than 24 hours; with one re-authorization pass per chart that verification is now a
+small part of what it was.
 
 This change targets `release/2026.08`, integrating through
 `9ba62cab4b5538dcbfaa9377a3090dc79cc4a562` (#6167), including the release lab and package/test qualification fixes.
@@ -2904,22 +2990,114 @@ The policy follows the active `CaseManagementManager.filterNotes` and chart entr
 step asks the worker again whether the exporting identities may read the patient, a category, a
 note, a program-restricted record or a printed record; answered fresh each time, a chart of a few
 hundred notes cost hundreds of thousands of identity and privilege queries (an installed 69-chart
-census sat in capture for over an hour and a half without finishing a chart). The worker now opens
-a session for each patient (`CdsExportRunControl.beginPatient`, `CdsExportPatientAuthorization`)
-in which each distinct check is answered once: the chart and category gates once per category
-(`CdsExportAccessService.PatientGrants`), the program and reporter-role grant once per distinct
-grant, and each note's exact live scope once per note. After the patient's last read and before
-its output is accepted, `endPatient` runs every check that granted access again, uncached: the
-patient, pharmacy, case-management and category gates, every note in ascending batches
-(`requireNotesRead`) and every program-restricted and printed-record answer that was yes. A
-revocation at any point while the patient was read is therefore still refused before anything of
-that patient is accepted, and the patient is held as `CDS_EXPORT_ACCESS_CHANGED`. A session is
-never shared between patients, jobs or threads and is discarded however the patient ends; the
-download path and the final cohort pass keep their own fresh batch checks. Separately, the
-maintenance SQL guard (`CdsJdbcAdmissionGuard`) keeps the admitted shape of each exact statement
-text instead of parsing every repeated statement again on a new parser thread; refusals and text
-with quoted literals are never kept. The installed export scaling lane ("Installed export scaling
-lane" below) fails when authorization-table reads grow per note again.
+census sat in capture for over an hour and a half without finishing a chart). The worker opens a
+session for each patient (`CdsExportRunControl.beginPatient`, `CdsExportPatientAuthorization`).
+A session is two passes over the live database with the patient's reads between them:
+
+- **The opening pass** (`CdsExportAccessService.decidePatient`), before any of the patient's
+  data is read, decides every fixed gate of the command for this patient in one fresh
+  read-committed transaction: the patient gate, the pharmacy and case-management gates, each
+  selected category's gate, the sensitive-laboratory gate and the two record objects (`_con`,
+  `_form`). Each is decided by its ordinary check (`requirePatient`, `requireCategory`,
+  `requirePharmacyRead`, `requireCaseManagementRead`, `canReadRecordObject`), which is called
+  as it always was. A check that refuses is recorded as refused, with its own refusal, and does
+  not stop the others, so a right the chart never needs cannot hold the patient. If the
+  exporting identities may no longer export at all, the whole pass is refused and the patient is
+  held.
+- **While the patient is read**, a step that asks a fixed gate is answered from the opening
+  pass. What depends on the chart's own rows is still asked of the live database when it is
+  first needed, and the first answer kept: each note's exact live scope once per note, the
+  program and reporter-role grant once per distinct grant (`PatientGrants`), and each issue
+  program and restricted program once.
+- **The closing pass** (`CdsExportAccessService.recheckPatient`, from `endPatient`), after the
+  patient's last read and before its output is accepted, makes every check that granted access
+  again in one fresh transaction: every gate that was asked and passed, every note in ascending
+  batches (`requireNotesRead`) and every program-restricted and printed-record answer that was
+  yes. It takes from the session only the list of what to check. Any refusal or changed answer
+  holds the patient as `CDS_EXPORT_ACCESS_CHANGED`.
+
+A revocation at any point while the patient was read is therefore still refused before anything
+of that patient is accepted. A session is never shared between patients, jobs or threads and is
+discarded however the patient ends; the next patient starts with its own opening pass, so a
+right revoked between two patients is refused for the next one.
+
+Inside one pass the rows behind the checks are read once instead of once per check: each
+identity's roles and security objects (`SecurityInfoManager.readOnlySnapshot`, evaluated by the
+same code as `hasPrivilegeReadOnly` and `isAllowedAccessToPatientRecord`), the provider and
+facility membership rows of the exporting identities, and each program and reporter-role note
+grant. No privilege rule is evaluated by export code. The rows are bound to the calling thread
+for the one service call that is the pass and removed before it returns; nothing of a pass
+reaches another transaction, patient, job or thread. Before, each of about 184 checks per chart
+was its own transaction and read the roles and one or two security objects for every privilege
+question: 104 role reads and 186 security-object reads for the gates of one pass, against one
+of each now (`CdsExportAuthorizationPassUnitTest`).
+
+One consequence is deliberate: a gate decided by the opening pass is decided as of the session's
+start, not as of the step that first asks it. A right revoked after the start is caught by the
+closing pass, as before. A right granted only after the start does not help that patient, who is
+held; export the patient again.
+
+**Re-authorization passes.** A captured patient is authorized six more times before anything is
+published: three cohort passes before packaging (`authorizeCohort`) and the disclosure-scope
+verification at delivery (twice) and publication; every download verifies the whole cohort
+several times more. Each of these opens one pass per patient
+(`CdsExportRunControl.beginAuthorizationPass`): the same opening pass decides the patient's
+gates from the live database, the patient's notes are checked in one uncached batch, and
+`endAuthorizationPass` discards everything. Such a pass reads no patient data, so it has no
+closing check; it keeps nothing once it ends, and it cannot be opened inside a session (that
+would drop the session's closing pass). The download path uses the same passes. A check made
+outside any session or pass (for example each eForm render's `authorizeRendering`) is still one
+fresh transaction of its own.
+
+Separately, the maintenance SQL guard (`CdsJdbcAdmissionGuard`) keeps the admitted shape of each
+exact statement text instead of parsing every repeated statement again on a new parser thread;
+refusals and text with quoted literals are never kept. The installed export scaling lane
+("Installed export scaling lane" below) fails when authorization-table reads grow per note
+again, or when a chart again costs one transaction per check.
+
+**One schema pass per capture.** Each source reader verifies its table's physical structure
+against its pinned contract for every patient, inside that patient's read-only capture
+transaction, and the source catalogue compares the whole reviewed profile. Read one table at a
+time that was two metadata probes and three `information_schema` statements for each of about
+200 readers, one more engine read before every data-summary count and page, and one probe for
+each of about 500 profile tables: about 1,840 statements for every chart. The capture
+transaction now opens one schema pass (`CdsExportPhysicalSchemaReadSupport`,
+`CdsExportSourceCatalogueDao.openSchemaPass`): five or six statements read the tables, columns
+and primary keys of the whole schema, and every verification in that transaction is answered
+from them. Every reader still receives the structure of its own table as the database reported
+it inside this patient's transaction and still checks it against its contract, and the whole
+profile is still compared for every patient. Two things the per-table read did are kept
+differently:
+
+- *Column visibility.* The per-table read began with `select d.* from T limit 0`, which fails
+  for an account that can see only some columns, so a hidden column cannot leave the
+  privilege-filtered catalogue looking complete. A pass is opened only for an account that
+  holds SELECT on the whole schema or globally, which is what makes every column of every table
+  visible; any other account gets no pass and every table is read as before (and the source
+  catalogue refuses such an account, as it always did). The probe itself still runs for each
+  table the first time an export attempt meets it (`CdsExportRunControl.schemaProbes`).
+- *Stability while the rows are read.* The probe also took the table's metadata lock before
+  its structure was read. With a pass the structure is read first, so the capture reads the
+  whole schema a second time after its last source read and before it commits
+  (`verifySchemaPass`). Every table read in the transaction has held its metadata lock since
+  its first read, so its structure cannot change between that read and the second complete
+  read; if the second read shows a verified table differently, it was altered before its first
+  read, and the job stops with `CDS_EXPORT_CLINIC_SOURCE_UNREVIEWED`, naming the table on the
+  safe technical channel (`CDS_EXPORT_SOURCE_SCHEMA_CHANGED_DURING_CAPTURE` in the log). No
+  window remains for a table whose rows are read. A table that no reader reads in the
+  transaction can be altered and restored between the two reads without notice; none of its
+  rows was read.
+
+`CdsExportSchemaPassMariaDbIntegrationTest` shows each of these on MariaDB: 5 statements for one
+table read alone; 6 for a pass whatever the number of tables, one probe per table the first
+time and none for the next patient; an `ALTER` between the pass and the table's first read
+refused and named; an `ALTER` of a table already read made to wait until the transaction ends;
+and, on the installed schema, the whole reviewed profile verified from one pass, each of its
+tables probed once in the attempt and fewer than 40 statements for every later patient.
+The demographic and provider tables keep their own per-table read. The schema validator also
+keeps each verification that succeeded (by scope, structure and column set), so an unchanged
+structure is not parsed and digested again for every table of every patient; a refusal is never
+kept.
 
 **One checked read of the capture per patient.** Every reader of a chart (the inventory, each
 section, each receipt and witness check) reads the patient's whole sealed capture, and each read
@@ -3570,7 +3748,10 @@ result) for:
 
 Each job also checks growth across its own series, independent of the fixed command cost:
 statements and privilege statements per extra note (`chart-128` to `chart-2048`) or per extra
-chart (`patients-1` to `patients-32`). The per-note privilege budget, 1.0, is the regression
+chart (`patients-1` to `patients-32`). The native per-chart budgets, 2,200 statements and 200
+privilege statements, are the regression detector for the clinic-scale cost fixed by the
+authorization passes and the capture schema pass (below): a return to one transaction per
+check costs 7,088 and 2,956 per chart. The per-note privilege budget, 1.0, is the regression
 detector for the census slowdown fixed by the per-patient authorization session (see "One
 authorization session per patient" above): with the session the authorization tables are read
 per patient, not per note, so any return to per-read checks exceeds it whatever the total
@@ -3580,7 +3761,9 @@ The other budgets are about twice the measurements below; RSS cannot take that h
 the 512 MiB heap. Each budget and its derivation is documented beside `BUDGETS` in the harness.
 
 Measurements on the reference runtime (two CPUs of a shared four-core host); every listed case
-was a complete READY export whose package held exactly its notes and results:
+was a complete READY export whose package held exactly its notes and results. They are the
+revision before the authorization passes and the capture schema pass; what those change for
+the patients rows follows the table:
 
 | Case | Native: elapsed / statements / privilege / engine RSS | Imported: elapsed / statements / privilege / engine RSS |
 | --- | --- | --- |
@@ -3591,13 +3774,35 @@ was a complete READY export whose package held exactly its notes and results:
 | chart-512 | 39 s / 13,664 / 3,221 / 783 MiB | 253 s / 17,131 / 3,287 / 855 MiB |
 | chart-2048 | 100 s / 30,971 / 3,253 / 831 MiB | fails (below) |
 
-The `carlos-ctl` adapter peaked at 24 MiB. Each extra chart costs about 7,050 statements, 2,930
-privilege statements and 4 to 4.5 s; each extra note and result costs 11.2 statements and 0.02
-privilege statements on a native chart (chart-128 to chart-2048) and 19.6 and 0.29 on an imported
-one (chart-128 to chart-512). The imports of the three imported charts took 45, 110 and 415 s.
-These are the current baseline, recorded rather than optimized by the lane; the per-chart
-authorization cost (the per-category gates and the closing re-check of the session) is the
-largest remaining per-patient cost.
+The `carlos-ctl` adapter peaked at 24 MiB. In these runs each extra chart cost about 7,050
+statements, 2,930 privilege statements and 4 to 4.5 s; each extra note and result costs 11.2
+statements and 0.02 privilege statements on a native chart (chart-128 to chart-2048) and 19.6 and
+0.29 on an imported one (chart-128 to chart-512). The imports of the three imported charts took
+45, 110 and 415 s.
+
+**Per-chart cost: before and after the passes.** A statement-class breakdown of the native
+patients series (statement digests classified in the server, `patients-1` to `patients-8`)
+shows where the 7,088 statements of each extra chart went:
+
+| Per extra one-note chart | Before | After (expected) | How it is established |
+| --- | --- | --- | --- |
+| Authorization: reads of the authorization tables | 2,956 | about 100 | Before: `PRIVILEGE_READ`, measured. After: 15 transactions that read each table once (`CdsExportAuthorizationPassUnitTest` proves one read of each table per pass against 104 role and 186 security-object reads for the same gates; 14 of each for a chart with six later passes), plus the program and note-grant reads of each pass |
+| Authorization: identity rows and transaction control | about 1,470 (184 transactions: 368 provider and facility reads, about six control statements each) | about 135 (15 transactions) | Before: measured digests. After: derived from the transaction count |
+| Schema verification | about 1,840 (939 `information_schema` reads; about 400 probes by the readers and 505 by the source catalogue) | about 20 (two complete reads of 5 or 6 statements; the demographic and provider tables keep their own read) | Before: measured digests and the reader count. After: `CdsExportSchemaPassMariaDbIntegrationTest`, 6 statements per pass whatever the number of tables |
+| Capture reads, coordination locks, ledger and audit | about 820 | about 820 | Unchanged; the remainder of the measured total |
+| **Total** | **7,088** | **about 1,070** | |
+
+The column-visibility probe of each table now runs once per job instead of once per chart, so
+about 510 statements move from every chart to the fixed cost of a job. The after column is
+derived, not measured: this lane could not be run on the development host, and its first
+qualifying run replaces the expectation and the provisional budgets (2,200 statements, 200
+privilege statements and 4 s per extra native chart, about twice the expectation). Elapsed time
+was about 0.55 ms per statement end to end before, so about one second per extra chart is
+expected, and about three hours for 10,000 charts instead of twelve. Most of what remains is
+the capture itself: one count and one read for each of about 200 source tables, of which the
+120 data-summary tables are usually empty for a chart. Asking those tables in one statement, or
+not reading a table whose count in the same snapshot was zero, is the next reduction and is not
+done here.
 
 **Imported 2048-note chart: the defect this lane found.** Measured before the fix, its export
 ended `FAILED` with `CDS_EXPORT_EXECUTION_FAILED` after about 144 s: a statement timeout (SQL

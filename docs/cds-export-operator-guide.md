@@ -566,6 +566,50 @@ cancellation. Resume is subject to the original binding and current authorizatio
 | 5 | The package is ready but leaves out held patients; it is not a complete migration. |
 | 130 | Waiting interrupted (Ctrl-C); durable cancellation was not requested. The lease is released before the process exits, so the job can be resumed at once. A SIGTERM-stopped wait exits 143 with the same meaning. |
 
+### How long an export takes, and what can stop a large one
+
+Plan on about one second for each chart, plus about half a minute to start and the time to
+read each chart's stored documents: an ordinary chart costs about 1,100 database statements,
+whatever the size of the roster. That estimate is derived from the statement counts of this
+release and is to be confirmed by the installed scaling lane; before this release the same
+chart cost about 7,100 statements and 4 to 4.5 seconds, so 10,000 charts took about 12 hours.
+The time grows with the roster, not faster: each chart is authorized, verified and captured on
+its own.
+
+No setting stops an export for how long it runs or how many charts it holds.
+
+- `cds.export.maxDurationMillis` (default 24 hours) is not a time limit for the job. It is how
+  long the export worker may show no sign of life before it is treated as dead. A worker that is
+  still working is never stopped. A worker that hangs for that long loses its ownership: the log
+  shows `CDS_EXPORT_WORKER_STALLED`, the job becomes available to another worker within two
+  minutes, and if the hung worker returns the job is recorded as
+  `CDS_EXPORT_EXECUTION_LEASE_EXPIRED`. Resume it.
+- `cds.export.maxPatients`, `cds.export.maxPackageMembers`, `cds.export.maxPackageIndexBytes`
+  and `cds.export.maxSupportingBytes` are no longer used. If your configuration still sets one,
+  the application logs `CDS_EXPORT_RETIRED_SETTINGS_IGNORED` once with the setting names and
+  carries on; remove them when convenient.
+
+An export still cannot be continued from where it stopped. If a job stops before it is READY
+(a cancellation, a restart of the application or the command, a review code), `--resume` runs
+the whole export again from the first chart. Leave a large export running; do not stop it to
+"continue later".
+
+Three things can still end a large export before it is READY. Each stops the job for review
+(exit 4) with its own code, publishes nothing and truncates nothing:
+
+| Code | Meaning | What to do |
+| --- | --- | --- |
+| `CDS_EXPORT_RESOURCE_LIMIT` during capture | The index the export keeps in memory for every captured chart reached `cds.export.maxMetadataBytes` (default 256 MiB, maximum 4 GiB). It grows with the number of charts, notes and stored documents: the default holds about 31,000 charts with no notes or documents, about 3,800 charts of 100 notes and 20 documents each, and about 1,400 charts of 300 notes and 50 documents each. | Raise `cds.export.maxMetadataBytes` together with the Java heap of the process that runs the export (the setting is an estimate of heap in use), or export in several jobs, for example one per physician. |
+| `CDS_EXPORT_PACKAGE_VOLUME_LIMIT`, `CDS_EXPORT_DELIVERY_BYTE_LIMIT` | The package would be larger than one archive (64 GiB) or its encrypted delivery (128 GiB) can be. Stored documents are what make a package large. | Export in several jobs. A package cannot yet be split into volumes. |
+| `CDS_EXPORT_PACKAGE_ENTRY_LIMIT`, `CDS_EXPORT_PACKAGE_INVENTORY_LIMIT`, `CDS_EXPORT_COHORT_LIMIT_REQUIRES_REVIEW`, `CDS_EXPORT_SUPPORTING_FILES_RESOURCE_LIMIT` | The export holds more than one package's format can: 2,000,000 files (one per chart and one per stored document or report), 2,000,000 charts, or 64 GiB of inventory or of ReadMe and event log. | Export in several jobs. |
+
+Resuming a job that stopped with one of these codes runs it again and reaches the same point,
+unless you raised `cds.export.maxMetadataBytes` first. Start new jobs with smaller selections
+instead.
+
+A download of a finished package re-checks every chart's current authorization several times.
+That check now costs one short pass per chart, so it no longer dominates a large download.
+
 ### Held patients
 
 The following ordinary charts are exported and are not held:

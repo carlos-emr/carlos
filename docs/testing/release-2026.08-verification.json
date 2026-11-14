@@ -4367,6 +4367,36 @@
             }
           ]
         },
+        "io.github.carlos_emr.carlos.commn.dao.CdsExportSchemaPassMariaDbIntegrationTest": {
+          "check": "java-cds-transfer-export",
+          "cases": [
+            {
+              "name": "shouldServeEachTableItsOwnStructure_fromOneCompleteReadPerTransaction",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRefuseTheCapture_whenATableWasAlteredBeforeItsFirstReadInTheTransaction",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldKeepAReadTableUnalterable_untilTheCaptureTransactionEnds",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldVerifyTheWholeReviewedProfile_fromOneReadForEachPatientOfAnAttempt",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldOpenNoPass_forAnAccountWithoutSelectOnTheWholeSchema",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            }
+          ]
+        },
         "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDataSummaryMariaDbIntegrationTest": {
           "check": "java-cds-transfer-export",
           "cases": [

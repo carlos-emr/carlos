@@ -56,13 +56,22 @@ def verified_case(label="chart-128", origin="native", patients=1, records=128, *
     return case
 
 
-# The measured native shape (docs/cds-export.md, "Installed export scaling lane"): a fixed command
-# cost, then per extra chart and per extra note (one note and one laboratory result).
+# The native shape (docs/cds-export.md, "Installed export scaling lane"): a fixed command cost,
+# then per extra chart and per extra note (one note and one laboratory result). The per-note
+# figures are measured; the per-chart figures are the ones expected with the authorization
+# passes and the capture schema pass (derived beside BUDGETS in the harness; provisional until
+# the first qualifying lane run).
 MEASURED = {
-    "perPatient": 7082,
-    "privilegePerPatient": 2956,
+    "perPatient": 1070,
+    "privilegePerPatient": 100,
     "perNote": 11.25,
     "privilegePerNote": 0.021,
+}
+# Measured on the revision before those passes (patients-1 to patients-8): one transaction per
+# authorization check and one schema read per table for every chart.
+PRE_PASS = {
+    "perPatient": 7088,
+    "privilegePerPatient": 2956,
 }
 # The same lane, on an earlier head, with the classes of the revision before the per-patient
 # authorization session overlaid
@@ -235,6 +244,40 @@ class ExportScalingEvidenceTest(unittest.TestCase):
                     required=charts,
                 )
                 self.assertEqual(regressed["failures"], ["MARGINAL_NOTE_PRIVILEGE_BUDGET"])
+
+    def test_marginal_patient_budget_fails_when_each_check_is_its_own_transaction_again(self):
+        """The clinic-scale regression: one transaction and several reads for every check.
+
+        Before the opening and closing authorization passes and the capture schema pass, every
+        extra chart cost about 184 one-check authorization transactions and one schema read per
+        table (PRE_PASS). Those counters must fail the native per-chart budgets, both as growth
+        and as a case, and the expected shape must pass.
+        """
+        patients = frozenset({"patients"})
+        budget = GATE.BUDGETS["native"]
+        current = GATE.evaluate_marginal(series("native"), budget, required=patients)
+        self.assertEqual(current["failures"], [])
+        regressed_cases = series(
+            "native",
+            per_patient=PRE_PASS["perPatient"],
+            privilege_per_patient=PRE_PASS["privilegePerPatient"],
+        )
+        regressed = GATE.evaluate_marginal(regressed_cases, budget, required=patients)
+        self.assertEqual(
+            regressed["failures"],
+            ["MARGINAL_PATIENT_STATEMENT_BUDGET", "MARGINAL_PATIENT_PRIVILEGE_BUDGET"],
+        )
+        self.assertGreater(
+            regressed["values"]["statementsPerPatient"], 3 * budget["marginalStatementsPerPatient"]
+        )
+        self.assertGreater(
+            regressed["values"]["privilegeStatementsPerPatient"],
+            10 * budget["marginalPrivilegeStatementsPerPatient"],
+        )
+        largest = next(case for case in regressed_cases if case["label"] == "patients-32")
+        self.assertEqual(
+            GATE.budget_failures(largest, budget), ["STATEMENT_BUDGET", "PRIVILEGE_STATEMENT_BUDGET"]
+        )
 
     def test_complete_profile_requires_its_own_growth_series_but_a_subset_may_omit_it(self):
         budget = GATE.BUDGETS["native"]

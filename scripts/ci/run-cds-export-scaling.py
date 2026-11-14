@@ -163,24 +163,44 @@ MARGINAL = {
 # authorization read, about 3.4 times the imported measurement: any per-read regression exceeds
 # it, however much the total statement budget absorbs.
 #
+# Native per-patient budgets after the authorization passes and the capture schema pass
+# (docs/cds-export.md, "One authorization session per patient" and "Installed export scaling
+# lane"). The measurements above are the revision before them: each extra one-note chart cost
+# 7,088 statements, of which 2,956 read the authorization tables in about 184 one-check
+# transactions, about 1,840 verified the physical schema one table at a time, and about 820 were
+# the capture's own reads and bookkeeping. With one opening and one closing pass per patient
+# session and one pass per later re-authorization (six per chart), the authorization tables are
+# read about 100 times per chart in 15 transactions (about 230 statements), and the schema is
+# read twice per chart as a whole (about 20 statements), so an extra chart is expected to cost
+# about 1,070 statements and 100 privilege statements. The column-visibility probe of each
+# table now runs once per job instead of once per chart (about 510 statements, in the fixed
+# cost). These per-patient figures are derived from that breakdown and from statement counts
+# proven in the Java tests (CdsExportAuthorizationPassUnitTest: one read of each authorization
+# table per pass instead of 104 and 186; CdsExportSchemaPassMariaDbIntegrationTest: six
+# statements per pass whatever the number of tables), not yet from a lane run: the budgets
+# below are about twice the expected values and are provisional until the first qualifying run
+# of this lane replaces the expectation with a measurement. Whatever that run shows, a return
+# to one transaction per check (7,088 and 2,956 per chart) is three and fifteen times over
+# them. The imported per-patient budgets are left at their earlier values.
+#
 # Service RSS cannot take 2x headroom inside the 1536 MiB runtime: the CLI heap is capped at
 # 512 MiB, so the budget (1280 MiB, about 1.5x) bounds growth beyond the heap and stays under the
 # cgroup. Time budgets are about twice the measured cases, except the small imported chart cases,
 # whose per-note time is set from chart-512.
 BUDGETS = {
     "native": {
-        "fixedStatements": 2000,
-        "statementsPerPatient": 14200,
+        "fixedStatements": 3000,
+        "statementsPerPatient": 2200,
         "statementsPerNote": 24,
         "fixedPrivilegeStatements": 500,
-        "privilegeStatementsPerPatient": 6000,
+        "privilegeStatementsPerPatient": 200,
         "privilegeStatementsPerNote": 1.0,
         "marginalStatementsPerNote": 24,
         "marginalPrivilegeStatementsPerNote": 1.0,
-        "marginalStatementsPerPatient": 14200,
-        "marginalPrivilegeStatementsPerPatient": 6000,
+        "marginalStatementsPerPatient": 2200,
+        "marginalPrivilegeStatementsPerPatient": 200,
         "fixedSeconds": 45,
-        "secondsPerPatient": 8,
+        "secondsPerPatient": 4,
         "secondsPerNote": 0.08,
         "serviceRssMiB": 1280,
         "cliRssMiB": 48,
