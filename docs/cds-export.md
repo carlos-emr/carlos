@@ -1784,9 +1784,10 @@ build string).
   a provider number of at most six characters and two integers), the job document of an import
   run (65,536 bytes of fixed scalar options), a sealed witness (`MAX_SEALED_BYTES`), and a
   prevention scope cell (4,096 bytes for an integer, a flag or a `VARCHAR(255)`).
-- The prevention configuration file is read whole and may be at most 1 MiB
-  (`CdsExportPreventionConfigurationLoader.MAX_XML`); a larger file fails every job of that
-  installation. It is the installation's own configuration, not a chart.
+- The prevention configuration file is read whole, whatever its size
+  (`CdsExportPreventionConfigurationLoader`; its former 1 MiB `MAX_XML` is gone, see the
+  prevention row of the table under "Limits inside the mappers"). It is the installation's own
+  configuration, not a chart.
 - MariaDB's own limits stay as integrity checks of what the schema read returns: 4,096 columns
   in a table and 16 columns in a key.
 - An attempt's staged members live in one directory and each is fsynced; neither is a limit.
@@ -1832,6 +1833,95 @@ check refuses it. `CdsExportXmlValidatorUnitTest` measures each against the pinn
 | `MAX_MARKUP`, one tag, comment or instruction | 65,536 characters | Text is not counted. CARLOS's tags are a few dozen characters, and its one comment is the header. |
 | `MAX_RESTRICTED_VALUE`, one value of a length-, pattern- or code-restricted type | 65,536 characters | The schema's longest `maxLength` is the text64K's 65,536; dates, codes and identifiers are far shorter. A type with no such facet (report `TextContent`, `text`, a plain token) is streamed and not counted. |
 | `MAX_CAPTURE`, one captured identity or report value | 8,192 characters | The schema admits at most 250 (a file path); a vendor identifier has 20, a name part, report format or file extension 50. |
+
+#### Every export-side bound and its class
+
+The bounds audit of 2026-11-14 listed every number on the export side (rows E1 to E68 and W1 to
+W6) and in the code both directions share (S1 to S10). Each now has one of three classes:
+**removed**; **A**, a threshold that changes only how work is done; or **B**, an external or
+integrity limit that a chart CARLOS stores cannot reach, with its reason. Import-side bounds are
+listed in `docs/cds-import.md`.
+
+| Row | Bound | Where | Class | Why |
+| --- | --- | --- | --- | --- |
+| E1 | 120,000 characters a request field | `CdsExportWebService.parameters` | removed | refused about 15,000 listed patients; ModSecurity's 16 MiB form body (W5) is the packaged limit |
+| E2 | history page of 1 to 100 jobs | `CdsExportStatus2Action`, `CdsExportLedgerService.history` | A | the page asks for 25 |
+| E3 | 100 physicians, 500 rows, 500 ids a statement | `DemographicDaoImpl`, `CdsExportSelectionService` | A | callers split their work into statements |
+| E4 | provider number 16, operator name 64 characters | `CdsExportSelectionService`, `CdsExportCohortService`, `CdsExportConfigurationService` | B | `provider_no` is VARCHAR(6) |
+| E5 | 512 KiB single-line cohort manifest, 8 KiB write batch | `CdsExportCohortService` | A | a longer manifest is stored on two lines |
+| E6 | 262,144-character job-document line | `CdsExportLedgerService` | A | a longer document is stored on two lines |
+| E7 | operator and submission tokens of 128 characters | `CdsExportLedgerService` | B | VARCHAR(128) columns |
+| E8 | 4,096 held charts in the diagnostic report | `CdsExportLedgerService.diagnostic` | removed | every held chart is read page by page |
+| E9 | 128 events in the diagnostic report | `CdsExportLedgerService.diagnostic` | removed | every event is read page by page |
+| E10 | 64 unlinked-source codes in a report | `CdsExportLedgerService.diagnostic` | B | seven fixed tables (`CdsExportUnlinkedSourceDto`) |
+| E11 | 16 coverage issue previews | `CdsExportCoverageDto` | A | previews only; the counts are exact |
+| E12 | `maximumOccurrences` | `CdsExportCoverageValidator` | removed | dead parameter (its only caller passed `Long.MAX_VALUE`) |
+| E13 | stall window `cds.export.maxDurationMillis`, at most 31 days | `CdsExportConfigurationService` | A (maximum removed) | the window is liveness; no external ceiling applies |
+| E14 | `cds.export.cliRendererHandoffSeconds`, at most 86,400 | `CdsExportConfigurationService` | A (maximum removed) | how a CLI job is handed to the web worker |
+| E15 | `cds.export.downloadTimeoutSeconds`, 1 to 86,400 | `CdsExportArtifactService` | A | a no-progress window; every verification step is progress |
+| E16 | `cds.export.retentionSeconds`, 60 s to 30 days | `CdsExportActivePlanService` | B | the owner's privacy guard on how long a finished package exists (it never stops an export) |
+| E17 | `cds.export.minimumFreeBytes`, at most 1 TiB | `CdsExportStagingFactory` | A (maximum removed) | the reserve is the store saying it is nearly full |
+| E18 | `cds.export.eformRenderIntervalMillis`, at most 60,000 | `CdsExportEformRenderService` | A (maximum removed) | pacing between renders |
+| E19 | retired settings | `CdsExportActivePlanService.RETIRED` | A | ignored with one log line |
+| E20 | build version of 128 characters | `CdsExportActivePlanService`, `CdsExportImplementationIdentityService` | B | CARLOS's own build string |
+| E21 | 32,768 resources a pattern, 65,536 entries, 4,096-character names, 512 MiB hashed, 128 MiB BouncyCastle jar | `CdsExportImplementationIdentityService` | removed | hashing streams; origin, anchor, shadowing and digest checks stay |
+| E22 | 30 s doubling statement wait, 30 s grace | `CdsExportStatementWaitReadSupport` | A (MariaDB's one-year maximum: B) | a statement is sent again, never failed |
+| E23 | 3 further readings after a lost connection | `CdsExportNativeCaptureService` | A | resumable `CDS_EXPORT_DATABASE_UNAVAILABLE` |
+| E24 | 5 s `isValid` on the idle lock connection | `CdsExportSourceReadLock` | A | the connection is replaced |
+| E25 | read batches of 8,192, key windows of 65,536, 4,096 grants, 32-row pages, 64 KiB chunks | `CdsExportPatientTableReadSupport`, `CdsExportNoteAccessDao` and others | A | how much one statement reads |
+| E26 | pages of 32 rows | the source readers and read supports | A | page size |
+| E27 | windows of 8,192 rows and 64 MiB | `CdsExportClinicalOccurrenceService.Bounds`, `CdsExportSectionWindowPlanner` | A | a new window starts |
+| E28 | capture cache of heap/16, 64 entries | `CdsExportVerifiedCaptures` | A | an uncached capture is verified again |
+| E29 | 4,096 columns, 16 key columns | `DemographicDaoImpl`, `CdsExportPatientTableReadSupport`, `CdsExportDataSummaryReadDao` | B | MariaDB's own limits |
+| E30 | `mds*` tables: 64 columns, 1,020 bytes a value; provider cells of 1,024 bytes | `CdsExportDataSummaryReadDao`, `CdsExportProviderReadSupport` | B | fixed tables of VARCHAR(255) |
+| E31 | `maxBytes` a staged member | `CdsExportStagingService` | removed | dead constructor; the chunk format's own bound stays |
+| E32 | 256 captured tables, 2,048-character keys, 4 MiB manifest strings | `CdsExportNativeCaptureService` and its DTOs | B | the capture plan is fixed; keys are short |
+| E40 | 65,536 enrolment rows | `CdsExportDemographicEnrolmentProjectionDto` | removed | every demographic save adds an archive row |
+| E41 | 65,536 provider rows | `CdsExportPublicProviderLookupsDto` | removed | no reason |
+| E42 | 65,536 source fields of an imported Demographics record | `CdsExportDemographicClosureValidator` | removed | Contact and EnrolmentHistory repeat without limit |
+| E43 | 131,072 children of one element | `CdsSchemaContentOrder` | removed | ResultReviewer and others are unbounded |
+| E44 | repeating sequence or choice | `CdsSchemaContentOrder` | B | the pinned XSD has none |
+| E45 | 16 uses of one provider field | `CdsExportDemographicRetainedCoreReconciler` | B | one use per role, deduplicated |
+| E46 | one value of 2 GiB - 8 | `CdsExportDataSummaryRowsReader` | B | a Java array; no screen stores over 1 GiB |
+| E47 | 131,072 units of one imported Notes | `CdsExportHistoryNativeReconciler` | B | the import validated the schema facet |
+| E48 | CPP Notes of 32,000, 64,000 and 1,000 | `CdsExportNativeHistoryMapper`, `CdsExportNativeHistoryXmlWriter` | B | the fit reserves room; parts left out travel in carriers |
+| E50 | dictionary lengths and schema facets | the mappers ("Dictionary lengths") | B | element by its rule, exact value in a carrier |
+| E51 | facet and column widths in DTOs | `CdsExportPublicProviderDto`, `CdsExportPersonalContactDto` and others | B | columns and validated imports are shorter |
+| E52 | ZIP names of 65,535 bytes, path parts, `docfilename` of 1,024 | `CdsExportPathComposer`, `CdsExportPackagePaths` | B | ZIP's 2-byte length field; VARCHAR columns |
+| E53 | HRM message of 64 MiB parsed in memory | `CdsExportHospitalReportMessage` | A | a larger one is attached as stored |
+| E54 | clinic logo of 4 MiB | `CdsExportConsultationLetterComposer` | removed | read whole, as the chart's Print does |
+| E55 | 6 render-slot attempts; summary parts | `CdsExportDataSummaryPdfService`, `CdsExportDataSummaryPlanner` | A | images attached, summary in parts |
+| E56 | renderer breaker and queue pauses | `CdsExportEformRenderService` | A | the export waits |
+| E57 | 131,072 rows and 64 MiB in four projection services | `CdsExport{Appointment,Medication,Allergy,Immunization}ProjectionService` | removed | dead code, deleted |
+| E58 | `maximumFields` 1 to 1,000,000 | `CdsExportNativeFieldAssessmentValidator` | removed | dead parameter; a deprecated form that ignores it remains for two demographic callers |
+| E60 | the importer's stored format (192 references, receipts, preparations) | `CdsExportRetainedIndexService` and the retained readers | B | they mirror the importer's own writers |
+| E61 | 1 MiB a manifest line, 1,024 listed tables, 65,536-character ReadMe lines | `CdsExportJsonLines`, `CdsExportSupportingFilesValidator` | B | lines CARLOS writes, split far below them |
+| E62 | spool batches, fan-in, sort runs, 32 GiB a message, ZIP64 | `CdsExportSpoolService`, `CdsExportDeliveryComposer`, `CdsExportPackageComposer` | A | how the package is written |
+| E63 | recipient RSA key of 2,048 bits | `CdsExportDeliveryComposer` | B | security |
+| E64 | XML depth 252; a byte limit | `CdsExportXmlComposer` | B (depth); A (bytes, unlimited) | the schema is 8 levels deep |
+| E65 | kept charts for 7 days; re-verification every 30 s | `CdsExportLedgerService`, `CdsExportArtifactService` | A | a resume rebuilds; pacing |
+| E66 | 32 KiB policy file; 64 recipients and certificates, 100 audit plans, 64 recipients and 100 providers a plan | `CdsExportDisclosurePolicyService` | removed | every file is pinned by SHA-256 |
+| E67 | 30 s for the CLI's progress thread, then a failure | `CdsExportCli.ProgressExecutor` | A | the wait stays; its outcome is a note, never the exit code |
+| E68 | cause depth 16 in logs; 64 KiB bootstrap | `CdsExportCli`, `CdsExportSpringRuntime` | A / B | logging; integrity |
+| S1 | 4,096 classes a pattern, 256 nested, 8,192 classes, 16 MiB a resource | `CdsRulesetFingerprint` | removed | hashing streams |
+| S2 | 128 MiB jar, 512 MiB `lib/modules`, JVM properties, zones and zone rules | `CdsRuntimeIdentity` | removed | hashing streams; a changing file is still refused |
+| S3 | CLI heap at most 16,384 MiB | `CdsProcessConfiguration` | removed (128 MiB minimum and 1 MiB file: B) | a long chart may need more heap |
+| S4 | delegation token of 64 KiB, 300 s old | `CdsProcessDelegationVerifier` | B | security |
+| S5 | 10 s validation query | `CdsProcessPersistence` | A | the connection is replaced |
+| S6 | SQL of 65,536 characters; 66,560 parameters | `CdsBinaryReads`, `CdsMariaDbBinaryRead` | removed (SQL); B (parameters) | `max_allowed_packet` bounds the text; MariaDB's 65,535 parameters |
+| S7 | client-side read deadline | `CdsMariaDbBinaryRead` | A | sent again with twice the wait |
+| S8, S9 | 512 receipt columns; 8 MiB witness, 192 rows | `CdsNativeRowState`, `CdsNativeRowDigest`, `CdsNativeBaselineCodec` and readers | B (MariaDB's own column limit) or removed | owner decision D1, locally widened target tables are supported; changed with the import side, see `docs/cds-import.md` |
+| S10 | JDK backstops, 65,536-character values | `CdsXmlReaders`, `CdsScalarParser` | B | the longest schema facet is 65,536 |
+| W1 | 15 s for every page request | `cds-export.js` | removed (30 s of silence: A) | a busy server or a long list is waited for |
+| W2 | poll back-off, download marker, history page | `cds-export.js` | A | pacing |
+| W5 | Tomcat 50 MiB, ModSecurity 50 MB and 16 MiB without files, nginx 50 MB | `debian/assets` | B | the packaged web server |
+| W6 | nginx `proxy_read_timeout` 300 s during a download | `debian/assets/nginx/carlos-emr.conf`, `CdsExportArtifactService` | A (keep-alive) and B (24 h, first pass only) | blocks flow during a pass; nothing may precede the first pass |
+| - | 15 minutes a sweep on one cleanup | `CdsExportRetentionService`, `CdsExportStagingFactory` | A | erasure is progressive; the next sweep continues |
+| - | XML check bounds (depth, names, namespaces, URIs, attributes, markup, values, captures, 8,192-character paths) | `CdsExportXmlValidator` | B | only a document CARLOS would never write reaches them |
+| - | 1 MiB demographic row; 65,536 bytes a column | `CdsExportDemographicCaptureReader`, `DemographicDaoImpl` | B | `demographic` has no TEXT or BLOB column |
+| - | eForm renderer's pages, size, render and driver times, two slots | `EFormBrowserPdfService`, `CdsExportEformRenderService` | A | a failed render becomes a data summary, never a hold |
+| - | lease of 120 s, heartbeat of 20 s | `CdsExportLedgerService`, `CdsExportExecutionService` | A | liveness |
+| - | `RESOURCE_LIMIT` thrown past a drug count | `DrugDaoImpl` | removed | dead (every caller passed `Integer.MAX_VALUE`); the reason is gone |
 
 **Importing a large CARLOS export.** The import reads a CARLOS package like any CDS archive, and
 nothing needs raising on the receiving server for a large one (`docs/cds-import-configuration.md`).
