@@ -219,7 +219,7 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
         control.authorizeCategory(
                 patient.patient(), CdsExportLegacyLaboratoryReports.authority(command), true);
         new CdsExportMergeScopeValidator(captures)
-                .requireUnmerged(
+                .requireGroupScope(
                         lease, patient, tables, source, bounds.fields(), bounds.bytes(), control);
         long[] appended = {0};
         xml.source(
@@ -264,7 +264,7 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                 || !tables.containsAll(REQUIRED)
                 || !tables.equals(source.capture().tables().keySet())) invalid();
         new CdsExportMergeScopeValidator(captures)
-                .requireUnmerged(
+                .requireGroupScope(
                         lease, patient, tables, source, bounds.fields(), bounds.bytes(), control);
         // The chart's documents are read whole when they fit one window, by the passes that
         // always read them (the document and link rows, their witnesses, the reviewer and route

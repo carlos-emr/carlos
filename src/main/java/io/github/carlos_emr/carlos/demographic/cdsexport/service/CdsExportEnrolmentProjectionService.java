@@ -123,7 +123,7 @@ public class CdsExportEnrolmentProjectionService {
             scope();
         long archiveCount = source.capture().tables().get("demographicArchive").rows();
         new CdsExportMergeScopeValidator(rows)
-                .requireUnmerged(
+                .requireGroupScope(
                         lease, patient, tables, source, bounds.fields(), bounds.bytes(), control);
         var index =
                 retained.index(

@@ -162,6 +162,7 @@
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportEnrolmentProjectionServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportExecutionServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportFreshAuthorizationIntegrationTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportGroupCaptureUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportHistoryCurrentContextUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportHistoryFieldReconcilerUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportHistoryImportedEditUnitTest",

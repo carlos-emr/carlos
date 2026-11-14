@@ -96,6 +96,29 @@ final class CdsExportChartFingerprints {
         return sha256(root);
     }
 
+    /**
+     * The fingerprint of a patient file's captures, in the file's order. A chart alone keeps its
+     * capture's fingerprint exactly ({@link #capture}). For a group of charts linked by Merge
+     * Records it is the SHA-256 of the head and of each chart's capture fingerprint in the
+     * group's order, so a merge, an unmerge, a privilege change or another head (each changes a
+     * chart's capture or the group itself) makes the file be built again.
+     */
+    static String group(java.util.List<CdsExportNativeCaptureDto> captures) {
+        if (captures.isEmpty()) throw new IllegalArgumentException("CDS_EXPORT_CAPTURE_SCOPE_INVALID");
+        if (captures.size() == 1) return capture(captures.getFirst());
+        var json = CdsExportChartCheckpointReader.JSON;
+        ObjectNode root = json.createObjectNode();
+        ArrayNode charts = root.putArray("charts");
+        for (var capture : captures) {
+            ObjectNode chart = charts.addObject();
+            chart.put("fingerprint", capture(capture));
+            chart.put("patient", capture.patient());
+        }
+        root.put("head", captures.getFirst().patient());
+        root.put("protocol", 1);
+        return sha256(root);
+    }
+
     private static ObjectNode member(CdsExportStagedFileDto file) {
         ObjectNode value = CdsExportChartCheckpointReader.JSON.createObjectNode();
         value.put("bytes", file.plaintextBytes());

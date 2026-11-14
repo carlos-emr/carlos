@@ -152,6 +152,8 @@ class CdsExportSelectionIntegrationTest {
                                     Demographic.class.getName(),
                                     io.github.carlos_emr.carlos.commn.model.DemographicMerged.class
                                             .getName(),
+                                    io.github.carlos_emr.carlos.commn.model.SecObjPrivilege.class
+                                            .getName(),
                                     DemographicCust.class.getName(),
                                     io.github.carlos_emr.carlos.commn.model.DemographicExt.class
                                             .getName(),
@@ -199,6 +201,7 @@ class CdsExportSelectionIntegrationTest {
                 io.github.carlos_emr.carlos.PMmodule.dao.ProviderDaoImpl.class,
                 io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDaoImpl.class,
                 io.github.carlos_emr.carlos.commn.dao.DemographicMergedDaoImpl.class,
+                io.github.carlos_emr.carlos.commn.dao.SecObjPrivilegeDaoImpl.class,
                 CdsExportMergeGroupPlanner.class);
         // Sealed native-baseline witnesses need an installation key (IMP-1).
         context.registerBean(
@@ -332,6 +335,114 @@ class CdsExportSelectionIntegrationTest {
         assertThat(plan.getFirst().members()).containsExactly(first, first + 1);
         assertThat(plan.getFirst().selected()).containsExactly(first);
         assertThat(plan.getFirst().shape()).containsExactly("CHAIN");
+    }
+
+    @Test
+    @org.junit.jupiter.api.condition.EnabledIfSystemProperty(
+            named = "cds.export.test.properties",
+            matches = ".+")
+    void shouldReadAGroupsLinksAsOfOneSnapshot_whenAnotherConnectionMergesAndUnmergesMeanwhile()
+            throws Exception {
+        // A group is captured chart by chart in one snapshot (captureGroup): the head's links
+        // and the merged chart's links must agree even while Merge Records is used meanwhile.
+        insert(first, physician, "AC");
+        insert(first + 1, physician, "AC");
+        insert(first + 2, physician, "AC");
+        merge(first + 1, first, 0);
+        var links = context.getBean(io.github.carlos_emr.carlos.commn.dao.DemographicMergedDao.class);
+        try (var external = Executors.newSingleThreadExecutor()) {
+            sourceRead()
+                    .execute(
+                            status -> {
+                                var head = links.findCdsExportRowsAfter(first, null, 32);
+                                assertThat(head).hasSize(1);
+                                try {
+                                    external.submit(
+                                                    () -> {
+                                                        // Another chart merged in, the first
+                                                        // one unmerged.
+                                                        merge(first + 2, first, 0);
+                                                        sql.update(
+                                                                "update demographic_merged set deleted=1"
+                                                                        + " where demographic_no=?",
+                                                                first + 1);
+                                                    })
+                                            .get(5, java.util.concurrent.TimeUnit.SECONDS);
+                                } catch (Exception failure) {
+                                    throw new IllegalStateException(failure);
+                                }
+                                var member = links.findCdsExportRowsAfter(first + 1, null, 32);
+                                var later = links.findCdsExportRowsAfter(first + 2, null, 32);
+                                // The snapshot still holds the one active link, read the same way
+                                // from either chart, and not the chart merged in afterwards.
+                                assertThat(member).hasSize(1);
+                                assertThat(member.getFirst().id())
+                                        .isEqualTo(head.getFirst().id());
+                                assertThat(later).isEmpty();
+                                assertThat(links.findCdsExportRowsAfter(first, null, 32))
+                                        .hasSize(1);
+                                return null;
+                            });
+        }
+        // A new snapshot sees both changes.
+        assertThat(
+                        sql.queryForObject(
+                                "select count(*) from demographic_merged where merged_to=?"
+                                        + " and deleted=0",
+                                Long.class,
+                                first))
+                .isEqualTo(1);
+    }
+
+    @Test
+    @org.junit.jupiter.api.condition.EnabledIfSystemProperty(
+            named = "cds.export.test.properties",
+            matches = ".+")
+    void shouldCaptureTheMergeRecordsPrivilegeRowExactly_asCarlosFindsIt() throws Exception {
+        insert(first, physician, "AC");
+        String object = "_eChart$" + first;
+        try {
+            // As the Merge Records page writes it; another case of the same name is the same row
+            // for the column's collation, and CARLOS finds it.
+            sql.update(
+                    "insert into secObjPrivilege(roleUserGroup,objectName,privilege,priority,provider_no)"
+                            + " values('_ALL', ?, '|or|', 0, '0')",
+                    object);
+            var privileges =
+                    context.getBean(io.github.carlos_emr.carlos.commn.dao.SecObjPrivilegeDao.class);
+            sourceRead()
+                    .execute(
+                            status -> {
+                                var rows = privileges.findCdsExportMergePrivileges(first);
+                                assertThat(rows).hasSize(1);
+                                var row = rows.getFirst();
+                                // The stored bytes, not the value asked for.
+                                assertThat(row.roleUserGroup()).isEqualTo("_ALL");
+                                assertThat(row.objectName()).isEqualTo(object);
+                                assertThat(row.privilege()).isEqualTo("|or|");
+                                assertThat(row.priority()).isEqualTo("0");
+                                assertThat(row.providerNo()).isEqualTo("0");
+                                assertThat(privileges.findCdsExportMergePrivileges(first + 1))
+                                        .isEmpty();
+                                try {
+                                    assertThat(
+                                                    new CdsExportSourceSchemaValidator()
+                                                            .verify(
+                                                                    CdsExportMergePrivilegeSourceReader
+                                                                            .TABLE,
+                                                                    privileges
+                                                                            .readCdsExportMergePrivilegeSchema(),
+                                                                    CdsExportMergePrivilegeSourceReader
+                                                                            .COLUMNS))
+                                            .matches("[0-9a-f]{64}");
+                                } catch (java.io.IOException failure) {
+                                    throw new java.io.UncheckedIOException(failure);
+                                }
+                                return null;
+                            });
+        } finally {
+            sql.update("delete from secObjPrivilege where objectName=?", object);
+        }
     }
 
     @Test

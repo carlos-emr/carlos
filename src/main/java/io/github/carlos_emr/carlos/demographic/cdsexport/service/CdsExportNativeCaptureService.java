@@ -311,6 +311,309 @@ public class CdsExportNativeCaptureService {
         }
     }
 
+    /**
+     * Every chart of a patient file of charts linked by Merge Records, captured as each would be
+     * alone ({@link #capture}), but in one read-only snapshot: every chart's categories and read
+     * scopes are authorized first, then every chart's schema, counts and rows are read in the same
+     * repeatable-read transaction (the head first, then the other charts ascending), each into its
+     * own value and index members, so the group's links and records agree with each other. Each
+     * chart is then authorized again, read back and given its own manifest, and the group gets a
+     * manifest naming them in order ({@code GROUP_MANIFEST}). A lost snapshot reads the whole group
+     * again. Nothing of a refused chart's group is kept.
+     *
+     * @param head the scope of the group's head; the others are its {@link
+     *     CdsExportCohortService.Patient#member} scopes
+     */
+    public Group captureGroup(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient head,
+            Set<String> selectedTables,
+            long maximumFields,
+            long maximumValueBytes,
+            CdsExportRunControl control)
+            throws IOException {
+        Objects.requireNonNull(lease);
+        Objects.requireNonNull(head);
+        head.require(lease);
+        Objects.requireNonNull(control);
+        var tables = Set.copyOf(selectedTables);
+        if (head.patient() != head.head()
+                || tables.isEmpty()
+                || tables.size() > 256
+                || !readers.keySet().containsAll(tables)
+                || maximumFields < 1
+                || maximumValueBytes < 1) {
+            throw new IllegalArgumentException("CDS_EXPORT_CAPTURE_SCOPE_INVALID");
+        }
+        if (TransactionSynchronizationManager.isActualTransactionActive())
+            throw new IllegalStateException("CDS_EXPORT_AMBIENT_TRANSACTION_REFUSED");
+        if (lease.document().protocol() != 2 || lease.document().storage() == null)
+            throw new IOException("CDS_EXPORT_STORAGE_BINDING_REQUIRED");
+        for (int restarts = 0; ; restarts++) {
+            try {
+                return captureGroupOnce(
+                        lease, head, tables, maximumFields, maximumValueBytes, control);
+            } catch (SnapshotLostException lost) {
+                if (restarts == SNAPSHOT_RESTARTS)
+                    throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                            .CdsExportDatabaseUnavailableException(lost.getCause());
+                LOG.warn(
+                        "CDS_EXPORT_CAPTURE_SNAPSHOT_LOST run={} epoch={} restart={}",
+                        lease.runId(),
+                        lease.epoch(),
+                        restarts + 1);
+                pause.accept(Math.min(30_000L, 1_000L << restarts));
+                control.checkpoint();
+            }
+        }
+    }
+
+    /**
+     * The captures of one group: each chart's, in the group's order (the head first), and the
+     * group manifest that names them.
+     */
+    public record Group(List<CdsExportPatientCaptureDto> charts, CdsExportStagedFileDto manifest) {
+        public Group {
+            charts = List.copyOf(charts);
+            Objects.requireNonNull(manifest);
+        }
+
+        @Override
+        public String toString() {
+            return "CdsExportNativeCaptureService.Group[protected]";
+        }
+    }
+
+    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that
+    // failure.
+    @SuppressWarnings("java:S1143")
+    private Group captureGroupOnce(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient head,
+            Set<String> tables,
+            long maximumFields,
+            long maximumValueBytes,
+            CdsExportRunControl control)
+            throws IOException {
+        var scopes = new ArrayList<CdsExportCohortService.Patient>();
+        scopes.add(head);
+        for (int member : head.members()) scopes.add(head.member(member));
+        var available = new ArrayList<List<CdsExportNativeSourceReader>>();
+        for (var scope : scopes) {
+            var chart = selected(lease, tables);
+            authorizeCategories(scope.patient(), chart, control);
+            available.add(chart);
+        }
+        Runnable probe =
+                () -> {
+                    if (TransactionSynchronizationManager.isActualTransactionActive())
+                        control.captureCheckpoint();
+                    else control.checkpoint();
+                };
+        var store =
+                stores.openExisting(
+                        lease.runId(), lease.epoch(), lease.document().storage(), probe);
+        var spooled = new ArrayList<CdsExportStagedFileDto>();
+        var spool =
+                new CdsExportNativeSourceReader.Spool() {
+                    @Override
+                    public CdsExportStagedFileDto stage(
+                            String purpose, CdsExportStagingService.Content content)
+                            throws IOException {
+                        var member = store.stage(purpose, content);
+                        spooled.add(member);
+                        return member;
+                    }
+
+                    @Override
+                    public java.io.InputStream open(CdsExportStagedFileDto file)
+                            throws IOException {
+                        if (!spooled.contains(file))
+                            throw new IOException("CDS_EXPORT_CAPTURE_SPOOL_SCOPE_INVALID");
+                        return store.open(file);
+                    }
+                };
+        Throwable spoolFailure = null;
+        try {
+            var prepared = new ArrayList<List<CdsExportNativeSourceReader>>();
+            for (int index = 0; index < scopes.size(); index++)
+                prepared.add(
+                        prepareCapture(
+                                scopes.get(index).patient(),
+                                available.get(index),
+                                control,
+                                spool));
+            return captureGroupSelected(
+                    lease,
+                    scopes,
+                    tables,
+                    prepared,
+                    maximumFields,
+                    maximumValueBytes,
+                    control,
+                    probe,
+                    store);
+        } catch (IOException | RuntimeException | Error failure) {
+            spoolFailure = failure;
+            throw failure;
+        } finally {
+            for (var member : spooled.reversed())
+                try {
+                    store.discardUnpublished(member);
+                } catch (IOException cleanup) {
+                    if (spoolFailure != null) spoolFailure.addSuppressed(cleanup);
+                    else throw cleanup;
+                }
+        }
+    }
+
+    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that
+    // failure.
+    @SuppressWarnings("java:S1143")
+    private Group captureGroupSelected(
+            CdsExportLeaseDto lease,
+            List<CdsExportCohortService.Patient> scopes,
+            Set<String> tables,
+            List<List<CdsExportNativeSourceReader>> selected,
+            long maximumFields,
+            long maximumValueBytes,
+            CdsExportRunControl control,
+            Runnable probe,
+            CdsExportStagingService store)
+            throws IOException {
+        for (int index = 0; index < scopes.size(); index++)
+            for (var reader : selected.get(index))
+                reader.authorizeReadScope(scopes.get(index).patient(), control);
+        control.checkpoint();
+        var owned = new ArrayList<CdsExportStagedFileDto>();
+        boolean complete = false;
+        Throwable primary = null;
+        try {
+            if (tables.contains("clinical_source_catalogue") && snapshots == null)
+                throw new IOException("CDS_EXPORT_SOURCE_SNAPSHOT_GUARD_MISSING");
+            List<CdsExportNativeCaptureDto> captured;
+            try (var held =
+                    tables.contains("clinical_source_catalogue")
+                            ? snapshots.acquire(control::checkpoint)
+                            : io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                    .CdsExportSourceReadLock.none()) {
+                // One snapshot for the whole group: its links and every chart's records are
+                // read as of one moment.
+                captured =
+                        read.execute(
+                                status -> {
+                                    try {
+                                        var charts = new ArrayList<CdsExportNativeCaptureDto>();
+                                        for (int index = 0; index < scopes.size(); index++)
+                                            charts.add(
+                                                    captureSnapshot(
+                                                            lease,
+                                                            scopes.get(index),
+                                                            tables,
+                                                            selected.get(index),
+                                                            maximumFields,
+                                                            control,
+                                                            probe,
+                                                            store,
+                                                            owned,
+                                                            held));
+                                        return charts;
+                                    } catch (IOException failure) {
+                                        throw new UncheckedIOException(failure);
+                                    } catch (java.sql.SQLException failure) {
+                                        throw new UncheckedIOException(
+                                                new IOException(
+                                                        "CDS_EXPORT_SOURCE_SNAPSHOT_GUARD_FAILED",
+                                                        failure));
+                                    }
+                                });
+                held.verify();
+            } catch (java.sql.SQLException failed) {
+                if (io.github.carlos_emr.carlos.demographic.cdsexport.support
+                        .CdsExportDatabaseUnavailableException.lost(failed))
+                    throw new SnapshotLostException(failed);
+                throw new IOException("CDS_EXPORT_SOURCE_SNAPSHOT_GUARD_FAILED", failed);
+            } catch (RuntimeException failed) {
+                if (io.github.carlos_emr.carlos.demographic.cdsexport.support
+                        .CdsExportDatabaseUnavailableException.lost(failed))
+                    throw new SnapshotLostException(failed);
+                throw failed;
+            }
+            if (captured == null || captured.size() != scopes.size())
+                throw new IOException("CDS_EXPORT_CAPTURE_READBACK_INVALID");
+            var charts = new ArrayList<CdsExportPatientCaptureDto>();
+            for (int index = 0; index < scopes.size(); index++)
+                charts.add(
+                        finish(
+                                lease,
+                                scopes.get(index),
+                                selected.get(index),
+                                captured.get(index),
+                                maximumFields,
+                                maximumValueBytes,
+                                control,
+                                store,
+                                owned));
+            var head = scopes.getFirst();
+            var manifest =
+                    store.stage(
+                            "GROUP_MANIFEST",
+                            output -> output.write(groupManifest(lease, head, charts)));
+            owned.add(manifest);
+            head.require(lease);
+            control.checkpoint();
+            var result = new Group(charts, manifest);
+            complete = true;
+            return result;
+        } catch (UncheckedIOException failure) {
+            primary = failure.getCause();
+            throw failure.getCause();
+        } catch (IOException | RuntimeException | Error failure) {
+            primary = failure;
+            throw failure;
+        } finally {
+            if (!complete)
+                for (var member : owned.reversed())
+                    try {
+                        store.discardUnpublished(member);
+                    } catch (IOException cleanup) {
+                        if (primary != null) primary.addSuppressed(cleanup);
+                        else throw cleanup;
+                    }
+        }
+    }
+
+    /**
+     * The group manifest: the run, the head, the frozen plan's digest and, in the group's order,
+     * each chart with its manifest member, the manifest's SHA-256 and its capture fingerprint.
+     */
+    private static byte[] groupManifest(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient head,
+            List<CdsExportPatientCaptureDto> charts)
+            throws IOException {
+        var root = JSON.createObjectNode();
+        root.put("protocol", 1);
+        root.put("runId", lease.runId());
+        root.put("epoch", lease.epoch());
+        root.put("head", head.patient());
+        root.put(
+                "planSha256",
+                head.group() == null
+                        ? null
+                        : io.github.carlos_emr.carlos.demographic.cds.contract
+                                .CdsMergedChartContract.sha256(JSON.writeValueAsBytes(head.group())));
+        var list = root.putArray("charts");
+        for (var chart : charts) {
+            var value = list.addObject();
+            value.put("patient", chart.capture().patient());
+            value.put("manifest", chart.manifest().memberId());
+            value.put("sha256", chart.manifest().plaintextSha256());
+            value.put("fingerprint", CdsExportChartFingerprints.capture(chart.capture()));
+        }
+        return JSON.writeValueAsBytes(root);
+    }
+
     /** How many times one chart is read again after its snapshot's connection was lost. */
     static final int SNAPSHOT_RESTARTS = 3;
 
@@ -476,74 +779,17 @@ public class CdsExportNativeCaptureService {
                     throw new SnapshotLostException(failed);
                 throw failed;
             }
-            Objects.requireNonNull(captured);
-            patientScope.require(lease);
-            authorize(patient, selected, control);
-            control.checkpoint();
-            var plan = new TreeMap<String, CdsExportNativeCaptureReader.Table>();
-            captured.tables()
-                    .forEach(
-                            (table, scope) ->
-                                    plan.put(
-                                            table,
-                                            new CdsExportNativeCaptureReader.Table(
-                                                    scope.columns(), scope.rows())));
-            {
-                // The first complete read-back of the new members; the patient's later reads of
-                // them replay what it checked (CdsExportVerifiedCaptures).
-                CdsExportNativeCaptureReader.Result proof;
-                if (captured.tables().containsKey("casemgmt_note")) {
-                    try (var notes =
-                            new CdsExportCapturedNoteScopeValidator(
-                                    captured.patient(),
-                                    captured.tables().get("casemgmt_note").noteAccess(),
-                                    field -> java.io.OutputStream.nullOutputStream())) {
-                        proof =
-                                read(
-                                        store,
-                                        captured,
-                                        plan,
-                                        maximumFields,
-                                        maximumValueBytes,
-                                        control,
-                                        notes);
-                        notes.finish();
-                    }
-                } else
-                    proof =
-                            read(
-                                    store,
-                                    captured,
-                                    plan,
-                                    maximumFields,
-                                    maximumValueBytes,
-                                    control,
-                                    field -> java.io.OutputStream.nullOutputStream());
-                if (proof.fields() != captured.fieldCount()
-                        || proof.valueBytes() != captured.valueBytes())
-                    throw new IOException("CDS_EXPORT_CAPTURE_READBACK_INVALID");
-            }
-            // Streamed to staging, never held as one document: a chart of any number of notes
-            // has a manifest.
-            var manifest =
-                    store.stage(
-                            "SOURCE_MANIFEST",
-                            output -> {
-                                // The member's stream stays the staging service's to close.
-                                try (var generator =
-                                        JSON.getFactory()
-                                                .createGenerator(output)
-                                                .disable(
-                                                        com.fasterxml.jackson.core.JsonGenerator
-                                                                .Feature.AUTO_CLOSE_TARGET)) {
-                                    JSON.writeValue(generator, captured);
-                                }
-                            });
-            owned.add(manifest);
-            authorize(patient, selected, control);
-            control.checkpoint();
-            patientScope.require(lease);
-            var receipt = new CdsExportPatientCaptureDto(captured, manifest);
+            var receipt =
+                    finish(
+                            lease,
+                            patientScope,
+                            selected,
+                            captured,
+                            maximumFields,
+                            maximumValueBytes,
+                            control,
+                            store,
+                            owned);
             complete = true;
             return receipt;
         } catch (UncheckedIOException failure) {
@@ -562,6 +808,93 @@ public class CdsExportNativeCaptureService {
                         else throw cleanup;
                     }
         }
+    }
+
+    /**
+     * After one chart's snapshot: fresh authorization, the complete read-back proof of its two
+     * members, its manifest, and fresh authorization again. Shared by a chart captured alone and
+     * each chart of a group captured in one snapshot ({@link #captureGroup}).
+     */
+    private CdsExportPatientCaptureDto finish(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patientScope,
+            List<CdsExportNativeSourceReader> selected,
+            CdsExportNativeCaptureDto captured,
+            long maximumFields,
+            long maximumValueBytes,
+            CdsExportRunControl control,
+            CdsExportStagingService store,
+            List<CdsExportStagedFileDto> owned)
+            throws IOException {
+        int patient = patientScope.patient();
+        Objects.requireNonNull(captured);
+        patientScope.require(lease);
+        authorize(patient, selected, control);
+        control.checkpoint();
+        var plan = new TreeMap<String, CdsExportNativeCaptureReader.Table>();
+        captured.tables()
+                .forEach(
+                        (table, scope) ->
+                                plan.put(
+                                        table,
+                                        new CdsExportNativeCaptureReader.Table(
+                                                scope.columns(), scope.rows())));
+        {
+            // The first complete read-back of the new members; the patient's later reads of
+            // them replay what it checked (CdsExportVerifiedCaptures).
+            CdsExportNativeCaptureReader.Result proof;
+            if (captured.tables().containsKey("casemgmt_note")) {
+                try (var notes =
+                        new CdsExportCapturedNoteScopeValidator(
+                                captured.patient(),
+                                captured.tables().get("casemgmt_note").noteAccess(),
+                                field -> java.io.OutputStream.nullOutputStream())) {
+                    proof =
+                            read(
+                                    store,
+                                    captured,
+                                    plan,
+                                    maximumFields,
+                                    maximumValueBytes,
+                                    control,
+                                    notes);
+                    notes.finish();
+                }
+            } else
+                proof =
+                        read(
+                                store,
+                                captured,
+                                plan,
+                                maximumFields,
+                                maximumValueBytes,
+                                control,
+                                field -> java.io.OutputStream.nullOutputStream());
+            if (proof.fields() != captured.fieldCount()
+                    || proof.valueBytes() != captured.valueBytes())
+                throw new IOException("CDS_EXPORT_CAPTURE_READBACK_INVALID");
+        }
+        // Streamed to staging, never held as one document: a chart of any number of notes
+        // has a manifest.
+        var manifest =
+                store.stage(
+                        "SOURCE_MANIFEST",
+                        output -> {
+                            // The member's stream stays the staging service's to close.
+                            try (var generator =
+                                    JSON.getFactory()
+                                            .createGenerator(output)
+                                            .disable(
+                                                    com.fasterxml.jackson.core.JsonGenerator
+                                                            .Feature.AUTO_CLOSE_TARGET)) {
+                                JSON.writeValue(generator, captured);
+                            }
+                        });
+        owned.add(manifest);
+        authorize(patient, selected, control);
+        control.checkpoint();
+        patientScope.require(lease);
+        return new CdsExportPatientCaptureDto(captured, manifest);
     }
 
     /** What one reader's source held when the snapshot read its schema and counted its rows. */

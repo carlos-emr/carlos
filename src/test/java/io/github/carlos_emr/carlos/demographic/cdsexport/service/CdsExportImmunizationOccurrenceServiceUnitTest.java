@@ -481,7 +481,7 @@ class CdsExportImmunizationOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldVerifyActiveMergeBlocks_beforeClinicalAndRetainedReads() throws Exception {
+    void shouldComposeImmunizations_whenAnActiveMergeLinkNamesTheChart() throws Exception {
         var f = fixture(false, null);
         var fields = new TreeMap<String, String>();
         CdsExportPatientTableReadSupport.Plan.DEMOGRAPHIC_MERGES
@@ -492,8 +492,8 @@ class CdsExportImmunizationOccurrenceServiceUnitTest {
         f.merges = List.of(row("demographic_merged", fields));
         f.scopes.put(
                 "demographic_merged", new CdsExportCapturedTableDto(fields.keySet(), 1, SOURCE));
-        assertThatThrownBy(() -> compose(f, false)).hasMessage("CDS_EXPORT_MERGED_PATIENT_SCOPE");
-        verifyNoInteractions(f.values, f.closure, f.configurations, f.receiptReader);
+        // Merge Records groups charts into one patient file instead of holding them.
+        assertThat(compose(f, false)).isNotEmpty();
     }
 
     @Test

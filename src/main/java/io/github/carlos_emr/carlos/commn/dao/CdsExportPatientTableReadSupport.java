@@ -1846,29 +1846,42 @@ public final class CdsExportPatientTableReadSupport {
     }
 
     public static CdsExportTableSchemaDto schema(EntityManager em, Plan plan) {
+        return schema(em, plan.table);
+    }
+
+    /**
+     * The structure of the Merge Records privilege table, {@code secObjPrivilege}, read as every
+     * plan's table is ({@code merge_privileges} capture).
+     */
+    static CdsExportTableSchemaDto mergePrivilegeSchema(EntityManager em) {
+        return schema(em, "secObjPrivilege");
+    }
+
+    /** One fixed table's structure; the name is a constant of this class, never a request value. */
+    private static CdsExportTableSchemaDto schema(EntityManager em, String table) {
         // Inside a capture's schema pass the same structure comes from the transaction's one
         // complete catalogue read (CdsExportPhysicalSchemaReadSupport says how visibility and
         // stability are then kept).
         var pass = CdsExportPhysicalSchemaReadSupport.current();
         if (pass != null) {
-            var found = pass.named(plan.table);
+            var found = pass.named(table);
             if (found.size() != 1
                     || found.getFirst().columns().isEmpty()
                     || found.getFirst().columns().size() > 4096
                     || found.getFirst().primaryKeyColumns().size() > 16) invalid();
-            if (pass.unprobed(plan.table)) {
-                query(em, "select d.* from `" + plan.table + "` d limit 0").getResultList();
-                pass.probed(plan.table);
+            if (pass.unprobed(table)) {
+                query(em, "select d.* from `" + table + "` d limit 0").getResultList();
+                pass.probed(table);
             }
             return new CdsExportTableSchemaDto(
-                    plan.table,
+                    table,
                     found.getFirst().engine(),
                     found.getFirst().columns(),
                     found.getFirst().primaryKeyColumns());
         }
         // Verify whole-table column visibility, including invisible columns, before trusting
         // the privilege-filtered information_schema catalogue. No source values are returned.
-        query(em, "select d.* from `" + plan.table + "` d limit 0").getResultList();
+        query(em, "select d.* from `" + table + "` d limit 0").getResultList();
         var engines =
                 rows(
                         query(
@@ -1876,7 +1889,7 @@ public final class CdsExportPatientTableReadSupport {
                                         "select ENGINE,TABLE_NAME from information_schema.TABLES"
                                             + " where TABLE_SCHEMA=DATABASE() and TABLE_NAME=:table"
                                             + " and TABLE_TYPE='BASE TABLE'")
-                                .setParameter("table", plan.table)
+                                .setParameter("table", table)
                                 .setMaxResults(2));
         var columns =
                 rows(
@@ -1886,7 +1899,7 @@ public final class CdsExportPatientTableReadSupport {
                                             + " COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE,CHARACTER_SET_NAME,COLLATION_NAME,NULLIF(GENERATION_EXPRESSION,'')"
                                             + " from information_schema.COLUMNS where"
                                             + " TABLE_SCHEMA=DATABASE() and TABLE_NAME=:table")
-                                .setParameter("table", plan.table)
+                                .setParameter("table", table)
                                 .setMaxResults(4097));
         var keys =
                 rows(
@@ -1897,7 +1910,7 @@ public final class CdsExportPatientTableReadSupport {
                                             + " TABLE_SCHEMA=DATABASE() and TABLE_NAME=:table and"
                                             + " CONSTRAINT_NAME='PRIMARY' order by"
                                             + " ORDINAL_POSITION")
-                                .setParameter("table", plan.table)
+                                .setParameter("table", table)
                                 .setMaxResults(17));
         if (engines.size() != 1 || columns.isEmpty() || columns.size() > 4096 || keys.size() > 16)
             invalid();
@@ -1916,9 +1929,9 @@ public final class CdsExportPatientTableReadSupport {
         captured.sort(java.util.Comparator.comparing(CdsExportTableSchemaDto.Column::name));
         var primary = new ArrayList<String>();
         for (var key : keys) primary.add((String) key[0]);
-        query(em, "select d.* from `" + plan.table + "` d limit 0").getResultList();
+        query(em, "select d.* from `" + table + "` d limit 0").getResultList();
         return new CdsExportTableSchemaDto(
-                plan.table, (String) engines.getFirst()[0], captured, primary);
+                table, (String) engines.getFirst()[0], captured, primary);
     }
 
     /**
