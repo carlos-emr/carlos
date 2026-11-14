@@ -40,7 +40,9 @@ import java.util.Set;
  *
  * <p>{@code legacyLaboratoryReports} is the number of legacy-format laboratory reports (MDS, CML
  * and BC PathNet routes) written in Reports by a job that selected LaboratoryResults without
- * Reports, and is 0 for any other job; the ReadMe states it for such a job.
+ * Reports, and is 0 for any other job; the ReadMe states it for such a job. {@code merges} is
+ * what the ReadMe says about Merge Records for the whole job, or null when no chart of the job has
+ * a Merge Records link or privilege row.
  */
 public record CdsExportPackageMetadataDto(String exportRoot, String physicianGroup,
         String groupContactInformation, String applicationVersion, Instant exportTime,
@@ -48,7 +50,24 @@ public record CdsExportPackageMetadataDto(String exportRoot, String physicianGro
         String auditAccessDescription, List<CdsExportHeldPatientDto> heldPatients,
         List<CdsExportLocalSourceDto> unreviewedLocalSources,
         List<CdsExportListedSourceDto> listedClinicSources,
-        List<CdsExportUnlinkedSourceDto> unlinkedSources, long legacyLaboratoryReports) {
+        List<CdsExportUnlinkedSourceDto> unlinkedSources, long legacyLaboratoryReports,
+        @com.fasterxml.jackson.annotation.JsonInclude(
+                        com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+                CdsExportMergeJobSummaryDto merges) {
+    /** A package whose charts have no Merge Records link or privilege row. */
+    public CdsExportPackageMetadataDto(String exportRoot, String physicianGroup,
+            String groupContactInformation, String applicationVersion, Instant exportTime,
+            ZoneId clinicalZone, CdsLogicalProfile profile, Set<CdsCategory> categories,
+            String auditAccessDescription, List<CdsExportHeldPatientDto> heldPatients,
+            List<CdsExportLocalSourceDto> unreviewedLocalSources,
+            List<CdsExportListedSourceDto> listedClinicSources,
+            List<CdsExportUnlinkedSourceDto> unlinkedSources, long legacyLaboratoryReports) {
+        this(exportRoot, physicianGroup, groupContactInformation, applicationVersion, exportTime,
+                clinicalZone, profile, categories, auditAccessDescription, heldPatients,
+                unreviewedLocalSources, listedClinicSources, unlinkedSources,
+                legacyLaboratoryReports, null);
+    }
+
     public CdsExportPackageMetadataDto {
         if (legacyLaboratoryReports < 0)
             throw new IllegalArgumentException("CDS_EXPORT_PACKAGE_METADATA_INVALID");

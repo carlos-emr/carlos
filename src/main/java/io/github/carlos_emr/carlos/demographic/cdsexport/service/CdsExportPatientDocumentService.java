@@ -63,6 +63,37 @@ public class CdsExportPatientDocumentService {
         this.clinical = Objects.requireNonNull(clinical);
     }
 
+    public Document compose(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> requiredTables,
+            CdsExportPatientCaptureDto source,
+            CdsExportStagedFileDto payloadManifest,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            String applicationVersion,
+            CdsExportRunControl control)
+            throws IOException {
+        return compose(
+                lease,
+                patient,
+                requiredTables,
+                source,
+                payloadManifest,
+                bounds,
+                applicationVersion,
+                control,
+                null);
+    }
+
+    /**
+     * {@link #compose(CdsExportLeaseDto, CdsExportCohortService.Patient, Set,
+     * CdsExportPatientCaptureDto, CdsExportStagedFileDto, CdsExportClinicalOccurrenceService.Bounds,
+     * String, CdsExportRunControl)} that also reports where each occurrence is in the chart's
+     * document, for one chart of a patient file of charts linked by Merge Records
+     * ({@link CdsExportMergedChartComposer}). The document is the same either way.
+     *
+     * @param occurrences receives each occurrence's range, or null
+     */
     // Cleanup only throws without a primary failure; otherwise its error is suppressed on that
     // failure.
     @SuppressWarnings("java:S1143")
@@ -74,7 +105,8 @@ public class CdsExportPatientDocumentService {
             CdsExportStagedFileDto payloadManifest,
             CdsExportClinicalOccurrenceService.Bounds bounds,
             String applicationVersion,
-            CdsExportRunControl control)
+            CdsExportRunControl control,
+            CdsExportXmlComposer.Occurrences occurrences)
             throws IOException {
         patient.require(lease);
         Objects.requireNonNull(control);
@@ -316,7 +348,8 @@ public class CdsExportPatientDocumentService {
                                                                                 // failure stops it.
                                                                                 Long.MAX_VALUE,
                                                                                 control
-                                                                                        ::checkpoint));
+                                                                                        ::checkpoint,
+                                                                                occurrences));
                                 owned.add(xml[0]);
                                 active.set(false);
                                 // Every disposed occurrence has its receipt and every expected
@@ -556,6 +589,30 @@ public class CdsExportPatientDocumentService {
     private static void line(OutputStream out, Object value) throws IOException {
         out.write(JSON.writeValueAsBytes(value));
         out.write('\n');
+    }
+
+    /**
+     * The validated patient file of charts linked by Merge Records
+     * ({@link CdsExportMergedChartComposer}), bound to its head's capture: the head's patient and
+     * source manifest, the file's XML, the group's field decisions and every chart's attachments.
+     */
+    static Document merged(
+            Document head,
+            CdsExportStagedFileDto xml,
+            CdsExportStagedFileDto reconciliation,
+            CdsExportXmlValidationDto validation,
+            List<CdsExportPackageMemberDto> attachments,
+            Map<String, Long> notExported) {
+        return new Document(
+                head.runId(),
+                head.epoch(),
+                head.patient(),
+                head.sourceManifestSha256(),
+                xml,
+                reconciliation,
+                validation,
+                attachments,
+                notExported);
     }
 
     /** Private validated document evidence; package/disclosure services must still prove their own gates. */

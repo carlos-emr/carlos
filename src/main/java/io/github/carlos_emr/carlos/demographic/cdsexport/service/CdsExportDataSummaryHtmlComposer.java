@@ -52,7 +52,28 @@ final class CdsExportDataSummaryHtmlComposer {
             String dateOfBirth,
             String sex,
             String healthCard,
-            String chartNumber) {
+            String chartNumber,
+            int mergedInto) {
+        Patient(
+                String patientNumber,
+                String lastName,
+                String firstName,
+                String dateOfBirth,
+                String sex,
+                String healthCard,
+                String chartNumber) {
+            this(patientNumber, lastName, firstName, dateOfBirth, sex, healthCard, chartNumber, 0);
+        }
+
+        /**
+         * The same patient as a chart merged into CARLOS patient {@code head} (Merge Records):
+         * its records are in the head's patient file, and the summary says so.
+         */
+        Patient mergedInto(int head) {
+            return new Patient(
+                    patientNumber, lastName, firstName, dateOfBirth, sex, healthCard, chartNumber, head);
+        }
+
         static Patient of(Map<String, String> demographic) {
             String year = demographic.get("year_of_birth"),
                     month = demographic.get("month_of_birth"),
@@ -121,7 +142,15 @@ final class CdsExportDataSummaryHtmlComposer {
         row(html, "Sex", patient.sex());
         row(html, "Health card", patient.healthCard());
         row(html, "Chart number", patient.chartNumber());
-        row(html, "CARLOS patient number", patient.patientNumber());
+        row(
+                html,
+                "CARLOS patient number",
+                patient.mergedInto() > 0
+                        ? patient.patientNumber()
+                                + " (merged into CARLOS patient "
+                                + patient.mergedInto()
+                                + ")"
+                        : patient.patientNumber());
         row(html, "Record", group.subClass());
         html.append("</table>");
         int index = 0;

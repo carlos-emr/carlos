@@ -30,13 +30,24 @@ import java.util.Map;
  * {@code dataSummaries} counts the data-summary Reports per record kind label, in kind order;
  * {@code listed} names the removed-feature tables holding this patient's rows that were not
  * exported; {@code notExported} counts captured records that are deliberately not exported (removed
- * and patient-independent eForms), per ReadMe label.
+ * and patient-independent eForms), per ReadMe label. {@code merge} describes the file's charts
+ * linked by Merge Records and its links, or is null when it has none.
  */
 public record CdsExportPatientSummaryDto(CdsExportPatientFileDto patient,
         Map<CdsCategory, Long> occurrences, Long textReports, Long binaryReports,
         String xmlSha256, long xmlBytes, Map<String, Long> dataSummaries,
         java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportListedSourceDto> listed,
-        Map<String, Long> notExported) {
+        Map<String, Long> notExported, CdsExportMergeSummaryDto merge) {
+    /** A patient file with no Merge Records link, privilege row or merged chart. */
+    public CdsExportPatientSummaryDto(CdsExportPatientFileDto patient,
+            Map<CdsCategory, Long> occurrences, Long textReports, Long binaryReports,
+            String xmlSha256, long xmlBytes, Map<String, Long> dataSummaries,
+            java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportListedSourceDto> listed,
+            Map<String, Long> notExported) {
+        this(patient, occurrences, textReports, binaryReports, xmlSha256, xmlBytes, dataSummaries,
+                listed, notExported, null);
+    }
+
     public CdsExportPatientSummaryDto(CdsExportPatientFileDto patient,
             Map<CdsCategory, Long> occurrences, Long textReports, Long binaryReports,
             String xmlSha256, long xmlBytes, Map<String, Long> dataSummaries,

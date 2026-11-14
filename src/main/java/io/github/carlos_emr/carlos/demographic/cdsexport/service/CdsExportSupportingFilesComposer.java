@@ -143,7 +143,13 @@ public final class CdsExportSupportingFilesComposer {
         for (var held : metadata.heldPatients()) {
             line(readMe, "Held patient", Integer.toString(held.patient()));
             line(readMe, "Held patient reason", held.code());
+            for (var merged : CdsExportMergedChartReadMe.held(held))
+                line(readMe, merged.label(), merged.value());
         }
+        // Charts linked by Merge Records are one patient file: how many charts made how many
+        // files, and where each selected chart in another chart's file went.
+        for (var merged : CdsExportMergedChartReadMe.job(metadata.merges(), metadata.categories()))
+            line(readMe, merged.label(), merged.value());
         line(
                 readMe,
                 "Unreviewed local tables not exported",
@@ -223,6 +229,8 @@ public final class CdsExportSupportingFilesComposer {
                 validatePatient(patient, metadata);
                 line(readMe, "Patient file", metadata.exportRoot() + "/" + relative);
                 line(readMe, "Patient XML SHA256", patient.xmlSha256());
+                for (var merged : CdsExportMergedChartReadMe.file(patient.merge()))
+                    line(readMe, merged.label(), merged.value());
                 for (var summary : patient.dataSummaries().entrySet())
                     line(
                             readMe,
@@ -239,6 +247,22 @@ public final class CdsExportSupportingFilesComposer {
                             NOT_EXPORTED,
                             withheld.getKey() + ": " + withheld.getValue());
                 event(eventLog, patient);
+                if (patient.merge() != null)
+                    for (var merged :
+                        CdsExportMergedChartReadMe.events(
+                                io.github.carlos_emr.carlos.demographic.cds.contract
+                                        .CdsMergedChartContract.chart(
+                                                patient.patient().senderPatientId()),
+                                patient.merge(),
+                                CdsExportLegacyLaboratoryReports.sections(metadata.categories()))) {
+                    String separator = "";
+                    for (String value : merged) {
+                        eventLog.write(separator);
+                        csv(eventLog, value);
+                        separator = ",";
+                    }
+                    eventLog.write("\n");
+                }
                 count = Math.incrementExact(count);
                 totalPatients = Math.incrementExact(totalPatients);
                 patient = next(patients, checkpoint);
