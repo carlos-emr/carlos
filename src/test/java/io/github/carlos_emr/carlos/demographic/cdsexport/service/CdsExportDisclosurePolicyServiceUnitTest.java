@@ -131,8 +131,34 @@ class CdsExportDisclosurePolicyServiceUnitTest {
         files.remove(ROOT.resolve("certificates/receiver-key.der")); assertThatThrownBy(this::resolve).hasMessage("CDS_EXPORT_RECIPIENT_UNAVAILABLE");
         settings.clear(); assertThatThrownBy(this::resolve).hasMessage("CDS_EXPORT_AUDIT_ACCESS_UNAVAILABLE");
     }
-    @Test void shouldRefuseOversizedPolicyBytes_evenIfAnAlternateReaderIgnoredItsLimit() {
-        files.put(ROOT.resolve("policy.json"), new byte[32769]); assertThatThrownBy(this::resolve).hasMessage("CDS_EXPORT_AUDIT_ACCESS_UNAVAILABLE");
+    @Test void shouldResolveTheArrangement_whenAnAuditPlanNames150ProvidersAnd70Recipients() throws Exception {
+        // A policy once refused the job past 64 recipients or certificates, 100 audit plans, an
+        // audit plan of 64 recipients or 100 providers, or a file of 32 KiB. Every file but the
+        // manifest is pinned by its SHA-256, so none of these numbers protected anything.
+        var recipients = new ArrayList<String>(List.of("receiver"));
+        for (int number = 1; number < 70; number++) recipients.add("recipient-" + number);
+        var providers = new ArrayList<String>(List.of("12"));
+        for (int number = 1; number < 150; number++) providers.add("P" + number);
+        put("audit/approved.json", Map.of("protocol", 1, "enabled", true, "id", "approved", "description", "Owned recipient has separately approved audit access",
+                "recipientIds", recipients, "providerNos", providers, "profiles", List.of("omd-5.2", "pcon-2024-02")));
+        // The recipient's registration with the whitespace JSON allows, 40 KiB in all.
+        var registration = new String(files.get(ROOT.resolve("recipients/receiver.json")), StandardCharsets.UTF_8);
+        files.put(ROOT.resolve("recipients/receiver.json"), (registration + " ".repeat(40 * 1024 - registration.length())).getBytes(StandardCharsets.UTF_8));
+        var recipientPins = new TreeMap<String, String>(); var certificatePins = new TreeMap<String, String>(); var auditPins = new TreeMap<String, String>();
+        recipientPins.put("receiver", hash(files.get(ROOT.resolve("recipients/receiver.json"))));
+        certificatePins.put("receiver-key", hash(files.get(ROOT.resolve("certificates/receiver-key.der"))));
+        auditPins.put("approved", hash(files.get(ROOT.resolve("audit/approved.json"))));
+        for (int number = 1; number < 70; number++) {
+            recipientPins.put("recipient-" + number, String.format(Locale.ROOT, "%064x", number));
+            certificatePins.put("key-" + number, String.format(Locale.ROOT, "%064x", number));
+        }
+        for (int number = 1; number <= 100; number++) auditPins.put("plan-" + number, String.format(Locale.ROOT, "%064x", number));
+        put("policy.json", Map.of("protocol", 1, "enabled", true, "senderSha256", hash(files.get(ROOT.resolve("sender.json"))),
+                "recipients", recipientPins, "certificates", certificatePins, "auditPlans", auditPins));
+        assertThat(files.get(ROOT.resolve("recipients/receiver.json"))).hasSize(40 * 1024);
+        var result = resolve();
+        assertThat(result.certificate()).isEqualTo(certificate.certificate);
+        assertThat(result.auditPlanDigest()).matches("[0-9a-f]{64}");
     }
     @Test void shouldRejectUnknownProfilesAndDuplicateApprovals_withoutBroadeningTheRequestedScope() throws Exception {
         change("recipients/receiver.json", "profiles", List.of("future-profile")); manifest(); assertThatThrownBy(this::resolve).hasMessage("CDS_EXPORT_RECIPIENT_UNAVAILABLE");
