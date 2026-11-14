@@ -245,14 +245,29 @@ class CdsExportConsultationLetterComposerUnitTest {
     }
 
     @Test
-    void shouldReportTheLogo_whenTheInstalledLogoIsLargerThanTheLimit() throws Exception {
+    void shouldIncludeTheLogo_whenTheLogoIsLargerThan4MiB() throws Exception {
+        // A logo over 4 MiB was once left out of the letter with a LOGO_UNAVAILABLE note. The
+        // chart's own Print reads the file whatever its size, and so does the export now.
+        var image = new BufferedImage(1400, 1100, BufferedImage.TYPE_INT_RGB);
+        var noise = new java.util.Random(7);
+        for (int y = 0; y < image.getHeight(); y++)
+            for (int x = 0; x < image.getWidth(); x++) image.setRGB(x, y, noise.nextInt(1 << 24));
+        var encoded = new ByteArrayOutputStream();
+        ImageIO.write(image, "png", encoded);
+        assertThat(encoded.size()).isGreaterThan(4 << 20);
         Path logo = temp.resolve("logo.png");
-        Files.write(logo, new byte[(4 << 20) + 1]);
+        Files.write(logo, encoded.toByteArray());
         property("faxLogoInConsultation", logo.toString());
         var request = request("44", null);
+        var printed = composer.print(request, plan(request, png()));
 
-        assertThat(composer.print(request, plan(request, png())).notes())
-                .containsExactly(CdsExportConsultationLetterComposer.LOGO_NOTE);
+        assertThat(printed.notes()).isEmpty();
+        try (var pdf = Loader.loadPDF(printed.pdf())) {
+            int images = 0;
+            for (var page : pdf.getPages())
+                for (var name : page.getResources().getXObjectNames()) images++;
+            assertThat(images).isEqualTo(2);
+        }
     }
 
     @Test

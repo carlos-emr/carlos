@@ -2608,8 +2608,10 @@ stays the lossless accounting. Two printers are registered (web context by compo
   reports it (`ConsultationPDFCreator.Omission`) and both Notes say `SIGNATURE_UNAVAILABLE` /
   `LOGO_UNAVAILABLE`: nothing is substituted. A configured logo file that is not installed (the
   packaged sample path, for example) is not an omission: the letter prints without a logo, as the
-  clinic's own Print does, and no Note is added. An installed logo that cannot be read (larger than
-  4 MiB, unreadable, or not an image) is reported. A request whose consultant is a health-care-team
+  clinic's own Print does, and no Note is added. An installed logo of any size is read whole, as
+  the chart's own Print reads it (a logo over 4 MiB was left out until this change); one that
+  cannot be read (an I/O failure, a file too large for one Java array, or not an image) is
+  reported. A request whose consultant is a health-care-team
   contact (`demographicContactId` with `ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS`) prints
   that contact as the chart's Print does (`EctConsultationFormRequestUtil.estRequestFromId`,
   `CdsExportConsultationLetterComposer.consultant`): `CdsExportPrintedFormReadDao.teamLink` reads
