@@ -197,6 +197,7 @@
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportLedgerIntegrationTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportLedgerTransactionUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportLegacyDaoWiringUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportLegacyLaboratoryReportsUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportMeasurementReadMariaDbIntegrationTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportMeasurementSourceReaderUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportMeasurementWindowMariaDbIntegrationTest",
