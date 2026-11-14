@@ -46,6 +46,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -144,9 +146,34 @@ public class PreventionReport2Action extends ActionSupport {
         request.setAttribute("percentWithGrace", h.get("percentWithGrace"));
         request.setAttribute("returnReport", h.get("returnReport"));
         request.setAttribute("inEligible", h.get("inEligible"));
+        // The page lists each row with its patient's record. The records are looked up here, once
+        // per row as the page did, so that a row whose patient record is not found can be counted
+        // before the page writes its notice: the page used to skip such a row with a log line.
+        java.util.Map<Integer, Demographic> reportDemographics = new java.util.HashMap<>();
+        int unreadablePatients = parseCount(h.get(PreventionReport.UNREADABLE_COUNT));
+        Object returnReport = h.get("returnReport");
+        if (returnReport instanceof java.util.List<?> rows) {
+            DemographicData demographicData = new DemographicData();
+            for (Object row : rows) {
+                if (!(row instanceof PreventionReportDisplay display) || display.demographicNo == null) {
+                    continue;
+                }
+                Demographic demographic = demographicData.getDemographic(loggedInInfo, display.demographicNo.toString());
+                if (demographic != null) {
+                    reportDemographics.put(display.demographicNo, demographic);
+                } else {
+                    log.warn("Prevention report: no patient record for demographicNo={}",
+                            LogSafe.sanitize(display.demographicNo.toString()));
+                    if (!display.isUnreadable()) {
+                        unreadablePatients++;
+                    }
+                }
+            }
+        }
+        request.setAttribute("reportDemographics", reportDemographics);
         // Above zero when some charts could not be read: the page then says, above the totals,
         // that the report is incomplete and for how many patients.
-        request.setAttribute("unreadablePatients", h.get(PreventionReport.UNREADABLE_COUNT));
+        request.setAttribute("unreadablePatients", String.valueOf(unreadablePatients));
         request.setAttribute("eformSearch", h.get("eformSearch"));
         request.setAttribute("followUpType", h.get("followUpType"));
         request.setAttribute("BillCode", h.get("BillCode"));
@@ -158,6 +185,14 @@ public class PreventionReport2Action extends ActionSupport {
         log.debug("setting prevention type to {}", LogSafe.sanitize(prevention));
 
         return SUCCESS;
+    }
+
+    private static int parseCount(Object count) {
+        try {
+            return count == null ? 0 : Integer.parseInt(count.toString());
+        } catch (NumberFormatException _) {
+            return 0;
+        }
     }
 
     private static boolean hasValidPatientSet(String patientSet) {

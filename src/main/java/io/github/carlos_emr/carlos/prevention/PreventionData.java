@@ -399,14 +399,45 @@ public class PreventionData {
         return rows;
     }
 
-	@Nonnull
+    /**
+     * Lists the patient's preventions of one type, or of every type when {@code preventionType}
+     * is {@code null}, for a caller who may read the chart.
+     *
+     * <p>The patient is looked up first, for the date of birth and, through
+     * {@link DemographicManager}, for the caller's right to read the chart. That lookup can end
+     * in two ways that must not be confused:
+     * <ul>
+     * <li><b>The caller may not read the chart</b> (a {@link SecurityException} for a missing
+     * {@code _demographic} privilege, or a
+     * {@link io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException}): the result
+     * is an empty list, as it has always been. A denial is not an error page and is never
+     * answered with data. It is logged as a warning with the chart number only, without a stack
+     * trace: it is an expected outcome, not a fault.</li>
+     * <li><b>The lookup itself failed</b> (the database, for example): the read is refused with
+     * {@link PreventionSourceUnavailableException}, like a failed read of the preventions. This
+     * used to return an empty list too, which reads as "this patient has no preventions".</li>
+     * </ul>
+     *
+     * @param loggedInInfo the logged-in user
+     * @param preventionType the prevention type's name, or {@code null} for every type
+     * @param demographicId the patient's demographic number
+     * @return the preventions, oldest first; empty when there are none or the caller may not
+     *         read the chart; never {@code null}
+     * @throws PreventionSourceUnavailableException if the patient or the preventions could not
+     *         be read; the caller must show that preventions could not be read
+     * @throws PreventionDatePrecisionException if a record's date needs review
+     */
+    @Nonnull
     public static ArrayList<Map<String, Object>> getPreventionData(LoggedInInfo loggedInInfo, String preventionType, Integer demographicId) {
         Date dob;
         try {
             dob = getDemographicDateOfBirth(loggedInInfo, demographicId);
-        } catch (Exception e) {
-            log.error(e.getMessage(), e);
+        } catch (SecurityException | io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException denied) {
+            log.warn("Prevention read refused for demographicNo={}: the caller may not read the chart ({})",
+                    io.github.carlos_emr.carlos.utility.LogSafe.sanitizeObject(demographicId), denied.getClass().getSimpleName());
             return new ArrayList<Map<String, Object>>();
+        } catch (Exception e) {
+            throw sourceUnavailable(e);
         }
         return listForCheckedPatient(preventionType, demographicId, dob);
     }

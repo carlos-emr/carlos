@@ -302,9 +302,51 @@ class PreventionPageDataUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should keep the standalone lookup returning nothing when the user may not read the patient")
     void shouldReturnNothing_whenStandaloneLookupIsDenied() {
-        when(demographicManager.getDemographic(user, Integer.valueOf(7))).thenThrow(new RuntimeException(DENIED));
+        // A denial is a SecurityException, as DemographicManagerImpl.checkPrivilege throws it.
+        when(demographicManager.getDemographic(user, Integer.valueOf(7))).thenThrow(new SecurityException(DENIED));
 
-        assertThat(PreventionData.getPreventionData(user, "Flu", 7)).isEmpty();
+        try (LogCapture logs = LogCapture.forLogger(PreventionData.class)) {
+            assertThat(PreventionData.getPreventionData(user, "Flu", 7)).isEmpty();
+
+            // An expected outcome, not a fault: one warning with the chart number, no stack trace.
+            assertThat(logs.events()).hasSize(1).allSatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getThrown()).isNull();
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("demographicNo=7", "may not read the chart").doesNotContain(DENIED);
+            });
+        }
+        verifyNoInteractions(preventionDao);
+    }
+
+    @Test
+    @DisplayName("should keep the standalone lookup returning nothing when a patient directive refuses the chart")
+    void shouldReturnNothing_whenAPatientDirectiveRefusesTheChart() {
+        when(demographicManager.getDemographic(user, Integer.valueOf(7)))
+                .thenThrow(new io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException("synthetic directive"));
+
+        try (LogCapture logs = LogCapture.forLogger(PreventionData.class)) {
+            assertThat(PreventionData.getPreventionData(user, "Flu", 7)).isEmpty();
+
+            assertThat(logs.events()).noneMatch(event -> event.getLevel().isMoreSpecificThan(Level.ERROR)
+                    || event.getThrown() != null);
+        }
+        verifyNoInteractions(preventionDao);
+    }
+
+    @Test
+    @DisplayName("should refuse the read, not return an empty history, when the patient lookup itself fails")
+    void shouldRefuseTheRead_whenThePatientLookupFails() {
+        var failure = new org.springframework.dao.DataAccessResourceFailureException("synthetic source failure");
+        when(demographicManager.getDemographic(user, Integer.valueOf(7))).thenThrow(failure);
+
+        // An empty list here would read as "this patient has no preventions".
+        assertThatThrownBy(() -> PreventionData.getPreventionData(user, "Flu", 7))
+                .isExactlyInstanceOf(PreventionSourceUnavailableException.class).hasCause(failure);
+        assertThatThrownBy(() -> PreventionData.getExactPreventionData(user, "Flu", 7))
+                .isExactlyInstanceOf(PreventionSourceUnavailableException.class).hasCause(failure);
+        assertThatThrownBy(() -> PreventionData.getPreventionData(user, 7))
+                .isExactlyInstanceOf(PreventionSourceUnavailableException.class).hasCause(failure);
         verifyNoInteractions(preventionDao);
     }
 

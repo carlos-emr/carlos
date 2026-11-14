@@ -74,6 +74,13 @@ throw `PreventionSourceUnavailableException` (unchecked, in `prevention.dto` bes
 text with no patient data or SQL; the failure is its cause and is logged once, where the read
 failed. Handlers recognise it by type, never by message.
 
+`PreventionData.getPreventionData` first looks the patient up, for the date of birth and the
+caller's right to read the chart. A failure of that lookup is a failed read like any other and
+throws the same exception; it used to return an empty list. A denial is different and keeps its
+release behaviour: a caller who may not read the chart (`SecurityException`, or a
+`PatientDirectiveException`) gets an empty list, never data and never an error page, logged as
+one warning with the chart number and no stack trace.
+
 Every caller answers it with a visible "could not be read" result, never with a partial list, a
 blank section or an error page:
 
@@ -87,7 +94,10 @@ blank section or an error page:
 - The clinic prevention reports keep an unreadable patient in the report as a "Could not be
   read" row, ranked first, with no bonus, bill or recall letter, and state above the totals how
   many patients could not be read. Those patients stay in the denominator, so they count as not
-  up to date.
+  up to date. A row whose patient record is not found is listed and counted the same way; the
+  page used to skip it.
+- The prevention record popup shows a "not found" message when no record has the requested id,
+  instead of failing.
 - The REST Preventions summary keeps its shape and holds one highlighted item that says so.
 - The legacy CDS 4 export is refused as a whole with the `preventionSourceUnavailable` reason.
 

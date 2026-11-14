@@ -289,16 +289,46 @@
                 <%
                     DemographicNameAgeString deName = DemographicNameAgeString.getInstance();
                     DemographicData demoData = new DemographicData();
+                    // Looked up and counted by the action, so the notice above already includes
+                    // the rows whose patient record was not found.
+                    Map<Integer, Demographic> reportDemographics = (Map<Integer, Demographic>) request.getAttribute("reportDemographics");
 
                     for (int i = 0; i < list.size(); i++) {
                         PreventionReportDisplay dis = (PreventionReportDisplay) list.get(i);
-                        Hashtable<String, String> h = new Hashtable<>(deName.getNameAgeSexHashtable(LoggedInInfo.getLoggedInInfoFromSession(request), dis.demographicNo.toString()));
-                        Demographic demo = demoData.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), dis.demographicNo.toString());
+                        Demographic demo = reportDemographics == null ? null : reportDemographics.get(dis.demographicNo);
 
                         if (demo == null) {
-                            MiscUtils.getLogger().warn("PreventionReporting: demographic not found for demographicNo=" + dis.demographicNo);
+                            // No patient record for this row. It stays in the report, marked, where
+                            // it used to be skipped with a log line: a missing row reads as a
+                            // patient who was never in the set.
+                %>
+                <tr class="prevention-report-unreadable">
+                    <td><%=i+1%></td>
+                    <td><carlos:encode value='<%= dis.demographicNo.toString() %>' context="html"/></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td><fmt:message key="prevention.reporting.patientUnreadable"/></td>
+                    <td></td>
+                    <%if (type != null) { %>
+                    <td></td>
+                    <%}%>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td><span class="badge bg-dark"><fmt:message key="prevention.reporting.unreadable"/></span></td>
+                    <%if (type != null) { %>
+                    <td>------</td>
+                    <%}%>
+                    <td>------</td>
+                    <td>------</td>
+                    <td></td>
+                </tr>
+                <%
                             continue;
                         }
+                        Hashtable<String, String> h = new Hashtable<>(deName.getNameAgeSexHashtable(LoggedInInfo.getLoggedInInfoFromSession(request), dis.demographicNo.toString()));
 
                         if (dis.state != null && dis.state.equals("Overdue")) {
                             overDueList.add(dis.demographicNo);
