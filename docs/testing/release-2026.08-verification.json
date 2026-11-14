@@ -3535,7 +3535,7 @@
               "check": "java-cds-transfer-export"
             },
             {
-              "name": "shouldReleaseTheLegacyTableAtItsIndependentDeadline_evenWithoutAnotherCaptureCheckpoint",
+              "name": "shouldLockTheLegacyTableOnlyWhileItIsRead_andLetWritersThroughBetweenReads",
               "container": "",
               "check": "java-cds-transfer-export"
             },
@@ -3651,11 +3651,6 @@
             },
             {
               "name": "shouldKeepChunksInTheirCapturedSnapshot_afterConcurrentDocumentEdit",
-              "container": "",
-              "check": "java-cds-transfer-export"
-            },
-            {
-              "name": "shouldAcceptALongerFiniteLegacySnapshotBudget_andStillRefuseAnUnboundedBudget",
               "container": "",
               "check": "java-cds-transfer-export"
             },
@@ -4202,6 +4197,11 @@
           "cases": [
             {
               "name": "shouldStreamTheExactOldLargeValueAcrossAConcurrentUpdate_usingTheSamePatientSnapshot",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldPageEveryRetainedRowOnce_acrossOwnersAndCategories",
               "container": "",
               "check": "java-cds-transfer-export"
             },
@@ -7624,7 +7624,7 @@
         "CdsExportDisclosureScopeServiceUnitTest": 9,
         "CdsExportDocumentFileSourceReaderUnitTest": 12,
         "CdsExportDocumentInputStreamUnitTest": 21,
-        "CdsExportDocumentReadMariaDbIntegrationTest": 30,
+        "CdsExportDocumentReadMariaDbIntegrationTest": 29,
         "CdsExportDocumentReceiptUnitTest": 11,
         "CdsExportEmailLexicalUnitTest": 4,
         "CdsExportEngineRegistryUnitTest": 5,
@@ -7705,7 +7705,7 @@
         "CdsExportReportOccurrenceServiceUnitTest": 28,
         "CdsExportReportPublicationEvidenceUnitTest": 22,
         "CdsExportReportRetainedSourceUnitTest": 23,
-        "CdsExportRetainedCaptureMariaDbIntegrationTest": 9,
+        "CdsExportRetainedCaptureMariaDbIntegrationTest": 10,
         "CdsExportRetainedContactBindingUnitTest": 12,
         "CdsExportRetainedEnrolmentReconcilerUnitTest": 24,
         "CdsExportRetainedEnrolmentSourceUnitTest": 16,

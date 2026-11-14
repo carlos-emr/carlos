@@ -1065,8 +1065,10 @@ NewCategory selected the record is not written and the chart is still exported (
 that need NewCategory when it is not selected"). Every route is owned by exactly one
 captured report.
 
-Finite operator settings include `cds.export.captureTimeoutSeconds` (default 120,
-range 1–7200) and `cds.export.downloadTimeoutSeconds` (default 900, range 1–86400). A download
+Finite operator settings include `cds.export.downloadTimeoutSeconds` (default 900, range
+1–86400). `cds.export.captureTimeoutSeconds` is retired: a capture has no time limit (see "No
+deadline on a capture" below), and the setting is accepted and ignored whatever its value
+(`CdsExportActivePlanService.RETIRED`). A download
 re-verifies the whole cohort's current authorization when it opens, during streaming, after the
 last byte and at completion. The download timeout is an inactivity window, not a budget for the
 transfer: it bounds the time since the download thread last made progress (a block written, a
@@ -1074,11 +1076,55 @@ verification step), plus three times the measured opening pass, and only the lea
 can find the thread silent (`CdsExportArtifactService.Download`). A download that keeps moving
 is never ended for how long a package takes to send. While streaming, a new verification pass
 starts no sooner than 30 seconds, or the previous pass's own duration, after the last one.
-Patient capture
-holds the legacy Rourke table's READ lock for at most the capture timeout plus
-30 seconds; its independent deadline defaults to 150 seconds. Raising the capture
-timeout can therefore block writes to that legacy form for longer, up to 7,230
-seconds at the maximum setting.
+**No deadline on a capture.** A chart's capture runs in one read-only repeatable-read
+transaction with no timeout (`CdsExportNativeCaptureService`). The snapshot blocks no writer, a
+capture that keeps reaching checkpoints finishes however long its chart takes, and a worker that
+stops is ended by the stall detector (`cds.export.maxDurationMillis`), not by a time budget.
+Before this change the transaction and the legacy table's guard carried
+`cds.export.captureTimeoutSeconds` (default 120 s, the guard 30 s more), and a chart whose
+capture took longer failed its job with `CDS_EXPORT_EXECUTION_FAILED`.
+
+The legacy Rourke table (`formRourke2009`, Aria on ON, MyISAM on BC) has no snapshot, so it is
+read under a table READ lock on a dedicated connection (`CdsExportSourceReadLock`), and only
+while it is read: a statement that reads it pins it first, and the pin ends when that reader's
+turn ends and between the presence checks of the source catalogue. The table's own reader is
+counted at its turn to write, so its count and its rows are read under one unbroken pin. The
+lock therefore lasts as long as reading one patient's rows of that one table, and the clinic
+writes to the table between pins; before, it was held for the whole capture, so every write to
+that form waited for as long as a large chart took to read. The pinned rows are one state of
+the table at a moment during the capture rather than at the snapshot's instant. Nothing is
+lost by that: the engine has no transactions, so no writer could change this table atomically
+with another, and the whole-capture lock only chose an earlier moment. A lock lost while pinned
+refuses the capture, and a structural change between pins is caught by the capture's second
+schema read. The lock waits for a writer as long as the server's `lock_wait_timeout` allows.
+
+What still bounds one statement: each read of the capture carries a 30 s statement timeout
+(`CdsExportPatientTableReadSupport.queryTimeoutMillis`; the source catalogue's presence and
+count statements 120 s), and the connection pool's socket timeout (default 60 s, at most 300 s,
+`CdsJdbcConnectionTimeouts`) ends a statement that returns nothing for that long. A statement
+that passes either fails the job (`CDS_EXPORT_EXECUTION_FAILED`). These bound one statement,
+not the capture: with keys read ahead of rows (below) a statement's work is a page of rows, a
+count, or one read of up to 65,536 keys.
+
+**Keys before rows.** Every captured table is read a page of 32 rows at a time. A page used to
+be one statement that ordered every remaining row of the patient to return thirty-two, so a
+table of N rows cost N squared, and the import ledger's child tables were walked from the
+table's side, so their cost also grew with the clinic. A page now reads its keys first and then
+exactly those rows by primary key under the same patient predicate
+(`CdsExportPatientTableReadSupport.pageBound`). Inside the capture's snapshot the keys are read
+ahead 65,536 at a time (`KEY_WINDOW`, about 7 MiB; a larger table is read in further windows),
+which is invisible there because a later statement would return the same keys; a key the
+read-ahead named that the row statement does not return fails the read. The import ledger's
+keys are read from the patient's side: `cds_import_unit` by run and patient key through
+`idx_cds_units_patient_id` (migration `V1.0.59.48`), `cds_import_field` by category through
+`idx_cds_field_category`, and `cds_import_dependency`, `cds_import_preparation`,
+`cds_import_file_reference` and `cds_import_file` through the patient's units. The last four
+have no patient column, so one read of their keys still visits each of the patient's units
+once; that happens once for every 65,536 rows instead of once for every 32. Measured on a
+synthetic clinic of 94,131 units (MariaDB 11.8.8) for a chart of 4,131 units, whole-table
+reads: `cds_import_unit` 542,106 rows examined and 5.4 s before, 16,915 and 0.47 s after;
+`cds_import_dependency` 14,691,997 and 19.0 s before, 29,176 and 0.31 s after;
+`cds_import_preparation` 316,658 and 2.2 s before, 25,050 and 0.43 s after.
 Native clinical clocks use the same explicit `cds.export.clinicalZone` as the accepted
 plan; a configured import zone must agree. No JVM default zone is inferred.
 
@@ -1274,6 +1320,9 @@ text. The job can be resumed.
 | 32 segments or runs per level | `CdsExportSpoolService.FAN_IN`, `CdsExportPackageInventoryService` | The level is combined into one segment of the next level. |
 | 4,096 members or 8 MiB per inventory sort batch | `CdsExportPackageInventoryService` | The batch is written as a sorted run. |
 | 8,192 notes on one disclosure line and in one authorization call | `CdsExportClinicalPackageService.NOTE_BATCH` | The rest follow on `NOTES` lines and in further calls. |
+| 8,192 notes in one statement of the note scope read and of the note authorization | `CdsExportNoteAccessDao.readScopes`, `CdsExportAccessService.requireNotesRead` | The next statement continues after the last note; any number of notes is read and every one authorized. |
+| 8,192 program-restricted documents or preventions in one statement | `CdsExportPatientTableReadSupport.restrictions` | The next statement continues after the last key; every restriction is authorized. |
+| 65,536 keys read ahead for one captured table | `CdsExportPatientTableReadSupport.KEY_WINDOW` | A larger table is read in further windows. |
 | 32 GiB of ZIP in one CMS object | `CdsExportDeliveryComposer.SINGLE_MESSAGE_BYTES` | The delivery is written in 16 MiB parts (`PART_BYTES`). |
 | 4 GiB member size, 65,535 members, 4 GiB of central directory | `CdsExportPackageComposer` | ZIP64 records are written. |
 | `cds.export.minimumFreeBytes` (default 512 MiB) | `CdsExportStagingService.checkDisk` | This one stops the job: it is the store reporting that it is nearly full, `CDS_EXPORT_DISK_RESERVE`. |
@@ -1418,6 +1467,11 @@ the record's CARLOS residual. These numbers were CARLOS's own and are gone:
 | 8,192 enrolment entries, 65,536 fields, 16 MiB; 131,072 units; 128 fields and 1 MiB | `CdsExportRetainedEnrolmentSource`, `CdsExportRetainedContactBinding`, `CdsExportRetainedPharmacyBinding` (the retained source of an imported chart) | the whole job | read whole |
 | 16 uses of one provider row | `CdsExportDemographicRetainedCoreReconciler` | the whole job (`CDS_EXPORT_DEMOGRAPHIC_PROVIDER_USES_LIMIT`) | every use is recorded |
 | 8,192 revisions of a note, 8,192 note rows, chains or reviews per chart | `CdsExportNativeHistoryMapper`, `CdsExportNoteRevisionPlanner` | the job | removed here; the history occurrence service's own window still applies |
+| 8,192 notes in the note scope read, in one note authorization call and in the revision inventory, and the inventory's estimate of its receipts against the caller's byte bound (about 3,500 notes at the default) | `CdsExportNoteAccessDao.readScopes`, `CdsExportNoteSourceReader`, `CdsExportAccessService.requireNotesRead`, `CdsExportNoteRevisionInventoryService`, `CdsExportNoteRevisionReader` | the patient (`CDS_EXPORT_RESOURCE_LIMIT`), or the job | removed: the scopes and the authorization are read 8,192 notes a statement; the inventory counts every note and holds its receipts in the worker's heap |
+| 4 MiB for one capture's manifest (about 40,000 notes) | `CdsExportNativeCaptureService` | the job (`CDS_EXPORT_CAPTURE_MANIFEST_LIMIT`) | removed: the manifest is written and read as a stream |
+| 8 MiB of retained import options for one chart | `CdsExportRetainedIndexService` | the job (`CDS_EXPORT_IMPORT_OPTIONS_BYTE_LIMIT`) | removed: each run's options are still verified, not added up |
+| 100,000 program-restricted documents or preventions | `CdsExportPatientTableReadSupport` | the patient (`CDS_EXPORT_DOCUMENT_PROGRAM_SCOPE`, `CDS_EXPORT_PREVENTION_PROGRAM_SCOPE`) | removed: every restriction is read and authorized |
+| `cds.export.captureTimeoutSeconds` (120 s) on the capture transaction and the legacy table's guard | `CdsExportNativeCaptureService`, `CdsExportSourceSnapshotService`, `CdsExportSourceReadLock` | the job (`CDS_EXPORT_EXECUTION_FAILED`) | removed: a capture has no deadline; the setting is retired |
 | 4,096 import runs naming one chart | `CdsExportImportOptionsSourceReader` | the whole job (`CDS_EXPORT_IMPORT_OPTIONS_RUN_LIMIT`) | every run is read |
 | 10,000 prevention rows | `CdsExportPreventionScopePlanner` | the whole job | every row is planned |
 | An HL7 report of about 2.1 MB, 8,192 results or 32,768 segments | `CdsExportNativeLaboratoryParser` | the patient (`CDS_EXPORT_NATIVE_LAB_MESSAGE_CAPACITY`, `..._RESULT_CAPACITY`, `..._SEGMENT_CAPACITY`) | the message is parsed whole, one message at a time; a report with an embedded PDF is as long as the laboratory made it |
@@ -1632,8 +1686,9 @@ authenticated, encrypted per-patient capture as the mapped tables: text, numbers
 text (`CAST(.. AS BINARY)`), binary columns as raw bytes, SQL NULL distinct from empty; large
 values in byte ranges verified against the page's SHA-256; wide legacy forms in column groups whose
 row keys must agree. A table of the other province's profile reads as absent and its schema
-digest is the absent descriptor; `formRourke2009` (Aria on ON, MyISAM on BC) is read only under
-`CdsExportSourceReadLock`. No number of rows or fields holds a patient (see
+digest is the absent descriptor; `formRourke2009` (Aria on ON, MyISAM on BC) is read only while
+`CdsExportSourceReadLock` pins it (the lock is held for that read, not for the capture). No
+number of rows or fields holds a patient (see
 [Size: stored rows and record parts](#size-stored-rows-and-record-parts)); a row identity that
 proves not unique does (`CDS_EXPORT_DATA_SUMMARY_ROW_IDENTITY_NOT_UNIQUE`, an integrity check: keyed
 paging could skip a row). `CdsExportListedSourceReader` captures, as
@@ -3784,7 +3839,8 @@ last first, and is exact in the revision's extension facts in `CARLOS.NativeHist
 (`CDS_EXPORT_NATIVE_HISTORY_NARRATIVE_CAPACITY` is gone). A note or a CPP field pasted with a
 character XML cannot carry is written with U+FFFD in its place and its exact text travels in
 the revision details (`exactNarrative`). The mapper and the revision planner no longer refuse a note with
-more than 8,192 revisions or a chart with more than 8,192 note rows; the occurrence service's
+more than 8,192 revisions or a chart with more than 8,192 note rows, and neither do the note
+scope read, the note authorization or the revision inventory; the occurrence service's
 own window still applies (see the capacity table).
 
 PersonalHistory allows only `ResidualInfo`. Its narrative travels exactly in
@@ -4231,20 +4287,20 @@ clinical, credential or key values. `scripts/verify-cds-export-source-catalogue.
 checks canonical schema hashes, explicit table membership and mapped-scope coverage.
 
 The stock Rourke 2009 form uses Aria in ON and MyISAM in BC. A dedicated controlled
-unpooled connection holds a fixed READ lock on that one legacy table for the
-bounded patient capture transaction. The regular transactional sources retain
-their repeatable-read snapshot. No native data or schema is changed. Acquisition,
-connection identity, release, loss and timeout are checked; automatic reconnect
-is refused. An independent deadline aborts the physical lock connection after the
-configured capture timeout plus 30 seconds (150 seconds by default), so a stalled
-capture cannot keep the legacy table locked indefinitely. Raising that limit also
-extends the possible writer wait for this form. Failure
-to acquire, maintain or release the lock withholds capture. Database permissions
-must allow this legacy table READ lock. Metadata status/control recovery stays lazy.
-Eighty-two affected checks passed, including 24 real MariaDB cases, actual writer
-blocking/release, lost-connection refusal, independent deadline release and the
-whole catalogue through the actual guarded CLI datasource. Clean packaging and
-installed reruns of this source gate remain required.
+unpooled connection takes a READ lock on that one legacy table while a reader of the
+capture reads it, and releases it when that read ends (see "No deadline on a capture").
+The regular transactional sources retain their repeatable-read snapshot. No native data or
+schema is changed. Acquisition, connection identity, release and loss are checked;
+automatic reconnect is refused, and an idle lock connection the server closed between reads
+is replaced, which loses nothing because no lock was held on it. The lock has no deadline:
+it lasts as long as reading one patient's rows of that table, and a writer waits only that
+long. Failure to acquire, maintain or release the lock withholds capture. Database
+permissions must allow this legacy table READ lock. Metadata status/control recovery stays
+lazy. The recorded checks of the earlier whole-capture lock (eighty-two, including 24 real
+MariaDB cases) predate this arrangement; the MariaDB cases now cover a writer passing while
+the guard is unpinned, waiting while a read pins the table and passing again when the read
+ends, the lost-connection refusal, and the data-summary and source-catalogue reads under the
+per-read pin. Clean packaging and installed reruns of this source gate remain required.
 
 
 ### Clinical adapter and metadata recovery checkpoint
@@ -4472,19 +4528,21 @@ bound, read its whole capture from the encrypted members for each of its 133 rea
 a 215 s export. Both bounds are gone (see "No limit on the capture"): the capture refuses no
 count, a capture too large for the session's memory replays from its stored replay member, and
 the retained index, the receipt comparison and the history rows are refused by no count. The
-512-note chart now takes 114 to 138 s. Two things still stop the 2048-note case under the lane's
-default settings, so the lane keeps reporting it:
+512-note chart now takes 114 to 138 s. Two things stopped the 2048-note case under the lane's
+default settings. The first is fixed; the lane has not been rerun end to end since, so its
+budget for this case is unchanged and its capture time after the fix is not yet measured:
 
-- Capture time. The capture runs in one read-only snapshot under
-  `cds.export.captureTimeoutSeconds` (default 120). This chart's capture takes about 125 s, so
-  the job ends `FAILED` with `CDS_EXPORT_EXECUTION_FAILED` (a transaction timeout) at about
-  160 s. About 58 s of it is the page reads of `cds_import_unit`: each 32-row page is selected
-  through the patient's `(run_id, patient_key)` index and sorted by id, which reads every
+- Capture time (fixed). The capture ran in one read-only snapshot under
+  `cds.export.captureTimeoutSeconds` (default 120). This chart's capture took about 125 s, so
+  the job ended `FAILED` with `CDS_EXPORT_EXECUTION_FAILED` (a transaction timeout) at about
+  160 s. About 58 s of it was the page reads of `cds_import_unit`: each 32-row page was selected
+  through the patient's `(run_id, patient_key)` index and sorted by id, which read every
   remaining unit row with its 6 KiB witness (4,131 rows examined a page, 257 pages, 228 ms each),
-  so that part grows with the square of the chart; `cds_import_dependency` pages cost 8 s the
-  same way. A linear read needs an index that orders one patient's units by id and a page query
-  that takes the ids from it before it reads the rows.
-- Heap. With the capture timeout raised to 600 s the default 512 MiB heap is exhausted in the
+  so that part grew with the square of the chart; `cds_import_dependency` pages cost 8 s the
+  same way. The capture now has no deadline, and a page reads its keys before its rows (see "No
+  deadline on a capture" and "Keys before rows"): migration `V1.0.59.48` orders one patient's
+  units by id, and a page of units examines about a hundred rows.
+- Heap. With the capture timeout raised to 600 s (before it was removed) the default 512 MiB heap is exhausted in the
   laboratory section: the old generation stays at its 341 MiB with two to three full
   collections a second and the export does not finish (it was stopped by hand after three
   minutes of that). The

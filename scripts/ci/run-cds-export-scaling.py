@@ -151,11 +151,13 @@ MARGINAL = {
 # Growth: ~7,050 statements, ~2,930 privilege statements and ~4-4.5 s per extra chart; per extra
 # note 11.2 statements and 0.02 privilege statements native (chart-128 to chart-2048), 15.4 and
 # 0.13 imported (chart-128 to chart-512), and 0.20 to 0.24 s imported. The imported chart-2048
-# export does not complete under this lane's default settings (docs/cds-export.md, "Imported
-# 2048-note chart"): its capture takes about 125 s against the default 120 s
-# cds.export.captureTimeoutSeconds, and with that raised it exhausts the 512 MiB heap. With a
-# 1024 MiB heap and a 600 s capture timeout it is READY in 472 s (measured, not a lane case),
-# so its budget stays the one extrapolated from the smaller imported charts.
+# export did not complete under this lane's default settings when last measured
+# (docs/cds-export.md, "Imported 2048-note chart"): its capture took about 125 s against the
+# then 120 s capture timeout, and with that raised it exhausted the 512 MiB heap. With a
+# 1024 MiB heap and a 600 s capture timeout it was READY in 472 s (measured, not a lane case).
+# The capture timeout is since removed and the capture reads keys before rows; the lane has not
+# been rerun for this case, so its budget stays the one extrapolated from the smaller imported
+# charts.
 #
 # The per-note privilege budget is the regression detector for the census slowdown: before the
 # per-patient authorization session (CdsExportPatientAuthorization, CdsExportAccessService

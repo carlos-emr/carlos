@@ -82,7 +82,7 @@ XML validation does not establish clinical completeness or OntarioMD certificati
 
 The database source gate needs full schema visibility to detect unreadable or
 unreviewed sources. Capturing the stock nontransactional Rourke table additionally
-requires its bounded READ lock. A missing permission or unknown populated source
+requires a READ lock on it, held only while each chart's rows of that table are read. A missing permission or unknown populated source
 requires review; deleting clinical rows or weakening the gate is not a resolution.
 Catalogue matching follows MariaDB's existing table-name case mode. Column names, types,
 collations and keys remain exact, and unknown or ambiguous table mappings still require review.
@@ -616,10 +616,16 @@ package larger than 32 GiB).
   It is how long a download may make no progress before it is ended
   (`CDS_EXPORT_DOWNLOAD_STOPPED`); a download that keeps moving is never ended for how long a
   large package takes to send. Before this release it bounded the whole transfer.
+- Reading a chart from the database has no time limit. `cds.export.captureTimeoutSeconds`
+  (formerly 120 seconds for one chart) is no longer used: a chart that takes longer to read is
+  read to the end, and a worker that stops is ended by `cds.export.maxDurationMillis` above.
+  The stock Rourke 2009 form table is locked against changes only while one chart's Rourke rows
+  are read, not for as long as the chart takes; staff saving a Rourke form during an export
+  wait at most that long.
 - These settings are no longer used: `cds.export.maxPatients`, `cds.export.maxPackageMembers`,
   `cds.export.maxPackageIndexBytes`, `cds.export.maxSupportingBytes`,
-  `cds.export.maxMetadataBytes`, `cds.export.maxZipBytes`, `cds.export.maxCiphertextBytes` and
-  `cds.export.maxStagedFileBytes`. If your configuration still sets one, whatever its value, the
+  `cds.export.maxMetadataBytes`, `cds.export.maxZipBytes`, `cds.export.maxCiphertextBytes`,
+  `cds.export.maxStagedFileBytes` and `cds.export.captureTimeoutSeconds`. If your configuration still sets one, whatever its value, the
   application logs `CDS_EXPORT_RETIRED_SETTINGS_IGNORED` once with the setting names and carries
   on; remove them when convenient.
 
@@ -744,11 +750,11 @@ disk stops the job as a storage failure.
 A long chart that came from an earlier CDS import still needs memory and time, because the
 export checks every imported record against its import receipts and several of those steps
 hold the whole chart. Measured on the reference host: a chart of 512 imported notes and 512
-imported laboratory results exports under the defaults; one of 2,048 and 2,048 needs
+imported laboratory results exports under the defaults; one of 2,048 and 2,048 needed
 `cds.export.cliHeapMiB=1024` (the default is 512; its old generation peaked at 649 MiB) and
-`cds.export.captureTimeoutSeconds` above its default 120 (its capture takes about 125 s), and
-then exports in about 8 minutes. With the default capture timeout the job fails with
-`CDS_EXPORT_EXECUTION_FAILED` when the capture passes 120 s. With too small a heap nothing
+then exported in about 8 minutes. Reading the chart no longer has a time limit (before, the
+job failed with `CDS_EXPORT_EXECUTION_FAILED` when one chart took more than 120 s to read),
+and a chart with more than 8,192 notes is no longer held. With too small a heap nothing
 refuses the chart, but the export slows to a crawl in garbage collection and does not finish:
 cancel it, raise `cds.export.cliHeapMiB` (up to 16384; the timeout up to 7200) and start a new
 export. Ordinary charts entered through the screens need neither.

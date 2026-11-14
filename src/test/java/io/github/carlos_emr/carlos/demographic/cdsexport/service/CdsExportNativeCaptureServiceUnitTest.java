@@ -2015,6 +2015,70 @@ class CdsExportNativeCaptureServiceUnitTest {
         assertThat(staged()).isEqualTo(3);
     }
 
+    /**
+     * A chart of 53,000 notes: its manifest carries one access scope a note and is larger than
+     * the 4 MiB one manifest used to be allowed, above which the job failed
+     * ({@code CDS_EXPORT_CAPTURE_MANIFEST_LIMIT}). It is written and read back as a stream.
+     */
+    @Test
+    void shouldCaptureAndRestoreAManifestOfAnySize_forAChartOfManyNotes() throws Exception {
+        int count = 53_000;
+        // An attempt's store has no member bound (the fixture's 8 MiB one is the test's own).
+        when(factory.openExisting(
+                        eq(lease.runId()), eq(1L), eq(lease.document().storage()), any()))
+                .thenAnswer(
+                        call -> {
+                            store =
+                                    new CdsExportStagingService(
+                                            root,
+                                            lease.runId(),
+                                            1,
+                                            new SecretKeySpec(new byte[32], "AES"),
+                                            0,
+                                            call.getArgument(3));
+                            return store;
+                        });
+        var notes = new LongChartNotes(count);
+        var service =
+                new CdsExportNativeCaptureService(List.of(notes), factory, clock, transactions);
+        var tables = Set.of("casemgmt_note");
+        var authorized = new AtomicInteger();
+        var control =
+                new Control() {
+                    @Override
+                    public void authorizeNote(
+                            CdsCategory category,
+                            io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                            .CdsExportNoteAccessDto
+                                    scope) {
+                        authorized.incrementAndGet();
+                    }
+                };
+
+        var captured =
+                service.capture(lease, patientScope, tables, 2_000_000, 64L << 20, control);
+
+        assertThat(captured.manifest().plaintextBytes()).isGreaterThan(4_194_304L);
+        assertThat(captured.capture().tables().get("casemgmt_note").noteAccess()).hasSize(count);
+        authorized.set(0);
+        var restored =
+                service.scan(
+                        lease,
+                        patientScope,
+                        tables,
+                        captured.manifest(),
+                        2_000_000,
+                        64L << 20,
+                        control,
+                        field -> java.io.OutputStream.nullOutputStream());
+        assertThat(restored.fieldCount()).isEqualTo((long) notes.columns().size() * count);
+        assertThat(restored.tables().get("casemgmt_note").rows()).isEqualTo(count);
+        assertThat(restored.tables().get("casemgmt_note").noteAccess())
+                .isEqualTo(captured.capture().tables().get("casemgmt_note").noteAccess());
+        // Every note of the restored manifest is authorized again, before and after the read.
+        assertThat(authorized).hasValue(2 * count);
+    }
+
     @Test
     void shouldGiveTheCaptureTransactionNoDeadline_whateverTheRetiredTimeoutSays()
             throws Exception {
@@ -2338,6 +2402,78 @@ class CdsExportNativeCaptureServiceUnitTest {
                 values.put("demographic_no", Integer.toString(patient + i));
                 values.put("content", text);
                 writer.row(CdsExportPatientTableSourceReader.key(patient + i), values);
+            }
+        }
+    }
+
+    /** One synthetic chart's case notes: each note's scope columns, and its access scope. */
+    private static final class LongChartNotes implements CdsExportNativeSourceReader {
+        private final int count;
+
+        LongChartNotes(int count) {
+            this.count = count;
+        }
+
+        @Override
+        public String table() {
+            return "casemgmt_note";
+        }
+
+        @Override
+        public Set<String> columns() {
+            return Set.copyOf(
+                    io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Plan
+                            .CASE_NOTES
+                            .columns());
+        }
+
+        @Override
+        public Set<CdsCategory> categories() {
+            return Set.of(CdsCategory.DEMOGRAPHICS);
+        }
+
+        @Override
+        public CdsExportTableSchemaDto schema() {
+            try (var input =
+                    getClass()
+                            .getResourceAsStream("/cds-export/source-schema/casemgmt_note.json")) {
+                return JSON.readValue(input, CdsExportTableSchemaDto.class);
+            } catch (IOException failed) {
+                throw new java.io.UncheckedIOException(failed);
+            }
+        }
+
+        @Override
+        public List<io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNoteAccessDto>
+                noteAccess() {
+            var scopes =
+                    new ArrayList<
+                            io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                    .CdsExportNoteAccessDto>(count);
+            for (long note = 1; note <= count; note++)
+                scopes.add(
+                        new io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                .CdsExportNoteAccessDto(note, 27, "2147483647", "2147483647"));
+            return scopes;
+        }
+
+        @Override
+        public long count(int patient) {
+            return count;
+        }
+
+        @Override
+        public void capture(int patient, CdsExportNativeCaptureComposer.Writer writer)
+                throws IOException {
+            for (long note = 1; note <= count; note++) {
+                var values = new LinkedHashMap<String, String>();
+                for (String column : columns()) values.put(column, null);
+                values.put("note_id", Long.toString(note));
+                values.put("demographic_no", Integer.toString(patient));
+                values.put("program_no", "2147483647");
+                values.put("reporter_caisi_role", "2147483647");
+                values.put("locked", "0");
+                writer.row(CdsExportPatientTableSourceReader.key(note), values);
             }
         }
     }
