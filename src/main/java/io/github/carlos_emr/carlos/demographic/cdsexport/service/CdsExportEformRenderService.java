@@ -57,12 +57,18 @@ import org.springframework.transaction.support.TransactionTemplate;
  * reason. Only a changed authorization (a {@link SecurityException}) and cancellation pass through,
  * as on every other export path.
  *
- * <p>Throttle: one export render at a time in this JVM (the renderer has two slots, so a
- * clinician's print or fax always keeps one), at least {@code cds.export.eformRenderIntervalMillis}
- * apart (default 250 ms). Each render is bounded by the renderer's own deadlines (30 s for a slot,
- * 30 s to start the browser, 90 s to render). After three consecutive browser failures or timeouts
- * the renderer is treated as unavailable for five minutes, so a broken browser costs one data
- * summary note per eForm, not minutes per eForm. Render time is measured for every attempt.
+ * <p>Throttle: one export render at a time in this JVM, so the export never holds more than one
+ * of the renderer's two slots and a clinician's print or fax always keeps the other, at least
+ * {@code cds.export.eformRenderIntervalMillis} apart (default 250 ms). A busy renderer is waited
+ * for, never given up on: the export waits for its own turn and for a render slot as long as it
+ * takes, keeping its place in the renderer's queue (and asking again, a little later each time,
+ * when the queue is full). After three consecutive browser failures or timeouts the renderer is
+ * left alone for five minutes, and the export waits that out and then tries again. Every wait
+ * runs the caller's wait check at least once a second: a cancellation ends it at once, the lease
+ * is renewed, and, a wait not being progress, the job's stall detector still ends an attempt that
+ * only ever waits. A render itself is bounded by the renderer's own deadlines (30 s to start the
+ * browser, 90 s to render); a form that fails within them is tried once more by the caller
+ * ({@link CdsExportEformRenderingSourceReader}). Render time is measured for every attempt.
  *
  * <p>In a process without the web application (the command-line export) there is no renderer
  * bean: every eForm is {@link Reason#NOT_IN_THIS_PROCESS}.
@@ -76,10 +82,14 @@ public class CdsExportEformRenderService {
         INCOMPLETE(
                 "the renderer could not show all of the form's content, and an export never"
                         + " approves an incomplete form"),
+        /** One attempt timed out; the caller tries the form once more. */
         TIMEOUT("rendering timed out"),
+        /** One attempt failed in the browser; the caller tries the form once more. */
         BROWSER_FAILURE("the rendering browser failed"),
-        RENDERER_BUSY("the renderer stayed busy"),
-        RENDERER_UNAVAILABLE("the rendering browser was unavailable"),
+        /** The second attempt, after the patient's other eForms, timed out too. */
+        TIMEOUT_RETRIED("rendering timed out on the second of two attempts"),
+        /** The second attempt, after the patient's other eForms, failed in the browser too. */
+        BROWSER_FAILURE_RETRIED("the rendering browser failed on the second of two attempts"),
         NOT_IN_THIS_PROCESS("the export ran outside the web application, which renders eForms"),
         CHANGED("the eForm changed while the export ran"),
         NOT_PREPARED("rendering was not attempted");
@@ -93,6 +103,20 @@ public class CdsExportEformRenderService {
         /** A fixed, PHI-free sentence fragment for the data summary's note. */
         public String description() {
             return description;
+        }
+
+        /** True for a failure within the renderer's own deadlines, which is worth a second try. */
+        public boolean retryable() {
+            return this == TIMEOUT || this == BROWSER_FAILURE;
+        }
+
+        /** This reason given by a second attempt: a failure says it was tried twice. */
+        public Reason onSecondAttempt() {
+            return switch (this) {
+                case TIMEOUT -> TIMEOUT_RETRIED;
+                case BROWSER_FAILURE -> BROWSER_FAILURE_RETRIED;
+                default -> this;
+            };
         }
     }
 
@@ -117,11 +141,21 @@ public class CdsExportEformRenderService {
         }
     }
 
-    /** The renderer seam: a saved eForm rendered as {@code who}, with no approval. */
+    /**
+     * The renderer seam: a saved eForm rendered as {@code who}, with no approval, waiting for a
+     * render slot as long as it takes and running {@code waitingForSlot} about once a second
+     * while it waits (it ends the wait by throwing).
+     */
     @FunctionalInterface
     interface Renderer {
-        EFormBrowserPdfService.RenderedEformPdf render(LoggedInInfo who, int fdid)
-                throws PDFGenerationException;
+        EFormBrowserPdfService.RenderedEformPdf render(
+                LoggedInInfo who, int fdid, Runnable waitingForSlot) throws PDFGenerationException;
+    }
+
+    /** How the export pauses while it waits; a test advances its clock instead. */
+    @FunctionalInterface
+    interface Pause {
+        void pause(long nanos) throws InterruptedException;
     }
 
     /** One export render at a time in this JVM; fair, so jobs take turns. */
@@ -129,13 +163,24 @@ public class CdsExportEformRenderService {
 
     static final int BREAKER_FAILURES = 3;
     static final long BREAKER_OPEN_NANOS = TimeUnit.MINUTES.toNanos(5);
-    static final long WAIT_NANOS = TimeUnit.MINUTES.toNanos(15);
+
+    /** The longest a wait goes without running the caller's wait check. */
+    static final long CHECK_NANOS = TimeUnit.SECONDS.toNanos(1);
+
+    /**
+     * After the renderer's queue refused a render for being full, the pause before asking again:
+     * the first, then doubled up to the longest (the renderer's own 30-second slot wait).
+     */
+    static final long FULL_QUEUE_FIRST_PAUSE_NANOS = TimeUnit.SECONDS.toNanos(1);
+
+    static final long FULL_QUEUE_LONGEST_PAUSE_NANOS = TimeUnit.SECONDS.toNanos(30);
 
     private static final byte[] PDF = "%PDF-".getBytes(StandardCharsets.US_ASCII);
 
     private final Renderer renderer;
     private final Properties settings = new Properties();
     private final java.util.function.LongSupplier clock;
+    private final Pause pause;
     private final AtomicInteger failures = new AtomicInteger();
     // The breaker is open while open is set and the clock has not reached openUntil. nanoTime
     // values are compared by difference only, never against a sentinel, so they cannot overflow.
@@ -154,8 +199,17 @@ public class CdsExportEformRenderService {
 
     CdsExportEformRenderService(
             Renderer renderer, Properties settings, java.util.function.LongSupplier clock) {
+        this(renderer, settings, clock, TimeUnit.NANOSECONDS::sleep);
+    }
+
+    CdsExportEformRenderService(
+            Renderer renderer,
+            Properties settings,
+            java.util.function.LongSupplier clock,
+            Pause pause) {
         this.renderer = renderer;
         this.clock = Objects.requireNonNull(clock);
+        this.pause = Objects.requireNonNull(pause);
         // Read at render time, not here: a malformed export setting must not stop the web
         // application from starting, only the export job that needs it.
         this.settings.putAll(Objects.requireNonNull(settings));
@@ -166,7 +220,8 @@ public class CdsExportEformRenderService {
         // No approval, ever: an omission that needs one makes the render unavailable.
         return service == null
                 ? null
-                : (who, fdid) -> service.renderSavedEformPdf(who, fdid, null, reads);
+                : (who, fdid, waiting) ->
+                        service.renderSavedEformPdf(who, fdid, null, reads, waiting);
     }
 
     /**
@@ -202,12 +257,18 @@ public class CdsExportEformRenderService {
     }
 
     /**
-     * Renders one eForm and spools its PDF, or says why not.
+     * Renders one eForm and spools its PDF, or says why not. Waits for its turn, for an open
+     * breaker to close and for a render slot as long as each takes; only a render that ran and
+     * failed, or a form the renderer could not show completely, is a reason.
      *
      * @param fdid the saved eForm, already selected as current and patient-linked
      * @param identity the freshly authorized effective provider (see {@code authorizeRendering})
      * @param spool the capture's encrypted spool
-     * @param checkpoint cancellation and lease check; called outside every transaction
+     * @param checkpoint cancellation and lease check after the render's own work; called outside
+     *     every transaction
+     * @param waiting the check while waiting ({@code waitCheckpoint}): ends the wait by throwing
+     *     once the attempt has ended, and is not progress; called outside every transaction, at
+     *     least once a second while the export waits
      * @throws SecurityException when the renderer refuses the identity's access
      * @throws IOException when the spool cannot be written
      */
@@ -215,45 +276,76 @@ public class CdsExportEformRenderService {
             int fdid,
             LoggedInInfo identity,
             CdsExportNativeSourceReader.Spool spool,
-            Runnable checkpoint)
+            Runnable checkpoint,
+            Runnable waiting)
             throws IOException {
         Objects.requireNonNull(identity);
         Objects.requireNonNull(spool);
         Objects.requireNonNull(checkpoint);
+        Objects.requireNonNull(waiting);
         if (fdid < 1) throw new IllegalArgumentException("CDS_EXPORT_EFORM_RENDER_SCOPE_INVALID");
         if (renderer == null) return Outcome.unavailable(Reason.NOT_IN_THIS_PROCESS, 0);
         long intervalNanos =
                 TimeUnit.MILLISECONDS.toNanos(
                         CdsExportActivePlanService.number(
                                 settings, "eformRenderIntervalMillis", 250, 0, 60_000));
-        long started = clock.getAsLong();
-        if (open.get() && started - openUntil.get() < 0)
-            return Outcome.unavailable(Reason.RENDERER_UNAVAILABLE, 0);
-        if (!acquire(checkpoint)) return Outcome.unavailable(Reason.RENDERER_BUSY, elapsed(started));
+        acquire(waiting);
         try {
-            pace(checkpoint, intervalNanos);
-            started = clock.getAsLong();
+            // A renderer that failed three times in a row is left alone for five minutes; the
+            // export waits that out and then tries, rather than giving the form up.
+            awaitBreaker(waiting);
+            pace(waiting, intervalNanos);
+            // The export's own wait for a slot inside the renderer: when it ends (a
+            // cancellation, a lost lease), that is the export's outcome, not the renderer's.
+            var ended = new java.util.concurrent.atomic.AtomicReference<RuntimeException>();
+            Runnable waitingForSlot =
+                    () -> {
+                        try {
+                            waiting.run();
+                        } catch (RuntimeException stop) {
+                            ended.set(stop);
+                            throw stop;
+                        }
+                    };
+            long fullQueuePause = FULL_QUEUE_FIRST_PAUSE_NANOS;
+            long started;
             EFormBrowserPdfService.RenderedEformPdf made;
-            // Only the renderer's own failures are classified; a cancellation or lease check
-            // below always propagates.
-            try {
-                made = renderer.render(identity, fdid);
-            } catch (EformContentUnavailableException incomplete) {
-                checkpoint.run();
-                return done(Reason.INCOMPLETE, started, false);
-            } catch (PDFGenerationException failed) {
-                checkpoint.run();
-                if (failed.isRetryable()) return done(Reason.RENDERER_BUSY, started, false);
-                return done(timedOut(failed) ? Reason.TIMEOUT : Reason.BROWSER_FAILURE, started, true);
-            } catch (SecurityException denied) {
-                throw denied;
-            } catch (RuntimeException failed) {
-                // The database gone is not a browser failure: it stops the job under its own
-                // code (CDS_EXPORT_DATABASE_UNAVAILABLE), and the job can be resumed.
-                if (io.github.carlos_emr.carlos.demographic.cdsexport.support
-                        .CdsExportDatabaseUnavailableException.lost(failed)) throw failed;
-                checkpoint.run();
-                return done(Reason.BROWSER_FAILURE, started, true);
+            while (true) {
+                started = clock.getAsLong();
+                // Only the renderer's own failures are classified; a cancellation or lease check
+                // below always propagates.
+                try {
+                    made = renderer.render(identity, fdid, waitingForSlot);
+                    break;
+                } catch (EformContentUnavailableException incomplete) {
+                    checkpoint.run();
+                    return done(Reason.INCOMPLETE, started, false);
+                } catch (PDFGenerationException failed) {
+                    if (failed.isRetryable()) {
+                        // No render started: the renderer's queue was full. Ask again later,
+                        // a little later each time; the renderer is healthy, so the breaker
+                        // does not count it.
+                        waitFor(waiting, fullQueuePause);
+                        fullQueuePause =
+                                Math.min(fullQueuePause * 2, FULL_QUEUE_LONGEST_PAUSE_NANOS);
+                        continue;
+                    }
+                    checkpoint.run();
+                    return done(
+                            timedOut(failed) ? Reason.TIMEOUT : Reason.BROWSER_FAILURE,
+                            started,
+                            true);
+                } catch (SecurityException denied) {
+                    throw denied;
+                } catch (RuntimeException failed) {
+                    if (failed == ended.get()) throw failed;
+                    // The database gone is not a browser failure: it stops the job under its own
+                    // code (CDS_EXPORT_DATABASE_UNAVAILABLE), and the job can be resumed.
+                    if (io.github.carlos_emr.carlos.demographic.cdsexport.support
+                            .CdsExportDatabaseUnavailableException.lost(failed)) throw failed;
+                    checkpoint.run();
+                    return done(Reason.BROWSER_FAILURE, started, true);
+                }
             }
             try (var rendered = made) {
                 checkpoint.run();
@@ -297,38 +389,55 @@ public class CdsExportEformRenderService {
         return Math.max(0, TimeUnit.NANOSECONDS.toMillis(clock.getAsLong() - started));
     }
 
-    /** Waits for the export render slot, observing cancellation every second. */
-    private boolean acquire(Runnable checkpoint) {
-        long deadline = clock.getAsLong() + WAIT_NANOS;
+    /** Waits for the export's turn as long as it takes, running the wait check every second. */
+    private void acquire(Runnable waiting) {
         while (true) {
-            checkpoint.run();
+            waiting.run();
             try {
-                if (EXPORT_RENDERS.tryAcquire(1, TimeUnit.SECONDS)) return true;
+                if (EXPORT_RENDERS.tryAcquire(1, TimeUnit.SECONDS)) return;
             } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                checkpoint.run();
-                throw new java.util.concurrent.CancellationException("CDS_EXPORT_WAIT_INTERRUPTED");
+                throw cancelled(waiting);
             }
-            if (clock.getAsLong() - deadline > 0) return false;
+        }
+    }
+
+    /** Waits until an open breaker closes; returns at once when it is closed. */
+    private void awaitBreaker(Runnable waiting) {
+        while (open.get()) {
+            long remaining = openUntil.get() - clock.getAsLong();
+            if (remaining <= 0) return;
+            waitFor(waiting, remaining);
         }
     }
 
     /** Keeps export renders at least the configured interval apart. */
-    private void pace(Runnable checkpoint, long intervalNanos) {
+    private void pace(Runnable waiting, long intervalNanos) {
         long previous = lastFinished.get();
         if (previous == Long.MIN_VALUE || intervalNanos == 0) return;
         long remaining = previous + intervalNanos - clock.getAsLong();
+        if (remaining > 0) waitFor(waiting, remaining);
+    }
+
+    /** Waits {@code nanos}, running the wait check before each pause of at most a second. */
+    private void waitFor(Runnable waiting, long nanos) {
+        long until = clock.getAsLong() + nanos;
+        long remaining = nanos;
         while (remaining > 0) {
-            checkpoint.run();
+            waiting.run();
             try {
-                TimeUnit.NANOSECONDS.sleep(Math.min(remaining, TimeUnit.SECONDS.toNanos(1)));
+                pause.pause(Math.min(remaining, CHECK_NANOS));
             } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                checkpoint.run();
-                throw new java.util.concurrent.CancellationException("CDS_EXPORT_WAIT_INTERRUPTED");
+                throw cancelled(waiting);
             }
-            remaining = previous + intervalNanos - clock.getAsLong();
+            remaining = until - clock.getAsLong();
         }
+    }
+
+    /** An interrupted wait: the attempt's own outcome if the check has one, else a cancellation. */
+    private static java.util.concurrent.CancellationException cancelled(Runnable waiting) {
+        Thread.currentThread().interrupt();
+        waiting.run();
+        return new java.util.concurrent.CancellationException("CDS_EXPORT_WAIT_INTERRUPTED");
     }
 
     /** The renderer's own deadline message; its other failures are browser failures. */

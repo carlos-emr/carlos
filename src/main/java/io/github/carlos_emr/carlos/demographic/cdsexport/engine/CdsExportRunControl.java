@@ -28,6 +28,19 @@ public interface CdsExportRunControl {
     /** Outside source transactions; cheap local checks may throttle durable metadata probes. */
     void checkpoint();
 
+    /**
+     * The check made while the export waits for something other than its own work (an eForm
+     * render waiting for its turn, for a render slot, or for a renderer that kept failing): like
+     * {@link #checkpoint()} it ends the wait, by throwing, once the attempt has ended (a
+     * cancellation, a lost lease), and renews the lease. Unlike a checkpoint, a wait is not
+     * progress: it does not tell the job's stall detector ({@code cds.export.maxDurationMillis})
+     * that the worker is alive, so an attempt that only ever waits is still ended. An adapter
+     * without a stall detector answers it as a checkpoint.
+     */
+    default void waitCheckpoint() {
+        checkpoint();
+    }
+
     /** Inside an explicit read-only source transaction; metadata control uses an independent transaction. */
     void captureCheckpoint();
 

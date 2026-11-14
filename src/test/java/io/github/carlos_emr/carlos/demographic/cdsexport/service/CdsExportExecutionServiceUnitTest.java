@@ -820,6 +820,63 @@ class CdsExportExecutionServiceUnitTest {
     }
 
     @Test
+    void shouldNotCountARendersWaitAsProofOfLife_soAnAttemptThatOnlyWaitsIsStalled()
+            throws Exception {
+        var beat = org.mockito.ArgumentCaptor.forClass(Runnable.class);
+        var limited = stallWindow(100, beat);
+        var waits = new java.util.concurrent.atomic.AtomicInteger();
+        doAnswer(
+                        call -> {
+                            CdsExportRunControl control = call.getArgument(1);
+                            control.checkpoint();
+                            // An eForm render waiting for the renderer: each wait check renews
+                            // the lease and proves nothing, so the stall window runs on.
+                            for (int i = 0; i < 20; i++) {
+                                Thread.sleep(60);
+                                beat.getValue().run();
+                                control.waitCheckpoint();
+                                waits.incrementAndGet();
+                            }
+                            return null;
+                        })
+                .when(engine)
+                .execute(any(), any());
+
+        limited.execute(RUN);
+
+        // The wait ended at the first check after the heartbeat saw the silence.
+        verify(ledger).stop(lease, CdsExportState.FAILED, "CDS_EXPORT_WORKER_STALLED");
+        assertThat(waits.get()).isLessThan(8);
+    }
+
+    @Test
+    void shouldEndARendersWait_atTheFirstWaitCheckAfterTheJobIsCancelled() throws Exception {
+        var beat = org.mockito.ArgumentCaptor.forClass(Runnable.class);
+        var limited = stallWindow(60_000, beat);
+        doNothing()
+                .doThrow(new CancellationException("CDS_EXPORT_CANCELLED"))
+                .when(ledger)
+                .checkpoint(lease);
+        doAnswer(
+                        call -> {
+                            CdsExportRunControl control = call.getArgument(1);
+                            control.checkpoint();
+                            // The operator cancels while a render waits: the wait check renews
+                            // the lease, at most a second apart, and finds the cancel.
+                            Thread.sleep(1_050);
+                            control.waitCheckpoint();
+                            throw new AssertionError("the wait went on after the job was cancelled");
+                        })
+                .when(engine)
+                .execute(any(), any());
+
+        limited.execute(RUN);
+
+        verify(ledger).release(lease);
+        verify(ledger, never()).stop(any(), any(), anyString());
+    }
+
+    @Test
     void shouldRelinquishAStoppedForegroundWait_withoutRequestingDurableCancellation()
             throws Exception {
         doAnswer(

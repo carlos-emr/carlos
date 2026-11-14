@@ -205,7 +205,7 @@ class CdsExportEformRenderMariaDbIntegrationTest {
         return new CdsExportEformRenderingSourceReader(
                 eforms,
                 new CdsExportEformRenderService(
-                        (who, fdid) -> {
+                        (who, fdid, waiting) -> {
                             try {
                                 Path file = Files.createTempFile(directory, "eform-browser-render-", ".pdf");
                                 Files.write(file, PDF);
