@@ -73,7 +73,8 @@ public class CdsExportLedgerService {
      * #encode(CdsExportJobDocumentDto)}), whatever its length.
      */
     private static final int MAX_DOCUMENT = 262_144;
-    private static final long LEASE_SECONDS = 120;
+    /** How long a claim or a renewal keeps the attempt's lease. */
+    static final long LEASE_SECONDS = 120;
     /**
      * The seven-day ceiling of an attempt's protected staging: an attempt whose worker was lost
      * keeps its directory until seven days after it was claimed, and a stopped attempt keeps its

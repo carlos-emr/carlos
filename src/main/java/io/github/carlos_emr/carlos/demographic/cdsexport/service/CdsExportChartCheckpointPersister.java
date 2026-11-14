@@ -68,7 +68,7 @@ final class CdsExportChartCheckpointPersister {
     private long sequence, charts, held;
     private int lastPatient;
     private CdsExportChartCheckpointDto latest;
-    private boolean failed;
+    private boolean failed, recorded = true;
 
     /**
      * @param parameters the SHA-256 of the build parameters the charts were made under ({@link
@@ -198,6 +198,7 @@ final class CdsExportChartCheckpointPersister {
                     new CdsExportChartCheckpointDto(
                             member.memberId(), member.plaintextSha256(), member.plaintextBytes(),
                             charts);
+            recorded = false;
             pending.clear();
             pendingBytes = 0;
             pendingCharts = 0;
@@ -219,6 +220,16 @@ final class CdsExportChartCheckpointPersister {
     /** The finished charts sealed so far. */
     long charts() {
         return charts;
+    }
+
+    /** True when the ledger has recorded the newest sealed member (or nothing was sealed). */
+    boolean recorded() {
+        return recorded;
+    }
+
+    /** The ledger recorded the newest sealed member on the attempt row. */
+    void markRecorded() {
+        recorded = true;
     }
 
     private void usable() throws IOException {

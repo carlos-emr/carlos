@@ -272,6 +272,39 @@ public class CdsExportExecutionService {
         return IO_FAILED;
     }
 
+    /**
+     * How long after the last successful renewal a renewal that failed for a transient database
+     * reason is retried instead of ending the attempt: the lease the last renewal granted, less
+     * one heartbeat interval so the owner stops before another worker may claim the job. A test
+     * shortens it; no export changes it.
+     */
+    long renewalWindowNanos =
+            java.util.concurrent.TimeUnit.SECONDS.toNanos(CdsExportLedgerService.LEASE_SECONDS - 20);
+
+    /**
+     * True when a lease renewal failed for a reason that passes: the database could not be
+     * reached for a moment, a statement or lock wait ran out, a transaction could not be opened
+     * or committed. A fenced or cancelled attempt, a lease another owner holds and every other
+     * failure are not: they are answers, not outages.
+     */
+    static boolean transientRenewalFailure(RuntimeException failure) {
+        if (failure instanceof CdsExportOwnerFencedException
+                || failure instanceof CancellationException
+                || failure instanceof CdsExportControlOutcomeUnknownException) return false;
+        if (CdsExportDatabaseUnavailableException.lost(failure)) return true;
+        var seen = new java.util.HashSet<Throwable>();
+        for (Throwable cause = failure; cause != null && seen.add(cause); cause = cause.getCause())
+            if (cause instanceof org.springframework.dao.TransientDataAccessException
+                    || cause instanceof org.springframework.dao.RecoverableDataAccessException
+                    || cause instanceof org.springframework.transaction.TransactionTimedOutException
+                    || cause instanceof org.springframework.transaction.TransactionSystemException
+                    || cause instanceof jakarta.persistence.LockTimeoutException
+                    || cause instanceof jakarta.persistence.PessimisticLockException
+                    || cause instanceof jakarta.persistence.QueryTimeoutException
+                    || cause instanceof java.sql.SQLTransientException) return true;
+        return false;
+    }
+
     /** The attempt whose engine thread was declared stalled; null for a healthy attempt. */
     private final java.util.concurrent.atomic.AtomicReference<CdsExportLeaseDto> stalledAttempt =
             new java.util.concurrent.atomic.AtomicReference<>();
@@ -380,6 +413,9 @@ public class CdsExportExecutionService {
 
         /** Set by each heartbeat; the engine thread seals its finished-chart checkpoint then. */
         private final AtomicBoolean checkpointDue = new AtomicBoolean();
+
+        /** When this attempt's lease was last granted: its claim, then each successful renewal. */
+        private final AtomicLong renewed = new AtomicLong(started);
         private final java.util.concurrent.atomic.AtomicReference<RuntimeException>
                 heartbeatFailure = new java.util.concurrent.atomic.AtomicReference<>();
         private final java.util.concurrent.ScheduledExecutorService heartbeat;
@@ -421,7 +457,7 @@ public class CdsExportExecutionService {
                     () -> {
                         try {
                             local(false);
-                            ledger.checkpoint(lease);
+                            renew(() -> ledger.checkpoint(lease));
                             checkpointDue.set(true);
                         } catch (RuntimeException failed) {
                             heartbeatFailure.compareAndSet(null, failed);
@@ -462,7 +498,37 @@ public class CdsExportExecutionService {
         public void checkpoint() {
             if (TransactionSynchronizationManager.isActualTransactionActive())
                 throw new IllegalStateException("CDS_EXPORT_AMBIENT_TRANSACTION_REFUSED");
-            if (probe()) ledger.checkpoint(lease);
+            if (probe()) renew(() -> ledger.checkpoint(lease));
+        }
+
+        /**
+         * Renews the lease. A renewal that fails for a transient database reason does not end a
+         * healthy export while the lease the last successful renewal granted is still valid: the
+         * next heartbeat or checkpoint renews it again. Only a lease that is actually lost ends
+         * this owner, as before: the ledger's fence (another owner, a cancellation, our own
+         * expiry), or, when renewals keep failing for the whole lease, its expiry, which ends
+         * the attempt as an expired lease under that code.
+         */
+        private void renew(Runnable renewal) {
+            try {
+                renewal.run();
+                renewed.set(System.nanoTime());
+            } catch (RuntimeException failed) {
+                if (!transientRenewalFailure(failed)) throw failed;
+                if (System.nanoTime() - renewed.get() >= renewalWindowNanos) {
+                    LOG.warn(
+                            "CDS_EXPORT_LEASE_RENEWAL_EXHAUSTED run={} epoch={}",
+                            lease.runId(),
+                            lease.epoch());
+                    throw new CdsExportOwnerFencedException();
+                }
+                // The run and the failure's type only; never its text.
+                LOG.warn(
+                        "CDS_EXPORT_LEASE_RENEWAL_RETRY run={} epoch={} failure={}",
+                        lease.runId(),
+                        lease.epoch(),
+                        failed.getClass().getSimpleName());
+            }
         }
 
         @Override
@@ -476,7 +542,7 @@ public class CdsExportExecutionService {
                     || !TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
                 throw new IllegalStateException("CDS_EXPORT_READ_CAPTURE_TRANSACTION_REQUIRED");
             }
-            if (probe()) ledger.captureCheckpoint(lease);
+            if (probe()) renew(() -> ledger.captureCheckpoint(lease));
         }
 
         private boolean probe() {
