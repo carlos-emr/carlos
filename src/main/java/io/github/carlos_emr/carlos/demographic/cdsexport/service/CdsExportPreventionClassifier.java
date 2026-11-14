@@ -31,8 +31,9 @@ import java.util.*;
  * Exact category classification from captured configuration/catalogue evidence. This does not
  * select a clinical code, establish row disclosure authority or qualify native immunization
  * export. Callers must authenticate both the XML bytes and catalogue rows in the bound source
- * generation before constructing this immutable classifier. Unknown and conflicting types
- * require review; they never silently become immunizations or out-of-scope screening facts.
+ * generation before constructing this immutable classifier. {@link #classify} reports what the
+ * evidence proves and leaves unknown and conflicting types for review; {@link #place} then puts
+ * every such row in a category by a documented rule, so no row's category holds the patient.
  */
 public final class CdsExportPreventionClassifier {
     public enum Kind {
@@ -64,7 +65,32 @@ public final class CdsExportPreventionClassifier {
         UNSUPPORTED_LAYOUT,
         CONFLICTING_CATEGORY,
         UNRESOLVED_CVC_MAPPING,
-        UNRESOLVED_NON_IMMUNIZATION_CODE
+        UNRESOLVED_NON_IMMUNIZATION_CODE,
+        /**
+         * {@link #place}: a type no configured item and no catalogue entry names (a type the
+         * OSCAR 19 migration copied without a CARLOS item, a vaccine the clinic's catalogue no
+         * longer lists, a configuration that dropped an item). The prevention module is the
+         * chart's immunization record, so it is an Immunizations entry without ImmunizationType,
+         * named by its recorded name or its stored type.
+         */
+        UNCONFIGURED_TYPE,
+        /**
+         * {@link #place}: a configured item whose configuration does not state its category
+         * consistently ({@link #CATEGORY_NOT_PROVEN}, {@link #UNSUPPORTED_LAYOUT}, a declared
+         * type beside a screening form or under Screenings). It is placed where the prevention
+         * screen files it and by the form that recorded it: under Screenings it is a screening;
+         * otherwise a declared Health Canada type or a vaccine form (injection, h1n1) makes it an
+         * immunization, a screening form (PAPMAM, history) a screening, and any other form an
+         * immunization.
+         */
+        CONFIGURED_HEADING_AND_FORM,
+        /**
+         * {@link #place}: a configured screening whose catalogue evidence conflicts with its
+         * configuration (a screening the vaccine catalogue also names, a screening row recorded
+         * with a SNOMED concept). The configuration places it; the stored concept travels in the
+         * residual.
+         */
+        CONFIGURED_OVER_CATALOGUE
     }
 
     public record Definition(String nativeName, String healthCanadaType) {
@@ -104,6 +130,8 @@ public final class CdsExportPreventionClassifier {
     private final Map<String, Definition> definitions;
     private final Map<String, Kind> configured;
     private final Map<String, Rule> configuredReviews;
+    /** Where each configured item {@link #configured} cannot place is placed ({@link #place}). */
+    private final Map<String, Kind> placements;
     private final Set<String> catchAll;
     private final Set<String> vaccineNames, vaccineCodes, unresolvedMappings;
 
@@ -138,6 +166,7 @@ public final class CdsExportPreventionClassifier {
         var extracted = new HashMap<String, Definition>();
         var types = new HashMap<String, Kind>();
         var reviewRules = new HashMap<String, Rule>();
+        var placed = new HashMap<String, Kind>();
         var catchAllNames = new HashSet<String>();
         try {
             // The clinic's own configuration, not chart data: neither its size nor the number or
@@ -214,6 +243,20 @@ public final class CdsExportPreventionClassifier {
                                 kind = Kind.REQUIRES_REVIEW;
                                 reviewRules.put(name, Rule.CATEGORY_NOT_PROVEN);
                             }
+                            // Rule CONFIGURED_HEADING_AND_FORM, for an item the rules above do
+                            // not place: the Screenings heading files it as a screening; a
+                            // declared type or a vaccine form makes it an immunization, a
+                            // screening form a screening, and any other form an immunization.
+                            if (kind == Kind.REQUIRES_REVIEW)
+                                placed.put(
+                                        name,
+                                        "Screenings".equals(heading)
+                                                        || !immunizationDeclared
+                                                                && ("PAPMAM".equals(layout)
+                                                                        || "history"
+                                                                                .equals(layout))
+                                                ? Kind.NON_IMMUNIZATION
+                                                : Kind.IMMUNIZATION);
                             extracted.put(name, new Definition(name, healthType));
                             if (types.putIfAbsent(name, kind) != null) reject();
                         }
@@ -259,6 +302,7 @@ public final class CdsExportPreventionClassifier {
         definitions = Map.copyOf(extracted);
         configured = Map.copyOf(types);
         configuredReviews = Map.copyOf(reviewRules);
+        placements = Map.copyOf(placed);
         catchAll = Set.copyOf(catchAllNames);
         // The clinic's vaccine catalogue is vocabulary, not rows of a chart: no count or size
         // of it refuses a patient.
@@ -382,6 +426,45 @@ public final class CdsExportPreventionClassifier {
                 configuredReview == Rule.CATEGORY_NOT_PROVEN
                         ? Rule.CATEGORY_NOT_PROVEN
                         : Rule.UNKNOWN_TYPE);
+    }
+
+    /**
+     * The category a row is exported in. A decision {@link #classify} reaches is kept; a row it
+     * leaves for review is placed by a documented rule instead, so no prevention row holds the
+     * patient for its category (they did, as {@code CATEGORY_NOT_PROVEN}, {@code UNKNOWN_TYPE},
+     * {@code UNSUPPORTED_LAYOUT}, {@code CONFLICTING_CATEGORY}, {@code UNRESOLVED_CVC_MAPPING} and
+     * {@code UNRESOLVED_NON_IMMUNIZATION_CODE}). Whatever the placement, the complete row travels
+     * in {@code CARLOS.Prevention.Source.v1}. An import receipt that proves a row was written from
+     * a CDS Immunizations element still makes it an immunization ({@link
+     * CdsExportPreventionScopePlanner}), before this placement.
+     *
+     * @return a decision of kind {@link Kind#IMMUNIZATION} or {@link Kind#NON_IMMUNIZATION}
+     */
+    public Decision place(String nativeType, String nativeSnomed) {
+        var decision = classify(nativeType, nativeSnomed);
+        if (decision.kind() != Kind.REQUIRES_REVIEW) return decision;
+        Kind configuredKind = nativeType == null ? null : configured.get(nativeType);
+        if (configuredKind == Kind.IMMUNIZATION)
+            // A configured vaccine whose catalogue mapping names a missing concept: the mapping
+            // is not used (no CARLOS screen writes CVCMapping, and the migration does not copy it).
+            return new Decision(
+                    Kind.IMMUNIZATION,
+                    catchAll.contains(nativeType)
+                            ? Rule.CATCH_ALL_INJECTION
+                            : Rule.CONFIGURED_IMMUNIZATION);
+        if (configuredKind == Kind.NON_IMMUNIZATION)
+            // A configured screening the catalogue also names, or one recorded with a SNOMED
+            // concept: the configuration places it, and the catalogue value is carried.
+            return new Decision(Kind.NON_IMMUNIZATION, Rule.CONFIGURED_OVER_CATALOGUE);
+        Kind placed = nativeType == null ? null : placements.get(nativeType);
+        if (placed != null) return new Decision(placed, Rule.CONFIGURED_HEADING_AND_FORM);
+        // Not configured: a vaccine the catalogue still names by its name or concept (a mapping
+        // whose own concept is missing is not used), or an unconfigured type.
+        boolean catalogued =
+                nativeType != null && vaccineNames.contains(nativeType)
+                        || nativeSnomed != null && vaccineCodes.contains(nativeSnomed);
+        return new Decision(
+                Kind.IMMUNIZATION, catalogued ? Rule.CVC_IMMUNIZATION : Rule.UNCONFIGURED_TYPE);
     }
 
     private static void add(Set<String> target, String value) {

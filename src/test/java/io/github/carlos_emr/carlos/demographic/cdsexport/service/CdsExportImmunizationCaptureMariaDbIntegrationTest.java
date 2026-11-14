@@ -570,8 +570,10 @@ class CdsExportImmunizationCaptureMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldVerifyUnknownInjectionCategoryNeverTurnsIntoAnEmptyOrAutomaticallyIncludedClinicalSelection_forImmunizationCaptureContract() {
-        // A type the installed configuration does not define is held, never silently included.
+    void shouldPlaceAnUnconfiguredType_asAnImmunizationOfTheClinicalSelection() {
+        // A type the installed configuration does not define (OSCAR 19 data the migration left
+        // unmapped) held the patient (UNKNOWN_TYPE). It is placed as an immunization
+        // (CdsExportPreventionClassifier.place), never left out.
         sql.update(
                 "update preventions set prevention_type='UNCONFIGURED_INJECTION' where id=? and demographic_no=?",
                 first,
@@ -580,11 +582,8 @@ class CdsExportImmunizationCaptureMariaDbIntegrationTest {
                 status -> {
                     try {
                         var state = snapshots.prepare(patient, () -> {});
-                        assertThat(state.selection().reviews())
-                                .containsEntry(
-                                        first, CdsExportPreventionScopePlanner.Review.UNKNOWN_TYPE);
-                        assertThatThrownBy(state::clinicalIds)
-                                .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+                        assertThat(state.selection().reviews()).isEmpty();
+                        assertThat(state.clinicalIds()).contains(first);
                     } catch (IOException failed) {
                         throw new UncheckedIOException(failed);
                     }

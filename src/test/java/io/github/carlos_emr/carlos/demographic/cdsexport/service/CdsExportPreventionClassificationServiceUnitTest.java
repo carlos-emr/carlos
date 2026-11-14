@@ -169,16 +169,16 @@ class CdsExportPreventionClassificationServiceUnitTest {
     }
 
     @Test
-    void shouldVerifyUnknownTypesAreAnExplicitReviewPartitionRatherThanOmitted_forPreventionClassificationServiceContract() {
+    void shouldPlaceAnUnconfiguredTypeAsAnImmunization_ratherThanOmittingOrHoldingIt() {
+        // It held the patient (UNKNOWN_TYPE): OSCAR 19 data the migration left unmapped.
         metadata = List.of(row(1, "Td"), row(2, "UNCONFIGURED"));
         assertThatCode(
                         () -> {
                             var result = classify();
-                            assertThat(result.reviews())
-                                    .containsEntry(
-                                            2, CdsExportPreventionScopePlanner.Review.UNKNOWN_TYPE);
+                            assertThat(result.reviews()).isEmpty();
+                            assertThat(result.immunizations()).containsExactlyInAnyOrder(1, 2);
                             assertThat(result.rows()).isEqualTo(2);
-                            assertThat(result.representable()).isFalse();
+                            assertThat(result.representable()).isTrue();
                         })
                 .doesNotThrowAnyException();
     }
@@ -407,16 +407,17 @@ class CdsExportPreventionClassificationServiceUnitTest {
     }
 
     @Test
-    void shouldHoldANativeCatchAllVaccine_withCategoryNotProven() throws Exception {
+    void shouldPlaceANativeCatchAllVaccineByItsForm_withoutAReceipt() throws Exception {
+        // OtherA outside the Other heading is recorded with the injection form: an immunization.
+        // It held the patient (CATEGORY_NOT_PROVEN).
         var result = classifyWithReceipts(Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.IMMUNIZATIONS));
-        assertThat(result.reviews())
-                .containsExactlyEntriesOf(
-                        Map.of(1, CdsExportPreventionScopePlanner.Review.CATEGORY_NOT_PROVEN));
-        assertThat(result.immunizations()).isEmpty();
+        assertThat(result.reviews()).isEmpty();
+        assertThat(result.immunizations()).containsExactly(1);
     }
 
     @Test
-    void shouldHoldACatchAllVaccine_whenItsImportReceiptDoesNotVerify() throws Exception {
+    void shouldPlaceACatchAllVaccineByItsForm_whenItsImportReceiptDoesNotVerify()
+            throws Exception {
         // An authentic receipt for row 9, rewritten in the database to claim row 1.
         units =
                 List.of(
@@ -427,19 +428,20 @@ class CdsExportPreventionClassificationServiceUnitTest {
                                 io.github.carlos_emr.carlos.demographic.cds.security
                                         .CdsNativeBaselineTestKeys.keys()));
         var result = classifyWithReceipts(Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.IMMUNIZATIONS));
-        assertThat(result.reviews())
-                .containsEntry(1, CdsExportPreventionScopePlanner.Review.CATEGORY_NOT_PROVEN);
-        assertThat(result.representable()).isFalse();
+        // The forged receipt proves nothing; the row is placed by its form, never held.
+        assertThat(result.reviews()).isEmpty();
+        assertThat(result.immunizations()).containsExactly(1);
+        assertThat(result.representable()).isTrue();
     }
 
     @Test
-    void shouldHoldACatchAllVaccine_withProvenanceExtensionsButNoReceiptProof() throws Exception {
+    void shouldPlaceACatchAllVaccine_withProvenanceExtensionsButNoReceiptProof() throws Exception {
         // The importer's cdsName/cdsDatePrecision extensions are editable chart rows: a legacy
         // unit without a sealed witness proves nothing, and the extensions are never consulted.
         units = List.of(CdsExportImmunizationImportReceiptFixture.unwitnessed(27, 1));
         var result = classifyWithReceipts(Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.IMMUNIZATIONS));
-        assertThat(result.reviews())
-                .containsEntry(1, CdsExportPreventionScopePlanner.Review.CATEGORY_NOT_PROVEN);
+        assertThat(result.reviews()).isEmpty();
+        assertThat(result.immunizations()).containsExactly(1);
         verify(rows, never())
                 .forEach(
                         any(),
@@ -474,12 +476,16 @@ class CdsExportPreventionClassificationServiceUnitTest {
     }
 
     @Test
-    void shouldStillHoldANativeCatchAllVaccine_forAPastHealthOnlyExport() throws Exception {
+    void shouldLeaveANativeCatchAllVaccineOutOfAPastHealthOnlyExport_insteadOfHolding()
+            throws Exception {
+        // Placed as an immunization by its form, it is never a possible screening; it held the
+        // PastHealth-only export (CATEGORY_NOT_PROVEN).
         units = List.of();
         var result = classifyWithReceipts(Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.PAST_HEALTH));
-        assertThat(result.reviews())
-                .containsEntry(1, CdsExportPreventionScopePlanner.Review.CATEGORY_NOT_PROVEN);
-        assertThat(result.representable()).isFalse();
+        assertThat(result.reviews()).isEmpty();
+        assertThat(result.immunizations()).containsExactly(1);
+        assertThat(result.otherPreventions()).containsExactly(2);
+        assertThat(result.representable()).isTrue();
     }
 
     private CdsExportLeaseDto lease(Set<CdsCategory> categories) {

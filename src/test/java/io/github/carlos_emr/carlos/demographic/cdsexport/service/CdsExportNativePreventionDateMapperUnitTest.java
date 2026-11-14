@@ -38,17 +38,27 @@ class CdsExportNativePreventionDateMapperUnitTest {
     }
 
     @Test
-    void shouldRequireAnExplicitUnambiguousZone_forANativeEventClock() throws Exception {
-        assertThatThrownBy(() -> mapper.map("2024-02-29 12:34:56", List.of()))
-                .hasMessage("CDS_EXPORT_PREVENTION_DATE_REQUIRES_REVIEW");
+    void shouldWriteAClockTheZoneGivesNoSingleOffset_asItsWallClockTimeInsteadOfHolding()
+            throws Exception {
         var zoned = new CdsExportNativePreventionDateMapper(java.time.ZoneId.of("America/Toronto"));
         assertThat(zoned.map("2024-02-29 12:34:56", List.of()).lexical())
                 .isEqualTo("2024-02-29T12:34:56-05:00");
         assertThat(zoned.map("2024-07-01 12:34:56", List.of()).lexical())
                 .isEqualTo("2024-07-01T12:34:56-04:00");
-        for (String ambiguous : List.of("2024-03-10 02:30:00", "2024-11-03 01:30:00"))
-            assertThatThrownBy(() -> zoned.map(ambiguous, List.of()))
-                    .hasMessage("CDS_EXPORT_PREVENTION_DATE_REQUIRES_REVIEW");
+        // OSCAR 19's prevention form saved the clock time it was given: one inside the spring gap
+        // or the repeated autumn hour, or before the zone's standard time, has no single
+        // whole-minute offset. It is its wall-clock time with no offset (a receiver reads it as
+        // clinic time), the rule appointments and notes follow; it held the patient.
+        for (String local :
+                List.of("2024-03-10 02:30:00", "2024-11-03 01:30:00", "1880-06-01 10:15:00"))
+            assertThat(zoned.map(local, List.of()))
+                    .isEqualTo(
+                            new CdsExportDateDto(
+                                    CdsExportDateDto.Precision.DATE_TIME,
+                                    local.replace(' ', 'T')));
+        // With no clinic zone no offset is invented either.
+        assertThat(mapper.map("2024-02-29 12:34:56", List.of()).lexical())
+                .isEqualTo("2024-02-29T12:34:56");
     }
 
     @Test

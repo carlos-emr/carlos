@@ -40,8 +40,9 @@ import java.util.*;
  * <p>The importer stores an imported vaccine whose ImmunizationType is absent or not configured
  * as the catch-all type {@code OtherA}. The shipped catch-all (an {@code injection} item under
  * Other) is classified an immunization ({@code CATCH_ALL_INJECTION}), but a clinic configuration
- * that places {@code OtherA} differently leaves the frozen classification unable to prove it a
- * vaccine. Such a row is still provably an immunization when an applied Immunizations
+ * that places {@code OtherA} differently (another heading, Screenings, another form) leaves the
+ * frozen classification unable to prove it a vaccine, or files it as a screening. Such a row is
+ * still provably an immunization when an applied Immunizations
  * import unit names it in its target receipt and that receipt carries a native-baseline witness
  * sealed under the installation key: the seal binds the receipt digest, so a database writer can
  * neither invent the unit's references nor move a witness to another receipt, and only the
@@ -53,7 +54,8 @@ import java.util.*;
  * finished-capture reclassification (the captured {@code cds_import_unit} rows) apply this same
  * function to the same row values, so both reach the same partition. A unit that cannot prove a
  * row (legacy unit without a witness, a refused, expected or foreign unit, a malformed, tampered
- * or foreign witness) simply proves nothing: the row keeps its classification review. A missing
+ * or foreign witness) simply proves nothing: the row keeps its classification or placement
+ * ({@link CdsExportPreventionClassifier#place}). A missing
  * installation key is a refusal ({@code CDS_EXPORT_NATIVE_BASELINE_KEY_UNAVAILABLE}), as in the
  * retained index, never a silently dropped witness. Proof is origin only: whether the row changed
  * since import remains the immunization field reconciler's decision.

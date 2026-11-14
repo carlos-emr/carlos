@@ -354,7 +354,9 @@ class CdsExportScreeningMapperUnitTest {
     }
 
     @Test
-    void shouldHoldARowThatIsNotAProvenScreening_forReview() throws Exception {
+    void shouldRefuseARowPlacedAsAnImmunization_asNotAScreening() throws Exception {
+        // The scope planner gives this mapper only rows placed as screenings; a configured
+        // vaccine, or a type no item configures (placed as an immunization), is not one.
         for (var type : List.of("Td", "UNKNOWN_TYPE")) {
             var row = parent(31, Map.of("prevention_type", type));
             var result = map(row, List.of(), List.of());
@@ -462,13 +464,21 @@ class CdsExportScreeningMapperUnitTest {
     }
 
     @Test
-    void shouldHoldAnUnsupportedDatePrecision_forReview() throws Exception {
-        assertThat(
-                        map(parent(31, Map.of()), List.of(), List.of(precision(51, 31, "DD")))
-                                .representable())
-                .isFalse();
+    void shouldWriteNoProcedureDate_forAMarkerNoScreenWritesOrTwoMarkers() throws Exception {
+        // ProcedureDate is optional: precision rows that give no one form leave it out, never a
+        // guessed one, and the rows are exact in the residual. They held the patient
+        // (DATE_PRECISION_REQUIRES_REVIEW).
+        var unknown =
+                map(parent(31, Map.of()), List.of(), List.of(precision(51, 31, "DD")));
+        assertThat(unknown.representable()).isTrue();
+        assertThat(unknown.value().procedureDate().precision())
+                .isEqualTo(CdsExportDateDto.Precision.ABSENT);
         var twoMarkers = List.of(precision(51, 31, "YYYY"), precision(52, 31, "YYYY-MM"));
-        assertThat(map(parent(31, Map.of()), List.of(), twoMarkers).representable()).isFalse();
+        var two = map(parent(31, Map.of()), List.of(), twoMarkers);
+        assertThat(two.representable()).isTrue();
+        assertThat(two.value().procedureDate().precision())
+                .isEqualTo(CdsExportDateDto.Precision.ABSENT);
+        assertThat(two.value().sourceContext()).contains("YYYY-MM");
     }
 
     @Test

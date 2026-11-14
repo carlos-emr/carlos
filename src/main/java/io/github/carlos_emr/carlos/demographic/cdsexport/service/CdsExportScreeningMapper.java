@@ -161,7 +161,8 @@ public final class CdsExportScreeningMapper {
             for (String column : List.of("restrictToProgram", "programNo"))
                 source.review(column, "", "PROGRAM_SCOPE_REQUIRES_REVIEW");
         String type = source.raw("prevention_type");
-        if (classifier.classify(type, source.raw("snomedId")).kind()
+        // The category the scope planner placed the row in (CdsExportPreventionClassifier.place).
+        if (classifier.place(type, source.raw("snomedId")).kind()
                 != CdsExportPreventionClassifier.Kind.NON_IMMUNIZATION)
             source.review("prevention_type", DESCRIPTION, "CAPTURED_TYPE_IS_NOT_PROVEN_SCREENING");
         else if (!CdsExportNativeFieldAssessments.legal(type, Integer.MAX_VALUE) || type.isBlank())
@@ -210,9 +211,10 @@ public final class CdsExportScreeningMapper {
             if ("7".equals(fields.raw("field_name"))) {
                 formats.add(fields.raw("format"));
                 dates.add(fields);
-            } else
-                for (String column : List.of("field_name", "format"))
-                    fields.review(column, "", "UNSUPPORTED_OR_NONSTANDARD_PREVENTION_DATE");
+            }
+            // A precision row of another field describes no element (no writer stores one:
+            // PartialDate.PREVENTION_PREVENTIONDATE is the only prevention date field); carried()
+            // already keeps it exactly in the residual.
         }
         var date = new CdsExportDateDto(CdsExportDateDto.Precision.ABSENT, null);
         try {
@@ -228,9 +230,11 @@ public final class CdsExportScreeningMapper {
                             "format", Outcome.MAPPED, PROCEDURE_DATE, "EXPLICIT_NATIVE_DATE_PRECISION");
             }
         } catch (IOException invalidDate) {
-            source.review("prevention_date", PROCEDURE_DATE, "DATE_PRECISION_REQUIRES_REVIEW");
-            for (var fields : dates)
-                fields.review("format", PROCEDURE_DATE, "DATE_PRECISION_REQUIRES_REVIEW");
+            // Not a calendar date (OSCAR's zero date) or precision rows that do not give one
+            // form: no ProcedureDate is written, never a guessed one, and carried() keeps the
+            // column and its rows exactly in the residual. It held the patient
+            // (DATE_PRECISION_REQUIRES_REVIEW).
+            date = new CdsExportDateDto(CdsExportDateDto.Precision.ABSENT, null);
         }
         var lines = new ArrayList<String>();
         if (type != null) lines.add(type);
