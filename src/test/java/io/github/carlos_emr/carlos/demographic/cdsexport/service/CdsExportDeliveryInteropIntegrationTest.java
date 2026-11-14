@@ -29,7 +29,6 @@ import io.github.carlos_emr.carlos.demographic.cds.contract.CdsLogicalProfile;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportAllergyDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportIdentityDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportPackageMemberDto;
-import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportXmlLimitsDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.validator.CdsExportXmlValidator;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsInputLimitsDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto;
@@ -136,7 +135,6 @@ class CdsExportDeliveryInteropIntegrationTest {
                         Set.of(CdsCategory.DEMOGRAPHICS),
                         "2026.08.0-test",
                         CdsLogicalProfile.ONTARIO_MD_5_2,
-                        CdsExportXmlLimitsDto.defaults(),
                         ignored -> {},
                         () -> {});
         var record =
@@ -241,7 +239,6 @@ class CdsExportDeliveryInteropIntegrationTest {
                         categories,
                         "2026.08.0-test",
                         CdsLogicalProfile.ONTARIO_MD_5_2,
-                        CdsExportXmlLimitsDto.defaults(),
                         ignored -> {},
                         () -> {});
         var records =

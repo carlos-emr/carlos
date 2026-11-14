@@ -1070,7 +1070,6 @@ class CdsExportImmunizationOccurrenceServiceUnitTest {
                         Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.IMMUNIZATIONS),
                         "2026.08.0-test",
                         CdsLogicalProfile.ONTARIO_MD_5_2,
-                        CdsExportXmlLimitsDto.defaults(),
                         ignored -> {},
                         () -> {});
         var path = Files.write(directory.resolve(UUID.randomUUID() + ".xml"), xml);

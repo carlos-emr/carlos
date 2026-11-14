@@ -400,7 +400,6 @@ class CdsExportPatientNoteMapperUnitTest {
                         DEMOGRAPHICS,
                         "2026.08.0-test",
                         CdsLogicalProfile.ONTARIO_MD_5_2,
-                        CdsExportXmlLimitsDto.defaults(),
                         ignored -> {},
                         () -> {});
         Path input = Files.write(root.resolve(UUID.randomUUID() + ".xml"), bytes);

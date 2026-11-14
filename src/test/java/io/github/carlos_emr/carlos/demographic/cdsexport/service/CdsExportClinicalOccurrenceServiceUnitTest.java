@@ -1318,7 +1318,6 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
                         Set.of(CdsCategory.DEMOGRAPHICS, category),
                         "2026.08.0-test",
                         CdsLogicalProfile.ONTARIO_MD_5_2,
-                        CdsExportXmlLimitsDto.defaults(),
                         ignored -> {},
                         () -> {});
         var records = new ArrayList<CdsRecordDto>();

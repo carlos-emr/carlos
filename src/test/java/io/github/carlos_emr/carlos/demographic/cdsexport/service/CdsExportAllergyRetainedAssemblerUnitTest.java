@@ -802,7 +802,6 @@ class CdsExportAllergyRetainedAssemblerUnitTest {
                         selected,
                         "2026.08.0-test",
                         CdsLogicalProfile.ONTARIO_MD_5_2,
-                        CdsExportXmlLimitsDto.defaults(),
                         ignored -> {},
                         () -> {});
         var file = Files.write(directory.resolve(name + ".xml"), output.toByteArray());

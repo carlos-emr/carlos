@@ -107,7 +107,6 @@ class CdsExportAppointmentXmlWriterUnitTest {
                         categories,
                         "2026.08.0-test",
                         CdsLogicalProfile.ONTARIO_MD_5_2,
-                        CdsExportXmlLimitsDto.defaults(),
                         ignored -> {},
                         () -> {});
         var file = Files.write(root.resolve("patient.xml"), output.toByteArray());

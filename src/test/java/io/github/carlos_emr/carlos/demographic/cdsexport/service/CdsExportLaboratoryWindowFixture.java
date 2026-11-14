@@ -568,7 +568,6 @@ abstract class CdsExportLaboratoryWindowFixture {
                             selected,
                             "2026.08.0-test",
                             CdsLogicalProfile.ONTARIO_MD_5_2,
-                            CdsExportXmlLimitsDto.defaults(),
                             ignored -> {},
                             () -> {});
         return output.toByteArray();

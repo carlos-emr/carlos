@@ -30,7 +30,6 @@ import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDateDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFieldAssessmentDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportIdentityDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportReportReferenceDto;
-import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportXmlLimitsDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDataSummaryPlanner.Group;
 import io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDataSummaryPlanner.Row;
 import io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDataSummaryPlanner.Value;
@@ -143,7 +142,6 @@ class CdsExportDataSummaryOccurrenceServiceUnitTest {
                                 selected,
                                 "2026.08.0-test",
                                 CdsLogicalProfile.ONTARIO_MD_5_2,
-                                CdsExportXmlLimitsDto.defaults(),
                                 references::add,
                                 () -> {});
         assertThat(checked.occurrences().get(CdsCategory.REPORTS)).isEqualTo(3L);

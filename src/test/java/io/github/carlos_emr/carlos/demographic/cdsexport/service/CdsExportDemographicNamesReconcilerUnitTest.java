@@ -368,7 +368,6 @@ class CdsExportDemographicNamesReconcilerUnitTest {
                         selected,
                         version,
                         CdsLogicalProfile.ONTARIO_MD_5_2,
-                        CdsExportXmlLimitsDto.defaults(),
                         ignored -> {},
                         () -> {});
         var factory = DocumentBuilderFactory.newDefaultInstance();

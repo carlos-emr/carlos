@@ -42,7 +42,6 @@ import io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionCo
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportAppointmentLookupsDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportCapturedTextRowDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportIdentityDto;
-import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportXmlLimitsDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.validator.CdsExportXmlValidator;
 import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsAppointmentNativeDto;
@@ -502,7 +501,6 @@ class CdsExportSourceCarrierMariaDbIntegrationTest {
                         selected,
                         "2026.08.0-test",
                         CdsLogicalProfile.ONTARIO_MD_5_2,
-                        CdsExportXmlLimitsDto.defaults(),
                         ignored -> {},
                         () -> {});
         var folder = Files.createTempDirectory(directory, name + "-");

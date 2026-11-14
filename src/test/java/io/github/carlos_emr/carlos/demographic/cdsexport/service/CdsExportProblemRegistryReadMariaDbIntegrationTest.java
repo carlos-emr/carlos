@@ -426,7 +426,6 @@ class CdsExportProblemRegistryReadMariaDbIntegrationTest {
                         categories,
                         "2026.08.0-test",
                         CdsLogicalProfile.ONTARIO_MD_5_2,
-                        CdsExportXmlLimitsDto.defaults(),
                         ignored -> {},
                         () -> {});
         // Two current registry entries of a reviewed system, one of an unlisted system and the

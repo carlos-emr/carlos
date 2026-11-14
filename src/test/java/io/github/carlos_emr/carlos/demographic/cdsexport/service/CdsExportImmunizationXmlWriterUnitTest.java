@@ -328,7 +328,6 @@ class CdsExportImmunizationXmlWriterUnitTest {
                         selected,
                         "2026.08.0-test",
                         profile,
-                        CdsExportXmlLimitsDto.defaults(),
                         ignored -> {},
                         () -> {});
         Path input = Files.write(directory.resolve(UUID.randomUUID() + ".xml"), bytes);

@@ -852,7 +852,6 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
                         selected,
                         "2026.08.0-test",
                         profile,
-                        CdsExportXmlLimitsDto.defaults(),
                         ignored -> {},
                         () -> {});
         var input =

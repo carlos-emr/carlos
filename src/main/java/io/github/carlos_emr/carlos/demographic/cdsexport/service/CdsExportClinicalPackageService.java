@@ -639,7 +639,6 @@ public class CdsExportClinicalPackageService {
             String applicationVersion,
             ZoneId clinicalZone,
             CdsExportClinicalOccurrenceService.Bounds bounds,
-            CdsExportXmlLimitsDto xmlLimits,
             CdsExportRunControl control)
             throws IOException {
         Objects.requireNonNull(control);
@@ -709,7 +708,6 @@ public class CdsExportClinicalPackageService {
                                         tables,
                                         bounds,
                                         applicationVersion,
-                                        xmlLimits,
                                         control,
                                         inFlight);
                         control.endPatient(patient.patient());
@@ -1140,7 +1138,6 @@ public class CdsExportClinicalPackageService {
             Set<String> tables,
             CdsExportClinicalOccurrenceService.Bounds bounds,
             String applicationVersion,
-            CdsExportXmlLimitsDto xmlLimits,
             CdsExportRunControl control,
             List<CdsExportStagedFileDto> owned)
             throws IOException {
@@ -1171,7 +1168,6 @@ public class CdsExportClinicalPackageService {
                         retained.manifest(),
                         bounds,
                         applicationVersion,
-                        xmlLimits,
                         control);
         var outputs = new ArrayList<CdsExportStagedFileDto>();
         outputs.add(document.xml());

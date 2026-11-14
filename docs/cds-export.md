@@ -1639,11 +1639,36 @@ chosen by physician stores only the physicians.
   sweep (`CdsExportRetentionService.retire`). It validates the whole directory before deleting
   anything, so a directory too large to list in 15 minutes would not be erased. That holds disk,
   not an export.
-- The per-chart limits (`maxCapturedFields`, `maxCapturedBytes`, the index and row bounds beside
-  them, the per-table mapper limits and `CdsExportXmlLimitsDto`) hold one chart or stop the job
-  on their own rules and are described where they apply.
+- The check of each finished patient XML (`CdsExportXmlValidator`) refuses no document for its
+  size, its number of elements, the size of a binary value or the time the check takes (#57).
+  Those bounds (`CdsExportXmlLimitsDto`: 64 GiB of XML, also applied to the composer's output,
+  64 GiB of one decoded report, 20,000,000 elements and two hours) are deleted with no number in
+  their place; a check that stops making progress is ended by cancellation or the stall
+  detector. Its identity-value guard (16,384 values, 1,048,576 characters) is deleted as dead
+  code: no CDS 5.2 type is an `xs:ID`, `IDREF` or `IDREFS`, so the JDK validator keeps no identity
+  values. What the check keeps are integrity checks, listed below, that only a document the
+  schema or CARLOS's writer would never produce can reach.
+- The index and row bounds of a chart's capture (`maxIndexBytes`, `maxNativeRows`,
+  `maxLookupRows`) and the per-table mapper limits hold one chart or stop the job on their own
+  rules and are described where they apply.
 - The receiving CARLOS import has its own admission settings; see "Importing a large CARLOS
   export" below.
+
+**The finished-XML check's integrity bounds.** A document CARLOS writes is valid against the
+pinned schema and uses only its names; each bound below is far past anything such a document
+holds, and bounds only what a malformed document could make the parser keep before the schema
+check refuses it. `CdsExportXmlValidatorUnitTest` measures each against the pinned schema.
+
+| Bound (`CdsExportXmlValidator`) | Value | Why a document CARLOS writes cannot reach it |
+| --- | --- | --- |
+| `MAX_DEPTH`, element nesting | 256 levels | The schema is not recursive: no element is more than eight levels below `OmdCds`. The composer's own 252 (`CdsExportXmlComposer`) is the same kind of check. |
+| `MAX_NAMES`, distinct names | 2,048 | The schema has fewer than 300 element and attribute names. |
+| `MAX_NAME`, one name or prefix | 256 characters | The longest schema name has 40. |
+| `MAX_NAMESPACES`, `MAX_URI` | 64 namespaces, 1,024 characters a URI | CARLOS declares `cds` and `cds_dt`. |
+| `MAX_ATTRIBUTES`, attributes of one element | 128 | No schema type declares more than two. |
+| `MAX_MARKUP`, one tag, comment or instruction | 65,536 characters | Text is not counted. CARLOS's tags are a few dozen characters, and its one comment is the header. |
+| `MAX_RESTRICTED_VALUE`, one value of a length-, pattern- or code-restricted type | 65,536 characters | The schema's longest `maxLength` is the text64K's 65,536; dates, codes and identifiers are far shorter. A type with no such facet (report `TextContent`, `text`, a plain token) is streamed and not counted. |
+| `MAX_CAPTURE`, one captured identity or report value | 8,192 characters | The schema admits at most 250 (a file path); a vendor identifier has 20, a name part, report format or file extension 50. |
 
 **Importing a large CARLOS export.** The import reads a CARLOS package like any CDS archive, and
 nothing needs raising on the receiving server for a large one (`docs/cds-import-configuration.md`).
