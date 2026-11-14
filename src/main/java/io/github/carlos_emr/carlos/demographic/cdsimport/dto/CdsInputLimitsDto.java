@@ -43,8 +43,11 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.dto;
  * @param stallWindowMillis {@code cds.import.maxDurationMillis}: how long the import worker may
  *     reach no checkpoint before it is treated as dead; not a limit on how long an import runs
  * @param maxPathCharacters one archive member path or record-relative XML path
- * @param maxNamespaceAliases distinct namespace prefixes and URIs of one document
- * @param maxUniqueXmlNames distinct qualified names of one document
+ * @param maxNamespaceAliases namespace prefixes in scope at one time, and distinct namespace URIs
+ *     of one document (a CDS file uses three); the prefixes declared over the whole document are
+ *     not counted
+ * @param maxUniqueXmlNames distinct expanded names (namespace URI and local name) and
+ *     processing-instruction targets of one document; prefixes do not multiply them
  * @param maxXmlNameCharacters one qualified name or prefix
  * @param maxNamespaceUriCharacters one namespace URI
  */

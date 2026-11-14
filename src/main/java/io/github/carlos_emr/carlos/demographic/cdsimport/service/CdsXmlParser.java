@@ -306,11 +306,11 @@ public class CdsXmlParser {
         private final CountedOutput diagnosticOutput;
         private final Deque<Frame> stack = new ArrayDeque<>();
         private final Map<String, Long> sectionOrdinals = new HashMap<>();
-        // Xerces' symbol table retains names for the document. Bound namespace/name diversity,
-        // including invalid input, so new aliases cannot grow heap with occurrence count.
-        private final Set<String> prefixes = new HashSet<>();
-        private final Set<String> namespaceUris = new HashSet<>();
-        private final Set<String> qualifiedNames = new HashSet<>();
+        // The parser's symbol table retains names for the document. Namespace and name
+        // diversity is bounded by what a schema-valid file fixes (URIs, prefixes in scope at one
+        // time, expanded names), never by the prefixes a writer declares over the document.
+        private final io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsXmlNameAccount
+                names;
         private final CdsImportStallWindow window;
         private Locator locator;
 
@@ -363,6 +363,13 @@ public class CdsXmlParser {
             manifestPath = manifest;
             diagnosticsPath = diagnostics;
             this.limits = limits;
+            names =
+                    new io.github.carlos_emr.carlos.demographic.cdsimport.support
+                            .CdsXmlNameAccount(
+                            limits.maxNamespaceAliases(),
+                            limits.maxUniqueXmlNames(),
+                            limits.maxXmlNameCharacters(),
+                            limits.maxNamespaceUriCharacters());
             window = new CdsImportStallWindow(limits.stallWindowMillis());
             this.cancelled = cancelled;
             this.consumer = consumer;
@@ -457,7 +464,7 @@ public class CdsXmlParser {
                 check();
                 // Xerces interns PI targets in the same document symbol table as element names.
                 // Count their diversity/length too; never retain or accumulate PI content.
-                name(target);
+                name("", target, target);
             } catch (IOException failure) {
                 throw protectedFailure(failure);
             }
@@ -466,14 +473,7 @@ public class CdsXmlParser {
         @Override
         public void startPrefixMapping(String prefix, String uri) throws SAXException {
             try {
-                if (prefix.length() > limits.maxXmlNameCharacters()
-                        || uri.length() > limits.maxNamespaceUriCharacters())
-                    fail("CDS_XML_NAMESPACE_RESOURCE_LIMIT");
-                prefixes.add(prefix);
-                namespaceUris.add(uri);
-                if (prefixes.size() > limits.maxNamespaceAliases()
-                        || namespaceUris.size() > limits.maxNamespaceAliases())
-                    fail("CDS_XML_NAMESPACE_RESOURCE_LIMIT");
+                if (!names.declare(prefix, uri)) fail("CDS_XML_NAMESPACE_RESOURCE_LIMIT");
                 types.prefix(prefix, uri);
                 validator.startPrefixMapping(prefix, uri);
             } catch (IOException failure) {
@@ -483,6 +483,7 @@ public class CdsXmlParser {
 
         @Override
         public void endPrefixMapping(String prefix) throws SAXException {
+            names.undeclare(prefix);
             validator.endPrefixMapping(prefix);
         }
 
@@ -492,10 +493,11 @@ public class CdsXmlParser {
             try {
                 check();
                 valueWriter.flush();
-                name(qualified);
+                name(uri, local, qualified);
                 if (attrs.getLength() > MAX_ELEMENT_ATTRIBUTES)
                     fail("CDS_XML_ATTRIBUTE_RESOURCE_LIMIT");
-                for (int i = 0; i < attrs.getLength(); i++) name(attrs.getQName(i));
+                for (int i = 0; i < attrs.getLength(); i++)
+                    name(attrs.getURI(i), attrs.getLocalName(i), attrs.getQName(i));
                 if (stack.size() >= limits.maxXmlDepth()) fail("CDS_XML_DEPTH_LIMIT");
                 if (!rootSeen) {
                     if (!stack.isEmpty() || !uri.equals("cds") || !local.equals("OmdCds"))
@@ -854,12 +856,8 @@ public class CdsXmlParser {
             throw new CdsInputException(code, xpath(), "");
         }
 
-        private void name(String qualified) throws CdsInputException {
-            if (qualified.length() > limits.maxXmlNameCharacters())
-                fail("CDS_XML_NAME_RESOURCE_LIMIT");
-            qualifiedNames.add(qualified);
-            if (qualifiedNames.size() > limits.maxUniqueXmlNames())
-                fail("CDS_XML_NAME_RESOURCE_LIMIT");
+        private void name(String uri, String local, String qualified) throws CdsInputException {
+            if (!names.name(uri, local, qualified)) fail("CDS_XML_NAME_RESOURCE_LIMIT");
         }
 
         private SAXException protectedFailure(IOException failure) {
