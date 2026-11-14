@@ -131,29 +131,13 @@ public final class CdsExportDemographicPhonesMapper {
                             Outcome.OPERATIONAL,
                             "",
                             "PROPERTY_KEY_OF_AN_EMPTY_EXTENSION");
-                // edit-form-clinical.jsp:167-168 and 1282-1285 select "0" ("Not specified") for
-                // a patient without a warning level, so every save writes "0".
-                else if ("rxInteractionWarningLevel".equals(key) && "0".equals(value)) {
-                    mark(
-                            row,
-                            fields,
-                            "key_val",
-                            Outcome.OPERATIONAL,
-                            "",
-                            "UI_PLACEHOLDER_NOT_A_PATIENT_FACT");
-                    mark(
-                            row,
-                            fields,
-                            "value",
-                            Outcome.OPERATIONAL,
-                            "",
-                            "UI_PLACEHOLDER_NOT_A_PATIENT_FACT");
-                }
                 // Every other visible property the Master Record form or a site's configured
                 // extension writes (ethnicity, consents, paper-chart status, First Nations
                 // details...) has no Demographics element: the key and value travel in the
-                // native demographic NewCategory record. A value saved without a key (the REST
-                // API accepts one) travels as it is stored.
+                // native demographic NewCategory record. So does the warning level "0" ("Not
+                // specified") that edit-form-clinical.jsp:167-168 and 1282-1285 select for a
+                // patient without one: every save writes it, and a CARLOS import restores it.
+                // A value saved without a key (the REST API accepts one) travels as it is stored.
                 else carryPopulated(row, fields, "key_val", "value");
                 continue;
             }

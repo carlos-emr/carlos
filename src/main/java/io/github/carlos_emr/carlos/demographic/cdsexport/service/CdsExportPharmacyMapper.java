@@ -333,16 +333,16 @@ public final class CdsExportPharmacyMapper {
                     && subdivision != null
                     && subdivision.startsWith("CA-")
                     && postal.matches("[A-Za-z][0-9][A-Za-z] [0-9][A-Za-z][0-9]")) {
-                boolean collapsed = !postal.equals(state.raw("postalCode"));
+                // The element has no display space (K1A 0B1 is written K1A0B1); the stored form
+                // travels in the native demographic record, so a CARLOS import keeps it, as the
+                // demographic postal code does.
                 postal = postal.substring(0, 3) + postal.substring(4);
                 state.set(
                         "postalCode",
                         Outcome.MAPPED,
                         root
-                                + "/Address/Structured/PostalZipCode/PostalCode"
-                                + (collapsed
-                                        ? "," + CdsExportDemographicSupportingMapper.DESTINATION
-                                        : ""),
+                                + "/Address/Structured/PostalZipCode/PostalCode,"
+                                + CdsExportDemographicSupportingMapper.DESTINATION,
                         "CANADIAN_POSTAL_DISPLAY_SEPARATOR");
             }
             if (!postal.matches(zip ? "[0-9-]*" : "[a-zA-Z0-9-]*")) {

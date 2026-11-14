@@ -476,7 +476,9 @@ class CdsExportDemographicMapperUnitTest {
     @Test
     void shouldOmitTheHealthCard_whenOnlyTheFormDefaultIssuerIsPresent() throws Exception {
         // D11: add-form-personal.jsp preselects the clinic province (or "OT") as hc_type, so an
-        // uninsured patient, or one whose number is pending, has an issuer and no card.
+        // uninsured patient, or one whose number is pending, has an issuer and no card. No
+        // HealthCard is written; the stored issuer travels in the native demographic record,
+        // where a CARLOS import restores it (it was left out, and the receiving chart lost it).
         for (String issuer : List.of("ON", "OT")) {
             var fields = baseline();
             fields.put("hin", "");
@@ -485,9 +487,11 @@ class CdsExportDemographicMapperUnitTest {
             var result = mapper.map(row(fields));
             assertThat(result.baseRowRepresentable()).isTrue();
             assertThat(result.healthCard()).isNull();
-            assertThat(result.fields().get("hc_type").outcome()).isEqualTo(Outcome.OPERATIONAL);
+            assertThat(result.fields().get("hc_type").outcome()).isEqualTo(Outcome.MAPPED);
+            assertThat(result.fields().get("hc_type").destination())
+                    .isEqualTo(CdsExportDemographicSupportingMapper.DESTINATION);
             assertThat(result.fields().get("hc_type").rule())
-                    .isEqualTo("HEALTH_CARD_ISSUER_WITHOUT_A_CARD");
+                    .isEqualTo("HEALTH_CARD_ISSUER_WITHOUT_A_CARD_CARRIED");
             assertThat(parse(xml(result)).getElementsByTagNameNS("cds", "HealthCard").getLength())
                     .isZero();
         }
@@ -496,16 +500,21 @@ class CdsExportDemographicMapperUnitTest {
     @Test
     void shouldNotAssertAnAddress_whenOnlyTheFormDefaultProvinceIsPresent() throws Exception {
         // D10: both address blocks of add-form-personal.jsp preselect the clinic province (or
-        // "OT"), so a patient with no address entered still has a province in each block.
+        // "OT"), so a patient with no address entered still has a province in each block. No
+        // Address is written; the stored province travels in the native demographic record,
+        // where a CARLOS import restores it.
         var fields = baseline();
         fields.put("province", "ON");
         fields.put("residentialProvince", "OT");
         var result = mapper.map(row(fields));
         assertThat(result.baseRowRepresentable()).isTrue();
         assertThat(result.addresses()).isEmpty();
-        for (String column : List.of("province", "residentialProvince"))
+        for (String column : List.of("province", "residentialProvince")) {
             assertThat(result.fields().get(column).rule())
-                    .isEqualTo("PROVINCE_WITHOUT_AN_ADDRESS_IS_A_FORM_DEFAULT");
+                    .isEqualTo("PROVINCE_WITHOUT_AN_ADDRESS_CARRIED");
+            assertThat(result.fields().get(column).destination())
+                    .isEqualTo(CdsExportDemographicSupportingMapper.DESTINATION);
+        }
         assertThat(parse(xml(result)).getElementsByTagNameNS("cds", "Address").getLength())
                 .isZero();
         // Any entered component makes it an address again, and the province is mapped.

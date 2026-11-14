@@ -93,13 +93,14 @@ class CdsExportDemographicAncillaryReconcilerUnitTest {
                 Outcome.MAPPED, CdsExportDemographicSupportingMapper.DESTINATION, CdsExportDemographicSupportingMapper.CARRIED_RULE));
         assertThat(result.coreRepresentable()).isTrue();
     }
-    @Test void shouldAccountForMasterRecordPlaceholders_whileStillHoldingAChosenValue() throws Exception {
+    @Test void shouldCarryMasterRecordFormDefaults_asEveryChosenValueIsCarried() throws Exception {
         // D5: add-form-personal.jsp preselects newsletter "Unknown" and offers country of origin "-1" ("Not set");
-        // every save writes them. They are not patient facts; a chosen value has no CDS element and is carried.
+        // every save writes them. They are what the chart stores: they were OPERATIONAL and left out, so the
+        // receiving CARLOS lost them; they now travel in the native record, as a chosen value does.
         for (var placeholder : List.of(Map.entry("newsletter", "Unknown"), Map.entry("country_of_origin", "-1"))) {
             var result = reconcile(row(placeholder.getKey(), placeholder.getValue()));
-            assertThat(result.fields().get(key(placeholder.getKey())).outcome()).isEqualTo(Outcome.OPERATIONAL);
-            assertThat(result.fields().get(key(placeholder.getKey())).rule()).isEqualTo("UI_PLACEHOLDER_NOT_A_PATIENT_FACT");
+            assertThat(result.fields().get(key(placeholder.getKey())).outcome()).isEqualTo(Outcome.MAPPED);
+            assertThat(result.fields().get(key(placeholder.getKey())).destination()).isEqualTo(CdsExportDemographicSupportingMapper.DESTINATION);
             assertThat(result.coreRepresentable()).isTrue();
         }
         for (var chosen : List.of(Map.entry("newsletter", "Paper"), Map.entry("country_of_origin", "CA"))) {

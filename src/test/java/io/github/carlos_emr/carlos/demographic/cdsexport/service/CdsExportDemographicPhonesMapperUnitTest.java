@@ -198,7 +198,9 @@ class CdsExportDemographicPhonesMapperUnitTest {
             throws Exception {
         // D5: DemographicUpdate2Action saves one demographicExt row per key the form lists, with a
         // NULL or empty value for each blank field, and edit-form-clinical.jsp posts
-        // rxInteractionWarningLevel "0" ("Not specified") for a patient without a level.
+        // rxInteractionWarningLevel "0" ("Not specified") for a patient without a level. An
+        // empty row states nothing; the "0" is what the chart stores and is carried (it was
+        // OPERATIONAL, and the receiving CARLOS had no warning level row).
         var saved = new ArrayList<CdsExportCapturedTextRowDto>();
         long id = 0;
         for (String key :
@@ -232,7 +234,13 @@ class CdsExportDemographicPhonesMapperUnitTest {
                                                 "key_val"))
                                 .rule())
                 .isEqualTo("PROPERTY_KEY_OF_AN_EMPTY_EXTENSION");
-        assertThat(value(result, id).rule()).isEqualTo("UI_PLACEHOLDER_NOT_A_PATIENT_FACT");
+        assertThat(value(result, id))
+                .isEqualTo(
+                        new CdsExportFieldAssessmentDto(
+                                Presence.VALUE,
+                                Outcome.MAPPED,
+                                CdsExportDemographicSupportingMapper.DESTINATION,
+                                CdsExportDemographicSupportingMapper.CARRIED_RULE));
         // A value somebody chose has no Demographics element and is carried, never held.
         for (var chosen :
                 List.of(

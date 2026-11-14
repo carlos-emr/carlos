@@ -2164,7 +2164,7 @@
       "implementation": [
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicRelationsService.java"
       ],
-      "normalization": "Both address and phone choice representations projected when complete and within native capacity; foreign/unknown subdivisions are warned; overlength values stay source-only; no arbitrary catalogue merge or asserted contact consent.",
+      "normalization": "Both address and phone choice representations projected when complete and within native capacity; foreign/unknown subdivisions are warned; overlength values stay source-only; no arbitrary catalogue merge or asserted contact consent. A CARLOS sender's preferred-pharmacy values PreferredPharmacy cannot hold exactly (a postal code's display space, Phone 2, Notes, the service location, a free-text province, a deleted pharmacy's status) are restored from its native demographic record when the element proves them (CdsDemographicRelationsService.carriedPharmacy); otherwise reported and kept source-only.",
       "normativeBasis": [
         "EMR Data Migration Implementation Guide v1.1 section 3 (Demographics)",
         "EMR Data Migration Requirements v1.1 DP02.01",
@@ -2205,7 +2205,8 @@
         "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/assembler/CdsSourceFieldsViewModelAssemblerUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicRelationsServiceUnitTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicStorageMariaDbIntegrationTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicStorageMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicCarrierRoundTripUnitTest.java"
       ],
       "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
     },
@@ -4101,7 +4102,7 @@
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPreparedMedicationMapper.java": "f66185c28960408f51489416df2981caa9f9e966e7cae897330cad4f1067f93d",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedPreparationReader.java": "d10fa546247f215744151c9446d5853362bfed45bd073083062e9de16f422aee",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsAllergyDto.java": "80a2aed1d9960d403ce86f51975a2872c63fdf3814511937072890a7ca6f1e0f",
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsDemographicNativeDto.java": "2de0e747f1003af32fc8b1f0d29962c4da3d2c24cf84552bbbf6fc7b1abe77e8",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsDemographicNativeDto.java": "9749b4f1f34152f088c5f07a6cd558678dcf0039c75ae6d7c69d92b32fd992b8",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsHistoryNativeDto.java": "b64d819f04998326d1ff9c84ca3cd7d589cadd9894e5bd2d2a2f3bbc65973b7b",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsImmunizationDto.java": "88b671d8b3bfc82edc35fdea06233068b12f8409c2bdca3cc83ec43e7612e90c",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsMedicationDto.java": "929b3f6768a913740b79d015eac3a689634d0566ef7e065e3999a1e1e3acf828",
@@ -4120,10 +4121,10 @@
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsContactImportService.java": "34a7d9f04c6cda1a9d1a6b2cf4d38c6af59152707648a5c4bfa223ef0f8b3419",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsContactNormalizationService.java": "13890e8b60d63df2511a167a298e6ef5cd81575699dd2c637470a4df00a42e15",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsContactPersister.java": "12b526423e04e30076ba7699162838a99921e032f7c2e5a26ad3419ad94357a0",
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicCarriedValuesResolver.java": "7b4ca7e7cbd10ec4680549c0e122ed9e941838d9c4d64e1595d21d95ee6ef809",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicCarriedValuesResolver.java": "85986ce7931376e9f22527682ba356043a399a09bf3014e1c828c536aa3feb15",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicDetailsService.java": "f791842cefbe39bcfdcb371205d57f64808cf920c7af452c7289521b79468a6e",
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicPersister.java": "ad28d478486366bc7ab1c1e6a9cf4361ed5c3dff8675220b3757a8469fd8783e",
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicRelationsService.java": "9107ad8cde3b8ff8bded2f40c6b0afadba9f8ca68b258ee709ec070fc08e62f5",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicPersister.java": "28de8396fcab31832b01b5a330ca302d0104c10ca564366031b495f683283bc2",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicRelationsService.java": "5fce17474d7ff58cc44dbc2a61c67cafa052c79e607a5c0e0faa73457260a18c",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDocumentPublicationService.java": "6c625e70068e8bdb8c77793af16c98f63a8e81b7815c2ff37465c07cca72e8e2",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java": "14579356ca5816e62a3c7d4044f7a4dfdf1f2eb0939c51bb9410cbd931d31612",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryResidualReader.java": "2f5e82e1a8938400eb775c04f9fe7bd0ddbb041b9b195d71168704e77ba2f90e",

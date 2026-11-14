@@ -193,7 +193,8 @@ it is said here.
 | `CARLOS.NativeHistory.v1` `importedNotes`, `revisions`, extension facts | Imported Notes left out of Notes on an edited imported item; every revision | Source only. No native value is changed: Notes was never a native column. |
 | `CARLOS.NativeDemographic.v1` (`CARLOS.Demographic.v1`) `note` | A patient note longer than NoteAboutPatient (64,000), with a character XML cannot carry, or in a legacy frame | Restored, see "Exact text a CARLOS sender carries" below. A legacy frame needs nothing: the element already holds the note as the sender's chart shows it. |
 | `CARLOS.NativeDemographic.v1` `demographic` (names, title, birth columns, sex, status, status date, health card, phones, chart number, e-mail, SIN, languages, address parts) and `properties` | The stored value of a Demographics element the sender could not write exactly or that this importer would store in another form, and the `demographicExt` rows | Restored, see "CARLOS demographic values" below. |
-| `CARLOS.NativeDemographic.v1` other `demographic` columns, `roster`, `careTeam`, `related` | Demographic, enrolment, contact, health care team and pharmacy values with no element (preferred name, pronoun, Date Joined, the nurse, a second pharmacy...) | Source only; the standard elements are imported as from any sender. |
+| `CARLOS.NativeDemographic.v1` other `demographic` columns, `roster`, `careTeam` | Demographic and enrolment values with no element (Name Used, preferred name, pronoun, gender identity, Date Joined, the effective and end dates, the form defaults, a fee-for-service or NR roster...) and the nurse, resident and midwife | Restored, see "CARLOS demographic values" below; a provider is matched, never its number stored. `genderId`, `pronounId` and `myOscarUserName` stay source only. |
+| `CARLOS.NativeDemographic.v1` `related` | Pharmacy and contact values no element holds | The preferred pharmacy's values are restored (see "CARLOS demographic values" below). A second or third pharmacy and the contact values (an inactive or internal contact, a contact's address, fax or CPSO number...) stay source only. |
 | `CARLOS.Medication.Source.v1`, `CARLOS.Medication.CurrentSource.v1`, `CARLOS.Allergy.Source.v1`, `CARLOS.Prevention.Source.v1` | The complete native row, including text an element shows with U+FFFD | The fields listed above are restored (quantity unit, as-needed, strength text, "Other" provider, reminder date, prevention type), and the exact text of an element shown with U+FFFD (see "Exact text a CARLOS sender carries" below). The other columns stay source only. |
 | `CARLOS.Laboratory.v1`, `CARLOS.NativeLaboratory.v1`, `CARLOS.Observation.v1`, `CARLOS.NativeObservation.v1`, `CARLOS.Prescription.v1`, `CARLOS.ImportedLaboratoryReview.v1` | The stored message, measurement, script or comment. For a message that names several patients, the sender's part only (its MSH segment and the PID groups of the exported patient, with a `part` entry; owner decision 2026-11-14), so the importer stores that part's results, built from the elements as for any report | Source only. A laboratory time the sender could not write as sent (no calendar time, or an offset no date-time holds) is not lost: the sender states it in `TestResultsInformationReportedByTheLab` (`Collection time sent by the laboratory: ...`, `Requisition time sent by the laboratory: ...`), which the importer writes, as for any sender, into the laboratory information (NTE) of the result it builds. An empty `LaboratoryName` (the report named no laboratory) leaves the result's laboratory unnamed. |
 | `carlos-data-summary-record.json` and image files inside a data-summary PDF | The exact record of a data summary whose PDF could not show everything | Not read. The PDF is stored unchanged (its bytes are checked against the planned digest), so the attachments stay inside the stored document. |
@@ -365,16 +366,61 @@ written (`CdsDemographicPersister.write`):
   dashboard's `excludeIndicator` history), so a row whose key the chart already has from its
   elements or an earlier carried row is not written and is reported, as is a flag other than 0 or
   1. The rows are part of the import's written references, so abandoning the import removes them.
-- **Not restored, by decision.** A primary-physician number is local to the sending CARLOS; the
-  physician is matched from `PrimaryPhysician` as for any sender. A zero date cannot be written
-  through the patient record. The `demographic` columns no Demographics element states (alias,
-  preferred name, pronoun, gender identity, the practice-administrative dates and the other
-  ancillary columns), `roster`, `careTeam` and `related` stay source only: they travel in the
-  retained record, and re-exporting the chart writes them again.
+- **Columns no element states.** Name Used (`alias`) and the preferred name, pronoun, gender
+  identity, Date Joined (the sender's date, owner decision; the import's own date before), the
+  health card's effective date, the end date, the newsletter, country of origin, referral-doctor
+  wrapper, PCN indicator, previous address, children, citizenship, source of income, anonymous
+  flag and e-mail consent are stored exactly as carried
+  (`CdsDemographicCarriedValuesResolver.NATIVE_ONLY`) when the receiving column can hold them (its
+  length, a calendar date for a DATE column, 0 or 1 for the e-mail consent, no trailing space in
+  the four-character country code, no SQL NULL where the patient record writes empty text). The
+  values the forms write when nobody chooses anything are among them (newsletter "Unknown",
+  country of origin "-1", the empty wrapper), and so are a province with no address and a health
+  card issuer with no card (the forms preselect both), which the exporter now carries; they were
+  lost before. No element states these, so no element can contradict them; a value no column can
+  hold is reported as `CDS_DEMOGRAPHIC_CARRIED_VALUE_NOT_RESTORED` (path `NewCategory`).
+- **Roster state.** A current roster state that is not a CDS enrolment event (fee for service, NR,
+  a clinic-defined status, RO without a roster date, TE without a termination date...) travels in
+  `roster` and has no EnrolmentHistory. It is restored whole over the EnrolmentHistory projection,
+  which holds only the earlier episodes: each carried roster column as stored, each column it
+  does not carry empty. The enrolled provider's number is the sender's own and is never stored:
+  the provider is matched from the public columns carried with it (OHIP number, CPSO number or,
+  with the run's consent, exact name), as EnrolledToPhysician is, and none is stored when there is
+  no unique match (`CDS_DEMOGRAPHIC_CARRIED_VALUE_NOT_RESTORED`, path `Enrolment`). A document
+  whose latest EnrolmentHistory is an open enrolment states a current enrolment the sender could
+  not have written beside a carried state: nothing is restored, and the same code is reported.
+- **Care team.** The nurse, resident and midwife (`demographiccust` cust1, cust2, cust4) are the
+  sender's provider numbers: each is matched to a local provider from the public columns the
+  record carries with it, and stored in the new chart's custom row. A member with no public
+  columns (a number naming no provider record at the sender) or no unique match is reported
+  (path `NewCategory`) and stays in the retained record.
+- **Preferred pharmacy** (`CdsDemographicRelationsService`). The sender carries in `related` the
+  preferred pharmacy's values PreferredPharmacy cannot hold; its row is the related
+  `pharmacyInfo` row that no carried link names (the sender carries every other pharmacy with its
+  link). Each value is stored over the row the importer creates when it proves itself: Phone 2,
+  Notes, the service location and the status of a pharmacy deleted in Manage Pharmacy have no
+  element; a free-text province or an over-long line is restored only when its element is absent;
+  a postal code when PostalCode is the carried code without its display space (K1A 0B1 arrives
+  as K1A 0B1, not K1A0B1) or absent; a line, city, phone, fax or e-mail when the element is its
+  `xs:token` form or absent; a name when the element is its U+FFFD form. Anything else is reported
+  as `CDS_PHARMACY_CARRIED_VALUE_NOT_RESTORED` (path `PreferredPharmacy`); a restored value is
+  reported once as `CDS_PHARMACY_CARRIED_VALUES_RESTORED`.
+- **Not restored, by decision.** A primary-physician, enrolled or care-team provider number is
+  local to the sending CARLOS; the provider is matched as above or from `PrimaryPhysician`, as for
+  any sender. `genderId` and `pronounId` name entries of gender and pronoun lists of the sending
+  installation, which CARLOS has no table or screen for, and `myOscarUserName` names the
+  patient's account on the sender's MyOSCAR personal health record server, a legacy integration
+  CARLOS no longer has; the patient record does not map these three columns, so they stay source
+  only. A zero date cannot be written through the patient record. A second or third preferred
+  pharmacy, a link's consent to contact (`CDS_PHARMACY_CONSENT_NOT_ASSERTED`, as for any sender)
+  and the contact values in `related` stay source only: they travel in the retained record, and
+  re-exporting the chart writes them again.
 
-What was restored is part of the sealed preparation (`CdsDemographicNativeDto.carried` and
-`properties`; a preparation sealed before them decodes them empty,
-`CdsPreparedDemographicDefaults`), and re-exporting the chart reads it back: the projection
+What was restored is part of the sealed preparation (`CdsDemographicNativeDto.carried`,
+`properties` and `careTeam`, `CdsDemographicRelationsDto.pharmacyCarried`; a preparation sealed
+before them decodes them empty, `CdsPreparedDemographicDefaults`), and re-exporting the chart
+reads it back (`CdsExportRetainedPharmacyBinding` compares the imported pharmacy row with the
+restored values): the projection
 evidence compares the written row with the restored values, and the restored extension rows are
 decided as on a chart added in CARLOS. A restored value is reported once as
 `CDS_DEMOGRAPHIC_CARRIED_VALUES_RESTORED` (path `Demographics`); a record that cannot be read as

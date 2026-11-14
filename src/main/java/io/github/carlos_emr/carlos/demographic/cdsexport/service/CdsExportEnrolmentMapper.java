@@ -87,15 +87,11 @@ public final class CdsExportEnrolmentMapper {
                         .filter(column -> !column.equals("roster_status"))
                         .anyMatch(column -> present(row.fields().get(column)));
         // NR has no termination-event meaning. It never supplies a fabricated zero-status event.
+        // The current row's NR travels in the native demographic record, as the forms store it,
+        // and a CARLOS import restores it; an archived NR stays in the approved audit.
         if ((!present(nativeState) || "NR".equals(nativeState)) && !other) {
             if (provider != null) scope();
-            if ("NR".equals(nativeState))
-                set(
-                        row,
-                        decisions,
-                        "roster_status",
-                        Outcome.OPERATIONAL,
-                        "CURRENT_NON_ENROLLED_FLAG_WITHOUT_AN_ENROLMENT_EVENT");
+            if ("NR".equals(nativeState)) nonEnrolled(row, decisions);
             return new Result(null, null, decisions);
         }
         // "FS" (fee for service, offered on both demographic forms), a clinic-defined roster
@@ -174,12 +170,7 @@ public final class CdsExportEnrolmentMapper {
         for (String column : COLUMNS.keySet()) {
             if (!present(row.fields().get(column))) continue;
             if (column.equals("roster_status") && "NR".equals(row.fields().get(column)))
-                set(
-                        row,
-                        decisions,
-                        column,
-                        Outcome.OPERATIONAL,
-                        "CURRENT_NON_ENROLLED_FLAG_WITHOUT_AN_ENROLMENT_EVENT");
+                nonEnrolled(row, decisions);
             else
                 decisions.put(
                         new CdsExportNativeFieldKeyDto(row.table(), row.recordKey(), column),
@@ -198,6 +189,26 @@ public final class CdsExportEnrolmentMapper {
                                         "ROSTER_PROVIDER_PUBLIC_ROW_CARRIED")
                                 : superseded(entry.getValue(), "SUPERSEDED_ROSTER_PROVIDER_IN_APPROVED_AUDIT"));
         return new Result(null, id, decisions);
+    }
+
+    /**
+     * An NR (not rostered) status: no enrolment event. The current row's status travels in the
+     * native demographic record; an archived one stays operational, as before.
+     */
+    private static void nonEnrolled(
+            CdsExportCapturedTextRowDto row,
+            Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> decisions) {
+        if (row.table().equals("demographic"))
+            decisions.put(
+                    new CdsExportNativeFieldKeyDto(row.table(), row.recordKey(), "roster_status"),
+                    stored(row, "roster_status"));
+        else
+            set(
+                    row,
+                    decisions,
+                    "roster_status",
+                    Outcome.OPERATIONAL,
+                    "CURRENT_NON_ENROLLED_FLAG_WITHOUT_AN_ENROLMENT_EVENT");
     }
 
     /** Decision for a stored roster value outside every exported enrolment event. */

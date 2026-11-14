@@ -38478,7 +38478,7 @@
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicRelationsService.java"
         ],
-        "normalization": "Both address and phone choice representations projected when complete and within native capacity; foreign/unknown subdivisions are warned; overlength values stay source-only; no arbitrary catalogue merge or asserted contact consent.",
+        "normalization": "Both address and phone choice representations projected when complete and within native capacity; foreign/unknown subdivisions are warned; overlength values stay source-only; no arbitrary catalogue merge or asserted contact consent. A CARLOS sender's preferred-pharmacy values PreferredPharmacy cannot hold exactly (a postal code's display space, Phone 2, Notes, the service location, a free-text province, a deleted pharmacy's status) are restored from its native demographic record when the element proves them (CdsDemographicRelationsService.carriedPharmacy); otherwise reported and kept source-only.",
         "normativeBasis": [
           "EMR Data Migration Implementation Guide v1.1 section 3 (Demographics)",
           "EMR Data Migration Requirements v1.1 DP02.01",
@@ -38497,7 +38497,8 @@
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/assembler/CdsSourceFieldsViewModelAssemblerUnitTest.java",
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicRelationsServiceUnitTest.java",
-          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicStorageMariaDbIntegrationTest.java"
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicStorageMariaDbIntegrationTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicCarrierRoundTripUnitTest.java"
         ],
         "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
       },
@@ -39959,7 +39960,7 @@
       }
     },
     "scope": "Reachable leaf/attribute/choice contract of the two pinned wire XSDs, shared by explicitly selected PCON-2024-02 and OntarioMD-5.2 logical profiles; documentary review is not certification of all CDS-S logical requirements. Reviewed path groups distinguish native projections from protected generic source preservation. Native projection eligibility can be conditional, as described. On 2026-11-05, Codex independently reviewed the FrmSetupForm2Action reader update for PR #5602: the ongoing-concerns prefill changed, while the reviewed medication dose, pharmacy-instruction and timing mappings and their getDrugList/medicationLine reader behavior remain unchanged. On 2026-11-10, the shared CPP archive and authored PersonalHistory residual contract, sealed-payload defaults and receiving importer were reviewed together with native export round-trip evidence. This documents conditional CARLOS extensions, not standard receiver support for those extensions.",
-    "sha256": "a2656beac1352f55a8a64848d12670505fa01f34b0bc0e5c973473060ed53f37"
+    "sha256": "6a2919ee2dda3dad1d4507ea4665838ee9caa3f62d893d6bc7ce71e718756466"
   },
   "root": "cds:OmdCds",
   "schemas": [

@@ -332,6 +332,7 @@
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsCoreProjectionUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsCorrectionLookupServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsDemographicCarrierRoundTripUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsDemographicNativeColumnsIntegrationTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsDemographicRelationsServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsDemographicStorageMariaDbIntegrationTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsDocumentPrecisionUnitTest",

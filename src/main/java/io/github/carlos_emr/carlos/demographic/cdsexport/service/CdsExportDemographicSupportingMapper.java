@@ -140,22 +140,6 @@ public final class CdsExportDemographicSupportingMapper {
                     "practitionerNo",
                     "practitionerNoType");
 
-    /**
-     * Form placeholders, not patient facts: add-form-personal.jsp preselects newsletter "Unknown"
-     * and both forms offer country of origin "-1" ("Not set"); DemographicManagerImpl and the
-     * forms write the referral-doctor wrapper with nothing inside it.
-     */
-    private static final Map<String, List<String>> PLACEHOLDERS =
-            Map.of(
-                    "newsletter",
-                    List.of("Unknown"),
-                    "country_of_origin",
-                    List.of("-1"),
-                    "family_doctor",
-                    List.of(
-                            "<rdohip></rdohip><rd></rd>",
-                            "<rdohip></rdohip><rd></rd><family_doc></family_doc>"));
-
     private CdsExportDemographicSupportingMapper() {}
 
     /** Exact demographic rows of one patient that the record may carry. */
@@ -256,18 +240,13 @@ public final class CdsExportDemographicSupportingMapper {
     }
 
     /**
-     * Whether a populated base-row value has no Demographics element and is carried. Placeholders
-     * the forms write for "not set" are accounted for separately and never carried alone.
+     * Whether a populated base-row value has no Demographics element and is carried. The values
+     * the forms write when nobody chooses anything (newsletter "Unknown", country of origin "-1",
+     * the empty referral-doctor wrapper) are carried as well: they are what the chart stores, and
+     * a CARLOS import restores them.
      */
     static boolean carriedColumn(String column, String value) {
-        return COLUMNS.contains(column)
-                && present(value)
-                && !PLACEHOLDERS.getOrDefault(column, List.of()).contains(value);
-    }
-
-    /** True when the value is the "not set" placeholder a form writes for this column. */
-    static boolean placeholder(String column, String value) {
-        return value != null && PLACEHOLDERS.getOrDefault(column, List.of()).contains(value);
+        return COLUMNS.contains(column) && present(value);
     }
 
     /**
