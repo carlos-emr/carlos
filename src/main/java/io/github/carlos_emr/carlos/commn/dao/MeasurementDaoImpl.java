@@ -85,8 +85,9 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
 
     @Override
     @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
-    public boolean hasCdsExportUnroutedLaboratoryMeasurements(int patient) {
-        return CdsExportPatientTableReadSupport.unroutedLaboratoryMeasurements(entityManager, patient);
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportUnlinkedLaboratoryReadingDto>
+            findCdsExportUnlinkedLaboratoryReadings(int patient) {
+        return CdsExportPatientTableReadSupport.unlinkedLaboratoryReadings(entityManager, patient);
     }
 
 

@@ -36,6 +36,7 @@ public final class CdsExportSourceSchemaValidator {
             Set.of(
                     "clinical_source_catalogue",
                     CdsExportListedSourceReader.TABLE,
+                    CdsExportUnlinkedLaboratoryReadingSourceReader.TABLE,
                     "HRMDocumentToDemographic",
                     "HRMDocument",
                     "HRMDocumentComment",
@@ -180,6 +181,10 @@ public final class CdsExportSourceSchemaValidator {
                                         ? "TRUSTED_NATIVE_DOCUMENT_STORAGE"
                                         : scope.equals(CdsExportListedSourceReader.TABLE)
                                         ? "TRUSTED_LISTED_SOURCE_COUNTS"
+                                        : scope.equals(
+                                                        CdsExportUnlinkedLaboratoryReadingSourceReader
+                                                                .TABLE)
+                                        ? "TRUSTED_UNLINKED_LABORATORY_READINGS"
                                         : scope.equals(CdsExportEformRenderingSourceReader.TABLE)
                                         ? "TRUSTED_EFORM_RENDERINGS"
                                         : scope.equals("medication_reference")

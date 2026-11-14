@@ -103,6 +103,8 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
     CdsExportDeletedMeasurementSourceReader.class,
     io.github.carlos_emr.carlos.commn.dao.MeasurementTypeDaoImpl.class,
     CdsExportMeasurementTypeSourceReader.class,
+    // Laboratory readings whose report is no longer linked to the chart, listed in the ReadMe.
+    CdsExportUnlinkedLaboratoryReadingSourceReader.class,
     CdsExportNewCategoryOccurrenceService.class,
     CdsExportCategoryOccurrenceRegistry.class,
     CdsExportLaboratoryOccurrenceService.class,

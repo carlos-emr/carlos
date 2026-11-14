@@ -84,15 +84,17 @@ import io.github.carlos_emr.carlos.commn.dao.MeasurementDaoImpl.SearchCriteria;
 public interface MeasurementDao extends AbstractDao<Measurement>, CdsExportPatientTableReadDao {
 
     /**
-     * CDS export only: whether this patient has an HL7 result filed as a measurement (a
-     * {@code lab_no} extension) whose report is not routed to the patient as an HL7 lab, so the
-     * LaboratoryResults path cannot export it. Reads identifiers only, never result values, and
-     * runs inside the caller's read-only capture transaction.
+     * CDS export only: this patient's HL7 results filed as measurements (a {@code lab_no}
+     * extension) whose report is not routed to the patient as an HL7 lab, so the
+     * LaboratoryResults path cannot export them, counted by test name and observation date for
+     * the package ReadMe. Reads names, dates and identifiers only, never result values, and runs
+     * inside the caller's read-only capture transaction.
      *
      * @param patient demographic number of the chart being captured
-     * @return true when at least one such filed result exists
+     * @return the readings by date, then test name; empty when there are none
      */
-    boolean hasCdsExportUnroutedLaboratoryMeasurements(int patient);
+    java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportUnlinkedLaboratoryReadingDto>
+            findCdsExportUnlinkedLaboratoryReadings(int patient);
 
     /**
      * Corrects only the patient ownership of a managed, source-linked lab measurement.

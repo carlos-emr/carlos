@@ -379,10 +379,12 @@ a package at all. Deleted measurements (a clinician's deletion or an HL7 result 
 newer version) are not exported, as with the legacy exporter. Lab results that CARLOS
 copies into the measurement flowsheets travel only with their HL7 report under
 LaboratoryResults, never as care elements: without LaboratoryResults they are not exported.
-With it, a copied result whose report is not routed to the patient holds the patient
-(`CDS_EXPORT_NATIVE_CARE_LABORATORY_RESULT_UNROUTED`); correct the lab's patient match
-and export again. Excluding a required supporting category requests review; the exporter
-does not silently expand the accepted selection.
+With it, a copied result whose report is no longer linked to the patient (the lab was unlinked
+or matched to another patient) is not exported either and does not hold the patient: the
+ReadMe lists such readings for the patient by test name, date and count (`Patient records not
+exported: Laboratory readings whose report is not linked to this chart (HbA1c, 2020-02-29): 2`).
+Excluding a required supporting category requests review; the exporter does not silently expand
+the accepted selection.
 
 A lab's inbox acknowledgements are exported. Every provider who acknowledged an HL7 report
 (Acknowledge in the inbox or lab view) appears as a ResultReviewer on every result of that
