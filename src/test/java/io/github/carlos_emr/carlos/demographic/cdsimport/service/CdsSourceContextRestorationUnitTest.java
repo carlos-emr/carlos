@@ -102,6 +102,66 @@ class CdsSourceContextRestorationUnitTest {
     }
 
     @Test
+    void shouldRestoreTheStoredStrengthText_whenTheRecordHasNoStrengthAndDrugDescriptionProvesIt()
+            throws Exception {
+        // A CARLOS sender writes no Strength for a custom drug, or for a database product whose
+        // first ingredient's amount Strength cannot hold; its drugs.dosage is the DrugDescription.
+        var row = drug("30", "tab", "tab", "0");
+        row.put("dosage", "0.0mg 125.0mg");
+        var value =
+                normalization.medication(
+                        medication(
+                                Map.of("Quantity", "30", "DrugDescription", "0.0mg 125.0mg"),
+                                medicationCarrier(row)));
+        assertThat(value.strengthText()).isEqualTo("0.0mg 125.0mg");
+        assertThat(value.strengthAmount()).isNull();
+        var drug =
+                new CdsMedicationPersister(
+                                mock(DrugDao.class), mock(PartialDateDao.class), normalization)
+                        .candidate(27, value);
+        assertThat(drug.getDosage()).isEqualTo("0.0mg 125.0mg");
+        // The generated outline names the restored strength, as it names a Strength element.
+        assertThat(drug.getSpecial()).isEqualTo("Synthetic source medicine 0.0mg 125.0mg");
+        // A DrugDescription that is not the carried text proves nothing: nothing is restored and
+        // the report says so; a carrier holding no strength text restores nothing silently.
+        var other =
+                normalization.medication(
+                        medication(
+                                Map.of("Quantity", "30", "DrugDescription", "5 mg tablet"),
+                                medicationCarrier(row)));
+        assertThat(other.strengthText()).isNull();
+        assertThat(other.diagnostics())
+                .contains(
+                        new io.github.carlos_emr.carlos.demographic.cdsimport.dto
+                                .CdsClinicalDiagnosticDto(
+                                CdsCarriedTextResolver.MEDICATION_NOT_APPLIED, "DrugDescription"));
+        row.put("dosage", null);
+        var none =
+                normalization.medication(
+                        medication(Map.of("Quantity", "30"), medicationCarrier(row)));
+        assertThat(none.strengthText()).isNull();
+        assertThat(none.diagnostics())
+                .noneMatch(notice -> notice.code().equals(CdsCarriedTextResolver.MEDICATION_NOT_APPLIED));
+        // A Strength element is the stored strength, as from any sender.
+        row.put("dosage", "0.0mg 125.0mg");
+        var standard =
+                normalization.medication(
+                        medication(
+                                Map.of(
+                                        "Quantity",
+                                        "30",
+                                        "Strength/Amount",
+                                        "5",
+                                        "Strength/UnitOfMeasure",
+                                        "mg",
+                                        "DrugDescription",
+                                        "0.0mg 125.0mg"),
+                                medicationCarrier(row)));
+        assertThat(standard.strengthText()).isNull();
+        assertThat(standard.strengthAmount()).isEqualTo("5");
+    }
+
+    @Test
     void shouldRestoreAnUnsetAsNeededFlag_besideAPrnFrequency() throws Exception {
         // The box left unticked beside a PRN frequency is an ordinary saved prescription: the
         // exporter wrote both as chosen, and the importer restores the flag as recorded.
@@ -397,10 +457,33 @@ class CdsSourceContextRestorationUnitTest {
         var medication = normalization.medication(medication(Map.of("Quantity", "30")));
         String medicationLegacy =
                 mapper.writeValueAsString(new CdsMedicationNativeDto(medication, null));
-        assertThat(medicationLegacy).doesNotContain("quantityUnit").doesNotContain("asNeeded");
+        assertThat(medicationLegacy)
+                .doesNotContain("quantityUnit")
+                .doesNotContain("asNeeded")
+                .doesNotContain("strengthText");
         var tree = CdsPreparedMedicationDefaults.apply(mapper.readTree(medicationLegacy));
         assertThat(tree.path("source").get("quantityUnit").isNull()).isTrue();
         assertThat(tree.path("source").get("asNeeded").isNull()).isTrue();
+        assertThat(tree.path("source").get("strengthText").isNull()).isTrue();
+        var wrongType = (com.fasterxml.jackson.databind.node.ObjectNode) mapper.readTree(medicationLegacy);
+        ((com.fasterxml.jackson.databind.node.ObjectNode) wrongType.get("source")).put("strengthText", 5);
+        assertThatThrownBy(() -> CdsPreparedMedicationDefaults.apply(wrongType))
+                .hasMessage("CDS_PREPARED_MEDICATION_DEFAULTS_INVALID");
+        var strengthRow = drug("30", "tab", "tab", "0");
+        strengthRow.put("dosage", "0.0mg");
+        var withText =
+                normalization.medication(
+                        medication(
+                                Map.of("Quantity", "30", "DrugDescription", "0.0mg"),
+                                medicationCarrier(strengthRow)));
+        String sealedText = mapper.writeValueAsString(new CdsMedicationNativeDto(withText, null));
+        assertThat(sealedText).contains("\"strengthText\":\"0.0mg\"");
+        assertThat(
+                        mapper.treeToValue(
+                                        CdsPreparedMedicationDefaults.apply(mapper.readTree(sealedText)),
+                                        CdsMedicationNativeDto.class)
+                                .source())
+                .isEqualTo(withText);
         var restored =
                 normalization.medication(
                         medication(

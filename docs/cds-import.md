@@ -78,7 +78,7 @@ are added only after seal verification).
 | `CARLOS.History.Narrative.v1` | string (encoded) | CPP histories | Exact native narrative when no standard description exists (PersonalHistory always; long items of the other sections). |
 | `CARLOS.History.PersonalNarrative.v1` | string | PersonalHistory | Earlier raw narrative carrier, still read. |
 | `CARLOS.History.NarrativeText.v1` | string | PersonalHistory | Not interpreted: the exporter's whitespace-collapsed copy of the narrative (and Social History dates) for other EMRs. The narrative is restored from `CARLOS.History.Narrative.v1` only; the copy is retained as protected source data and never imported as a second value. |
-| `CARLOS.Medication.Source.v1` | string (JSON) | Medications | Restores the native quantity unit and as-needed flag (#6198) when the standard Quantity and Frequency/TreatmentType agree with it; refused when malformed, duplicated or contradicted. The rest stays protected source. |
+| `CARLOS.Medication.Source.v1` | string (JSON) | Medications | Restores the native quantity unit and as-needed flag (#6198) when the standard Quantity and Frequency/TreatmentType agree with it, and the stored strength text of a record with no Strength when DrugDescription proves it; refused when malformed, duplicated or contradicted. The rest stays protected source. |
 | `CARLOS.Prevention.Source.v1` | string (JSON) | Immunizations | Restores the free-text "Other" administering provider and the reminder date (#6198) when the carrier's status matches RefusedFlag; refused when malformed or duplicated. The rest stays protected source. |
 | `CARLOS.Prevention.Source.v1` | string (JSON) | PastHealth | Not interpreted: retained as protected source data like any other residual. |
 | `CARLOS.Appointment.Source.v1` | string (JSON) | NewCategory `CARLOS.NativeAppointment.v1` | Read for the Appointments element it names (see "CARLOS appointment source record"): restores the exact stored end, the complete notes and the scheduler context once the record proves itself; otherwise reported and not used. Always also retained as protected source data. |
@@ -112,6 +112,24 @@ the import's retained source fields.
   name no PRN is `CDS_MEDICATION_NATIVE_FIELD_REQUIRES_REVIEW` (path `Frequency`); an unset flag
   beside a PRN frequency (the box left unticked) is restored as recorded. Without a carrier the
   flag is derived from Frequency and TreatmentType, as before.
+- **Medication strength text.** A CARLOS sender writes Strength only from the drug
+  database's first ingredient amount, when it is a positive decimal number that Strength can
+  hold; a custom drug, or a product whose first amount is zero, blank, a range or text, has no
+  Strength, and its stored strength text (`drugs.dosage`) is its DrugDescription. For a record
+  with no Strength, the carried row's `dosage` (the last `CARLOS.Medication.CurrentSource.v1`,
+  else `CARLOS.Medication.Source.v1`) is restored to `drugs.dosage` exactly, and named in the
+  generated outline, when DrugDescription is that text by the exporter's element rule
+  (`isElementTextOf`), or when DrugDescription is absent and the text is longer than its 2,000
+  characters (up to the 32,768 characters the importer reads a strength value with). The
+  prescription then counts as having its strength (`cds_projection_incomplete` is not set for a
+  missing Strength). A carrier holding no strength text restores nothing; one holding another
+  text, or an unreadable one, restores nothing and the report names
+  `CDS_MEDICATION_EXACT_TEXT_NOT_APPLIED` (path `DrugDescription`). A record with a Strength
+  element keeps the Strength as its stored strength, as from any sender. The restored text is
+  part of the sealed preparation (`CdsMedicationDto.strengthText`, omitted when absent and
+  defaulted after seal verification), and the retained reconciler projects it: unchanged it is
+  the retained carrier's value, changed in place the sender's carrier is superseded and
+  DrugDescription states the current text.
 - **Vaccine provider.** Only the prevention form's "Other" provider (`provider_no` `-1`) is a
   free-text name: its one non-empty `providerName` extension is restored as `provider_no` `-1`
   and a `providerName` extension, which is how the form saves it and what the chart shows. A
@@ -159,7 +177,7 @@ it is said here.
 | `CARLOS.NativeHistory.v1` `importedNotes`, `revisions`, extension facts | Imported Notes left out of Notes on an edited imported item; every revision | Source only. No native value is changed: Notes was never a native column. |
 | `CARLOS.NativeDemographic.v1` (`CARLOS.Demographic.v1`) `note` | A patient note longer than NoteAboutPatient (64,000), with a character XML cannot carry, or in a legacy frame | Restored, see "Exact text a CARLOS sender carries" below. A legacy frame needs nothing: the element already holds the note as the sender's chart shows it. |
 | `CARLOS.NativeDemographic.v1` `demographic`, `roster`, `careTeam`, `properties`, `related` | Demographic, enrolment, contact, health care team and pharmacy values with no element | Source only; the standard elements are imported as from any sender. |
-| `CARLOS.Medication.Source.v1`, `CARLOS.Medication.CurrentSource.v1`, `CARLOS.Allergy.Source.v1`, `CARLOS.Prevention.Source.v1` | The complete native row, including text an element shows with U+FFFD | The fields listed above are restored (quantity unit, as-needed, "Other" provider, reminder date), and the exact text of an element shown with U+FFFD (see "Exact text a CARLOS sender carries" below). The other columns stay source only. |
+| `CARLOS.Medication.Source.v1`, `CARLOS.Medication.CurrentSource.v1`, `CARLOS.Allergy.Source.v1`, `CARLOS.Prevention.Source.v1` | The complete native row, including text an element shows with U+FFFD | The fields listed above are restored (quantity unit, as-needed, strength text, "Other" provider, reminder date), and the exact text of an element shown with U+FFFD (see "Exact text a CARLOS sender carries" below). The other columns stay source only. |
 | `CARLOS.Laboratory.v1`, `CARLOS.NativeLaboratory.v1`, `CARLOS.Observation.v1`, `CARLOS.NativeObservation.v1`, `CARLOS.Prescription.v1`, `CARLOS.ImportedLaboratoryReview.v1` | The stored message, measurement, script or comment | Source only. |
 | `carlos-data-summary-record.json` and image files inside a data-summary PDF | The exact record of a data summary whose PDF could not show everything | Not read. The PDF is stored unchanged (its bytes are checked against the planned digest), so the attachments stay inside the stored document. |
 

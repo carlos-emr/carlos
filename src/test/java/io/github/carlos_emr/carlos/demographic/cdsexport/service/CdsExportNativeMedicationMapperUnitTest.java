@@ -184,6 +184,162 @@ class CdsExportNativeMedicationMapperUnitTest {
         render(CdsCategory.MEDICATIONS_AND_TREATMENTS, xml -> mapper.write(result, xml));
     }
 
+    /** A captured public reference row whose first ingredient is {@code first}. */
+    private static CdsExportCapturedTextRowDto referenceWith(
+            Map<String, String> source, CdsExportDrugReferenceDto.Component first)
+            throws Exception {
+        var reference =
+                new CdsExportDrugReferenceDto(
+                        1,
+                        CdsExportDrugReferenceDto.AUTHORITY,
+                        "00123456",
+                        "Native reference tablet",
+                        List.of(
+                                first,
+                                new CdsExportDrugReferenceDto.Component(
+                                        "Second ingredient", "125", "mg")));
+        return new CdsExportCapturedTextRowDto(
+                "medication_reference",
+                CdsExportPatientTableSourceReader.key(51),
+                Map.of(
+                        "drugid",
+                        "51",
+                        "GCN_SEQNO",
+                        source.get("GCN_SEQNO"),
+                        "regional_identifier",
+                        source.get("regional_identifier"),
+                        "public_reference",
+                        JsonMapper.builder().build().writeValueAsString(reference)));
+    }
+
+    /** A prescription chosen from the drug search, as the Rx page stores it. */
+    private static Map<String, String> catalogued(String dosage) {
+        var fields = source();
+        fields.put("GCN_SEQNO", "17");
+        fields.put("customName", null);
+        fields.put("BN", "Native reference tablet");
+        fields.put("dosage", dosage);
+        return fields;
+    }
+
+    @Test
+    void shouldLeaveStrengthOut_whenTheFirstIngredientHasNoAmountStrengthCanHold()
+            throws Exception {
+        // Before: CDS_EXPORT_NATIVE_MEDICATION_REQUIRES_REVIEW held the patient of any
+        // prescription chosen from the drug search whose first database ingredient had a zero,
+        // blank, range or text amount (or an amount or unit Strength cannot hold). Strength is
+        // optional: it is left out, never invented, and the reference stays exact in the carrier.
+        for (var first :
+                List.of(
+                        new CdsExportDrugReferenceDto.Component("First ingredient", "0", "mg"),
+                        new CdsExportDrugReferenceDto.Component("First ingredient", "", "mg"),
+                        new CdsExportDrugReferenceDto.Component("First ingredient", "1-2", "mg"),
+                        new CdsExportDrugReferenceDto.Component("First ingredient", "trace", "mg"),
+                        new CdsExportDrugReferenceDto.Component("First ingredient", "-5", "mg"),
+                        new CdsExportDrugReferenceDto.Component(
+                                "First ingredient", "12345678901", "mg"),
+                        new CdsExportDrugReferenceDto.Component("First ingredient", "5", ""),
+                        new CdsExportDrugReferenceDto.Component(
+                                "First ingredient", "5", "LOG10 CCID50 / 0.5 ML"),
+                        new CdsExportDrugReferenceDto.Component("First ingredient", " 5", "mg"))) {
+            var fields = catalogued("0.0mg 125.0mg");
+            var proof = referenceWith(fields, first);
+            var result = mapper.map(27, medication(fields), List.of(), Map.of(), proof);
+            assertThat(result.value().strengthAmount()).as(first.strength()).isNull();
+            assertThat(result.value().strengthUnit()).isNull();
+            assertThat(result.value().fields())
+                    .containsEntry(Field.DrugIdentificationNumber, "00123456")
+                    .containsEntry(Field.DrugDescription, "0.0mg 125.0mg");
+            var json = JsonMapper.builder().build().readTree(result.metadata());
+            assertThat(json.path("reference").path("public_reference").textValue())
+                    .isEqualTo(proof.fields().get("public_reference"));
+            assertThat(json.path("fields").path("dosage").textValue()).isEqualTo("0.0mg 125.0mg");
+            assertThat(result.fields().values())
+                    .noneMatch(
+                            field ->
+                                    field.outcome()
+                                            == io.github.carlos_emr.carlos.demographic.cdsexport
+                                                    .dto.CdsExportFieldAssessmentDto.Outcome
+                                                    .REQUIRES_REVIEW);
+            String xml =
+                    new String(
+                            render(
+                                    CdsCategory.MEDICATIONS_AND_TREATMENTS,
+                                    x -> mapper.write(result, x)),
+                            StandardCharsets.UTF_8);
+            assertThat(xml).doesNotContain("<cds:Strength>").contains("0.0mg 125.0mg");
+        }
+        // A positive decimal amount with its unit is still the Strength (Guide 10.5).
+        var fields = catalogued("2.5mg");
+        var written =
+                mapper.map(
+                        27,
+                        medication(fields),
+                        List.of(),
+                        Map.of(),
+                        referenceWith(
+                                fields,
+                                new CdsExportDrugReferenceDto.Component(
+                                        "First ingredient", "2.5", "MG / 5 ML")));
+        assertThat(written.value().strengthAmount()).isEqualTo("2.5");
+        assertThat(written.value().strengthUnit()).isEqualTo("MG / 5 ML");
+    }
+
+    @Test
+    void shouldRestoreTheStoredStrength_whenACarlosImportReadsAPrescriptionWithoutStrength()
+            throws Exception {
+        // The receiving CARLOS stores the sender's drugs.dosage, which DrugDescription proves,
+        // for a product whose first ingredient Strength cannot hold and for a custom drug alike;
+        // re-exported unchanged, the imported prescription writes the same elements beside the
+        // sender's carrier, and a further CARLOS import restores the same text.
+        var custom = source();
+        custom.put("dosage", "500mg/5mL suspension");
+        var holdingAControlCharacter = catalogued("0.0m\u0007g");
+        var longer = catalogued("x".repeat(2001));
+        for (var entry :
+                List.of(
+                        Map.entry(catalogued("0.0mg 125.0mg"), true),
+                        Map.entry(custom, false),
+                        Map.entry(holdingAControlCharacter, true),
+                        Map.entry(longer, true))) {
+            var fields = entry.getKey();
+            var exported =
+                    mapper.map(
+                            27,
+                            medication(fields),
+                            List.of(),
+                            Map.of(),
+                            entry.getValue()
+                                    ? referenceWith(
+                                            fields,
+                                            new CdsExportDrugReferenceDto.Component(
+                                                    "First ingredient", "0", "mg"))
+                                    : null);
+            assertThat(exported.value().strengthAmount()).isNull();
+            var received = receive(exported);
+            assertThat(received.strengthAmount()).isNull();
+            assertThat(received.strengthText()).isEqualTo(fields.get("dosage"));
+            assertThat(received.diagnostics())
+                    .noneMatch(
+                            notice ->
+                                    notice.code().equals("CDS_MEDICATION_EXACT_TEXT_NOT_APPLIED"));
+            var again = new CdsExportPreparedMedicationMapper().map(received);
+            CdsExportMedicationXmlWriter.validate(again);
+            assertThat(again.strengthAmount()).isNull();
+            var second =
+                    receive(
+                            new CdsExportNativeMedicationMapper.Result(
+                                    again, exported.metadata(), Map.of(), false, null));
+            assertThat(second.strengthText()).isEqualTo(fields.get("dosage"));
+        }
+        // A database Strength is imported as before: no stored text is restored beside it.
+        var fields = catalogued("5 mg");
+        var withStrength =
+                receive(mapper.map(27, medication(fields), List.of(), Map.of(), publicReference(fields)));
+        assertThat(withStrength.strengthAmount()).isEqualTo("5");
+        assertThat(withStrength.strengthText()).isNull();
+    }
+
     @Test
     void shouldRefuseStaleOrConflictingDrugReferenceEvidence_insteadOfInventingAuthority()
             throws Exception {

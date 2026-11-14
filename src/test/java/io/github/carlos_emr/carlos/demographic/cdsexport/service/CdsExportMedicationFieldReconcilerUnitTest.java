@@ -299,6 +299,58 @@ class CdsExportMedicationFieldReconcilerUnitTest {
                 .isEqualTo("PREPARED_NATIVE_PROJECTION_NOT_PROVEN");
     }
 
+    @Test
+    void shouldKeepARestoredStrengthText_andExportTheCurrentOneWhenItChangesInPlace()
+            throws Exception {
+        // The import restored drugs.dosage from a CARLOS sender's carrier for a record with no
+        // Strength (a database product whose first ingredient's amount Strength cannot hold).
+        // Unchanged, the prescription keeps its elements, with no Strength, beside the retained
+        // carrier; a further CARLOS import restores the same text.
+        var stored = strengthTextBaseline();
+        var result = reconcile(fixture(stored, numbers(), true, strengthTextSource(), stored));
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.mapping().value().strengthAmount()).isNull();
+        assertThat(result.mapping().value().fields()).containsEntry(Field.DrugDescription, "0.0mg");
+        assertThat(result.preparedPaths()).contains("Strength", "DrugDescription");
+        assertThat(result.supersedesSenderSource()).isFalse();
+        assertThat(result.mapping().fields().get(key("dosage")).rule())
+                .isEqualTo("VERIFIED_UNCHANGED_PREPARED_FIELD_PROJECTION");
+        // Changed in place (only the REST service or a direct edit can): the current text is the
+        // DrugDescription, the sender's carrier is superseded and the row is carried as current.
+        var changed = strengthTextBaseline();
+        changed.put("dosage", "0.5mg");
+        var edited =
+                reconcile(
+                        fixture(changed, numbers(), true, strengthTextSource(), strengthTextBaseline()));
+        assertThat(edited.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(edited.supersedesSenderSource()).isTrue();
+        assertThat(edited.mapping().value().fields()).containsEntry(Field.DrugDescription, "0.5mg");
+        assertThat(edited.currentPaths()).contains("Strength", "DrugDescription");
+        assertThat(edited.preparedPaths()).doesNotContain("DrugDescription");
+    }
+
+    /** {@link #source()} as imported from a CARLOS sender that wrote no Strength. */
+    static CdsMedicationDto strengthTextSource() throws Exception {
+        var value = (com.fasterxml.jackson.databind.node.ObjectNode) JSON.valueToTree(source());
+        value.putNull("strengthAmount");
+        value.putNull("strengthUnit");
+        value.put("description", "0.0mg");
+        value.put("strengthText", "0.0mg");
+        return JSON.copy()
+                .disable(
+                        com.fasterxml.jackson.databind.DeserializationFeature
+                                .ADJUST_DATES_TO_CONTEXT_TIME_ZONE)
+                .treeToValue(value, CdsMedicationDto.class);
+    }
+
+    /** The drugs row CdsMedicationPersister writes for {@link #strengthTextSource()}. */
+    static Map<String, String> strengthTextBaseline() {
+        var fields = baseline();
+        fields.put("dosage", "0.0mg");
+        fields.put("special", "Original café drug 0.0mg\n 0.5-1 tablet PO BID");
+        return fields;
+    }
+
     /** {@link #source()} as imported from a CARLOS sender's carrier with "12.5 mL", BID PRN. */
     static CdsMedicationDto restoredSource() throws Exception {
         var value = (com.fasterxml.jackson.databind.node.ObjectNode) JSON.valueToTree(source());

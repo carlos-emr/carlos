@@ -30,6 +30,7 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsMedicationDto.Cu
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalDto;
 import io.github.carlos_emr.carlos.commn.model.CdsClinicalException;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionContract;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsTemporal;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsMedicationDose;
 import java.io.IOException;
@@ -163,6 +164,15 @@ public class CdsClinicalNormalizationService {
             diagnostics.add(
                     new CdsClinicalDiagnosticDto(
                             "CDS_RX_DESCRIPTION_NAMES_OTHER_STRENGTHS", "DrugDescription"));
+        // A CARLOS sender writes Strength only from the drug database's first ingredient amount
+        // (CdsExportNativeMedicationMapper.strengthElement). A prescription without one (a custom
+        // drug, or a product whose first amount Strength cannot hold) carries its stored strength
+        // text, which is also its DrugDescription; that text is restored to drugs.dosage once
+        // DrugDescription proves it, so the receiving chart shows the strength the sender's did.
+        String strengthText =
+                strengthAmount == null && strengthUnit == null && !strengthSourceOnly
+                        ? carriedStrength(record, nativeState.currentRow(), description, diagnostics)
+                        : null;
         // A CARLOS sender writes a value holding a character XML 1.0 cannot carry with U+FFFD and
         // carries the stored row; the exact text is restored where the row proves the element.
         var shown = new LinkedHashMap<String, String>();
@@ -192,8 +202,8 @@ public class CdsClinicalNormalizationService {
                 strengthSourceOnly
                         || otherStrengths
                         || blank(name)
-                        || blank(strengthAmount)
-                        || blank(strengthUnit)
+                        || strengthText == null
+                                && (blank(strengthAmount) || blank(strengthUnit))
                         || blank(dose)
                         || blank(doseUnit)
                         || blank(route)
@@ -247,8 +257,72 @@ public class CdsClinicalNormalizationService {
                 requiresReconciliation,
                 diagnostics,
                 quantityUnit,
-                asNeeded);
+                asNeeded,
+                strengthText);
     }
+
+    /**
+     * The most characters a restored strength text may have: the importer's budget for one
+     * strength value, the one it reads Strength/Amount and Strength/UnitOfMeasure with.
+     */
+    private static final int STRENGTH_TEXT_BUDGET = 32768;
+
+    /**
+     * The stored strength text ({@code drugs.dosage}) of a CARLOS sender's carried current row,
+     * when the record proves it: DrugDescription is that text by the exporter's element rule
+     * ({@code CdsNativeExtensionContract.isElementTextOf}), or DrugDescription is absent because
+     * the text is longer than its 2,000 characters. A carrier holding no strength text restores
+     * nothing; one holding another text, an unreadable carrier, or a text longer than the
+     * importer's strength budget restores nothing and is reported
+     * ({@code CDS_MEDICATION_EXACT_TEXT_NOT_APPLIED} on DrugDescription). Nothing is guessed.
+     */
+    private String carriedStrength(
+            CdsRecordDto record,
+            io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsFieldDto carrier,
+            String description,
+            List<CdsClinicalDiagnosticDto> diagnostics)
+            throws IOException {
+        if (carrier == null) return null;
+        // UTF-16 units: a DrugDescription and its stored text have the same number of them.
+        int units = description == null ? 2 * STRENGTH_TEXT_BUDGET : description.length();
+        CdsCarriedValuesReader.Values read;
+        try {
+            read =
+                    CdsCarriedValuesReader.read(
+                            () -> fields.openToken(record, carrier),
+                            java.util.Map.of("fields/dosage", units),
+                            0);
+        } catch (IllegalArgumentException malformed) {
+            diagnostics.add(
+                    new CdsClinicalDiagnosticDto(
+                            CdsCarriedTextResolver.MEDICATION_NOT_APPLIED, "DrugDescription"));
+            return null;
+        }
+        String stored = read.values().get("fields/dosage");
+        boolean longer = read.longer().contains("fields/dosage");
+        if (!longer && (stored == null || stored.isEmpty())) return null;
+        boolean proven;
+        if (stored == null) proven = false;
+        else if (description != null)
+            proven = CdsNativeExtensionContract.isElementTextOf(description, stored);
+        else {
+            // No DrugDescription: the exporter leaves it out only for a text longer than it.
+            String element = CdsNativeExtensionContract.xmlElementText(stored);
+            proven =
+                    stored.codePointCount(0, stored.length()) <= STRENGTH_TEXT_BUDGET
+                            && CdsNativeExtensionContract.storable(stored)
+                            && element.codePointCount(0, element.length())
+                                    > DRUG_DESCRIPTION_LENGTH;
+        }
+        if (proven) return stored;
+        diagnostics.add(
+                new CdsClinicalDiagnosticDto(
+                        CdsCarriedTextResolver.MEDICATION_NOT_APPLIED, "DrugDescription"));
+        return null;
+    }
+
+    /** DrugDescription's length as the CARLOS exporter keeps it. */
+    private static final int DRUG_DESCRIPTION_LENGTH = 2000;
 
     /**
      * The native quantity behind a standard Quantity that the CARLOS exporter wrote as the amount

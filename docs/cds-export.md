@@ -5487,6 +5487,24 @@ Representative DINs may legitimately differ from the authored medication name an
 strength text (guide10.1). The exporter preserves those source values and, as guide10.5 requires,
 exports the first database ingredient's typed strength amount/unit for a database-selected DIN,
 including combination products. It retains the complete ordered ingredient reference separately;
-it never splits free text or replaces an authored name with a catalogue product name. The actual
+it never splits free text or replaces an authored name with a catalogue product name.
+
+Strength is optional, and both of its parts are required tokens, so it is written only when it
+can be written as the database states it (`CdsExportNativeMedicationMapper.strengthElement`):
+the first ingredient's amount is a positive decimal number of at most 10 characters and its unit
+a non-empty token of at most 20 (the lengths CARLOS keeps for its own Strength text). An amount
+that is zero, blank, a range (`1-2`) or text (`trace`), or an amount or unit outside those
+lengths, no longer holds the chart (`CDS_EXPORT_NATIVE_MEDICATION_REQUIRES_REVIEW` held every
+prescription chosen from the drug search for such a product): no Strength is written and no
+number is invented. The DIN is still written, the prescription's stored strength text
+(`drugs.dosage`, which the Rx page builds from every ingredient) is its DrugDescription as for any
+prescription, and the complete reference, every ingredient's amount and unit exactly as the
+database answered, stays in `CARLOS.Medication.Source.v1` (`reference`). A receiving CARLOS
+restores `drugs.dosage` from that carrier for a record with no Strength (see "Medication strength
+text" in [cds-import.md](cds-import.md)), so the receiving chart shows the strength the
+sender's did; the same holds for a custom drug, which never has a Strength. An imported Strength
+kept unchanged is held to the schema alone (two tokens of any length), not to those lengths
+(`CdsExportMedicationXmlWriter.validate`), so a sender's long unit no longer holds the chart
+(`CDS_EXPORT_MEDICATION_VALUES_REQUIRES_REVIEW`). The actual
 installed fixture includes a representative-DIN combination product and verifies the real
 XML-RPC client against an owned loopback public dictionary outside the immutable WAR.

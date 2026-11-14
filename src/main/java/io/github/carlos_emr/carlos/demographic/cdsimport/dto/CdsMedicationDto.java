@@ -33,6 +33,12 @@ import java.util.List;
  * before. Both are omitted from the sealed preparation when null, so a payload sealed before they
  * existed keeps its bytes and digest ({@code CdsPreparedMedicationDefaults} supplies them after
  * seal verification).
+ *
+ * <p>{@code strengthText} is the native stored strength ({@code drugs.dosage}) of a CARLOS
+ * sender's prescription that has no Strength element (a custom drug, or a database product whose
+ * first ingredient's amount Strength cannot hold), restored from the sender's carrier once its
+ * DrugDescription proves it. Null means not restored: the persister then stores the Strength
+ * element as before. It is omitted from the sealed preparation when null for the same reason.
  */
 public record CdsMedicationDto(String name, String din, String description, String strengthAmount,
         String strengthUnit, String dose, String doseUnit, String form, String route,
@@ -51,7 +57,10 @@ public record CdsMedicationDto(String name, String din, String description, Stri
                 String quantityUnit,
         @com.fasterxml.jackson.annotation.JsonInclude(
                         com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
-                Boolean asNeeded) {
+                Boolean asNeeded,
+        @com.fasterxml.jackson.annotation.JsonInclude(
+                        com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+                String strengthText) {
     public enum Currentness { CURRENT, HISTORICAL, SUSPENDED, NEW, UNKNOWN }
     public CdsMedicationDto {
         if (strengthSourceOnly && !sourceRequiresReconciliation) {
@@ -59,6 +68,8 @@ public record CdsMedicationDto(String name, String din, String description, Stri
         }
         if (quantityUnit != null && quantityUnit.isEmpty())
             throw new IllegalArgumentException("CDS_MEDICATION_QUANTITY_UNIT_INVALID");
+        if (strengthText != null && (strengthText.isEmpty() || strengthSourceOnly))
+            throw new IllegalArgumentException("CDS_MEDICATION_STRENGTH_TEXT_INVALID");
         diagnostics = List.copyOf(diagnostics);
     }
 
@@ -81,6 +92,7 @@ public record CdsMedicationDto(String name, String din, String description, Stri
                 treatmentType, prescriptionStatus, currentness, prescriberName, prescriberOhip,
                 prescriberFirstName, prescriberLastName, providerNotes, pharmacyInstructions,
                 dispenseInterval, protocol, priorPrescription, prescriptionIdentifier, written,
-                start, strengthSourceOnly, sourceRequiresReconciliation, diagnostics, null, null);
+                start, strengthSourceOnly, sourceRequiresReconciliation, diagnostics, null, null,
+                null);
     }
 }
