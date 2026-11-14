@@ -116,8 +116,7 @@ public class CdsExportImportOptionsSourceReader implements CdsExportNativeSource
         if (patient < 1)
             throw new IllegalArgumentException("CDS_EXPORT_IMPORT_OPTIONS_SCOPE_INVALID");
         long count = source.countCdsExportRetainedRows(patient, selected);
-        if (count < 0 || count > 4096)
-            throw new IllegalStateException("CDS_EXPORT_IMPORT_OPTIONS_RUN_LIMIT");
+        if (count < 0) throw new IllegalStateException("CDS_EXPORT_IMPORT_OPTIONS_SCOPE_INVALID");
         return count;
     }
 
@@ -136,7 +135,6 @@ public class CdsExportImportOptionsSourceReader implements CdsExportNativeSource
         if (patient < 1)
             throw new IllegalArgumentException("CDS_EXPORT_IMPORT_OPTIONS_SCOPE_INVALID");
         String after = null;
-        int count = 0;
         while (true) {
             var page = source.findCdsExportRetainedRowsAfter(patient, selected, after, 32);
             if (page.size() > 32) invalid();
@@ -144,11 +142,10 @@ public class CdsExportImportOptionsSourceReader implements CdsExportNativeSource
                 checkpoint.run();
                 if (!Plan.IMPORT_RUNS.validRetainedKey(row.id())
                         || after != null && row.id().compareTo(after) <= 0
-                        || !row.cells().keySet().equals(Set.copyOf(Plan.IMPORT_RUNS.columns()))
-                        || ++count > 4096) invalid();
+                        || !row.cells().keySet().equals(Set.copyOf(Plan.IMPORT_RUNS.columns())))
+                    invalid();
                 var copies = source.readAppliedCdsExportCopyKeys(patient, row.id(), selected);
                 if (copies == null
-                        || copies.size() > 4096
                         || copies.stream().anyMatch(Objects::isNull)
                         || copies.size() != new HashSet<>(copies).size()) invalid();
                 String encoded = null;

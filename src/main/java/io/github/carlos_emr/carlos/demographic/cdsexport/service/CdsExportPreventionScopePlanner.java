@@ -136,7 +136,6 @@ public final class CdsExportPreventionScopePlanner {
                             "CDS_EXPORT_PREVENTION_SCOPE_RESULT_INVALID");
             if (patient < 1
                     || rows < 0
-                    || rows > 10_000
                     || rows != immunizations.size() + otherPreventions.size() + reviews.size()
                     || !Collections.disjoint(immunizations, otherPreventions)
                     || !Collections.disjoint(immunizations, reviews.keySet())
@@ -250,11 +249,11 @@ public final class CdsExportPreventionScopePlanner {
         String after = null;
         for (var row : metadata) {
             if (row == null
-                    || ++total > 10_000
                     || !"preventions_scope".equals(row.table())
                     || !row.fields().keySet().equals(COLUMNS)
                     || !row.exactNumbers().isEmpty()
                     || after != null && row.recordKey().compareTo(after) <= 0) invalid();
+            total++;
             int id = integer(row.fields().get("id"));
             if (!CdsExportPatientTableSourceReader.key(id).equals(row.recordKey())
                     || !Integer.toString(patient).equals(row.fields().get("demographic_no")))

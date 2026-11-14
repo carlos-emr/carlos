@@ -236,10 +236,14 @@ class CdsExportImportOptionsSourceReaderUnitTest {
     }
 
     @Test
-    void shouldBoundRunDiscovery_beforeCapture() {
+    void shouldCountEveryImportRun_pastTheFormerLimitOf4096() {
+        // Before: a chart named by more than 4,096 import runs stopped the job
+        // (CDS_EXPORT_IMPORT_OPTIONS_RUN_LIMIT).
         when(dao.countCdsExportRetainedRows(eq(27), anySet())).thenReturn(4097L);
+        assertThat(reader.count(27)).isEqualTo(4097L);
+        when(dao.countCdsExportRetainedRows(eq(27), anySet())).thenReturn(-1L);
         assertThatThrownBy(() -> reader.count(27))
-                .hasMessage("CDS_EXPORT_IMPORT_OPTIONS_RUN_LIMIT");
+                .hasMessage("CDS_EXPORT_IMPORT_OPTIONS_SCOPE_INVALID");
     }
 
     @Test
