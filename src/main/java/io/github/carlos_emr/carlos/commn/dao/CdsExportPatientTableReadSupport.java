@@ -1213,8 +1213,8 @@ public final class CdsExportPatientTableReadSupport {
             // result: the complete report is exported (and authorized, including sensitive
             // results) by the LaboratoryResults path, so care capture never reads its values.
             // Its own rows, its extensions and the vocabulary only it uses stay out of every
-            // measurement plan; a filed result naming no report that path can export is refused
-            // separately (unroutedLaboratoryMeasurements).
+            // measurement plan; a filed result naming no report that path can export is counted
+            // separately: the package ReadMe lists them (unlinkedLaboratoryReadings).
             if (this == MEASUREMENTS_CURRENT)
                 return "d.`demographicNo`=:patient and " + NOT_LABORATORY_FILED.formatted("d.`id`");
             if (this == MEASUREMENTS_DELETED)
@@ -1704,25 +1704,57 @@ public final class CdsExportPatientTableReadSupport {
     }
 
     /**
-     * An HL7 result filed as a measurement whose lab_no names no HL7 report routed to this
-     * patient: the LaboratoryResults path, which exports only routed HL7 reports, cannot carry
-     * it, and care capture never reads laboratory-filed rows. The text value is compared exactly
-     * with the routed number's decimal spelling, never coerced to a number.
+     * HL7 results filed as measurements ({@code Hl7textResultsData.fileMeasurements}: a {@code
+     * lab_no} extension) whose {@code lab_no} names no HL7 report routed to this patient, counted
+     * by test name and observation date. The LaboratoryResults path exports only routed HL7
+     * reports and care capture never reads laboratory-filed rows, so these readings are not
+     * exported; the package ReadMe lists them (owner decision 2026-11-14). The number is compared
+     * exactly with the routed number's decimal spelling, never coerced to a number. The test name
+     * is the reading's {@code name} extension (the lowest id when there are several, empty when
+     * there is none) and the date the day of {@code dateObserved} (none for a legacy zero date);
+     * no result value is read.
      */
-    public static boolean unroutedLaboratoryMeasurements(EntityManager em, int patient) {
+    static final String UNLINKED_LABORATORY_READINGS =
+            """
+            select t.test_name, t.observed, count(*) from (select coalesce((select n.val from measurementsExt n
+            where n.measurement_id=m.id and n.keyval='name' and CAST(n.keyval AS BINARY)=CAST('name' AS BINARY)
+            order by n.id limit 1),'') test_name, CASE WHEN YEAR(m.dateObserved)=0 THEN NULL ELSE CAST(m.dateObserved AS DATE) END
+            observed from measurements m
+            where m.demographicNo=:patient and exists (select 1 from measurementsExt e where e.measurement_id=m.id
+            and e.keyval='lab_no' and CAST(e.keyval AS BINARY)=CAST('lab_no' AS BINARY)
+            and not exists (select 1 from patientLabRouting r where r.lab_type='HL7' and r.demographic_no=:patient
+            and CAST(CAST(r.lab_no AS CHAR) AS BINARY)=CAST(e.val AS BINARY)))) t
+            group by t.test_name, t.observed
+            """;
+
+    /**
+     * The patient's unlinked laboratory readings ({@link #UNLINKED_LABORATORY_READINGS}), ordered by
+     * date and then test name (as Java orders text) so a capture is the same whatever order the
+     * database returns.
+     */
+    public static List<io.github.carlos_emr.carlos.commn.dto.CdsExportUnlinkedLaboratoryReadingDto>
+            unlinkedLaboratoryReadings(EntityManager em, int patient) {
         patient(patient);
-        return !query(
-                                em,
-                                """
-                                select 1,1 from measurements m join measurementsExt e on e.measurement_id=m.id
-                                where m.demographicNo=:patient and e.keyval='lab_no' and CAST(e.keyval AS BINARY)='lab_no'
-                                and not exists (select 1 from patientLabRouting r where r.lab_type='HL7'
-                                and r.demographic_no=:patient and CAST(CAST(r.lab_no AS CHAR) AS BINARY)=CAST(e.val AS BINARY))
-                                """)
-                        .setParameter("patient", patient)
-                        .setMaxResults(1)
-                        .getResultList()
-                        .isEmpty();
+        var result =
+                new ArrayList<io.github.carlos_emr.carlos.commn.dto.CdsExportUnlinkedLaboratoryReadingDto>();
+        for (Object value :
+                query(em, UNLINKED_LABORATORY_READINGS).setParameter("patient", patient).getResultList()) {
+            var row = (Object[]) value;
+            String name = row[0] == null ? "" : row[0].toString();
+            // A DATE: java.sql.Date or LocalDate, both written yyyy-MM-dd.
+            String observed = row[1] == null ? "" : row[1].toString();
+            result.add(
+                    new io.github.carlos_emr.carlos.commn.dto.CdsExportUnlinkedLaboratoryReadingDto(
+                            name, observed, ((Number) row[2]).longValue()));
+        }
+        result.sort(
+                java.util.Comparator.comparing(
+                                io.github.carlos_emr.carlos.commn.dto.CdsExportUnlinkedLaboratoryReadingDto
+                                        ::observed)
+                        .thenComparing(
+                                io.github.carlos_emr.carlos.commn.dto.CdsExportUnlinkedLaboratoryReadingDto
+                                        ::testName));
+        return List.copyOf(result);
     }
 
     /** Exact string-key paging for the structured result's SHA-256 identity, never a numeric conversion. */

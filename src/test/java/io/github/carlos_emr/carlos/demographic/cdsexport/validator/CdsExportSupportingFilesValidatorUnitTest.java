@@ -744,12 +744,72 @@ class CdsExportSupportingFilesValidatorUnitTest {
     }
 
     @Test
-    void shouldRejectAnUnboundedReadmeLine_beforeRetainingItsEntireValue() {
+    void shouldRefuseALongReadmeLine_whoseValueIsNotTheOneExpected() {
         byte[] oversized =
                 ("Physician group: \"" + "x".repeat(65537) + "\"\n")
                         .getBytes(StandardCharsets.UTF_8);
         assertThatThrownBy(() -> validate(oversized, log, actual, () -> {}))
                 .hasMessage("CDS_EXPORT_SUPPORTING_FILES_INVALID");
+    }
+
+    @Test
+    void shouldListUnlinkedLaboratoryReadingsByTestAndDate_whateverTheTestNameLength()
+            throws Exception {
+        // Owner decision 2026-11-14: readings whose report is no longer linked to the chart are
+        // left out and listed per patient by test name, date and count. A stored test name can be
+        // longer than the 65,536 characters a ReadMe line was once held to.
+        String longName = "Synthetic panel " + "x".repeat(70_000);
+        var withheld = new java.util.LinkedHashMap<String, Long>();
+        withheld.put(
+                "Laboratory readings whose report is not linked to this chart (HbA1c, 2020-02-29)",
+                2L);
+        withheld.put(
+                "Laboratory readings whose report is not linked to this chart ("
+                        + longName
+                        + ", no date)",
+                1L);
+        var plain = actual;
+        actual =
+                List.of(
+                        new CdsExportSupportingFilesValidator.Patient(
+                                plain.getFirst().relativePath(),
+                                plain.getFirst().naming(),
+                                plain.getFirst().xml(),
+                                java.util.Map.of(),
+                                List.of(),
+                                withheld));
+        var text = new ByteArrayOutputStream();
+        new CdsExportSupportingFilesComposer()
+                .compose(
+                        text,
+                        new ByteArrayOutputStream(),
+                        metadata,
+                        physicians.iterator(),
+                        List.of(
+                                        new CdsExportPatientSummaryDto(
+                                                plain.getFirst().naming(),
+                                                plain.getFirst().xml().occurrences(),
+                                                0L,
+                                                0L,
+                                                plain.getFirst().xml().xmlSha256(),
+                                                plain.getFirst().xml().xmlBytes(),
+                                                java.util.Map.of(),
+                                                List.of(),
+                                                withheld))
+                                .iterator(),
+                        () -> {});
+        readMe = text.toByteArray();
+        assertThat(new String(readMe, StandardCharsets.UTF_8))
+                .contains(
+                        "Patient records not exported: \"Laboratory readings whose report is not"
+                                + " linked to this chart (HbA1c, 2020-02-29): 2\"\n");
+        assertThat(validate().patientFiles()).isEqualTo(1);
+        byte[] intact = readMe;
+        readMe = replace(intact, "(HbA1c, 2020-02-29): 2", "(HbA1c, 2020-02-29): 3");
+        assertThatThrownBy(this::validate).isInstanceOf(java.io.IOException.class);
+        readMe = replace(intact, "(HbA1c, 2020-02-29)", "(HbA1c, 2020-03-01)");
+        assertThatThrownBy(this::validate).isInstanceOf(java.io.IOException.class);
+        actual = plain;
     }
 
     @Test

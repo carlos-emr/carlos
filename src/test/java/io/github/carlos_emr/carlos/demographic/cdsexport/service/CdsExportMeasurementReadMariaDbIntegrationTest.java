@@ -469,9 +469,15 @@ class CdsExportMeasurementReadMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldHoldThePatient_whenALaboratoryFiledResultNamesNoReportTheLaboratoryPathExports()
+    void shouldListALaboratoryFiledResultWhoseReportIsNotRoutedToTheChart_insteadOfHoldingIt()
             throws Exception {
+        // Owner decision 2026-11-14: such a reading is left out of both paths and listed in the
+        // ReadMe by test name, date and count; it no longer holds the patient
+        // (CDS_EXPORT_NATIVE_CARE_LABORATORY_RESULT_UNROUTED is gone).
         laboratoryFiled(patient + 40, "77", false);
+        // The routed report number is compared by its exact decimal spelling: "077" names no
+        // routed report even once report 77 is routed.
+        laboratoryFiled(patient + 42, "077", false);
         var command =
                 new io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand(
                         "laboratory-scope",
@@ -492,43 +498,44 @@ class CdsExportMeasurementReadMariaDbIntegrationTest {
                                         .LABORATORY_RESULTS),
                         "receiver",
                         "audit");
-        var withoutLabs =
-                new io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand(
-                        "laboratory-scope",
-                        "999998",
-                        null,
-                        command.profile(),
-                        command.selection(),
-                        List.of(),
-                        List.of(patient),
-                        Set.of(
-                                io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory
-                                        .DEMOGRAPHICS,
-                                io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory
-                                        .CARE_ELEMENTS),
-                        "receiver",
-                        "audit");
         var reader = new CdsExportMeasurementSourceReader(measurements);
+        var unlinked = new CdsExportUnlinkedLaboratoryReadingSourceReader(measurements);
         try {
-            // No HL7 report 77 is routed to this patient: neither path could carry the value.
-            assertThatThrownBy(() -> read.execute(status -> capture(reader.forRequest(command))))
-                    .hasRootCauseMessage("CDS_EXPORT_NATIVE_CARE_LABORATORY_RESULT_UNROUTED");
-            // Laboratory results were not selected: the operator excluded them deliberately.
-            assertThat((Long) read.execute(status -> capture(reader.forRequest(withoutLabs))))
+            assertThat((Long) read.execute(status -> capture(reader.forRequest(command))))
                     .isEqualTo(35L);
+            assertThat(unlinked(patient))
+                    .containsExactly(
+                            new io.github.carlos_emr.carlos.commn.dto
+                                    .CdsExportUnlinkedLaboratoryReadingDto("HbA1c", "2020-02-29", 2));
+            assertThat((Long) read.execute(status -> capture(unlinked))).isEqualTo(1L);
             sql.update(
                     "insert into patientLabRouting(id,demographic_no,lab_no,lab_type,created) values(?,?,77,'HL7',CURRENT_TIMESTAMP)",
                     patient,
                     patient);
             assertThat((Long) read.execute(status -> capture(reader.forRequest(command))))
                     .isEqualTo(35L);
+            assertThat(unlinked(patient))
+                    .containsExactly(
+                            new io.github.carlos_emr.carlos.commn.dto
+                                    .CdsExportUnlinkedLaboratoryReadingDto("HbA1c", "2020-02-29", 1));
         } finally {
             sql.update(
                     "delete from patientLabRouting where id=? and demographic_no=? and lab_no=77",
                     patient,
                     patient);
             removeLaboratoryFiled(patient + 40);
+            removeLaboratoryFiled(patient + 42);
         }
+    }
+
+    /** The chart's unlinked laboratory readings, read as the capture reads them. */
+    private java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportUnlinkedLaboratoryReadingDto>
+            unlinked(int chart) {
+        java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportUnlinkedLaboratoryReadingDto>
+                readings =
+                        read.execute(
+                                status -> measurements.findCdsExportUnlinkedLaboratoryReadings(chart));
+        return readings;
     }
 
     /** Captures one reader's rows for the fixture patient and returns how many it wrote. */

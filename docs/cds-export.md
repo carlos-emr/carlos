@@ -772,16 +772,25 @@ OBX with `lab_no`, test name, abnormal flag, lab, accession, range and blocked e
 laboratory result, not a care element. The measurement capture plans leave every measurement
 carrying an exact `lab_no` extension, current or deleted, its extensions and the vocabulary only
 it uses to the LaboratoryResults path, which exports the complete report and applies the
-laboratory and sensitive-laboratory rights. When LaboratoryResults is selected, a filed result
-whose `lab_no` names no HL7 report routed to the patient (so neither path could carry it) holds
-the patient with `CDS_EXPORT_NATIVE_CARE_LABORATORY_RESULT_UNROUTED` before any observation value
-is read. No CARLOS screen produces such a row: matching a lab to another patient
-(`CommonLabResultData.updatePatientLabRouting`) replaces every version's routing and moves the
-filed results with it (`reconcileMatchedLabMeasurements`, `MeasurementDao.reassignLabPatient`),
-the only other routing removal (`MessageUploader.clean`, a failed upload) deletes the filed
-results too, and only `Hl7textResultsData` writes `lab_no`. The hold stays for rows written
-outside the screens. When LaboratoryResults is not selected, filed results are not exported: the operator
-excluded laboratory results.
+laboratory and sensitive-laboratory rights. A filed result whose `lab_no` names no HL7 report
+routed to the patient (a lab unlinked from the chart or moved to another patient; the chart's
+flowsheet still shows it, #6214) is carried by neither path. It is left out and never holds the
+patient (owner decision 2026-11-14; `CDS_EXPORT_NATIVE_CARE_LABORATORY_RESULT_UNROUTED` is gone).
+When LaboratoryResults is selected, the capture counts these readings inside the patient's
+snapshot by test name and observation date, reading no result value: the synthetic table
+`unlinked_laboratory_readings` (`CdsExportUnlinkedLaboratoryReadingSourceReader`, schema
+`TRUSTED_UNLINKED_LABORATORY_READINGS`, in LaboratoryResults' `requiredScopes`, read under its
+rights, sensitive results included) holds one row per test name and date with its count
+(`CdsExportPatientTableReadSupport.UNLINKED_LABORATORY_READINGS`: the reading's `name` extension,
+the first stored when there are several, and the day of `dateObserved`; the report number is
+compared with the routed number's exact decimal spelling). The package ReadMe lists them for the
+patient, one line per test name and date, in the per-patient style: `Patient records not
+exported: Laboratory readings whose report is not linked to this chart (<test name>, <date>):
+<n>`, with `no test name` or `no date` when none is stored (composed by
+`CdsExportSupportingFilesComposer`, re-read by `CdsExportSupportingFilesValidator`, which no longer
+refuses a ReadMe line for its length, since a stored test name can be long). When LaboratoryResults
+is not selected, filed results are not exported and not listed: the operator excluded laboratory
+results.
 
 A chart's measurements are exported however many there are; a long-standing chart (years of
 INR, glucose or blood pressure flowsheet entries) is no longer held for its size (#6200,

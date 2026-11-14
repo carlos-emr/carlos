@@ -592,7 +592,8 @@
       "hl7_link",
       "hl7_orc",
       "hl7_obr",
-      "hl7_obx"
+      "hl7_obx",
+      "unlinked_laboratory_readings"
     ],
     "Appointments": [
       "appointment",

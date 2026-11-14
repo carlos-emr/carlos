@@ -24,63 +24,29 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
 import io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
-import io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand;
-import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException;
-import java.io.IOException;
-import java.util.Objects;
 import java.util.Set;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
  * Complete patient-owned current observations other than laboratory-filed HL7 results, which the
- * capture plan leaves to the LaboratoryResults path. When that path is selected, a filed result
- * naming no report it can export holds the patient before any observation value is read.
+ * capture plan leaves to the LaboratoryResults path. A filed result whose report is no longer
+ * routed to the chart is neither path's: it is not exported and, when LaboratoryResults is
+ * selected, the package ReadMe lists it ({@link CdsExportUnlinkedLaboratoryReadingSourceReader});
+ * it never holds the patient (owner decision 2026-11-14).
  */
 @Service
 public class CdsExportMeasurementSourceReader extends CdsExportPatientTableSourceReader {
-    private final MeasurementDao source;
-    private final boolean laboratories;
-
     @Autowired
     public CdsExportMeasurementSourceReader(MeasurementDao source) {
-        this(source, false);
-    }
-
-    private CdsExportMeasurementSourceReader(MeasurementDao source, boolean laboratories) {
         super(
                 source,
                 CdsExportPatientTableReadSupport.Plan.MEASUREMENTS_CURRENT,
                 Set.of(CdsCategory.CARE_ELEMENTS));
-        this.source = Objects.requireNonNull(source);
-        this.laboratories = laboratories;
-    }
-
-    @Override
-    public CdsExportNativeSourceReader forRequest(CdsExportCommand command) {
-        return new CdsExportMeasurementSourceReader(
-                source,
-                Objects.requireNonNull(command)
-                        .categories()
-                        .contains(CdsCategory.LABORATORY_RESULTS));
     }
 
     @Override
     public Set<String> requiredTables() {
         return Set.of("measurements", "measurementsExt", "measurementsDeleted", "measurementType");
-    }
-
-    /**
-     * With LaboratoryResults selected, a laboratory-filed result that path cannot export would
-     * otherwise leave the package without notice; without it the operator excluded laboratory
-     * results, so the filed copies are deliberately not exported.
-     */
-    @Override
-    public void capture(int patient, CdsExportNativeCaptureComposer.Writer output)
-            throws IOException {
-        if (laboratories && source.hasCdsExportUnroutedLaboratoryMeasurements(patient))
-            throw new CdsExportMappingReviewException(
-                    "CDS_EXPORT_NATIVE_CARE_LABORATORY_RESULT_UNROUTED");
-        super.capture(patient, output);
     }
 }

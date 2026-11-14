@@ -1480,12 +1480,15 @@ public class CdsExportClinicalPackageService {
                         ? Map.<String, Long>of()
                         : dataSummaries.kinds(lease, patient, tables, source, bounds, control);
         // Not exported, per ReadMe label: removed and patient-independent eForms, then the records
-        // whose NewCategory record was not written because NewCategory was not selected.
+        // whose NewCategory record was not written because NewCategory was not selected, then the
+        // laboratory readings whose report is no longer linked to the chart, by test and date.
         var withheld = new java.util.LinkedHashMap<String, Long>();
         if (dataSummaries != null)
             withheld.putAll(
                     dataSummaries.notExported(lease, patient, tables, source, bounds, control));
         document.notExported().forEach((label, count) -> withheld.merge(label, count, Long::sum));
+        unlinkedReadings(lease, patient, tables, source, bounds, control)
+                .forEach((label, count) -> withheld.merge(label, count, Long::sum));
         var path = new CdsExportPathComposer().compose(name);
         var noteScope = source.capture().tables().get("casemgmt_note");
         // The chart's patient is checked against the cohort once its session has closed.
@@ -1501,6 +1504,52 @@ public class CdsExportClinicalPackageService {
                 listed(lease, patient, tables, source, bounds, control),
                 withheld,
                 noteScope == null ? List.<CdsExportNoteAccessDto>of() : noteScope.noteAccess());
+    }
+
+    /**
+     * The patient's laboratory readings whose report is no longer linked to the chart, read back
+     * from the sealed capture as ReadMe lines ({@link
+     * CdsExportUnlinkedLaboratoryReadingSourceReader#notExported}); empty when LaboratoryResults was
+     * not selected.
+     */
+    private Map<String, Long> unlinkedReadings(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> tables,
+            CdsExportPatientCaptureDto source,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control)
+            throws IOException {
+        if (!tables.contains(CdsExportUnlinkedLaboratoryReadingSourceReader.TABLE)) return Map.of();
+        var readings =
+                new ArrayList<io.github.carlos_emr.carlos.commn.dto.CdsExportUnlinkedLaboratoryReadingDto>();
+        new CdsExportCapturedTextRowsReader(captures)
+                .forEach(
+                        lease,
+                        patient,
+                        tables,
+                        CdsExportUnlinkedLaboratoryReadingSourceReader.TABLE,
+                        source.manifest(),
+                        bounds.fields(),
+                        bounds.bytes(),
+                        4096,
+                        control,
+                        row -> {
+                            control.checkpoint();
+                            String count = row.fields().get("reading_count");
+                            if (count == null || !count.matches("[1-9][0-9]{0,18}")) invalid();
+                            try {
+                                readings.add(
+                                        new io.github.carlos_emr.carlos.commn.dto
+                                                .CdsExportUnlinkedLaboratoryReadingDto(
+                                                row.fields().get("test_name"),
+                                                row.fields().get("observed_date"),
+                                                Long.parseLong(count)));
+                            } catch (IllegalArgumentException | NullPointerException malformed) {
+                                invalid();
+                            }
+                        });
+        return CdsExportUnlinkedLaboratoryReadingSourceReader.notExported(readings);
     }
 
     /** The captured listed-table counts of one patient, read back from the sealed capture. */

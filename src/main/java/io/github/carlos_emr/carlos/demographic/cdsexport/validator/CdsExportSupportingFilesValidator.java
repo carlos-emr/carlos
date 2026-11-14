@@ -48,7 +48,6 @@ import java.util.concurrent.CancellationException;
  * keeps on protected storage instead of in memory.
  */
 public final class CdsExportSupportingFilesValidator {
-    private static final int MAXIMUM_LINE_CHARACTERS = 65536;
     private static final JsonMapper JSON =
             JsonMapper.builder().enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).build();
 
@@ -447,8 +446,9 @@ public final class CdsExportSupportingFilesValidator {
                     if (reader.read() != '\n') invalid();
                     return result.toString();
                 }
-                // One line is one composed field; a longer one is not a line this exporter wrote.
-                if (result.length() >= MAXIMUM_LINE_CHARACTERS) invalid();
+                // One line is one composed field, as long as the value the composer wrote: a
+                // patient line can name a stored laboratory test (Patient records not exported),
+                // so no line length is refused (it was 65,536 characters).
                 result.append((char) code);
             }
         }
