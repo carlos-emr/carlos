@@ -152,4 +152,124 @@ class CdsHistoryProjectionIntegrationTest extends CaseManagementNoteDaoBaseInteg
                                 .longValue())
                 .isEqualTo(1);
     }
+
+    /**
+     * CARLOS to CARLOS: the document a CARLOS sender writes for an item its chart files under
+     * three CPP sections is imported, and the receiving chart files the one note under the same
+     * three sections, each link named in the unit's receipt for a re-export to prove.
+     */
+    @Test
+    void shouldFileAnItemUnderEverySectionItsSenderDid_whenACarlosExportIsImported()
+            throws Exception {
+        var codes = java.util.List.of("FamHistory", "MedHistory", "Concerns");
+        for (String code : codes)
+            if (issueDAO.findCandidatesByCode(code).isEmpty())
+                createIssue(code, "Section fixture " + code);
+        var document =
+                io.github.carlos_emr.carlos.demographic.cdsexport.service
+                        .CdsExportNativeHistoryFixture.filedUnderDocument(
+                                "Mother: type 2 diabetes", "Concerns", "MedHistory", "FamHistory");
+        Path parsed = java.nio.file.Files.createTempDirectory(directory, "sections-");
+        var records =
+                new java.util.ArrayList<
+                        io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto>();
+        new CdsXmlParser()
+                .parse(
+                        java.nio.file.Files.write(parsed.resolve("patient.xml"), document),
+                        parsed.resolve("parsed"),
+                        io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsInputLimitsDto
+                                .defaults(),
+                        () -> false,
+                        records::add);
+        var record =
+                records.stream()
+                        .filter(r -> r.section().equals("FamilyHistory"))
+                        .findFirst()
+                        .orElseThrow();
+        var writer = persister();
+        var command = command();
+        var notices =
+                new java.util.ArrayList<
+                        io.github.carlos_emr.carlos.demographic.cdsimport.dto
+                                .CdsClinicalDiagnosticDto>();
+        writer.prepare("run", 1, "unit", record, command);
+        var receipt = writer.write("run", 1, "unit", 974235, record, command, notices::add);
+        hibernateTemplate.flush();
+        entityManager.clear();
+        Long noteId = Long.valueOf(receipt.get("casemgmt_note"));
+        for (String code : codes)
+            assertThat(caseManagementNoteDAO.findNotesByDemographicAndIssueCode(974235, new String[] {code}))
+                    .as(code)
+                    .singleElement()
+                    .satisfies(
+                            note -> {
+                                assertThat(note.getId()).isEqualTo(noteId);
+                                assertThat(note.getNote()).isEqualTo("Mother: type 2 diabetes");
+                            });
+        assertThat(
+                        ((Number)
+                                        entityManager
+                                                .createNativeQuery(
+                                                        "select count(*) from casemgmt_issue_notes"
+                                                                + " where note_id=?1")
+                                                .setParameter(1, noteId)
+                                                .getSingleResult())
+                                .longValue())
+                .isEqualTo(3);
+        assertThat(notices)
+                .extracting(n -> n.code())
+                .doesNotContain(
+                        CdsHistoryPersister.SECTIONS_NOT_APPLIED,
+                        CdsHistoryPersister.SECTION_NOT_RESTORED);
+        // The record's own section first, as for an item of one section; each other section's
+        // patient issue and link are named under its tag.
+        for (String code : java.util.List.of("MedHistory", "Concerns"))
+            assertThat(receipt)
+                    .containsEntry(
+                            "casemgmt_issue_notes#" + code,
+                            noteId + "_" + receipt.get("casemgmt_issue#" + code));
+        assertThat(receipt)
+                .containsEntry(
+                        "casemgmt_issue_notes", noteId + "_" + receipt.get("casemgmt_issue"))
+                .doesNotContainKey("casemgmt_issue#FamHistory");
+    }
+
+    private CdsHistoryPersister persister() throws Exception {
+        var fields = new CdsFieldParser();
+        var preparation = mock(CdsNativePreparationService.class);
+        var prepared = new AtomicReference<CdsHistoryNativeDto>();
+        doAnswer(
+                        call -> {
+                            prepared.set(call.getArgument(5));
+                            return null;
+                        })
+                .when(preparation)
+                .store(anyString(), anyLong(), anyString(), anyString(), any(), any());
+        when(preparation.load(
+                        anyString(),
+                        anyLong(),
+                        anyString(),
+                        anyString(),
+                        any(),
+                        eq(CdsHistoryNativeDto.class)))
+                .thenAnswer(call -> prepared.get());
+        Properties properties = new Properties();
+        properties.setProperty("cds.import.clinicalZone", ZoneId.systemDefault().getId());
+        return new CdsHistoryPersister(
+                fields,
+                new CdsClinicalNormalizationService(fields),
+                new CdsImportConfigurationService(properties),
+                mock(CdsProviderResolver.class),
+                preparation,
+                caseManagementNoteDAO,
+                caseManagementIssueDAO,
+                issueDAO,
+                extensions);
+    }
+
+    private CdsImportCommand command() {
+        return new CdsImportCommand(
+                directory, "fixture", "999998", 1, null, "synthetic", "omd-5.2", false, false,
+                false, 0, null, false);
+    }
 }

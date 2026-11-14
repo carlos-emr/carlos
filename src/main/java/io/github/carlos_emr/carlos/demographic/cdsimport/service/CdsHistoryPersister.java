@@ -298,6 +298,7 @@ public class CdsHistoryPersister {
                 n -> warnings.putIfAbsent(n.code() + "/" + n.field(), n);
         String contentPath = CONTENT.get(record.section());
         var nativeState = new CdsHistoryResidualReader(fields).read(record);
+        List<String> otherSections = otherSections(record, nativeState.revisionDetails(), notice);
         CdsFieldDto[] descriptor = {null};
         String[] participant = {null};
         boolean[] repeated = {false};
@@ -451,7 +452,8 @@ public class CdsHistoryPersister {
                             observationDate,
                             observationField,
                             List.copyOf(warnings.values()),
-                            nativeState.archived()));
+                            nativeState.archived(),
+                            otherSections));
         } catch (CdsImportException capacity) {
             if (!"NATIVE_PREPARATION_CAPACITY_EXCEEDED".equals(capacity.getCode())) throw capacity;
             // The whole note does not fit the column that holds its prepared record: the
@@ -472,8 +474,48 @@ public class CdsHistoryPersister {
                             observationDate,
                             observationField,
                             List.copyOf(warnings.values()),
-                            nativeState.archived()));
+                            nativeState.archived(),
+                            otherSections));
         }
+    }
+
+    /** Reported when the CPP section tags a CARLOS sender carries for an item cannot be read. */
+    static final String SECTIONS_NOT_APPLIED = "CDS_HISTORY_SECTIONS_NOT_APPLIED";
+
+    /** Reported for a CPP section tag a sender filed the item under that this chart cannot link. */
+    static final String SECTION_NOT_RESTORED = "CDS_HISTORY_SECTION_NOT_RESTORED";
+
+    /**
+     * The other CPP section tags a CARLOS sender filed this item under ({@link
+     * CdsHistorySectionsReader}), in CDS PatientRecord order: empty for an item of one section,
+     * another sender's item and an encounter note. {@link #write} links the item to each of them
+     * as it links its own section's tag.
+     *
+     * <p>Details that cannot be read, or whose list does not prove itself, are never guessed at:
+     * the item is filed under its own section only and the report names {@link
+     * #SECTIONS_NOT_APPLIED}. A tag this chart's issue catalogue does not hold exactly once (as it
+     * must hold the item's own, {@link #validate}) is not restored and is reported as {@link
+     * #SECTION_NOT_RESTORED}. The record's retained source keeps every tag either way.
+     */
+    List<String> otherSections(
+            CdsRecordDto record, CdsFieldDto details, Consumer<CdsClinicalDiagnosticDto> notice)
+            throws IOException {
+        String own = ISSUES.get(record.section());
+        if (own == null || details == null) return List.of();
+        List<String> carried;
+        try {
+            carried =
+                    CdsHistorySectionsReader.otherSections(fields.openToken(record, details), own);
+        } catch (IllegalArgumentException malformed) {
+            notice.accept(new CdsClinicalDiagnosticDto(SECTIONS_NOT_APPLIED, "ResidualInfo"));
+            return List.of();
+        }
+        var restored = new java.util.ArrayList<String>();
+        for (String code : carried) {
+            if (issues.findCandidatesByCode(code).size() == 1) restored.add(code);
+            else notice.accept(new CdsClinicalDiagnosticDto(SECTION_NOT_RESTORED, "ResidualInfo"));
+        }
+        return List.copyOf(restored);
     }
 
     /** The documented native note of a narrative too large to hold: its source fields have it. */
@@ -547,6 +589,13 @@ public class CdsHistoryPersister {
             references.put("casemgmt_issue", issue.getId().toString());
             linked = issue;
         }
+        // A CARLOS sender's item filed under several CPP sections: linked to each other one too.
+        var others = otherSectionIssues(patient, source);
+        if (!others.isEmpty()) {
+            var filed = new java.util.LinkedHashSet<CaseManagementIssue>(note.getIssues());
+            filed.addAll(others.values());
+            note.setIssues(filed);
+        }
         notes.saveNote(note);
         if (note.getId() == null || note.getId() < 1)
             throw new CdsImportException("HISTORY_NATIVE_NOTE_ID_MISSING");
@@ -555,12 +604,57 @@ public class CdsHistoryPersister {
         // link that carries the note's id.
         if (linked != null)
             references.put("casemgmt_issue_notes", note.getId() + "_" + linked.getId());
+        otherSectionReferences(note, others, references);
         if (source.observationDate() != null) {
             noteExtension(note.getId(), "cdsDatePrecision", source.observationDate().precision().name(), references);
             noteExtension(note.getId(), "cdsDateOriginal", source.observationDate().original(), references);
             noteExtension(note.getId(), "cdsDateField", source.observationField(), references);
         }
         return references;
+    }
+
+    /**
+     * The patient issues of the other CPP sections the prepared item is filed under ({@link
+     * #otherSections}), by section tag, each found or created exactly as the item's own section's
+     * is. The catalogue held each tag once when the item was prepared; one that no longer does
+     * fails the unit as the item's own tag would.
+     */
+    private Map<String, CaseManagementIssue> otherSectionIssues(
+            int patient, CdsHistoryNativeDto source) {
+        var result = new LinkedHashMap<String, CaseManagementIssue>();
+        for (String code : source.additionalIssueCodes()) {
+            Issue section = requireIssue(code);
+            var existing = patientIssues.findCandidatesByDemographicAndIssue(patient, section.getId());
+            if (existing.size() > 1) throw new CdsImportException("HISTORY_NATIVE_ISSUE_AMBIGUOUS");
+            CaseManagementIssue issue =
+                    existing.isEmpty() ? new CaseManagementIssue() : existing.get(0);
+            if (existing.isEmpty()) {
+                issue.setDemographic_no(patient);
+                issue.setIssue_id(section.getId());
+                issue.setType("general");
+                patientIssues.saveIssue(issue);
+            }
+            if (issue.getId() == null || issue.getId() < 1)
+                throw new CdsImportException("HISTORY_NATIVE_ISSUE_ID_MISSING");
+            result.put(code, issue);
+        }
+        return result;
+    }
+
+    /**
+     * Names in the receipt each other section's patient issue and the note's link to it, keyed by
+     * section tag, as the item's own section's are named.
+     */
+    private static void otherSectionReferences(
+            CaseManagementNote note,
+            Map<String, CaseManagementIssue> others,
+            Map<String, String> references) {
+        for (var other : others.entrySet()) {
+            references.put("casemgmt_issue#" + other.getKey(), other.getValue().getId().toString());
+            references.put(
+                    "casemgmt_issue_notes#" + other.getKey(),
+                    note.getId() + "_" + other.getValue().getId());
+        }
     }
 
     private void noteExtension(Long note, String key, String value, Map<String, String> references) {

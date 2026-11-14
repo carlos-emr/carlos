@@ -336,6 +336,7 @@
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsHistoryProjectionIntegrationTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsHistoryExactNarrativeUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsHistoryResidualReaderUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsHistorySectionsReaderUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsHistoryVisibilityMariaDbIntegrationTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsHrmRepairAdmissionMariaDbIntegrationTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsIdentityAuthorityUnitTest",

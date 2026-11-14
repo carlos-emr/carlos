@@ -234,7 +234,7 @@ public class CdsNativePreparationService {
                                                         .apply(value)
                                                 : io.github.carlos_emr.carlos.demographic.cds
                                                         .contract.CdsPreparedHistoryDefaults
-                                                        .apply(value),
+                                                        .applyNative(value),
                         type);
             } catch (IllegalArgumentException invalid) {
                 throw new CdsImportException("NATIVE_PREPARATION_VERIFICATION_FAILED");

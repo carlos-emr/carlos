@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.dto;
 
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionContract;
 import java.util.List;
 
 /**
@@ -28,6 +29,14 @@ import java.util.List;
  * note's prepared record does not fit its column; oversized source text is never clipped into a
  * false statement. The record's size is held by that column ({@code cds_import_preparation}),
  * not by a length here.
+ *
+ * @param issueCode the CPP section tag of the record's own section, or null for an encounter note
+ * @param additionalIssueCodes the other CPP section tags a CARLOS sender filed the item under
+ *     ({@link CdsNativeExtensionContract#HISTORY_SECTIONS}), each one the receiving catalogue
+ *     holds, in CDS PatientRecord order; the persister links the item to each of them as well.
+ *     Empty for an item of one section, and omitted from the stored payload then, so a payload
+ *     sealed before this component existed reads as empty
+ *     ({@code CdsPreparedHistoryDefaults#applyNative})
  */
 public record CdsHistoryNativeDto(
         String content,
@@ -40,7 +49,33 @@ public record CdsHistoryNativeDto(
         List<CdsClinicalDiagnosticDto> diagnostics,
         @com.fasterxml.jackson.annotation.JsonInclude(
                         com.fasterxml.jackson.annotation.JsonInclude.Include.NON_DEFAULT)
-                boolean archived) {
+                boolean archived,
+        @com.fasterxml.jackson.annotation.JsonInclude(
+                        com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY)
+                List<String> additionalIssueCodes) {
+    public CdsHistoryNativeDto(
+            String content,
+            String issueCode,
+            Long observationMillis,
+            Long createdMillis,
+            String providerNo,
+            CdsTemporalDto observationDate,
+            String observationField,
+            List<CdsClinicalDiagnosticDto> diagnostics,
+            boolean archived) {
+        this(
+                content,
+                issueCode,
+                observationMillis,
+                createdMillis,
+                providerNo,
+                observationDate,
+                observationField,
+                diagnostics,
+                archived,
+                List.of());
+    }
+
     public CdsHistoryNativeDto(
             String content,
             String issueCode,
@@ -64,8 +99,21 @@ public record CdsHistoryNativeDto(
 
     public CdsHistoryNativeDto {
         diagnostics = List.copyOf(diagnostics);
+        additionalIssueCodes =
+                additionalIssueCodes == null ? List.of() : List.copyOf(additionalIssueCodes);
         if (content == null || providerNo != null && providerNo.length() > 6)
             throw new IllegalArgumentException("HISTORY_PREPARED_TEXT_INVALID");
+        // Only a CPP item has other sections: each a section tag other than its own, once, in
+        // the contract's order.
+        if (!additionalIssueCodes.isEmpty()
+                && (issueCode == null
+                        || !CdsNativeExtensionContract.HISTORY_SECTION_TAGS.contains(issueCode)
+                        || additionalIssueCodes.contains(issueCode)
+                        || !additionalIssueCodes.equals(
+                                CdsNativeExtensionContract.HISTORY_SECTION_TAGS.stream()
+                                        .filter(additionalIssueCodes::contains)
+                                        .toList())))
+            throw new IllegalArgumentException("HISTORY_PREPARED_SECTIONS_INVALID");
     }
 
     @Override

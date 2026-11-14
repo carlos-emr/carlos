@@ -300,7 +300,7 @@ public class CdsExportRetainedPreparationReader {
                 type == io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsHistoryNativeDto.class
                         ? JSON.treeToValue(
                                 io.github.carlos_emr.carlos.demographic.cds.contract
-                                        .CdsPreparedHistoryDefaults.apply(
+                                        .CdsPreparedHistoryDefaults.applyNative(
                                         JSON.readTree(row.fields().get("payload"))),
                                 type)
                         : type
