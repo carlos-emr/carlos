@@ -60,7 +60,10 @@ public record CdsDemographicNativeDto(
         List<CdsClinicalDiagnosticDto> diagnostics,
         Map<String, String> carried,
         List<Property> properties,
-        Map<String, String> careTeam) {
+        // Omitted when nothing is restored, so such a payload keeps the bytes it had before.
+        @com.fasterxml.jackson.annotation.JsonInclude(
+                        com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY)
+                Map<String, String> careTeam) {
     public static final String MIDDLE_NAMES_SCALAR = "Names/LegalName/OtherName/GIV";
 
     /** The care-team columns of {@code demographiccust} a restored provider can fill. */

@@ -39,7 +39,10 @@ public record CdsDemographicRelationsDto(
         Pharmacy preferredPharmacy,
         int facilityId,
         List<CdsClinicalDiagnosticDto> diagnostics,
-        java.util.Map<String, String> pharmacyCarried) {
+        // Omitted when nothing is restored, so such a payload keeps the bytes it had before.
+        @com.fasterxml.jackson.annotation.JsonInclude(
+                        com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY)
+                java.util.Map<String, String> pharmacyCarried) {
     /** The {@code pharmacyInfo} columns a carried value can be restored to, with their capacity. */
     public static final java.util.Map<String, Integer> PHARMACY_COLUMNS =
             java.util.Map.ofEntries(
