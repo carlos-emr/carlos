@@ -59,6 +59,8 @@ public record CdsExactNumeric(Codec codec, String bits) {
                 : !Double.isFinite(Double.longBitsToDouble(value))) invalid();
     }
 
+    // FindSecBugs IMPROPER_UNICODE: Upper-cases a JDBC column type name to choose the FLOAT or DOUBLE codec; a schema type keyword, not an identity or authorization decision.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "upper-cases a JDBC column type name to choose the FLOAT or DOUBLE codec; a schema type keyword, not an identity or authorization decision")
     public static Codec codec(String sqlType) {
         return switch (sqlType.toUpperCase(Locale.ROOT)) {
             case "FLOAT", "FLOAT UNSIGNED" -> Codec.IEEE754_BINARY32_V1;

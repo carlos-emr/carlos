@@ -598,6 +598,8 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
     /**
      * Import-only session scope survives removal of the thread marker until physical completion.
      */
+    // FindSecBugs IMPROPER_UNICODE: Compares the session character sets and sql_mode tokens MariaDB itself reports with the ASCII keywords utf8mb4 and STRICT_ALL_TABLES; server variables, not user input or an identity.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "compares the session character sets and sql_mode tokens MariaDB itself reports with the ASCII keywords utf8mb4 and STRICT_ALL_TABLES; server variables, not user input or an identity")
     private void ensureStrictSession(boolean nativeUnit) throws SQLException {
         if (nativeUnit) {
             if (state == null || !state.hasVerifiedCatalogue(state.owner())) {
@@ -636,9 +638,11 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
             originalSqlMode = rows.getString(1);
             if (originalSqlMode == null) throw refused("CDS import SQL mode is unavailable");
         }
-        boolean strict =
-                java.util.Arrays.stream(originalSqlMode.split(","))
-                        .anyMatch(mode -> mode.trim().equalsIgnoreCase("STRICT_ALL_TABLES"));
+        // A loop, not a stream lambda: SpotBugs does not apply this method's annotation to a
+        // lambda body.
+        boolean strict = false;
+        for (String mode : originalSqlMode.split(","))
+            if (mode.trim().equalsIgnoreCase("STRICT_ALL_TABLES")) strict = true;
         if (!strict) {
             sqlModeChanged =
                     true; // A lost SET acknowledgement must also restore or discard the connection.

@@ -49,6 +49,8 @@ public class CdsExportConfigurationService {
     }
 
     /** Same trusted server facility policy used by the active case-management note reader. */
+    // FindSecBugs IMPROPER_UNICODE: Reads the server property FILTER_ON_FACILITY as true or false and refuses any other value; operator configuration, not user input.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "reads the server property FILTER_ON_FACILITY as true or false and refuses any other value; operator configuration, not user input")
     public boolean filterNotesOnFacility() {
         String value = properties.getProperty("FILTER_ON_FACILITY", "true").strip();
         if (value.equalsIgnoreCase("true")) return true;

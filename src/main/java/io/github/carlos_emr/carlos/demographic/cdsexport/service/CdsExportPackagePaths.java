@@ -82,8 +82,14 @@ public final class CdsExportPackagePaths {
         }
         if (relative.getBytes(StandardCharsets.UTF_8).length > 65535)
             throw new IOException("CDS_EXPORT_PACKAGE_PATH_INVALID");
-        return parts.stream()
-                .map(p -> Normalizer.normalize(p, Normalizer.Form.NFC).toLowerCase(Locale.ROOT))
-                .toList();
+        return parts.stream().map(CdsExportPackagePaths::collationKey).toList();
+    }
+
+    // A named method, not the lambda it was: SpotBugs does not apply a method annotation to a
+    // lambda body.
+    // FindSecBugs IMPROPER_UNICODE: Builds the collision and ordering key of a package member name that the export itself generated; folding more names together can only refuse a package, never admit a path.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "builds the collision and ordering key of a package member name that the export itself generated; folding more names together can only refuse a package, never admit a path")
+    private static String collationKey(String part) {
+        return Normalizer.normalize(part, Normalizer.Form.NFC).toLowerCase(Locale.ROOT);
     }
 }

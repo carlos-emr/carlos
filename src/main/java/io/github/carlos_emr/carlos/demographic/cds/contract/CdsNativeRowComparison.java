@@ -33,6 +33,8 @@ public record CdsNativeRowComparison(
         unqualifiedColumns = Set.copyOf(unqualifiedColumns);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: Upper-cases a JDBC column type name to recognise TIMESTAMP columns; a schema type keyword, not an identity or authorization decision.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "upper-cases a JDBC column type name to recognise TIMESTAMP columns; a schema type keyword, not an identity or authorization decision")
     public static CdsNativeRowComparison compare(
             CdsNativeRowState baseline, CdsNativeRowState current) {
         if (baseline == null

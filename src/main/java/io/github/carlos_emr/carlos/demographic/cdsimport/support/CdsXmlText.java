@@ -42,6 +42,8 @@ public final class CdsXmlText {
 
     private CdsXmlText() {}
 
+    // FindSecBugs IMPROPER_UNICODE: Upper-cases the encoding name of an XML declaration, already limited to ASCII by the ENCODING pattern, before Charset.forName; a charset keyword, not an identity or authorization decision.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "upper-cases the encoding name of an XML declaration, already limited to ASCII by the ENCODING pattern, before Charset.forName; a charset keyword, not an identity or authorization decision")
     public static Reader reader(InputStream input, int maxMarkupCharacters) throws IOException {
         PushbackInputStream source = new PushbackInputStream(input, HEADER_LIMIT);
         byte[] header = source.readNBytes(1024);

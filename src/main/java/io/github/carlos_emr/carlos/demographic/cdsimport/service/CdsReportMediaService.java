@@ -201,6 +201,8 @@ public class CdsReportMediaService {
         diagnostics.add(new CdsClinicalDiagnosticDto(code, path));
     }
 
+    // FindSecBugs IMPROPER_UNICODE: Lower-cases a declared file extension or media type to look it up in a fixed list; the bytes are checked against the format separately, so this is not a trust decision.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "lower-cases a declared file extension or media type to look it up in a fixed list; the bytes are checked against the format separately, so this is not a trust decision")
     private static Media declared(String source) {
         String value = source == null ? "" : source.trim().toLowerCase(Locale.ROOT);
         return switch (value) {

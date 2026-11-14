@@ -442,6 +442,8 @@ public final class CdsExportNativeReportMapper {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: Lower-cases a stored document type to choose the CDS report class, defaulting to Medical Records Report; a display classification, not an identity or authorization decision.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "lower-cases a stored document type to choose the CDS report class, defaulting to Medical Records Report; a display classification, not an identity or authorization decision")
     private static String classify(String type) {
         if (type == null) return "Medical Records Report";
         return switch (type.toLowerCase(Locale.ROOT)) {

@@ -121,6 +121,8 @@ final class CdsExportNativeLaboratoryParser {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: Matches the one-letter HL7 do-not-disclose indicator Y or y; only y and Y fold to it, and a match blocks the message, so folding can only withhold.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "matches the one-letter HL7 do-not-disclose indicator Y or y; only y and Y fold to it, and a match blocks the message, so folding can only withhold")
     Parsed parse(String encoded, Runnable checkpoint) throws IOException {
         try {
             if (encoded == null || encoded.isEmpty() || encoded.length() > 2_800_000)

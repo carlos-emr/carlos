@@ -97,6 +97,8 @@ final class CdsExportLaboratoryDocumentMapper {
     }
 
     /** Reads and decodes the payload of one embedded document. */
+    // FindSecBugs IMPROPER_UNICODE: Matches the HL7 encoding keyword of an embedded document (Base64 or Hex) to choose a decoder; a format keyword, not an identity or authorization decision.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "matches the HL7 encoding keyword of an embedded document (Base64 or Hex) to choose a decoder; a format keyword, not an identity or authorization decision")
     static Payload payload(CdsExportLaboratoryOccurrenceService.NativeSource source, int index)
             throws IOException {
         var document = source.parsed().documents().get(index);
