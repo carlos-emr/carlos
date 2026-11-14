@@ -11,7 +11,6 @@ import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportCapturedTe
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDemographicNoteProjectionDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportIdentityDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.validator.CdsExportXmlValidator;
-import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportXmlLimitsDto;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
@@ -108,7 +107,6 @@ public final class CdsExportPatientNoteFixture {
                         CATEGORIES,
                         "2026.08.0-test",
                         CdsLogicalProfile.ONTARIO_MD_5_2,
-                        CdsExportXmlLimitsDto.defaults(),
                         ignored -> {},
                         () -> {});
         return bytes;

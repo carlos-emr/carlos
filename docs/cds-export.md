@@ -1797,8 +1797,8 @@ of the patient, every captured table (its column set, row count, schema SHA-256,
 columns and note access scopes), the field count and value bytes, and the length and SHA-256 of
 the capture's value and index members. The build parameters (`CdsExportChartFingerprints
 .parameters`) are the run, the application version, the clinical zone, the profile, the
-categories, the sender namespace, the compatibility digest, the required tables, the capture
-bounds and the XML limits; a checkpoint made under other parameters adopts nothing.
+categories, the sender namespace, the compatibility digest, the required tables and the
+capture bounds; a checkpoint made under other parameters adopts nothing.
 
 **Adoption** (`CdsExportChartAdoptionService`). A resumed attempt opens the kept checkpoints of
 the job's earlier attempts, newest first, each verified from its recorded pointer and its store

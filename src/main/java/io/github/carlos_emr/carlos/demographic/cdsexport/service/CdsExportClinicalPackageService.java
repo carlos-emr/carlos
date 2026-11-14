@@ -770,7 +770,7 @@ public class CdsExportClinicalPackageService {
         // adopts each one whose capture it finds unchanged (CdsExportChartAdoptionService).
         var parameters =
                 CdsExportChartFingerprints.parameters(
-                        lease, applicationVersion, clinicalZone, bounds, xmlLimits, tables);
+                        lease, applicationVersion, clinicalZone, bounds, tables);
         var resume =
                 adoption == null
                         ? CdsExportChartAdoptionService.withoutPriors(
@@ -1402,7 +1402,6 @@ public class CdsExportClinicalPackageService {
                             tables,
                             bounds,
                             applicationVersion,
-                            xmlLimits,
                             control,
                             owned,
                             source);
@@ -1417,7 +1416,6 @@ public class CdsExportClinicalPackageService {
             Set<String> tables,
             CdsExportClinicalOccurrenceService.Bounds bounds,
             String applicationVersion,
-            CdsExportXmlLimitsDto xmlLimits,
             CdsExportRunControl control,
             List<CdsExportStagedFileDto> owned,
             CdsExportPatientCaptureDto source)

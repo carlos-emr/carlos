@@ -28,7 +28,6 @@ import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportLeaseDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNativeCaptureDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNoteAccessDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportStagedFileDto;
-import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportXmlLimitsDto;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.security.MessageDigest;
@@ -57,8 +56,8 @@ import java.util.TreeSet;
  * <p>{@link #parameters} is the digest of everything a chart's build depends on that is not
  * captured and can differ between two attempts of one job: the job (run, compatibility digest,
  * sender namespace, profile, categories and captured tables), the application version, the
- * clinical zone, the occurrence bounds and the XML limits. A chain made under other parameters is
- * never adopted from.
+ * clinical zone and the occurrence bounds. The finished-XML check has no settings to vary. A
+ * chain made under other parameters is never adopted from.
  *
  * @since 2026-11-14
  */
@@ -110,7 +109,6 @@ final class CdsExportChartFingerprints {
             String applicationVersion,
             ZoneId clinicalZone,
             Object bounds,
-            CdsExportXmlLimitsDto xmlLimits,
             Set<String> tables) {
         var json = CdsExportChartCheckpointReader.JSON;
         var document = lease.document();
@@ -129,7 +127,6 @@ final class CdsExportChartFingerprints {
         root.put("senderNamespace", document.senderNamespace());
         ArrayNode captured = root.putArray("tables");
         for (String table : new TreeSet<>(tables)) captured.add(table);
-        root.set("xmlLimits", canonical(json.valueToTree(Objects.requireNonNull(xmlLimits))));
         return sha256(root);
     }
 

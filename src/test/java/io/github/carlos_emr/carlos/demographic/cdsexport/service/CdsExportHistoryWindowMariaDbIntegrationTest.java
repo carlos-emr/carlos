@@ -503,7 +503,6 @@ class CdsExportHistoryWindowMariaDbIntegrationTest {
                         categories,
                         "2026.08.0-test",
                         CdsLogicalProfile.ONTARIO_MD_5_2,
-                        CdsExportXmlLimitsDto.defaults(),
                         ignored -> {},
                         () -> {});
         // Twenty-eight chains (four revised once), the user-defined diagnosis no note links and
