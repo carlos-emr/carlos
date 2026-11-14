@@ -167,10 +167,23 @@ public final class CdsExportNativeHistoryMapper {
             var definition =
                     current.definitions().get(patientIssue.value().fields().get("issue_id"));
             if (definition == null) invalid();
-            String code = definition.value().fields().get("code");
-            var category = code == null ? null : TAGS.get(code);
+            var category = tag(definition.value());
             if (category != null) categories.add(category);
         }
+        return category(categories);
+    }
+
+    /** The CPP section a catalogue entry files its notes under, or null for any other entry. */
+    static CdsCategory tag(CdsExportCapturedTextRowDto definition) {
+        String code = definition.fields().get("code");
+        return code == null ? null : TAGS.get(code);
+    }
+
+    /**
+     * The section of a note whose linked catalogue entries carry these CPP tags: the one tag, or
+     * ClinicalNotes for none. A note tagged for two sections has no single wire home.
+     */
+    static CdsCategory category(Set<CdsCategory> categories) throws IOException {
         if (categories.size() > 1) review("CDS_EXPORT_NATIVE_HISTORY_CATEGORY_AMBIGUOUS");
         return categories.isEmpty() ? CdsCategory.CLINICAL_NOTES : categories.iterator().next();
     }
@@ -681,8 +694,7 @@ public final class CdsExportNativeHistoryMapper {
     }
 
     static boolean cppDefinition(CdsExportHistoryFieldReconciler.Row definition) {
-        String code = definition.value().fields().get("code");
-        return code != null && TAGS.containsKey(code);
+        return tag(definition.value()) != null;
     }
 
     /**
@@ -690,8 +702,12 @@ public final class CdsExportNativeHistoryMapper {
      * or any {@code issue.type = 'system'} marker (OMeds, TicklerNote, eyeform*, PatientLog, ...).
      */
     static boolean systemDefinition(CdsExportHistoryFieldReconciler.Row definition) {
-        return cppDefinition(definition)
-                || "system".equals(definition.value().fields().get("type"));
+        return systemDefinition(definition.value());
+    }
+
+    /** {@link #systemDefinition(CdsExportHistoryFieldReconciler.Row)} of the entry's captured row. */
+    static boolean systemDefinition(CdsExportCapturedTextRowDto definition) {
+        return tag(definition) != null || "system".equals(definition.fields().get("type"));
     }
 
     /** A patient diagnosis need not have a linked narrative note to be part of the chart. */
@@ -737,8 +753,7 @@ public final class CdsExportNativeHistoryMapper {
                         .equals(issue.value().fields().get("issue_id"))
                 // System markers are carried by their notes, never as a standalone problem.
                 || systemDefinition(definition)) invalid();
-        String program = issue.value().fields().get("program_id");
-        boolean linkedProgram = !linked.isEmpty();
+        var programs = new ArrayList<String>();
         for (var revision : linked) {
             var note = revision.note().value();
             CdsExportCaseManagementProjectionEvidence.verify(note, revision.note().witness());
@@ -750,11 +765,50 @@ public final class CdsExportNativeHistoryMapper {
                                                     .fields()
                                                     .get("id")
                                                     .equals(link.fields().get("id")))) invalid();
-            if (!Objects.equals(program, note.fields().get("program_no"))) linkedProgram = false;
+            programs.add(note.fields().get("program_no"));
         }
+        return mapLinkedIssue(patient, issue, definition, programs, readableProgram);
+    }
+
+    /**
+     * {@link #mapIssue(int, CdsExportHistoryFieldReconciler.Row,
+     * CdsExportHistoryFieldReconciler.Row, List, java.util.function.Predicate)} for a caller that
+     * has already verified the linked note revisions and holds only what the rule reads of them:
+     * the program of each. An issue that thousands of encounter notes link is then mapped without
+     * loading those notes.
+     *
+     * @param linkedPrograms {@code program_no} of every captured note revision that links this
+     *     patient issue, one entry a revision (an entry may be null)
+     */
+    Result mapLinkedIssue(
+            int patient,
+            CdsExportHistoryFieldReconciler.Row issue,
+            CdsExportHistoryFieldReconciler.Row definition,
+            Collection<String> linkedPrograms,
+            java.util.function.Predicate<String> readableProgram)
+            throws IOException {
+        if (issue == null
+                || definition == null
+                || patient < 1
+                || linkedPrograms == null
+                || readableProgram == null) invalid();
+        CdsExportCaseManagementProjectionEvidence.verify(issue.value(), issue.witness());
+        CdsExportCaseManagementProjectionEvidence.verify(definition.value(), definition.witness());
+        if (!Integer.toString(patient).equals(issue.value().fields().get("demographic_no"))
+                || !definition
+                        .value()
+                        .fields()
+                        .get("issue_id")
+                        .equals(issue.value().fields().get("issue_id"))
+                // System markers are carried by their notes, never as a standalone problem.
+                || systemDefinition(definition)) invalid();
+        String program = issue.value().fields().get("program_id");
+        boolean linkedProgram = !linkedPrograms.isEmpty();
+        for (String noteProgram : linkedPrograms)
+            if (!Objects.equals(program, noteProgram)) linkedProgram = false;
         boolean followsNotes = false;
         if (scopedProgram(program) && !linkedProgram && !readableProgram.test(program)) {
-            if (linked.isEmpty()) review("CDS_EXPORT_NATIVE_ISSUE_PROGRAM_REQUIRES_REVIEW");
+            if (linkedPrograms.isEmpty()) review("CDS_EXPORT_NATIVE_ISSUE_PROGRAM_REQUIRES_REVIEW");
             followsNotes = true;
         }
         var category = issueCategory(definition);
