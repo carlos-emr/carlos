@@ -1060,10 +1060,29 @@ class CdsExportHistoryWindowUnitTest {
     }
 
     @Test
-    void shouldHoldANoteFiledUnderTwoSections_whenTheChartIsReadInWindows() {
+    void shouldExportANoteFiledUnderTwoSectionsOnce_whenTheChartIsReadInWindows()
+            throws Exception {
         chart(20);
+        // A family history item also filed under Past Health. It held the patient
+        // (CDS_EXPORT_NATIVE_HISTORY_CATEGORY_AMBIGUOUS); it is now written once, under the first
+        // of its sections in the CDS record, naming the other and carrying both tags.
         link(1001, 42);
-        assertRefused("CDS_EXPORT_NATIVE_HISTORY_CATEGORY_AMBIGUOUS");
+        var whole = emit();
+        assertThat(whole.receipts())
+                .filteredOn(receipt -> receipt.nativeId().equals("1001"))
+                .extracting(receipt -> receipt.identity().category())
+                .containsExactly(CdsCategory.FAMILY_HISTORY);
+        String xml = new String(whole.xml(), StandardCharsets.UTF_8);
+        assertThat(xml)
+                .contains(
+                        CdsExportNativeHistoryMapper.ALSO_FILED_UNDER + "\nPast Health",
+                        "\"sections\":[\"FamHistory\",\"MedHistory\"]");
+        for (int window : new int[] {1, 3}) {
+            bounds = bounds.withWindow(window, 64L << 20);
+            var windowed = emit();
+            assertThat(windowed.xml()).as("window of " + window).isEqualTo(whole.xml());
+            assertThat(windowed.receipts()).as("window of " + window).isEqualTo(whole.receipts());
+        }
     }
 
     private static byte[] sha256(byte[] bytes) {
