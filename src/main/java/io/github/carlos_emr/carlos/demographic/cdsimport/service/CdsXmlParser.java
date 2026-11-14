@@ -233,7 +233,7 @@ public class CdsXmlParser {
                             valueWriter,
                             manifestOutput,
                             diagnosticOutput);
-            try (CountingInput counted = new CountingInput(raw, limits.maxSourceBytes(), pipeline);
+            try (CountingInput counted = new CountingInput(raw, pipeline);
                     DigestInputStream hashed = new DigestInputStream(counted, sourceHash);
                     Reader text = CdsXmlText.reader(hashed, limits.maxBoundedScalarCharacters())) {
                 XMLReader reader;
@@ -601,7 +601,9 @@ public class CdsXmlParser {
                 }
                 if (frame.mode == Mode.BINARY) {
                     if (frame.child) fail("CDS_BINARY_CHILD_INVALID");
-                    frame.base64(chars, offset, length, valueOutput, limits.maxBinaryBytes());
+                    // A decoded value of any size streams to the values spool; the disk reserve
+                    // checked by check() is what stops a value its store cannot hold.
+                    frame.base64(chars, offset, length, valueOutput, Long.MAX_VALUE);
                 } else {
                     if (section != null && !frame.child && frame.mode != Mode.COMPLEX)
                         valueWriter.write(chars, offset, length);
@@ -837,12 +839,13 @@ public class CdsXmlParser {
                     Math.addExact(
                             Math.addExact(valueOutput.count, fieldOutput.count),
                             Math.addExact(manifestOutput.count, diagnosticOutput.count));
+            // The spools grow with the document and its decoded values; only the free-disk
+            // reserve, checked every 16 MiB they grow, stops a parse for its size.
             if (spoolBytes >= nextDiskCheck) {
                 if (Files.getFileStore(spool).getUsableSpace() < limits.minimumFreeDiskBytes())
                     fail("CDS_INPUT_DISK_RESERVE");
                 nextDiskCheck = Math.addExact(spoolBytes, 16L << 20);
             }
-            if (spoolBytes > limits.maxExpandedBytes()) fail("CDS_INPUT_BYTE_LIMIT");
         }
 
         private void fail(String code) throws CdsInputException {
@@ -1055,14 +1058,13 @@ public class CdsXmlParser {
         }
     }
 
+    /** Counts the source bytes for the parse seal; a source of any size is read. */
     private static final class CountingInput extends FilterInputStream {
-        private final long maximum;
         private final Pipeline pipeline;
         private long count;
 
-        CountingInput(InputStream input, long maximum, Pipeline pipeline) {
+        CountingInput(InputStream input, Pipeline pipeline) {
             super(input);
-            this.maximum = maximum;
             this.pipeline = pipeline;
         }
 
@@ -1086,9 +1088,8 @@ public class CdsXmlParser {
             return n;
         }
 
-        private void add(int amount) throws IOException {
+        private void add(int amount) {
             count = Math.addExact(count, amount);
-            if (count > maximum) throw CdsPaths.failure("CDS_INPUT_BYTE_LIMIT");
         }
     }
 }

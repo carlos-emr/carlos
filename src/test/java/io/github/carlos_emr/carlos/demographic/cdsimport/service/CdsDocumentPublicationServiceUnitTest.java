@@ -74,6 +74,38 @@ class CdsDocumentPublicationServiceUnitTest {
     }
 
     @Test
+    void shouldPublishDocument_pastTheRetiredExpandedCeiling() throws Exception {
+        byte[] content = new byte[1 << 20];
+        new java.util.Random(3).nextBytes(content);
+        Properties properties = new Properties();
+        // A deployment that still sets the retired ceiling: a document of any length publishes.
+        properties.setProperty("cds.import.maxExpandedBytes", "4096");
+        properties.setProperty("cds.import.minimumFreeDiskBytes", "1");
+        CdsImportFileService files = mock(CdsImportFileService.class);
+        var service =
+                new CdsDocumentPublicationService(
+                        files, new CdsImportConfigurationService(properties), new CdsFieldParser());
+        try (MockedStatic<PathValidationUtils> paths =
+                mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS)) {
+            paths.when(PathValidationUtils::getRequiredDocumentDirectory)
+                    .thenReturn(directory.toFile());
+            var result =
+                    service.publish(
+                            "run",
+                            1,
+                            unit,
+                            "embedded",
+                            "pdf",
+                            sha(content),
+                            content.length,
+                            () -> new ByteArrayInputStream(content));
+            assertThat(Files.readAllBytes(Path.of(result.location()))).isEqualTo(content);
+            verify(files)
+                    .publishedVerified("run", 1, result.location(), sha(content), content.length);
+        }
+    }
+
+    @Test
     void shouldStopPublicationAndExistingVerification_whenScopedOwnerIsLost() throws Exception {
         byte[] content = "synthetic report".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         var files = mock(CdsImportFileService.class);

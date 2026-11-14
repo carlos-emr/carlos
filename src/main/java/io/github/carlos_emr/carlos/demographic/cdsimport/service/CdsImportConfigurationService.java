@@ -24,10 +24,15 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsInputLimitsDto;
@@ -37,6 +42,7 @@ import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 /** Server-owned admission, provenance and capacity policy; no caller can mint a source namespace. */
 @Service
 public class CdsImportConfigurationService {
+    private static final Logger LOG = LogManager.getLogger(CdsImportConfigurationService.class);
     public static final String RULESET = "carlos-cds-import-v1";
     private static final Set<String> CORE_PROFILES = Set.of("pcon-2024-02", "omd-5.2");
     private final Properties properties;
@@ -163,22 +169,50 @@ public class CdsImportConfigurationService {
         }
     }
 
+    /**
+     * Settings that used to refuse an import for its size: the source and any one member, the
+     * expanded archive, its entry count, one decoded binary value and the compression ratio. No
+     * count, size or ratio may decide whether an import runs, so each is accepted and ignored,
+     * whatever its value, instead of failing an import or start-up. Every byte an import writes is
+     * checked against {@code cds.import.minimumFreeDiskBytes} before and while it is written, and
+     * the archive, the parse spools and the plan are streamed to the import's private storage, so
+     * only a genuine storage failure (the reserve reached, or an I/O error) stops an import for
+     * its size, under its own code. A decompression bomb is one such import: it is expanded as a
+     * stream and stops at the reserve ({@code CDS_INPUT_DISK_RESERVE}).
+     */
+    public static final List<String> RETIRED_SETTINGS =
+            List.of(
+                    "cds.import.maxSourceBytes",
+                    "cds.import.maxExpandedBytes",
+                    "cds.import.maxEntries",
+                    "cds.import.maxBinaryBytes",
+                    "cds.import.maxCompressionRatio");
+
+    private final AtomicBoolean retiredReported = new AtomicBoolean();
+
     public CdsInputLimitsDto limits() {
+        retired();
         CdsInputLimitsDto defaults = CdsInputLimitsDto.defaults();
-        return new CdsInputLimitsDto(number("cds.import.maxSourceBytes", defaults.maxSourceBytes()),
-                number("cds.import.maxExpandedBytes", defaults.maxExpandedBytes()),
-                number("cds.import.maxEntries", defaults.maxEntries()),
+        return new CdsInputLimitsDto(
                 Math.toIntExact(number("cds.import.maxXmlDepth", defaults.maxXmlDepth())),
                 Math.toIntExact(number("cds.import.maxScalarCharacters", defaults.maxBoundedScalarCharacters())),
-                number("cds.import.maxBinaryBytes", defaults.maxBinaryBytes()),
                 number("cds.import.minimumFreeDiskBytes", defaults.minimumFreeDiskBytes()),
                 number("cds.import.maxDurationMillis", defaults.maxDurationMillis()),
                 Math.toIntExact(number("cds.import.maxPathCharacters", defaults.maxPathCharacters())),
-                ratio("cds.import.maxCompressionRatio", defaults.maxCompressionRatio()),
                 Math.toIntExact(number("cds.import.maxNamespaceAliases", defaults.maxNamespaceAliases())),
                 Math.toIntExact(number("cds.import.maxUniqueXmlNames", defaults.maxUniqueXmlNames())),
                 Math.toIntExact(number("cds.import.maxXmlNameCharacters", defaults.maxXmlNameCharacters())),
                 Math.toIntExact(number("cds.import.maxNamespaceUriCharacters", defaults.maxNamespaceUriCharacters())));
+    }
+
+    /** Names the ignored settings once per process; setting names only, never a value. */
+    private void retired() {
+        if (retiredReported.get()) return;
+        List<String> present = new ArrayList<>();
+        for (String key : RETIRED_SETTINGS)
+            if (properties.getProperty(key) != null) present.add(key);
+        if (!present.isEmpty() && retiredReported.compareAndSet(false, true))
+            LOG.warn("CDS_IMPORT_RETIRED_SETTINGS_IGNORED settings={}", present);
     }
 
     public long number(String key, long fallback) {
@@ -228,14 +262,6 @@ public class CdsImportConfigurationService {
         String value = java.util.HexFormat.of().formatHex(digest.digest());
         policyDigests.put(cacheKey, value);
         return value;
-    }
-
-    private double ratio(String key, double fallback) {
-        try {
-            double value = Double.parseDouble(value(key, Double.toString(fallback)));
-            if (!Double.isFinite(value) || value < 1) throw new NumberFormatException();
-            return value;
-        } catch (NumberFormatException invalid) { throw new CdsImportException("IMPORT_RESOURCE_CONFIGURATION_INVALID"); }
     }
 
     private Set<String> tokens(String key) {

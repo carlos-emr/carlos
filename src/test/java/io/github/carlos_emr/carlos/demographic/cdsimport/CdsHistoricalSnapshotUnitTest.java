@@ -339,12 +339,8 @@ class CdsHistoricalSnapshotUnitTest {
         var v = configuration.limits();
         doReturn(
                         new CdsInputLimitsDto(
-                                v.maxSourceBytes(),
-                                v.maxExpandedBytes(),
-                                v.maxEntries(),
                                 v.maxXmlDepth(),
                                 v.maxBoundedScalarCharacters(),
-                                v.maxBinaryBytes(),
                                 v.minimumFreeDiskBytes(),
                                 1,
                                 v.maxPathCharacters()))

@@ -212,6 +212,25 @@ class CdsImportCleanupServiceUnitTest {
     }
 
     @Test
+    void shouldRemoveOwnedPartial_whenItsProofDeclaresALengthPastTheRetiredCeiling()
+            throws Exception {
+        byte[] content = {1, 2, 3};
+        // A one-TiB publication that never finished: its proof is valid whatever its length (the
+        // retired 512 GiB expanded ceiling no longer bounds one document), so the owned private
+        // partial is retired rather than held for review.
+        Path known = operation(content, hash(content), run, 1L << 40);
+        try (MockedStatic<PathValidationUtils> paths =
+                mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS)) {
+            paths.when(PathValidationUtils::getRequiredDocumentDirectory)
+                    .thenReturn(document.toFile());
+            var result = cleanup.reconcile(run, epoch, current);
+            assertThat(Files.exists(known)).isFalse();
+            assertThat(result.safeCodes())
+                    .doesNotContain("CLEANUP_PRIVATE_OPERATION_REQUIRES_REVIEW");
+        }
+    }
+
+    @Test
     void shouldRetainRecoveryPayload_whenRegisteredFinalFileIsMissing() throws Exception {
         byte[] content = {4, 5, 6};
         String hash = hash(content);
@@ -306,6 +325,11 @@ class CdsImportCleanupServiceUnitTest {
     }
 
     private Path operation(byte[] content, String hash, String ownerRun) throws Exception {
+        return operation(content, hash, ownerRun, content.length);
+    }
+
+    private Path operation(byte[] content, String hash, String ownerRun, long declaredLength)
+            throws Exception {
         Path pending = directory(document.resolve(".cds-pending")),
                 runRoot = directory(pending.resolve(run));
         String id = UUID.randomUUID().toString();
@@ -319,7 +343,7 @@ class CdsImportCleanupServiceUnitTest {
                         "text",
                         "txt",
                         hash,
-                        content.length,
+                        declaredLength,
                         filename(hash),
                         id,
                         System.currentTimeMillis());

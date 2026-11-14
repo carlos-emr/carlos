@@ -71,7 +71,16 @@ import org.xml.sax.helpers.DefaultHandler;
 import java.io.Reader;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsXmlText;
 
-/** Copies an authorized source to durable, opaque private storage with a disk-backed name inventory. */
+/**
+ * Copies an authorized source to durable, opaque private storage with a disk-backed name inventory.
+ *
+ * <p>No size, entry count or compression ratio refuses a source. The archive is copied and expanded
+ * as a stream through fixed buffers, every member's name marker and manifest row go to private
+ * storage as they are written, and the free-disk reserve is checked before the first byte and
+ * after every 16 MiB written; reaching it stops the snapshot with {@code CDS_INPUT_DISK_RESERVE}
+ * and leaves the unpublished {@code .pending} directory as failed-attempt evidence. A decompression
+ * bomb therefore stops at the reserve, and the memory the copy uses does not grow with the archive.
+ */
 @Service
 public class CdsSnapshotService {
     private static final String SOURCE_MEMBER_PATH_INVALID = "CDS_SOURCE_MEMBER_PATH_INVALID";
@@ -81,6 +90,26 @@ public class CdsSnapshotService {
     private static final String EXPLICIT_KEY = "explicit";
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final int BUFFER = 65536;
+
+    /** Bytes written between two checks of the free-disk reserve. */
+    static final long DISK_CHECK_BYTES = 16L << 20;
+
+    /** The usable space of the store holding a path. */
+    @FunctionalInterface
+    interface UsableSpace {
+        long of(Path path) throws IOException;
+    }
+
+    private final UsableSpace usableSpace;
+
+    public CdsSnapshotService() {
+        this(path -> Files.getFileStore(path).getUsableSpace());
+    }
+
+    /** A test models a filling disk here instead of filling a real one. */
+    CdsSnapshotService(UsableSpace usableSpace) {
+        this.usableSpace = java.util.Objects.requireNonNull(usableSpace);
+    }
 
     /**
      * Creates a complete immutable snapshot. Failure leaves an unpublished .pending directory for
@@ -153,8 +182,18 @@ public class CdsSnapshotService {
         Path index = CdsPaths.privateDirectory(pending.resolve("names"), pending);
         Path manifest = pending.resolve(FILES_MANIFEST);
         Inventory inventory =
-                new Inventory(pending, members, index, manifest, limits, cancelled, checkpoint);
+                new Inventory(
+                        pending,
+                        members,
+                        index,
+                        manifest,
+                        limits,
+                        cancelled,
+                        checkpoint,
+                        usableSpace);
         try (inventory) {
+            // The reserve is checked before the first byte is written, not only after 16 MiB.
+            inventory.check();
             if (Files.isDirectory(source, LinkOption.NOFOLLOW_LINKS)) {
                 copyDirectory(source, inventory);
             } else if (source.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".zip")) {
@@ -163,20 +202,19 @@ public class CdsSnapshotService {
                     archive = inventory.copyArchive(raw);
                 }
                 long zipEntries = 0;
-                try (CountingSource raw =
-                                new CountingSource(
+                try (CheckedSource raw =
+                                new CheckedSource(
                                         Files.newInputStream(archive, LinkOption.NOFOLLOW_LINKS),
-                                        limits.maxSourceBytes(),
                                         inventory::check);
                         ZipInputStream zip =
                                 new ZipInputStream(
                                         new BufferedInputStream(raw, BUFFER),
                                         Charset.forName("IBM437"))) {
-                    inventory.archiveInput = raw;
                     ZipEntry entry;
                     while ((entry = zip.getNextEntry()) != null) {
-                        if (++zipEntries > limits.maxEntries())
-                            throw CdsPaths.failure("CDS_INPUT_ENTRY_LIMIT");
+                        // Counted only to prove the central directory lists the same entries;
+                        // each entry's marker and row are on disk, so no count is a ceiling.
+                        zipEntries++;
                         inventory.check();
                         String relative = normalizedRelative(entry.getName(), limits);
                         if (entry.isDirectory()) {
@@ -192,8 +230,7 @@ public class CdsSnapshotService {
                         zip.closeEntry();
                     }
                 }
-                CdsZipDirectory.validate(
-                        archive, index, pending, limits.maxEntries(), zipEntries, inventory::check);
+                CdsZipDirectory.validate(archive, index, pending, zipEntries, inventory::check);
             } else {
                 boolean declaredXml =
                         source.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".xml");
@@ -654,18 +691,14 @@ public class CdsSnapshotService {
             Path source, CdsInputLimitsDto limits, CdsZipDirectory.Check checkpoint)
             throws IOException {
         try (InputStream raw = Files.newInputStream(source, LinkOption.NOFOLLOW_LINKS);
-                InputStream checked = new CountingSource(raw, limits.maxSourceBytes(), checkpoint);
+                InputStream checked = new CheckedSource(raw, checkpoint);
                 InputStream input = new ProbeInput(checked);
                 Reader text = CdsXmlText.reader(input, limits.maxBoundedScalarCharacters())) {
             return probeCandidate(text, limits);
         } catch (javax.xml.parsers.ParserConfigurationException | SAXException configuration) {
             throw CdsPaths.failure("CDS_SECURE_XML_PARSER_UNAVAILABLE");
         } catch (CdsInputException stopped) {
-            if (Set.of(
-                            "CDS_INPUT_CANCELLED",
-                            "CDS_INPUT_DEADLINE",
-                            "CDS_INPUT_DISK_RESERVE",
-                            "CDS_INPUT_BYTE_LIMIT")
+            if (Set.of("CDS_INPUT_CANCELLED", "CDS_INPUT_DEADLINE", "CDS_INPUT_DISK_RESERVE")
                     .contains(stopped.code())) throw stopped;
             return true;
         } catch (IOException _) {
@@ -749,9 +782,7 @@ public class CdsSnapshotService {
             throws IOException {
         Path copied = inventory.members.resolve("000000000001.bin");
         try (InputStream raw = Files.newInputStream(copied, LinkOption.NOFOLLOW_LINKS);
-                InputStream input =
-                        new CountingSource(
-                                raw, inventory.limits.maxSourceBytes(), inventory::check);
+                InputStream input = new CheckedSource(raw, inventory::check);
                 Reader text =
                         CdsXmlText.reader(input, inventory.limits.maxBoundedScalarCharacters())) {
             parseReferences(text, originalXml, inventory);
@@ -899,13 +930,13 @@ public class CdsSnapshotService {
         private final CdsInputLimitsDto limits;
         private final BooleanSupplier cancelled;
         private final Runnable checkpoint;
+        private final UsableSpace usableSpace;
         private final long started = System.nanoTime();
 
         // One snapshot invocation owns this Inventory and all synchronous copy callbacks.
         @SuppressWarnings("java:S9428")
         private final MessageDigest manifestDigest = CdsPaths.sha256();
 
-        private long entries;
         private long files;
         private long xmls;
         private long total;
@@ -915,7 +946,6 @@ public class CdsSnapshotService {
         private long nextDiskCheck;
         private String digest;
         private String archiveSha256 = "";
-        private CountingSource archiveInput;
 
         Inventory(
                 Path pending,
@@ -924,7 +954,8 @@ public class CdsSnapshotService {
                 Path manifest,
                 CdsInputLimitsDto limits,
                 BooleanSupplier cancelled,
-                Runnable checkpoint)
+                Runnable checkpoint,
+                UsableSpace usableSpace)
                 throws IOException {
             this.pending = pending;
             this.members = members;
@@ -933,6 +964,7 @@ public class CdsSnapshotService {
             this.limits = limits;
             this.cancelled = cancelled;
             this.checkpoint = checkpoint;
+            this.usableSpace = usableSpace;
             output = new BufferedOutputStream(CdsPaths.newPrivateFile(manifest, pending), BUFFER);
         }
 
@@ -948,11 +980,13 @@ public class CdsSnapshotService {
             }
             if ((now - started) / 1_000_000 > limits.maxDurationMillis())
                 throw CdsPaths.failure("CDS_INPUT_DEADLINE");
+            // The reserve is the only thing that stops a source for its size: an archive of any
+            // size, entry count or compression ratio is copied until its store would run short.
             long written = Math.addExact(total, archiveCopied);
             if (written >= nextDiskCheck) {
-                if (Files.getFileStore(pending).getUsableSpace() < limits.minimumFreeDiskBytes())
+                if (usableSpace.of(pending) < limits.minimumFreeDiskBytes())
                     throw CdsPaths.failure("CDS_INPUT_DISK_RESERVE");
-                nextDiskCheck = written + (16L << 20);
+                nextDiskCheck = written + DISK_CHECK_BYTES;
             }
         }
 
@@ -1009,7 +1043,6 @@ public class CdsSnapshotService {
         }
 
         void reserve(String relative, ObjectNode node) throws IOException {
-            if (++entries > limits.maxEntries()) throw CdsPaths.failure("CDS_INPUT_ENTRY_LIMIT");
             Path key = index.resolve(nameKey(relative));
             try (OutputStream marker = CdsPaths.newPrivateFile(key, pending)) {
                 marker.write(JSON.writeValueAsBytes(node));
@@ -1032,8 +1065,6 @@ public class CdsSnapshotService {
                     check();
                     bytes = Math.addExact(bytes, n);
                     archiveCopied = bytes;
-                    if (bytes > limits.maxSourceBytes())
-                        throw CdsPaths.failure("CDS_INPUT_BYTE_LIMIT");
                     hash.update(buffer, 0, n);
                     output.write(buffer, 0, n);
                 }
@@ -1067,14 +1098,6 @@ public class CdsSnapshotService {
                     check();
                     size = Math.addExact(size, n);
                     total = Math.addExact(total, n);
-                    if (size > limits.maxSourceBytes() || total > limits.maxExpandedBytes()) {
-                        throw CdsPaths.failure("CDS_INPUT_BYTE_LIMIT");
-                    }
-                    if (archiveInput != null
-                            && total / (double) Math.max(1, archiveInput.count)
-                                    > limits.maxCompressionRatio()) {
-                        throw CdsPaths.failure("CDS_ZIP_COMPRESSION_RATIO_LIMIT");
-                    }
                     signature.accept(buffer, 0, n);
                     bytesDigest.update(buffer, 0, n);
                     crc.update(buffer, 0, n);
@@ -1148,36 +1171,25 @@ public class CdsSnapshotService {
         }
     }
 
-    private static final class CountingSource extends FilterInputStream {
-        private long count;
-        private final long maximum;
+    /** Runs the snapshot's checks (cancellation, time, disk) before every bounded read. */
+    private static final class CheckedSource extends FilterInputStream {
         private final CdsZipDirectory.Check check;
 
-        CountingSource(InputStream input, long maximum, CdsZipDirectory.Check check) {
+        CheckedSource(InputStream input, CdsZipDirectory.Check check) {
             super(input);
-            this.maximum = maximum;
             this.check = check;
         }
 
         @Override
         public int read() throws IOException {
             check.run();
-            int value = in.read();
-            if (value >= 0) add(1);
-            return value;
+            return in.read();
         }
 
         @Override
         public int read(byte[] bytes, int offset, int length) throws IOException {
             check.run();
-            int n = in.read(bytes, offset, Math.min(length, BUFFER));
-            if (n > 0) add(n);
-            return n;
-        }
-
-        private void add(int n) throws IOException {
-            count = Math.addExact(count, n);
-            if (count > maximum) throw CdsPaths.failure("CDS_INPUT_BYTE_LIMIT");
+            return in.read(bytes, offset, Math.min(length, BUFFER));
         }
     }
 }

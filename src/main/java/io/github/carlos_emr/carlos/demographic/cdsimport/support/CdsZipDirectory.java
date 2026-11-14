@@ -46,13 +46,16 @@ public final class CdsZipDirectory {
         void run() throws IOException;
     }
 
+    /**
+     * Proves the central directory lists exactly the entries streamed into the snapshot, with the
+     * same names, kinds, lengths and CRCs. One directory record is read at a time and each is
+     * matched against its on-disk name marker, so no entry count is a ceiling: the directory of an
+     * archive with any number of entries is verified in fixed memory.
+     *
+     * @param expectedEntries the number of local entries the streaming copy read
+     */
     public static void validate(
-            Path archive,
-            Path nameIndex,
-            Path snapshot,
-            long maximumEntries,
-            long expectedEntries,
-            Check check)
+            Path archive, Path nameIndex, Path snapshot, long expectedEntries, Check check)
             throws IOException {
         check.run();
         try (RandomAccessFile file = new RandomAccessFile(archive.toFile(), "r")) {
@@ -101,7 +104,6 @@ public final class CdsZipDirectory {
             } else if (little(tail, found + 8, 2) != count)
                 throw CdsPaths.failure("CDS_ZIP_MULTIDISK_UNSUPPORTED");
             if (count != expectedEntries
-                    || count > maximumEntries
                     || count < 0
                     || offset < 0
                     || directorySize < 0
