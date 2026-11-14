@@ -56,11 +56,24 @@ class CdsImportPolicyUnitTest {
         Properties zone = new Properties();
         zone.putAll(first);
         zone.setProperty("cds.import.clinicalZone", "UTC");
-        Properties note = new Properties();
-        note.putAll(first);
-        note.setProperty("cds.import.native.maxNoteBytes", "131072");
+        Properties mapping = new Properties();
+        mapping.putAll(first);
+        mapping.setProperty("cds.import.mapping.restoreArchivedAllergies", "true");
         assertThat(config(zone).normalizationPolicyDigest(command)).isNotEqualTo(accepted);
-        assertThat(config(note).normalizationPolicyDigest(command)).isNotEqualTo(accepted);
+        assertThat(config(mapping).normalizationPolicyDigest(command)).isNotEqualTo(accepted);
+    }
+
+    @Test
+    void shouldKeepPolicyStable_whenTheRetiredNoteSizeIsStillSet() {
+        // The note size is no longer a policy: a deployment that still sets it gets the same
+        // digest as one that does not.
+        Properties first = new Properties();
+        first.setProperty("cds.import.clinicalZone", "America/Toronto");
+        String accepted = config(first).normalizationPolicyDigest(command);
+        Properties retired = new Properties();
+        retired.putAll(first);
+        retired.setProperty("cds.import.native.maxNoteBytes", "131072");
+        assertThat(config(retired).normalizationPolicyDigest(command)).isEqualTo(accepted);
     }
 
     @Test

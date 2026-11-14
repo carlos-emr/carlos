@@ -186,7 +186,10 @@ public class CdsImportConfigurationService {
      * chunk by chunk, each chunk checked against the reserve of the upload store before it is
      * written ({@code UPLOAD_DISK_RESERVE_REFUSED}). The count of uploads awaiting their runs'
      * snapshots is retired too: a store out of space refuses at that reserve, and one out of
-     * inodes fails the step that needed one.
+     * inodes fails the step that needed one. The native note size is retired as well: a note is
+     * stored whole up to the capacity of the column its prepared record is held in, and only a
+     * larger one becomes the documented placeholder (its complete text stays in the source
+     * fields). Retired settings take no part in the normalization policy digest.
      */
     public static final List<String> RETIRED_SETTINGS =
             List.of(
@@ -197,7 +200,8 @@ public class CdsImportConfigurationService {
                     "cds.import.maxCompressionRatio",
                     "cds.import.upload.maxFileBytes",
                     "cds.import.upload.maxTotalBytes",
-                    "cds.import.upload.maxFiles");
+                    "cds.import.upload.maxFiles",
+                    "cds.import.native.maxNoteBytes");
 
     private final AtomicBoolean retiredReported = new AtomicBoolean();
 
@@ -253,11 +257,13 @@ public class CdsImportConfigurationService {
         if (cached != null) return cached;
         java.util.SortedMap<String, String> policy = new java.util.TreeMap<>();
         policy.put("cds.import.clinicalZone", value("cds.import.clinicalZone", ""));
-        policy.put("cds.import.native.maxNoteBytes", Long.toString(number("cds.import.native.maxNoteBytes", 262144)));
+        // The note size is no longer a policy: cds.import.native.maxNoteBytes is retired, so it is
+        // left out even when a deployment still sets it (RETIRED_SETTINGS).
         policy.put("runtime.calendarZone", calendarZone);
         policy.put("hibernate.jdbc.time_zone", value("hibernate.jdbc.time_zone", ""));
         String source = "cds.import.source." + command.sourceNamespace() + ".";
         for (String key : properties.stringPropertyNames()) {
+            if (RETIRED_SETTINGS.contains(key)) continue;
             if (key.startsWith("cds.import.native.") || key.startsWith("cds.import.mapping.")
                     || key.startsWith("cds.import.normalization.")
                     || key.startsWith(source) && !key.equals(source + "profiles")) {

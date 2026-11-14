@@ -122,7 +122,6 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
                                 "AC"));
         Properties properties = new Properties();
         properties.setProperty("cds.import.clinicalZone", "America/Toronto");
-        properties.setProperty("cds.import.native.maxNoteBytes", "262144");
         var configuration = new CdsImportConfigurationService(properties);
         var normalization = new CdsClinicalNormalizationService(fields);
         demographics =
@@ -551,15 +550,48 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldUseVisibleSourceMarker_forOversizedNarrativeAndKeepOriginalDownloadable()
-            throws Exception {
-        String text = "N".repeat(400000);
+    void shouldStoreWholeNote_whenNoteExceeds256KiB() throws Exception {
+        // Past the 256 KiB (and 384 KiB) the retired cds.import.native.maxNoteBytes allowed: the
+        // whole note is prepared, accented and astral characters included.
+        String text = "Synthetic encounter detail é 😀\n".repeat(16_000);
+        assertThat(text.getBytes(java.nio.charset.StandardCharsets.UTF_8).length)
+                .isGreaterThan(393_216);
         var record =
                 section(
                         "ClinicalNotes",
                         "<MyClinicalNotesContent>" + text + "</MyClinicalNotesContent>");
         histories.prepare("run", 1, "unit", record, command);
         var dto = captured(CdsHistoryNativeDto.class);
+        assertThat(dto.content()).isEqualTo(text);
+        assertThat(dto.diagnostics())
+                .extracting(CdsClinicalDiagnosticDto::code)
+                .doesNotContain("CDS_NOTE_COMPLETE_TEXT_SOURCE_VIEW");
+    }
+
+    @Test
+    void shouldUseVisibleSourceMarker_whenThePreparedNoteDoesNotFitItsColumn() throws Exception {
+        // A note whose prepared record is larger than its column admits: the documented
+        // placeholder is prepared instead, and the source field keeps the whole text.
+        String text = "N".repeat(400000);
+        var record =
+                section(
+                        "ClinicalNotes",
+                        "<MyClinicalNotesContent>" + text + "</MyClinicalNotesContent>");
+        var stored = new ArrayList<Object>();
+        org.mockito.Mockito.doAnswer(
+                        call -> {
+                            stored.add(call.getArgument(5));
+                            if (stored.size() == 1)
+                                throw new io.github.carlos_emr.carlos.demographic.cdsimport.support
+                                        .CdsImportException("NATIVE_PREPARATION_CAPACITY_EXCEEDED");
+                            return null;
+                        })
+                .when(preparation)
+                .store(anyString(), anyLong(), anyString(), anyString(), any(), any());
+        histories.prepare("run", 1, "unit", record, command);
+        assertThat(stored).hasSize(2);
+        assertThat(((CdsHistoryNativeDto) stored.get(0)).content()).isEqualTo(text);
+        var dto = (CdsHistoryNativeDto) stored.get(1);
         assertThat(dto.content())
                 .contains("Read the complete original", "No narrative excerpt")
                 .hasSizeLessThan(1000);

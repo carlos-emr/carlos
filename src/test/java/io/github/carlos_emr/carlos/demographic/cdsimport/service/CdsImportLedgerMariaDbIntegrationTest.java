@@ -1136,7 +1136,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
                     id, actor, "RESUME_REQUESTED", () -> ledger.requestResumeParticipating(id));
             Properties changed = new Properties();
             changed.putAll(policy);
-            changed.setProperty("cds.import.native.maxNoteBytes", "131072");
+            changed.setProperty("cds.import.mapping.restoreArchivedAllergies", "true");
             var incompatible =
                     new CdsImportExecutionService(
                             ledger,

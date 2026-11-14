@@ -39,10 +39,20 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-/** Bounded immutable native DTOs keep unbounded source scans outside clinical locks without a file per unit. */
+/**
+ * Immutable native DTOs keep unbounded source scans outside clinical locks without a file per
+ * unit. A prepared record is held whole up to what the column that stores it admits ({@link
+ * #MAXIMUM}); only a history note can approach it, and the history persister stores that note's
+ * documented placeholder instead when it does not fit ({@code NATIVE_PREPARATION_CAPACITY_EXCEEDED}).
+ */
 @Service
 public class CdsNativePreparationService {
-    private static final int MAXIMUM = 1048576;
+    /**
+     * What {@code cds_import_preparation.payload} admits: a MEDIUMTEXT column whose check holds a
+     * record to 1,048,576 UTF-8 bytes (V1.0.59.14). The export reads a retained record under the
+     * same bound, so a larger record needs both the column and that reader changed.
+     */
+    static final int MAXIMUM = 1_048_576;
     private static final ObjectMapper JSON =
             new ObjectMapper()
                     .registerModule(new JavaTimeModule())
@@ -155,7 +165,7 @@ public class CdsNativePreparationService {
                 });
     }
 
-    /** A single at-most-1MiB row is decoded in the already-owned clinical unit. */
+    /** A single row, at most what its column admits, is decoded in the already-owned clinical unit. */
     // FindSecBugs UNSAFE_HASH_EQUALS: SHA-256 digests of the unit's source, options, ruleset and prepared payload, compared with the values stored on the prepared row to detect a stale or altered preparation; not a secret.
     @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "UNSAFE_HASH_EQUALS", justification = "SHA-256 digests of the unit's source, options, ruleset and prepared payload, compared with the values stored on the prepared row to detect a stale or altered preparation; not a secret")
     public <T> T load(

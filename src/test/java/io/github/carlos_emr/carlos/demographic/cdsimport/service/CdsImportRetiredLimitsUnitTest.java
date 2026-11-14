@@ -74,6 +74,7 @@ class CdsImportRetiredLimitsUnitTest {
         settings.setProperty("cds.import.upload.maxFileBytes", "65536");
         settings.setProperty("cds.import.upload.maxTotalBytes", "131072");
         settings.setProperty("cds.import.upload.maxFiles", "4093");
+        settings.setProperty("cds.import.native.maxNoteBytes", "131071");
         var configuration = new CdsImportConfigurationService(settings);
         try (var log = LogCapture.forLogger(CdsImportConfigurationService.class)) {
             CdsInputLimitsDto first = configuration.limits();
@@ -87,7 +88,8 @@ class CdsImportRetiredLimitsUnitTest {
                 assertTrue(message.contains(key), key);
             for (String value :
                     new String[] {
-                        "2048", "4096", "1024", "not-a-ratio-7319", "65536", "131072", "4093"
+                        "2048", "4096", "1024", "not-a-ratio-7319", "65536", "131072", "4093",
+                        "131071"
                     })
                 assertFalse(message.contains(value), "A retired setting's value is never logged");
         }
