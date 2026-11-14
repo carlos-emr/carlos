@@ -331,6 +331,63 @@ class CdsImportWebActionsUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(imports, uploads);
     }
 
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "application/octet-stream",
+                "Application/Octet-Stream",
+                "APPLICATION/OCTET-STREAM;x=1"
+            })
+    void shouldAcceptRawChunkBodyInAnyAsciiCase_underTurkishDefaultLocale(String type)
+            throws Exception {
+        java.util.Locale original = java.util.Locale.getDefault();
+        try {
+            java.util.Locale.setDefault(java.util.Locale.of("tr", "TR"));
+            request.setMethod("POST");
+            request.setContentType(type);
+            var action =
+                    new CdsUpload2Action(new CdsWebService(access), uploads, securityInfoManager);
+            action.setOperation("chunk");
+            action.execute();
+            org.mockito.Mockito.verify(uploads)
+                    .append(
+                            org.mockito.ArgumentMatchers.any(),
+                            org.mockito.ArgumentMatchers.any(),
+                            org.mockito.ArgumentMatchers.anyLong(),
+                            org.mockito.ArgumentMatchers.anyInt(),
+                            org.mockito.ArgumentMatchers.any(),
+                            org.mockito.ArgumentMatchers.any());
+        } finally {
+            java.util.Locale.setDefault(original);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "text/plain",
+                "multipart/form-data",
+                "application/octet-stream2",
+                "appl\u0131cation/octet-stream"
+            })
+    void shouldRefuseChunkBody_whenContentTypeIsNotOctetStream(String type) throws Exception {
+        // U+0131 is a dotless i, which String.equalsIgnoreCase takes for the i of "application".
+        request.setMethod("POST");
+        request.setContentType(type);
+        var action = new CdsUpload2Action(new CdsWebService(access), uploads, securityInfoManager);
+        action.setOperation("chunk");
+        action.execute();
+        assertThat(response.getStatus()).isEqualTo(415);
+        org.mockito.Mockito.verify(uploads, org.mockito.Mockito.never())
+                .append(
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.anyLong(),
+                        org.mockito.ArgumentMatchers.anyInt(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any());
+    }
+
     @Test
     void shouldRefuseDuplicateAndUnknownParameters_withoutUploadWrites() throws Exception {
         request.setMethod("POST");

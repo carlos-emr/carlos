@@ -405,6 +405,10 @@ public class CdsTargetReceiptService {
 
         // Only native receipt-catalogue names reach this identifier-only metadata query.
         @SuppressWarnings("java:S2077")
+        // FindSecBugs SQL_INJECTION_JDBC: The table name is refused unless it is a key of the fixed PRIMARY_KEYS map or one of the two fixed link tables, on the lines above the statement; no other value reaches the SQL text.
+        // FindSecBugs SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING: The text varies only by that allow-listed table name; identifiers cannot be bound.
+        // FindSecBugs IMPROPER_UNICODE: Matches the fixed ASCII column name verified_epoch in JDBC metadata of a CARLOS table; not an authorization decision.
+        @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = {"SQL_INJECTION_JDBC", "SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING", "IMPROPER_UNICODE"}, justification = "SQL_INJECTION_JDBC: the table name is refused unless it is a key of the fixed PRIMARY_KEYS map or one of the two fixed link tables, on the lines above the statement; no other value reaches the SQL text; SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING: the text varies only by that allow-listed table name; identifiers cannot be bound; IMPROPER_UNICODE: matches the fixed ASCII column name verified_epoch in JDBC metadata of a CARLOS table; not an authorization decision")
         private List<Column> columns(String table) throws java.sql.SQLException {
             if (table == null
                     || !PRIMARY_KEYS.containsKey(table)

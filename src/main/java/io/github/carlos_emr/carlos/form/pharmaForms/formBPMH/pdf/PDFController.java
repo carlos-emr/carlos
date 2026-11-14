@@ -128,6 +128,8 @@ public class PDFController {
             "io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean"};
 
     private static final String DATE_FORMAT = "MM-dd-yyyy";
+    /** Serializes getter discovery; private so no other code can hold it. */
+    private static final Object GETTER_DISCOVERY_LOCK = new Object();
 
     private PdfReader pdfreader;
     private int numberOfPages;
@@ -576,11 +578,16 @@ public class PDFController {
      * <p>
      * Credit: http://www.java2s.com/Code/Java/Reflection/GetsthegettersofapojoasamapofStringaskeyandMethodasvalue.htm
      */
-    public synchronized static Map<String, Method> getGetterMethods(Object data) {
+    public static Map<String, Method> getGetterMethods(Object data) {
         HashMap<String, Method> methods = new HashMap<String, Method>();
 
+        // A private lock, not the class monitor a public static synchronized method would use:
+        // any code can synchronize on PDFController.class and stall every caller (CERT LCK00-J).
+        // Discovery stays serialized exactly as before.
         try {
-            fillGetterMethods(data, methods);
+            synchronized (GETTER_DISCOVERY_LOCK) {
+                fillGetterMethods(data, methods);
+            }
         } catch (IllegalArgumentException e) {
             _Logger.fatal("Unable to discover BPMH PDF getters{}", LogSafe.exceptionTrace(e));
         } catch (IllegalAccessException e) {
@@ -595,7 +602,8 @@ public class PDFController {
     /**
      * Convenience overload that starts recursive getter extraction with an empty prefix.
      */
-    private synchronized static void fillGetterMethods(Object data, Map<String, Method> baseMap)
+    // Called only from getGetterMethods, under GETTER_DISCOVERY_LOCK.
+    private static void fillGetterMethods(Object data, Map<String, Method> baseMap)
             throws IllegalArgumentException, IllegalAccessException, InvocationTargetException {
         fillGetterMethods(data, baseMap, "");
     }
@@ -609,7 +617,8 @@ public class PDFController {
      * @param baseMap Map to populate with method-name-to-Method mappings
      * @param prepend String the prefix for nested property paths
      */
-    private synchronized static void fillGetterMethods(Object data, Map<String, Method> baseMap, String prepend)
+    // Called only through getGetterMethods, under GETTER_DISCOVERY_LOCK.
+    private static void fillGetterMethods(Object data, Map<String, Method> baseMap, String prepend)
             throws IllegalArgumentException, IllegalAccessException, InvocationTargetException {
 
         Class<?> genericClass = data.getClass();

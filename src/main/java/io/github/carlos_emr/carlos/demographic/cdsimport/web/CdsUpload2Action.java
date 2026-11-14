@@ -91,9 +91,7 @@ public class CdsUpload2Action extends ActionSupport {
             if ("begin".equals(operation))
                 receipt = uploads.begin(operator, fileName, expectedBytes);
             else if ("chunk".equals(operation)) {
-                String type = request.getContentType();
-                if (type == null
-                        || !type.split(";", 2)[0].equalsIgnoreCase("application/octet-stream")) {
+                if (!declaresRawBody(request)) {
                     throw new CdsUploadException("UPLOAD_RAW_BODY_REQUIRED", 415);
                 }
                 if (request.getContentLengthLong() > uploads.chunkBytes())
@@ -114,6 +112,20 @@ public class CdsUpload2Action extends ActionSupport {
             web.failure(response, failure);
         }
         return NONE;
+    }
+
+    /**
+     * Whether the request declares an application/octet-stream body. The media type is compared
+     * over ASCII letters only, so its answer does not depend on a locale or on letters that
+     * merely fold to ASCII ones.
+     */
+    // FindSecBugs SERVLET_CONTENT_TYPE: The client's Content-Type is only compared with application/octet-stream to refuse any other body; it is never trusted for anything else, stored or echoed.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "SERVLET_CONTENT_TYPE", justification = "the client's Content-Type is only compared with application/octet-stream to refuse any other body; it is never trusted for anything else, stored or echoed")
+    private static boolean declaresRawBody(HttpServletRequest request) {
+        String type = request.getContentType();
+        return type != null
+                && io.github.carlos_emr.carlos.utility.CdsImportKeys.asciiKeyword(
+                        "application/octet-stream", type.split(";", 2)[0]);
     }
 
     @StrutsParameter

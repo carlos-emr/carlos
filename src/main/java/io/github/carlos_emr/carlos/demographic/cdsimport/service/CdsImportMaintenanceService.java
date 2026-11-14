@@ -204,6 +204,8 @@ public class CdsImportMaintenanceService {
         }
     }
 
+    // FindSecBugs SQL_INJECTION_JDBC: Private helper whose every caller passes a string literal (GET_LOCK, RELEASE_LOCK, IS_USED_LOCK, CONNECTION_ID); the lock name is the only value and is bound.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "SQL_INJECTION_JDBC", justification = "private helper whose every caller passes a string literal (GET_LOCK, RELEASE_LOCK, IS_USED_LOCK, CONNECTION_ID); the lock name is the only value and is bound")
     private static long scalar(Connection connection, String sql, String value)
             throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
