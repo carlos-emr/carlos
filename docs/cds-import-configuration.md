@@ -81,8 +81,10 @@ installs need `carlos-ctl` to provision the directory and an initial key (a comp
 
 ## Source registration and delegation
 
-Replace placeholders with deployment-owned identifiers. Comma-separated lists are trimmed,
-ignore empty entries and are limited to 8192 characters.
+Replace placeholders with deployment-owned identifiers. Comma-separated lists are trimmed and
+ignore empty entries; a list may be of any length, so an operator can be delegated any number of
+providers. A source namespace is a token of up to 128 characters (a letter or digit, then
+letters, digits, `.`, `_` or `-`), the width of the run and lineage columns that store it.
 
 | Property | Default | Meaning |
 | --- | --- | --- |

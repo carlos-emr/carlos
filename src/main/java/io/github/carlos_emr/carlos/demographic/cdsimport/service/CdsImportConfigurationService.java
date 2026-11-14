@@ -137,9 +137,12 @@ public class CdsImportConfigurationService {
         return path.normalize();
     }
 
+    /**
+     * A registered source: a namespace token of up to 128 characters (the token rule, and the
+     * {@code VARCHAR(128)} run and lineage columns that store it) with a registered profile.
+     */
     public void requireSource(String namespace, String profile) {
         requireToken(namespace);
-        if (namespace.length() > 64) throw new CdsImportException("IMPORT_SOURCE_NAMESPACE_TOO_LONG");
         if (!CORE_PROFILES.contains(profile)
                 || !tokens("cds.import.source." + namespace + ".profiles").contains(profile)) {
             throw new CdsImportException("SOURCE_PROFILE_NOT_REGISTERED");
@@ -270,9 +273,9 @@ public class CdsImportConfigurationService {
         return value;
     }
 
+    /** A comma-separated list setting of any length: a delegation may name any number of providers. */
     private Set<String> tokens(String key) {
         String configured = value(key, "");
-        if (configured.length() > 8192) throw new CdsImportException("IMPORT_REGISTRY_CONFIGURATION_INVALID");
         return Arrays.stream(configured.split(",")).map(String::trim).filter(s -> !s.isEmpty())
                 .collect(Collectors.toUnmodifiableSet());
     }
