@@ -59,7 +59,12 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @Service
 public class CdsExportNativeCaptureService {
-    private static final int MAX_MANIFEST_BYTES = 4_194_304;
+    /**
+     * The longest one string of a manifest may be when it is read back. A manifest holds names,
+     * digests and note scopes, none of them long; the manifest itself has no size limit and is
+     * written and read as a stream, because its note scopes grow with the chart.
+     */
+    private static final int MAX_MANIFEST_STRING = 4_194_304;
     private static final ObjectMapper JSON =
             com.fasterxml.jackson.databind.json.JsonMapper.builder(
                             com.fasterxml.jackson.core.JsonFactory.builder()
@@ -70,7 +75,7 @@ public class CdsExportNativeCaptureService {
                                             com.fasterxml.jackson.core.StreamReadConstraints
                                                     .builder()
                                                     .maxNestingDepth(24)
-                                                    .maxStringLength(MAX_MANIFEST_BYTES)
+                                                    .maxStringLength(MAX_MANIFEST_STRING)
                                                     .maxNumberLength(20)
                                                     .build())
                                     .build())
@@ -448,10 +453,22 @@ public class CdsExportNativeCaptureService {
                         || proof.valueBytes() != captured.valueBytes())
                     throw new IOException("CDS_EXPORT_CAPTURE_READBACK_INVALID");
             }
-            byte[] manifestBytes = JSON.writeValueAsBytes(captured);
-            if (manifestBytes.length > MAX_MANIFEST_BYTES)
-                throw new IOException("CDS_EXPORT_CAPTURE_MANIFEST_LIMIT");
-            var manifest = store.stage("SOURCE_MANIFEST", output -> output.write(manifestBytes));
+            // Streamed to staging, never held as one document: a chart of any number of notes
+            // has a manifest.
+            var manifest =
+                    store.stage(
+                            "SOURCE_MANIFEST",
+                            output -> {
+                                // The member's stream stays the staging service's to close.
+                                try (var generator =
+                                        JSON.getFactory()
+                                                .createGenerator(output)
+                                                .disable(
+                                                        com.fasterxml.jackson.core.JsonGenerator
+                                                                .Feature.AUTO_CLOSE_TARGET)) {
+                                    JSON.writeValue(generator, captured);
+                                }
+                            });
             owned.add(manifest);
             authorize(patient, selected, control);
             control.checkpoint();
@@ -656,11 +673,8 @@ public class CdsExportNativeCaptureService {
                 || maximumValueBytes < 1) {
             throw new IllegalArgumentException("CDS_EXPORT_CAPTURE_SCOPE_INVALID");
         }
-        if (!manifest.purpose().equals("SOURCE_MANIFEST")
-                || manifest.plaintextBytes() < 1
-                || manifest.plaintextBytes() > MAX_MANIFEST_BYTES) {
+        if (!manifest.purpose().equals("SOURCE_MANIFEST") || manifest.plaintextBytes() < 1)
             throw new IOException("CDS_EXPORT_CAPTURE_MANIFEST_INVALID");
-        }
         var selected = selected(lease, tables);
         authorize(patientScope.patient(), selected, control);
         control.checkpoint();
@@ -676,11 +690,17 @@ public class CdsExportNativeCaptureService {
         CdsExportNativeCaptureDto captured =
                 verified == null ? null : verified.manifest(manifest, CdsExportNativeCaptureDto.class);
         if (captured == null) {
-            try (var input = store.open(manifest)) {
-                byte[] bytes = input.readNBytes(MAX_MANIFEST_BYTES + 1);
-                if (bytes.length > MAX_MANIFEST_BYTES || input.read() != -1)
-                    throw new IOException("CDS_EXPORT_CAPTURE_MANIFEST_LIMIT");
-                captured = JSON.readValue(bytes, CdsExportNativeCaptureDto.class);
+            try (var input = store.open(manifest);
+                    var parser =
+                            JSON.getFactory()
+                                    .createParser(input)
+                                    .disable(
+                                            com.fasterxml.jackson.core.JsonParser.Feature
+                                                    .AUTO_CLOSE_SOURCE)) {
+                captured = JSON.readValue(parser, CdsExportNativeCaptureDto.class);
+                // One document and nothing after it, read to the member's end.
+                if (parser.nextToken() != null || input.read() != -1)
+                    throw new IOException("CDS_EXPORT_CAPTURE_MANIFEST_INVALID");
             }
             // Read to its end, so its authenticated digest was checked: the same member is the
             // same manifest for the rest of this patient. Every check below still runs.
