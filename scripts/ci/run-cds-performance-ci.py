@@ -392,6 +392,14 @@ def main() -> int:
                 "/workspace",
                 runtime,
             ]
+            if export:
+                # The bind-mounted state root belongs to the CI runner account. An installed
+                # /var/lib/carlos-emr is package-owned, and the export reads an import's
+                # protected job document only below directories owned by root or the service
+                # account (CdsExportProtectedFiles.dataDirectory), so give this root the
+                # installed ownership before any imported chart is exported.
+                execute(runtime_exec + ["chown", "0:0", "/var/lib/carlos-emr"])
+                execute(runtime_exec + ["chmod", "0755", "/var/lib/carlos-emr"])
             execute(runtime_exec + ["install", "-d", "-m", "0700", "/run/cds-test"])
             execute(
                 runtime_exec
