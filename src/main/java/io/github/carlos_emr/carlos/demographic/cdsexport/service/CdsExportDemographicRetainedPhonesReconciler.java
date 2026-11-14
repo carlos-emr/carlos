@@ -479,9 +479,34 @@ public final class CdsExportDemographicRetainedPhonesReconciler {
                 String id = ref.expected().id();
                 var row = rows.get(id);
                 var proof = proofs.get(id);
-                if (row == null || proof == null || ref.reason() == Reason.ROW_NOT_IN_CAPTURE)
-                    throw new IOException(
-                            "CDS_EXPORT_DEMOGRAPHIC_PHONE_PROPERTY_DELETION_REQUIRES_REVIEW");
+                if (ref.reason() == Reason.ROW_NOT_IN_CAPTURE) {
+                    // A row the import wrote and CARLOS has since deleted (the dashboard's
+                    // un-exclude, the REST service's patient delete): the chart no longer has it.
+                    if (row != null || proof != null) scope();
+                    var deleted =
+                            baseline == null
+                                    ? null
+                                    : baseline.rows().stream()
+                                            .filter(
+                                                    state ->
+                                                            state.table().equals("demographicExt")
+                                                                    && state.id().equals(id))
+                                            .findFirst()
+                                            .orElse(null);
+                    if (deleted == null || !deleted.digest().equals(ref.expected().digest()))
+                        throw new IOException(
+                                "CDS_EXPORT_DEMOGRAPHIC_PHONE_FIELD_BASELINE_REQUIRED");
+                    alias(index, address, id);
+                    if (restored(deleted, preparation)) continue;
+                    String deletedKey = phoneKey(deleted);
+                    // A deleted phone row is an edit: the current rows decide the phone.
+                    if (deletedKey == null
+                            || result.putIfAbsent(deletedKey, new Property(id, false)) != null)
+                        throw new IOException(
+                                "CDS_EXPORT_DEMOGRAPHIC_PHONE_PROPERTY_PROJECTION_REQUIRES_REVIEW");
+                    continue;
+                }
+                if (row == null || proof == null) scope();
                 if (!Objects.equals(ref.currentDigest(), proof.digest())) scope();
                 var old =
                         baseline == null
@@ -506,10 +531,7 @@ public final class CdsExportDemographicRetainedPhonesReconciler {
                     alias(index, address, id);
                     continue;
                 }
-                String originalKey = null;
-                for (String candidate : KEYS.values())
-                    if (CdsExportCapturedTextWitness.matches(old, "key_val", candidate))
-                        originalKey = candidate;
+                String originalKey = phoneKey(old);
                 if (originalKey == null
                         || !originalKey.equals(row.fields().get("key_val"))
                         || !CdsExportCapturedTextWitness.matches(
@@ -537,6 +559,14 @@ public final class CdsExportDemographicRetainedPhonesReconciler {
                             "CDS_EXPORT_DEMOGRAPHIC_PHONE_PROPERTY_ALIAS_REQUIRES_REVIEW");
             }
         return result;
+    }
+
+    /** The phone key the row, as the import wrote it, holds; null for any other key. */
+    private static String phoneKey(CdsNativeRowState row) throws IOException {
+        String key = null;
+        for (String candidate : KEYS.values())
+            if (CdsExportCapturedTextWitness.matches(row, "key_val", candidate)) key = candidate;
+        return key;
     }
 
     /** No other import unit may claim the same row. */

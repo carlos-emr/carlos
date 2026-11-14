@@ -237,9 +237,13 @@ class CdsExportDemographicRetainedPhonesReconcilerUnitTest {
 
     @Test
     void shouldVerifyADeletedImportedPropertyCannotResurrectItsOriginalValue_forDemographicRetainedPhonesReconcilerContract() throws Exception {
+        // Before: CDS_EXPORT_DEMOGRAPHIC_PHONE_PROPERTY_DELETION_REQUIRES_REVIEW held the chart.
+        // The deleted row is an edit: the current rows decide, so the imported extension is
+        // removed, never resurrected.
         current.removeFirst();
-        assertThatThrownBy(this::reconcile)
-                .hasMessage("CDS_EXPORT_DEMOGRAPHIC_PHONE_PROPERTY_DELETION_REQUIRES_REVIEW");
+        var result = reconcile();
+        assertThat(result.phonesRepresentable()).isTrue();
+        assertThat(text(render(result), "extension")).doesNotContain("0012").contains("009");
     }
 
     @Test
