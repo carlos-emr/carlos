@@ -837,12 +837,14 @@ class CdsCliProtocolUnitTest {
                                 CdsCliConfiguration.parse(
                                         Path.of("/unused"), "cds.import.cliHeapMiB=127".getBytes()))
                 .isInstanceOf(IOException.class);
-        assertThatThrownBy(
-                        () ->
-                                CdsCliConfiguration.parse(
+        // The shared loader keeps the 128 MiB minimum only: the former 16,384 MiB maximum
+        // refused the heap a long imported chart needs.
+        assertThat(
+                        CdsCliConfiguration.parse(
                                         Path.of("/unused"),
-                                        "cds.import.cliHeapMiB=16385".getBytes()))
-                .isInstanceOf(IOException.class);
+                                        "cds.import.cliHeapMiB=32768".getBytes())
+                                .heapMiB())
+                .isEqualTo(32768);
     }
 
     @Test

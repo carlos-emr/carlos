@@ -857,8 +857,9 @@ default heap in under 11 minutes. Reading the chart no longer has a time limit (
 job failed with `CDS_EXPORT_EXECUTION_FAILED` when one chart took more than 120 s to read),
 and a chart with more than 8,192 notes is no longer held. With too small a heap nothing
 refuses the chart, but the export slows to a crawl in garbage collection and does not finish:
-cancel it, raise `cds.export.cliHeapMiB` (at least 128; it has no upper limit, as a long chart
-may need more than any number chosen in advance) and start a new export. Ordinary charts entered through the screens need neither.
+cancel it, raise `cds.export.cliHeapMiB` (at least 128; CARLOS sets no upper limit, as a long
+chart may need more than any number chosen in advance, but `carlos-ctl` 1.3.5, the release
+`debian/carlos-ctl.pin` names, still refuses a heap over 16384) and start a new export. Ordinary charts entered through the screens need neither.
 
 An appointment that came from an earlier CDS import and was later deleted, or cut to be
 pasted elsewhere, is not exported, as the day sheet no longer shows it; CARLOS's archive copy of
