@@ -195,7 +195,7 @@ import or upload of a process logs one WARN naming the ones still set, never the
 | `cds.import.upload.maxFileBytes` | 64 GiB | The upload store's disk reserve, checked before every chunk. |
 | `cds.import.upload.maxTotalBytes` | 256 GiB | The upload store's disk reserve, checked before every chunk. |
 | `cds.import.upload.maxFiles` | `20000` | Nothing: any number of uploads may wait for their runs' snapshots. A store out of space refuses at the disk reserve, and one out of inodes fails the step that needed one. |
-| `cds.import.native.maxNoteBytes` | `262144` | What the column holding a note's prepared record admits (`cds_import_preparation.payload`, checked at 1,048,576 bytes, about 1 MiB of text): a ClinicalNote or CPP item whose record fits is stored whole, and only a larger one becomes the documented placeholder, its complete text kept in the category's source fields (`CDS_NOTE_COMPLETE_TEXT_SOURCE_VIEW`). No longer part of the normalization digest. |
+| `cds.import.native.maxNoteBytes` | `262144` | What the column holding a note's prepared record admits (`cds_import_preparation.payload`, a MEDIUMTEXT of 16,777,215 bytes, about 16 MiB of text; its former 1,048,576-byte check is gone, V1.0.59.50): a ClinicalNote or CPP item whose record fits is stored whole, and only a larger one becomes the documented placeholder, its complete text kept in the category's source fields (`CDS_NOTE_COMPLETE_TEXT_SOURCE_VIEW`). No longer part of the normalization digest. |
 
 ## Browser upload
 
@@ -269,7 +269,7 @@ export-side work or await a decision, and keep their audit class (C or D) here.
 | I30 | Patient note up to 65,518 bytes | `CdsDemographicDetailsService` | B | `demographiccust.content` is TEXT; the source field keeps the whole note. |
 | I31 | Native column widths (80, 32,768, 50, ...) | `CdsAppointmentPersister` and other persisters | B | Column capacity; the value stays in the source fields. |
 | I32 | 3 phones, 1 role, 16 diagnostics per contact | `CdsContactDto` | B | Phones are keyed by type; diagnostics are deduplicated. |
-| I33 | Prepared record up to 1,048,576 bytes | `CdsNativePreparationService` | B | The check on `cds_import_preparation.payload` (V1.0.59.14), also applied by the export's retained reader. A note over about 1 MiB becomes the documented placeholder, its text in the source fields. |
+| I33 | Prepared record up to 16,777,215 bytes | `CdsNativePreparationService`, `CdsExportRetainedPreparationReader`, `CdsExportRetainedIndexService` | B | The capacity of the MEDIUMTEXT column `cds_import_preparation.payload`, also applied by the export's retained reader. Its 1,048,576-byte check (V1.0.59.14) was arbitrary and is removed (V1.0.59.50). Only a note over about 16 MiB becomes the documented placeholder, its text in the source fields. |
 | I35 | 64 rows per dependency query | `CdsTargetReceiptService` | removed | The receipt names exactly the rows the unit wrote. |
 | I36 | 192 references; receipt up to 65,536 characters | `CdsTargetReceiptService`, `CdsNativeBaselineCodec` | B | The importer's own receipt format; the largest unit names 100 rows. |
 | I37 | 512 columns per target table | `CdsTargetReceiptService`, `CdsNativeRowState`, `CdsNativeRowDigest`, `CdsExportNativeMetadataReadSupport`, `CdsExportCapturedTableDto` | B | Now 4,096, MariaDB's own column limit, so a locally widened table is supported (owner decision). |

@@ -276,12 +276,13 @@ code below. Text from a sender that is not CARLOS is unaffected, whatever it con
 
 The text is restored before the native note size is checked: the stored value is never longer in
 UTF-8 than its U+FFFD form. A note, restored or not, is stored whole when its prepared record fits
-the column that holds it between preparation and write: `cds_import_preparation.payload`, whose
-check admits 1,048,576 bytes (about 1 MiB of text; the export reads the retained record under the
-same bound). `casemgmt_note.note` itself is LONGTEXT. Only a larger note becomes the documented
-placeholder, its complete text in the source fields (`CDS_NOTE_COMPLETE_TEXT_SOURCE_VIEW`). No
-setting chooses the size; earlier builds held a note to 256 KiB (`cds.import.native.maxNoteBytes`,
-retired).
+the column that holds it between preparation and write: `cds_import_preparation.payload`, a
+MEDIUMTEXT of 16,777,215 bytes (about 16 MiB of text; the export reads the retained record under
+the same capacity). `casemgmt_note.note` itself is LONGTEXT. Only a larger note becomes the
+documented placeholder, its complete text in the source fields (`CDS_NOTE_COMPLETE_TEXT_SOURCE_VIEW`).
+No setting chooses the size; earlier builds held a note to 256 KiB (`cds.import.native.maxNoteBytes`,
+retired) and then to the 1,048,576 bytes of a check on the column, an arbitrary number that
+V1.0.59.50 removed, so a CARLOS note of 2 MiB now arrives whole.
 
 Editing such a note in the encounter or CPP editor is safe. The save posts the whole text: the
 packaged WAF admits a 16 MiB form and nginx and Tomcat 50 MB, and a larger form is refused before
@@ -380,7 +381,7 @@ decided as on a chart added in CARLOS. A restored value is reported once as
 a version 1 document is reported as `CDS_DEMOGRAPHIC_CARRIER_NOT_APPLIED` (path `NewCategory`) and
 nothing is restored from it. The extension rows are read in a pass of their own: a list holding a
 value longer than any restorable text (`CdsSourceContextParser.RESTORABLE_UNITS`) is not read, and
-rows that do not fit the 1 MiB sealed preparation with the chart are not kept; both are reported as
+rows that do not fit the sealed preparation's 16 MiB column with the chart are not kept; both are reported as
 `CDS_DEMOGRAPHIC_CARRIED_VALUE_NOT_RESTORED` (path `NewCategory`) and stay in the retained record,
 while the base-row columns are still restored.
 

@@ -63,11 +63,12 @@ import java.util.function.Consumer;
  * clipped clinical statement.
  *
  * <p>A note is stored whole when its prepared record fits the column that holds it between
- * preparation and write ({@code cds_import_preparation.payload}, checked at {@link
- * CdsNativePreparationService#MAXIMUM} bytes): about 1 MiB of text. Only a note whose prepared
+ * preparation and write ({@code cds_import_preparation.payload}, a MEDIUMTEXT of {@link
+ * CdsNativePreparationService#MAXIMUM} bytes): about 16 MiB of text. Only a note whose prepared
  * record is larger becomes the documented placeholder; its complete original and normalized text
  * stays in the category's source fields. {@code casemgmt_note.note} itself is LONGTEXT. No
- * setting chooses the size: {@code cds.import.native.maxNoteBytes} is retired.
+ * setting chooses the size: {@code cds.import.native.maxNoteBytes} is retired, and the column's
+ * former 1 MiB check is gone (V1.0.59.50).
  */
 @Service
 public class CdsHistoryPersister {

@@ -51,7 +51,13 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class CdsExportRetainedPreparationReader {
-    private static final int MAXIMUM = 1_048_576;
+    /**
+     * What {@code cds_import_preparation.payload} admits, the capacity of its MEDIUMTEXT column
+     * (16,777,215 bytes), the bound the importer stores a prepared record under
+     * ({@code CdsNativePreparationService.MAXIMUM}). The column's former 1,048,576-byte check is
+     * gone (V1.0.59.50); a retained record of any size the column holds is read whole.
+     */
+    static final int MAXIMUM = 16_777_215;
     private static final JsonMapper JSON =
             JsonMapper.builder(
                             com.fasterxml.jackson.core.JsonFactory.builder()

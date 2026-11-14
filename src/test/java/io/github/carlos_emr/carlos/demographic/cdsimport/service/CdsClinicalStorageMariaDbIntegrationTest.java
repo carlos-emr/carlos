@@ -207,14 +207,16 @@ class CdsClinicalStorageMariaDbIntegrationTest {
 
     @Test
     void shouldStoreLargeNotesWhole_upToWhatThePreparedRecordColumnAdmits() {
-        // casemgmt_note.note is LONGTEXT: a note over 1 MiB is stored whole. A note reaches it
-        // through its prepared record, held in cds_import_preparation.payload, whose check admits
-        // 1,048,576 bytes: a record of that size is stored and read back whole, and one byte more
-        // is refused even under the packaged server's empty sql_mode, never cut. That is the bound
-        // CdsNativePreparationService applies before anything is written.
-        String note = "Synthetic encounter detail \u00e9 \ud83d\ude00\n".repeat(32_000);
+        // casemgmt_note.note is LONGTEXT: a note over 2 MiB is stored whole. A note reaches it
+        // through its prepared record, held in cds_import_preparation.payload, a MEDIUMTEXT of
+        // 16,777,215 bytes. V1.0.59.14 also checked that column at 1,048,576 bytes; V1.0.59.50
+        // removed the check, so a record of 2 MiB is stored and read back whole, even under the
+        // packaged server's empty sql_mode. CdsNativePreparationService refuses a record larger
+        // than the column before anything is written, and the record's seal refuses one that
+        // was ever changed.
+        String note = "Synthetic encounter detail \u00e9 \ud83d\ude00\n".repeat(64_000);
         assertThat(note.getBytes(java.nio.charset.StandardCharsets.UTF_8).length)
-                .isGreaterThan(1 << 20);
+                .isGreaterThan(2 << 20);
         try (Session session = factory.openSession()) {
             var transaction = session.beginTransaction();
             try {
@@ -248,30 +250,317 @@ class CdsClinicalStorageMariaDbIntegrationTest {
                                     assertThat(rows.getString(1)).isEqualTo(note);
                                 }
                             }
-                            String fits = "{\"content\":\"" + "\u00e9".repeat(524_281) + "\"}";
-                            assertThat(fits.getBytes(java.nio.charset.StandardCharsets.UTF_8))
-                                    .hasSize(CdsNativePreparationService.MAXIMUM);
-                            preparation(connection, "e".repeat(64), fits);
+                            // No check on the payload column remains.
+                            try (var checks =
+                                    connection.prepareStatement(
+                                            "SELECT COUNT(*) FROM information_schema.check_constraints"
+                                                    + " WHERE constraint_schema=DATABASE()"
+                                                    + " AND table_name='cds_import_preparation'")) {
+                                try (var rows = checks.executeQuery()) {
+                                    assertThat(rows.next()).isTrue();
+                                    assertThat(rows.getInt(1)).isZero();
+                                }
+                            }
+                            String record = "{\"content\":\"" + note.replace("\n", "\\n") + "\"}";
+                            assertThat(record.getBytes(java.nio.charset.StandardCharsets.UTF_8).length)
+                                    .isGreaterThan(2 << 20)
+                                    .isLessThanOrEqualTo(CdsNativePreparationService.MAXIMUM);
+                            preparation(connection, "e".repeat(64), record);
                             try (var read =
                                     connection.prepareStatement(
                                             "SELECT payload FROM cds_import_preparation WHERE id=?")) {
                                 read.setString(1, "e".repeat(64));
                                 try (var rows = read.executeQuery()) {
                                     assertThat(rows.next()).isTrue();
-                                    assertThat(rows.getString(1)).isEqualTo(fits);
+                                    assertThat(rows.getString(1)).isEqualTo(record);
                                 }
                             }
-                            assertThatThrownBy(
-                                            () ->
-                                                    preparation(
-                                                            connection,
-                                                            "d".repeat(64),
-                                                            fits.replace("\"}", "x\"}")))
-                                    .isInstanceOf(java.sql.SQLException.class);
                         });
             } finally {
                 transaction.rollback();
             }
+        }
+    }
+
+    @Test
+    void shouldImportATwoMebibyteNoteWhole_fromTheDocumentAnotherCarlosWrites() throws Exception {
+        // CARLOS, then export, then import: the sender's encounter note of over 2 MiB is written
+        // whole into MyClinicalNotesContent, its prepared record is stored in and read back from
+        // the real cds_import_preparation column, and the receiving note holds the whole text.
+        // Before V1.0.59.50 the record exceeded the column's 1 MiB check and the note became the
+        // documented placeholder, its text only in the source fields.
+        String body = "Synthetic encounter detail \u00e9 \ud83d\ude00\n".repeat(80_000);
+        assertThat(body.getBytes(java.nio.charset.StandardCharsets.UTF_8).length)
+                .isGreaterThan(2 << 20);
+        byte[] document =
+                io.github.carlos_emr.carlos.demographic.cdsexport.service
+                        .CdsExportNativeHistoryFixture.document(
+                        io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory
+                                .CLINICAL_NOTES,
+                        null,
+                        body);
+        var records = new java.util.ArrayList<io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto>();
+        Path root = Files.createTempDirectory(directory, "large-note-");
+        new CdsXmlParser()
+                .parse(
+                        Files.write(root.resolve("patient.xml"), document),
+                        root.resolve("parsed"),
+                        io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsInputLimitsDto
+                                .defaults(),
+                        () -> false,
+                        records::add);
+        var record =
+                records.stream()
+                        .filter(found -> found.section().equals("ClinicalNotes"))
+                        .findFirst()
+                        .orElseThrow();
+        String id = "f".repeat(64);
+        var stored = new java.util.HashMap<String, CdsImportPreparation>();
+        var dao = mock(CdsImportPreparationDao.class);
+        org.mockito.Mockito.when(dao.get(org.mockito.ArgumentMatchers.anyString()))
+                .thenAnswer(call -> stored.get(call.getArgument(0)));
+        org.mockito.Mockito.doAnswer(
+                        call -> {
+                            CdsImportPreparation row = call.getArgument(0);
+                            stored.put(row.getId(), row);
+                            return null;
+                        })
+                .when(dao)
+                .persist(org.mockito.ArgumentMatchers.any());
+        var manager = mock(org.springframework.transaction.PlatformTransactionManager.class);
+        org.mockito.Mockito.when(manager.getTransaction(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new org.springframework.transaction.support.SimpleTransactionStatus(true));
+        var settings = new Properties();
+        settings.setProperty("cds.import.clinicalZone", "America/Toronto");
+        var configuration = new CdsImportConfigurationService(settings);
+        var preparation =
+                new CdsNativePreparationService(
+                        mock(CdsImportLedgerService.class), dao, manager, configuration);
+        var providers = mock(CdsProviderResolver.class);
+        org.mockito.Mockito.when(
+                        providers.resolve(
+                                org.mockito.ArgumentMatchers.any(),
+                                org.mockito.ArgumentMatchers.any(),
+                                org.mockito.ArgumentMatchers.any(),
+                                org.mockito.ArgumentMatchers.any(),
+                                org.mockito.ArgumentMatchers.anyBoolean()))
+                .thenReturn(
+                        new io.github.carlos_emr.carlos.demographic.cdsimport.dto
+                                .CdsProviderMatchDto(
+                                null,
+                                io.github.carlos_emr.carlos.demographic.cdsimport.dto
+                                        .CdsProviderMatchDto.Outcome.SOURCE_IDENTITY_ABSENT));
+        var notes = mock(io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO.class);
+        var saved =
+                new java.util.concurrent.atomic.AtomicReference<
+                        io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote>();
+        org.mockito.Mockito.doAnswer(
+                        call -> {
+                            io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote note =
+                                    call.getArgument(0);
+                            note.setId(91L);
+                            saved.set(note);
+                            return null;
+                        })
+                .when(notes)
+                .saveNote(org.mockito.ArgumentMatchers.any());
+        var extensions =
+                mock(io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteExtDAO.class);
+        var extensionIds = new java.util.concurrent.atomic.AtomicLong(500);
+        org.mockito.Mockito.doAnswer(
+                        call -> {
+                            io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt row =
+                                    call.getArgument(0);
+                            row.setId(extensionIds.incrementAndGet());
+                            return null;
+                        })
+                .when(extensions)
+                .save(org.mockito.ArgumentMatchers.any());
+        var persister =
+                new CdsHistoryPersister(
+                        fields,
+                        normalization,
+                        configuration,
+                        providers,
+                        preparation,
+                        notes,
+                        mock(io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO.class),
+                        mock(io.github.carlos_emr.carlos.casemgmt.dao.IssueDAO.class),
+                        extensions);
+        var command =
+                new CdsImportCommand(
+                        directory,
+                        "owned-submission",
+                        "999998",
+                        null,
+                        null,
+                        "clinic",
+                        "pcon-2024-02",
+                        false,
+                        false,
+                        true,
+                        0,
+                        null,
+                        false);
+        String run = "11111111-1111-4111-8111-111111111111";
+        persister.prepare(run, 1, id, record, command);
+        var prepared = stored.values().iterator().next();
+        assertThat(prepared.getPayload().getBytes(java.nio.charset.StandardCharsets.UTF_8).length)
+                .isGreaterThan(2 << 20);
+        try (Session session = factory.openSession()) {
+            var transaction = session.beginTransaction();
+            try {
+                // The record as MariaDB stores it in the real column, read back for the write.
+                session.doWork(
+                        connection -> {
+                            preparation(connection, prepared.getId(), prepared.getPayload());
+                            try (var read =
+                                    connection.prepareStatement(
+                                            "SELECT payload FROM cds_import_preparation WHERE id=?")) {
+                                read.setString(1, prepared.getId());
+                                try (var rows = read.executeQuery()) {
+                                    assertThat(rows.next()).isTrue();
+                                    prepared.setPayload(rows.getString(1));
+                                }
+                            }
+                        });
+            } finally {
+                transaction.rollback();
+            }
+        }
+        var notices =
+                new java.util.ArrayList<
+                        io.github.carlos_emr.carlos.demographic.cdsimport.dto
+                                .CdsClinicalDiagnosticDto>();
+        try (var active = org.mockito.Mockito.mockStatic(CdsImportUnitService.class)) {
+            persister.write(run, 1, id, 974238, record, command, notices::add);
+        }
+        String content = saved.get().getNote();
+        assertThat(content)
+                .startsWith(body)
+                .doesNotContain("narrative exceeds the bounded native projection");
+        assertThat(notices)
+                .extracting(
+                        io.github.carlos_emr.carlos.demographic.cdsimport.dto
+                                        .CdsClinicalDiagnosticDto
+                                ::code)
+                .doesNotContain("CDS_NOTE_COMPLETE_TEXT_SOURCE_VIEW");
+    }
+
+    @Test
+    void shouldReplayPreparationCapacityMigration_removingOnlyTheFormerCheck() throws Exception {
+        String migration;
+        try (var input =
+                getClass()
+                        .getResourceAsStream(
+                                "/db/migration/common/V1.0.59.50__cds_preparation_payload_capacity.sql")) {
+            assertThat(input).isNotNull();
+            migration =
+                    new String(input.readNBytes(65536), java.nio.charset.StandardCharsets.UTF_8);
+            assertThat(input.read()).isEqualTo(-1);
+        }
+        String fixture = "cds_preparation_capacity_fixture";
+        String replay = migration.replace("cds_import_preparation", fixture);
+        try (Session session = factory.openSession()) {
+            session.doWork(
+                    connection -> {
+                        try (var query = connection.createStatement()) {
+                            // The V1.0.59.14 shape, with the column check it wrote.
+                            query.execute(
+                                    "CREATE TABLE `cds_preparation_capacity_fixture` ("
+                                            + "id CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL PRIMARY KEY,"
+                                            + "payload MEDIUMTEXT NOT NULL CHECK (OCTET_LENGTH(payload) <= 1048576))"
+                                            + " ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+                            try {
+                                query.execute(
+                                        "INSERT INTO `cds_preparation_capacity_fixture` VALUES ('kept','retained record')");
+                                assertThat(fixtureChecks(connection)).isEqualTo(1);
+                                replayMigration(connection, replay);
+                                assertThat(fixtureChecks(connection)).isZero();
+                                String removed = fixtureDefinition(connection);
+                                assertThat(removed)
+                                        .contains("`payload` mediumtext", "NOT NULL", "utf8mb4_unicode_ci")
+                                        .doesNotContain("CHECK");
+                                replayMigration(connection, replay);
+                                assertThat(fixtureDefinition(connection)).isEqualTo(removed);
+                                try (var insert =
+                                        connection.prepareStatement(
+                                                "INSERT INTO `cds_preparation_capacity_fixture` VALUES ('large',?)")) {
+                                    insert.setString(1, "x".repeat(2 << 20));
+                                    assertThat(insert.executeUpdate()).isEqualTo(1);
+                                }
+                                try (var rows =
+                                        query.executeQuery(
+                                                "SELECT id, OCTET_LENGTH(payload) FROM `cds_preparation_capacity_fixture` ORDER BY id")) {
+                                    assertThat(rows.next()).isTrue();
+                                    assertThat(rows.getString(1)).isEqualTo("kept");
+                                    assertThat(rows.getLong(2)).isEqualTo(15);
+                                    assertThat(rows.next()).isTrue();
+                                    assertThat(rows.getLong(2)).isEqualTo(2 << 20);
+                                }
+                                // Another check on the column is not this migration's to drop.
+                                query.execute(
+                                        "ALTER TABLE `cds_preparation_capacity_fixture` ADD CONSTRAINT"
+                                                + " `local_payload` CHECK (OCTET_LENGTH(payload) <= 999999999)");
+                                assertThatThrownBy(() -> replayMigration(connection, replay))
+                                        .isInstanceOf(java.sql.SQLException.class)
+                                        .hasMessageContaining("Review the checks");
+                                assertThat(fixtureChecks(connection)).isEqualTo(1);
+                            } finally {
+                                query.execute("DROP TABLE `cds_preparation_capacity_fixture`");
+                                query.execute(
+                                        "DROP PROCEDURE IF EXISTS carlos_cds_preparation_capacity_1_0_59_50");
+                            }
+                        }
+                    });
+        }
+    }
+
+    /** Runs a migration's statements as Flyway does, honouring its DELIMITER blocks. */
+    private static void replayMigration(java.sql.Connection connection, String sql)
+            throws java.sql.SQLException {
+        String delimiter = ";";
+        var statement = new StringBuilder();
+        for (String line : sql.split("\n", -1)) {
+            String trimmed = line.strip();
+            if (trimmed.startsWith("DELIMITER ")) {
+                delimiter = trimmed.substring("DELIMITER ".length()).strip();
+                continue;
+            }
+            statement.append(line).append('\n');
+            String text = statement.toString().strip();
+            if (text.endsWith(delimiter)) {
+                String executable = text.substring(0, text.length() - delimiter.length()).strip();
+                statement.setLength(0);
+                if (executable.isEmpty()
+                        || executable.lines().allMatch(part -> part.strip().startsWith("--")))
+                    continue;
+                try (var query = connection.createStatement()) {
+                    query.execute(executable);
+                }
+            }
+        }
+    }
+
+    private static int fixtureChecks(java.sql.Connection connection) throws java.sql.SQLException {
+        try (var query = connection.createStatement();
+                var rows =
+                        query.executeQuery(
+                                "SELECT COUNT(*) FROM information_schema.check_constraints"
+                                        + " WHERE constraint_schema=DATABASE()"
+                                        + " AND table_name='cds_preparation_capacity_fixture'")) {
+            assertThat(rows.next()).isTrue();
+            return rows.getInt(1);
+        }
+    }
+
+    private static String fixtureDefinition(java.sql.Connection connection)
+            throws java.sql.SQLException {
+        try (var query = connection.createStatement();
+                var rows =
+                        query.executeQuery("SHOW CREATE TABLE `cds_preparation_capacity_fixture`")) {
+            assertThat(rows.next()).isTrue();
+            return rows.getString(2);
         }
     }
 

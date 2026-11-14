@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "31ba1f95f564b1f6f1c48c3ba8e249012a2f2a559bf3eb4813f0248f426205b1",
+ "migration_sha256": "91fe35adb46239b8b880c7d7e8b5b4e67d0b3f753b795cc34ac9418b1c59a020",
  "province": "on",
  "schema": {
   "checks": [
@@ -23,11 +23,6 @@
     "billing_filename_import",
     "billing_filename_reason",
     "`reason` in ('unchanged','collision')"
-   ],
-   [
-    "cds_import_preparation",
-    "payload",
-    "octet_length(`payload`) <= 1048576"
    ],
    [
     "o19_imported_signature_owner",
