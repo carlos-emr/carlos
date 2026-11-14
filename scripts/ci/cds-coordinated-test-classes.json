@@ -248,6 +248,7 @@
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportRetainedCaptureMariaDbIntegrationTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportRetainedEnrolmentReconcilerUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportRetainedEnrolmentSourceUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportRetainedFieldListUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportRetainedFieldMapperUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportRetainedImportOptionsReaderUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportRetainedIndexServiceUnitTest",

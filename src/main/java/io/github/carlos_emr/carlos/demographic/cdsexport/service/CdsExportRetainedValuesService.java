@@ -93,24 +93,17 @@ public class CdsExportRetainedValuesService {
                         maximumRows,
                         maximumIndexBytes,
                         control);
-        var fields = new TreeMap<String, CdsExportRetainedFieldDto>();
-        // Every field of the chart is held for the section. The texts its fields repeat (run,
-        // patient key, unit key, namespace, value type, source path, payload location) are held
-        // once, so a field costs about its own values and digest: a long imported chart has
-        // some twenty fields a record.
-        var texts = new HashMap<String, String>();
-        var mapper =
-                new CdsExportRetainedFieldMapper(
-                        text -> {
-                            if (text == null) return null;
-                            String known = texts.putIfAbsent(text, text);
-                            return known == null ? text : known;
-                        });
-        for (var row : index.tables().get("cds_import_field").values()) {
-            control.checkpoint();
-            var field = mapper.map(patient.patient(), lease.document().command().categories(), row);
-            if (fields.putIfAbsent(field.id(), field) != null) invalid();
-        }
+        // No field of the chart is kept decoded for the section: each is decoded from its row
+        // of the index when it is read (CdsExportRetainedFieldList), so a section holds the
+        // fields of the record it is working on, whatever the chart's size. Every row is
+        // decoded once here, as it was when the fields were kept: one that cannot be, or two
+        // of one id, refuse the chart before the section starts.
+        var fields =
+                CdsExportRetainedFieldList.of(
+                        index,
+                        patient.patient(),
+                        lease.document().command().categories(),
+                        control::checkpoint);
         // A value kept inline is never read from the payload member: only a payload-backed
         // field keeps its descriptor. Every field is still described exactly once.
         var ranges = new HashMap<String, CdsExportCapturedFieldDto>();
@@ -126,7 +119,7 @@ public class CdsExportRetainedValuesService {
                         maximumBytes,
                         control,
                         descriptor -> {
-                            var field = fields.get(descriptor.recordKey());
+                            var field = fields.find(descriptor.recordKey());
                             if (field == null || !described.add(field.id())) invalid();
                             var original = field.originalPayload();
                             if (original == null) {
@@ -139,7 +132,6 @@ public class CdsExportRetainedValuesService {
                             return OutputStream.nullOutputStream();
                         });
         if (payload.fields() != fields.size() || described.size() != fields.size()) invalid();
-        texts.clear();
         described.clear();
         var store =
                 stores.openExisting(
@@ -152,7 +144,7 @@ public class CdsExportRetainedValuesService {
             var scope = new Scope(fields, ranges, verified, control::checkpoint, authorize);
             Throwable primary = null;
             try {
-                work.use(index, List.copyOf(fields.values()), scope);
+                work.use(index, fields, scope);
                 if (scope.failed || !scope.open.isEmpty())
                     throw new IOException("CDS_EXPORT_RETAINED_VALUES_INCOMPLETE");
                 authorize.run();
@@ -181,7 +173,7 @@ public class CdsExportRetainedValuesService {
     }
 
     private static final class Scope implements CdsExportRetainedSectionWriter.Values {
-        private final Map<String, CdsExportRetainedFieldDto> fields;
+        private final CdsExportRetainedFieldList fields;
         private final Map<String, CdsExportCapturedFieldDto> ranges;
         private final CdsExportStagingService.VerifiedRanges verified;
         private final Runnable checkpoint, authorize;
@@ -191,12 +183,12 @@ public class CdsExportRetainedValuesService {
         private volatile boolean failed;
 
         private Scope(
-                Map<String, CdsExportRetainedFieldDto> fields,
+                CdsExportRetainedFieldList fields,
                 Map<String, CdsExportCapturedFieldDto> ranges,
                 CdsExportStagingService.VerifiedRanges verified,
                 Runnable checkpoint,
                 Runnable authorize) {
-            this.fields = Map.copyOf(fields);
+            this.fields = fields;
             this.ranges = Map.copyOf(ranges);
             this.verified = verified;
             this.checkpoint = checkpoint;
@@ -244,7 +236,7 @@ public class CdsExportRetainedValuesService {
                 throws IOException {
             try {
                 check();
-                if (!open.isEmpty() || field == null || !field.equals(fields.get(field.id())))
+                if (!open.isEmpty() || field == null || !field.equals(fields.find(field.id())))
                     invalid();
                 boolean isBinary =
                         field.valueType().equals("{http://www.w3.org/2001/XMLSchema}base64Binary");

@@ -66,55 +66,54 @@ public final class CdsExportRetainedOccurrenceFields {
         var metadata = index.tables().getOrDefault("cds_import_field", Map.of());
         var expected = new HashMap<String, CdsExportCapturedTextRowDto>();
         var verifiedPages = new HashSet<String>();
-        for (var parent : index.nativeParents().entrySet())
-            if (nativeAddress.equals(parent.getValue())) {
+        // The fields a section receives from CdsExportRetainedValuesService know the fields of
+        // each record: without that, every record costs a pass over every field of the chart
+        // (4,096 records of a chart of 81,938 fields were 335 million steps a section).
+        CdsExportRetainedFieldList known =
+                supplied instanceof CdsExportRetainedFieldList list && list.index() == index
+                        ? list
+                        : null;
+        if (known != null)
+            for (String fieldId : known.idsOf(nativeAddress)) {
                 checkpoint.run();
-                // nativeParents is field ID -> native unit address. A field's own unit is
-                // recorded in its row and has a different receipt from that native parent.
-                String fieldId = parent.getKey();
-                var row = metadata.get(fieldId);
-                if (row == null
-                        || !fieldId.equals(row.recordKey())
-                        || !fieldId.equals(row.fields().get("id"))) scope(prefix);
-                String page = row.fields().get("run_id") + ":" + row.fields().get("unit_key");
-                if (!index.appliedUnits().contains(page)
-                        || !checked.unchangedUnits().contains(page))
-                    throw new IOException(prefix + "_SOURCE_FIELD_EVIDENCE_CHANGED");
-                var proof = checked.units().get(page);
-                var original = index.references().get(page);
-                if (proof == null
-                        || original == null
-                        || !proof.stream()
-                                .map(
-                                        CdsExportRetainedReceiptVerificationDto.CheckedReference
-                                                ::expected)
-                                .toList()
-                                .equals(original)
-                        || proof.stream()
-                                .noneMatch(
-                                        ref ->
-                                                ref.expected().table().equals("cds_import_field")
-                                                        && ref.expected().id().equals(fieldId)
-                                                        && ref.reason()
-                                                                == CdsExportRetainedReceiptVerificationDto
-                                                                        .Reason.UNCHANGED_ROW))
-                    scope(prefix);
-                if (verifiedPages.add(page)
-                        && proof.stream()
-                                .anyMatch(
-                                        ref ->
-                                                ref.reason()
-                                                        != CdsExportRetainedReceiptVerificationDto
-                                                                .Reason.UNCHANGED_ROW))
-                    scope(prefix);
-                if (expected.putIfAbsent(fieldId, row) != null) scope(prefix);
-                if (expected.size() > 65_536)
-                    throw new IOException(prefix + "_SOURCE_FIELDS_REQUIRED");
+                expect(prefix, fieldId, metadata, index, checked, expected, verifiedPages);
             }
+        else
+            for (var parent : index.nativeParents().entrySet())
+                if (nativeAddress.equals(parent.getValue())) {
+                    checkpoint.run();
+                    // nativeParents is field ID -> native unit address. A field's own unit is
+                    // recorded in its row and has a different receipt from that native parent.
+                    expect(
+                            prefix,
+                            parent.getKey(),
+                            metadata,
+                            index,
+                            checked,
+                            expected,
+                            verifiedPages);
+                }
         if (expected.isEmpty()) throw new IOException(prefix + "_SOURCE_FIELDS_REQUIRED");
         var result = new ArrayList<CdsExportRetainedFieldDto>();
-        var seen = new HashSet<String>();
         var mapper = new CdsExportRetainedFieldMapper();
+        if (known != null) {
+            // The same fields in the same order (the order of their ids), each decoded from its
+            // row now and compared with the row this record expects.
+            var ids = new ArrayList<>(expected.keySet());
+            ids.sort(null);
+            for (String id : ids) {
+                checkpoint.run();
+                var field = known.find(id);
+                if (field == null
+                        || field.category() != category
+                        || !field.equals(mapper.map(patient, Set.of(category), expected.get(id))))
+                    scope(prefix);
+                result.add(field);
+            }
+            checkpoint.run();
+            return List.copyOf(result);
+        }
+        var seen = new HashSet<String>();
         for (var field : supplied)
             if (expected.containsKey(field.id())) {
                 checkpoint.run();
@@ -128,6 +127,52 @@ public final class CdsExportRetainedOccurrenceFields {
         if (!seen.equals(expected.keySet())) scope(prefix);
         checkpoint.run();
         return List.copyOf(result);
+    }
+
+    /** Proves one field of the record against its page's verified receipt and expects its row. */
+    private static void expect(
+            String prefix,
+            String fieldId,
+            Map<String, CdsExportCapturedTextRowDto> metadata,
+            CdsExportRetainedIndexDto index,
+            CdsExportRetainedReceiptVerificationDto checked,
+            Map<String, CdsExportCapturedTextRowDto> expected,
+            Set<String> verifiedPages)
+            throws IOException {
+        var row = metadata.get(fieldId);
+        if (row == null
+                || !fieldId.equals(row.recordKey())
+                || !fieldId.equals(row.fields().get("id"))) scope(prefix);
+        String page = row.fields().get("run_id") + ":" + row.fields().get("unit_key");
+        if (!index.appliedUnits().contains(page) || !checked.unchangedUnits().contains(page))
+            throw new IOException(prefix + "_SOURCE_FIELD_EVIDENCE_CHANGED");
+        var proof = checked.units().get(page);
+        var original = index.references().get(page);
+        if (proof == null
+                || original == null
+                || !proof.stream()
+                        .map(CdsExportRetainedReceiptVerificationDto.CheckedReference::expected)
+                        .toList()
+                        .equals(original)
+                || proof.stream()
+                        .noneMatch(
+                                ref ->
+                                        ref.expected().table().equals("cds_import_field")
+                                                && ref.expected().id().equals(fieldId)
+                                                && ref.reason()
+                                                        == CdsExportRetainedReceiptVerificationDto
+                                                                .Reason.UNCHANGED_ROW))
+            scope(prefix);
+        if (verifiedPages.add(page)
+                && proof.stream()
+                        .anyMatch(
+                                ref ->
+                                        ref.reason()
+                                                != CdsExportRetainedReceiptVerificationDto.Reason
+                                                        .UNCHANGED_ROW)) scope(prefix);
+        // No count of fields refuses a record: cds_import_field stores any number of them for
+        // one unit, and these are references to rows the index already holds.
+        if (expected.putIfAbsent(fieldId, row) != null) scope(prefix);
     }
 
     private static void scope(String prefix) throws IOException {

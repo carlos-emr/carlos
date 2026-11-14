@@ -434,7 +434,9 @@ public class CdsExportHistoryOccurrenceService {
             this.context = context;
             this.index = index;
             this.checked = checked;
-            this.retained = List.copyOf(retained);
+            // The list is unmodifiable and decodes a field when it is read
+            // (CdsExportRetainedFieldList): a copy would keep every field of the chart.
+            this.retained = retained;
             this.streams = streams;
             this.occurrences = occurrences;
             this.providers = providers;
