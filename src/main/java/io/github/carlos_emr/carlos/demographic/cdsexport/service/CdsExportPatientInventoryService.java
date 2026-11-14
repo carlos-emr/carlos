@@ -77,6 +77,13 @@ public class CdsExportPatientInventoryService {
     /** ReadMe label: measurements with no CareElements element, carried only by NewCategory. */
     public static final String MEASUREMENT_WITHOUT_ELEMENT_NOT_EXPORTED_LABEL =
             "Measurements with no CDS element" + NOT_SELECTED;
+
+    /**
+     * ReadMe label: system markers that file no note (a CPP section tag, OMeds, ...), carried only
+     * by the chart's native issue record (CdsExportIssueMarkerMapper).
+     */
+    public static final String ISSUE_MARKER_NOT_EXPORTED_LABEL =
+            "Chart issues no CDS item carries" + NOT_SELECTED;
     private final CdsExportRetainedIndexService indices;
     private final CdsExportNativeRowReceiptReader rows;
     private final CdsExportHistoryInventoryService histories;
@@ -344,6 +351,28 @@ public class CdsExportPatientInventoryService {
                                 occurrence.nativeId()));
             }
             if (!notes.equals(classified)) review();
+            // The chart's native issue record: its system markers that file no note, written by
+            // the NewCategory section when there is one, and after retained NewCategory records
+            // always (CdsExportNewCategoryOccurrenceService.issueMarkers). Without NewCategory
+            // each marker is named instead.
+            var markers = histories.markers(lease, patient, tables, source, bounds, control);
+            if (CdsExportNewCategoryOccurrenceService.carriesIssues(
+                    lease.document().command().categories(), tables)) {
+                if (retainedNewCategory || !markers.isEmpty())
+                    add(
+                            expected,
+                            nativeIdentity(
+                                    patientKey,
+                                    CdsCategory.NEW_CATEGORY,
+                                    "issues",
+                                    Integer.toString(patient.patient())));
+            } else
+                for (var marker : markers)
+                    withhold(
+                            notSelected,
+                            ISSUE_MARKER_NOT_EXPORTED_LABEL,
+                            "casemgmt_issue",
+                            marker.issue().value().fields().get("id"));
         } else if (!notes.isEmpty()) invalid();
         // The native demographic NewCategory record and the patient alert: each is one
         // occurrence when the patient has a value it carries (CdsExportDemographicSupportingMapper,

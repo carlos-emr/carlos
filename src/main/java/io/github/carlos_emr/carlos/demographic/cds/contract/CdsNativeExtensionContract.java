@@ -151,6 +151,21 @@ public final class CdsNativeExtensionContract {
             java.util.List.of(
                     "SocHistory", "FamHistory", "MedHistory", "Concerns", "RiskFactors", "Reminders");
 
+    /**
+     * CategoryName of the NewCategory record that carries a chart's patient issues no CDS item
+     * holds: system markers (a CPP section tag, OMeds, TicklerNote, ...) that file no note. A
+     * CARLOS export writes its own record after any retained copy of an earlier sender's, so a
+     * CARLOS importer restores from the last one in the patient file.
+     */
+    public static final String NATIVE_ISSUES_CATEGORY = "CARLOS.NativeIssues.v1";
+
+    /**
+     * The residual DataElement of that record: one JSON object, {@code {"version":1,"issues":[
+     * {"casemgmt_issue":{...},"issue":{...}}]}}, each issue's patient row and catalogue row with
+     * every column but their identities, exactly as stored.
+     */
+    public static final String NATIVE_ISSUES = "CARLOS.Issues.v1";
+
     /** CategoryName of the NewCategory record that carries a chart's native demographic values. */
     public static final String NATIVE_DEMOGRAPHIC_CATEGORY = "CARLOS.NativeDemographic.v1";
 

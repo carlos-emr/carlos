@@ -420,12 +420,18 @@ public final class CdsExportDemographicProjectionEvidence {
         if (!key.equals(CdsImportKeys.hash(lineage, path, "NATIVE", "0"))) return false;
         var refs = index.references().get(address);
         var proof = checked.units().get(address);
+        // A NewCategory unit that restored the marker issues of the last native issue record of
+        // its file names them after the demographic row (casemgmt_issue#<code>); they are not
+        // demographic rows and prove nothing here.
         if (refs == null
-                || refs.size() != 1
+                || refs.isEmpty()
+                || refs.size() > 1
+                        && !(category.equals("NewCategory")
+                                && CdsExportNewCategoryOccurrenceService.restoredIssues(refs))
                 || !"demographic".equals(refs.getFirst().table())
                 || !Integer.toString(patient).equals(refs.getFirst().id())
                 || proof == null
-                || proof.size() != 1
+                || proof.size() != refs.size()
                 || !refs.equals(
                         proof.stream()
                                 .map(

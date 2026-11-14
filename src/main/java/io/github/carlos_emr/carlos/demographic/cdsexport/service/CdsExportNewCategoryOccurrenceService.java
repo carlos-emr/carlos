@@ -42,6 +42,7 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
     private final CdsExportLaboratoryOccurrenceService laboratories;
     private final CdsExportPrescriptionOccurrenceService prescriptions;
     private final CdsExportAppointmentOccurrenceService appointments;
+    private final CdsExportHistoryInventoryService histories;
 
     /**
      * Without appointment source records: a capture that holds appointments is refused when the
@@ -57,7 +58,10 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
         this(values, verification, captures, care, laboratories, prescriptions, null);
     }
 
-    @org.springframework.beans.factory.annotation.Autowired
+    /**
+     * Without the chart's native issue record: a chart with a system marker that files no note is
+     * refused when the document's expected occurrences are reconciled. Test fixtures only.
+     */
     public CdsExportNewCategoryOccurrenceService(
             CdsExportRetainedValuesService values,
             CdsExportRetainedReceiptVerificationService verification,
@@ -66,7 +70,29 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
             CdsExportLaboratoryOccurrenceService laboratories,
             CdsExportPrescriptionOccurrenceService prescriptions,
             CdsExportAppointmentOccurrenceService appointments) {
+        this(
+                values,
+                verification,
+                captures,
+                care,
+                laboratories,
+                prescriptions,
+                appointments,
+                null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public CdsExportNewCategoryOccurrenceService(
+            CdsExportRetainedValuesService values,
+            CdsExportRetainedReceiptVerificationService verification,
+            CdsExportNativeCaptureService captures,
+            CdsExportCareOccurrenceService care,
+            CdsExportLaboratoryOccurrenceService laboratories,
+            CdsExportPrescriptionOccurrenceService prescriptions,
+            CdsExportAppointmentOccurrenceService appointments,
+            CdsExportHistoryInventoryService histories) {
         this.appointments = appointments;
+        this.histories = histories;
         this.values = Objects.requireNonNull(values);
         this.verification = Objects.requireNonNull(verification);
         this.captures = Objects.requireNonNull(captures);
@@ -228,6 +254,7 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                         counts[0]++;
                         counts[1] = Math.addExact(counts[1], all.size());
                     }
+                    long retainedRecords = counts[0];
                     // Demographic values with no Demographics element (preferred name, pronoun,
                     // care team, extension properties...): one record per patient that has any.
                     var mappedRecord =
@@ -272,6 +299,22 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                                         Set.of()));
                         control.authorizeCategory(patient.patient(), CdsCategory.DEMOGRAPHICS, false);
                         control.authorizeCategory(patient.patient(), category(), false);
+                        counts[0]++;
+                        counts[2]++;
+                    }
+                    if (issueMarkers(
+                            lease,
+                            patient,
+                            patientKey,
+                            tables,
+                            source,
+                            bounds,
+                            control,
+                            retainedRecords > 0,
+                            index.sourceManifestSha256(),
+                            streams,
+                            xml,
+                            output)) {
                         counts[0]++;
                         counts[2]++;
                     }
@@ -602,6 +645,94 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
     }
 
     /**
+     * Whether an export with these categories and captured tables carries the chart's native
+     * issue record: NewCategory with the seven history categories, whose capture holds the
+     * patient issues, their catalogue entries and the notes' links to them.
+     */
+    static boolean carriesIssues(Set<CdsCategory> categories, Set<String> tables) {
+        return categories.contains(CdsCategory.NEW_CATEGORY)
+                && categories.containsAll(CdsExportNoteSourceReader.CATEGORIES)
+                && tables.containsAll(Set.of("casemgmt_issue", "casemgmt_issue_notes", "issue"));
+    }
+
+    /**
+     * The chart's native issue record (CdsExportIssueMarkerMapper): its system markers that file
+     * no note, which no CDS item carries. Written when the chart has one, and, after retained
+     * NewCategory records (a copy of an earlier CARLOS sender's issue record among them), always,
+     * even empty: a CARLOS importer restores from the last one. Each marker's section (its CPP
+     * section, or ProblemList for any other marker) is authorized before it is read and after it
+     * is written, and a program accepted by a fresh check is checked again after emission.
+     *
+     * @return whether the record was written
+     */
+    private boolean issueMarkers(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            String patientKey,
+            Set<String> tables,
+            CdsExportPatientCaptureDto source,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control,
+            boolean retained,
+            String manifest,
+            CdsExportRetainedSectionWriter.Values streams,
+            CdsExportXmlComposer.SectionEmitter xml,
+            CdsExportClinicalOccurrenceService.Receipts output)
+            throws IOException {
+        if (histories == null
+                || !carriesIssues(lease.document().command().categories(), tables)) return false;
+        var markers = histories.markers(lease, patient, tables, source, bounds, control);
+        if (markers.isEmpty() && !retained) return false;
+        var sections = EnumSet.noneOf(CdsCategory.class);
+        for (var marker : markers)
+            sections.add(CdsExportNativeHistoryMapper.issueCategory(marker.definition()));
+        for (var section : sections) control.authorizeCategory(patient.patient(), section, false);
+        var granted = new LinkedHashSet<String>();
+        var mapped =
+                CdsExportIssueMarkerMapper.map(
+                        patient.patient(),
+                        markers,
+                        program -> {
+                            for (var section : sections)
+                                if (!control.issueProgramReadable(
+                                        patient.patient(), section, program)) return false;
+                            granted.add(program);
+                            return true;
+                        },
+                        control::checkpoint);
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(mapped.rows(), mapped.fields(), control::checkpoint);
+        String id = Integer.toString(patient.patient());
+        var identity =
+                new CdsExportIdentityDto(
+                        patientKey,
+                        category(),
+                        CdsImportKeys.hash("carlos-native-occurrence-v1", "issues", id));
+        streams.requireActive();
+        control.authorizeCategory(patient.patient(), category(), false);
+        xml.emit(
+                new CdsExportXmlComposer.Section(
+                        identity, body -> CdsExportIssueMarkerMapper.write(mapped.json(), body)));
+        output.accept(
+                new CdsExportClinicalOccurrenceService.Receipt(
+                        identity,
+                        manifest,
+                        "casemgmt_issue",
+                        id,
+                        null,
+                        mapped.fields(),
+                        Set.of(),
+                        Set.of()));
+        for (var section : sections) control.authorizeCategory(patient.patient(), section, false);
+        for (String program : granted)
+            for (var section : sections)
+                if (!control.issueProgramReadable(patient.patient(), section, program))
+                    throw new SecurityException("CDS_EXPORT_ACCESS_CHANGED");
+        control.authorizeCategory(patient.patient(), category(), false);
+        return true;
+    }
+
+    /**
      * NewCategory has no separate native clinical projection: its demographic receipt proves
      * association, not field precedence. Every applied NewCategory unit of the chart is
      * returned, however many: an address for each unit the retained index already holds.
@@ -629,9 +760,10 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
             if (!address.matches("[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}:[0-9a-f]{64}")
                     || !seen.add(address)
                     || refs == null
-                    || refs.size() != 1
+                    || refs.isEmpty()
                     || !"demographic".equals(refs.getFirst().table())
                     || !Integer.toString(patient).equals(refs.getFirst().id())
+                    || !restoredIssues(refs)
                     || proof == null
                     || !refs.equals(
                             proof.stream()
@@ -639,21 +771,30 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                                             CdsExportRetainedReceiptVerificationDto.CheckedReference
                                                     ::expected)
                                     .toList())) invalid();
-            if (proof.stream()
-                    .anyMatch(
-                            ref ->
-                                    ref.reason()
-                                                    != CdsExportRetainedReceiptVerificationDto
-                                                            .Reason.UNCHANGED_ROW
-                                            && ref.reason()
-                                                    != CdsExportRetainedReceiptVerificationDto
-                                                            .Reason.CHANGED_ROW))
+            // The demographic row proves the association. A marker issue the unit restored from
+            // the last native issue record of its file may since have changed or gone: this
+            // retained copy of the record is superseded by the chart's own (issueMarkers).
+            var association = proof.getFirst().reason();
+            if (association != CdsExportRetainedReceiptVerificationDto.Reason.UNCHANGED_ROW
+                    && association != CdsExportRetainedReceiptVerificationDto.Reason.CHANGED_ROW)
                 throw new CdsExportReviewException(CdsExportReviewException.Reason.UNMAPPED_DATA);
             selected.add(address);
         }
         selected.sort(String::compareTo);
         checkpoint.run();
         return List.copyOf(selected);
+    }
+
+    /**
+     * Whether a NewCategory unit's references after its demographic one are only the marker
+     * issues a CARLOS importer restores from the last native issue record of a patient file
+     * ({@code casemgmt_issue#<code>}); every other NewCategory unit names the demographic row
+     * alone.
+     */
+    static boolean restoredIssues(List<CdsExportRetainedIndexDto.Reference> refs) {
+        for (int i = 1; i < refs.size(); i++)
+            if (!"casemgmt_issue".equals(refs.get(i).table())) return false;
+        return true;
     }
 
     private static Set<String> demographicColumns() {
