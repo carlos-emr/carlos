@@ -108,7 +108,6 @@ public class CdsExportStagingFactory {
                             lease.runId(),
                             lease.epoch(),
                             key,
-                            number("cds.export.maxStagedFileBytes", 128L << 30, 1L << 40),
                             number("cds.export.minimumFreeBytes", 512L << 20, 1L << 40),
                             checkpoint);
             complete = true;
@@ -135,7 +134,6 @@ public class CdsExportStagingFactory {
                 runId,
                 epoch,
                 key(binding),
-                number("cds.export.maxStagedFileBytes", 128L << 30, 1L << 40),
                 number("cds.export.minimumFreeBytes", 512L << 20, 1L << 40),
                 checkpoint);
     }
@@ -163,20 +161,18 @@ public class CdsExportStagingFactory {
         try (var opened = Files.newDirectoryStream(directory)) {
             if (!(opened instanceof java.nio.file.SecureDirectoryStream<Path> secure))
                 throw new IOException("CDS_EXPORT_SECURE_DIRECTORY_REQUIRED");
-            long count = 0;
             for (Path entry : opened) {
                 checkpoint.run();
-                validateCleanupMember(secure, directory, entry, ++count);
+                validateCleanupMember(secure, directory, entry);
             }
         }
         checkpoint.run();
         try (var opened = Files.newDirectoryStream(directory)) {
             if (!(opened instanceof java.nio.file.SecureDirectoryStream<Path> secure))
                 throw new IOException("CDS_EXPORT_SECURE_DIRECTORY_REQUIRED");
-            long count = 0;
             for (Path entry : opened) {
                 checkpoint.run();
-                validateCleanupMember(secure, directory, entry, ++count);
+                validateCleanupMember(secure, directory, entry);
                 secure.deleteFile(entry.getFileName());
             }
         }
@@ -196,10 +192,11 @@ public class CdsExportStagingFactory {
     private static void validateCleanupMember(
             java.nio.file.SecureDirectoryStream<Path> secure,
             Path directory,
-            Path entry,
-            long count)
+            Path entry)
             throws IOException {
-        if (count > 4_000_000 || !entry.getFileName().toString().matches("[0-9a-f]{64}\\.stage"))
+        // No count is refused: an attempt owns as many members as its roster needed, and a
+        // cleanup that stopped at a number would leave the whole attempt on disk for good.
+        if (!entry.getFileName().toString().matches("[0-9a-f]{64}\\.stage"))
             throw new IOException("CDS_EXPORT_CLEANUP_UNKNOWN_MEMBER");
         var attrs =
                 secure.getFileAttributeView(
@@ -265,9 +262,7 @@ public class CdsExportStagingFactory {
         try {
             if (!text.matches("[0-9]{1,13}")) invalid();
             long value = Long.parseLong(text);
-            if (value < 0
-                    || value > maximum
-                    || property.endsWith("maxStagedFileBytes") && value == 0) invalid();
+            if (value < 0 || value > maximum) invalid();
             return value;
         } catch (NumberFormatException invalid) {
             throw new IOException("CDS_EXPORT_STORAGE_CONFIGURATION_INVALID");

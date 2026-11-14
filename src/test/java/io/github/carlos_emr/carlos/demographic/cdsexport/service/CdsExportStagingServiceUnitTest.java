@@ -301,6 +301,62 @@ class CdsExportStagingServiceUnitTest {
         }
     }
 
+    @Test
+    void shouldKeepEveryExistingChunkNonce_andRepeatNoneBeyondTheFormer32BitIndex() {
+        byte[] header = new byte[80];
+        new java.util.Random(5).nextBytes(header);
+        // Below 2^32 chunks the nonce is exactly the member's prefix and the 32-bit index, as
+        // every member written before has it: such a member still reads byte for byte.
+        for (long index : new long[] {0, 1, 65_535, 0x7fff_ffffL, 0xffff_fffeL, 0xffff_ffffL})
+            assertThat(CdsExportStagingService.nonce(header, index))
+                    .isEqualTo(
+                            java.nio.ByteBuffer.allocate(12)
+                                    .put(header, 72, 8)
+                                    .putInt((int) index)
+                                    .array());
+        // Past it (a member larger than 256 TiB, once refused) no nonce repeats: indices that
+        // share their low 32 bits, and neighbours, all differ.
+        var seen = new java.util.HashSet<String>();
+        long[] highs = {0, 1, 2, 0x7fff_ffffL, 0xffff_ffffL, 0x1234_5678L};
+        long[] lows = {0, 1, 2, 0x8000_0000L, 0xffff_ffffL};
+        for (long high : highs)
+            for (long low : lows) {
+                long index = high << 32 | low;
+                if (index < 0) continue;
+                assertThat(
+                                seen.add(
+                                        java.util.HexFormat.of()
+                                                .formatHex(
+                                                        CdsExportStagingService.nonce(
+                                                                header, index))))
+                        .isTrue();
+            }
+        // Only the four bytes before the low index change, never the first four of the prefix.
+        assertThat(java.util.Arrays.copyOf(CdsExportStagingService.nonce(header, 1L << 40), 4))
+                .isEqualTo(java.util.Arrays.copyOfRange(header, 72, 76));
+    }
+
+    @Test
+    void shouldStageAMemberOfAnySize_whenBuiltAsAnExportAttemptBuildsItsStore() throws Exception {
+        // The store of an export attempt has no size bound: a member far larger than the
+        // bound of this test's own store is written and read back whole.
+        var unbounded =
+                new CdsExportStagingService(
+                        root,
+                        java.util.UUID.randomUUID().toString(),
+                        1,
+                        new javax.crypto.spec.SecretKeySpec(new byte[32], "AES"),
+                        0,
+                        () -> {});
+        byte[] content = new byte[200_000];
+        new java.util.Random(9).nextBytes(content);
+        var file = unbounded.stage("LARGE_MEMBER", output -> output.write(content));
+        assertThat(file.plaintextBytes()).isEqualTo(content.length);
+        try (var input = unbounded.open(file)) {
+            assertThat(input.readAllBytes()).isEqualTo(content);
+        }
+    }
+
     private Path path(CdsExportStagedFileDto file) {
         return root.resolve(file.memberId() + ".stage");
     }

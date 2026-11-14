@@ -65,7 +65,6 @@ public final class CdsExportStagingService {
     private static final int CHUNK = 65_536;
     private static final int TAG = 16;
     private static final int HEADER = 8 + 32 + 32 + 8;
-    private static final long MAX_CHUNKS = 0xffff_ffffL;
     private final Path root;
     private final String scope;
     private final SecretKey master;
@@ -79,7 +78,25 @@ public final class CdsExportStagingService {
         void write(OutputStream plaintext) throws IOException;
     }
 
-    /** The caller verifies the configured root and root-owned key before constructing a job attempt. */
+    /**
+     * The store of a job attempt: no staged member is refused for its size. The caller verifies the
+     * configured root and root-owned key before constructing a job attempt.
+     */
+    public CdsExportStagingService(
+            Path root,
+            String runId,
+            long epoch,
+            SecretKey master,
+            long minimumFreeBytes,
+            Runnable checkpoint) {
+        this(root, runId, epoch, master, Long.MAX_VALUE, minimumFreeBytes, checkpoint);
+    }
+
+    /**
+     * A store whose members are bounded to {@code maxBytes}. No export attempt is built this way
+     * ({@code cds.export.maxStagedFileBytes} is retired): the bound remains only for callers that
+     * read a member whose size they already know to be small, and for tests of the refusal itself.
+     */
     public CdsExportStagingService(
             Path root,
             String runId,
@@ -237,7 +254,6 @@ public final class CdsExportStagingService {
             long chunks =
                     expected.plaintextBytes() / CHUNK
                             + (expected.plaintextBytes() % CHUNK == 0 ? 0 : 1);
-            if (chunks > MAX_CHUNKS) throw new IOException("CDS_EXPORT_STAGING_CHUNK_LIMIT");
             try {
                 encryptedBytes =
                         Math.addExact(
@@ -546,11 +562,10 @@ public final class CdsExportStagingService {
     private byte[] crypt(
             int mode, SecretKey key, byte[] header, long index, int length, byte[] value, int size)
             throws IOException {
-        if (index < 0 || index > MAX_CHUNKS)
-            throw new IOException("CDS_EXPORT_STAGING_CHUNK_LIMIT");
+        if (index < 0) throw new IOException("CDS_EXPORT_STAGED_IDENTITY_MISMATCH");
         try {
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-            byte[] nonce = ByteBuffer.allocate(12).put(header, 72, 8).putInt((int) index).array();
+            byte[] nonce = nonce(header, index);
             cipher.init(mode, key, new GCMParameterSpec(128, nonce));
             cipher.updateAAD(header);
             cipher.updateAAD(ByteBuffer.allocate(12).putLong(index).putInt(length).array());
@@ -558,6 +573,26 @@ public final class CdsExportStagingService {
         } catch (GeneralSecurityException failure) {
             throw new IOException("CDS_EXPORT_STAGED_AUTHENTICATION_FAILED");
         }
+    }
+
+    /**
+     * The 96-bit GCM nonce of one chunk: the member's random 64-bit nonce prefix and the chunk
+     * index. The low 32 bits of the index are the nonce's last four bytes, exactly as in every
+     * member written before; the high 32 bits are folded into the four bytes before them. The
+     * mapping from index to nonce is one-to-one for the whole 64-bit range, and every member has
+     * its own key (derived from its fresh 256-bit salt), so no nonce repeats under a key. A member
+     * of fewer than 2^32 chunks (256 TiB) is therefore byte-for-byte what it always was, and a
+     * larger one is no longer refused. The full 64-bit index is also authenticated as associated
+     * data, as before.
+     */
+    static byte[] nonce(byte[] header, long index) {
+        byte[] nonce = ByteBuffer.allocate(12).put(header, 72, 8).putInt((int) index).array();
+        int high = (int) (index >>> 32);
+        nonce[4] ^= (byte) (high >>> 24);
+        nonce[5] ^= (byte) (high >>> 16);
+        nonce[6] ^= (byte) (high >>> 8);
+        nonce[7] ^= (byte) high;
+        return nonce;
     }
 
     private Path memberPath(String member) throws IOException {
