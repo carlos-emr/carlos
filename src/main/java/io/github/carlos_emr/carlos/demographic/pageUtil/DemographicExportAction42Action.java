@@ -502,6 +502,10 @@ public class DemographicExportAction42Action extends ActionSupport {
                     exportError = new ArrayList<String>();
                     for (String demoNo : list) {
                         ArrayList<File> patientCarriedDocuments = new ArrayList<File>();
+                        // Bytes of this patient's documents embedded in the XML so far, and whether
+                        // the per-patient budget has been reached (see maxEmbeddedPatientBytes).
+                        long patientEmbeddedBytes = 0;
+                        boolean patientBudgetReached = false;
                         if (StringUtils.empty(demoNo)) {
                             exportError.add("Error! No Demographic Number");
                             continue;
@@ -2172,9 +2176,59 @@ public class DemographicExportAction42Action extends ActionSupport {
                                 if (!f.exists()) {
                                     exportError.add("Error! Document \"" + f.getName() + "\" does not exist!");
                                 } else {
+                                    // Validated once, before any use: null when the id is missing or not
+                                    // numeric, in which case it can neither name a carried file nor key
+                                    // the document's notes.
+                                    String documentId = numericId(edoc.getDocId());
                                     // #3968: a document above the embedding limit is not read into memory; it
                                     // travels as its own file in the archive (see carryOversizedDocument).
-                                    boolean embedded = f.length() <= maxEmbeddedDocumentBytes();
+                                    // The same happens once this patient's embedded documents would pass
+                                    // the per-patient budget: twenty documents each under the limit would
+                                    // otherwise sit Base64-encoded in one in-memory XML and could exhaust
+                                    // the heap for every user. Either way the document is in the archive;
+                                    // the limits only choose between Content and FilePath.
+                                    long documentBytes = f.length();
+                                    boolean embedded = documentBytes <= maxEmbeddedDocumentBytes();
+                                    if (embedded && !patientBudgetReached
+                                            && patientEmbeddedBytes + documentBytes > maxEmbeddedPatientBytes()) {
+                                        patientBudgetReached = true;
+                                    }
+                                    // A document that cannot be given a carried file name is still
+                                    // embedded when it is within the per-document limit: the budget
+                                    // never leaves a document out.
+                                    if (embedded && patientBudgetReached && documentId != null) {
+                                        embedded = false;
+                                    }
+                                    // The document is read or copied BEFORE its report element is added,
+                                    // so a document that cannot be exported leaves no empty report behind.
+                                    byte[] b = null;
+                                    File carried = null;
+                                    try {
+                                        if (embedded) {
+                                            b = readExportDocumentBytes(f);
+                                        } else {
+                                            carried = carryOversizedDocument(f, demoNo, documentId, exportDirectory);
+                                        }
+                                    } catch (IOException documentFailure) {
+                                        if (!exportDirectory.isDirectory()) {
+                                            // Not this document's fault: the export itself has lost its
+                                            // directory, so it fails as a whole rather than recording one
+                                            // document after another.
+                                            throw documentFailure;
+                                        }
+                                        // One document that cannot be exported must not cost the other
+                                        // documents and patients their export, and must never go missing
+                                        // unrecorded: the export log names it, its patient and the reason.
+                                        exportError.add("Error! Document \"" + edoc.getFileName() + "\" ("
+                                                + (edoc.getDocId() == null ? "no document id" : "document id " + edoc.getDocId())
+                                                + ") for Patient " + demoNo
+                                                + " was NOT exported: " + describeDocumentFailure(documentFailure));
+                                        // Identifiers only: the file name and the failure text can hold patient data.
+                                        logger.error("Legacy export could not export document {} of chart {}: {}",
+                                                LogSafe.sanitize(edoc.getDocId()), LogSafe.sanitize(demoNo),
+                                                documentFailure.getClass().getSimpleName());
+                                        continue;
+                                    }
                                     Reports rpr = patientRec.addNewReports();
                                     if (edoc.getType() != null) {
                                         cdsDt.ReportMedia.Enum mediaEnum = cdsDt.ReportMedia.Enum.forString(formatHrmEnum(edoc.getType()));
@@ -2186,13 +2240,12 @@ public class DemographicExportAction42Action extends ActionSupport {
 
                                     if (!embedded) {
                                         rpr.setFormat(cdsDt.ReportFormat.BINARY);
-                                        File carried = carryOversizedDocument(f, demoNo, edoc.getDocId(), exportDirectory);
                                         if (!patientCarriedDocuments.contains(carried)) patientCarriedDocuments.add(carried);
                                         rpr.setFilePath(carried.getName());
                                         addOneEntry(REPORTBINARY);
                                     } else {
+                                    patientEmbeddedBytes += b.length;
                                     cdsDt.ReportContent rpc = rpr.addNewContent();
-                                    byte[] b = readExportDocumentBytes(f);
                                     if (edoc.getContentType() != null && edoc.getContentType().startsWith("text")) {
                                         String str = new String(b);
                                         rpc.setTextContent(str);
@@ -2250,9 +2303,19 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     if (StringUtils.filled(edoc.getSourceFacility()))
                                         rpr.setSourceFacility(edoc.getSourceFacility());
 
-                                    if (edoc.getDocId() == null) continue;
+                                    if (documentId == null) {
+                                        // No id to look the document's notes up by. A missing id was
+                                        // always passed over; one that is present but not numeric used
+                                        // to abort the whole export here, so it is recorded instead.
+                                        if (edoc.getDocId() != null) {
+                                            exportError.add("Error! Notes for Document \"" + edoc.getFileName()
+                                                    + "\" for Patient " + demoNo
+                                                    + " were NOT exported: its document id is not numeric");
+                                        }
+                                        continue;
+                                    }
 
-                                    annotation = getNonDumpNote(CaseManagementNoteLink.DOCUMENT, Long.valueOf(edoc.getDocId()), null);
+                                    annotation = getNonDumpNote(CaseManagementNoteLink.DOCUMENT, Long.valueOf(documentId), null);
                                     if (StringUtils.filled(annotation)) rpr.setNotes(annotation);
                                 }
                             }
@@ -2943,9 +3006,10 @@ public class DemographicExportAction42Action extends ActionSupport {
             }
             writeExportAuditLog(loggedInInfo, list.size(), exportOutcome, exportedIds, exportException);
         }
-        // When a file was streamed to the response, return null to prevent Struts
-        // from rendering a JSP result into the already-committed response.
-        return fileStreamed ? null : ffwd;
+        // When a file was streamed, the archive is the whole response. NONE ends Struts processing
+        // explicitly; a bare null is not reliable enough here and can let a JSP result or an error
+        // page be written into the download (CLAUDE.md, "Direct Response Actions").
+        return fileStreamed ? NONE : ffwd;
     }
 
     /**
@@ -2995,40 +3059,98 @@ public class DemographicExportAction42Action extends ActionSupport {
         // Java array; the old (int) cast overflowed above 2 GB (#3968).
         long size = file.length();
         if (size > maxEmbeddedDocumentBytes()) {
-            throw new IOException("Document exceeds the embedding limit");
+            throw new ExportDocumentException("it grew past the embedding limit while the export was running");
         }
         byte[] bytes = java.nio.file.Files.readAllBytes(file.toPath());
         if (bytes.length != size) {
-            throw new IOException("Could not completely read file " + file.getName());
+            throw new ExportDocumentException("it changed while the export was reading it");
         }
         return bytes;
     }
 
     /**
-     * Copies a document above the embedding limit beside its patient's XML, for the report's
-     * FilePath (#3968). CDS carries a report as Content or as FilePath, a file in the package; the
-     * copy streams, so the document is never held in memory. The name is built from the numeric
-     * chart and document ids only, so it is unique in the export and carries no patient text.
+     * A document failure with fixed, patient-free text that the export log may show as it is.
+     * Failures raised by the file system carry paths, so those are described by type instead.
+     */
+    private static final class ExportDocumentException extends IOException {
+        private static final long serialVersionUID = 1L;
+
+        ExportDocumentException(String message) {
+            super(message);
+        }
+    }
+
+    /**
+     * A document or chart id when it can name a carried file and, for a document, key its notes.
      *
+     * @return the trimmed id, or {@code null} when it is missing or not a plain number
+     */
+    static String numericId(String id) {
+        if (id == null) {
+            return null;
+        }
+        String trimmed = id.trim();
+        return trimmed.matches("[0-9]{1,18}") ? trimmed : null;
+    }
+
+    /**
+     * Why one document was not exported, for the export log. Text raised by this class is fixed
+     * and shown as it is; a file-system failure is named by its type and the operating system's
+     * reason ("No space left on device"), never by its message, which holds file paths.
+     */
+    static String describeDocumentFailure(IOException failure) {
+        if (failure instanceof ExportDocumentException) {
+            return failure.getMessage();
+        }
+        String reason = failure instanceof java.nio.file.FileSystemException fileSystem ? fileSystem.getReason() : null;
+        return "the file could not be read or copied (" + failure.getClass().getSimpleName()
+                + (StringUtils.filled(reason) ? ": " + reason : "") + ")";
+    }
+
+    /**
+     * Copies a document that is not embedded beside its patient's XML, for the report's FilePath
+     * (#3968): a document above the embedding limit, or one past its patient's embedding budget.
+     * CDS carries a report as Content or as FilePath, a file in the package; the copy streams, so
+     * the document is never held in memory. The name is built from the numeric chart and document
+     * ids only, so it is unique in the export and carries no patient text.
+     *
+     * @param documentNo the document id; anything but a plain number is refused
      * @return the copy, inside {@code exportDirectory}
-     * @throws IOException when the copy cannot be written: the export then fails rather than
-     *                     publishing a report whose file the package does not contain
+     * @throws IOException when an id is missing or not numeric, or the copy cannot be written. No
+     *                     partial copy is left behind. The caller records the failure against the
+     *                     document and goes on with the export, unless the export directory itself
+     *                     is gone, in which case the export fails as a whole.
      */
     // FindSecBugs PATH_TRAVERSAL_IN: the source was validated against DOCUMENT_DIR; the target name is generated from numeric ids
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "the source was validated against DOCUMENT_DIR; the target name is generated from numeric ids")
     static File carryOversizedDocument(File document, String demographicNo, String documentNo, File exportDirectory)
             throws IOException {
-        if (demographicNo == null || !demographicNo.trim().matches("[0-9]{1,18}")
-                || documentNo == null || !documentNo.trim().matches("[0-9]{1,18}")) {
-            throw new IOException("Document identifiers are not numeric");
+        String chartId = numericId(demographicNo);
+        String documentId = numericId(documentNo);
+        if (documentId == null) {
+            throw new ExportDocumentException("its document id is missing or not numeric, so its file could not be named");
+        }
+        if (chartId == null) {
+            throw new ExportDocumentException("its chart number is not numeric, so its file could not be named");
         }
         String extension = org.apache.commons.io.FilenameUtils.getExtension(document.getName());
-        String name = "document_" + demographicNo.trim() + "_" + documentNo.trim()
+        String name = "document_" + chartId + "_" + documentId
                 + (extension.matches("[A-Za-z0-9]{1,16}") ? "." + extension : "");
         File carried = PathValidationUtils.validateGeneratedChildPath(name, exportDirectory);
         // The same document listed twice for a chart is carried once.
         if (!carried.exists()) {
-            java.nio.file.Files.copy(document.toPath(), carried.toPath());
+            try {
+                java.nio.file.Files.copy(document.toPath(), carried.toPath());
+            } catch (IOException | RuntimeException copyFailure) {
+                // A truncated copy must not stay: a second listing of the document would take it
+                // for the carried file, and the archive would hold a document cut short.
+                try {
+                    java.nio.file.Files.deleteIfExists(carried.toPath());
+                } catch (IOException | RuntimeException cleanup) {
+                    copyFailure.addSuppressed(cleanup);
+                }
+                throw copyFailure;
+            }
         }
         return carried;
     }
@@ -3036,17 +3158,39 @@ public class DemographicExportAction42Action extends ActionSupport {
     /** Default largest document embedded in a legacy CDS export, in bytes (#3968). */
     static final long DEFAULT_MAX_EMBEDDED_DOCUMENT_BYTES = 64L << 20;
 
+    /** Default total of one patient's documents embedded in a legacy CDS export, in bytes. */
+    static final long DEFAULT_MAX_EMBEDDED_PATIENT_BYTES = 256L << 20;
+
     /**
      * The largest document embedded in a legacy export, from
      * {@code cds.legacyExport.maxEmbeddedDocumentBytes} (bytes; default 64 MB, never above 1 GB).
      */
     long maxEmbeddedDocumentBytes() {
-        String configured = oscarProperties.getProperty("cds.legacyExport.maxEmbeddedDocumentBytes");
+        return embeddingLimit("cds.legacyExport.maxEmbeddedDocumentBytes", DEFAULT_MAX_EMBEDDED_DOCUMENT_BYTES);
+    }
+
+    /**
+     * The most document bytes embedded in one patient's XML in a legacy export, from
+     * {@code cds.legacyExport.maxEmbeddedPatientBytes} (bytes; default 256 MB, never above 1 GB).
+     *
+     * <p>The per-document limit alone does not bound memory: a chart's documents are all held,
+     * Base64-encoded, in that patient's in-memory XML until it is written. Documents are embedded
+     * in chart order until the next one would take the patient's total past this budget; that
+     * document and every later one of the patient is carried as a file, exactly as an oversized
+     * document is. No document is left out because of it.
+     */
+    long maxEmbeddedPatientBytes() {
+        return embeddingLimit("cds.legacyExport.maxEmbeddedPatientBytes", DEFAULT_MAX_EMBEDDED_PATIENT_BYTES);
+    }
+
+    /** A byte limit from configuration: the default when unset, not a number or below 1; at most 1 GB. */
+    private long embeddingLimit(String property, long defaultBytes) {
+        String configured = oscarProperties.getProperty(property);
         try {
-            long value = configured == null ? DEFAULT_MAX_EMBEDDED_DOCUMENT_BYTES : Long.parseLong(configured.trim());
-            return value < 1 ? DEFAULT_MAX_EMBEDDED_DOCUMENT_BYTES : Math.min(value, 1L << 30);
+            long value = configured == null ? defaultBytes : Long.parseLong(configured.trim());
+            return value < 1 ? defaultBytes : Math.min(value, 1L << 30);
         } catch (NumberFormatException invalid) {
-            return DEFAULT_MAX_EMBEDDED_DOCUMENT_BYTES;
+            return defaultBytes;
         }
     }
 

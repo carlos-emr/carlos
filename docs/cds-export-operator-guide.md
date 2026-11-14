@@ -889,6 +889,17 @@ text was edited ("kg", "Kilograms") and converts weights recorded in pounds to k
 into memory: it is copied into the archive beside its patient's XML, as
 `document_<chart>_<document>.<extension>`, and its report's FilePath names that file, as the CDS
 schema allows (#3968). Nothing has to be transferred separately, and an importer that resolves
-FilePath, as CARLOS does, finds the document in the package. Each generated file is re-read with the JDK's predefined-entity ceilings
+FilePath, as CARLOS does, finds the document in the package. The per-document limit alone does
+not bound memory, because every embedded document of a chart is held Base64-encoded in that
+patient's XML until it is written. `cds.legacyExport.maxEmbeddedPatientBytes` (bytes; default
+256 MB, at most 1 GB; an unset, non-numeric or non-positive value means the default) is the
+most document bytes embedded for one patient: documents are embedded in chart order until the
+next one would pass that total, and that document and every later one of the patient is carried
+as a file in the same way. Neither limit leaves a document out; they only decide between
+embedded Content and a FilePath. A document that cannot be exported at all (its file cannot be
+read or copied, or its id cannot name a file) no longer stops the export: the other documents
+and patients are exported, and `ExportEvent.log` in the archive names the document, its patient
+and the reason, which the ReadMe's error count points to. Only a failure of the export itself,
+such as its working directory disappearing, still fails the whole export. Each generated file is re-read with the JDK's predefined-entity ceilings
 lifted, so a large chart's escaped notes are no longer reported as failing the schema, and a
 file that cannot be re-read is reported as such rather than as a schema failure (#5845).
