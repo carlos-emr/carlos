@@ -209,8 +209,10 @@ public final class CdsExportAppointmentMapper {
                                             reason.rule()));
             }
         }
-        var fitted =
-                fitNotes(result.noteLines().isEmpty() ? notes : withLines(notes, result.noteLines()));
+        var lines = new java.util.ArrayList<>(result.noteLines());
+        String statusLine = importedStatusLine(row, fields);
+        if (statusLine != null) lines.add(statusLine);
+        var fitted = fitNotes(lines.isEmpty() ? notes : withLines(notes, lines));
         if (fitted.complete() != null) {
             complete.put("AppointmentNotes", fitted.complete());
             var notesKey = new CdsExportNativeFieldKeyDto(row.table(), row.recordKey(), "notes");
@@ -385,12 +387,7 @@ public final class CdsExportAppointmentMapper {
                     notes.isEmpty() ? "EXACT_NATIVE_EMPTY_TEXT" : "EXACT_NATIVE_TEXT");
         String status = status(source, lookups, decisions);
         var provider = provider(source, lookups, decisions);
-        if (source.raw("imported_status") != null && !source.raw("imported_status").isEmpty()) {
-            source.review(
-                    "imported_status",
-                    "AppointmentStatus",
-                    "RETAINED_APPOINTMENT_STATUS_REQUIRES_RECONCILIATION");
-        }
+        status = importedStatus(source, status, complete);
         for (String column : SCHEDULER_CONTEXT) {
             String value = source.raw(column);
             if (value != null && !value.isEmpty())
@@ -407,6 +404,80 @@ public final class CdsExportAppointmentMapper {
                 noteLines,
                 notes,
                 complete);
+    }
+
+    /** Leads the status text an appointment was imported with, in AppointmentNotes. */
+    static final String IMPORTED_STATUS_LABEL = "Imported status: ";
+
+    /** Rule of an imported status written as a labelled line of AppointmentNotes. */
+    static final String IMPORTED_STATUS_IN_NOTES = "IMPORTED_STATUS_AS_LABELLED_NOTES_LINE";
+
+    /** Rule of an imported status written as AppointmentStatus, the booking having no code. */
+    static final String IMPORTED_STATUS_AS_STATUS = "IMPORTED_STATUS_WITHOUT_A_STATUS_CODE_AS_APPOINTMENT_STATUS";
+
+    /**
+     * Decides {@code imported_status}, the status text a booking was imported with. A CDS import
+     * writes it (CARLOS's own importer, and OSCAR 19's, whose rows the OSCAR 19 migration
+     * copies), and the REST and SOAP appointment services store whatever value they are sent
+     * ({@code AppointmentConverter.applyEditableProperties}, {@code AppointmentTransfer.copyTo});
+     * the Edit Appointment page shows it beside the status. It held the patient
+     * ({@code RETAINED_APPOINTMENT_STATUS_REQUIRES_RECONCILIATION}) whenever no import unit claimed
+     * the booking. Now:
+     *
+     * <ul>
+     *   <li>with no status code, it is the booking's AppointmentStatus, the rule an imported
+     *       booking follows, and a CARLOS import stores it back as the imported status;</li>
+     *   <li>beside a status code, AppointmentStatus is that code's label and the imported status
+     *       is a labelled line of AppointmentNotes ({@link #IMPORTED_STATUS_LABEL}), appended by
+     *       {@link #complete} (and by the field reconciler for an imported booking);</li>
+     *   <li>blank text is not shown on the page and is not written.</li>
+     * </ul>
+     *
+     * The stored column is whole in the appointment's source record in every case.
+     *
+     * @return the AppointmentStatus text
+     */
+    private static String importedStatus(
+            CdsExportNativeFieldAssessments source, String status, Map<String, String> complete) {
+        String imported = source.raw("imported_status");
+        if (imported == null || imported.isEmpty()) return status;
+        String code = source.raw("status");
+        if (imported.isBlank() || xmlText(imported).isBlank()) {
+            source.set(
+                    "imported_status",
+                    Outcome.MAPPED,
+                    CARRIER,
+                    imported.isBlank() ? "BLANK_IMPORTED_STATUS_NOT_DISPLAYED" : CLEANED_RULE);
+            return status;
+        }
+        if (code == null || code.isEmpty()) {
+            var fitted = fitShort(imported);
+            if (fitted.complete() != null) complete.put("AppointmentStatus", fitted.complete());
+            source.set(
+                    "imported_status",
+                    Outcome.MAPPED,
+                    fitted.complete() == null ? "AppointmentStatus" : "AppointmentStatus," + CARRIER,
+                    fitted.complete() == null ? IMPORTED_STATUS_AS_STATUS : fitted.rule());
+            return fitted.element();
+        }
+        source.set("imported_status", Outcome.MAPPED, "AppointmentNotes", IMPORTED_STATUS_IN_NOTES);
+        return status;
+    }
+
+    /**
+     * The labelled AppointmentNotes line of a booking's imported status, or null when the status
+     * is not written that way ({@link #importedStatus}).
+     */
+    static String importedStatusLine(
+            CdsExportCapturedTextRowDto row,
+            Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields) {
+        var decision =
+                fields.get(
+                        new CdsExportNativeFieldKeyDto(
+                                row.table(), row.recordKey(), "imported_status"));
+        return decision != null && IMPORTED_STATUS_IN_NOTES.equals(decision.rule())
+                ? IMPORTED_STATUS_LABEL + row.fields().get("imported_status")
+                : null;
     }
 
     /**

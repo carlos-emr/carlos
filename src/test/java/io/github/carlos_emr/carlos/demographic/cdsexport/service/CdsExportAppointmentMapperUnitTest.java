@@ -192,18 +192,46 @@ class CdsExportAppointmentMapperUnitTest {
     }
 
     @Test
-    void shouldNeverFallBackToImportedStatus_afterTheCurrentStatusWasClearedOrChanged()
+    void shouldExportAnImportedStatus_asTheStatusWithoutACodeAndAsANotesLineBesideOne()
             throws Exception {
-        for (String current : List.of("", "Q1")) {
-            var fields = baseline();
-            fields.put("status", current);
-            fields.put("imported_status", "Prior imported status");
-            var mapped = mapper.map(27, appointment(fields), lookups(), ZONE);
-            assertThat(mapped.nativeRowRepresentable()).isFalse();
-            assertThat(mapped.value()).isNull();
-            assertThat(mapped.fields().get(key("imported_status")).rule())
-                    .isEqualTo("RETAINED_APPOINTMENT_STATUS_REQUIRES_RECONCILIATION");
-        }
+        // OSCAR 19's CDS import (copied by the OSCAR 19 migration) and the REST and SOAP
+        // appointment services store imported_status on a booking no CARLOS import unit claims;
+        // the Edit Appointment page shows it beside the status. It held the patient
+        // (RETAINED_APPOINTMENT_STATUS_REQUIRES_RECONCILIATION).
+        var fields = baseline();
+        fields.put("status", "");
+        fields.put("imported_status", "Prior imported status");
+        var bare = mapper.map(27, appointment(fields), lookups(), ZONE);
+        assertThat(bare.nativeRowRepresentable()).isTrue();
+        // With no status code it is the booking's status, as on an imported booking; a CARLOS
+        // import stores AppointmentStatus back as the imported status.
+        assertThat(bare.value().status()).isEqualTo("Prior imported status");
+        assertThat(bare.fields().get(key("imported_status")).rule())
+                .isEqualTo(CdsExportAppointmentMapper.IMPORTED_STATUS_AS_STATUS);
+        assertThat(bare.value().notes()).isEqualTo("Literal café 😀\r\nnotes");
+        // Beside a status code the code's label is the status, never the imported text, which
+        // is a labelled line after the notes.
+        fields.put("status", "Q1");
+        var coded = mapper.map(27, appointment(fields), lookups(), ZONE);
+        assertThat(coded.nativeRowRepresentable()).isTrue();
+        assertThat(coded.value().status()).isEqualTo("Exact booked Ω");
+        assertThat(coded.value().notes())
+                .isEqualTo("Literal café 😀\r\nnotes\nImported status: Prior imported status");
+        assertThat(coded.fields().get(key("imported_status")).rule())
+                .isEqualTo(CdsExportAppointmentMapper.IMPORTED_STATUS_IN_NOTES);
+        // With no notes the line is the notes.
+        fields.put("notes", null);
+        assertThat(mapper.map(27, appointment(fields), lookups(), ZONE).value().notes())
+                .isEqualTo("Imported status: Prior imported status");
+        // Blank text is not shown on the page and is not written; the column is in the record.
+        fields.put("imported_status", "   ");
+        var blank = mapper.map(27, appointment(fields), lookups(), ZONE);
+        assertThat(blank.value().notes()).isNull();
+        assertThat(blank.fields().get(key("imported_status")).destination())
+                .isEqualTo("NewCategory/ResidualInfo");
+        fields.put("status", "");
+        assertThat(mapper.map(27, appointment(fields), lookups(), ZONE).value().status())
+                .isNull();
     }
 
     @Test
