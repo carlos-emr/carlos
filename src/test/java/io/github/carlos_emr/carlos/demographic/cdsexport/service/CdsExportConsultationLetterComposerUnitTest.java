@@ -376,6 +376,40 @@ class CdsExportConsultationLetterComposerUnitTest {
                 .containsExactly(CdsExportConsultationLetterComposer.SIGNATURE_NOTE);
     }
 
+    @Test
+    void shouldPrintTheSignature_whenTheServerEndedItsReadAtTheDeadlineOnce() throws Exception {
+        var server = new io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitTestServer(60_000);
+        var waiting = new CdsExportConsultationLetterComposer(references, signatures, server.manager());
+        var request = request("44", null);
+        var owner = owner(27, ModuleType.CONSULTATION);
+        // The owner read waits for a lock until the unit's deadline ends it: not a missing
+        // signature, so the letter is not printed unsigned; both reads are made again.
+        when(signatures.getDigitalSignatureMetadata(44))
+                .thenAnswer(
+                        call -> {
+                            if (server.transactions() == 1) {
+                                server.endStatement();
+                                throw new jakarta.persistence.QueryTimeoutException("ended");
+                            }
+                            return owner;
+                        });
+
+        assertThat(waiting.print(request, plan(request, png())).notes()).isEmpty();
+        assertThat(server.transactions()).isEqualTo(2);
+    }
+
+    @Test
+    void shouldStopTheJob_whenTheSignatureReadLosesTheDatabase() throws Exception {
+        var request = request("44", null);
+        var lost =
+                new org.hibernate.exception.JDBCConnectionException(
+                        "gone", new java.sql.SQLException("gone", "08S01"));
+        when(signatures.getDigitalSignature(44)).thenThrow(lost);
+
+        // The database gone is not an unreadable signature: the letter is not printed unsigned.
+        assertThatThrownBy(() -> composer.print(request, plan(request, png()))).isSameAs(lost);
+    }
+
     /** A professional health-care-team contact (TYPE_CONTACT 2) with every value the letter shows. */
     private void teamContact(String category) {
         property("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true");

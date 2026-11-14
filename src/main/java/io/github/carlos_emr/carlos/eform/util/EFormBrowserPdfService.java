@@ -912,7 +912,26 @@ public class EFormBrowserPdfService implements org.springframework.web.context.S
      */
     public RenderedEformPdf renderSavedEformPdf(
             LoggedInInfo loggedInInfo, int fdid, EFormRenderApproval approval) throws PDFGenerationException {
-        EFormData eFormData = SpringUtils.getBean(EFormDataDao.class).find(fdid);
+        return renderSavedEformPdf(loggedInInfo, fdid, approval, SavedEformReads.DIRECT);
+    }
+
+    /**
+     * {@link #renderSavedEformPdf(LoggedInInfo, int, EFormRenderApproval)}, with the reads the
+     * render makes before it starts (the saved record, and the caller's {@code _eform} and
+     * {@code _measurement} privileges for its patient) run by {@code reads}. The reads and the
+     * decisions are this method's own, exactly as above; {@code reads} only decides how each one
+     * is run (the CDS export runs each in a transaction whose statements wait for a slow database
+     * rather than being cut off by the connection's socket timeout).
+     *
+     * @param reads how the record and privilege reads are run; never null
+     * @throws EformContentUnavailableException when the render has unapproved omissions
+     * @throws PDFGenerationException for every other render failure
+     */
+    public RenderedEformPdf renderSavedEformPdf(
+            LoggedInInfo loggedInInfo, int fdid, EFormRenderApproval approval, SavedEformReads reads)
+            throws PDFGenerationException {
+        Objects.requireNonNull(reads);
+        EFormData eFormData = reads.run(() -> SpringUtils.getBean(EFormDataDao.class).find(fdid));
         if (eFormData == null) {
             throw new PDFGenerationException(
                     "EForm PDF generation failed because the eForm was not found.");
@@ -921,8 +940,8 @@ public class EFormBrowserPdfService implements org.springframework.web.context.S
                 ? null : String.valueOf(eFormData.getDemographicId());
         SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
         if (loggedInInfo == null
-                || !securityInfoManager.hasPrivilege(
-                        loggedInInfo, "_eform", SecurityInfoManager.READ, demographicId)) {
+                || !reads.run(() -> securityInfoManager.hasPrivilege(
+                        loggedInInfo, "_eform", SecurityInfoManager.READ, demographicId))) {
             throw new SecurityException("missing required sec object (_eform)");
         }
         String providerId = loggedInInfo.getLoggedInProviderNo();
@@ -930,9 +949,29 @@ public class EFormBrowserPdfService implements org.springframework.web.context.S
         // the render browser carries no identity, so any data-access decision must be made by the
         // initiator and travel with the render. Measurement history reached through an eForm is still
         // measurement data — the route the renderer's adapter replaces enforces _measurement.
-        boolean measurementsPermitted = securityInfoManager.hasPrivilege(
-                loggedInInfo, "_measurement", SecurityInfoManager.READ, demographicId);
+        boolean measurementsPermitted = reads.run(() -> securityInfoManager.hasPrivilege(
+                loggedInInfo, "_measurement", SecurityInfoManager.READ, demographicId));
         return renderSavedEformPdfAuthorized(fdid, providerId, approval, measurementsPermitted);
+    }
+
+    /**
+     * How a saved-eForm render runs the reads it makes before it starts: the saved record and the
+     * caller's privileges. A runner returns what the read returned and decides nothing; the
+     * render still makes every read and every check itself. {@link #DIRECT} runs each read as it
+     * is, as every caller always has.
+     */
+    public interface SavedEformReads {
+        /** Runs one read and returns its answer. */
+        <T> T run(java.util.function.Supplier<T> read);
+
+        /** Each read run as it is, on whatever transaction the caller holds. */
+        SavedEformReads DIRECT =
+                new SavedEformReads() {
+                    @Override
+                    public <T> T run(java.util.function.Supplier<T> read) {
+                        return read.get();
+                    }
+                };
     }
 
     /**

@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 
+import io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitReadSupport;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportStagedFileDto;
 import io.github.carlos_emr.carlos.eform.util.EFormBrowserPdfService;
 import io.github.carlos_emr.carlos.utility.EformContentUnavailableException;
@@ -41,6 +42,9 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Renders one saved eForm for the CDS export through the clinical eForm renderer ({@link
@@ -143,8 +147,9 @@ public class CdsExportEformRenderService {
     @Autowired
     public CdsExportEformRenderService(
             ObjectProvider<EFormBrowserPdfService> renderers,
-            @Qualifier("cdsExportProperties") Properties settings) {
-        this(renderer(renderers.getIfAvailable()), settings, System::nanoTime);
+            @Qualifier("cdsExportProperties") Properties settings,
+            PlatformTransactionManager transactions) {
+        this(renderer(renderers.getIfAvailable(), reads(transactions)), settings, System::nanoTime);
     }
 
     CdsExportEformRenderService(
@@ -156,9 +161,39 @@ public class CdsExportEformRenderService {
         this.settings.putAll(Objects.requireNonNull(settings));
     }
 
-    private static Renderer renderer(EFormBrowserPdfService service) {
+    private static Renderer renderer(
+            EFormBrowserPdfService service, EFormBrowserPdfService.SavedEformReads reads) {
         // No approval, ever: an omission that needs one makes the render unavailable.
-        return service == null ? null : (who, fdid) -> service.renderSavedEformPdf(who, fdid, null);
+        return service == null
+                ? null
+                : (who, fdid) -> service.renderSavedEformPdf(who, fdid, null, reads);
+    }
+
+    /**
+     * How the renderer's own reads run for the export: the saved eForm and the effective
+     * provider's {@code _eform} and {@code _measurement} privileges, each in a short read-only
+     * transaction of its own whose statements wait for a slow database and are made again
+     * rather than cut off by the connection's socket timeout ({@link
+     * CdsExportStatementWaitReadSupport#transaction}). A privilege read the server ended at its
+     * deadline would otherwise refuse the job as changed access, or print the form without the
+     * measurements it shows. No transaction is held while the browser renders.
+     */
+    static EFormBrowserPdfService.SavedEformReads reads(PlatformTransactionManager transactions) {
+        var template = new TransactionTemplate(Objects.requireNonNull(transactions));
+        template.setReadOnly(true);
+        template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        template.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
+        return new EFormBrowserPdfService.SavedEformReads() {
+            @Override
+            public <T> T run(java.util.function.Supplier<T> read) {
+                return CdsExportStatementWaitReadSupport.transaction(
+                        template,
+                        status -> {
+                            CdsExportStatementWaitReadSupport.arm();
+                            return read.get();
+                        });
+            }
+        };
     }
 
     /** True when this process can render eForms at all (the web application). */
@@ -213,6 +248,10 @@ public class CdsExportEformRenderService {
             } catch (SecurityException denied) {
                 throw denied;
             } catch (RuntimeException failed) {
+                // The database gone is not a browser failure: it stops the job under its own
+                // code (CDS_EXPORT_DATABASE_UNAVAILABLE), and the job can be resumed.
+                if (io.github.carlos_emr.carlos.demographic.cdsexport.support
+                        .CdsExportDatabaseUnavailableException.lost(failed)) throw failed;
                 checkpoint.run();
                 return done(Reason.BROWSER_FAILURE, started, true);
             }

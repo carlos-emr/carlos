@@ -1155,9 +1155,12 @@ server-side deadline (`max_statement_time`), first 30 s. When the server ends th
 that deadline, because it is busy or because someone else holds a metadata or table lock, the
 same statement is sent again on the same connection with twice the wait (60 s, 120 s, ...), until
 it is answered. This covers every read built by `CdsExportPatientTableReadSupport.query`, the
-source catalogue's presence checks and counts (formerly 120 s), the note scope reads (formerly
-30 s), the exact-numeric and receipt-metadata reads, the prescription inputs of the drug
-reference lookup and the legacy table's lock statements (below). The only things that end a
+source catalogue's presence checks and counts (formerly 120 s), every note scope, note
+authorization, program and role read (formerly 30 s for the scopes, and nothing for the rest),
+the exact-numeric and receipt-metadata reads, the demographic row and schema, the cohort
+selection's pages, a run's applied import copies, the prescription inputs of the drug reference
+lookup and the legacy table's lock statements (below). Every other read of an export is listed,
+with how it waits, in "Every read of an export" below. The only things that end a
 wait are the ones that end the attempt: a cancel, a failed lease heartbeat, and the stall
 detector. A wait is not a checkpoint, so an attempt that only ever waits is still ended as
 `CDS_EXPORT_WORKER_STALLED` after `cds.export.maxDurationMillis` without progress, and no single
@@ -1180,6 +1183,58 @@ raises it on its own connection, for its own transaction, to the statement's dea
 socket timeout is given none. The socket timeout therefore no longer ends a statement that is
 merely slow.
 
+**Reads the export does not build: sent again as a unit.** Some reads of an export are made by
+code the rest of CARLOS shares, so their statements cannot be wrapped one by one: the account,
+provider, facility and membership lookups and the `SecurityInfoManager` role and privilege rows of
+every authorization (`CdsExportAccessService`), the eForm renderer's own reads of the saved eForm
+and of the `_eform` and `_measurement` privileges, and the signature manager's reads of a
+consultation letter's signature. Shared code also answers a failed read its own way: the
+privilege check answers it as a refusal, so before this change a privilege read that waited
+longer than the socket timeout for a lock refused the whole job as `CDS_EXPORT_ACCESS_CHANGED`,
+printed an eForm without the measurements it shows, or printed a letter unsigned. These reads run
+as a unit (`CdsExportStatementWaitReadSupport.transaction`): one new read-committed, read-only
+transaction. Before its first shared read the unit is armed: the connection's own deadline
+(`max_statement_time`) becomes the unit's (first 30 s) and its socket timeout is raised to that
+plus 30 s. The server counts, for each connection, the statements it ended at a deadline
+(`Max_statement_time_exceeded`); when that count grew during the unit by more than the unit's own
+per-statement waits sent again, the unit's answer is set aside, whatever the shared code made of
+the ended statement, and the whole unit is made again in a new transaction with twice the wait
+(60 s, 120 s, ...), until a sending has no statement ended. The same things end the waiting as
+for one statement. This is sound because a unit only reads and each of its answers is a fresh
+read-committed one: making it again is reading again. Every call of `CdsExportAccessService` is
+one unit (a call it makes joins it, as it always has), armed only before its first shared read,
+so a note check that needs nothing but its waiting note reads costs no extra statement. Each of
+the renderer's three reads is its own unit, so no transaction is held while the browser renders;
+the two signature reads are one. Before the connection returns to its pool its own deadline and
+socket timeout are put back; a connection that cannot be given its deadline back is aborted, so
+it never returns to the pool with the unit's. A connection without a socket timeout is not armed
+(nothing cuts a statement off), nor is one on a server that cannot count the statements it ended.
+
+**Every read of an export.** From admission through cohort selection, authorization, capture,
+mapping and packaging:
+
+| Read | Where | How it waits |
+| --- | --- | --- |
+| Every captured table: schema pin, count, key and row pages, value chunks (native, retained import, data-summary and listed tables, HRM, reviewers, eForm rows, printed-form references, providers, diagnosis codes, prevention scopes, document and prevention program restrictions) | `CdsExportPatientTableReadSupport.query` and every DAO and read support built on it (`CdsExportDataSummaryReadDao`, `CdsExportEformRenderReadDao`, `CdsExportPrintedFormReadDao`, `CdsExportHospitalReportReadDao`, `CdsExportReviewerReadDao`, `CdsExportProviderReadSupport`, `CdsExportDiagnosisCodeReadSupport`, `CdsExportPhysicalSchemaReadSupport` and the `*CdsExport*` methods of the shared DAOs) | statement by statement |
+| Source catalogue: presence checks, counts, schema pass, `lower_case_table_names` | `CdsExportSourceCatalogueDao` | statement by statement |
+| Receipt metadata, exact numerics | `CdsExportNativeMetadataReadSupport`, `CdsExportExactNumericReadSupport` | statement by statement |
+| The demographic row and schema (its zero-row read takes the table's metadata lock), the cohort selection's roster and selected-patient pages | `DemographicDaoImpl` | statement by statement (until this change, none: the socket timeout cut them off) |
+| A run's applied import copies | `CdsImportRunDao.readAppliedCdsExportCopyKeys` | statement by statement (until this change, a 120 s timeout and a 4,096-copy limit, both failing the job) |
+| Note scopes, note authorization, program, role and patient-domain reads | `CdsExportNoteAccessDao` | statement by statement (until this change, only the scopes) |
+| Prescription inputs of the drug reference | `DrugDaoImpl.readCdsExportDrugReferenceInputs` | statement by statement |
+| The legacy table's lock and housekeeping | `CdsExportSourceReadLock` | statement by statement, on its own connection |
+| Account, provider, facility and membership lookups; role and privilege rows | `CdsExportAccessService` (`SecurityDao`, `ProviderDao`, `ProviderFacilityDao`, `SecurityInfoManager`) | one unit per call (new) |
+| The eForm renderer's saved eForm and its `_eform` and `_measurement` checks | `EFormBrowserPdfService.renderSavedEformPdf(..., SavedEformReads)`, run by `CdsExportEformRenderService.reads` | one unit per read (new) |
+| A consultation letter's signature owner and image | `DigitalSignatureManager`, run by `CdsExportConsultationLetterComposer.signature` | one unit (new) |
+| The database clock of the capture and the selection (`SELECT UNIX_TIMESTAMP(CURRENT_TIMESTAMP(6))`) | `CdsExportRunDao.now` | not needed: it names no table, so no lock or metadata wait can hold it, and it serves the lease too |
+| Ledger, lease, held-patient and event rows; the chart audit rows | `CdsExportLedgerService` and its DAOs; `CdsExportAuditPersister` | not changed here: short metadata transactions of their own, each with a 15 s transaction timeout |
+
+A connection the database loses during an armed unit is reported as the database's failure,
+`CDS_EXPORT_DATABASE_UNAVAILABLE`, whatever the shared code made of the lost read (the privilege
+check's refusal would have read as changed access). So is a connection lost during the
+renderer's or the signature's reads: before, the first was counted as a browser failure (the
+eForm went without its rendered form) and the second printed the letter unsigned.
+
 **A lost connection restarts the chart, not the job.** When the connection that holds the
 capture's snapshot is lost (closed, reset, or silent past the deadline and its grace), nothing
 read so far can be continued elsewhere. The capture of one chart is an idempotent unit, so
@@ -1195,7 +1250,9 @@ only, never a statement the server answered with an error).
 
 The transactions that select the cohort (`CdsExportSelectionService`, formerly 120 s) and read
 a chart's prescription identities for the drug reference (`CdsExportDrugReferenceProjectionService`,
-formerly 30 s) have no timeout either.
+formerly 30 s) have no timeout either, and each of their statements waits as above: a page of a
+very large clinic's roster that takes longer than the socket timeout is no longer taken for a
+lost connection.
 
 The legacy table's lock (`LOCK TABLES ... READ`) waits for a writer the same way, in waits that
 are sent again; its housekeeping statements (formerly 5 s each) do too. Its dedicated
@@ -1703,6 +1760,8 @@ the record's CARLOS residual. These numbers were CARLOS's own and are gone:
 | `cds.export.captureTimeoutSeconds` (120 s) on the capture transaction and the legacy table's guard | `CdsExportNativeCaptureService`, `CdsExportSourceSnapshotService`, `CdsExportSourceReadLock` | the job (`CDS_EXPORT_EXECUTION_FAILED`) | removed: a capture has no deadline; the setting is retired |
 | 30 s per capture statement, 120 s per source-catalogue statement, 30 s per note scope statement, 5 s per lock housekeeping statement; the pool's socket timeout (60 s) on any of them | `CdsExportPatientTableReadSupport`, `CdsExportSourceCatalogueDao`, `CdsExportNoteAccessDao`, `CdsExportExactNumericReadSupport`, `CdsExportNativeMetadataReadSupport`, `CdsExportSourceReadLock` | the job (`CDS_EXPORT_EXECUTION_FAILED`, `CDS_EXPORT_IO_FAILED`) or, for the lock, the patient | a deadline is a wait that is sent again in the same snapshot; the socket timeout is raised past it for the export's own transaction; a lost connection reads the chart again |
 | 120 s for the cohort selection transaction, 30 s for the drug reference inputs transaction | `CdsExportSelectionService`, `CdsExportDrugReferenceProjectionService` | the job | removed: no transaction timeout |
+| The pool's socket timeout (60 s, at most 300 s) on every read not built through the wait support: the cohort selection's pages, the demographic row and its schema pin, the note authorization, program and role reads, the account, provider, facility, membership, role and privilege reads of every authorization, the eForm renderer's and the signature manager's own reads | `DemographicDaoImpl`, `CdsExportNoteAccessDao`, `CdsExportAccessService`, `CdsExportEformRenderService`, `CdsExportConsultationLetterComposer` | the job, as a lost connection (`CDS_EXPORT_DATABASE_UNAVAILABLE`) or, through a privilege read the shared check answered as a refusal, as changed access (`CDS_EXPORT_ACCESS_CHANGED`); the rendered eForm or the letter's signature, left out | removed: each such read waits statement by statement or as a unit that is made again whole ("Every read of an export"); a connection actually lost is `CDS_EXPORT_DATABASE_UNAVAILABLE` |
+| 120 s per statement and 4,096 applied copies of one import run for one chart | `CdsImportRunDao.readAppliedCdsExportCopyKeys` | the job (`CDS_EXPORT_APPLIED_COPY_LIMIT`) | removed: every applied copy is read, and the read waits like every other |
 | 4,096 import runs naming one chart | `CdsExportImportOptionsSourceReader` | the whole job (`CDS_EXPORT_IMPORT_OPTIONS_RUN_LIMIT`) | every run is read |
 | 10,000 prevention rows | `CdsExportPreventionScopePlanner` | the whole job | every row is planned |
 | 10,000 prevention or vaccine-catalogue rows and 4 MiB of their scope columns; 10,000 selected preventions in one read; 1,000,000 Immunizations import units and 64 MiB of their witnesses | `CdsExportPreventionSnapshotService`, `CdsExportPatientTableReadSupport.requireSelected`, `CdsExportPreventionClassifier`, `CdsExportPreventionConfigurationService`, `CdsExportPreventionClassificationService`, `CdsExportImmunizationCaptureValidator` | the whole job (`CDS_EXPORT_PREVENTION_SNAPSHOT_INVALID`, `CDS_EXPORT_NATIVE_SOURCE_INVALID`, `CDS_EXPORT_PREVENTION_SCOPE_LIMIT`) | removed: every row is read a page of 32 at a time; a statement names at most 8,192 selected preventions (`PREVENTION_ID_BATCH`) and a chart with more is read in further statements whose rows are merged in key order |

@@ -295,4 +295,41 @@ class CdsExportEformRenderServiceUnitTest {
         assertThat(TimeUnit.NANOSECONDS.toMillis(startedAt[1] - finishedAt[0]))
                 .isGreaterThanOrEqualTo(140);
     }
+
+    @Test
+    void shouldStopTheJob_whenTheRenderersOwnReadLosesTheDatabase() {
+        // Not a browser failure: the database is gone, and the job stops under its own code.
+        var lost =
+                new org.hibernate.exception.JDBCConnectionException(
+                        "gone", new java.sql.SQLException("gone", "08S01"));
+        var service =
+                service(
+                        (identity, fdid) -> {
+                            throw lost;
+                        },
+                        "0");
+        assertThatThrownBy(() -> service.render(42, who, spool, () -> {})).isSameAs(lost);
+        assertThat(spool.members).isEmpty();
+    }
+
+    @Test
+    void shouldRunEachOfTheRenderersReadsAsAUnit_andReadItAgainWhenTheServerEndedOne()
+            throws Exception {
+        var server = new io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitTestServer(60_000);
+        var reads = CdsExportEformRenderService.reads(server.manager());
+        // The renderer's _eform privilege read: ended at the unit's deadline once, which the
+        // shared check answers as a refusal; the read is made again, in a new transaction.
+        Boolean allowed =
+                reads.run(
+                        () -> {
+                            if (server.transactions() == 1) {
+                                server.endStatement();
+                                return false;
+                            }
+                            return true;
+                        });
+        assertThat(allowed).isTrue();
+        assertThat(server.transactions()).isEqualTo(2);
+        assertThat(server.deadlines()).containsExactly(30, 0.0d, 60, 0.0d);
+    }
 }

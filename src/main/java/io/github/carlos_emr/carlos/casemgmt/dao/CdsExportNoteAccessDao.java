@@ -90,11 +90,13 @@ public class CdsExportNoteAccessDao extends AbstractJpaDao {
     public CdsExportNoteAccessDto findScope(int patient, long noteId) {
         if (patient < 1 || noteId < 1 || hasForeignRevision(patient, noteId)) return null;
         List<Object[]> rows =
-                entityManager()
-                        .createNativeQuery(
-                                "SELECT program_no, reporter_caisi_role, locked FROM casemgmt_note"
-                                    + " WHERE note_id = :note AND demographic_no = :patient",
-                                Object[].class)
+                waiting(
+                                entityManager()
+                                        .createNativeQuery(
+                                                "SELECT program_no, reporter_caisi_role, locked FROM"
+                                                    + " casemgmt_note WHERE note_id = :note AND"
+                                                    + " demographic_no = :patient",
+                                                Object[].class))
                         .setParameter("note", noteId)
                         .setParameter("patient", patient)
                         .setMaxResults(2)
@@ -187,16 +189,20 @@ public class CdsExportNoteAccessDao extends AbstractJpaDao {
         if (membership == null) return false;
         long role = membership;
         List<String> reporter =
-                entityManager()
-                        .createNativeQuery(
-                                "SELECT role_name FROM secRole WHERE role_no = :role", String.class)
+                waiting(
+                                entityManager()
+                                        .createNativeQuery(
+                                                "SELECT role_name FROM secRole WHERE role_no = :role",
+                                                String.class))
                         .setParameter("role", Long.parseLong(scope.reporterRole()))
                         .setMaxResults(2)
                         .getResultList();
         List<Long> ownRole =
-                entityManager()
-                        .createNativeQuery(
-                                "SELECT role_no FROM secRole WHERE role_no = :role", Long.class)
+                waiting(
+                                entityManager()
+                                        .createNativeQuery(
+                                                "SELECT role_no FROM secRole WHERE role_no = :role",
+                                                Long.class))
                         .setParameter("role", role)
                         .setMaxResults(2)
                         .getResultList();
@@ -209,26 +215,29 @@ public class CdsExportNoteAccessDao extends AbstractJpaDao {
         // RoleProgramAccessDAO.hasAccess uses the database's equality semantics and does not filter
         // AccessType.type.
         List<?> defaults =
-                entityManager()
-                        .createNativeQuery(
-                                "SELECT 1 FROM default_role_access d JOIN access_type a ON"
-                                    + " a.access_id = d.access_id WHERE d.role_id = :role AND"
-                                    + " a.name = :name")
+                waiting(
+                                entityManager()
+                                        .createNativeQuery(
+                                                "SELECT 1 FROM default_role_access d JOIN"
+                                                    + " access_type a ON a.access_id = d.access_id"
+                                                    + " WHERE d.role_id = :role AND a.name ="
+                                                    + " :name"))
                         .setParameter("role", role)
                         .setParameter("name", accessName)
                         .setMaxResults(1)
                         .getResultList();
         if (!defaults.isEmpty()) return true;
         List<Object[]> grants =
-                entityManager()
-                        .createNativeQuery(
+                waiting(
+                                entityManager()
+                                        .createNativeQuery(
                                 """
                                 SELECT g.id, a.name, g.all_roles,
                                 EXISTS (SELECT 1 FROM program_access_roles r WHERE r.id = g.id AND r.role_id = :role)
                                 FROM program_access g JOIN access_type a ON a.access_id = g.access_type_id
                                 WHERE g.program_id = :program AND a.name = :name
                                 """,
-                                Object[].class)
+                                Object[].class))
                         .setParameter("role", role)
                         .setParameter("program", program)
                         .setParameter("name", accessName)
@@ -294,10 +303,11 @@ public class CdsExportNoteAccessDao extends AbstractJpaDao {
      */
     public boolean canReadRestrictedProgram(String provider, int program) {
         if (provider == null || provider.isEmpty()) return false;
-        return !entityManager()
-                .createNativeQuery(
-                        "SELECT 1 FROM program_provider WHERE provider_no = :provider AND"
-                            + " program_id = :program")
+        return !waiting(
+                        entityManager()
+                                .createNativeQuery(
+                                        "SELECT 1 FROM program_provider WHERE provider_no ="
+                                            + " :provider AND program_id = :program"))
                 .setParameter("provider", provider)
                 .setParameter("program", program)
                 .setMaxResults(1)
@@ -312,21 +322,25 @@ public class CdsExportNoteAccessDao extends AbstractJpaDao {
         if (filterOnFacility) {
             if (facility == null) return null;
             List<Integer> locations =
-                    entityManager()
-                            .createNativeQuery(
-                                    "SELECT facilityId FROM program WHERE id = :program",
-                                    Integer.class)
+                    waiting(
+                                    entityManager()
+                                            .createNativeQuery(
+                                                    "SELECT facilityId FROM program WHERE id ="
+                                                        + " :program",
+                                                    Integer.class))
                             .setParameter("program", program)
                             .setMaxResults(2)
                             .getResultList();
             if (locations.size() != 1 || !facility.equals(locations.getFirst())) return null;
         }
         List<Long> memberships =
-                entityManager()
-                        .createNativeQuery(
-                                "SELECT DISTINCT role_id FROM program_provider WHERE provider_no ="
-                                    + " :provider AND program_id = :program",
-                                Long.class)
+                waiting(
+                                entityManager()
+                                        .createNativeQuery(
+                                                "SELECT DISTINCT role_id FROM program_provider"
+                                                    + " WHERE provider_no = :provider AND"
+                                                    + " program_id = :program",
+                                                Long.class))
                         .setParameter("provider", provider)
                         .setParameter("program", program)
                         .setMaxResults(2)
@@ -340,8 +354,11 @@ public class CdsExportNoteAccessDao extends AbstractJpaDao {
 
     /**
      * A read that waits for its answer: a statement the server ends at its deadline is sent
-     * again in the same transaction, so a long chart's note scopes never fail for the time one
-     * statement takes ({@link io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitReadSupport}).
+     * again in the same transaction, so neither a long chart's note scopes nor a program or role
+     * lookup that waits for a lock fails for the time one statement takes, and none is cut off
+     * by the connection's socket timeout ({@link
+     * io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitReadSupport}). Every statement
+     * of this class is sent through it.
      */
     private jakarta.persistence.Query waiting(jakarta.persistence.Query query) {
         return io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitReadSupport.waiting(
@@ -374,28 +391,35 @@ public class CdsExportNoteAccessDao extends AbstractJpaDao {
 
     private boolean inPatientDomain(String provider, int patient) {
         List<?> admissions =
-                entityManager()
-                        .createNativeQuery("SELECT 1 FROM admission WHERE client_id = :patient")
+                waiting(
+                                entityManager()
+                                        .createNativeQuery(
+                                                "SELECT 1 FROM admission WHERE client_id ="
+                                                    + " :patient"))
                         .setParameter("patient", patient)
                         .setMaxResults(1)
                         .getResultList();
         if (admissions.isEmpty()) return true;
         List<?> member =
-                entityManager()
-                        .createNativeQuery(
-                                "SELECT 1 FROM program_provider p JOIN admission a ON a.program_id"
-                                    + " = p.program_id WHERE p.provider_no = :provider AND"
-                                    + " a.client_id = :patient")
+                waiting(
+                                entityManager()
+                                        .createNativeQuery(
+                                                "SELECT 1 FROM program_provider p JOIN admission a"
+                                                    + " ON a.program_id = p.program_id WHERE"
+                                                    + " p.provider_no = :provider AND a.client_id"
+                                                    + " = :patient"))
                         .setParameter("provider", provider)
                         .setParameter("patient", patient)
                         .setMaxResults(1)
                         .getResultList();
         if (!member.isEmpty()) return true;
-        return !entityManager()
-                .createNativeQuery(
-                        "SELECT 1 FROM program_provider p JOIN program_queue q ON q.program_id ="
-                            + " p.program_id WHERE p.provider_no = :provider AND q.client_id ="
-                            + " :patient AND q.status = 'active'")
+        return !waiting(
+                        entityManager()
+                                .createNativeQuery(
+                                        "SELECT 1 FROM program_provider p JOIN program_queue q ON"
+                                            + " q.program_id = p.program_id WHERE p.provider_no ="
+                                            + " :provider AND q.client_id = :patient AND q.status"
+                                            + " = 'active'"))
                 .setParameter("provider", provider)
                 .setParameter("patient", patient)
                 .setMaxResults(1)

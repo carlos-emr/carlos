@@ -124,24 +124,27 @@ public class CdsImportRunDao extends AbstractDaoImpl<CdsImportRun>
                     for (String suffix : java.util.List.of("_FIELDS", "_CONTACT", "_CARE"))
                         categories.add(category + suffix);
                 });
-        var copies =
-                entityManager
-                        .createQuery(
-                                """
+        // Every applied copy of the run is read: the importer writes as many copies as a course
+        // has, so no number of them refuses the export (CDS_EXPORT_APPLIED_COPY_LIMIT stopped the
+        // job at 4,097). The read waits for its answer and is sent again in the same snapshot when
+        // the server ends it at its deadline; its former 120 s timeout failed the job instead.
+        @SuppressWarnings("unchecked")
+        List<String> copies =
+                CdsExportStatementWaitReadSupport.waiting(
+                                entityManager,
+                                entityManager.createQuery(
+                                        """
                 select distinct p.copyKey from CdsImportPatient p
                 where p.runId=:run and p.targetDemographicNo=:patient and exists
                     (select u.id from CdsImportUnit u where u.runId=p.runId and u.patientKey=p.patientKey
                     and u.category in :categories and u.state in ('COMMITTED','ALREADY_COMPLETE'))
                 order by p.copyKey
                 """,
-                                String.class)
+                                        String.class))
                         .setParameter("run", runId)
                         .setParameter("patient", patient)
                         .setParameter("categories", categories)
-                        .setHint("jakarta.persistence.query.timeout", 120_000)
-                        .setMaxResults(4097)
                         .getResultList();
-        if (copies.size() > 4096) throw new IllegalStateException("CDS_EXPORT_APPLIED_COPY_LIMIT");
         return List.copyOf(copies);
     }
 
