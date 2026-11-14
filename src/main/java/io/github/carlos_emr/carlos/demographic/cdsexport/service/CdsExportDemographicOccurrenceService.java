@@ -143,7 +143,7 @@ public class CdsExportDemographicOccurrenceService {
         new CdsExportPatientIdentityReconciler()
                 .identity(lease.document().senderNamespace(), patient.patient());
         new CdsExportMergeScopeValidator(rows)
-                .requireUnmerged(
+                .requireGroupScope(
                         lease, patient, tables, source, bounds.fields(), bounds.bytes(), control);
         // The Demographics element is one occurrence built from all of these rows together (the
         // patient's row, properties, contacts, pharmacies and roster states, and the providers

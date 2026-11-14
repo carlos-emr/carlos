@@ -86,6 +86,7 @@ public final class CdsExportSourceSchemaValidator {
                     "CVCImmunization",
                     "CVCMapping",
                     "demographic_merged",
+                    CdsExportMergePrivilegeSourceReader.TABLE,
                     "demographicArchive",
                     "drugs",
                     "drugReason",
@@ -325,6 +326,7 @@ public final class CdsExportSourceSchemaValidator {
 
     private static String physical(String scope) {
         if (scope.equals(CdsExportDocumentRouteSourceReader.TABLE)) return "providerLabRouting";
+        if (scope.equals(CdsExportMergePrivilegeSourceReader.TABLE)) return "secObjPrivilege";
         return scope.equals("preventions_scope")
                 ? "preventions"
                 : CdsExportProblemRegistrySources.PRECISION.equals(scope)

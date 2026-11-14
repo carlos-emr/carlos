@@ -130,7 +130,7 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
                 || !tables.containsAll(TABLES)
                 || !tables.equals(source.capture().tables().keySet())) invalid();
         new CdsExportMergeScopeValidator(captures)
-                .requireUnmerged(
+                .requireGroupScope(
                         lease, patient, tables, source, bounds.fields(), bounds.bytes(), control);
         var captured = captureCareRows(lease, patient, tables, source, bounds, control);
         long[] totals = {0, 0, 0};

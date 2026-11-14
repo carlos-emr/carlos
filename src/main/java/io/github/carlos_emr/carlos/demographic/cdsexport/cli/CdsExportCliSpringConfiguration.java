@@ -213,6 +213,8 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
     CdsExportCohortService.class,
     io.github.carlos_emr.carlos.commn.dao.DemographicMergedDaoImpl.class,
     CdsExportDemographicMergeSourceReader.class,
+    // The Merge Records privilege row of every chart (merge_privileges, under Demographics).
+    io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportMergePrivilegeSourceReader.class,
     io.github.carlos_emr.carlos.commn.dao.DemographicArchiveDaoImpl.class,
     CdsExportDemographicArchiveSourceReader.class,
     io.github.carlos_emr.carlos.commn.dao.DemographicExtDaoImpl.class,

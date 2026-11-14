@@ -24,11 +24,17 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 import io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl;
-import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException;
 import java.io.IOException;
 import java.util.Set;
 
-/** Proves a frozen generation has no active direct merge links. This is not an alias-expansion implementation or whole-chart coverage proof. */
+/**
+ * Proves the captured Merge Records links of one chart are the chart's own, well formed rows:
+ * every row names the chart at one end, its identifier is its record key and both chart numbers
+ * are positive. A chart linked by Merge Records is exported with its group as one patient file
+ * ({@code CdsMergedChartContract}), so no link, active or deleted, holds it any more; the links
+ * travel exactly in the file's {@code CARLOS.MergeLinks.v1} record. Only a malformed capture,
+ * which no CARLOS screen writes, is refused, as an infrastructure failure.
+ */
 public final class CdsExportMergeScopeValidator {
     private final CdsExportCapturedTextRowsReader rows;
 
@@ -40,7 +46,7 @@ public final class CdsExportMergeScopeValidator {
         this.rows = java.util.Objects.requireNonNull(rows);
     }
 
-    public void requireUnmerged(
+    public void requireGroupScope(
             CdsExportLeaseDto lease,
             CdsExportCohortService.Patient patient,
             Set<String> tables,
@@ -53,7 +59,6 @@ public final class CdsExportMergeScopeValidator {
         control.checkpoint();
         if (!tables.equals(source.capture().tables().keySet())
                 || !tables.contains("demographic_merged")) scope();
-        boolean[] review = {false};
         long[] count = {0};
         var actual =
                 rows.forEach(
@@ -87,18 +92,16 @@ public final class CdsExportMergeScopeValidator {
                             } catch (NumberFormatException invalid) {
                                 scope();
                             }
+                            // Any deleted value is carried as it is stored; only 0 is an
+                            // active link, and an active link groups charts instead of holding.
                             String deleted = row.fields().get("deleted");
-                            if (!"1".equals(deleted)) review[0] = true;
+                            if (deleted == null) scope();
                             count[0]++;
                         });
         if (!actual.equals(source.capture())
                 || count[0] != source.capture().tables().get("demographic_merged").rows()) scope();
         patient.require(lease);
         control.checkpoint();
-        // Complete source authentication and fresh authority precede even an adverse review result.
-        if (review[0])
-            throw new CdsExportReviewException(
-                    CdsExportReviewException.Reason.MERGED_PATIENT_SCOPE);
     }
 
     private static int owner(String text) throws IOException {

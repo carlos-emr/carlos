@@ -244,7 +244,7 @@ public class CdsExportHistoryOccurrenceService {
                             && !tables.containsAll(CdsExportProblemRegistrySources.TABLES))
                         invalid();
                     new CdsExportMergeScopeValidator(captures)
-                            .requireUnmerged(
+                            .requireGroupScope(
                                     lease,
                                     patient,
                                     tables,

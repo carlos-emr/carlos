@@ -4358,6 +4358,16 @@
               "name": "shouldCaptureTheFirstLettersDefinition_forASignedOrVerifiedStatus",
               "container": "",
               "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldReadAGroupsLinksAsOfOneSnapshot_whenAnotherConnectionMergesAndUnmergesMeanwhile",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldCaptureTheMergeRecordsPrivilegeRowExactly_asCarlosFindsIt",
+              "container": "",
+              "check": "java-cds-transfer-export"
             }
           ]
         },

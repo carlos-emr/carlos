@@ -160,7 +160,7 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                 || !tables.equals(source.capture().tables().keySet())
                 || !tables.contains("demographic")) invalid();
         new CdsExportMergeScopeValidator(captures)
-                .requireUnmerged(
+                .requireGroupScope(
                         lease, patient, tables, source, bounds.fields(), bounds.bytes(), control);
         long[] demographic = {0};
         var read =

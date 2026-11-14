@@ -534,15 +534,14 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseActiveIncomingOrOutgoingMerges_beforeOpeningRetainedOrClinicalValues()
-            throws Exception {
+    void shouldComposeTheChartsOwnOccurrences_whenAnActiveMergeLinkNamesIt() throws Exception {
+        // Merge Records no longer holds a chart: its group is one patient file, and each chart's
+        // own records are composed as they always were (CdsMergedChartContract).
         for (boolean incoming : List.of(true, false)) {
             var f = nativeOnly();
             setMerge(f, merge(incoming ? 28 : 27, incoming ? 27 : 28, "0"));
-            assertThatThrownBy(() -> compose(f, false))
-                    .hasMessage("CDS_EXPORT_MERGED_PATIENT_SCOPE");
-            assertThat(f.receipts).isEmpty();
-            verifyNoInteractions(f.values, f.verification, f.witnesses);
+            parse(compose(f, false), ALLERGY, "active-merge-" + incoming);
+            assertThat(f.receipts).hasSize(1);
         }
     }
 
@@ -555,11 +554,12 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldRejectUnknownMergeStates_insteadOfAssumingTheyAreDeleted() throws Exception {
+    void shouldCarryAnUnknownMergeState_insteadOfHoldingTheChart() throws Exception {
+        // Only 0 is an active link; any other stored value is history, carried as it is.
         var f = nativeOnly();
         setMerge(f, merge(28, 27, "2"));
-        assertThatThrownBy(() -> compose(f, false)).hasMessage("CDS_EXPORT_MERGED_PATIENT_SCOPE");
-        assertThat(f.receipts).isEmpty();
+        parse(compose(f, false), ALLERGY, "unknown-merge-state");
+        assertThat(f.receipts).hasSize(1);
     }
 
     @Test
@@ -581,11 +581,13 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldKeepTheDocumentFailed_whenAMergeReviewIsCaughtByTheCaller() throws Exception {
+    void shouldComposeTheDocument_whenAnActiveMergeLinkLeavesTheCallerNothingToCatch()
+            throws Exception {
+        // An active link was once a review a caller could catch; it is no longer a review at all.
         var f = nativeOnly();
         setMerge(f, merge(28, 27, "0"));
-        assertThatThrownBy(() -> compose(f, true)).hasMessage("CDS_EXPORT_SECTION_WRITE_FAILED");
-        assertThat(f.receipts).isEmpty();
+        parse(compose(f, true), ALLERGY, "active-merge-caught");
+        assertThat(f.receipts).hasSize(1);
     }
 
     @Test

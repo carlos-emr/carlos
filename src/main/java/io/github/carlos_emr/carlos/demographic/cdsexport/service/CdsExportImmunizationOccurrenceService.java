@@ -199,7 +199,7 @@ public class CdsExportImmunizationOccurrenceService
                 && !zone.sourceManifestSha256().equals(source.manifest().plaintextSha256()))
             scope();
         new CdsExportMergeScopeValidator(rows)
-                .requireUnmerged(
+                .requireGroupScope(
                         lease, patient, tables, source, bounds.fields(), bounds.bytes(), control);
         var selection =
                 closure.verifyEmbedded(

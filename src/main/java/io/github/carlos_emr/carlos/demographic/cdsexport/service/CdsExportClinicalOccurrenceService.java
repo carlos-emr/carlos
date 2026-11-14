@@ -474,7 +474,7 @@ public class CdsExportClinicalOccurrenceService {
             scope();
         long tableRows = source.capture().tables().get(table).rows();
         new CdsExportMergeScopeValidator(rows)
-                .requireUnmerged(
+                .requireGroupScope(
                         lease, patient, tables, source, bounds.fields(), bounds.bytes(), control);
         long[] counts = new long[4];
         values.withValues(

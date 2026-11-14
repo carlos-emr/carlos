@@ -239,7 +239,7 @@ public class CdsExportAppointmentOccurrenceService implements CdsExportCategoryO
                 || !tables.containsAll(REQUIRED)) scope();
         long appointmentRows = source.capture().tables().get("appointment").rows();
         new CdsExportMergeScopeValidator(rows)
-                .requireUnmerged(
+                .requireGroupScope(
                         lease, patient, tables, source, bounds.fields(), bounds.bytes(), control);
         var zone =
                 zones.read(

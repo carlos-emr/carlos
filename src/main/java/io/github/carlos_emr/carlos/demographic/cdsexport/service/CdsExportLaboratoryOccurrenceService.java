@@ -207,7 +207,7 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
                 || !tables.containsAll(REVIEW_TABLES)
                 || !tables.equals(source.capture().tables().keySet())) invalid();
         new CdsExportMergeScopeValidator(rows)
-                .requireUnmerged(
+                .requireGroupScope(
                         lease, patient, tables, source, bounds.fields(), bounds.bytes(), control);
         var limits = bounds.window();
         long reportRows = reportRows(source), routeRows = routeScope(source).rows();
@@ -1005,7 +1005,7 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
                 || !source.manifest().plaintextSha256().equals(index.sourceManifestSha256()))
             invalid();
         new CdsExportMergeScopeValidator(rows)
-                .requireUnmerged(
+                .requireGroupScope(
                         lease, patient, tables, source, bounds.fields(), bounds.bytes(), control);
         var imported = importedMessages(index);
         var identity = identity(lease, patient, tables, source, bounds, control);
