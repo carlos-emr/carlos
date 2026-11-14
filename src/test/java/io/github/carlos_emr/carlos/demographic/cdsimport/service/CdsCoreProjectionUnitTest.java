@@ -1456,7 +1456,14 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
 
             assertThat(histories.write("run", 1, "unit", 42, record, command, n -> {}))
                     .containsExactlyInAnyOrderEntriesOf(
-                            java.util.Map.of("casemgmt_issue", "72", "casemgmt_note", "73"));
+                            java.util.Map.of(
+                                    "casemgmt_issue",
+                                    "72",
+                                    "casemgmt_note",
+                                    "73",
+                                    // The note's issue link, so the receipt names that row.
+                                    "casemgmt_issue_notes",
+                                    "73_72"));
 
             var issue = ArgumentCaptor.forClass(CaseManagementIssue.class);
             var note = ArgumentCaptor.forClass(CaseManagementNote.class);
