@@ -58,8 +58,11 @@ final class CdsExportChartInputs {
         private final Scope outer;
         private boolean uncaptured, closed;
 
+        /** A new scope inside {@code outer}; it starts with nothing uncaptured read, not closed. */
         private Scope(Scope outer) {
             this.outer = outer;
+            this.uncaptured = false;
+            this.closed = false;
         }
 
         /** True when the build read nothing but its capture. */

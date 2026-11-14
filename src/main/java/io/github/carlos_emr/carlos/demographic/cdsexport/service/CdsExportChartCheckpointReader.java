@@ -384,15 +384,14 @@ final class CdsExportChartCheckpointReader {
     }
 
     /**
-     * The JSON values of one member. The parser never closes the member's stream: the caller reads
-     * it to its authenticated end after the last value, and closes it.
+     * The JSON values of one member. The iterator owns its parser, and closing the iterator closes
+     * it; the parser never closes the member's stream: the caller reads it to its authenticated
+     * end after the last value, and closes it.
      */
     private static MappingIterator<JsonNode> values(InputStream input) throws IOException {
-        var parser =
-                JSON.getFactory()
-                        .createParser(input)
-                        .disable(com.fasterxml.jackson.core.JsonParser.Feature.AUTO_CLOSE_SOURCE);
-        return JSON.readerFor(JsonNode.class).readValues(parser);
+        return JSON.readerFor(JsonNode.class)
+                .without(StreamReadFeature.AUTO_CLOSE_SOURCE)
+                .readValues(input);
     }
 
     /** One CHART or HELD entry after {@code previous} in cohort order. */
