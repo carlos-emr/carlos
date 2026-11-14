@@ -226,7 +226,8 @@ public final class CdsExportContactRetainedAssembler {
             if (cs.size() != 1 || links.size() != 1 || references.size() != 2) scope();
             String contactId = cs.getFirst().id(), linkId = links.getFirst().id();
             if (!importedIds.add(contactId))
-                throw new IOException("CDS_EXPORT_CONTACT_ALIAS_REQUIRES_REVIEW");
+                throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException(
+                        "CDS_EXPORT_CONTACT_ALIAS_REQUIRES_REVIEW");
             if (repointed.contains(linkId)) {
                 // The imported relationship names another person now. Its element is removed
                 // (the source fields stay in the import's retained source, replaced); the

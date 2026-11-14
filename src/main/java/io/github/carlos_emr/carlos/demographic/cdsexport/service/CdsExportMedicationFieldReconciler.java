@@ -256,12 +256,24 @@ public final class CdsExportMedicationFieldReconciler {
                                                                         .get(i)
                                                                         .type())
                                                         != null)) baseline = witness.state();
-        if (baseline == null || !baseline.digest().equals(original.expected().digest()))
+        // An import made before the native baseline was recorded (V1.0.59.40; 2026.08.0-beta7
+        // and earlier builds) keeps only the receipt's digest of the row it wrote. When that row
+        // changed since (Delete, Discontinue, Hide from CPP on the Rx page), or holds exact
+        // numbers its witness cannot stand in for, no column can be shown unchanged: the whole
+        // prescription is decided from its current row by the rule of a never-imported one, and
+        // every retained source field of the unit is listed as replaced (it stays in the
+        // import's retained source). It held the patient (CDS_EXPORT_MEDICATION_FIELD_BASELINE_REQUIRED).
+        boolean legacyCurrent = baseline == null && unit.fields().get("native_baseline") == null;
+        if (!legacyCurrent
+                && (baseline == null || !baseline.digest().equals(original.expected().digest())))
             review("CDS_EXPORT_MEDICATION_FIELD_BASELINE_REQUIRED");
-        if (!matches(baseline, "demographic_no", Integer.toString(patient))
-                || !matches(baseline, "drugid", witness.id())) scope();
-        var difference = CdsNativeRowComparison.compare(baseline, witness.state());
-        if (difference.schemaChanged() || !difference.unqualifiedColumns().isEmpty())
+        if (!legacyCurrent
+                && (!matches(baseline, "demographic_no", Integer.toString(patient))
+                        || !matches(baseline, "drugid", witness.id()))) scope();
+        var difference =
+                legacyCurrent ? null : CdsNativeRowComparison.compare(baseline, witness.state());
+        if (!legacyCurrent
+                && (difference.schemaChanged() || !difference.unqualifiedColumns().isEmpty()))
             review("CDS_EXPORT_MEDICATION_FIELD_CODEC_REQUIRES_REVIEW");
         var source = preparation.source();
         var old = new CdsExportPreparedMedicationMapper().forRetainedReconciliation(source);
@@ -287,6 +299,10 @@ public final class CdsExportMedicationFieldReconciler {
         var restored = restoredColumns(source);
         boolean supersedesSender = false;
         for (var group : groups(source)) {
+            if (legacyCurrent) {
+                currentPaths.add(group.path());
+                continue;
+            }
             boolean proved = true;
             for (String column : group.columns())
                 proved &= matches(baseline, column, expected.get(column));

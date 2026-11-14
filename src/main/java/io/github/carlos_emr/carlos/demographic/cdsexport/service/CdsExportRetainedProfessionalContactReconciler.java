@@ -26,7 +26,7 @@ import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFieldAsses
 import java.io.IOException;
 import java.util.*;
 
-/** Reconciles exact original physician relationships and current witnessed names. A team edited in CARLOS states its current physician of each role, as on any chart; only a relationship row that left the capture requires review. */
+/** Reconciles exact original physician relationships and current witnessed names. A team edited in CARLOS states its current physician of each role, as on any chart, and so does a team an import made before the native baseline filed; only a relationship row that left the capture requires review. */
 public final class CdsExportRetainedProfessionalContactReconciler {
     public record NativeRows(String sourceManifestSha256, List<CdsExportCapturedTextRowDto> associations,
             List<CdsExportCapturedTextRowDto> contacts, List<CdsExportNativeRowReceiptDto> witnesses) {
@@ -39,7 +39,7 @@ public final class CdsExportRetainedProfessionalContactReconciler {
             Set<String> blockers, List<CdsExportRetainedSectionWriter.Change> proposedChanges) {
         public Result{sourceFields=Set.copyOf(sourceFields); fields=Map.copyOf(fields); deferredNativeFields=Set.copyOf(deferredNativeFields); var uses=new HashMap<CdsExportNativeFieldKeyDto, Set<CdsExportProfessionalContactMapper.Role>>(); nameUses.forEach((key, value)-> uses.put(key, Set.copyOf(value))); nameUses=Map.copyOf(uses); blockers=Set.copyOf(blockers); proposedChanges=List.copyOf(proposedChanges); }
         public boolean representable(){return blockers.isEmpty()&&fields.values().stream().noneMatch(field-> field.outcome()==Outcome.REQUIRES_REVIEW); }
-        public List<CdsExportRetainedSectionWriter.Change> changes()throws IOException {if (!representable())throw new IOException("CDS_EXPORT_PROFESSIONAL_RELATIONSHIP_REQUIRES_REVIEW"); return proposedChanges; }
+        public List<CdsExportRetainedSectionWriter.Change> changes()throws IOException {if (!representable())throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException("CDS_EXPORT_PROFESSIONAL_RELATIONSHIP_REQUIRES_REVIEW"); return proposedChanges; }
         @Override public String toString(){return "CdsExportRetainedProfessionalContactReconciler.Result[protected]"; }
     }
     /** Uses one authenticated capture. Unprocessed personal/other contact facts remain explicit hand-offs to the enclosing assembler. */
@@ -78,6 +78,16 @@ public final class CdsExportRetainedProfessionalContactReconciler {
                 // (ORIGINAL_PROFESSIONAL_CONTACT_REFERENCE_CHANGED).
                 if (physician==null||!link.recordKey().equals(physician.associationRecordKey())||!CdsExportCapturedTextWitness.matches(binding.association(), "contactId", link.fields().get("contactId"))){changes.add(new CdsExportRetainedSectionWriter.Change(role.wireName()+"[1]", binding.sourceFields(), physician==null?null:xml-> new CdsExportProfessionalContactXmlWriter().writeNameContent(physician, xml))); continue; }
                 if (!Objects.equals(physician.name().firstName(), binding.preparation().firstName())||!Objects.equals(physician.name().lastName(), binding.preparation().lastName()))changes.add(new CdsExportRetainedSectionWriter.Change(role.wireName()+"[1]", binding.sourceFields(), xml-> new CdsExportProfessionalContactXmlWriter().writeNameContent(physician, xml)));
+            }else if (binding.legacy()&&binding.preparation()!=null) {
+                // An import made before the native baseline (2026.08.0-beta7 and earlier builds) filed a team entry for this role, but
+                // which one cannot be read back. While the role's one physician is still the import's own team entry, unchanged since
+                // (its receipt digests match) and named as the import named it, the imported element stays as it was. Otherwise, as on
+                // a team edited in CARLOS, the element states the chart's current physician of the role or is removed when there is
+                // none; the imported element's source fields stay in the import's retained source, replaced. It held the patient at
+                // every export (CDS_EXPORT_PROFESSIONAL_FIELD_BASELINE_REQUIRED).
+                if (physician!=null&&importedUnchanged(physician, checked.units().getOrDefault(address, List.of()), all)
+                        &&Objects.equals(physician.name().firstName(), binding.preparation().firstName())&&Objects.equals(physician.name().lastName(), binding.preparation().lastName()))continue;
+                changes.add(new CdsExportRetainedSectionWriter.Change(role.wireName()+"[1]", binding.sourceFields(), physician==null?null:xml-> new CdsExportProfessionalContactXmlWriter().writeNameContent(physician, xml)));
             }else if (physician!=null) {
                 // The import filed no physician for this role: the source had no element, or one the importer keeps as source only because it names
                 // nobody (a missing or blank name: CDS_CONTEXT_PHYSICIAN_SOURCE_ONLY). A Family or Referring Doctor added to the Health Care Team since
@@ -87,6 +97,15 @@ public final class CdsExportRetainedProfessionalContactReconciler {
             }
         }
         if (!blockers.isEmpty())changes.clear(); values.requireActive(); checkpoint.run(); return new Result(index.sourceManifestSha256(), address, sourceIds, nativeMapping.fields(), deferred, nativeMapping.nameUses(), blockers, changes);
+    }
+    /** Whether the physician's team entry and contact are rows the import wrote whose receipts still verify unchanged. */
+    private static boolean importedUnchanged(CdsExportProfessionalContactMapper.Physician physician, List<CdsExportRetainedReceiptVerificationDto.CheckedReference> references, List<CdsExportCapturedTextRowDto> rows) {
+        for (var key:List.of(Map.entry("DemographicContact", physician.associationRecordKey()), Map.entry("Contact", physician.contactRecordKey()))) {
+            var row=rows.stream().filter(item-> item.table().equals(key.getKey())&&item.recordKey().equals(key.getValue())).findFirst().orElse(null);
+            if (row==null||references.stream().noneMatch(ref-> ref.expected().table().equals(key.getKey())&&ref.expected().id().equals(row.fields().get("id"))
+                    &&ref.reason()==CdsExportRetainedReceiptVerificationDto.Reason.UNCHANGED_ROW))return false;
+        }
+        return true;
     }
     private static void scope()throws IOException{throw new IOException("CDS_EXPORT_PROFESSIONAL_CURRENT_WITNESS_SCOPE_INVALID"); }
 }

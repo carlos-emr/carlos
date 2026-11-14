@@ -39,8 +39,10 @@ import java.util.*;
  * current precision rows (it supersedes a source clock or offset the column never held), a long
  * reaction in Notes, an unnamed agent under the native label, and every current value CDS has no
  * element for in {@code CARLOS.Allergy.Source.v1}, which then holds the complete current row.
- * Another field's edit cannot resurrect old content. Only what the import's receipt cannot
- * prove still holds the patient: a missing row, an alias, a missing baseline, and a sealed
+ * Another field's edit cannot resurrect old content. An import made before the native baseline
+ * was recorded keeps only its receipt's digest: once its allergy changed, the whole allergy is
+ * decided from its current row. Only what the import's receipt cannot prove still holds the
+ * patient: a missing row, an alias, a baseline that does not match its receipt, and a sealed
  * preparation that does not describe the row the receipt says the import wrote
  * ({@code PREPARED_NATIVE_PROJECTION_NOT_PROVEN}: the retained source fields of that unit then
  * cannot be shown to belong to this row, so neither they nor a guess are exported).
@@ -136,8 +138,13 @@ public final class CdsExportAllergyFieldReconciler {
                         .equals(index.references().get(unitAddress))) scope();
         var baseline =
                 verifyNativeBaseline(patient, index, unitAddress, references, current, witness);
-        var difference = CdsNativeRowComparison.compare(baseline, witness.state());
-        if (difference.schemaChanged() || !difference.unqualifiedColumns().isEmpty())
+        // A legacy import whose allergy changed since: every group is the current row's, by the
+        // rule of a never-imported allergy, and the unit's source fields are listed as replaced.
+        boolean legacyCurrent = baseline == null;
+        var difference =
+                legacyCurrent ? null : CdsNativeRowComparison.compare(baseline, witness.state());
+        if (!legacyCurrent
+                && (difference.schemaChanged() || !difference.unqualifiedColumns().isEmpty()))
             review("CDS_EXPORT_ALLERGY_FIELD_CODEC_REQUIRES_REVIEW");
         var source = prepared.value();
         var old = new CdsExportPreparedAllergyMapper().map(source);
@@ -159,6 +166,10 @@ public final class CdsExportAllergyFieldReconciler {
             }
         precisionUnchanged &= oldPrecisionIds.equals(currentPrecisionIds);
         for (var group : Group.values()) {
+            if (legacyCurrent) {
+                currentPaths.add(group.path);
+                continue;
+            }
             boolean proved = true;
             for (String column : group.columns)
                 proved &= matches(baseline, column, expected.get(column));
@@ -414,6 +425,12 @@ public final class CdsExportAllergyFieldReconciler {
                 scope();
             }
         } else if (original.reason() == Reason.UNCHANGED_ROW) baseline = witness.state();
+        // An import made before the native baseline was recorded (V1.0.59.40; 2026.08.0-beta7
+        // and earlier builds) keeps only the receipt's digest of the row it wrote: once the
+        // allergy changed (archived, reordered on the Rx page), no column can be shown unchanged.
+        // The caller then decides the whole allergy from its current row (null); it held the
+        // patient (CDS_EXPORT_ALLERGY_FIELD_BASELINE_REQUIRED).
+        if (baseline == null && unit.fields().get("native_baseline") == null) return null;
         if (baseline == null || !baseline.digest().equals(original.expected().digest()))
             review("CDS_EXPORT_ALLERGY_FIELD_BASELINE_REQUIRED");
         if (!matches(baseline, "demographic_no", Integer.toString(patient))
