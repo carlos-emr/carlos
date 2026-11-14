@@ -160,17 +160,26 @@ public class CdsImportReviewDao extends AbstractDaoImpl<CdsImportReview> {
                 .getSingleResult();
     }
 
+    /**
+     * The reviews that made the given corrections, however many there are: a source file needs
+     * one correction for each value its schema refuses. Ids are sent 1,000 to a statement, which
+     * only decides how many statements the read takes.
+     */
     public List<io.github.carlos_emr.carlos.commn.dto.CdsImportReviewOriginDto> origins(
             String run, java.util.Collection<String> ids) {
         if (ids.isEmpty()) return List.of();
-        if (ids.size() > 128) throw new IllegalArgumentException("REVIEW_ORIGIN_CAPACITY_EXCEEDED");
-        return entityManager
-                .createQuery(
-                        "select new io.github.carlos_emr.carlos.commn.dto.CdsImportReviewOriginDto(r.id,r.operator,r.securityNo,r.sourceKey,r.reviewedSourceXPath,r.state,r.reviewVersion) from CdsImportReview r where r.runId=:run and r.id in :ids",
-                        io.github.carlos_emr.carlos.commn.dto.CdsImportReviewOriginDto.class)
-                .setParameter("run", run)
-                .setParameter("ids", ids)
-                .getResultList();
+        List<String> all = List.copyOf(ids);
+        var found = new java.util.ArrayList<io.github.carlos_emr.carlos.commn.dto.CdsImportReviewOriginDto>();
+        for (int start = 0; start < all.size(); start += 1000)
+            found.addAll(
+                    entityManager
+                            .createQuery(
+                                    "select new io.github.carlos_emr.carlos.commn.dto.CdsImportReviewOriginDto(r.id,r.operator,r.securityNo,r.sourceKey,r.reviewedSourceXPath,r.state,r.reviewVersion) from CdsImportReview r where r.runId=:run and r.id in :ids",
+                                    io.github.carlos_emr.carlos.commn.dto.CdsImportReviewOriginDto.class)
+                            .setParameter("run", run)
+                            .setParameter("ids", all.subList(start, Math.min(all.size(), start + 1000)))
+                            .getResultList());
+        return found;
     }
 
     public List<io.github.carlos_emr.carlos.commn.dto.CdsImportReviewProvenanceDto> provenance(
