@@ -72,6 +72,7 @@ are added only after seal verification).
 | `CARLOS.Allergy.Reaction.v1` | string (encoded) | Allergies | Exact native reaction longer than the standard `Reaction` (120 characters), JSON-encoded so token normalization cannot alter it; restored as the native reaction. Refused together with a standard `Reaction`, or when malformed or empty. The record's `Notes` repeat the text for other receivers and stay in the retained source. |
 | `CARLOS.Allergy.Source.v1` | string (JSON) | Allergies | Not interpreted: the complete native row of an allergy with a value CDS has no element for (an OSCAR 19 recording provider or First Databank identifier, an unlisted code, a date without established precision). Retained as protected source data. |
 | `CARLOS.Medication.CurrentSource.v1` | string (JSON) | Medications | Not interpreted: the complete current row of an imported prescription the sending CARLOS changed after its own import (deleted, discontinued, hidden from the CPP). Retained as protected source data; the standard PrescriptionStatus, PastMedications and `CARLOS.Medication.Archived.v1` already say that it is no longer current. |
+| `CARLOS.PatientAlert.v1` | string (JSON) | AlertsAndSpecialNeeds | The exact patient Alert (`{"version":1,"alert":"..."}`), written by a CARLOS sender beside an AlertDescription that shows U+FFFD for each character XML cannot carry (a control character pasted into the Alert box). The carrier is proven against its element first: AlertDescription must be the carried text with those characters as U+FFFD, by the one rule both sides use (`CdsNativeExtensionContract.xmlElementText`). Proven, the Reminders note is filed with the exact text. Malformed, larger than the native note bound, or not matching its element, it is not used: the element is imported as any sender's and the patient's report names `CDS_PATIENT_ALERT_CARRIER_NOT_APPLIED`. In another history category the record is refused (`CDS_HISTORY_NATIVE_STATE_REQUIRES_REVIEW`). |
 | `CARLOS.Medication.Archived.v1` | boolean | Medications | Imported archived with warning `CDS_MEDICATION_VENDOR_ARCHIVE_CONTEXT`; clinical status/currentness stay independent. |
 | `CARLOS.History.Archived.v1` | boolean | CPP histories | Imported archived with warning `CDS_HISTORY_ARCHIVE_STATE_VENDOR_EXTENSION`. |
 | `CARLOS.History.Narrative.v1` | string (encoded) | CPP histories | Exact native narrative when no standard description exists (PersonalHistory always; long items of the other sections). |
@@ -140,6 +141,24 @@ protected source view of the import: for a medication, the exact IEEE dose witne
 other native columns (a week duration arrives as its exact day count, months and years with
 their unit); for a vaccine, the never-remind flag, the CVC concept, flu risk factors and the
 other native extensions.
+
+### Carriers the importer keeps as source only
+
+These CARLOS carriers hold exact values the standard element beside them could not, and the
+importer does not read them back into the chart. They stay in the protected source view. Where
+that means a transfer between two CARLOS installations changes what the receiving chart shows,
+it is said here.
+
+| Carrier | What it holds beside the element | On import |
+| --- | --- | --- |
+| `CARLOS.History.Narrative.v1` | A CPP narrative too long for its description element (which is then left out), or a PersonalHistory narrative | Restored (the note body), as before. |
+| `CARLOS.NativeHistory.v1` `exactNarrative` / `narrative` | The exact body of a CPP item or note that holds a character XML cannot carry; the element and the narrative carrier show U+FFFD | Source only. The received note shows U+FFFD where the sender's had the character. |
+| `CARLOS.NativeHistory.v1` `importedNotes`, `revisions`, extension facts | Imported Notes left out of Notes on an edited imported item; every revision | Source only. No native value is changed: Notes was never a native column. |
+| `CARLOS.NativeDemographic.v1` (`CARLOS.Demographic.v1`) `note` | A patient note longer than NoteAboutPatient (64,000), with a character XML cannot carry, or in a legacy frame | Source only. For a note over 64,000 characters the element is absent, so the receiving chart has no patient note; with a character XML cannot carry it has the note with U+FFFD. |
+| `CARLOS.NativeDemographic.v1` `demographic`, `roster`, `careTeam`, `properties`, `related` | Demographic, enrolment, contact, health care team and pharmacy values with no element | Source only; the standard elements are imported as from any sender. |
+| `CARLOS.Medication.Source.v1`, `CARLOS.Allergy.Source.v1`, `CARLOS.Prevention.Source.v1` | The complete native row, including text an element shows with U+FFFD | The fields listed above are restored (quantity unit, as-needed, "Other" provider, reminder date); the exact text of a value shown with U+FFFD is not. |
+| `CARLOS.Laboratory.v1`, `CARLOS.NativeLaboratory.v1`, `CARLOS.Observation.v1`, `CARLOS.NativeObservation.v1`, `CARLOS.Prescription.v1`, `CARLOS.ImportedLaboratoryReview.v1` | The stored message, measurement, script or comment | Source only. |
+| `carlos-data-summary-record.json` and image files inside a data-summary PDF | The exact record of a data summary whose PDF could not show everything | Not read. The PDF is stored unchanged (its bytes are checked against the planned digest), so the attachments stay inside the stored document. |
 
 ### CARLOS appointment source record
 

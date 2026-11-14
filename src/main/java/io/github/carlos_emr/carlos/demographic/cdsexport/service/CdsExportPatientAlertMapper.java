@@ -37,7 +37,8 @@ import java.util.Objects;
  * <p>CDS 5.2 AlertsAndSpecialNeeds/AlertDescription ({@code text1K}, whitespace preserved) is the
  * element that means the same thing; the 255-character column always fits it, and a carriage
  * return is written as a character reference, so the text travels exactly. The CARLOS importer
- * files the occurrence as a Reminders note. The occurrence exists only when AlertsAndSpecialNeeds
+ * files the occurrence as a Reminders note, with the exact text of the residual when the element
+ * could not hold it (CdsHistoryPersister). The occurrence exists only when AlertsAndSpecialNeeds
  * is selected (the alert column is captured only then) and the alert is populated.
  *
  * <p>No alert holds a chart. A character XML 1.0 cannot carry (a control character pasted into
@@ -51,7 +52,9 @@ public final class CdsExportPatientAlertMapper {
     public static final String TABLE = "demographiccust";
 
     /** The residual DataElement that carries an alert AlertDescription cannot hold exactly. */
-    public static final String RESIDUAL_NAME = "CARLOS.PatientAlert.v1";
+    public static final String RESIDUAL_NAME =
+            io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionContract
+                    .PATIENT_ALERT;
 
     /** Destination of the residual carrier. */
     static final String RESIDUAL_DESTINATION = "AlertsAndSpecialNeeds/ResidualInfo";

@@ -34,24 +34,8 @@ final class CdsExportXmlText {
      * @return the same instance when nothing was replaced
      */
     static String element(String value) {
-        StringBuilder safe = null;
-        for (int i = 0; i < value.length(); i++) {
-            char c = value.charAt(i);
-            boolean paired =
-                    Character.isHighSurrogate(c)
-                                    && i + 1 < value.length()
-                                    && Character.isLowSurrogate(value.charAt(i + 1))
-                            || Character.isLowSurrogate(c)
-                                    && i > 0
-                                    && Character.isHighSurrogate(value.charAt(i - 1));
-            boolean illegal =
-                    c < 0x20 && c != '\t' && c != '\r' && c != '\n'
-                            || c == 0xfffe
-                            || c == 0xffff
-                            || Character.isSurrogate(c) && !paired;
-            if (illegal && safe == null) safe = new StringBuilder(value.length()).append(value, 0, i);
-            if (safe != null) safe.append(illegal ? REPLACEMENT : c);
-        }
-        return safe == null ? value : safe.toString();
+        // One rule for both sides: the importer proves a carrier against its element with it.
+        return io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionContract
+                .xmlElementText(value);
     }
 }

@@ -101,6 +101,71 @@ public final class CdsNativeExtensionContract {
      */
     public static final String HISTORY_NARRATIVE_TEXT = "CARLOS.History.NarrativeText.v1";
 
+    /**
+     * The patient Alert (the master record's Alert box) exactly, written beside an
+     * AlertsAndSpecialNeeds/AlertDescription that could not hold it: the element shows each
+     * character XML 1.0 cannot carry as U+FFFD ({@link #xmlElementText}). Content is the JSON
+     * object {@code {"version":1,"alert":"<text>"}} with every space written as an escape.
+     */
+    public static final String PATIENT_ALERT = "CARLOS.PatientAlert.v1";
+
+    /**
+     * Element text for a stored value: each character XML 1.0 cannot carry (a C0 control other
+     * than tab, carriage return and line feed, U+FFFE, U+FFFF, a lone surrogate) replaced by
+     * U+FFFD, one for one. The exporter writes an element this way and carries the exact value
+     * in a CARLOS carrier; the importer proves a carrier against its element by the same rule.
+     *
+     * @return the same instance when nothing was replaced
+     */
+    public static String xmlElementText(String value) {
+        StringBuilder safe = null;
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            boolean paired =
+                    Character.isHighSurrogate(c)
+                                    && i + 1 < value.length()
+                                    && Character.isLowSurrogate(value.charAt(i + 1))
+                            || Character.isLowSurrogate(c)
+                                    && i > 0
+                                    && Character.isHighSurrogate(value.charAt(i - 1));
+            boolean illegal =
+                    c < 0x20 && c != '\t' && c != '\r' && c != '\n'
+                            || c == 0xfffe
+                            || c == 0xffff
+                            || Character.isSurrogate(c) && !paired;
+            if (illegal && safe == null) safe = new StringBuilder(value.length()).append(value, 0, i);
+            if (safe != null) safe.append(illegal ? '\ufffd' : c);
+        }
+        return safe == null ? value : safe.toString();
+    }
+
+    /**
+     * The alert text of a {@link #PATIENT_ALERT} carrier.
+     *
+     * @throws IllegalArgumentException when the content is not exactly that carrier: one object,
+     *     version 1, one textual, non-empty {@code alert}, no other member, no raw white space
+     */
+    public static String decodePatientAlert(String content) {
+        if (content == null
+                || content.isEmpty()
+                || content.chars().anyMatch(c -> c == ' ' || c == '\t' || c == '\r' || c == '\n'))
+            throw new IllegalArgumentException("CDS_PATIENT_ALERT_CARRIER_INVALID");
+        try {
+            var node = NARRATIVE_JSON.readTree(content);
+            if (node == null
+                    || !node.isObject()
+                    || node.size() != 2
+                    || !node.path("version").isInt()
+                    || node.path("version").intValue() != 1
+                    || !node.path("alert").isTextual()
+                    || node.path("alert").textValue().isEmpty())
+                throw new IllegalArgumentException("CDS_PATIENT_ALERT_CARRIER_INVALID");
+            return node.path("alert").textValue();
+        } catch (com.fasterxml.jackson.core.JsonProcessingException malformed) {
+            throw new IllegalArgumentException("CDS_PATIENT_ALERT_CARRIER_INVALID");
+        }
+    }
+
     private static final com.fasterxml.jackson.databind.ObjectMapper NARRATIVE_JSON =
             new com.fasterxml.jackson.databind.ObjectMapper()
                     .enable(

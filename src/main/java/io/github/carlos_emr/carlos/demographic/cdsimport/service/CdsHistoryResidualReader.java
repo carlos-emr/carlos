@@ -34,7 +34,8 @@ final class CdsHistoryResidualReader {
             Set.of(
                     CdsNativeExtensionContract.HISTORY_ARCHIVED,
                     CdsNativeExtensionContract.HISTORY_PERSONAL_NARRATIVE,
-                    CdsNativeExtensionContract.HISTORY_NARRATIVE);
+                    CdsNativeExtensionContract.HISTORY_NARRATIVE,
+                    CdsNativeExtensionContract.PATIENT_ALERT);
     private static final Set<String> CPP =
             Set.of(
                     "PersonalHistory",
@@ -54,11 +55,14 @@ final class CdsHistoryResidualReader {
      * @param narrative the encoded narrative carrier (PersonalHistory, or another CPP item whose
      *     text did not fit its description element), or null; the persister uses it only when
      *     the description element is absent, and in preference to the raw carrier
+     * @param alert the exact patient Alert carried beside an AlertDescription that could not
+     *     hold it, or null; the persister uses it only after proving it against the element
      */
-    record NativeState(boolean archived, CdsFieldDto personalNarrative, CdsFieldDto narrative) {}
+    record NativeState(
+            boolean archived, CdsFieldDto personalNarrative, CdsFieldDto narrative, CdsFieldDto alert) {}
 
     NativeState read(CdsRecordDto record) throws IOException {
-        if (!CPP.contains(record.section())) return new NativeState(false, null, null);
+        if (!CPP.contains(record.section())) return new NativeState(false, null, null, null);
         var state = new State(record);
         try {
             fields.forEachField(
@@ -72,7 +76,10 @@ final class CdsHistoryResidualReader {
                     });
             state.finish();
             return new NativeState(
-                    Boolean.TRUE.equals(state.archived), state.personalNarrative, state.narrative);
+                    Boolean.TRUE.equals(state.archived),
+                    state.personalNarrative,
+                    state.narrative,
+                    state.alert);
         } catch (UncheckedIOException failure) {
             throw failure.getCause();
         }
@@ -86,6 +93,7 @@ final class CdsHistoryResidualReader {
         private Boolean archived;
         private CdsFieldDto personalNarrative;
         private CdsFieldDto narrative;
+        private CdsFieldDto alert;
 
         State(CdsRecordDto record) {
             this.record = record;
@@ -138,6 +146,9 @@ final class CdsHistoryResidualReader {
             } else if (name.equals(CdsNativeExtensionContract.HISTORY_PERSONAL_NARRATIVE)) {
                 if (!record.section().equals("PersonalHistory")) invalid();
                 personalNarrative = values.get("Content");
+            } else if (name.equals(CdsNativeExtensionContract.PATIENT_ALERT)) {
+                if (!record.section().equals("AlertsAndSpecialNeeds")) invalid();
+                alert = values.get("Content");
             } else narrative = values.get("Content");
             values.clear();
         }

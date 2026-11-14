@@ -213,6 +213,147 @@ class CdsHistoryResidualReaderUnitTest {
         assertThat(ignored.personalNarrative()).isNull();
     }
 
+    private CdsRecordDto alertRecord(byte[] document) throws Exception {
+        Path root = Files.createTempDirectory(directory, "alert-");
+        var records = new ArrayList<CdsRecordDto>();
+        new CdsXmlParser()
+                .parse(
+                        Files.write(root.resolve("patient.xml"), document),
+                        root.resolve("parsed"),
+                        CdsInputLimitsDto.defaults(),
+                        () -> false,
+                        records::add);
+        return records.stream()
+                .filter(r -> r.section().equals("AlertsAndSpecialNeeds"))
+                .findFirst()
+                .orElseThrow();
+    }
+
+    private CdsFieldDto alertDescription(CdsRecordDto record) throws Exception {
+        CdsFieldDto[] found = {null};
+        fields.forEachField(
+                record,
+                field -> {
+                    if (CdsFieldParser.unindexed(field.path()).equals("AlertDescription"))
+                        found[0] = field;
+                });
+        return found[0];
+    }
+
+    private CdsHistoryPersister persister() {
+        return new CdsHistoryPersister(
+                fields,
+                null,
+                null,
+                null,
+                null,
+                org.mockito.Mockito.mock(
+                        io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO.class),
+                org.mockito.Mockito.mock(
+                        io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO.class),
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.casemgmt.dao.IssueDAO.class),
+                org.mockito.Mockito.mock(
+                        io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteExtDAO.class));
+    }
+
+    @Test
+    void shouldRestoreTheExactAlert_fromTheDocumentTheExporterWrites() throws Exception {
+        // A bell, a vertical tab, a lone surrogate and U+FFFF: none can stand in an XML
+        // document. The exporter shows each as U+FFFD in AlertDescription and carries the
+        // stored text in CARLOS.PatientAlert.v1; the importer must file the stored text.
+        String stored = "Latex\u0007 allergy;\u000b needs  interpreter \ud83d \uffff\r\nline two";
+        var record =
+                alertRecord(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                .CdsExportPatientAlertFixture.document(stored));
+        var state = new CdsHistoryResidualReader(fields).read(record);
+        var element = alertDescription(record);
+        assertThat(state.alert()).isNotNull();
+        assertThat(fields.readLogicalText(record, element, 1000))
+                .isEqualTo(CdsNativeExtensionContract.xmlElementText(stored))
+                .isNotEqualTo(stored);
+        var notices = new ArrayList<CdsClinicalDiagnosticDto>();
+
+        String restored =
+                persister().carriedAlert(record, state.alert(), element, 262144, notices::add);
+
+        assertThat(restored).isEqualTo(stored);
+        assertThat(notices).isEmpty();
+    }
+
+    @Test
+    void shouldWriteNoCarrier_whenTheElementHoldsTheAlertExactly() throws Exception {
+        var record =
+                alertRecord(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                .CdsExportPatientAlertFixture.document("Needs interpreter"));
+        assertThat(new CdsHistoryResidualReader(fields).read(record).alert()).isNull();
+        assertThat(fields.readLogicalText(record, alertDescription(record), 1000))
+                .isEqualTo("Needs interpreter");
+    }
+
+    @Test
+    void shouldReportAndNeverUseACarrier_thatItsElementDoesNotProve() throws Exception {
+        // The carrier says one thing and AlertDescription another: nothing is guessed.
+        var record =
+                parsed(
+                        "AlertsAndSpecialNeeds",
+                        "<ResidualInfo>"
+                                + element(
+                                        CdsNativeExtensionContract.PATIENT_ALERT,
+                                        "string",
+                                        "{\"version\":1,\"alert\":\"Penicillin\\u0007\"}")
+                                + "</ResidualInfo><AlertDescription>Latex\uFFFD</AlertDescription>");
+        var state = new CdsHistoryResidualReader(fields).read(record);
+        var notices = new ArrayList<CdsClinicalDiagnosticDto>();
+
+        String restored =
+                persister()
+                        .carriedAlert(
+                                record, state.alert(), alertDescription(record), 262144, notices::add);
+
+        assertThat(restored).isNull();
+        assertThat(notices)
+                .extracting(CdsClinicalDiagnosticDto::code)
+                .containsExactly("CDS_PATIENT_ALERT_CARRIER_NOT_APPLIED");
+        // A carrier of another shape is reported the same way.
+        var malformed =
+                parsed(
+                        "AlertsAndSpecialNeeds",
+                        "<ResidualInfo>"
+                                + element(
+                                        CdsNativeExtensionContract.PATIENT_ALERT,
+                                        "string",
+                                        "{\"version\":2,\"alert\":\"x\"}")
+                                + "</ResidualInfo><AlertDescription>x</AlertDescription>");
+        notices.clear();
+        assertThat(
+                        persister()
+                                .carriedAlert(
+                                        malformed,
+                                        new CdsHistoryResidualReader(fields).read(malformed).alert(),
+                                        alertDescription(malformed),
+                                        262144,
+                                        notices::add))
+                .isNull();
+        assertThat(notices).hasSize(1);
+    }
+
+    @Test
+    void shouldRejectAnAlertCarrier_inAnotherHistoryCategory() throws Exception {
+        var record =
+                parsed(
+                        "PersonalHistory",
+                        "<ResidualInfo>"
+                                + element(
+                                        CdsNativeExtensionContract.PATIENT_ALERT,
+                                        "string",
+                                        "{\"version\":1,\"alert\":\"x\"}")
+                                + "</ResidualInfo>");
+        assertThatThrownBy(() -> new CdsHistoryResidualReader(fields).read(record))
+                .hasMessageContaining("CDS_HISTORY_NATIVE_STATE_REQUIRES_REVIEW");
+    }
+
     @Test
     void shouldEncodeNarrativeWhitespace_soTokenNormalizationCannotChangeIt() {
         String text = "Line one\n\tLine  two\r\n \"quoted\" café 😀 ";

@@ -121,6 +121,43 @@ public class CdsHistoryPersister {
         this.extensions = Objects.requireNonNull(extensions);
     }
 
+    /**
+     * The exact patient Alert of a {@code CARLOS.PatientAlert.v1} carrier, or null when it is not
+     * used. The carrier is proven against its element first: AlertDescription, when present, must
+     * be the carried text with each character XML cannot carry shown as U+FFFD, the one rule the
+     * exporter writes by ({@link CdsNativeExtensionContract#xmlElementText}). A carrier that is
+     * malformed, larger than the native note bound, or does not match its element is never
+     * guessed at: the element is imported as any sender's and the patient's report names
+     * {@code CDS_PATIENT_ALERT_CARRIER_NOT_APPLIED}.
+     */
+    String carriedAlert(
+            CdsRecordDto record,
+            CdsFieldDto carrier,
+            CdsFieldDto element,
+            long limit,
+            Consumer<CdsClinicalDiagnosticDto> notice)
+            throws IOException {
+        try {
+            String exact =
+                    CdsNativeExtensionContract.decodePatientAlert(
+                            fields.readLogicalText(
+                                    record, carrier, (int) Math.min(6 * limit, 2_400_000)));
+            if (exact.getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= limit
+                    && (element == null
+                            || CdsNativeExtensionContract.xmlElementText(exact)
+                                    .equals(fields.readLogicalText(record, element, (int) limit))))
+                return exact;
+        } catch (IllegalArgumentException malformed) {
+            // Not this carrier's shape: reported below, the element stands.
+        } catch (CdsInputException capacity) {
+            if (!capacity.code().equals("CDS_TARGET_TEXT_CAPACITY_EXCEEDED")) throw capacity;
+        }
+        notice.accept(
+                new CdsClinicalDiagnosticDto(
+                        "CDS_PATIENT_ALERT_CARRIER_NOT_APPLIED", "ResidualInfo"));
+        return null;
+    }
+
     public void validate(CdsRecordDto record, CdsImportCommand command) {
         String code = ISSUES.get(record.section());
         if (code != null) requireIssue(code);
@@ -177,7 +214,14 @@ public class CdsHistoryPersister {
         long limit = configuration.number("cds.import.native.maxNoteBytes", 262144);
         if (limit > 393216) throw new CdsImportException("NATIVE_NOTE_LIMIT_CONFIGURATION_INVALID");
         String content;
-        if (descriptor[0] == null) {
+        // A CARLOS export writes AlertDescription with U+FFFD for each character XML cannot
+        // carry and the exact Alert beside it; the exact text is used only when it is proven.
+        String alert =
+                nativeState.alert() == null
+                        ? null
+                        : carriedAlert(record, nativeState.alert(), descriptor[0], limit, notice);
+        if (alert != null) content = alert;
+        else if (descriptor[0] == null) {
             content =
                     "[CDS "
                             + record.section()
