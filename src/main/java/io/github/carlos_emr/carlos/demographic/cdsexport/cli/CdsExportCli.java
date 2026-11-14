@@ -450,6 +450,8 @@ public final class CdsExportCli {
         result.put("keptUntil", job.keptUntil() == null ? null : job.keptUntil().toString());
         result.put("adoptedCharts", job.adoptedCharts());
         result.put("builtCharts", job.builtCharts());
+        // Legacy-format laboratory reports written in Reports by a job without Reports; a count.
+        result.put("legacyLabReports", job.legacyLabReports());
         return result;
     }
 

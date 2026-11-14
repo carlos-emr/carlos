@@ -26,6 +26,7 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportPathComposer;
+import io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportLegacyLaboratoryReports;
 import io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportSupportingFilesComposer;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import java.io.*;
@@ -175,6 +176,11 @@ public final class CdsExportSupportingFilesValidator {
         text.field(
                 CdsExportSupportingFilesComposer.SCREENINGS,
                 metadata.categories().contains(CdsCategory.PAST_HEALTH) ? "INCLUDED" : "NOT_SELECTED");
+        if (CdsExportLegacyLaboratoryReports.withoutReports(metadata.categories()))
+            text.field(
+                    CdsExportSupportingFilesComposer.LEGACY_LAB_REPORTS,
+                    Long.toString(metadata.legacyLaboratoryReports()));
+        else if (metadata.legacyLaboratoryReports() != 0) invalid();
         text.field("Audit information access after migration", metadata.auditAccessDescription());
         text.field("Held patients not in this package", Long.toString(metadata.heldPatients().size()));
         for (var held : metadata.heldPatients()) {
@@ -274,7 +280,10 @@ public final class CdsExportSupportingFilesValidator {
                     text.field(
                             CdsExportSupportingFilesComposer.NOT_EXPORTED,
                             withheld.getKey() + ": " + withheld.getValue());
-                validateEvent(csv.required(), pending.xml(), metadata.categories());
+                validateEvent(
+                        csv.required(),
+                        pending.xml(),
+                        CdsExportLegacyLaboratoryReports.sections(metadata.categories()));
                 pending = next(patientFiles, checkpoint);
             }
             if (actual != physician.patientFiles()) invalid();
@@ -317,7 +326,9 @@ public final class CdsExportSupportingFilesValidator {
                 || xml.xmlBytes() < 1
                 || xml.xmlSha256() == null
                 || !xml.xmlSha256().matches("[0-9a-f]{64}")
-                || !xml.occurrences().keySet().equals(metadata.categories())
+                || !xml.occurrences()
+                        .keySet()
+                        .equals(CdsExportLegacyLaboratoryReports.sections(metadata.categories()))
                 || !Long.valueOf(1).equals(xml.occurrences().get(CdsCategory.DEMOGRAPHICS))
                 || xml.occurrences().values().stream().anyMatch(count -> count == null || count < 0)
                 || xml.textReports() < 0

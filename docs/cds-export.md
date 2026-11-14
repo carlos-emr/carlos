@@ -2650,10 +2650,35 @@ An upload header named by two reports of one chart is ambiguous and stands as it
 The CML service date is stored as `YYYYMMDD` text; the planner reads that basic form as a date.
 
 **Laboratory category.** `requireLocalLaboratoryAssociations` no longer refuses an `MDS`, `CML` or
-`BCP` route; the HL7 projection never reads one. A request that selects LaboratoryResults without
-Reports would leave those reports out, so `CdsExportLaboratorySourceReader.forRequest` returns a
-projection whose capture holds such a patient (`CDS_EXPORT_LEGACY_LAB_REPORTS_NEED_REPORTS`,
-`CdsLaboratoryResultDao.hasCdsExportLegacyReports`). An unknown route type still holds.
+`BCP` route; the HL7 projection never reads one. These reports are Lab Report data summaries in
+Reports whenever LaboratoryResults or Reports is selected (owner decision 2026-11-14,
+`CdsExportLegacyLaboratoryReports`); a request that selects LaboratoryResults without Reports
+never holds a patient for them:
+
+- **Capture.** The source catalogue captures the legacy report tables (`mdsMSH` and its eight
+  segment tables, `labPatientPhysicianInfo`, `labTestResults`, `labReportInformation` and the
+  seven BC PathNet tables) with LaboratoryResults as well as with Reports; they are the only
+  `DOCUMENT` tables another category may capture (the loader and
+  `scripts/verify-cds-export-source-catalogue.py` refuse any other). Without Reports their readers
+  are LaboratoryResults' projection (`CdsExportDataSummarySourceReader.forRequest`), read under
+  LaboratoryResults' right, sensitive results included, never Reports'. `labRequestReportLink` and
+  every other Reports source stay out of such a job.
+- **Patient file.** The file holds a Reports section with these records alone
+  (`CdsExportLegacyLaboratoryReports.sections`): the patient inventory expects one Reports
+  identity per planned legacy record, `CdsExportReportOccurrenceService` writes only the data
+  summaries, the field receipts account every captured row of those tables, and the XML check,
+  the ReadMe composer and the supporting-file validator admit the Reports section for such a job
+  and nothing else. The ExportEventLog's Reports columns then give the counts of those entries
+  instead of `NOT_SELECTED`.
+- **Counts.** The ReadMe states `Legacy laboratory reports written in Reports (Reports not
+  selected)` with the job's total, beside each patient's data-summary counts by kind. The total is
+  recorded once per attempt as a `LEGACY_LAB_REPORTS` ledger event (safe code
+  `CDS_EXPORT_LEGACY_LAB_REPORTS_IN_REPORTS_<n>`), from which the job status (`legacyLabReports`),
+  the export page, the command line and the diagnostic report show it.
+- A job that selects Reports exports them exactly as before; one that selects neither category
+  exports none of them.
+
+An unknown route type still holds.
 
 **Program admissions.** `admission` was the only `ACCESS_CONTROL` table: any stored
 `admission_notes`, `discharge_notes` or `radioDischargeReason` held the chart. It is now
@@ -4660,9 +4685,8 @@ and applies original shifts to collection, requisition and every reviewer date.
 Native-only or changed HL7 requires explicit review. A DOC route, which the inbox writes for
 every document assigned to a patient, is a document link owned by the Reports path and does not
 affect laboratory export. An older MDS, CML or BCP route is a legacy-format report exported
-as a data summary with Reports (see [Legacy records of older releases](#legacy-records-of-older-releases));
-with LaboratoryResults selected without Reports it holds the patient
-(`CDS_EXPORT_LEGACY_LAB_REPORTS_NEED_REPORTS`). An unknown route type still holds the
+as a data summary in Reports (see [Legacy records of older releases](#legacy-records-of-older-releases)),
+also when LaboratoryResults is selected without Reports. An unknown route type still holds the
 patient. Native result text, notes, reference ranges and test names are read from the raw HL7
 segment (verified against HAPI's parse field by field), so a separator a laboratory left
 unescaped, as in `Hemolyzed & lipemic ^ repeat`, stays in the text instead of cutting it. HL7

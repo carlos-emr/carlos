@@ -40,8 +40,10 @@ import java.util.Set;
  * Captures every physical column of one reviewed data-summary (DOCUMENT) table for the selected
  * patient, into the same authenticated per-patient capture as the mapped tables. One reader exists
  * per DOCUMENT table of the source catalogue; all are built from the pinned physical contract by
- * {@link #readers}, never written by hand per table. They serve Reports only, so a chart is read
- * for them only when Reports is selected.
+ * {@link #readers}, never written by hand per table. They serve Reports, so a chart is read for
+ * them when Reports is selected. The legacy-format laboratory report tables also serve
+ * LaboratoryResults: a job that selects it without Reports reads them under LaboratoryResults'
+ * right and writes those reports in Reports ({@link CdsExportLegacyLaboratoryReports}).
  *
  * <p>Character, number and date columns are captured as their exact UTF-8 text; binary columns as
  * their exact bytes; SQL NULL stays distinct from empty. No number of rows or fields is refused:
@@ -58,6 +60,10 @@ final class CdsExportDataSummarySourceReader implements CdsExportNativeSourceRea
     private final CdsExportDataSummaryReadDao.Plan plan;
     /** The plan's columns as a set, built once: every read of a capture compares it. */
     private final Set<String> columns;
+    /** The categories this projection serves: Reports, or LaboratoryResults for a job without Reports. */
+    private final Set<CdsCategory> categories;
+    /** Whether the table is a legacy-format laboratory report table. */
+    private final boolean laboratory;
 
     CdsExportDataSummaryReadDao.Plan plan() {
         return plan;
@@ -65,9 +71,42 @@ final class CdsExportDataSummarySourceReader implements CdsExportNativeSourceRea
 
     CdsExportDataSummarySourceReader(
             CdsExportDataSummaryReadDao source, CdsExportDataSummaryReadDao.Plan plan) {
+        this(
+                source,
+                plan,
+                Set.of(CdsCategory.REPORTS),
+                CdsExportLegacyLaboratoryReports.tables().contains(plan.table()));
+    }
+
+    private CdsExportDataSummarySourceReader(
+            CdsExportDataSummaryReadDao source,
+            CdsExportDataSummaryReadDao.Plan plan,
+            Set<CdsCategory> categories,
+            boolean laboratory) {
         this.source = Objects.requireNonNull(source);
         this.plan = Objects.requireNonNull(plan);
         this.columns = Set.copyOf(plan.columns());
+        this.categories = Set.copyOf(categories);
+        this.laboratory = laboratory;
+    }
+
+    @Override
+    public Set<CdsCategory> supportedCategories() {
+        return laboratory
+                ? Set.of(CdsCategory.REPORTS, CdsCategory.LABORATORY_RESULTS)
+                : Set.of(CdsCategory.REPORTS);
+    }
+
+    /**
+     * Reports' projection when the job selects Reports; LaboratoryResults' for a legacy laboratory
+     * report table when the job selects LaboratoryResults without Reports.
+     */
+    @Override
+    public CdsExportNativeSourceReader forRequest(
+            io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand command) {
+        if (!laboratory || !CdsExportLegacyLaboratoryReports.withoutReports(command)) return this;
+        return new CdsExportDataSummarySourceReader(
+                source, plan, Set.of(CdsCategory.LABORATORY_RESULTS), true);
     }
 
     /** One reader per DOCUMENT table of the pinned catalogue, in table order. */
@@ -94,7 +133,13 @@ final class CdsExportDataSummarySourceReader implements CdsExportNativeSourceRea
 
     @Override
     public Set<CdsCategory> categories() {
-        return Set.of(CdsCategory.REPORTS);
+        return categories;
+    }
+
+    /** A legacy laboratory report may hold a result the laboratory marked do-not-disclose. */
+    @Override
+    public boolean requiresSensitiveLaboratoryRead() {
+        return categories.contains(CdsCategory.LABORATORY_RESULTS);
     }
 
     @Override

@@ -793,6 +793,9 @@ public class CdsExportClinicalPackageService {
                             .map(value -> value.table() + "=" + value.rows())
                             .toList());
         long patients = 0, expectedMembers = 2;
+        boolean legacyWithoutReports =
+                CdsExportLegacyLaboratoryReports.withoutReports(lease.document().command());
+        long legacyLaboratoryReports = 0;
         // The owned members the recorded checkpoint pins: every finished chart's outputs and
         // every checkpoint member appended before the ledger last recorded the checkpoint.
         long pinned = 0;
@@ -859,6 +862,14 @@ public class CdsExportClinicalPackageService {
                     // built chart.
                     if (chart.patient() != patient.patient() || !relative.equals(chart.relative()))
                         invalid();
+                    // The legacy laboratory reports a job without Reports writes in Reports,
+                    // counted for the ReadMe and the job's status (adopted charts included).
+                    if (legacyWithoutReports)
+                        legacyLaboratoryReports =
+                                Math.addExact(
+                                        legacyLaboratoryReports,
+                                        CdsExportLegacyLaboratoryReports.count(
+                                                chart.dataSummaries()));
                     // The chart leaves memory here: later steps read it from the spool. Two
                     // charts under one archive path are found when the spool is sorted by path.
                     charts.append(relative, encode(chart));
@@ -933,6 +944,15 @@ public class CdsExportClinicalPackageService {
                         lease.runId(),
                         localSources.stream().map(CdsExportLocalSourceDto::table).toList());
             ledger.phase(lease, CdsExportState.RECONCILING);
+            // Counts only; the per-chart counts are in the ReadMe.
+            if (legacyWithoutReports) {
+                ledger.recordLegacyLaboratoryReports(lease, legacyLaboratoryReports);
+                LOG.info(
+                        "CDS_EXPORT_LEGACY_LAB_REPORTS_IN_REPORTS run={} epoch={} reports={}",
+                        lease.runId(),
+                        lease.epoch(),
+                        legacyLaboratoryReports);
+            }
             reauthorize(lease, tables, charts, held, control, patients, false, audited);
             policy = disclosure.resolveAccepted(lease.document(), Instant.now());
             var metadata =
@@ -949,7 +969,8 @@ public class CdsExportClinicalPackageService {
                             held.list(),
                             localSources,
                             captures.listedClinicSources(),
-                            unlinked);
+                            unlinked,
+                            legacyLaboratoryReports);
             long totalPatients = patients;
             var header =
                     new ScopeHeader(

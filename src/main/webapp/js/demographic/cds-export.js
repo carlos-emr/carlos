@@ -63,7 +63,8 @@
         chartsAdopted: '{0} chart(s) adopted unchanged from a stopped attempt; {1} built from current records.',
         confirmCancelKept: 'Cancel this export? The {0} finished chart(s) it keeps are erased now, so Resume export would build every chart again.',
         cancelErased: 'Cancellation recorded. The kept charts were erased.',
-        resumeKept: 'Resume requested. Each of the {0} kept chart(s) is adopted only if its records are unchanged; the others are built again. Processing may still be waiting.'
+        resumeKept: 'Resume requested. Each of the {0} kept chart(s) is adopted only if its records are unchanged; the others are built again. Processing may still be waiting.',
+        legacyLabReports: '{0} older-format laboratory report(s) (MDS, CML or BC PathNet) were exported as Lab Report entries in Reports, because Laboratory Results was selected without Reports.'
     };
     /** Replaces known keys with page text; unknown keys and non-text values are ignored. */
     function useMessages(messages) {
@@ -86,7 +87,7 @@
                 || ![job.cancelRequested, job.workerOwned, job.artifactAvailable, job.complete, job.heldBack, job.waiting].every(v => typeof v === 'boolean')
                 || !(job.safeCode === null || /^CDS_EXPORT_[A-Z0-9_]{1,85}$/.test(job.safeCode))
                 // Resume evidence (counts and a time); absent from an older server's answer.
-                || ![job.keptCharts, job.adoptedCharts, job.builtCharts].every(n => n === undefined || Number.isSafeInteger(n) && n >= 0)
+                || ![job.keptCharts, job.adoptedCharts, job.builtCharts, job.legacyLabReports].every(n => n === undefined || Number.isSafeInteger(n) && n >= 0)
                 || !(job.keptUntil === undefined || job.keptUntil === null
                     || typeof job.keptUntil === 'string' && !Number.isNaN(Date.parse(job.keptUntil)))
                 || (kept(job) > 0) !== (typeof job.keptUntil === 'string')) {
@@ -133,6 +134,8 @@
             // Shown for any attempt that adopted a chart, and for every later attempt of the job.
             adopted: (job.adoptedCharts || 0) > 0 || job.epoch > 1 && (job.builtCharts || 0) > 0
                 ? text('chartsAdopted', job.adoptedCharts || 0, job.builtCharts || 0) : '',
+            // Legacy lab reports a job without Reports wrote in Reports (absent from an older server).
+            legacy: (job.legacyLabReports || 0) > 0 ? text('legacyLabReports', job.legacyLabReports) : '',
             // A stopped job that keeps charts can still be cancelled: that erases them.
             canCancel: !job.cancelRequested && (!FINAL.has(job.state) || job.state === 'READY' || kept(job) > 0),
             canResume: !job.workerOwned && !['READY', 'EXPIRED'].includes(job.state)};
@@ -277,7 +280,7 @@
             byId('reportRunId').value = current.id; byId('downloadRunId').value = current.id; byId('exportStatus').hidden = false;
             byId('exportState').textContent = shown.label; byId('exportCounts').textContent = [shown.count,
                 text(current.blockedPatients > 0 ? 'heldListed' : 'heldNone', current.blockedPatients),
-                shown.adopted, shown.kept].filter(part => part).join(' ');
+                shown.adopted, shown.kept, shown.legacy].filter(part => part).join(' ');
             byId('exportConnection').textContent = current.waiting ? text('waiting') : text('confirmed');
             byId('exportCode').textContent = current.safeCode === 'CDS_EXPORT_RUNTIME_CHANGED'
                 ? text('runtimeChanged')

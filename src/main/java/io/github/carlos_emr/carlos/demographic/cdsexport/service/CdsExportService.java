@@ -252,7 +252,8 @@ public class CdsExportService {
                 row.keptCharts(),
                 row.keptUntil(),
                 row.adoptedCharts(),
-                row.builtCharts());
+                row.builtCharts(),
+                row.legacyLabReports());
     }
 
     public CdsExportJobDto submissionDelegated(
@@ -405,7 +406,8 @@ public class CdsExportService {
                 report.recentEvents(),
                 report.heldPatientsTruncated(),
                 report.heldPatients(),
-                report.unlinkedSourceRows());
+                report.unlinkedSourceRows(),
+                report.legacyLabReports());
     }
 
     /** Retrieval reconstructs the observer in the exact accepted clinical provider/facility scope. */

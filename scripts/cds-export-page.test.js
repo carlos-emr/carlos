@@ -299,6 +299,19 @@ test('a stopped job that keeps finished charts says how many, until when, and th
     assert.equal(presentation(job({state: 'FAILED', waiting: false})).kept, '');
 });
 
+test('a job without Reports says how many legacy lab reports it wrote in Reports', () => {
+    // Owner decision 2026-11-14: Laboratory Results without Reports still exports the MDS, CML
+    // and BC PathNet reports, as Lab Report entries in Reports; the status counts them.
+    const ready = job({state: 'READY', artifactAvailable: true, complete: true, waiting: false,
+        totalPatients: 2, processedPatients: 2, legacyLabReports: 3});
+    assert.equal(presentation(ready).legacy, '3 older-format laboratory report(s) (MDS, CML or BC PathNet) were exported as Lab Report entries in Reports, because Laboratory Results was selected without Reports.');
+    // None written, or an older server that sends no count: nothing is shown and nothing is refused.
+    assert.equal(presentation(job({legacyLabReports: 0})).legacy, '');
+    assert.equal(presentation(job()).legacy, '');
+    for (const invalid of [-1, 1.5, '3'])
+        assert.throws(() => checkedJob(job({legacyLabReports: invalid})), /STATUS_INVALID/);
+});
+
 test('a resumed attempt reports the charts it adopted and the charts it built', () => {
     const ready = job({state: 'READY', artifactAvailable: true, complete: true, waiting: false, epoch: 2,
         totalPatients: 6, processedPatients: 6, keptCharts: 0, keptUntil: null, adoptedCharts: 5, builtCharts: 1});

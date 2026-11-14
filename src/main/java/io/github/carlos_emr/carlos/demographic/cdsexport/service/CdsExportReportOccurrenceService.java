@@ -127,6 +127,9 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
             CdsExportXmlComposer.SectionEmitter xml,
             CdsExportClinicalOccurrenceService.Receipts output)
             throws IOException {
+        if (!lease.document().command().categories().contains(category()))
+            return legacyLaboratoryReports(
+                    lease, patient, patientKey, requiredTables, source, bounds, control, xml, output);
         var result = new CdsExportClinicalOccurrenceService.Result[1];
         // HRM reports and data-summary records, each a native-only occurrence.
         long[] appended = {0};
@@ -184,6 +187,56 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                 documents.importedRows(),
                 Math.addExact(documents.nativeOnlyRows(), appended[0]),
                 documents.retainedSourceFields());
+    }
+
+    /**
+     * The Reports section of a job that selects LaboratoryResults without Reports: the
+     * legacy-format laboratory reports alone, as Lab Report data summaries (owner decision
+     * 2026-11-14, CdsExportLegacyLaboratoryReports). Nothing else from Reports is captured or
+     * written; the patient inventory expects exactly these records.
+     */
+    private CdsExportClinicalOccurrenceService.Result legacyLaboratoryReports(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            String patientKey,
+            Set<String> requiredTables,
+            CdsExportPatientCaptureDto source,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control,
+            CdsExportXmlComposer.SectionEmitter xml,
+            CdsExportClinicalOccurrenceService.Receipts output)
+            throws IOException {
+        Objects.requireNonNull(output);
+        patient.require(lease);
+        var command = lease.document().command();
+        var tables = Set.copyOf(requiredTables);
+        var summaries = CdsExportDataSummaryRowsReader.tables(tables);
+        if (dataSummaries == null
+                || patientKey == null
+                || !patientKey.matches("[0-9a-f]{64}")
+                || !CdsExportLegacyLaboratoryReports.onlyLegacy(command, summaries)
+                || !tables.equals(source.capture().tables().keySet())) invalid();
+        control.authorizeCategory(
+                patient.patient(), CdsExportLegacyLaboratoryReports.authority(command), true);
+        new CdsExportMergeScopeValidator(captures)
+                .requireUnmerged(
+                        lease, patient, tables, source, bounds.fields(), bounds.bytes(), control);
+        long[] appended = {0};
+        xml.source(
+                emitter ->
+                        appended[0] =
+                                dataSummaries.append(
+                                        lease,
+                                        patient,
+                                        patientKey,
+                                        tables,
+                                        source,
+                                        bounds,
+                                        control,
+                                        emitter,
+                                        output));
+        return new CdsExportClinicalOccurrenceService.Result(
+                source.manifest().plaintextSha256(), category(), appended[0], 0, appended[0], 0);
     }
 
     // Cleanup only throws without a primary failure; otherwise its error is suppressed on that

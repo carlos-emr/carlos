@@ -6,8 +6,10 @@ New tables require an explicit ruling. This tool never guesses patient ownership
 classifies a populated source as operational, or qualifies a clinical engine.
 
 DOCUMENT tables are exported as CARLOS data-summary Reports: each must be captured with the
-Reports category (and only there), keeps a reviewed patient scope and is read through the pinned
-physical contract, so it has no separate source-schema descriptor. LISTED tables belong to removed
+Reports category, keeps a reviewed patient scope and is read through the pinned physical
+contract, so it has no separate source-schema descriptor. The only other category that may
+capture one is LaboratoryResults: the legacy-format laboratory report tables, whose reports a
+job without Reports still writes in Reports (owner decision 2026-11-14). LISTED tables belong to removed
 features: populated patient rows are listed in the encrypted ReadMe and never exported. Both
 dispositions require a written ruling note.
 """
@@ -91,7 +93,8 @@ def main():
     for category, names in catalogue['requiredScopes'].items():
         for name in names:
             if catalogue['tables'].get(name) == 'DOCUMENT':
-                require(category == 'Reports', name + ' is a data summary of Reports only')
+                require(category in ('Reports', 'LaboratoryResults'),
+                        name + ' is a data summary of Reports (and of LaboratoryResults for legacy lab reports) only')
     declared = {name for names in catalogue['requiredScopes'].values() for name in names
                 if catalogue['tables'].get(name) != 'DOCUMENT'}
     mapped = set()

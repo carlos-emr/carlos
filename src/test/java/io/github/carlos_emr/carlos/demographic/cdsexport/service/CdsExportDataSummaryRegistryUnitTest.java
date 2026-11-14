@@ -63,10 +63,20 @@ class CdsExportDataSummaryRegistryUnitTest {
         assertThat(catalogue.tables(Disposition.LISTED)).hasSize(37);
         assertThat(catalogue.required(Set.of(CdsCategory.REPORTS)))
                 .containsAll(catalogue.tables(Disposition.DOCUMENT));
+        // LaboratoryResults captures the legacy-format laboratory report tables too, for a job
+        // that selects it without Reports (owner decision 2026-11-14); no other category
+        // captures a data-summary table.
         for (var category : CdsCategory.values())
-            if (category != CdsCategory.REPORTS)
+            if (category != CdsCategory.REPORTS && category != CdsCategory.LABORATORY_RESULTS)
                 assertThat(catalogue.required(Set.of(category)))
                         .doesNotContainAnyElementsOf(catalogue.tables(Disposition.DOCUMENT));
+        var laboratory = new java.util.TreeSet<>(catalogue.required(Set.of(CdsCategory.LABORATORY_RESULTS)));
+        laboratory.retainAll(catalogue.tables(Disposition.DOCUMENT));
+        assertThat(laboratory).hasSize(19);
+        for (String table : laboratory)
+            assertThat(CdsExportLegacyLaboratoryReports.KINDS)
+                    .as(table)
+                    .contains(CdsExportDataSummaryRegistry.rule(table).kind());
         assertThatThrownBy(() -> CdsExportDataSummaryRegistry.rule("allergies"))
                 .hasMessage("CDS_EXPORT_DATA_SUMMARY_TABLE_UNREGISTERED");
     }
