@@ -489,7 +489,7 @@ class CdsExportHistoryWindowMariaDbIntegrationTest {
                         verification);
         var bounds =
                 new CdsExportClinicalOccurrenceService.Bounds(
-                        1_000_000, 64L << 20, 1000, 8L << 20, 8192, 131_072);
+                        1_000_000, 64L << 20);
 
         // Read whole: the chart fits one window.
         var receipts = new ArrayList<CdsExportClinicalOccurrenceService.Receipt>();

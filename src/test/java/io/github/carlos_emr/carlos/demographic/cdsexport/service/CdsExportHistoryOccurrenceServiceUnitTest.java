@@ -59,7 +59,7 @@ class CdsExportHistoryOccurrenceServiceUnitTest {
     private final Set<CdsCategory> categories =
             EnumSet.copyOf(CdsExportNoteSourceReader.CATEGORIES);
     private final CdsExportClinicalOccurrenceService.Bounds bounds =
-            new CdsExportClinicalOccurrenceService.Bounds(1000, 1L << 20, 100, 1L << 20, 100, 100);
+            new CdsExportClinicalOccurrenceService.Bounds(1000, 1L << 20);
     private CdsExportPatientCaptureDto source;
     private Set<String> tables;
     private CdsExportStagedFileDto payload;

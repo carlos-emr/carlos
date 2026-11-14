@@ -91,11 +91,7 @@ class CdsExportHistoryWindowUnitTest {
     private CdsExportClinicalOccurrenceService.Bounds bounds =
             new CdsExportClinicalOccurrenceService.Bounds(
                     CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
-                    CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
-                    1_000_000,
-                    64L << 20,
-                    8192,
-                    131_072);
+                    CdsExportClinicalOccurrenceService.Bounds.UNLIMITED);
     private CdsExportLeaseDto lease;
     private CdsExportCommand command;
     private CdsExportPatientCaptureDto source;

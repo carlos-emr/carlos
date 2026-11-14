@@ -457,7 +457,7 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
                 f.source,
                 file("4", "RETAINED_MANIFEST"),
                 new CdsExportClinicalOccurrenceService.Bounds(
-                        100000, 8L << 20, 1000, 8L << 20, 100, 1000),
+                        100000, 8L << 20),
                 f.control,
                 seen::add);
         assertThat(seen).hasSize(1);
@@ -520,7 +520,7 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
                         f.source,
                         file("4", "RETAINED_MANIFEST"),
                         new CdsExportClinicalOccurrenceService.Bounds(
-                                100000, 8L << 20, 1000, 8L << 20, 100, 1000),
+                                100000, 8L << 20),
                         f.control,
                         occurrences::add);
         assertThat(occurrences).hasSize(1);
@@ -857,11 +857,7 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
         f.bounds =
                 new CdsExportClinicalOccurrenceService.Bounds(
                         CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
-                        CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
-                        1_000_000,
-                        64L << 20,
-                        8192,
-                        131_072);
+                        CdsExportClinicalOccurrenceService.Bounds.UNLIMITED);
         compose(f, false);
         assertThat(f.receipts).hasSize(8193);
         assertThat(f.result.nativeRows()).isEqualTo(8193);
@@ -903,7 +899,7 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
         CdsExportClinicalOccurrenceService.Result result;
         CdsExportClinicalOccurrenceService.Bounds bounds =
                 new CdsExportClinicalOccurrenceService.Bounds(
-                        100000, 8L << 20, 1000, 8L << 20, 100, 1000);
+                        100000, 8L << 20);
     }
 
     /**

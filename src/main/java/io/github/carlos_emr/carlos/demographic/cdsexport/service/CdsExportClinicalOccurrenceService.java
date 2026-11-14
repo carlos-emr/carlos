@@ -39,15 +39,15 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class CdsExportClinicalOccurrenceService {
-    public record Bounds(
-            long fields,
-            long bytes,
-            int indexRows,
-            long indexBytes,
-            int nativeRows,
-            int lookupRows,
-            int windowRows,
-            long windowBytes) {
+    /**
+     * What a section is told about one chart's reads. {@link #fields} and {@link #bytes} are what
+     * every read of a capture states it will accept ({@link #UNLIMITED} in the installed plan);
+     * {@link #windowRows} and {@link #windowBytes} steer how a windowed section reads a long chart
+     * ({@link CdsExportSectionWindowPlanner}). None of them refuses, holds or fails a chart: the
+     * former row and size bounds ({@code cds.export.maxIndexRows}, {@code maxIndexBytes},
+     * {@code maxNativeRows}, {@code maxLookupRows}) are retired.
+     */
+    public record Bounds(long fields, long bytes, int windowRows, long windowBytes) {
         /**
          * The window of a section that reads its rows window by window
          * ({@link CdsExportSectionWindowPlanner}): {@value #WINDOW_ROWS} owners and 64 MiB of
@@ -60,39 +60,18 @@ public class CdsExportClinicalOccurrenceService {
         public static final long WINDOW_BYTES = 64L << 20;
 
         public Bounds {
-            if (fields < 1
-                    || bytes < 1
-                    || indexRows < 1
-                    || indexRows > 1_000_000
-                    || indexBytes < 1
-                    || indexBytes > 64L << 20
-                    || nativeRows < 1
-                    || nativeRows > 8192
-                    || lookupRows < 1
-                    || lookupRows > 131_072
-                    || windowRows < 1
-                    || windowBytes < 1)
+            if (fields < 1 || bytes < 1 || windowRows < 1 || windowBytes < 1)
                 throw new IllegalArgumentException("CDS_EXPORT_OCCURRENCE_BOUNDS_INVALID");
         }
 
-        /** The installed window; the four middle components belong to sections not yet windowed. */
-        public Bounds(
-                long fields, long bytes, int indexRows, long indexBytes, int nativeRows, int lookupRows) {
-            this(
-                    fields,
-                    bytes,
-                    indexRows,
-                    indexBytes,
-                    nativeRows,
-                    lookupRows,
-                    WINDOW_ROWS,
-                    WINDOW_BYTES);
+        /** The installed window. */
+        public Bounds(long fields, long bytes) {
+            this(fields, bytes, WINDOW_ROWS, WINDOW_BYTES);
         }
 
         /** The same bounds with another window size; a test states a small one. */
         public Bounds withWindow(int rows, long windowBytes) {
-            return new Bounds(
-                    fields, bytes, indexRows, indexBytes, nativeRows, lookupRows, rows, windowBytes);
+            return new Bounds(fields, bytes, rows, windowBytes);
         }
 
         CdsExportSectionWindowPlanner.Limits window() {

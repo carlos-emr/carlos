@@ -51,7 +51,7 @@ class CdsExportPharmacyProjectionServiceUnitTest {
     private CdsExportPharmacyProjectionService service;
     private CdsExportClinicalOccurrenceService.Bounds bounds =
             new CdsExportClinicalOccurrenceService.Bounds(
-                    10000, 1L << 20, 1000, 1L << 20, 100, 100);
+                    10000, 1L << 20);
 
     @BeforeEach
     void setup() throws Exception {
@@ -164,9 +164,9 @@ class CdsExportPharmacyProjectionServiceUnitTest {
     void shouldProjectPharmacies_pastTheFormerRowAndByteBounds() throws Exception {
         bounds =
                 new CdsExportClinicalOccurrenceService.Bounds(
-                        10000, 1L << 20, 1000, 1L << 20, 1, 100);
+                        10000, 1L << 20);
         assertThat(project()).isNotNull();
-        bounds = new CdsExportClinicalOccurrenceService.Bounds(10000, 1L << 20, 1000, 64, 100, 100);
+        bounds = new CdsExportClinicalOccurrenceService.Bounds(10000, 1L << 20);
         assertThat(project()).isNotNull();
     }
 

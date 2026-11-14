@@ -658,10 +658,12 @@ package larger than 32 GiB).
 - These settings are no longer used: `cds.export.maxPatients`, `cds.export.maxPackageMembers`,
   `cds.export.maxPackageIndexBytes`, `cds.export.maxSupportingBytes`,
   `cds.export.maxMetadataBytes`, `cds.export.maxZipBytes`, `cds.export.maxCiphertextBytes`,
-  `cds.export.maxStagedFileBytes`, `cds.export.captureTimeoutSeconds` and
-  `cds.export.maxDocumentBytes`. If your configuration still sets one, whatever its value, the
-  application logs `CDS_EXPORT_RETIRED_SETTINGS_IGNORED` once with the setting names and carries
-  on; remove them when convenient.
+  `cds.export.maxStagedFileBytes`, `cds.export.captureTimeoutSeconds`, `cds.export.maxIndexRows`,
+  `cds.export.maxIndexBytes`, `cds.export.maxNativeRows`, `cds.export.maxLookupRows` and
+  `cds.export.maxDocumentBytes`. If your configuration still sets one, whatever its value (an
+  invalid `maxIndexBytes` used to stop every export with `CDS_EXPORT_CONFIGURATION_INVALID`),
+  the application logs `CDS_EXPORT_RETIRED_SETTINGS_IGNORED` once with the setting names and
+  carries on; remove them when convenient.
 
 An export still cannot be continued from where it stopped. If a job stops before it is READY
 (a cancellation, a restart of the application or the command, a failure, a review code),
@@ -754,13 +756,12 @@ than one window of measurement rows in memory. A chart's prescriptions, printed
 prescriptions, allergies, appointments, vaccines, screenings, Disease Registry entries,
 laboratory reports, documents, hospital (HRM) reports, notes and CPP items (the seven history
 categories, a run of notes at a time with each note's revisions, extensions and issue links)
-are read the same way: no count of them stops an export or holds a patient, and
-`cds.export.maxNativeRows`, `maxIndexBytes` and `maxLookupRows` do not apply to them. A chart
-with more than 8,192 notes, or with more than 131,072 entries in its issue list, no longer
-stops the job with `CDS_EXPORT_RESOURCE_LIMIT`. No number of occurrences in one chart stops an
-export either: `cds.export.maxIndexRows` is no longer read (a value left in the properties
-file is ignored, and named once in the log with the other retired settings), and
-`CDS_EXPORT_NATIVE_CARE_PATIENT_LIMIT_EXCEEDED` no longer exists.
+are read the same way: no count of them stops an export or holds a patient. A chart with more
+than 8,192 notes, or with more than 131,072 entries in its issue list, no longer stops the job
+with `CDS_EXPORT_RESOURCE_LIMIT`. No number of occurrences in one chart stops an export either.
+`cds.export.maxNativeRows`, `maxLookupRows`, `maxIndexBytes` and `maxIndexRows` are no longer
+read (a value left in the properties file is ignored, and named once in the log with the other
+retired settings), and `CDS_EXPORT_NATIVE_CARE_PATIENT_LIMIT_EXCEEDED` no longer exists.
 Upgrading applies migration `V1.0.59.46`, which indexes `measurementsDeleted` (deleted
 and superseded measurements) by patient and by original measurement id. On a clinic
 with many refiled lab results the index build adds a little time to the upgrade.

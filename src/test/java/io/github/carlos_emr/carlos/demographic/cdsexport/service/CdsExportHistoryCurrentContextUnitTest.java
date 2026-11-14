@@ -259,7 +259,7 @@ class CdsExportHistoryCurrentContextUnitTest {
                 rows.keySet(),
                 source,
                 new CdsExportClinicalOccurrenceService.Bounds(
-                        1000, 1L << 20, 100, memory, 100, 100),
+                        1000, 1L << 20),
                 control);
     }
 

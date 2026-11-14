@@ -39,7 +39,11 @@ class CdsExportActivePlanServiceUnitTest {
             throws Exception {
         var plan = new CdsExportActivePlanService(settings(), () -> "2026.09.0-test").resolve();
         assertThat(plan.clinicalZone().getId()).isEqualTo("America/Toronto");
-        assertThat(plan.source().nativeRows()).isEqualTo(8192);
+        // The plan states the window a long chart is read in, never a size that refuses one.
+        assertThat(plan.source().windowRows())
+                .isEqualTo(CdsExportClinicalOccurrenceService.Bounds.WINDOW_ROWS);
+        assertThat(plan.source().windowBytes())
+                .isEqualTo(CdsExportClinicalOccurrenceService.Bounds.WINDOW_BYTES);
         assertThat(plan.retentionSeconds()).isEqualTo(604800);
         assertThat(plan.zoneSha256()).matches("[0-9a-f]{64}");
     }
@@ -47,7 +51,8 @@ class CdsExportActivePlanServiceUnitTest {
     @Test
     void shouldDeferActiveConfigurationParsing_untilClinicalWorkActuallyRequiresIt() {
         var settings = settings();
-        settings.setProperty("cds.export.maxIndexBytes", "invalid");
+        // maxIndexBytes, which this used to set, is retired and ignored whatever its value.
+        settings.setProperty("cds.export.retentionSeconds", "invalid");
         var service = new CdsExportActivePlanService(settings, () -> "2026.09.0-test");
         assertThatThrownBy(service::resolve).hasMessage("CDS_EXPORT_CONFIGURATION_INVALID");
     }
@@ -114,7 +119,10 @@ class CdsExportActivePlanServiceUnitTest {
                                         + " cds.export.maxCapturedBytes,"
                                         + " cds.export.captureTimeoutSeconds,"
                                         + " cds.export.maxIndexRows,"
-                                        + " cds.export.maxDocumentBytes]");
+                                        + " cds.export.maxDocumentBytes,"
+                                        + " cds.export.maxNativeRows,"
+                                        + " cds.export.maxLookupRows,"
+                                        + " cds.export.maxIndexBytes]");
             }
         }
     }
