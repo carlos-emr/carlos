@@ -117,6 +117,18 @@ public final class CdsExportMedicationXmlWriter {
      */
     static void validate(CdsExportMedicationDto value, java.util.Set<Field> imported)
             throws IOException {
+        validate(value, imported, false);
+    }
+
+    /**
+     * @param strengthImported whether Strength is the imported element kept exactly as imported:
+     *     it is then held to the schema alone (two tokens of any length), as every unchanged
+     *     imported element is (CdsExportDictionaryLength); a Strength CARLOS writes keeps the
+     *     lengths {@link CdsExportNativeMedicationMapper#strengthElement} writes it within
+     */
+    static void validate(
+            CdsExportMedicationDto value, java.util.Set<Field> imported, boolean strengthImported)
+            throws IOException {
         String name = value.fields().get(Field.DrugName),
                 din = value.fields().get(Field.DrugIdentificationNumber);
         if ((name == null || name.isBlank()) && (din == null || din.isBlank())) invalid();
@@ -131,11 +143,21 @@ public final class CdsExportMedicationXmlWriter {
                             && !text.equals("N")
                     || field == Field.NumberOfRefills && !token(text)) invalid();
         }
+        // An integrity check: the native mapper writes Strength only from values that pass it
+        // (CdsExportNativeMedicationMapper.strengthElement) and otherwise leaves Strength out.
         if (value.strengthAmount() != null
                 && (!token(value.strengthAmount())
                         || !token(value.strengthUnit())
-                        || !CdsExportNativeFieldAssessments.legal(value.strengthAmount(), 10)
-                        || !CdsExportNativeFieldAssessments.legal(value.strengthUnit(), 20)))
+                        || !CdsExportNativeFieldAssessments.legal(
+                                value.strengthAmount(),
+                                strengthImported
+                                        ? Integer.MAX_VALUE
+                                        : CdsExportNativeMedicationMapper.STRENGTH_AMOUNT_LENGTH)
+                        || !CdsExportNativeFieldAssessments.legal(
+                                value.strengthUnit(),
+                                strengthImported
+                                        ? Integer.MAX_VALUE
+                                        : CdsExportNativeMedicationMapper.STRENGTH_UNIT_LENGTH)))
             invalid();
     }
 

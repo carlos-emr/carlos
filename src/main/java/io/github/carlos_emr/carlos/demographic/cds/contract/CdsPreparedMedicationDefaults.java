@@ -38,6 +38,10 @@ import java.util.Set;
  * <p>Preparations sealed before the CARLOS source carrier was restored (#6198) omit
  * {@code source.quantityUnit} and {@code source.asNeeded}; both are absent (null) there, which
  * keeps the persister's earlier derivation. A present value of the wrong type is refused.
+ *
+ * <p>Preparations sealed before a CARLOS sender's stored strength text was restored omit
+ * {@code source.strengthText}; it is absent (null) there, which keeps the Strength element as the
+ * stored strength. A present value that is not text is refused.
  */
 public final class CdsPreparedMedicationDefaults {
     private static final Set<String> UNITS = Set.of("D", "W", "M", "Y");
@@ -71,6 +75,9 @@ public final class CdsPreparedMedicationDefaults {
         if (!prescription.has("asNeeded")) prescription.putNull("asNeeded");
         else if (!prescription.get("asNeeded").isNull()
                 && !prescription.get("asNeeded").isBoolean()) throw invalid();
+        if (!prescription.has("strengthText")) prescription.putNull("strengthText");
+        else if (!prescription.get("strengthText").isNull()
+                && !prescription.get("strengthText").isTextual()) throw invalid();
         JsonNode amount = prescription.get("duration"), unit = prescription.get("durationUnit");
         if (amount == null || unit == null) throw invalid();
         if (amount.isNull() != unit.isNull()) throw invalid();

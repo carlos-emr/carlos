@@ -124,8 +124,15 @@ public final class CdsExportMedicationRetainedAssembler {
         for (var field : CdsExportMedicationDto.Field.values())
             if (preservedPart(decision.preparedPaths(), field.name())
                     && !ids(relative, field.name() + "[1]").isEmpty()) imported.add(field);
+        // An unchanged imported Strength is kept as imported: its two tokens may be as long as the
+        // schema allows (a sender's "MG/5ML ORAL SUSPENSION" unit), never the lengths CARLOS keeps
+        // for a Strength it writes itself.
+        boolean strengthImported =
+                decision.preparedPaths().contains("Strength")
+                        && !ids(relative, "Strength[1]/Amount[1]").isEmpty();
         try {
-            CdsExportMedicationXmlWriter.validate(decision.mapping().value(), imported);
+            CdsExportMedicationXmlWriter.validate(
+                    decision.mapping().value(), imported, strengthImported);
         } catch (io.github.carlos_emr.carlos.demographic.cdsexport.support
                         .CdsExportMappingReviewException held) {
             throw held;

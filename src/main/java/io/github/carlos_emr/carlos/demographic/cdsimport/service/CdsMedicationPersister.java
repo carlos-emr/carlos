@@ -213,6 +213,8 @@ public class CdsMedicationPersister {
     }
 
     private static String strength(CdsMedicationDto source) {
+        // A CARLOS sender's stored strength text, restored where the record has no Strength.
+        if (source.strengthText() != null) return source.strengthText();
         if (source.strengthSourceOnly())
             return "[Source strength: see imported medication details]";
         if (source.strengthAmount() == null) return null;

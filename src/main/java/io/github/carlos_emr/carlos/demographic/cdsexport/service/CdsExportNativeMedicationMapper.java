@@ -448,12 +448,13 @@ public final class CdsExportNativeMedicationMapper {
                                 field ->
                                         field.outcome() == Outcome.REQUIRES_REVIEW
                                                 && field.rule().startsWith("CONFLICTING_PRESCRIBER_"));
+        var firstIngredient = reference == null ? null : strengthElement(reference);
         var value =
                 new CdsExportMedicationDto(
                         candidate.written(),
                         start,
-                        reference == null ? null : reference.components().getFirst().strength(),
-                        reference == null ? null : reference.components().getFirst().unit(),
+                        firstIngredient == null ? null : firstIngredient.strength(),
+                        firstIngredient == null ? null : firstIngredient.unit(),
                         outsidePrescriber ? null : candidate.prescriber(),
                         values);
         try {
@@ -585,16 +586,53 @@ public final class CdsExportNativeMedicationMapper {
         if (value == null
                 || !value.din().equals(row.fields().get("regional_identifier"))
                 || value.components().isEmpty()) review();
-        var component = value.components().getFirst();
-        try {
-            if (new java.math.BigDecimal(component.strength()).signum() <= 0) review();
-        } catch (NumberFormatException invalid) {
-            review();
-        }
         // Guide 10.1 permits representative DINs whose product/name differs. Guide 10.5
         // requires the database's first ingredient amount, including combination products.
         // Authored names and complete native strength text remain independent source values.
+        // A first ingredient whose amount Strength cannot hold no longer holds the chart: the
+        // optional Strength is left out (strengthElement) and the reference stays exact here.
         return value;
+    }
+
+    /** The CDS dictionary's length of Strength/Amount, which CARLOS keeps for its own text. */
+    static final int STRENGTH_AMOUNT_LENGTH = 10;
+
+    /** The CDS dictionary's length of Strength/UnitOfMeasure, likewise. */
+    static final int STRENGTH_UNIT_LENGTH = 20;
+
+    /**
+     * The drug database's first active ingredient as the optional Strength element (Guide 10.5),
+     * or null when Strength is left out. Strength is written only from an amount that is a
+     * positive decimal number (no zero, blank, range or text) with a unit, both whole tokens within
+     * the element's lengths; nothing is rounded, cut or invented. Otherwise no Strength is
+     * written: the complete ingredient list stays exact in {@code CARLOS.Medication.Source.v1}
+     * ({@code reference}), the prescription's stored strength text ({@code drugs.dosage}) is its
+     * DrugDescription, and a CARLOS importer restores that text from the same carrier.
+     */
+    static CdsExportDrugReferenceDto.Component strengthElement(CdsExportDrugReferenceDto reference) {
+        var component = reference.components().getFirst();
+        String amount = component.strength(), unit = component.unit();
+        if (!token(amount, STRENGTH_AMOUNT_LENGTH) || !token(unit, STRENGTH_UNIT_LENGTH))
+            return null;
+        try {
+            return new java.math.BigDecimal(amount).signum() > 0 ? component : null;
+        } catch (NumberFormatException notADecimal) {
+            return null;
+        }
+    }
+
+    /**
+     * A non-empty {@code xs:token} of at most {@code maximum} characters, which every schema
+     * reader keeps unchanged (the writer's own check, CdsExportMedicationXmlWriter.validate).
+     */
+    private static boolean token(String text, int maximum) {
+        return text != null
+                && !text.isEmpty()
+                && !text.startsWith(" ")
+                && !text.endsWith(" ")
+                && !text.contains("  ")
+                && text.chars().noneMatch(c -> c == '\t' || c == '\r' || c == '\n')
+                && CdsExportNativeFieldAssessments.legal(text, maximum);
     }
 
     private static boolean catalogueSelected(CdsExportCapturedTextRowDto row) {

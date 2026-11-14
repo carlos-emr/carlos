@@ -382,6 +382,22 @@ public final class CdsExportMedicationFieldReconciler {
         // These standard source fields have no native prescription column. The retained assembler
         // separately requires their unchanged, applied field pages and preserves unknown siblings.
         for (var field : List.of(Field.DrugDescription, Field.PrescriptionIdentifier)) {
+            if (field == Field.DrugDescription
+                    && source.strengthText() != null
+                    && currentPaths.contains("Strength")) {
+                // A CARLOS sender's DrugDescription is its stored strength text, which the import
+                // restored; changed since, the description is the current text by the native rule
+                // (left out when longer than DrugDescription), so a further CARLOS import proves
+                // the current row's text against it.
+                String dosage = current.fields().get("dosage");
+                String shown = dosage == null || dosage.isEmpty() ? null : CdsExportXmlText.element(dosage);
+                if (shown != null
+                        && shown.codePointCount(0, shown.length()) <= Field.DrugDescription.maximum())
+                    selected.put(field, shown);
+                else selected.remove(field);
+                currentPaths.add(field.name());
+                continue;
+            }
             if (old.fields().containsKey(field)) selected.put(field, old.fields().get(field));
             preparedPaths.add(field.name());
         }
@@ -576,11 +592,15 @@ public final class CdsExportMedicationFieldReconciler {
         return result;
     }
 
-    /** The native columns the import restored from a CARLOS sender's source carrier (#6198). */
+    /**
+     * The native columns the import restored from a CARLOS sender's source carrier (#6198), and
+     * the stored strength text it restored where the record had no Strength.
+     */
     private static Set<String> restoredColumns(CdsMedicationDto source) {
         var result = new HashSet<String>();
         if (source.quantityUnit() != null) result.add("unitName");
         if (source.asNeeded() != null) result.add("prn");
+        if (source.strengthText() != null) result.add("dosage");
         return result;
     }
 
@@ -626,15 +646,19 @@ public final class CdsExportMedicationFieldReconciler {
                 "unitName",
                 trim(source.quantityUnit() != null ? source.quantityUnit() : source.doseUnit()));
         values.put("cds_dose_text", source.dose());
+        // The persister's rule (CdsMedicationPersister.strength): a CARLOS sender's restored
+        // strength text, else the placeholder of a source-only Strength, else the Strength.
         String strength =
-                source.strengthSourceOnly()
-                        ? "[Source strength: see imported medication details]"
-                        : source.strengthAmount() == null
-                                ? null
-                                : source.strengthAmount()
-                                        + (source.strengthUnit() == null
-                                                ? ""
-                                                : " " + source.strengthUnit());
+                source.strengthText() != null
+                        ? source.strengthText()
+                        : source.strengthSourceOnly()
+                                ? "[Source strength: see imported medication details]"
+                                : source.strengthAmount() == null
+                                        ? null
+                                        : source.strengthAmount()
+                                                + (source.strengthUnit() == null
+                                                        ? ""
+                                                        : " " + source.strengthUnit());
         values.put("dosage", trim(strength));
         values.put("long_term", flag(source.longTerm()));
         values.put("past_med", flag(source.past()));
