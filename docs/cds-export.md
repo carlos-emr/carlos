@@ -4478,7 +4478,13 @@ last first, and is exact in the revision's extension facts in `CARLOS.NativeHist
 (`CDS_EXPORT_NATIVE_HISTORY_NARRATIVE_CAPACITY` is gone). A note or a CPP field pasted with a
 character XML cannot carry is written with U+FFFD in its place and its exact text travels in
 the revision details (`exactNarrative`); a CARLOS importer restores it once the element proves
-to be its U+FFFD form (see `docs/cds-import.md`). An encounter note that carries such a text also
+to be its U+FFFD form (see `docs/cds-import.md`). An encounter note's type (`encounter_type`,
+which the encounter screen and the REST API store as sent, up to 100 characters) is its NoteType
+when it is an `xs:token` of at most 50 characters; otherwise NoteType is left out and the exact
+type travels in the revision details (`encounterType`), where every note already states it. It
+held the patient (`CDS_EXPORT_NATIVE_NOTE_TYPE_REQUIRES_REVIEW`). The CARLOS importer does not
+write NoteType into a note for any sender, so a receiving CARLOS shows no encounter type either
+way. An encounter note that carries such a text also
 states, in every revision's details, `bodyLength`: the UTF-16 length of that revision's body as
 the note's text holds it, so each body has one place counted back from the details heading even
 when a body quotes a revision heading. The mapper and the revision planner no longer refuse a note with

@@ -350,17 +350,18 @@ public final class CdsExportNativeHistoryMapper {
             }
             String encounter = state.raw("encounter_type");
             if (encounter != null && !encounter.isEmpty()) {
-                if (!token(encounter, 50)) review("CDS_EXPORT_NATIVE_NOTE_TYPE_REQUIRES_REVIEW");
+                // NoteType is an xs:token of at most 50 characters. The encounter screen and the
+                // REST API store the type as sent (varchar(100)), so one that is not such a token
+                // (longer, or with a tab, line break or doubled space) is left out of NoteType;
+                // the exact type is in the note's details either way.
+                boolean noteType = category == CdsCategory.CLINICAL_NOTES && token(encounter, 50);
                 detail.put("encounterType", encounter);
                 state.set(
                         "encounter_type",
                         Outcome.MAPPED,
-                        category == CdsCategory.CLINICAL_NOTES
-                                ? "NoteType"
-                                : metadataPath(category),
+                        noteType ? "NoteType" : metadataPath(category),
                         "EXACT_NATIVE_ENCOUNTER_TYPE");
-                if (revision == current && category == CdsCategory.CLINICAL_NOTES)
-                    text.put("NoteType", encounter);
+                if (revision == current && noteType) text.put("NoteType", encounter);
             }
             var extensions = new ArrayList<Map<String, String>>();
             for (var extension : revision.extensions()) {
