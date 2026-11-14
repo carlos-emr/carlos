@@ -35,8 +35,13 @@ import java.util.regex.Pattern;
  * person is added again its row is decided with the new association like any added contact. An
  * imported contact a further current association names (picked again from the contact search
  * with another relationship) is decided with all its current associations and appended, its
- * element replaced. Other demographic fields need their own reconciliation before the parent may
- * be serialized or clinically published.
+ * element replaced; when its element holds content CARLOS keeps only in the import's retained
+ * source (several purposes, a middle name, repeated phones) the element stays and the further
+ * purposes join it. An imported association that now names another contact row (the server
+ * accepts it; the forms do not offer it) is no longer the imported person's: the imported element
+ * is removed and the association is decided with the contact it names, like any added contact.
+ * Other demographic fields need their own reconciliation before the parent may be serialized or
+ * clinically published.
  */
 public final class CdsExportContactRetainedAssembler {
     private static final Pattern CONTACT =
@@ -178,19 +183,37 @@ public final class CdsExportContactRetainedAssembler {
         // the contact search, with another relationship).
         var importedLinks = new HashSet<String>();
         var importedContacts = new HashSet<String>();
-        for (var child : units)
+        // Imported associations that now name another contact row than the one imported with
+        // them. Each is an added association of the contact it names.
+        var repointed = new HashSet<String>();
+        for (var child : units) {
+            String unitContact = null, unitLink = null;
             for (var reference :
                     index.references()
-                            .getOrDefault(run + ":" + child.fields().get("unit_key"), List.of()))
+                            .getOrDefault(run + ":" + child.fields().get("unit_key"), List.of())) {
                 (reference.table().equals("Contact") ? importedContacts : importedLinks)
                         .add(reference.id());
+                if (reference.table().equals("Contact")) unitContact = reference.id();
+                else if (reference.table().equals("DemographicContact")) unitLink = reference.id();
+            }
+            var link = unitLink == null ? null : nativeRows.get("DemographicContact:" + unitLink);
+            if (link != null
+                    && unitContact != null
+                    && !unitContact.equals(link.fields().get("contactId"))) repointed.add(unitLink);
+        }
         var named = new HashSet<String>();
+        var further = new HashMap<String, List<CdsExportCapturedTextRowDto>>();
         for (var row : associations)
             if ("2".equals(row.fields().get("type"))
-                    && !importedLinks.contains(row.fields().get("id"))
+                    && (!importedLinks.contains(row.fields().get("id"))
+                            || repointed.contains(row.fields().get("id")))
                     && current(row)
-                    && importedContacts.contains(row.fields().get("contactId")))
+                    && importedContacts.contains(row.fields().get("contactId"))) {
                 named.add(row.fields().get("contactId"));
+                further.computeIfAbsent(row.fields().get("contactId"), ignored -> new ArrayList<>())
+                        .add(row);
+            }
+        int unclaimed = 0;
         var regrouped = new LinkedHashSet<String>();
         var regroupedRows = new ArrayList<CdsExportCapturedTextRowDto>();
         for (var child : units) {
@@ -207,6 +230,37 @@ public final class CdsExportContactRetainedAssembler {
             String contactId = cs.getFirst().id(), linkId = links.getFirst().id();
             if (!importedIds.add(contactId))
                 throw new IOException("CDS_EXPORT_CONTACT_ALIAS_REQUIRES_REVIEW");
+            if (repointed.contains(linkId)) {
+                // The imported relationship names another person now. Its element is removed
+                // (the source fields stay in the import's retained source, replaced); the
+                // association stays among the rows decided below with the contact it names, and
+                // so does the imported contact row when another association still names it. It
+                // was a job stop (CDS_EXPORT_CONTACT_RECONCILIATION_SCOPE_INVALID).
+                var element =
+                        new CdsExportContactFieldReconciler()
+                                .repointed(
+                                        patient,
+                                        address,
+                                        index,
+                                        checked,
+                                        allFields,
+                                        contactId,
+                                        nativeRows.get("DemographicContact:" + linkId),
+                                        proof.get("DemographicContact:" + linkId),
+                                        values,
+                                        checkpoint);
+                if (!parentAddress.equals(element.parentUnitAddress())
+                        || !consumedOrdinals.add(element.ordinal())) scope();
+                var ids = new HashSet<String>();
+                for (var field : element.fields()) if (!claimed.add(field.id()) || !ids.add(field.id())) scope();
+                changes.add(
+                        new CdsExportRetainedSectionWriter.Change(
+                                "Contact[" + element.ordinal() + "]", ids, null));
+                regrouped.add(contactId);
+                imported++;
+                unclaimed++;
+                continue;
+            }
             var decision =
                     new CdsExportContactFieldReconciler()
                             .reconcile(
@@ -219,15 +273,29 @@ public final class CdsExportContactRetainedAssembler {
                                     proof.get("Contact:" + contactId),
                                     nativeRows.get("DemographicContact:" + linkId),
                                     proof.get("DemographicContact:" + linkId),
+                                    further.getOrDefault(contactId, List.of()),
                                     values,
                                     checkpoint);
+            // The reconciler decided the further associations itself (the imported element
+            // stays and their purposes join it): they are not left for the rows decided below.
+            boolean joined = false;
+            for (var row : further.getOrDefault(contactId, List.of()))
+                if (decision.fields()
+                        .containsKey(
+                                new CdsExportNativeFieldKeyDto(
+                                        row.table(), row.recordKey(), "id"))) {
+                    joined = true;
+                    if (remaining.remove("DemographicContact:" + row.fields().get("id")) == null)
+                        scope();
+                }
             if (!decision.representable())
                 throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException(
                         "CDS_EXPORT_CONTACT_MAPPING_REQUIRES_REVIEW");
             if (!parentAddress.equals(decision.binding().parentUnitAddress())
                     || !consumedOrdinals.add(decision.binding().ordinal())) scope();
             for (var field : decision.binding().fields()) if (!claimed.add(field.id())) scope();
-            if ((named.contains(contactId) || decision.current()) && !decision.superseded()) {
+            if ((named.contains(contactId) && !joined || decision.current())
+                    && !decision.superseded()) {
                 // The imported relationship is still current and a further one names the same
                 // person, or its notes were edited apart (decision.current()): the contact is
                 // decided with all its current associations, as on any chart (one Contact, every
@@ -345,7 +413,7 @@ public final class CdsExportContactRetainedAssembler {
         // Every contact row is claimed once: by its imported unit, or by the current associations
         // decided above. A new contact that is removed or inactive is decided, not emitted, so the
         // count is of rows, never of emitted Contact elements.
-        if (imported - reused.size() - regroupedRows.size() / 2 + newContacts.size()
+        if (imported - unclaimed - reused.size() - regroupedRows.size() / 2 + newContacts.size()
                 != contacts.size()) scope();
         values.requireActive();
         checkpoint.run();

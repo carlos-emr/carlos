@@ -420,7 +420,7 @@ class CdsExportPersonalContactMapperUnitTest {
 
     @Test
     void
-            shouldCarryPaddedAndMissingReferencesAndReviewOnlyTheImportMarker_insteadOfAliasResolution()
+            shouldCarryPaddedAndMissingReferencesAndTheImportMarker_insteadOfAliasResolution()
                     throws Exception {
         // "09" is not contact 9: no alias is resolved, no Contact is written, and the stored
         // association is carried (it was a hold).
@@ -429,8 +429,10 @@ class CdsExportPersonalContactMapperUnitTest {
         assertThat(result.fields()).hasSize(18);
         assertThat(result.contacts()).isEmpty();
         assertThat(map(List.of(association(-1, 9)), List.of()).nativeRepresentable()).isTrue();
-        // The importer's own marker for several source purposes still needs the import's
-        // retained purposes: the one relationship value that is not carried.
+        // The importer's own marker for several source purposes is not a relationship: no
+        // ContactPurpose is written from it and the stored text is carried. It was a hold
+        // (RETAINED_CONTACT_PURPOSE_RECONCILIATION_REQUIRED); the purposes themselves stay in
+        // the imported element (CdsExportContactFieldReconciler).
         var retained =
                 map(
                         List.of(
@@ -439,7 +441,17 @@ class CdsExportPersonalContactMapperUnitTest {
                                         "role",
                                         "Multiple source purposes; see imported Contact details")),
                         List.of(contact(9)));
-        assertThat(retained.nativeRepresentable()).isFalse();
+        assertThat(retained.nativeRepresentable()).isTrue();
+        assertThat(retained.contacts().getFirst().purposes())
+                .allMatch(CdsExportPersonalContactDto.Purpose::coded);
+        assertThat(
+                        CdsExportDemographicSupportingMapper.carries(
+                                retained.fields().entrySet().stream()
+                                        .filter(field -> field.getKey().column().equals("role"))
+                                        .findFirst()
+                                        .orElseThrow()
+                                        .getValue()))
+                .isTrue();
     }
 
     @Test

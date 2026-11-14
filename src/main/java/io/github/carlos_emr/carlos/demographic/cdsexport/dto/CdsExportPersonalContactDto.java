@@ -60,7 +60,6 @@ public record CdsExportPersonalContactDto(
                 || !sourceRecordKey.matches("[0-9]{20}")
                 || firstName != null && !text(firstName, 50)
                 || lastName != null && !text(lastName, 50)
-                || purposes.size() > 8192
                 || phones.size() > 3
                 || phones.stream()
                                 .map(CdsExportDemographicMappingDto.Phone::type)
