@@ -601,7 +601,15 @@ is rounded and no unit is guessed. The supporting record's `CARLOS.Observation.v
 the complete row, its extensions and matching vocabulary rows as JSON in one fixed key order
 (`version`, `deleted`, `rows`; each row `table`, then its fields sorted by column), with every
 space escaped as `\u0020` so the `xs:token` whitespace collapse cannot change a decoded value;
-an unchanged chart produces the same bytes on every run. Deleted measurements are not exported. A
+an unchanged chart produces the same bytes on every run. No care value holds a patient for its
+size or its characters. The only length that applies is the schema's: Weight, Height,
+WaistCircumference, SystolicBP and DiastolicBP admit 1,024 characters, and a converted value
+that would be longer gets no standard element and stays, whole, in the supporting record. A
+character XML 1.0 cannot carry (a pasted form feed, U+FFFE) is written inside the JSON as its
+`\uXXXX` escape, which decodes to the same character. Two `measurementsExt` rows under one key
+state no single unit, so the observation gets no standard element and both rows are carried.
+The CARLOS importer keeps the supporting record as retained source and does not interpret it.
+Deleted measurements are not exported. A
 `measurementsDeleted` row is either a clinician's deletion of an erroneous entry
 (`EctDeleteData2Action`) or an HL7 result version superseded by a newer report
 (`Hl7textResultsData`); neither is a current fact, and the legacy exporter, which read

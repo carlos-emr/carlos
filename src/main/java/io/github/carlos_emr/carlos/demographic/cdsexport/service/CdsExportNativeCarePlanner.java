@@ -123,8 +123,8 @@ final class CdsExportNativeCarePlanner {
 
     /**
      * The mapper's own exact-representation decision, so the planned and the mapped CareElements
-     * can never disagree. Ambiguous extensions plan no standard element; the mapper then refuses
-     * them explicitly.
+     * can never disagree. Two extension rows under one key plan no standard element, and the
+     * mapper maps none: the observation is exported whole in its supporting record.
      */
     private static String standardElement(
             CdsExportCapturedTextRowDto row, List<CdsExportCapturedTextRowDto> extensions) {

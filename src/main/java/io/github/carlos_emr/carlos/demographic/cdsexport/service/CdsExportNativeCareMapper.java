@@ -24,7 +24,6 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFieldAssessmentDto.Outcome;
-import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.*;
@@ -101,6 +100,15 @@ public final class CdsExportNativeCareMapper {
                     "FTLS", "67536-3",
                     "NRTF", "67536-3");
 
+    /**
+     * maxLength of Weight, Height, WaistCircumference, SystolicBP, DiastolicBP and ExamCode in
+     * the CDS 5.2 data types (EMR_Data_Migration_Schema_DT.xsd); the other standard care values
+     * are enumerations, xs:decimal or xs:integer. A value the facet cannot take is not a reason
+     * to hold anything: the observation has no standard element and is exported whole in its
+     * NewCategory record, as every native observation is.
+     */
+    private static final int SCHEMA_VALUE_LENGTH = 1024;
+
     public record Result(
             String table,
             String id,
@@ -153,8 +161,7 @@ public final class CdsExportNativeCareMapper {
             return null;
         String date = calendarDate(observation.get("dateObserved"));
         String value = observation.get("dataField");
-        if (date == null || value == null || !CdsExportNativeFieldAssessments.legal(value, 1024))
-            return null;
+        if (date == null || value == null) return null;
         String explicit = extra.containsKey("unit") ? extra.get("unit") : extra.get("units");
         String unit = careUnit(type, explicit, observation.get("measuringInstruction"));
         var output = new LinkedHashMap<String, String>();
@@ -226,8 +233,10 @@ public final class CdsExportNativeCareMapper {
             }
         }
         output.put("Date", date);
+        // The values written are derived (numbers, codes, Y/N), so this is the schema facet on
+        // what is written, not a bound on what was typed.
         for (String text : output.values())
-            if (!CdsExportNativeFieldAssessments.legal(text, 1024)) return null;
+            if (!CdsExportNativeFieldAssessments.legal(text, SCHEMA_VALUE_LENGTH)) return null;
         return new Standard(element, output);
     }
 
@@ -381,10 +390,10 @@ public final class CdsExportNativeCareMapper {
         var metadata = new ArrayList<Map<String, Object>>();
         for (var row : rows) {
             var state = new CdsExportNativeFieldAssessments(row, fields);
+            // No value is refused here. The longest care column is measurementsExt.val (TEXT),
+            // and a character XML cannot carry is written as its JSON escape
+            // (CdsExportResidualJson), so the supporting record always holds the row exactly.
             for (var column : row.fields().entrySet()) {
-                if (column.getValue() != null
-                        && !CdsExportNativeFieldAssessments.legal(column.getValue(), 1 << 24))
-                    review("CDS_EXPORT_NATIVE_CARE_TEXT_REQUIRES_REVIEW");
                 state.set(
                         column.getKey(),
                         Outcome.MAPPED,
@@ -396,15 +405,18 @@ public final class CdsExportNativeCareMapper {
             entry.put("fields", row.fields());
             metadata.add(entry);
         }
+        // Two extension rows under one key say nothing certain about the unit or the date
+        // precision, so the observation gets no standard element (the planner decides the same).
+        // It is not held: every extension row is already in the supporting record above.
         var extra = new HashMap<String, String>();
+        boolean ambiguous = false;
         for (var ext : extensions) {
             if (!id.equals(ext.fields().get("measurement_id"))) invalid();
             String key = ext.fields().get("keyval"), value = ext.fields().get("val");
-            if (key == null || extra.containsKey(key))
-                review("CDS_EXPORT_NATIVE_CARE_EXTENSION_AMBIGUOUS");
-            extra.put(key, value);
+            if (key == null || extra.containsKey(key)) ambiguous = true;
+            else extra.put(key, value);
         }
-        var standard = standard(observation.fields(), extra);
+        var standard = ambiguous ? null : standard(observation.fields(), extra);
         String element = standard == null ? null : standard.element();
         var output = new LinkedHashMap<String, String>();
         if (standard != null) {
@@ -426,9 +438,6 @@ public final class CdsExportNativeCareMapper {
                                 "EXPLICIT_NATIVE_CARE_VALUE_UNIT_AND_CALENDAR_DATE"));
             }
         }
-        for (String value : output.values())
-            if (!CdsExportNativeFieldAssessments.legal(value, 1024))
-                review("CDS_EXPORT_NATIVE_CARE_WIRE_CAPACITY");
         // One fixed key order (row fields are already sorted), so an unchanged chart yields the
         // same bytes on every run and worker. Content is xs:token: every space is escaped (JSON
         // already escapes tabs and line breaks), so whitespace collapse by a schema-aware reader,
@@ -439,7 +448,7 @@ public final class CdsExportNativeCareMapper {
         context.put("deleted", false);
         context.put("rows", metadata);
         String json =
-                CdsExportScreeningMapper.tokenSafe(
+                CdsExportResidualJson.token(
                         JsonMapper.builder().build().writeValueAsString(context));
         return new Result(observation.table(), id, element, output, json, rows, fields);
     }
@@ -507,7 +516,4 @@ public final class CdsExportNativeCareMapper {
         throw new IOException("CDS_EXPORT_NATIVE_CARE_SCOPE_INVALID");
     }
 
-    private static void review(String code) throws CdsExportMappingReviewException {
-        throw new CdsExportMappingReviewException(code);
-    }
 }

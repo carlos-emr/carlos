@@ -366,7 +366,7 @@ class CdsExportNativeCareMapperUnitTest {
     }
 
     @Test
-    void shouldKeepConflictingUnitsSupportingOnly_andRejectDuplicateExtensionKeys()
+    void shouldKeepConflictingUnitsSupportingOnly_andCarryRepeatedExtensionKeys()
             throws Exception {
         var ext =
                 row(
@@ -380,14 +380,55 @@ class CdsExportNativeCareMapperUnitTest {
                 mapper.map(27, observation("WT", "80", "kg"), List.of(ext), List.of());
         assertThat(conflicting.element()).isNull();
         assertThat(conflicting.metadata()).contains("lbs", "\"kg\"", "80");
-        assertThatThrownBy(
-                        () ->
-                                mapper.map(
-                                        27,
-                                        observation("WT", "80", "lbs"),
-                                        List.of(ext, ext),
-                                        List.of()))
-                .hasMessage("CDS_EXPORT_NATIVE_CARE_EXTENSION_AMBIGUOUS");
+        // Two rows under one key: no unit is chosen, nothing is held, and both rows are carried.
+        var other =
+                row(
+                                Plan.MEASUREMENTS_EXT,
+                                102,
+                                Map.of("measurement_id", "91", "keyval", "unit", "val", "stone"))
+                        .value();
+        var repeated =
+                mapper.map(27, observation("WT", "80", "lbs"), List.of(ext, other), List.of());
+        assertThat(repeated.element()).isNull();
+        assertThat(repeated.values()).isEmpty();
+        assertThat(repeated.metadata()).contains("\"lbs\"", "\"stone\"");
+    }
+
+    @Test
+    void shouldExportAnObservation_whenAValueIsLongerThanTheSchemaAdmitsOrNotXmlText()
+            throws Exception {
+        // Before: a value past 1,024 characters, or one with a character XML 1.0 cannot carry,
+        // held the patient (CDS_EXPORT_NATIVE_CARE_WIRE_CAPACITY / ..._TEXT_REQUIRES_REVIEW).
+        // Weight admits 1,024 characters: 1,025 digits get no standard element and stay exact.
+        String digits = "1" + "0".repeat(1024);
+        var tooLong = map("WT", digits, "kg");
+        assertThat(tooLong.element()).isNull();
+        assertThat(tooLong.metadata()).contains("\"" + digits + "\"");
+        var fields = new HashMap<>(observation("WT", "80", "kg").fields());
+        String typed = "pasted\u000bform\ufffefeed";
+        fields.put("comments", typed);
+        var observation =
+                new CdsExportCapturedTextRowDto(
+                        "measurements", CdsExportPatientTableSourceReader.key(91), fields);
+        String extension = "x".repeat(70_000) + "\uffff";
+        var ext =
+                row(
+                                Plan.MEASUREMENTS_EXT,
+                                103,
+                                Map.of("measurement_id", "91", "keyval", "comments", "val", extension))
+                        .value();
+        var mapped = mapper.map(27, observation, List.of(ext), List.of());
+        assertThat(mapped.element()).isEqualTo("Weight");
+        assertThat(mapped.values()).containsEntry("Weight", "80");
+        assertThat(mapped.metadata()).doesNotContain("\u000b", "\ufffe", "\uffff");
+        var decoded =
+                new com.fasterxml.jackson.databind.ObjectMapper().readTree(mapped.metadata());
+        assertThat(decoded.get("rows").get(0).get("fields").get("comments").asText())
+                .isEqualTo(typed);
+        assertThat(decoded.get("rows").get(1).get("fields").get("val").asText())
+                .isEqualTo(extension);
+        assertThat(render(CdsCategory.NEW_CATEGORY, body -> mapper.writeSupporting(mapped, body)))
+                .isNotEmpty();
     }
 
     @Test
