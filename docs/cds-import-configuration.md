@@ -232,3 +232,72 @@ Ordinary database, document-store and application settings remain necessary. Cre
 their exact configured values and must never appear in public evidence. See
 [JDBC timeout verification](cds-import-jdbc-timeouts.md) and the
 [installed CLI gate](cds-import-cli-verification.md).
+
+## Import bounds and their classes
+
+Every bound the import side had in the bounds audit, as it stands now. **A**: changes only how the
+work is done (pacing, paging, a stall window). **B**: an external or integrity limit (a schema
+facet, a column's capacity, CARLOS's own stored format, a security check). **removed**: deleted,
+with what stops the import instead, if anything. The shared rows S1, S2, S3 and S6 belong to the
+export-side work or await a decision, and keep their audit class (C or D) here.
+
+| Row | Bound | Where | Class | Reason |
+| --- | --- | --- | --- | --- |
+| I2 | 20,000 uploads awaiting snapshots (`cds.import.upload.maxFiles`) | `CdsUploadService` | removed | A full store refuses at its disk reserve or fails the step that needed an inode; setting retired. |
+| I3 | 24 h idle unsubmitted upload (`cds.import.upload.ttlHours`) | `CdsUploadService` | A | The unsubmitted upload's stall window (owner decision); the upload list shows when each is removed. |
+| I4 | 120 s without a chunk byte; 3 attempts | `CdsUploadService`, `cds-import.js` | A | The chunk is sent again, then the upload resumes from the list. |
+| I5 | Chunk 64 KiB to 16 MiB; 512 MiB reserve; file name up to 1,000 characters | `CdsUploadService` | A / A / B | Transfer unit (16 MiB is the WAF body limit); the disk reserve; file systems allow 255-byte names. |
+| I8 | 8,192 characters per list setting | `CdsImportConfigurationService` | removed | Source and delegation lists of any length. |
+| I9 | 8,192 characters and 200 namespaces on the import page; 8,192-character educator list | `CdsImportViewModelAssembler`, `CdsCourseService` | removed | Any length; a course copy still reads its students 100 at a time (A). |
+| I10 | Namespace up to 64 characters | `CdsImportConfigurationService` | B | Now 128: the token rule and the `VARCHAR(128)` run and lineage columns. |
+| I11 | Digest cache of 64; tokens up to 128 characters | `CdsImportConfigurationService` | A / B | Cache size; the `VARCHAR(128)` columns. |
+| I12 | Lock wait, 64 roots, 24 h pre-accept staging, 64 KiB index rows | `CdsPreacceptService` | A / B | Pacing and cleanup; CARLOS's own index format. |
+| I15 | Depth 256 | `CdsXmlParser`, `CdsSnapshotService` | B | The schema is 8 levels deep. |
+| I16 | 128 attributes per element | `CdsXmlParser` | B | The schema uses at most 2 plus the xsi attributes. |
+| I17 | 128 child names per element | `CdsXmlParser` | B | The schema's largest is 36, with no `xs:any`. |
+| I18 | Paths up to 8,192 characters | `CdsXmlParser`, `CdsSnapshotService` | B | At most 8 short schema names with ordinals. |
+| I19 | One tag, comment or processing instruction up to 65,536 characters | `CdsXmlText`, `CdsXmlReaders` | B | Tags carry short attributes; no exporter writes such a comment. |
+| I20 | A constrained value up to 65,536 characters | `CdsXmlParser`, `CdsScalarParser` | B | The schema's largest `maxLength`. |
+| I21 | 128 namespace URIs; 128 prefixes in scope at one time | `CdsXmlNameAccount` | B | Owner decision: a CDS file uses 3 URIs; redeclared prefixes and prefixes gone out of scope are not counted. |
+| I22 | 4,096 names (namespace and local name); names up to 256 characters | `CdsXmlNameAccount` | B | Owner decision: the schema defines a few hundred names; prefixes do not multiply them. |
+| I23 | 16,384 identity values, 1 MiB of them | `CdsXmlParser`, `CdsInputLimitsDto` | B | The schema declares no identity types. |
+| I24 | Schema default up to 64 characters | `CdsXmlParser`, `CdsFieldDto` | B | The schema's defaults are 1 to 4 characters. |
+| I25 | XML declaration within the first 64 KiB | `CdsXmlText` | B | No real writer puts it later. |
+| I26 | Diagnostic detail cut at 4,096 characters | `CdsXmlParser`, `CdsSnapshotService` | A | Diagnostics only. |
+| I27 | Cancellation every 250 ms; free disk every 16 MiB | `CdsXmlParser`, `CdsSnapshotService` | A | Pacing. |
+| I29 | Note size (`cds.import.native.maxNoteBytes`, 256 KiB, at most 384 KiB) | `CdsHistoryPersister`, `CdsHistoryNativeDto` | removed | A note is stored whole up to I33; setting retired and out of the policy digest. |
+| I30 | Patient note up to 65,518 bytes | `CdsDemographicDetailsService` | B | `demographiccust.content` is TEXT; the source field keeps the whole note. |
+| I31 | Native column widths (80, 32,768, 50, ...) | `CdsAppointmentPersister` and other persisters | B | Column capacity; the value stays in the source fields. |
+| I32 | 3 phones, 1 role, 16 diagnostics per contact | `CdsContactDto` | B | Phones are keyed by type; diagnostics are deduplicated. |
+| I33 | Prepared record up to 1,048,576 bytes | `CdsNativePreparationService` | B | The check on `cds_import_preparation.payload` (V1.0.59.14), also applied by the export's retained reader. A note over about 1 MiB becomes the documented placeholder, its text in the source fields. |
+| I35 | 64 rows per dependency query | `CdsTargetReceiptService` | removed | The receipt names exactly the rows the unit wrote. |
+| I36 | 192 references; receipt up to 65,536 characters | `CdsTargetReceiptService`, `CdsNativeBaselineCodec` | B | The importer's own receipt format; the largest unit names 100 rows. |
+| I37 | 512 columns per target table | `CdsTargetReceiptService`, `CdsNativeRowState`, `CdsNativeRowDigest`, `CdsExportNativeMetadataReadSupport`, `CdsExportCapturedTableDto` | B | Now 4,096, MariaDB's own column limit, so a locally widened table is supported (owner decision). |
+| I38 | Digest SQL up to 65,536 characters | `CdsTargetReceiptService` | removed | `max_allowed_packet` is the limit; the SELECT-only check stays. |
+| I39 | 8 dependencies per unit; 1,600 per page | `CdsImportLedgerService`, `CdsImportDependencyDao` | B / A | The planner adds at most 2; paging. |
+| I40 | 16 outcomes, 128 categories, 1,024-character audit context | `CdsImportLedgerService` | B | Fixed lists. |
+| I41 | Pages of 32 to 200; inline values up to 32,768 | ledger, result and source-field services | A | How much is read at once. |
+| I43 | Prevention configuration up to 1 MiB | `CdsImmunizationPersister` | removed | Read whole through the secure SAX builder, as the export does. |
+| I44 | CARLOS's own formats (job document, report rows, proofs, manifests, evidence) | job, result, planning, parser, evidence and cleanup services | B | CARLOS writes them within the same bounds. |
+| I53 | 128 corrections per source file | `CdsImportReviewService`, `CdsFieldParser`, `CdsCorrectionFiles`, `CdsImportReviewDao` | removed | Any number of corrections. |
+| I54 | Correction manifest up to 1 MiB | `CdsImportReviewService`, `CdsCorrectionFiles` | removed | Read as a stream. |
+| I55 | Request 1 MiB; replacement 262,144 bytes; reason 4,000; XPath 2,048; value 65,536; pages of 50 | `CdsImportReviewService`, `CdsImportReviewCommand` | B / A | A correction replaces a constrained value of at most 65,536 characters; paging. |
+| I57 | 3-second probes inside an import run | `CdsImportMaintenanceService`, `CdsJdbcAdmissionGuard`, `CdsImportCoordinatorDao`, `CdsJdbcConnectionTimeouts` | removed | Waits (`CdsImportStatementWaits.awaitOwned`); see [JDBC timeouts](cds-import-jdbc-timeouts.md). |
+| I57 | 3 seconds on the clinical status read, the admission gate and the ordinary lease check | `CdsImportMaintenanceService`, `CdsJdbcAdmissionGuard` | B | Fail closed on a clinical request (owner decision); no import is affected. |
+| I58 | Doubling 30 s waits; 0.25 to 2 s polling; 5 to 60 s progress; 16 tables per pin; 1-year maximum | `CdsImportStatementWaits` and callers | A / B | Pacing; MariaDB's largest `wait_timeout`. |
+| I61 | 256 target tables | `CdsImportTargetSafetyService` | removed | Any number. |
+| I62 | 1,024 triggers; 1 MiB per trigger value; 1 MiB approval manifest | `CdsImportTargetSafetyService` | removed | The manifest is read as a stream. |
+| I65 | Reason 1,000; 32 arguments of 4,096; 64 KiB console JSON; summaries of 2,048 and 200; pages of 100 | `CdsCliArguments`, `CdsImportCli`, `CdsWebService` | B / A | Operator input and fixed shapes; paging. |
+| (Part 1) | Maintenance drain, 30 s (`cds.import.drainTimeoutSeconds`) | `CdsImportMaintenanceService` | A | Owner decision: how long the clinic may be held out; the run resumes. |
+| W3 | 30 s of silence on a page request | `cds-import.js` | A | A read is abandoned after 30 s of silence; a submission waits while the server works, and one abandoned is reported unconfirmed. |
+| W4 | Reply up to 2 MiB; 20 unconfirmed controls; 20 recent runs | `cds-import.js` | B / A | The replies are paged. |
+| S1 | Resource counts and sizes in the ruleset fingerprint | `CdsRulesetFingerprint` | C | Changed by the export-side work, not here. |
+| S2 | Jar, JDK and time-zone sizes in the runtime identity | `CdsRuntimeIdentity` | C | Changed by the export-side work, not here. |
+| S3 | CLI configuration 1 MiB; heap 128 to 16,384 MiB | `CdsProcessConfiguration` | B / D | The heap ceiling awaits decision D7; not changed here. |
+| S4 | Delegation token 64 KiB, 300 s | `CdsProcessDelegationVerifier` | B | Security. |
+| S5 | 10 s validation query | `CdsProcessPersistence` | A | The connection is replaced. |
+| S6 | SQL text 65,536 characters; 66,560 parameters | `CdsBinaryReads`, `CdsMariaDbBinaryRead` | C / B | The SQL length is changed by the export-side work, not here; the parameters are MariaDB's protocol limit. |
+| S7 | Client-side read deadline | `CdsMariaDbBinaryRead` | A | Sent again with twice the wait. |
+| S8 | 512 receipt columns | `CdsNativeRowState`, `CdsNativeRowDigest` | B | Now 4,096 (see I37). |
+| S9 | Witness 8 MiB, sealed 12 MiB | `CdsNativeBaselineCodec` | removed | A witness is what the importer wrote, one row per receipt reference (I36); earlier witnesses still open. |
+| S10 | JDK XML backstops at the CDS bound plus one | `CdsXmlReaders`, `CdsScalarParser` | B | The schema's longest facet. |
