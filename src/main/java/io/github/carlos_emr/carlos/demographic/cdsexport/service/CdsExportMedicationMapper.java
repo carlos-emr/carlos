@@ -120,6 +120,8 @@ public final class CdsExportMedicationMapper {
         }
     }
 
+    // FindSecBugs REDOS: Whole-value match of a digit run with one optional fraction; digits and the dot are disjoint and nothing is repeated around a group, so matching is linear.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "REDOS", justification = "whole-value match of a digit run with one optional fraction; digits and the dot are disjoint and nothing is repeated around a group, so matching is linear")
     Candidate candidate(
             int patient,
             CdsExportCapturedTextRowDto row,
@@ -454,6 +456,8 @@ public final class CdsExportMedicationMapper {
         return id;
     }
 
+    // FindSecBugs REDOS: Whole-value match of one or two decimal numbers joined by a hyphen; digits, dot and hyphen are disjoint and no group is repeated, so matching is linear.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "REDOS", justification = "whole-value match of one or two decimal numbers joined by a hyphen; digits, dot and hyphen are disjoint and no group is repeated, so matching is linear")
     private static void dose(
             CdsExportCapturedTextRowDto row,
             CdsExportNativeFieldAssessments source,

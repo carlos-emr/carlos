@@ -3446,7 +3446,8 @@ public class DemographicExportAction42Action extends ActionSupport {
      *                     is gone, in which case the export fails as a whole.
      */
     // FindSecBugs PATH_TRAVERSAL_IN: the source was validated against DOCUMENT_DIR; the target name is generated from numeric ids
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "the source was validated against DOCUMENT_DIR; the target name is generated from numeric ids")
+    // FindSecBugs WEAK_FILENAMEUTILS: The extension is used only when it matches [A-Za-z0-9]{1,16}, so a null byte or separator in the stored name cannot reach the generated file name.
+    @SuppressFBWarnings(value = {"PATH_TRAVERSAL_IN", "WEAK_FILENAMEUTILS"}, justification = "PATH_TRAVERSAL_IN: the source was validated against DOCUMENT_DIR; the target name is generated from numeric ids; WEAK_FILENAMEUTILS: the extension is used only when it matches [A-Za-z0-9]{1,16}, so a null byte or separator in the stored name cannot reach the generated file name")
     static File carryOversizedDocument(File document, String demographicNo, String documentNo, File exportDirectory)
             throws IOException {
         String chartId = numericId(demographicNo);

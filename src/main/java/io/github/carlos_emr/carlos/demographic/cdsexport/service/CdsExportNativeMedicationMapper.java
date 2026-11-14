@@ -170,6 +170,8 @@ public final class CdsExportNativeMedicationMapper {
      * becomes ProblemCode when it fits, and every reason the chart shows travels in
      * {@code CARLOS.Medication.Reasons.v1} ({@link CdsExportMedicationReasonMapper}).
      */
+    // FindSecBugs IMPROPER_UNICODE: Upper-cases a prescription frequency to see whether it already says PRN; clinical display text, not an identity or authorization decision.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "upper-cases a prescription frequency to see whether it already says PRN; clinical display text, not an identity or authorization decision")
     public Result map(
             int patient,
             CdsExportCapturedTextRowDto row,
@@ -473,8 +475,19 @@ public final class CdsExportNativeMedicationMapper {
         };
     }
 
-    private static final java.util.regex.Pattern STRENGTH_UNIT =
-            java.util.regex.Pattern.compile("[0-9]+(?:[.,][0-9]+)?\\s*([A-Za-z%\u00b5\u03bc][A-Za-z0-9%\u00b5\u03bc]*)");
+    private static final java.util.regex.Pattern STRENGTH_UNIT = strengthUnit();
+
+    // drugs.dosage is TEXT. With "[0-9]+" and find(), a run of n digits with no unit was rescanned
+    // from each of its digits: 8,000 digits took over a second per prescription, and the cost
+    // grew with the square of the length. The lookbehind starts an amount only at the first digit
+    // of its run and the possessive quantifiers never give a digit or a space back; the units
+    // found are the same.
+    // FindSecBugs REDOS: Linear by construction. The lookbehind stops a digit run being rescanned from each of its digits, amounts and whitespace are possessive, and no two adjacent quantifiers can match the same character.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "REDOS", justification = "linear by construction: the lookbehind stops a digit run being rescanned from each of its digits, amounts and whitespace are possessive, and no two adjacent quantifiers can match the same character")
+    private static java.util.regex.Pattern strengthUnit() {
+        return java.util.regex.Pattern.compile(
+                "(?<![0-9])[0-9]++(?:[.,][0-9]++)?+\\s*+([A-Za-z%\u00b5\u03bc][A-Za-z0-9%\u00b5\u03bc]*)");
+    }
     private static final List<String> COUNT_UNITS =
             List.of("capsule", "tablet", "patch", "pellet", "pill", "drop", "granule");
 

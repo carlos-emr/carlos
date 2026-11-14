@@ -177,6 +177,8 @@ public class CdsExportLedgerService {
         }
     }
 
+    // FindSecBugs UNSAFE_HASH_EQUALS: SHA-256 of the job document an operator submitted, compared with the digest of the document the same operator submitted before under the same submission key; decides replay or conflict, not a secret.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "UNSAFE_HASH_EQUALS", justification = "SHA-256 of the job document an operator submitted, compared with the digest of the document the same operator submitted before under the same submission key; decides replay or conflict, not a secret")
     private CdsExportJobDto sameSubmission(CdsExportRun prior, String digest) {
         if (!digest.equals(prior.getRequestDigest()))
             throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
@@ -387,7 +389,8 @@ public class CdsExportLedgerService {
                         finish(run, CdsExportState.CANCELLED, "CDS_EXPORT_CANCELLED", now);
                         return null;
                     }
-                    if (!run.getCompatibilityDigest().equals(compatibilityDigest)) {
+                    if (!io.github.carlos_emr.carlos.utility.CdsImportKeys.sameDigest(
+                            run.getCompatibilityDigest(), compatibilityDigest)) {
                         finish(
                                 run,
                                 CdsExportState.REVIEW_REQUIRED,
@@ -615,7 +618,8 @@ public class CdsExportLedgerService {
                                     run.getCohortBytes(), context.cohort().plaintextBytes()))
                         artifactInvalid();
                     var attempt = attempt(run, lease.epoch());
-                    if (sha.equals(attempt.getContextDigest())) {
+                    if (io.github.carlos_emr.carlos.utility.CdsImportKeys.sameDigest(
+                            sha, attempt.getContextDigest())) {
                         context(attempt);
                         recordHeld(run, lease.epoch(), heldRows, now);
                         return null;
@@ -1215,7 +1219,8 @@ public class CdsExportLedgerService {
                     revision(run, expectedRevision);
                     if (liveOwner(run, now))
                         throw new IllegalStateException("CDS_EXPORT_WORKER_BUSY");
-                    if (!run.getCompatibilityDigest().equals(compatibilityDigest)) {
+                    if (!io.github.carlos_emr.carlos.utility.CdsImportKeys.sameDigest(
+                            run.getCompatibilityDigest(), compatibilityDigest)) {
                         throw new IllegalStateException("CDS_EXPORT_RUNTIME_CHANGED");
                     }
                     if (state(run) == CdsExportState.READY

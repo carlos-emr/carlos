@@ -591,10 +591,15 @@ final class CdsExportNativeLaboratoryMapper {
     }
 
     /** Comparator, number, then a separator or suffix with an optional second number. */
-    private static final java.util.regex.Pattern STRUCTURED_NUMERIC =
-            java.util.regex.Pattern.compile(
-                    "(?:(?:>=|<=|<>|>|<|=) ?)?[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)"
-                            + "(?:[-+/.:](?:[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+))?)?");
+    private static final java.util.regex.Pattern STRUCTURED_NUMERIC = structuredNumeric();
+
+    // FindSecBugs REDOS: Matched whole against one rendered value; every group is optional once and none is repeated, so a digit run is walked a bounded number of times (24,000-character adversarial values match in about a millisecond).
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "REDOS", justification = "matched whole against one rendered value; every group is optional once and none is repeated, so a digit run is walked a bounded number of times (24,000-character adversarial values match in about a millisecond)")
+    private static java.util.regex.Pattern structuredNumeric() {
+        return java.util.regex.Pattern.compile(
+                "(?:(?:>=|<=|<>|>|<|=) ?)?[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)"
+                        + "(?:[-+/.:](?:[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+))?)?");
+    }
 
     static CdsExportDateDto temporal(String value, ZoneId zone) throws IOException {
         try {

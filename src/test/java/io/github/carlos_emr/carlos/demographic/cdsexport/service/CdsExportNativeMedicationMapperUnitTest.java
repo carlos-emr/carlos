@@ -1095,4 +1095,39 @@ class CdsExportNativeMedicationMapperUnitTest {
         assertThat(result.value().prescriber()).isNull();
         assertThat(result.metadata()).contains("Dr. Authored Full Name", "123456");
     }
+
+    @Test
+    void shouldFindStrengthUnitsInLinearTime_forLongDigitRuns() {
+        // drugs.dosage is TEXT. Before the strength-unit pattern was made linear (#5706 ReDoS
+        // review) a digit run was rescanned from each of its digits: 8,000 digits took over a
+        // second and these would take minutes. They now take milliseconds.
+        String digits = "1".repeat(200_000);
+        Assertions.assertTimeoutPreemptively(
+                java.time.Duration.ofSeconds(20),
+                () -> {
+                    assertThat(CdsExportNativeMedicationMapper.doseUnit("puff", digits, null))
+                            .isEqualTo("puff");
+                    // A real strength after the run is still read: "mg" is the strength unit,
+                    // so the dose unit comes from the counted form.
+                    assertThat(
+                                    CdsExportNativeMedicationMapper.doseUnit(
+                                            "mg", digits + " 500.0mg", "Tablet"))
+                            .isEqualTo("tablet");
+                });
+    }
+
+    @Test
+    void shouldFindSameStrengthUnits_afterLinearRewrite() {
+        // Both units of a concentration are strength units, with or without spaces and commas.
+        assertThat(CdsExportNativeMedicationMapper.doseUnit("mL", "12,5 mg/5mL", "Capsule"))
+                .isEqualTo("capsule");
+        assertThat(CdsExportNativeMedicationMapper.doseUnit("MG", "12.5mg/5 mL", "Oral Liquid"))
+                .isNull();
+        // A unit the strength does not name is the dose unit as recorded.
+        assertThat(CdsExportNativeMedicationMapper.doseUnit("puff", "100 mcg", "Aerosol"))
+                .isEqualTo("puff");
+        // A number with no unit after it names no strength unit.
+        assertThat(CdsExportNativeMedicationMapper.doseUnit("tab", "500", "Tablet"))
+                .isEqualTo("tab");
+    }
 }

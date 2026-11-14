@@ -99,6 +99,8 @@ public final class CdsExportDeliveryComposer {
         this.partBytes = partBytes;
     }
 
+    // FindSecBugs UNSAFE_HASH_EQUALS: SHA-256 of the plaintext ZIP as it is read for encryption, compared with the digest the package step recorded for that ZIP, to detect a file changed in between; both are held by the server and it is not a secret.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "UNSAFE_HASH_EQUALS", justification = "SHA-256 of the plaintext ZIP as it is read for encryption, compared with the digest the package step recorded for that ZIP, to detect a file changed in between; both are held by the server and it is not a secret")
     public CdsExportDeliveryDto compose(
             InputStream validatedZip,
             OutputStream privateCiphertext,

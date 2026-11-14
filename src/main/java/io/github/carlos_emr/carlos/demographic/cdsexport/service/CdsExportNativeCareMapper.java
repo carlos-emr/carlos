@@ -328,6 +328,8 @@ public final class CdsExportNativeCareMapper {
                 .strip();
     }
 
+    // FindSecBugs REDOS: Whole-value match of a signless or plus-signed decimal; digits and the dot are disjoint and no group is repeated, so matching is linear.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "REDOS", justification = "whole-value match of a signless or plus-signed decimal; digits and the dot are disjoint and no group is repeated, so matching is linear")
     private static String decimalOrNull(String value) {
         if (value == null || !value.strip().matches("[+]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)"))
             return null;
