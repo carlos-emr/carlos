@@ -90,6 +90,12 @@ public class CdsExportWebService {
                 || security.hasPrivilege(actor, "_cds_export", "w", (String) null);
     }
 
+    /**
+     * Refuses a parameter the route does not know and one sent more than once, so a request is
+     * never read as a smaller or different selection. A value has no length limit of ours: a list
+     * of patients is as long as the operator made it, and only the servlet container bounds the
+     * whole form (Tomcat {@code maxPostSize}).
+     */
     public void parameters(HttpServletRequest request, Set<String> accepted, boolean page) {
         String[] versions = request.getParameterValues("apiVersion");
         if (!(page && versions == null)
@@ -103,8 +109,7 @@ public class CdsExportWebService {
                                             || Set.of("apiVersion", "CSRF-TOKEN").contains(key))
                                     || values == null
                                     || values.length != 1
-                                    || values[0] == null
-                                    || values[0].length() > 120_000) {
+                                    || values[0] == null) {
                                 throw new IllegalArgumentException("CDS_EXPORT_PARAMETERS_INVALID");
                             }
                         });

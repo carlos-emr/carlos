@@ -580,7 +580,8 @@ The file may list any number of patients and `--physicians` any number of
 physicians; no count or file size refuses a request. A patient named twice, a
 number that is not a positive integer, or anything beside the two members still
 refuses the file. The web form takes the same lists; a list too long for the
-web server's form limit (Tomcat `maxPostSize`, 2 MiB by default) goes through the
+packaged web server's form limit (16 MiB for a form without files, ModSecurity's
+`SecRequestBodyNoFilesLimit`; about two million patient numbers) goes through the
 patients file.
 
 Replace the example provider, protected path and registered identifiers with

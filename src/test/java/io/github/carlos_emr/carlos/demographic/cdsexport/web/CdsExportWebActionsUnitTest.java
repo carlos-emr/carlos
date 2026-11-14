@@ -449,6 +449,32 @@ class CdsExportWebActionsUnitTest {
     }
 
     @Test
+    void shouldSubmitEveryListedPatient_whenTheFormFieldIsLongerThan120000Characters()
+            throws Exception {
+        // The form once refused any parameter longer than 120,000 characters, about 15,000
+        // listed patients; only the servlet container bounds the form now.
+        request.setMethod("POST");
+        var listed =
+                java.util.stream.IntStream.range(1_000_000, 1_020_000).boxed().toList();
+        String patients =
+                listed.stream()
+                        .map(String::valueOf)
+                        .collect(java.util.stream.Collectors.joining(","));
+        assertThat(patients.length()).isGreaterThan(120_000);
+        request.addParameter("patientNos", patients);
+        var action = submission();
+        action.setPatientNos(patients);
+        var submitted =
+                org.mockito.ArgumentCaptor.forClass(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand
+                                .class);
+        when(exports.submit(any(), submitted.capture())).thenReturn(job());
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(202);
+        assertThat(submitted.getValue().patientNos()).containsExactlyElementsOf(listed);
+    }
+
+    @Test
     void shouldRefuseUnknownParameters_beforeSubmitting() throws Exception {
         request.setMethod("POST");
         request.addParameter("patientLimit", "1");

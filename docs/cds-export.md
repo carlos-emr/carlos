@@ -1692,7 +1692,7 @@ mode, and the authorization of the request and of each patient exactly as before
 | Where | What it does now |
 | --- | --- |
 | `CdsExportCommand` | Keeps both lists sorted and refuses a duplicate; no count. |
-| `CdsExportWebCommandParser`, the form | No count and no character limit of ours. The servlet container still bounds a form post (Tomcat `maxPostSize`, 2 MiB unless the deployment changed it, about 250,000 patient numbers); a longer list goes through the patients file. |
+| `CdsExportWebCommandParser`, `CdsExportWebService.parameters`, the form | No count and no character limit of ours (`CdsExportWebService` refused a field over 120,000 characters, about 15,000 listed patients; it now checks only that each field is known and sent once). The packaged web server still bounds a form post: ModSecurity reads at most 16 MiB of a body without files (`SecRequestBodyNoFilesLimit`, under the 50 MiB of Tomcat's `maxPostSize` and nginx's `client_max_body_size`), about two million patient numbers; a longer list goes through the patients file. |
 | `CdsExportCliArguments` | `--physicians` takes any number the command line holds. |
 | `CdsExportSelectionFileService` | Reads the patients file as a stream, one number at a time, with the same strict rules (UTF-8, the two members once each, version 1, positive numbers, none twice) and the same proof that the file did not change while it was read. It keeps one `int` per patient. |
 | `CdsExportSelectionService` | A roster of more than 100 physicians is read as statements of 100 physicians each, every group through its own keyset cursor, merged by patient number; the staged selection is in ascending patient number as before. Explicit patients were already read 256 at a time. |
