@@ -391,9 +391,14 @@ class CdsExportDictionaryLengthContractUnitTest {
 
     @Test
     void shouldKeepTheDictionaryLength_forTextCarlosWritesPastIt() throws Exception {
-        // NoteAboutPatient: left out whole, carried.
+        // NoteAboutPatient: shortened to the dictionary length before the CARLOS mark, the
+        // exact column carried.
         var note = CdsExportPatientNoteMapper.note("n".repeat(64_001));
-        assertThat(note.text()).isNull();
+        assertThat(note.text().codePointCount(0, note.text().length()))
+                .isLessThanOrEqualTo(CdsExportPatientNoteMapper.NOTE_LENGTH);
+        assertThat(note.text())
+                .startsWith("n".repeat(100))
+                .endsWith("[CARLOS: shortened to the CDS limit of 64,000 characters]");
         assertThat(note.carried()).isTrue();
         // AppointmentNotes: cut before the mark, complete text in the source record.
         var fitted = CdsExportAppointmentMapper.fitNotes("n".repeat(32_768));
