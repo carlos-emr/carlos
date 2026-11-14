@@ -310,11 +310,14 @@ public class SecurityInfoManagerImpl implements SecurityInfoManager {
             Map<String, Vector<Object>> read;
             try {
                 read = OscarRoleObjectPrivilege.getPrivilegeProps(expected);
-            } catch (RuntimeException unattributed) {
+            } catch (NullPointerException unattributed) {
                 // The batch reader could not give a returned row to one requested object (a stored
-                // name the database's collation equates with a requested one). Nothing is guessed:
-                // every object is then read by the single-object reader, as hasPrivilegeReadOnly
-                // reads it.
+                // name the database's collation equates with a requested one); it reports that as
+                // a missing entry. Nothing is guessed: every object is then read by the
+                // single-object reader, as hasPrivilegeReadOnly reads it. Only this is answered
+                // here. A read that failed is not: it leaves the snapshot unread, so the question
+                // is refused, exactly as hasPrivilegeReadOnly refuses it, and never retried by
+                // other reads inside a transaction the failure may already have doomed.
                 read = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
             }
             // Both reads succeeded, or neither is kept.

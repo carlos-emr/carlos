@@ -8,6 +8,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -200,6 +201,20 @@ class SecurityPrivilegeSnapshotUnitTest extends CarlosUnitTestBase {
 
         assertThat(snapshot.hasPrivilege("_lab", "r", null)).isFalse();
         assertThat(snapshot.hasPrivilege("_lab", "r", null)).isTrue();
+    }
+
+    @Test
+    @DisplayName("should refuse while the security objects cannot be read, without reading them one by one")
+    void shouldRefuseWithoutSingleReads_whenTheObjectReadFails() {
+        grant("_lab", "doctor", "r", 0);
+        var snapshot = security.readOnlySnapshot(info, names());
+        clearInvocations(privileges);
+        doThrow(new IllegalStateException("synthetic outage")).when(privileges).findByObjectNames(any());
+
+        assertThat(snapshot.hasPrivilege("_lab", "r", null)).isFalse();
+
+        // One failed batch read; the failure is not answered by further reads.
+        verify(privileges, times(1)).findByObjectNames(any());
     }
 
     @Test
