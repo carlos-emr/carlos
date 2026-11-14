@@ -154,8 +154,13 @@ fields, and a phone extension or mobile number too long for the CDS phone elemen
 in one NewCategory record per patient,
 `CARLOS.NativeDemographic.v1`. Select NewCategory to send them; without it they are not
 exported and the ReadMe says so. A care-team provider is sent with the provider number and the
-provider's public name. Only a value containing a character no XML file can hold still holds the
-patient; correct it on the demographic page and export again.
+provider's public name. No demographic value holds the patient, including one an interface
+other than the demographic screens saved (the REST API, the registration feed): a name, sex,
+status or birth date the screens would have refused is exported by a documented rule (an empty
+name, gender U, an empty status, the birth date 0001-01-01), a character no XML file can hold is
+shown as U+FFFD, and the stored value travels exactly in the `CARLOS.NativeDemographic.v1`
+record, which a CARLOS import restores. A hidden or repeated extension row is exported the same
+way.
 
 The same holds for roster, pharmacy and contact values: a fee-for-service or clinic-defined
 roster status, a roster entry missing its date, a second preferred pharmacy, Phone 2 or Notes on

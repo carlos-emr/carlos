@@ -57,7 +57,7 @@ provider row matches it exactly, that row's six public lookup columns (as the pr
 record carries its author); and every visible `demographicExt` property other than the mapped
 phone values (ethnicity, consents, paper-chart status, First Nations details, a site's configured
 keys, and an extension or mobile number the CDS phone element cannot hold), by row id, key and
-value. Demographics has no ResidualInfo, and NewCategory is where this exporter already carries
+value, with `hidden` for a row whose flag is set. Demographics has no ResidualInfo, and NewCategory is where this exporter already carries
 native supporting context, so the record goes there; Names/OtherNames is not used for `alias` or
 `pref_name` because the pinned schema lists the name-purpose codes without their meanings, parts
 must be typed FAMC or GIV, and the CARLOS importer keeps OtherNames source-only. The importer
@@ -69,11 +69,11 @@ decided `NO_CDS_ELEMENT_NEW_CATEGORY_NOT_SELECTED`, no record is written, the Re
 the patient is not held. The record and the alert are predicted by the patient inventory from
 the same captured rows (the inventory reads them through `CdsExportDemographicSupportingReader`),
 and the public provider capture now includes the providers the care-team columns name. Only text
-no XML document can hold (a lone surrogate, U+FFFE or U+FFFF in a carried value; a control
-character in the alert), a populated property with no key, a hidden property row (written only
-through the REST API) and duplicate phone keys still hold the patient. Imported charts follow the
-same rules: these columns are never imported Demographics elements, so the retained
-reconcilers' protected elements are unchanged.
+no XML document can hold is written as its JSON escape, and no extension row holds the patient:
+a hidden row, a value without a key and a second row of one phone key are carried (see
+"Demographics values no element holds exactly" below). Imported charts follow the same rules:
+these columns are never imported Demographics elements, so the retained reconcilers' protected
+elements are unchanged.
 
 The same rule covers the rest of the Demographics path. Roster states that are not CDS
 enrolment events (FS fee for service, a clinic-defined status, RO without a roster date, TE
@@ -124,11 +124,84 @@ unlisted spoken or official language are left out of their optional elements and
 keep the receipt truthful (`withNativeCarriers`), follow an imported contact the user removed or
 made inactive and an imported pharmacy preference that was removed or re-ranked (see "Imported
 charts edited in CARLOS" below), and the contact-mapping and original-relationship checks that
-used to fail the whole job are patient holds. Remaining holds: required values that are
-missing (name, birth date, sex, status), duplicate or hidden extension rows, and provider values
-(OHIP number over six characters, names over 50) on an enrolled physician. Tied first pharmacy
+used to fail the whole job are patient holds. No Demographics value holds the patient any more:
+a missing or unlisted required value, a blank or over-long name, a health card without a usable
+number and repeated or hidden extension rows have documented elements (see "Demographics values
+no element holds exactly" below). A primary or enrolled physician whose provider record forms no
+CDS name would still hold, but provider first and last names are varchar(30) NOT NULL, so no
+CARLOS provider record reaches it; an OHIP number that is not six digits is not asserted and does
+not hold. Tied first pharmacy
 preferences, a dangling pharmacy or contact link, two family or two referring physicians and an
 unknown contact consent or purpose flag no longer hold: see the next section.
+
+#### Demographics values no element holds exactly
+
+The demographic forms check what they save, but the REST demographic service
+(`DemographicService`, which only checks lengths), the PHS/STAR registration feed
+(`PhsStarHandler`, which saves PID-5, PID-7 and PID-8 as sent) and older data can store a value
+no Demographics element holds. None of these holds the chart. Each required element gets the
+value of a documented rule, an optional one is left out, and the stored column travels exactly in
+the `demographic` object of `CARLOS.Demographic.v1` (SQL NULL as `null`) whenever the element is
+not the stored value. The rules are in `CdsDemographicCarrierContract`, which the CARLOS importer
+uses to prove and restore the stored value (`docs/cds-import.md`, "CARLOS demographic values").
+
+| Stored value | Element written | Rule | Before |
+| --- | --- | --- | --- |
+| First or last name empty or blank | `Part` empty (the schema has no minimum length) | `MISSING_NAME_WRITTEN_AS_AN_EMPTY_PART_EXACT_VALUE_CARRIED` | `REQUIRED_VALUE_MISSING`, `TOKEN_WHITESPACE_REQUIRES_REVIEW` |
+| A name with a character XML cannot carry | U+FFFD in its place | `CHARACTER_XML_CANNOT_CARRY_SHOWN_AS_U_FFFD_EXACT_VALUE_CARRIED` | `XML_CHARACTER_REQUIRES_REVIEW` |
+| A name longer than a 50-character `personNamePart` (only middle names can be: the form and the REST service accept 100) | Its first 50 characters; nothing is appended inside a name, so another EMR reads a plain name | `NAME_CUT_TO_THE_PART_LENGTH_EXACT_VALUE_CARRIED`, `MIDDLE_NAME_CUT_TO_THE_PART_LENGTH_EXACT_VALUE_CARRIED` | `WIRE_LENGTH_REQUIRES_REVIEW` |
+| Middle names longer than one part | One `OtherName` GIV part per space-separated name, as before; the stored value is now also carried whenever the joined parts differ from it (doubled spaces) | `SPACE_SEPARATED_MIDDLE_NAMES_AS_ORDERED_PARTS` or one of the rules above | The exact form was dropped |
+| A title outside the NamePrefix list | `NamePrefix` left out | `NO_CDS_ELEMENT_CARRIED_IN_NATIVE_DEMOGRAPHIC_RECORD` | `CODE_REQUIRES_REVIEW` |
+| A form title code in capitals (DR, MRS, RT_HON) | The schema's spelling (Dr, Mrs, RtHon) | `REVIEWED_NATIVE_CODE_EXACT_VALUE_CARRIED` | Imported back as Dr |
+| Year, month and day that are not one calendar date (none, part, February 30: the REST service checks with a lenient calendar) | `DateOfBirth` `0001-01-01`, the earliest `xs:date`, which OSCAR and the legacy CDS export use for "no date" and nobody can take for a birth date | `BIRTH_DATE_NOT_A_CALENDAR_DATE_WRITTEN_AS_0001_01_01_EXACT_VALUE_CARRIED` | `EXACT_BIRTH_DATE_REQUIRED` |
+| A real date stored without a leading zero ("2") | The date in full | `BIRTH_DATE_WRITTEN_IN_FULL_EXACT_VALUE_CARRIED` | Imported back as "02" |
+| Sex missing, or a code other than M, F, O, U, X | `Gender` `U`, the schema's unknown gender (X is still O) | `UNKNOWN_OR_MISSING_SEX_WRITTEN_AS_U_EXACT_VALUE_CARRIED` | `REQUIRED_VALUE_MISSING`, `CODE_REQUIRES_REVIEW` |
+| Patient status missing | `PersonStatusAsPlainText` empty: the element is required and empty text states no status, where any code would assert one | `MISSING_PATIENT_STATUS_WRITTEN_AS_EMPTY_PLAIN_TEXT_EXACT_VALUE_CARRIED` | `REQUIRED_VALUE_MISSING` |
+| A plain-text status with a character XML cannot carry | U+FFFD in its place | `CHARACTER_XML_CANNOT_CARRY_SHOWN_AS_U_FFFD_EXACT_VALUE_CARRIED` | `XML_CHARACTER_REQUIRES_REVIEW` |
+| A health card without a usable number (a version or expiry typed without the number, a blank number, a character XML cannot carry) | `HealthCard` left out; its populated columns carried | `NO_CDS_ELEMENT_CARRIED_IN_NATIVE_DEMOGRAPHIC_RECORD` | `REQUIRED_VALUE_MISSING`, `XML_CHARACTER_REQUIRES_REVIEW` |
+| A version code of three characters (the form box takes three, `Version` holds two) | `Version` left out, the card kept | `NO_CDS_ELEMENT_CARRIED_IN_NATIVE_DEMOGRAPHIC_RECORD` | `WIRE_LENGTH_REQUIRES_REVIEW` |
+| A phone number, chart number, address part or e-mail that is blank or holds a character XML cannot carry | The element left out | `NO_CDS_ELEMENT_CARRIED_IN_NATIVE_DEMOGRAPHIC_RECORD` | `TOKEN_WHITESPACE_REQUIRES_REVIEW`, `XML_CHARACTER_REQUIRES_REVIEW` |
+| A status date or card expiry that is not a calendar date (the zero date) | The element left out | `NO_CDS_ELEMENT_CARRIED_IN_NATIVE_DEMOGRAPHIC_RECORD` | `EXACT_CALENDAR_DATE_REQUIRED` |
+| A primary-physician number that names no captured provider record (a number the REST service stored, or one that differs only by letter case or a trailing space) | No `PrimaryPhysician`, as a prescription without its prescriber; never the export operator | `PRIMARY_PHYSICIAN_NUMBER_WITHOUT_A_PROVIDER_RECORD_CARRIED` | `EXACT_PRIMARY_PHYSICIAN_REFERENCE_REQUIRED` |
+| A `demographicExt` row with its `hidden` flag set (only the REST service writes it; nothing in CARLOS reads it) | Not a phone value; the row is carried whole with `hidden` | `HIDDEN_PROPERTY_CARRIED_WITH_ITS_FLAG` | `HIDDEN_OR_UNKNOWN_PROPERTY_HISTORY_REQUIRES_REVIEW` |
+| A `demographicExt` value without a key (the REST service saves one) | Carried with `key` `null` | `NO_CDS_ELEMENT_CARRIED_IN_NATIVE_DEMOGRAPHIC_RECORD` | `UNMAPPED_NATIVE_DEMOGRAPHIC_PROPERTY` |
+| Two visible rows of one phone key (a table adopted without the one-row-per-key index of V1.0.54) | The row the chart shows, the latest `date_time` and then the highest id as `DemographicExtDao.getLatestDemographicExt` orders them, gives the element; the other row is carried | `NO_CDS_ELEMENT_CARRIED_IN_NATIVE_DEMOGRAPHIC_RECORD` | `DUPLICATE_NATIVE_PHONE_PROPERTY_REQUIRES_REVIEW` |
+
+Without NewCategory these values are decided `NO_CDS_ELEMENT_NEW_CATEGORY_NOT_SELECTED` (an
+element holding a rule's value: `NORMALIZED_VALUE_EXACT_FORM_NEW_CATEGORY_NOT_SELECTED`), and the
+chart is still exported. The patient file name (DP01.11) uses the legal names the XML holds: an
+empty name is an empty segment, and a first name that starts with a dot has that dot written as
+"_", as a reserved character is, because a file name cannot start with a dot.
+
+Duplicate phone keys cannot occur on a CARLOS schema: V1.0.54 keeps `uk_demo_ext_single_value`
+(one row per patient and key, except the dashboard's `excludeIndicator` history). They occur only
+on a table adopted without that index, where the REST service (`DemographicManagerImpl`
+`createExtension`/`updateExtension` persist a row without an id) or older data can repeat a key.
+The export neither holds nor drops one: the shown row is the element, every other row is carried.
+
+Imported charts edited in CARLOS follow the same rules: an edited name, sex, status or birth date
+takes the rule's element; a health card edited so that no `HealthCard` holds it removes the
+imported card (`EDITED_HEALTH_CARD_WITHOUT_A_USABLE_NUMBER_CARRIED`); a hidden or second phone
+row no longer holds (`HIDDEN_OR_DUPLICATE_PHONE_PROPERTY_REQUIRES_REVIEW` is gone); an extension
+row the import wrote and CARLOS deleted since (the dashboard's un-exclude, the REST patient
+delete) is an edit, so the imported value is removed and never resurrected
+(`CDS_EXPORT_DEMOGRAPHIC_PHONE_PROPERTY_DELETION_REQUIRES_REVIEW` is gone). For the primary
+physician: a physician set in CARLOS on a chart whose imported physician the importer matched to
+no provider replaces the imported element, which is listed as replaced
+(`CURRENT_PRIMARY_PHYSICIAN_SUPERSEDES_UNMATCHED_SOURCE`, was
+`UNPROJECTED_SOURCE_PRIMARY_PHYSICIAN_CONFLICT`); a provider record edited since the import, or an
+explicitly empty imported detail, gives the record's current values, and a value the record lacks
+keeps the imported one (`CURRENT_PROVIDER_RECORD_SUPERSEDES_SOURCE_PRIMARY_DETAILS`, was
+`SOURCE_AND_CURRENT_PRIMARY_DETAILS_CONFLICT` and `EXPLICIT_EMPTY_SOURCE_PRIMARY_DETAILS_REQUIRE_REVIEW`);
+a number that names no captured provider record keeps the imported element when unchanged and
+removes it when changed, the number carried (was `CAPTURED_PRIMARY_PHYSICIAN_REQUIRED`).
+
+A chart that re-exports retained NewCategory records (a copy of an earlier CARLOS sender's native
+demographic record among them) always writes its own native demographic record after them, even
+when it carries nothing (`{"version":1,"demographic":{},"roster":{},"careTeam":[],"properties":[],
+"related":[]}`, `CdsExportDemographicSupportingMapper.nothingCarried`; the patient inventory
+predicts it). The last native demographic record of a patient file is therefore always the
+sending chart's, and a CARLOS importer never restores an earlier sender's value for this chart.
 
 #### Contacts, physicians and pharmacies: no remaining hold
 
@@ -4888,10 +4961,12 @@ Where CDS 5.2 has an exact home for a value the CARLOS forms store, the mapper u
 `spoken_languages_codes.properties` gives for the stored display name; the importer reverses that
 code with the same table. Middle names longer than one 50-character name part, up to the column's
 100, are written as their space-separated names in ordered `OtherName` GIV parts, which the
-importer joins back with single spaces. An imported chart whose edited middle names need
-several parts writes them the same way, replacing the source parts. Two values still require review because no exact home exists:
-administrative gender `X` (Intersex), since the schema's `O` (Other) is imported back as `O` and
-would lose the distinction, and a postal code without a known Canadian or pinned US subdivision.
+importer joins back with single spaces; a single name longer than a part is written as its first
+50 characters and the stored value is carried (see "Demographics values no element holds
+exactly"). An imported chart whose edited middle names need several parts writes them the same
+way, replacing the source parts. Administrative gender `X` (Intersex) is `O` and a postal code
+without a known Canadian or pinned US subdivision is left out; both stored values are carried and
+no longer require review.
 
 The demographic occurrence decides exactly the public provider rows that its own columns
 name byte-for-byte (the current and every archived `provider_no` and `roster_enrolled_to`),
