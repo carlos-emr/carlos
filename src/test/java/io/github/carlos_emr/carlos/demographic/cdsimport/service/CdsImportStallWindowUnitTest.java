@@ -90,6 +90,49 @@ class CdsImportStallWindowUnitTest {
     }
 
     @Test
+    void shouldNeverCountADatabaseWaitAsProgress_soAWaitAloneEndsTheScope() {
+        var clock = new AtomicLong();
+        var window = new CdsImportStallWindow(100, clock::get);
+        // Waits inside the window are bounded by it and record nothing...
+        clock.addAndGet(60 * MILLIS);
+        assertEquals(100, window.waiting("IMPORT_WORKER_STALLED"));
+        clock.addAndGet(39 * MILLIS);
+        assertEquals(100, window.waiting("IMPORT_WORKER_STALLED"));
+        // ...so the checkpoint after them still measures from the last checkpoint.
+        clock.addAndGet(2 * MILLIS);
+        assertThrows(CdsImportException.class, window::checkpoint);
+    }
+
+    @Test
+    void shouldEndAWaitPastTheWindow_underTheScopesOwnCodeAndForGood() {
+        var clock = new AtomicLong();
+        var window = new CdsImportStallWindow(100, clock::get);
+        clock.addAndGet(101 * MILLIS);
+        CdsImportException stalled =
+                assertThrows(
+                        CdsImportException.class,
+                        () -> window.waiting("IMPORT_REPORT_GENERATION_STALLED"));
+        assertEquals("IMPORT_REPORT_GENERATION_STALLED", stalled.getCode());
+        assertTrue(window.stalled());
+        // The binding ends the waits of the calling thread the same way.
+        try (var bound = window.bindWaits("IMPORT_WORKER_STALLED")) {
+            CdsImportException waited =
+                    assertThrows(
+                            CdsImportException.class,
+                            () ->
+                                    io.github.carlos_emr.carlos.demographic.cdsimport.support
+                                            .CdsImportStatementWaits.await(
+                                                    null,
+                                                    org.mockito.Mockito.mock(java.sql.Connection.class),
+                                                    seconds -> {
+                                                        throw new java.sql.SQLTimeoutException(
+                                                                "synthetic deadline");
+                                                    }));
+            assertEquals("IMPORT_WORKER_STALLED", waited.getCode());
+        }
+    }
+
+    @Test
     void shouldSnapshotSlowButMovingArchive_pastTheOldDuration() throws Exception {
         Path source = Files.createDirectory(temp.resolve("source"));
         Path archive = archive(source, 30);

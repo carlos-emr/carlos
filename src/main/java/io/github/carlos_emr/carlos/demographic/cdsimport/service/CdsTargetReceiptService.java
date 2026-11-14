@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportStatementWaits;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsExactNumeric;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionGuard;
@@ -148,7 +149,8 @@ public class CdsTargetReceiptService {
                         .doReturningWork(
                                 connection -> {
                                     List<Reference> found = new ArrayList<>();
-                                    ReceiptReader reader = new ReceiptReader(connection, true);
+                                    ReceiptReader reader =
+                                            new ReceiptReader(connection, true, entityManager);
                                     for (var entry : targets.entrySet()) {
                                         String table = entry.getKey();
                                         // Several source fields may reference the same physical
@@ -251,7 +253,8 @@ public class CdsTargetReceiptService {
                                 ReceiptReader reader =
                                         new ReceiptReader(
                                                 connection,
-                                                baseline != null && baseline.protocol() == 2);
+                                                baseline != null && baseline.protocol() == 2,
+                                                entityManager);
                                 for (JsonNode reference : references) {
                                     String actual =
                                             reader.digest(
@@ -398,12 +401,19 @@ public class CdsTargetReceiptService {
     /** Actual-driver regression entry point; every value returned by the server has a fixed bound. */
     static String rowDigest(Connection connection, String table, String id)
             throws java.sql.SQLException {
-        return new ReceiptReader(connection).digest(table, id);
+        return new ReceiptReader(connection, false, null).digest(table, id);
     }
 
-    /** One bounded schema cache per capture/verification, discarded with its physical connection callback. */
+    /**
+     * One bounded schema cache per capture/verification, discarded with its physical connection
+     * callback. Its reads wait for the database rather than failing on a clock: a read the server
+     * ends at its deadline (a metadata lock, a busy server) is sent again on the same connection
+     * inside the unit's transaction ({@link CdsImportStatementWaits}); the transaction's entity
+     * manager, when there is one, lets a raised socket timeout be put back at its completion.
+     */
     private static final class ReceiptReader {
         private final Connection connection;
+        private final EntityManager transaction;
         private final Map<String, List<Column>> columns = new HashMap<>();
         private final boolean collect;
         private final Map<
@@ -411,21 +421,12 @@ public class CdsTargetReceiptService {
                         io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowState>
                 states = new java.util.LinkedHashMap<>();
 
-        private ReceiptReader(Connection connection) {
-            this(connection, false);
-        }
-
-        private ReceiptReader(Connection connection, boolean collect) {
+        private ReceiptReader(Connection connection, boolean collect, EntityManager transaction) {
             this.connection = connection;
             this.collect = collect;
+            this.transaction = transaction;
         }
 
-        // Only native receipt-catalogue names reach this identifier-only metadata query.
-        @SuppressWarnings("java:S2077")
-        // FindSecBugs SQL_INJECTION_JDBC: The table name is refused unless it is a key of the fixed PRIMARY_KEYS map or one of the two fixed link tables, on the lines above the statement; no other value reaches the SQL text.
-        // FindSecBugs SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING: The text varies only by that allow-listed table name; identifiers cannot be bound.
-        // FindSecBugs IMPROPER_UNICODE: Matches the fixed ASCII column name verified_epoch in JDBC metadata of a CARLOS table; not an authorization decision.
-        @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = {"SQL_INJECTION_JDBC", "SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING", "IMPROPER_UNICODE"}, justification = "SQL_INJECTION_JDBC: the table name is refused unless it is a key of the fixed PRIMARY_KEYS map or one of the two fixed link tables, on the lines above the statement; no other value reaches the SQL text; SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING: the text varies only by that allow-listed table name; identifiers cannot be bound; IMPROPER_UNICODE: matches the fixed ASCII column name verified_epoch in JDBC metadata of a CARLOS table; not an authorization decision")
         private List<Column> columns(String table) throws java.sql.SQLException {
             if (table == null
                     || !PRIMARY_KEYS.containsKey(table)
@@ -435,10 +436,32 @@ public class CdsTargetReceiptService {
             }
             List<Column> existing = columns.get(table);
             if (existing != null) return existing;
+            List<Column> found =
+                    CdsImportStatementWaits.await(
+                            transaction, connection, seconds -> readColumns(table, seconds));
+            if (found.isEmpty()) throw new CdsImportException("TARGET_COLUMNS_MISSING");
+            columns.put(table, List.copyOf(found));
+            return columns.get(table);
+        }
+
+        // Only native receipt-catalogue names reach this identifier-only metadata query.
+        @SuppressWarnings("java:S2077")
+        // FindSecBugs SQL_INJECTION_JDBC: The table name is refused unless it is a key of the fixed PRIMARY_KEYS map or one of the two fixed link tables, on the lines above the statement; no other value reaches the SQL text.
+        // FindSecBugs SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING: The text varies only by that allow-listed table name; identifiers cannot be bound.
+        // FindSecBugs IMPROPER_UNICODE: Matches the fixed ASCII column name verified_epoch in JDBC metadata of a CARLOS table; not an authorization decision.
+        @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = {"SQL_INJECTION_JDBC", "SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING", "IMPROPER_UNICODE"}, justification = "SQL_INJECTION_JDBC: the table name is refused unless it is a key of the fixed PRIMARY_KEYS map or one of the two fixed link tables, on the lines above the statement; no other value reaches the SQL text; SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING: the text varies only by that allow-listed table name; identifiers cannot be bound; IMPROPER_UNICODE: matches the fixed ASCII column name verified_epoch in JDBC metadata of a CARLOS table; not an authorization decision")
+        private List<Column> readColumns(String table, int seconds)
+                throws java.sql.SQLException {
+            if (table == null
+                    || !PRIMARY_KEYS.containsKey(table)
+                            && !"ctl_document".equals(table)
+                            && !"casemgmt_issue_notes".equals(table)) {
+                throw new CdsImportException("TARGET_REFERENCE_INVALID");
+            }
             List<Column> found = new ArrayList<>();
             try (var statement =
                     connection.prepareStatement("SELECT * FROM `" + table + "` WHERE 1=0")) {
-                statement.setQueryTimeout(30);
+                statement.setQueryTimeout(seconds);
                 try (var result = statement.executeQuery()) {
                     var metadata = result.getMetaData();
                     if (metadata.getColumnCount() > 512)
@@ -456,15 +479,19 @@ public class CdsTargetReceiptService {
                     }
                 }
             }
-            if (found.isEmpty()) throw new CdsImportException("TARGET_COLUMNS_MISSING");
-            columns.put(table, List.copyOf(found));
-            return columns.get(table);
+            return found;
+        }
+
+        private String digest(String table, String id) throws java.sql.SQLException {
+            return CdsImportStatementWaits.await(
+                    transaction, connection, seconds -> digest(table, id, seconds));
         }
 
         // FindSecBugs SQL_INJECTION_JDBC: The table and key come from the fixed PRIMARY_KEYS map or the two fixed link tables (columns() refuses any other table), column names come from JDBC metadata of that table with backticks doubled, and the row id is checked against [A-Za-z0-9_-]{1,64} and bound.
         // FindSecBugs SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING: The text varies only by those allow-listed table and key names and the escaped metadata column names; identifiers cannot be bound.
         @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = {"SQL_INJECTION_JDBC", "SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"}, justification = "SQL_INJECTION_JDBC: the table and key come from the fixed PRIMARY_KEYS map or the two fixed link tables (columns() refuses any other table), column names come from JDBC metadata of that table with backticks doubled, and the row id is checked against [A-Za-z0-9_-]{1,64} and bound; SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING: the text varies only by those allow-listed table and key names and the escaped metadata column names; identifiers cannot be bound")
-        private String digest(String table, String id) throws java.sql.SQLException {
+        private String digest(String table, String id, int seconds)
+                throws java.sql.SQLException {
             String key = PRIMARY_KEYS.get(table);
             boolean documentLink = "ctl_document".equals(table),
                     noteLink = "casemgmt_issue_notes".equals(table);
@@ -510,7 +537,7 @@ public class CdsTargetReceiptService {
                 statement.setString(1, composite ? pair[0] : id);
                 if (composite) statement.setString(2, pair[1]);
                 statement.setMaxRows(2);
-                statement.setQueryTimeout(30);
+                statement.setQueryTimeout(seconds);
                 // Table/key names are allowlisted; metadata names escape backticks; row IDs remain
                 // bound.
                 // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string

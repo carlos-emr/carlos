@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportStatementWaits;
 
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportPatientDto;
@@ -169,6 +170,9 @@ public class CdsImportExecutionService {
         String currentPatient = null;
         String currentUnit = null;
         CdsImportMaintenanceService.Owner completedOwner = null;
+        // The attempt's stall window also bounds its statement waits; released before any
+        // failure is recorded, so recording it never inherits a stalled window.
+        CdsImportStatementWaits.Binding waits = null;
         try {
             var readContext = jobs.loadContext(runId);
             var document = readContext.document();
@@ -229,7 +233,9 @@ public class CdsImportExecutionService {
                 }
                 return ledger.status(runId);
             }
-            Runnable attemptCheckpoint = attemptCheckpoint();
+            CdsImportStallWindow window = attemptWindow();
+            Runnable attemptCheckpoint = window::checkpoint;
+            waits = window.bindWaits(CdsImportStallWindow.WORKER_STALLED);
             attemptCheckpoint.run();
             coordinator.check();
             configuration.requireEnabled();
@@ -462,6 +468,7 @@ public class CdsImportExecutionService {
             }
             if (completedOwner != null) settleRelease(runId, epoch, completedOwner);
         } catch (Exception failure) {
+            if (waits != null) waits.close();
             if (failure instanceof CdsImportException fenced
                     && Set.of(
                                     "OWNER_FENCED",
@@ -492,6 +499,8 @@ public class CdsImportExecutionService {
             // Allocate no failure graph or durable writes on a resource-exhausted worker.
             fatalResume.set(attempt);
             throw fatal;
+        } finally {
+            if (waits != null) waits.close();
         }
         // A fatal Error is deliberately not caught; the supervisor later reconciles durable state.
         deliver(runId, epoch, coordinator);
@@ -730,11 +739,12 @@ public class CdsImportExecutionService {
      * checkpoint of it, so an attempt that keeps making progress runs to its end however long
      * it takes, and no scope can start a fresh clock to hide a silent gap. A worker that was
      * silent for the whole window stops at its next checkpoint with {@code
-     * IMPORT_WORKER_STALLED}, an operational failure the same run resumes from.
+     * IMPORT_WORKER_STALLED}, an operational failure the same run resumes from. A statement that
+     * only waits for the database is not a checkpoint: the attempt binds this window to its
+     * statement waits, which end with the same code once the window has passed.
      */
-    private Runnable attemptCheckpoint() {
-        return new CdsImportStallWindow(configuration.limits().stallWindowMillis(), nanoTime)
-                ::checkpoint;
+    private CdsImportStallWindow attemptWindow() {
+        return new CdsImportStallWindow(configuration.limits().stallWindowMillis(), nanoTime);
     }
 
     private record ResumeAttempt(String run, long event) {}

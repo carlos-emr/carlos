@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportStatementWaits;
 import java.util.Objects;
 import java.util.function.LongSupplier;
 
@@ -95,5 +96,30 @@ final class CdsImportStallWindow {
     /** Records a checkpoint, ending the scope under {@link #WORKER_STALLED} after a stall. */
     void checkpoint() {
         if (stalled()) throw new CdsImportException(WORKER_STALLED);
+    }
+
+    /**
+     * A database statement waited its deadline and is about to be sent again. A wait is not a
+     * checkpoint and records nothing: once the window has passed since the last checkpoint the
+     * wait, and the scope, end under {@code code}; until then the next wait is bounded by the
+     * window, since no single wait needs to outlast it.
+     *
+     * @return the window in milliseconds
+     */
+    long waiting(String code) {
+        long now = clock.getAsLong();
+        if (stalled || now - last > windowNanos) {
+            stalled = true;
+            throw new CdsImportException(code);
+        }
+        return windowNanos / 1_000_000L;
+    }
+
+    /**
+     * Makes this window the stall window of the calling thread's statement waits ({@link
+     * CdsImportStatementWaits}) until the binding is closed; a wait past it ends under {@code code}.
+     */
+    CdsImportStatementWaits.Binding bindWaits(String code) {
+        return CdsImportStatementWaits.observe(waited -> waiting(code));
     }
 }

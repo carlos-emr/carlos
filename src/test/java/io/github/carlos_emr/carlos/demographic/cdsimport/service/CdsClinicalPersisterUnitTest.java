@@ -1150,8 +1150,33 @@ class CdsClinicalPersisterUnitTest {
         }
 
         @Test
-        void shouldPropagateMetadataTimeout_withoutStartingTheNativeRowQuery() throws Exception {
-            var failure = new SQLTimeoutException("synthetic metadata lock deadline");
+        void shouldSendTheMetadataReadAgain_whenTheServerEndsItAtItsDeadline() throws Exception {
+            // A metadata lock held past the first deadline: the read is sent again on the same
+            // connection with twice the wait, and the receipt is still captured.
+            var retry = mock(PreparedStatement.class);
+            when(connection.prepareStatement(anyString()))
+                    .thenReturn(metadataQuery, retry, digestQuery);
+            doThrow(new SQLTimeoutException("synthetic metadata lock deadline"))
+                    .when(metadataQuery)
+                    .executeQuery();
+            when(retry.executeQuery()).thenReturn(metadataRows);
+            assertThat(CdsTargetReceiptService.rowDigest(connection, "demographic", "1"))
+                    .matches("[0-9a-f]{64}");
+            var order = inOrder(metadataQuery, retry, digestQuery);
+            order.verify(metadataQuery).setQueryTimeout(30);
+            order.verify(metadataQuery).executeQuery();
+            order.verify(metadataQuery).close();
+            order.verify(retry).setQueryTimeout(60);
+            order.verify(retry).executeQuery();
+            order.verify(digestQuery).setQueryTimeout(30);
+            order.verify(digestQuery).executeQuery();
+        }
+
+        @Test
+        void shouldPropagateAnotherMetadataFailure_withoutSendingItAgainOrStartingTheRowQuery()
+                throws Exception {
+            // A lock-wait timeout may have rolled back the whole unit: it is never sent again.
+            var failure = new SQLException("synthetic lock wait timeout", "HY000", 1205);
             doThrow(failure).when(metadataQuery).executeQuery();
             assertThatThrownBy(
                             () -> CdsTargetReceiptService.rowDigest(connection, "demographic", "1"))

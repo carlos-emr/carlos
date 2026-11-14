@@ -119,10 +119,15 @@ class CdsImportCoordinatorMariaDbIntegrationTest {
                                                                 expectedActualTransaction)) {
                                                     assertThat(statement.getQueryTimeout())
                                                             .as(
-                                                                    "Nontransactional reads retain"
-                                                                        + " the explicit JDBC"
-                                                                        + " timeout")
-                                                            .isEqualTo(120);
+                                                                    "Nontransactional reads carry"
+                                                                        + " the first statement"
+                                                                        + " wait")
+                                                            .isEqualTo(
+                                                                    io.github.carlos_emr.carlos
+                                                                            .demographic.cdsimport
+                                                                            .support
+                                                                            .CdsImportStatementWaits
+                                                                            .FIRST_WAIT_SECONDS);
                                                     assertThat(delegate.getAutoCommit()).isTrue();
                                                     assertThat(
                                                                     TransactionSynchronizationManager

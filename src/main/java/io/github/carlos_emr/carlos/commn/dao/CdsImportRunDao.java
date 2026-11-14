@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 import io.github.carlos_emr.carlos.commn.model.CdsImportRun;
 import io.github.carlos_emr.carlos.commn.dto.CdsImportJobBindingDto;
 import io.github.carlos_emr.carlos.commn.dto.CdsImportReportEntryDto;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportStatementWaits;
 import jakarta.persistence.LockModeType;
 import java.util.List;
 import org.springframework.stereotype.Repository;
@@ -160,13 +161,20 @@ public class CdsImportRunDao extends AbstractDaoImpl<CdsImportRun>
         return entityManager.find(CdsImportRun.class, id);
     }
 
-    /** One current scalar statement; no entity or persistence scope escapes before private file I/O. */
+    /**
+     * One current scalar statement; no entity or persistence scope escapes before private file
+     * I/O. It waits for the database rather than failing on a clock: a deadline the server reaches
+     * is sent again ({@link CdsImportStatementWaits}).
+     */
     @Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
     public CdsImportJobBindingDto readJobBinding(String runId) {
         var rows =
-                entityManager
-                        .createQuery(
-                                """
+                CdsImportStatementWaits.query(
+                        entityManager,
+                        seconds ->
+                                entityManager
+                                        .createQuery(
+                                                """
                 select new io.github.carlos_emr.carlos.commn.dto.CdsImportJobBindingDto(
                     r.id,r.operator,r.providerNo,r.sourceNamespace,r.profile,r.state,
                     r.sourceDigest,r.optionsDigest,r.rulesetDigest,r.manifestDigest,
@@ -174,30 +182,40 @@ public class CdsImportRunDao extends AbstractDaoImpl<CdsImportRun>
                     r.createdAt,r.updatedAt,r.reportGeneration,r.reportLocation,r.reportDigest,r.snapshotLocation)
                 from CdsImportRun r where r.id=:run
                 """,
-                                CdsImportJobBindingDto.class)
-                        .setParameter("run", runId)
-                        .setMaxResults(1)
-                        .setHint("jakarta.persistence.query.timeout", 120_000)
-                        .getResultList();
+                                                CdsImportJobBindingDto.class)
+                                        .setParameter("run", runId)
+                                        .setMaxResults(1)
+                                        .setHint(
+                                                CdsImportStatementWaits.TIMEOUT_HINT,
+                                                CdsImportStatementWaits.hintMillis(seconds))
+                                        .getResultList());
         return rows.isEmpty() ? null : rows.getFirst();
     }
 
-    /** Fixed run-row facts only; no patient, unit or diagnostic aggregates precede report I/O. */
+    /**
+     * Fixed run-row facts only; no patient, unit or diagnostic aggregates precede report I/O. It
+     * waits for the database as {@link #readJobBinding(String)} does.
+     */
     @Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
     public CdsImportReportEntryDto readReportEntry(String runId) {
         var rows =
-                entityManager
-                        .createQuery(
-                                """
+                CdsImportStatementWaits.query(
+                        entityManager,
+                        seconds ->
+                                entityManager
+                                        .createQuery(
+                                                """
                 select new io.github.carlos_emr.carlos.commn.dto.CdsImportReportEntryDto(
                     r.reportState,r.discoveryComplete,r.dryRun,r.executionDigest is not null,r.snapshotLocation)
                 from CdsImportRun r where r.id=:run
                 """,
-                                CdsImportReportEntryDto.class)
-                        .setParameter("run", runId)
-                        .setMaxResults(1)
-                        .setHint("jakarta.persistence.query.timeout", 120_000)
-                        .getResultList();
+                                                CdsImportReportEntryDto.class)
+                                        .setParameter("run", runId)
+                                        .setMaxResults(1)
+                                        .setHint(
+                                                CdsImportStatementWaits.TIMEOUT_HINT,
+                                                CdsImportStatementWaits.hintMillis(seconds))
+                                        .getResultList());
         return rows.isEmpty() ? null : rows.getFirst();
     }
 

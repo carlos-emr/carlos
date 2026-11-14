@@ -13,7 +13,9 @@ stricter range is stated. MiB and GiB mean binary units.
 No setting limits how large an import is or how long it runs. An import stops for its size only
 when its storage would actually run short (the free-disk reserve below), and for time only when
 its worker makes no progress for the stall window; both stop it loudly, under their own codes,
-and the same run resumes once the cause is fixed.
+and the same run resumes once the cause is fixed. A slow but working database never stops it
+either: no import transaction carries a clock, and a read the server ends at its deadline is sent
+again in the same transaction ([statement deadlines are waits](cds-import-jdbc-timeouts.md#statement-deadlines-are-waits)).
 
 ## Admission, storage and runtime
 
@@ -26,7 +28,7 @@ and the same run resumes once the cause is fixed.
 | `cds.import.allowedRoot` | none | Absolute root for trusted CLI source files. |
 | `cds.import.stagingRoot` | none | Absolute private engine staging/report/evidence root, also used for CLI diagnostics. |
 | `cds.import.uploadRoot` | none | Absolute private browser upload root. |
-| `cds.import.drainTimeoutSeconds` | `30` | Maintenance admission/drain SQL timeout, seconds. |
+| `cds.import.drainTimeoutSeconds` | `30` | How long entering maintenance waits, in seconds, for clinical transactions already admitted to finish while new clinical work is refused. It bounds how long the clinic is held out, not how slow the database may be: when it passes, the attempt ends with `MAINTENANCE_ACQUISITION_FAILED` before any unit and the run is resumed later. |
 | `cds.import.cliHeapMiB` | `512` | CLI heap policy, integer MiB from `128` to `16384`; launcher and engine must agree. |
 | `cds.import.worker.enabled` | `true` | Web durable-work dispatcher; forced off in the CLI. |
 | `cds.import.preacceptRetentionMillis` | `86400000` | Abandoned preaccept staging retention, milliseconds; live accepted work is preserved. |
@@ -134,9 +136,10 @@ receipts are kept and the same run resumes with a fresh window. A worker that ne
 leaves its coordinator and maintenance sessions silent: each sets the database session idle
 timeout (`wait_timeout`) to the window plus a 300-second unwind allowance, after which the
 database closes it and releases its lock exactly as for a dead process, and a resume can take
-over. Set the window well above the slowest single step (a database statement can wait for its
-connection's socket timeout, 60 seconds by default and at most 300 seconds); minutes, not
-milliseconds. The window must not exceed about one year (MariaDB's largest `wait_timeout`).
+over. A statement that only waits for the database is not a checkpoint: its waits are sent
+again with doubling deadlines and end with the same code once the window has passed. Set the
+window well above the slowest single step; minutes, not milliseconds. The window must not exceed
+about one year (MariaDB's largest `wait_timeout`).
 
 ## XML input guards
 

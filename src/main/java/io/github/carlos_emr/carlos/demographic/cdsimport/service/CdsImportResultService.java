@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportStatementWaits;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -134,11 +135,14 @@ public class CdsImportResultService {
             String runId, long epoch, CdsImportCoordinatorService.Owner coordinator)
             throws IOException {
         boolean reportSelected = false, priorDelivered = false;
+        CdsImportStatementWaits.Binding waits = null;
         try {
             // Report generation has its own stall window: every row, file and cleanup step is a
             // checkpoint, so a large run's reports are written to the end while they progress.
+            // Its statement waits answer to the same window, not to the enclosing attempt's.
             var window =
                     new CdsImportStallWindow(configuration.limits().stallWindowMillis(), nanoTime);
+            waits = window.bindWaits(CdsImportStallWindow.REPORT_STALLED);
             var entryFacts = ledger.reportEntry(runId);
             priorDelivered = entryFacts.reportsDelivered();
             Runnable reportCheckpoint =
@@ -479,6 +483,7 @@ public class CdsImportResultService {
                 ledger.operational(runId, epoch, null, cleanupResult.state(), null);
             }
         } catch (IOException | RuntimeException failure) {
+            if (waits != null) waits.close();
             boolean stalled =
                     failure instanceof CdsImportException known
                             && CdsImportStallWindow.REPORT_STALLED.equals(known.getCode());
@@ -511,6 +516,8 @@ public class CdsImportResultService {
                 }
             }
             throw failure;
+        } finally {
+            if (waits != null) waits.close();
         }
     }
 

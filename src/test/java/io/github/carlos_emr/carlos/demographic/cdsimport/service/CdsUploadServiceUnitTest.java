@@ -42,6 +42,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.List;
@@ -58,6 +59,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.SimpleTransactionStatus;
 
 @DisplayName("Durable bounded CDS raw uploads")
@@ -701,6 +703,83 @@ class CdsUploadServiceUnitTest extends CarlosUnitTestBase {
                 timed.append(
                         OWNER, upload.id(), 0, CHUNK, hash(bytes), new ByteArrayInputStream(bytes));
         assertThat(resent.receivedBytes()).isEqualTo(CHUNK);
+    }
+
+    @Test
+    void shouldOpenEveryUploadTransaction_withoutAClock() throws Exception {
+        List<TransactionDefinition> definitions = new ArrayList<>();
+        when(manager.getTransaction(any()))
+                .thenAnswer(
+                        call -> {
+                            definitions.add(call.getArgument(0));
+                            return new SimpleTransactionStatus();
+                        });
+        byte[] bytes = "abc".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        var upload = service.begin(OWNER, "source.xml", bytes.length);
+        service.append(
+                OWNER, upload.id(), 0, bytes.length, hash(bytes), new ByteArrayInputStream(bytes));
+        service.finish(OWNER, upload.id());
+        // A slow but working database never fails an upload.
+        assertThat(definitions)
+                .isNotEmpty()
+                .allSatisfy(
+                        definition ->
+                                assertThat(definition.getTimeout())
+                                        .isEqualTo(TransactionDefinition.TIMEOUT_DEFAULT));
+    }
+
+    @Test
+    void shouldWriteTheChunkDurably_beforeItsSealTransactionBegins() throws Exception {
+        byte[] bytes = "abc".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        var upload = service.begin(OWNER, "source.xml", bytes.length);
+        Path payload = temporary.resolve("uploads").resolve(upload.id()).resolve("source.xml");
+        List<Long> payloadAtEachTransaction = new ArrayList<>();
+        when(manager.getTransaction(any()))
+                .thenAnswer(
+                        call -> {
+                            payloadAtEachTransaction.add(
+                                    Files.exists(payload) ? Files.size(payload) : -1L);
+                            return new SimpleTransactionStatus();
+                        });
+        var stored =
+                service.append(
+                        OWNER,
+                        upload.id(),
+                        0,
+                        bytes.length,
+                        hash(bytes),
+                        new ByteArrayInputStream(bytes));
+        assertThat(stored.receivedBytes()).isEqualTo(bytes.length);
+        // The status read and the checkpoint come before the file is written; the seal begins
+        // only once the chunk is on disk, so no transaction is open while it is copied and
+        // synced.
+        assertThat(payloadAtEachTransaction).containsExactly(-1L, -1L, (long) bytes.length);
+    }
+
+    @Test
+    void shouldRecordNothing_whenTheUploadIsAbandonedWhileItsChunkIsWritten() throws Exception {
+        byte[] bytes = "abc".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        var upload = service.begin(OWNER, "source.xml", bytes.length);
+        // Only the seal locks the row during an append; the upload is abandoned just before.
+        when(uploads.lock(anyString()))
+                .thenAnswer(
+                        call -> {
+                            CdsUpload row = stored.get(call.getArgument(0));
+                            row.setState("ABANDONED");
+                            return row;
+                        });
+        assertThatThrownBy(
+                        () ->
+                                service.append(
+                                        OWNER,
+                                        upload.id(),
+                                        0,
+                                        bytes.length,
+                                        hash(bytes),
+                                        new ByteArrayInputStream(bytes)))
+                .hasMessage("UPLOAD_OFFSET_CONFLICT");
+        assertThat(stored.get(upload.id()).getReceivedBytes()).isZero();
+        assertThat(stored.get(upload.id()).getChunkCount()).isZero();
     }
 
     private static String hash(byte[] bytes) throws Exception {

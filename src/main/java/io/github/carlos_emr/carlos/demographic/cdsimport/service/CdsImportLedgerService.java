@@ -149,11 +149,18 @@ public class CdsImportLedgerService {
         transaction = template(transactionManager);
     }
 
+    /**
+     * The import's read-committed transaction. It carries no clock: a slow but working database
+     * never fails an import transaction. Reads that can wait long send their own server-side
+     * deadline and send it again when the server ends them there ({@link
+     * io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportStatementWaits}); the
+     * attempt's stall window, a cancel or a lost connection are what end a transaction that does
+     * not finish.
+     */
     static TransactionTemplate template(PlatformTransactionManager manager) {
         TransactionTemplate value = new TransactionTemplate(manager);
         value.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
         value.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
-        value.setTimeout(120);
         return value;
     }
 

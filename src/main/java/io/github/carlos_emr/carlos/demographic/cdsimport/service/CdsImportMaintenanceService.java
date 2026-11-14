@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportStatementWaits;
 
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionState;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionState.Lease;
@@ -354,28 +355,41 @@ public class CdsImportMaintenanceService {
                     throw new SQLException("Maintenance advisory ownership was lost", "45000");
                 }
                 connection.setAutoCommit(false);
-                try (PreparedStatement lock =
-                        connection.prepareStatement(
-                                "SELECT maintenance_owner_token FROM cds_import_admission WHERE id=? FOR UPDATE")) {
-                    lock.setQueryTimeout(30);
-                    lock.setString(1, CdsJdbcAdmissionState.ROW);
-                    try (ResultSet rows = lock.executeQuery()) {
-                        if (!rows.next() || !lease.token().equals(rows.getString(1))) {
-                            throw new SQLException("Maintenance owner was fenced", "45000");
-                        }
-                    }
+                // Both locking reads wait for the database instead of failing on a clock: one the
+                // server ends at its deadline acquired nothing and is sent again in this same
+                // transaction (CdsImportStatementWaits).
+                String token =
+                        CdsImportStatementWaits.awaitOwned(
+                                connection,
+                                seconds -> {
+                                    try (PreparedStatement lock =
+                                            connection.prepareStatement(
+                                                    "SELECT maintenance_owner_token FROM cds_import_admission WHERE id=? FOR UPDATE")) {
+                                        lock.setQueryTimeout(seconds);
+                                        lock.setString(1, CdsJdbcAdmissionState.ROW);
+                                        try (ResultSet rows = lock.executeQuery()) {
+                                            return rows.next() ? rows.getString(1) : null;
+                                        }
+                                    }
+                                });
+                if (!lease.token().equals(token)) {
+                    throw new SQLException("Maintenance owner was fenced", "45000");
                 }
-                boolean held;
-                try (PreparedStatement query =
-                        connection.prepareStatement(
-                                "SELECT id FROM cds_import_patient WHERE held=TRUE LIMIT 1 LOCK IN SHARE MODE")) {
-                    // Current locking read: the metadata-pin transaction can predate imported
-                    // holds.
-                    query.setQueryTimeout(30);
-                    try (ResultSet rows = query.executeQuery()) {
-                        held = rows.next();
-                    }
-                }
+                boolean held =
+                        CdsImportStatementWaits.awaitOwned(
+                                connection,
+                                seconds -> {
+                                    try (PreparedStatement query =
+                                            connection.prepareStatement(
+                                                    "SELECT id FROM cds_import_patient WHERE held=TRUE LIMIT 1 LOCK IN SHARE MODE")) {
+                                        // Current locking read: the metadata-pin transaction can
+                                        // predate imported holds.
+                                        query.setQueryTimeout(seconds);
+                                        try (ResultSet rows = query.executeQuery()) {
+                                            return rows.next();
+                                        }
+                                    }
+                                });
                 if (reopenRequested && !held) {
                     try (PreparedStatement reopen =
                             connection.prepareStatement(
