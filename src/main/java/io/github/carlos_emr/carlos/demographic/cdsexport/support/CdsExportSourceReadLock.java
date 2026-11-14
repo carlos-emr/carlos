@@ -77,6 +77,9 @@ public final class CdsExportSourceReadLock implements AutoCloseable {
      * takes no lock: an InnoDB table needs none, and a non-transactional one is pinned when a
      * reader first reads it.
      */
+    // The guard is returned to the capture, which owns and closes it; when it is not needed, or
+    // acquiring it fails, its connection is discarded here before this method returns or throws.
+    @SuppressWarnings("java:S2095")
     public static CdsExportSourceReadLock guard(Connections connections) throws SQLException {
         Objects.requireNonNull(connections);
         if (CURRENT.get() != null)
