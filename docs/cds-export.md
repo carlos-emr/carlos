@@ -3956,11 +3956,36 @@ now decides them as on a never-imported row:
 - everything the change did not touch is still the import's own projection (DIN, strength,
   prescriber, dates, ProblemCode, vendor residuals).
 
-Still held on an imported prescription: an import projection the receipt cannot prove, a changed
-quantity unit or as-needed flag that a CARLOS sender's carrier would restate
-(`RESTORED_SOURCE_CONTEXT_CHANGED_REQUIRES_REVIEW`), a changed dose or SIG dependency, a changed
-date behind a source clock or offset, and a physically deleted row. No CARLOS screen produces
-these; they need a direct REST or database change.
+A change made outside the Rx screens (the REST prescription service, a direct edit) is decided
+the same way and no longer holds the chart: the changed element group takes the current value by
+the rule of a never-imported row, and a value that rule gives no element (an unqualified
+identifier, a strength text, a conflicting flag, an outside prescriber, OSCAR's "no date"
+default) travels in `CARLOS.Medication.CurrentSource.v1`. A date changed in CARLOS is a plain
+calendar date and supersedes a source clock or offset; changed precision rows make the current
+column and rows the date; the SIG the import generated from values that have since changed is
+carried. A quantity unit or as-needed flag that the import restored from a CARLOS sender's
+`CARLOS.Medication.Source.v1` and that has since changed supersedes that carrier: the element is
+removed (the receipt lists its fields as replaced), because a CARLOS importer would restore the
+old value from it, and the current row travels in `CurrentSource`
+(`Result.supersedesSenderSource`; `RESTORED_SOURCE_CONTEXT_CHANGED_REQUIRES_REVIEW`,
+`CHANGED_PRECISION_DEPENDENCY_REQUIRES_REVIEW`, `UNPROJECTED_CLOCK_OR_OFFSET_REQUIRES_RECONCILIATION`
+and `GENERATED_SIG_DEPENDENCIES_CHANGED_REQUIRES_REVIEW` are gone from this path).
+
+Still held on an imported prescription: an import projection the receipt cannot prove
+(`PREPARED_NATIVE_PROJECTION_NOT_PROVEN`, the baseline and codec codes), a changed source-only
+strength placeholder (`SOURCE_ONLY_STRENGTH_PROJECTION_CHANGED`), text no XML document can hold,
+and a physically deleted row. A sealed preparation that contradicts its own source (a duration
+with no unit, `CDS_EXPORT_PREPARED_DURATION_INVALID`; a date that does not re-derive from its
+original text and shift, `CDS_EXPORT_PREPARED_TEMPORAL_REQUIRES_REVIEW`) is an integrity fault of
+that one patient's import: a named hold of that patient, never a failed job as it was. A source
+that named its prescriber by an OHIP number or one name part only is ordinary data, not a fault:
+the retained PrescribedBy elements are exported as imported
+(`CDS_EXPORT_PREPARED_PRESCRIBER_COMPONENTS_REQUIRED` no longer stops the job).
+
+A provider number with no provider record (migrated data) does not hold a prescription or a
+printed script: the prescription has no PrescribedBy, the script record no public author values,
+and the stored number is exact in `CARLOS.Medication.Source.v1` / `CARLOS.Prescription.v1`
+(`EXACT_CAPTURED_PRESCRIBER_REQUIRED` is a carried rule).
 
 `CARLOS.Medication.Archived.v1` carries the exact archive state. Because other vendors ignore
 CARLOS extensions and an archived row keeps the status it was copied with (re-prescribing copies
@@ -4024,8 +4049,11 @@ the reasons by prescription and refuses a reason of no exported prescription;
 The owning `PrescriptionDao` also captures printed script text, comments and reprint history,
 including scripts without remaining drug rows. Independent inventory accounts for every
 parent as `CARLOS.NativePrescription.v1` supporting clinical data. Select `NewCategory` with
-medications when such parents exist; excluding it refuses publication. Every nonzero drug
-script reference must resolve to a captured parent belonging to the same patient. Source
+medications when such parents exist; excluding it refuses publication. A drug whose
+`script_no` names no script of the patient (migrated data; no CARLOS screen removes a script) is
+exported like any other drug, the stored number exact in its `CARLOS.Medication.Source.v1`; no
+script record is invented for it. A script of another patient, or two scripts with one number,
+still requires review. Source
 signature identifiers remain non-executable context and actual signature payloads retain their
 separate source-catalogue gate. The complete-table source descriptor is generated with
 `python scripts/generate-cds-export-source-schema.py --table prescription`; both pinned physical
