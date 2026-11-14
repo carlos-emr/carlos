@@ -41,12 +41,13 @@ public final class CdsBinaryReads {
      * Infrastructure primitive. Guard implementations wrap its statement before returning it. An
      * unguarded owning connection already carries SQL authority; caller SQL must remain a reviewed
      * SELECT with bound values. No session property is changed and no text fallback is accepted.
-     * Guarded connections retain their full SQL/admission/result checks.
+     * Guarded connections retain their full SQL/admission/result checks. A SELECT of any length is
+     * prepared: a wide table's column list makes a long one, and the server's own packet limit
+     * ({@code max_allowed_packet}) is the only bound on its text.
      */
     public static PreparedStatement prepareDriver(Connection connection, String sql)
             throws SQLException {
-        if (sql == null || sql.length() > 65_536)
-            throw new SQLException("CDS_BINARY_SELECT_REQUIRED", "45000");
+        if (sql == null) throw new SQLException("CDS_BINARY_SELECT_REQUIRED", "45000");
         String start = sql.stripLeading();
         if (start.length() <= 6
                 || !start.regionMatches(true, 0, "SELECT", 0, 6)
