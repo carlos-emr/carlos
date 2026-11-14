@@ -113,8 +113,19 @@ public final class CdsExportAllergyXmlWriter {
         optional(xml, "Notes", allergy.notes());
     }
 
-    /** Same capacity/lexical gate for direct and retained assembly. */
+    /** The capacity/lexical gate of an allergy CARLOS writes: its Notes keep the dictionary length. */
     static void validate(CdsExportAllergyDto allergy) throws IOException {
+        validate(allergy, false);
+    }
+
+    /**
+     * Same capacity/lexical gate for direct and retained assembly.
+     *
+     * @param importedNotes true when Notes is the imported element's own text, unchanged: it is
+     *     exported as imported, up to the schema's 32,768 characters; any other Notes text is
+     *     CARLOS text and keeps the data dictionary's 32,000 (CdsExportDictionaryLength)
+     */
+    static void validate(CdsExportAllergyDto allergy, boolean importedNotes) throws IOException {
         Objects.requireNonNull(allergy);
         if (allergy.codeType() != null
                 && !("DIN".equals(allergy.codeType())
@@ -136,7 +147,17 @@ public final class CdsExportAllergyXmlWriter {
             allergy.reaction(),
             allergy.notes()
         };
-        int[] limits = {120, 2, 3, 20, 2, 1, 2, 120, 32000};
+        int[] limits = {
+            120,
+            2,
+            3,
+            20,
+            2,
+            1,
+            2,
+            120,
+            CdsExportDictionaryLength.maximum(CdsExportDictionaryLength.TEXT_32K, importedNotes)
+        };
         for (int i = 0; i < values.length; i++)
             if (values[i] != null && !CdsExportNativeFieldAssessments.legal(values[i], limits[i]))
                 throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException("CDS_EXPORT_ALLERGY_VALUES_REQUIRES_REVIEW");

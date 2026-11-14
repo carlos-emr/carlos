@@ -68,6 +68,7 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
     private String sourceType = "Td", nativeType = "Td";
     // #6198: the free-text provider and reminder date restored from a CARLOS sender's carrier.
     private String restoredProvider, restoredReminder;
+    private String importedNotes = "Original notes";
     private static final String CONFIGURATION =
             "<preventions><item name='Td' layout='injection' healthCanadaType='Td'/><item name='HB' layout='injection' healthCanadaType='HB'/></preventions>";
     private static final String CATCH_ALL_CONFIGURATION =
@@ -93,7 +94,7 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
                         "DIN",
                         false,
                         "Original instructions",
-                        "Original notes",
+                        importedNotes,
                         date,
                         restoredProvider,
                         restoredReminder);
@@ -305,6 +306,42 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
             assertThat(result.mapping().value().notes()).isNull();
             assertThat(result.currentPaths()).contains("Notes");
         }
+    }
+
+    @Test
+    void shouldExportUnchangedImportedNotesInTheDictionaryGap_exactlyAsImported() throws Exception {
+        // Owner decision (#56): Notes (text32K) the import accepted up to the schema's 32,768
+        // characters are exported as imported when nobody changed them; the writer's gate held
+        // them past the dictionary's 32,000 (CDS_EXPORT_IMMUNIZATION_VALUES_REQUIRES_REVIEW).
+        for (int length : new int[] {32_001, 32_768}) {
+            importedNotes = "n".repeat(length);
+            prepare(CdsTemporal.parse(null, null, "2024-02-29", null, "Date"));
+            var result = reconcile();
+            assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+            assertThat(result.mapping().value().notes()).isEqualTo(importedNotes);
+            assertThat(result.preparedPaths()).contains("Notes");
+        }
+        // The same length written as CARLOS text is refused at the writer: the native mapper
+        // keeps CARLOS Notes within the dictionary's 32,000 (the rest exact in its carrier).
+        var value = reconcile().mapping().value();
+        var written =
+                new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportImmunizationDto(
+                        value.name(),
+                        value.type(),
+                        value.manufacturer(),
+                        value.lot(),
+                        value.route(),
+                        value.site(),
+                        value.dose(),
+                        value.code(),
+                        value.codeSystem(),
+                        value.date(),
+                        value.refused(),
+                        value.instructions(),
+                        importedNotes);
+        CdsExportImmunizationXmlWriter.validate(written, true);
+        assertThatThrownBy(() -> CdsExportImmunizationXmlWriter.validate(written, false))
+                .hasMessage("CDS_EXPORT_IMMUNIZATION_VALUES_REQUIRES_REVIEW");
     }
 
     @Test

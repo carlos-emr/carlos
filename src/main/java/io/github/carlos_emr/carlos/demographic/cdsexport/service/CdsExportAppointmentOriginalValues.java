@@ -73,8 +73,11 @@ final class CdsExportAppointmentOriginalValues {
                         6,
                         "AppointmentPurpose[1]",
                         250,
+                        // The schema's text32K: an imported note of up to 32,768 characters is
+                        // an ordinary retained value, exported unchanged; only a longer one, which
+                        // the import's schema check refused, is not what the import stored.
                         "AppointmentNotes[1]",
-                        32000);
+                        CdsExportDictionaryLength.SCHEMA_TEXT_32K);
         var result = new HashMap<String, String>();
         String root = null;
         boolean providerSeen = false;

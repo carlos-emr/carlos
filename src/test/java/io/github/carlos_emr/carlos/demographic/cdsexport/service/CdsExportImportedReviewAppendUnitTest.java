@@ -320,39 +320,61 @@ class CdsExportImportedReviewAppendUnitTest {
     }
 
     /**
-     * Known gap (not yet removed): the importer accepts a text32K element up to the XSD's 32,768
-     * characters, and an unchanged imported element is re-exported exactly as it was sent, but the
-     * export validator holds every text32K element to the data dictionary's 32,000. So an
-     * imported report whose Notes have 32,001 to 32,768 characters cannot be exported at all,
-     * although nobody edited it. This test pins the behaviour so the gap is not mistaken for
-     * closed; it must be replaced when retained text in the gap gets its documented rule and
-     * carrier.
+     * Owner decision (#56), "export unchanged when schema-valid": the importer accepts a text32K
+     * element up to the schema's 32,768 characters, and an imported report whose Notes have
+     * 32,001 to 32,768 characters is exported exactly as it was imported when nobody changed
+     * them. Before, the export validator held every text32K to the data dictionary's 32,000
+     * (CDS_EXPORT_DICTIONARY_LENGTH_REQUIRES_REVIEW), so such a chart could not be exported.
      */
     @Test
-    void shouldStillRefuseUnchangedImportedNotesInTheDictionaryGap_untilTheyHaveACarrier()
+    void shouldExportUnchangedImportedNotesInTheDictionaryGap_exactlyAsImported()
             throws Exception {
         for (int length : new int[] {32_000, 32_001, 32_768}) {
+            String notes = "n".repeat(length);
             var fields = new ArrayList<CdsExportRetainedFieldDto>();
             fields.add(field("Reports[1]/Format[1]", "Text"));
             fields.add(field("Reports[1]/Content[1]/TextContent[1]", "Imported letter"));
             fields.add(field("Reports[1]/Class[1]", "Consultant Report"));
-            fields.add(field("Reports[1]/Notes[1]", "n".repeat(length)));
+            fields.add(field("Reports[1]/Notes[1]", notes));
             // Retained unchanged: no change is prepared, every field is written as imported.
             var prepared =
                     new CdsExportRetainedSectionWriter()
                             .prepareChanges(fields, inline(), List.of(), () -> {});
             assertThat(prepared.replacedFields()).isEmpty();
-            if (length <= 32_000) {
-                assertThat(
-                                new String(
-                                        render(CdsCategory.REPORTS, prepared.content()),
-                                        StandardCharsets.UTF_8))
-                        .contains("n".repeat(100));
-                continue;
-            }
-            org.assertj.core.api.Assertions.assertThatThrownBy(
-                            () -> render(CdsCategory.REPORTS, prepared.content()))
-                    .hasStackTraceContaining("CDS_EXPORT_DICTIONARY_LENGTH_REQUIRES_REVIEW");
+            assertThat(xml(CdsCategory.REPORTS, prepared.content()))
+                    .contains("<Notes>" + notes + "</Notes>");
         }
+    }
+
+    /**
+     * CARLOS text added to an imported report in the gap follows the native rule instead: the
+     * imported Notes stay exactly as imported and the reviews recorded in CARLOS travel whole in
+     * the supplementary record, so nothing is cut and the dictionary length is kept by what
+     * CARLOS writes.
+     */
+    @Test
+    void shouldCarryCarlosReviewsBesideImportedNotesInTheGap_inTheSupplementaryRecord()
+            throws Exception {
+        String notes = "n".repeat(32_768);
+        var fields = importedReport(false);
+        fields.add(field("Reports[1]/Notes[1]", notes));
+        var acknowledged = documentRoute(5, "101", "A", "Booked a follow-up");
+        var changes = new ArrayList<CdsExportRetainedSectionWriter.Change>();
+        var assessments = new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
+        var rows = new ArrayList<CdsExportCapturedTextRowDto>();
+        var supplementary =
+                CdsExportReportOccurrenceService.importedReviews(
+                        List.of(acknowledged), providers(), ZONE, fields, changes, assessments, rows);
+        assertThat(supplementary).isNotNull();
+        assertThat(supplementary.text()).contains("Booked a follow-up");
+        assertThat(changes)
+                .extracting(CdsExportRetainedSectionWriter.Change::relativePath)
+                .containsExactly("ReportReviewed[2]");
+        var prepared =
+                new CdsExportRetainedSectionWriter().prepareChanges(fields, inline(), changes, () -> {});
+        assertThat(prepared.replacedFields()).isEmpty();
+        assertThat(xml(CdsCategory.REPORTS, prepared.content()))
+                .contains("<Notes>" + notes + "</Notes>")
+                .doesNotContain("Booked a follow-up");
     }
 }

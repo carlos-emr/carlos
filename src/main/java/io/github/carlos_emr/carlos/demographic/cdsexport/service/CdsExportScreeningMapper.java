@@ -52,7 +52,12 @@ public final class CdsExportScreeningMapper {
             NOTES = "PastHealth/Notes;ResidualInfo",
             PROCEDURE_DATE = "PastHealth/ProcedureDate;ResidualInfo";
     private static final String CARRIED = "EXACT_NATIVE_PREVENTION_SOURCE_CONTEXT";
-    private static final int DESCRIPTION_LIMIT = 250, NOTES_LIMIT = 65_536;
+    /**
+     * The description element's schema length, and PastHealth/Notes (text64K) as the data
+     * dictionary counts it: CARLOS-written Notes keep the dictionary length, so a comment between
+     * it and the schema's 65,536 travels in the residual exactly as a longer one does.
+     */
+    static final int DESCRIPTION_LIMIT = 250, NOTES_LIMIT = CdsExportDictionaryLength.TEXT_64K;
 
     /**
      * Description of a screening whose type and status do not fit the 250 characters of

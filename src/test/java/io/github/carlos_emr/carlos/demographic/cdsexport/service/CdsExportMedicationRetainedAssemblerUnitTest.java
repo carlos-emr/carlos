@@ -147,6 +147,54 @@ class CdsExportMedicationRetainedAssemblerUnitTest {
     }
 
     @Test
+    void shouldKeepUnchangedImportedNotesInTheDictionaryGap_exactlyAsImported() throws Exception {
+        // Owner decision (#56): Notes (text32K) the import accepted up to the schema's 32,768
+        // characters are kept exactly as imported when nobody changed them. The writer's gate
+        // held them past the dictionary's 32,000 (CDS_EXPORT_MEDICATION_VALUES_REQUIRES_REVIEW)
+        // although the assembler writes the imported element, not the reconciled value.
+        String notes = "n".repeat(32_768);
+        var baseline = CdsExportMedicationFieldReconcilerUnitTest.baseline();
+        baseline.put("comment", notes);
+        var base =
+                CdsExportMedicationFieldReconcilerUnitTest.fixture(
+                        new LinkedHashMap<>(baseline),
+                        CdsExportMedicationFieldReconcilerUnitTest.numbers(),
+                        true,
+                        CdsExportMedicationFieldReconcilerUnitTest.sourceWithNotes(notes),
+                        baseline);
+        var decision = CdsExportMedicationFieldReconcilerUnitTest.reconcile(base);
+        assertThat(decision.preparedPaths()).contains("Notes");
+        var f =
+                attach(
+                        27,
+                        base.index(),
+                        base.checked(),
+                        decision,
+                        null,
+                        false,
+                        true,
+                        List.of(),
+                        notes);
+        var plan = prepare(f);
+        var record = parse(plan.content(), "imported-notes").get(1);
+        assertThat(
+                        new CdsClinicalNormalizationService(new CdsFieldParser())
+                                .medication(record)
+                                .providerNotes())
+                .isEqualTo(notes);
+        assertThat(plan.replacedFields())
+                .doesNotContain(
+                        f.fields().stream()
+                                .filter(field -> field.sourcePath().endsWith("/Notes[1]"))
+                                .map(CdsExportRetainedFieldDto::id)
+                                .findFirst()
+                                .orElseThrow());
+        // The same text written as CARLOS text keeps the dictionary length at the writer.
+        assertThatThrownBy(() -> CdsExportMedicationXmlWriter.validate(decision.mapping().value()))
+                .hasMessage("CDS_EXPORT_MEDICATION_VALUES_REQUIRES_REVIEW");
+    }
+
+    @Test
     void shouldKeepAnExplicitNativeNoteClear_withoutDroppingUnprojectedStandardFields()
             throws Exception {
         var current = CdsExportMedicationFieldReconcilerUnitTest.baseline();
@@ -712,6 +760,30 @@ class CdsExportMedicationRetainedAssemblerUnitTest {
             boolean sourceExtras,
             List<List<String>> senderMarkers)
             throws Exception {
+        return attach(
+                patient,
+                baseIndex,
+                baseChecked,
+                decision,
+                strengthPayload,
+                omitStrength,
+                sourceExtras,
+                senderMarkers,
+                "Original provider notes");
+    }
+
+    /** {@code notes}: the text of the retained Notes element. */
+    static Fixture attach(
+            int patient,
+            CdsExportRetainedIndexDto baseIndex,
+            CdsExportRetainedReceiptVerificationDto baseChecked,
+            CdsExportMedicationFieldReconciler.Result decision,
+            Path strengthPayload,
+            boolean omitStrength,
+            boolean sourceExtras,
+            List<List<String>> senderMarkers,
+            String notes)
+            throws Exception {
         boolean sourceOnlyStrength = strengthPayload != null;
         var fields = new ArrayList<CdsExportRetainedFieldDto>();
         fields.add(field("DrugName[1]", "cds", "Original café drug"));
@@ -730,7 +802,7 @@ class CdsExportMedicationRetainedAssemblerUnitTest {
         fields.add(field("NumberOfRefills[1]", "cds", "02"));
         fields.add(field("RefillQuantity[1]", "cds", "012"));
         fields.add(field("Dosage[1]", "cds", "0.5-1"));
-        fields.add(field("Notes[1]", "cds", "Original provider notes"));
+        fields.add(field("Notes[1]", "cds", notes));
         fields.add(
                 field(
                         "PrescriptionWrittenDate[1]/FullDateTime[1]",

@@ -332,12 +332,21 @@ public final class CdsExportAllergyFieldReconciler {
     /**
      * An imported allergy archived in CARLOS after import must not reach another EMR looking
      * current: the imported notes are kept and the archive statement appended once.
+     *
+     * <p>Notes holds whole parts only. The statement is CARLOS text, so the two together keep the
+     * data dictionary's 32,000 characters (CdsExportDictionaryLength); when the statement does not
+     * fit beside the imported notes, the imported notes stay exactly as imported and the
+     * statement is left out whole. The archive state is then exact in {@code
+     * CARLOS.Allergy.Archived.v1} and the current row in {@code CARLOS.Allergy.Source.v1}.
      */
-    private static String notes(String imported, boolean wasArchived, boolean archived) {
+    static String notes(String imported, boolean wasArchived, boolean archived) {
         if (!archived || wasArchived) return imported;
         if (imported == null || imported.isEmpty()) return CdsExportAllergyMapper.ARCHIVED_NOTE;
         if (imported.endsWith(CdsExportAllergyMapper.ARCHIVED_NOTE)) return imported;
-        return imported + "\n" + CdsExportAllergyMapper.ARCHIVED_NOTE;
+        String stated = imported + "\n" + CdsExportAllergyMapper.ARCHIVED_NOTE;
+        return CdsExportNativeFieldAssessments.legal(stated, CdsExportDictionaryLength.TEXT_32K)
+                ? stated
+                : imported;
     }
 
     private CdsNativeRowState verifyNativeBaseline(

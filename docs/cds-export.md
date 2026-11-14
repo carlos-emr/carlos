@@ -792,7 +792,9 @@ gone). Stored HTML holding a character XML cannot carry is written in TextConten
 in that character's place (`CdsExportXmlText`) and exact, as its JSON escape, in the Notes
 context (`STORED_HTML_IN_CONTENT_WITH_U_FFFD_EXACT_IN_SOURCE_CONTEXT`).
 
-Notes (`text32K`; 32,000 characters in the dictionary, which the export's validator enforces)
+Notes (`text32K`; 32,000 characters in the dictionary, which the Notes CARLOS writes keep;
+imported Notes retained unchanged keep the schema's 32,768, see
+[Dictionary lengths](#dictionary-lengths-carlos-text-and-unchanged-imported-text))
 is the only free text of a Reports record and the category has no `ResidualInfo`. That number
 decides where a report's CARLOS context is written, never whether the report is exported
 (`CdsExportReportContext`). When the whole Notes text fits it is written there, as before. When
@@ -1688,9 +1690,10 @@ Until the four points above are settled, a stopped export starts again from its 
 which is why the first protection of a long export remains not stopping it.
 
 **Limits inside the mappers.** A mapper keeps a number only when something outside CARLOS
-imposes it: a facet of the CDS 5.2 schema (counted as the migration guide counts `text1K`,
-`text32K` and `text64K`: 1,000, 32,000 and 64,000 characters, which `CdsExportXmlValidator`
-enforces on the finished document), the capacity of a database column, or an integrity check.
+imposes it: a facet of the CDS 5.2 schema (for text CARLOS writes, `text1K`, `text32K` and
+`text64K` are counted as the migration guide counts them, 1,000, 32,000 and 64,000 characters;
+see [Dictionary lengths](#dictionary-lengths-carlos-text-and-unchanged-imported-text)), the
+capacity of a database column, or an integrity check.
 Such a limit does not hold a patient where the record has somewhere else to put the value: the
 element is left out or written in its schema-valid form, and the exact stored value travels in
 the record's CARLOS residual. These numbers were CARLOS's own and are gone:
@@ -1733,16 +1736,6 @@ charts. The occurrence services that hand rows to these mappers are a separate m
 still stops at `cds.export.maxNativeRows` and `maxLookupRows`. The imported NewCategory
 records of a chart are no longer counted against `maxNativeRows`
 (`CdsExportNewCategoryOccurrenceService.parents`).
-
-Required limits that no longer hold a patient (second pass):
-
-| Limit | Where | What it stopped | Now |
-| --- | --- | --- | --- |
-| Reports/Notes, 32,000 characters | `CdsExportNativeReportMapper`, `CdsExportLaboratoryDocumentMapper`, `CdsExportHospitalReportMapper`, `CdsExportReportOccurrenceService.importedReviews` | the patient | the complete context travels in a companion or supplementary Reports record (`CdsExportReportContext`, see Reports above) |
-| NoteAboutPatient, 64,000 characters (`demographiccust.content` holds 65,535 bytes) | `CdsExportPatientNoteMapper` | the patient (`PATIENT_NOTE_DICTIONARY_LENGTH_REQUIRES_REVIEW`) | the element is left out, never cut, and the whole column travels in `CARLOS.Demographic.v1` under `note` (`CdsExportPatientNoteMapper.note`); without NewCategory it is accounted as not selected, like every value of that record |
-| CPP Notes, 32,000 / 64,000 / 1,000 characters | `CdsExportNativeHistoryMapper`, `CdsExportHistoryNativeReconciler` | the patient (`CDS_EXPORT_NATIVE_HISTORY_NARRATIVE_CAPACITY`, `CDS_EXPORT_HISTORY_COMBINED_NARRATIVE_CAPACITY`, `..._SOURCE_NARRATIVE_CAPACITY`) | Notes holds whole parts only; parts that do not fit together are left out whole, last first, and each has an exact carrier: a statement (a CPP field its element cannot hold) in the revision's extension facts of `CARLOS.NativeHistory.v1`, the current narrative in `CARLOS.History.Narrative.v1`, and imported Notes that had to make way in the item's `CARLOS.NativeHistory.v1` residual as `importedNotes` |
-| A character XML 1.0 cannot carry (a control character, U+FFFE, U+FFFF, an unpaired surrogate) | the same mappers, `CdsExportInboxReviewMapper`, `CdsExportDemographicSupportingMapper`, every carrier written through `CdsExportScreeningMapper.tokenSafe` | the patient | in a JSON carrier it is its `\uXXXX` escape (`CdsExportResidualJson`); in an element it is U+FFFD, one for one (`CdsExportXmlText`), and the exact text travels in the record's carrier: a note's revision details (`exactNarrative`), the Notes context of stored HTML, the `note` of `CARLOS.Demographic.v1`, the message of `CARLOS.Laboratory.v1` |
-| 16,777,216 characters per carrier | `CdsExportDemographicSupportingMapper`, `CdsExportNativeHistoryMapper`, `CdsExportHistoryFieldReconciler`, `CdsExportNativeLaboratoryMapper`, `CdsExportInboxReviewMapper` | the patient | removed, with no number in its place (ours, not the schema's) |
 
 Required limits that no longer hold a patient (second pass):
 
@@ -1811,19 +1804,54 @@ A third pass removed what the table above left:
 | The same in a stored laboratory message; non-UTF-8 hexadecimal escape data | `CdsExportNativeLaboratoryParser` (`CDS_EXPORT_NATIVE_LAB_MESSAGE_ENCODING`), `CdsExportNativeLaboratoryMapper` (`..._WIRE_TEXT_REQUIRES_REVIEW`, `..._ESCAPE_REQUIRES_REVIEW`) | the patient | U+FFFD in every element; the escape as sent; the stored message exact in `CARLOS.NativeLaboratory.v1` |
 | Replaced file of an imported report with both representations, 32 MiB | `CdsExportReportOccurrenceService.currentBytes` (`CDS_EXPORT_IMPORTED_REPORT_REPLACED_CONTENT_CAPACITY`) | the patient | streamed from the captured file into the inline Media; any size |
 
-Still open after this pass, each of which can hold an ordinary chart:
+Nothing in these families still holds an ordinary chart for a length. The last such hold,
+imported text between the dictionary and schema lengths, is resolved below.
 
-- **Imported text between the dictionary and schema lengths.** The importer accepts a `text1K`,
-  `text32K` or `text64K` element up to the XSD's 1,024 / 32,768 / 65,536 characters, an unchanged
-  imported element is re-exported as it was sent, and `CdsExportXmlValidator.dictionaryLength`
-  holds every such element to 1,000 / 32,000 / 64,000
-  (`CDS_EXPORT_DICTIONARY_LENGTH_REQUIRES_REVIEW`). An imported record with, say, Notes of 32,500
-  characters therefore cannot be exported, edited or not
-  (`CdsExportImportedReviewAppendUnitTest.shouldStillRefuseUnchangedImportedNotesInTheDictionaryGap_untilTheyHaveACarrier`
-  pins it). It needs the native rule for retained text: the retained element cut at the
-  dictionary length before a mark, with the complete text in the category's ResidualInfo where
-  the category has one and in a NewCategory record where it has none (Appointments,
-  LaboratoryResults, ClinicalNotes, Reports, Demographics), predicted by the inventory.
+#### Dictionary lengths: CARLOS text and unchanged imported text
+
+The CDS 5.2 types `text1K`, `text32K` and `text64K` have two lengths: the migration data
+dictionary counts them in thousands (1,000 / 32,000 / 64,000 characters) and the schema's
+`maxLength` in multiples of 1,024 (1,024 / 32,768 / 65,536). The importer accepts the schema's.
+Until this change `CdsExportXmlValidator.dictionaryLength` held every such element of the
+finished document to the dictionary's (`CDS_EXPORT_DICTIONARY_LENGTH_REQUIRES_REVIEW`), so an
+imported record with, say, Notes of 32,500 characters could not be exported, edited or not.
+
+The rule now (owner decision, "export unchanged when schema-valid";
+`CdsExportDictionaryLength`):
+
+- **An imported element retained unchanged** is exported exactly as it was imported when the
+  schema accepts it, the lengths between the two included. A CARLOS import of the export stores
+  the same value again; nothing is cut and no carrier is needed.
+- **Text CARLOS writes** (entered or edited in CARLOS, an imported value CARLOS adds to, or text
+  the exporter composes) keeps the dictionary length by its writer's documented rule: the
+  element holds a valid value and the exact value travels in the record's CARLOS carrier.
+- **`CdsExportXmlValidator` holds the schema alone**, so a length never holds a chart there.
+  Each writer's own check against the dictionary length is an integrity check its mapper's rule
+  never trips; for the imported element's own text the check is the schema's length.
+
+| Element (type) | CARLOS text keeps the dictionary length by |
+| --- | --- |
+| Demographics/NoteAboutPatient (`text64K`) | `CdsExportPatientNoteMapper.note`: a longer note is left out whole, the column in `CARLOS.Demographic.v1` |
+| Notes of FamilyHistory (`text32K`), PastHealth, ProblemList, RiskFactors (`text64K`), AlertsAndSpecialNeeds (`text1K`) | `CdsExportNativeHistoryMapper` and `CdsExportHistoryNativeReconciler.Notes.fit`: whole parts only, a left-out part exact in `CARLOS.NativeHistory.v1` (statements, `importedNotes`) or `CARLOS.History.Narrative.v1`; imported Notes alone stay as imported. A screening's PastHealth/Notes keeps 64,000 (`CdsExportScreeningMapper.NOTES_LIMIT`, which allowed the schema's 65,536 and so held a comment in between), longer text exact in `CARLOS.Prevention.Source.v1`; a registry episode's ProblemList/Notes likewise in its residual |
+| AllergiesAndAdverseReactions/Notes (`text32K`) | `CdsExportAllergyMapper`; on an imported allergy (`CdsExportAllergyFieldReconciler.notes`) the archive statement or a changed long reaction is added only when it fits beside the imported Notes, otherwise the imported Notes stay as imported and the state is exact in `CARLOS.Allergy.Archived.v1` / `CARLOS.Allergy.Source.v1` |
+| MedicationsAndTreatments RefillDuration, RefillQuantity (`text1K`), Notes, PrescriptionInstructions (`text32K`) | `CdsExportMedicationMapper.text` and `CdsExportNativeMedicationMapper`: a longer value is left out, exact in `CARLOS.Medication.Source.v1`; refill counts are whole numbers |
+| Immunizations/Notes (`text32K`) | `CdsExportImmunizationMapper`: whole parts, a left-out part exact in `CARLOS.Prevention.Source.v1` |
+| LaboratoryResults TestResultsInformationReportedByTheLab, NotesFromLab (`text32K`) | `CdsExportNativeLaboratoryMapper`: a longer value is left out whole, the message exact in `CARLOS.NativeLaboratory.v1`. CARLOS writes no PhysiciansNotes |
+| Appointments/AppointmentNotes (`text32K`) | `CdsExportAppointmentMapper.fitNotes`: cut before the mark, the complete text in `CARLOS.NativeAppointment.v1` |
+| Reports/Notes (`text32K`) | `CdsExportReportContext`: a pointer and a companion record holding the whole context; reviews of an imported report in its supplementary record |
+| AlertsAndSpecialNeeds/AlertDescription (`text1K`) | `CdsExportPatientAlertMapper` (`CARLOS.PatientAlert.v1`) and `CdsExportNativeHistoryMapper` (`CARLOS.History.Narrative.v1`) |
+
+What changed with it: the writers' gates (`CdsExportAllergyXmlWriter`,
+`CdsExportImmunizationXmlWriter`, `CdsExportAppointmentXmlWriter`,
+`CdsExportMedicationXmlWriter`) held an unchanged imported Notes, PrescriptionInstructions or
+AppointmentNotes past the dictionary length (`..._VALUES_REQUIRES_REVIEW`) and now hold it to the
+schema's; `CdsExportAppointmentOriginalValues` read imported AppointmentNotes only up to 32,000
+(`CDS_EXPORT_APPOINTMENT_ORIGINAL_VALUES_REQUIRES_REVIEW`) and the reconciler cut unchanged
+imported notes past it before a mark: both now keep them as imported. A current alert narrative
+of an imported item (`CdsExportHistoryFieldReconciler`) now keeps 1,000 characters, not the
+schema's 1,024. `CdsExportDictionaryLengthContractUnitTest` lists every element of the three
+types, its writers and their rules, and fails when a new class names one of them without a rule.
+
 Limits that remain in these families, and why:
 
 - **Data summaries.** None: see
@@ -3443,7 +3471,10 @@ notes/instructions and strength now use those bounds. Allergy and medication ret
 call the same validation gate as direct serialization, preventing original imported values from
 bypassing dictionary limits. (Since then an oversize value no longer requires review: it is
 written in its schema-valid form by a named rule and carried whole in its CARLOS source
-carrier; for appointments see `CARLOS.Appointment.Source.v1` above.) The 54-case isolated suite passed, including direct/retained validation and a
+carrier; for appointments see `CARLOS.Appointment.Source.v1` above. Later still, an original
+imported value retained unchanged is exported as imported up to the schema's length, and only
+text CARLOS writes keeps the dictionary's: see
+[Dictionary lengths](#dictionary-lengths-carlos-text-and-unchanged-imported-text).) The 54-case isolated suite passed, including direct/retained validation and a
 caught-failure document check. The expanded combined package passed all 2,368 selected Java
 tests with zero failures, errors or skips. Installed clinical-path verification remains pending.
 

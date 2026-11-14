@@ -652,10 +652,62 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
     }
 
     @Test
-    void shouldVerifyRetainedValuesOverTheDictionaryBoundRequireReview_insteadOfTruncation() {
-        originalNotes = "x".repeat(32001);
-        assertThatThrownBy(this::reconcile)
-                .hasMessage("CDS_EXPORT_APPOINTMENT_ORIGINAL_VALUES_REQUIRES_REVIEW");
+    void shouldExportUnchangedImportedNotesInTheDictionaryGap_exactlyAsImported() throws Exception {
+        // Owner decision (#56): AppointmentNotes is a text32K the import accepts up to the
+        // schema's 32,768 characters. Notes nobody changed are exported exactly as imported; they
+        // were held (CDS_EXPORT_APPOINTMENT_ORIGINAL_VALUES_REQUIRES_REVIEW) past 32,000.
+        for (int length : new int[] {32_001, 32_768}) {
+            importNotes("x".repeat(length));
+            var result = reconcile();
+            assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+            assertThat(result.mapping().value().notes()).isEqualTo(originalNotes);
+            assertThat(result.preparedPaths()).contains("AppointmentNotes");
+            assertThat(result.mapping().complete()).doesNotContainKey("AppointmentNotes");
+            var content =
+                    new CdsExportAppointmentRetainedAssembler()
+                            .prepare(27, result, index, checked, fields, values(), () -> {})
+                            .content();
+            assertThat(new CdsFieldParser().firstText(parse(content).get(1), "AppointmentNotes", 32768))
+                    .isEqualTo(originalNotes);
+        }
+    }
+
+    @Test
+    void shouldCutImportedNotesInTheGapByTheNativeRule_onceCarlosAddsALine() throws Exception {
+        // A remark added in CARLOS makes the notes CARLOS text: they keep the dictionary's
+        // 32,000 characters by the native rule, cut before the mark, and the complete text,
+        // imported notes included, travels in the appointment's source record.
+        importNotes("x".repeat(32_768));
+        current.put("remarks", "Additional appointment remark");
+        var result = reconcile();
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.mapping().value().notes())
+                .hasSize(32000)
+                .endsWith(CdsExportAppointmentMapper.SHORTENED_MARK);
+        assertThat(result.mapping().complete())
+                .containsEntry(
+                        "AppointmentNotes",
+                        "x".repeat(32_768) + "\nRemarks: Additional appointment remark");
+        assertThat(result.preparedPaths()).doesNotContain("AppointmentNotes");
+        assertThat(result.currentPaths()).contains("AppointmentNotes");
+    }
+
+    /** The import's notes, as the retained element, the prepared value and the stored column. */
+    private void importNotes(String notes) {
+        originalNotes = notes;
+        old.put("notes", notes);
+        current.put("notes", notes);
+        prepared =
+                new CdsAppointmentNativeDto(
+                        prepared.date(),
+                        prepared.start(),
+                        prepared.end(),
+                        prepared.status(),
+                        prepared.purpose(),
+                        notes,
+                        prepared.providerNo(),
+                        true,
+                        List.of());
     }
 
     @Test

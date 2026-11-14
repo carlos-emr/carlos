@@ -244,17 +244,35 @@ class CdsExportXmlValidatorUnitTest {
     }
 
     @Test
-    void shouldRefuseTheAmbiguousDictionaryLengthRange_withoutTruncatingClinicalNotes()
+    void shouldHoldDictionaryTypedTextToTheSchemaLengthAlone_withoutHoldingTheDictionaryGap()
             throws Exception {
-        String xml =
-                fixture()
-                        .replaceAll(
-                                "<NoteAboutPatient>[^<]+</NoteAboutPatient>",
-                                "<NoteAboutPatient>" + "x".repeat(64001) + "</NoteAboutPatient>");
-        assertThatThrownBy(() -> validate(xml))
-                .hasMessage("CDS_EXPORT_DICTIONARY_LENGTH_REQUIRES_REVIEW");
-        assertThat(validate(xml.replace("x".repeat(64001), "x".repeat(64000))).senderPatientId())
-                .isEqualTo(ID);
+        // text1K, text32K and text64K are held to the schema's 1,024, 32,768 and 65,536
+        // characters. Text CARLOS writes keeps the data dictionary's 1,000, 32,000 and 64,000 by
+        // its writer's rule; an imported element retained unchanged may use the rest, so a length
+        // between the two never holds a chart here (it was CDS_EXPORT_DICTIONARY_LENGTH_...).
+        String source = fixture();
+        for (var element :
+                List.of(
+                        java.util.Map.entry("AlertDescription", 1_024),
+                        java.util.Map.entry("NotesFromLab", 32_768),
+                        java.util.Map.entry("NoteAboutPatient", 65_536))) {
+            String name = element.getKey();
+            int schema = element.getValue(), dictionary = schema / 1_024 * 1_000;
+            for (int length : new int[] {dictionary, dictionary + 1, schema})
+                assertThat(validate(withText(source, name, length)).senderPatientId())
+                        .isEqualTo(ID);
+            // Past the schema: refused by the schema check, or for a text64K by the bound of
+            // the longest restricted value the schema admits.
+            assertThatThrownBy(() -> validate(withText(source, name, schema + 1)))
+                    .hasMessageMatching("CDS_EXPORT_XML_SCHEMA_INVALID|CDS_XML_SCALAR_RESOURCE_LIMIT");
+        }
+    }
+
+    /** The fixture with every {@code name} element's text replaced by {@code length} letters. */
+    private static String withText(String xml, String name, int length) {
+        return xml.replaceAll(
+                "<" + name + ">[^<]+</" + name + ">",
+                "<" + name + ">" + "x".repeat(length) + "</" + name + ">");
     }
 
     @Test

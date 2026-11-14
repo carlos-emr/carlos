@@ -104,14 +104,28 @@ public final class CdsExportMedicationXmlWriter {
         } else xml.element("cds", field.name(), text);
     }
 
+    /** The gate of a prescription CARLOS writes: every field keeps its dictionary length. */
     static void validate(CdsExportMedicationDto value) throws IOException {
+        validate(value, java.util.Set.of());
+    }
+
+    /**
+     * @param imported the fields whose element the retained assembler keeps exactly as imported:
+     *     they are held to the schema's length ({@link Field#schemaMaximum}); every other value is
+     *     CARLOS text and keeps the data dictionary's ({@link Field#maximum},
+     *     CdsExportDictionaryLength)
+     */
+    static void validate(CdsExportMedicationDto value, java.util.Set<Field> imported)
+            throws IOException {
         String name = value.fields().get(Field.DrugName),
                 din = value.fields().get(Field.DrugIdentificationNumber);
         if ((name == null || name.isBlank()) && (din == null || din.isBlank())) invalid();
         for (var entry : value.fields().entrySet()) {
             var field = entry.getKey();
             String text = entry.getValue();
-            if (!CdsExportNativeFieldAssessments.legal(text, field.maximum())
+            if (!CdsExportNativeFieldAssessments.legal(
+                            text,
+                            imported.contains(field) ? field.schemaMaximum() : field.maximum())
                     || (field.indicator() || field.directIndicator())
                             && !text.equals("Y")
                             && !text.equals("N")

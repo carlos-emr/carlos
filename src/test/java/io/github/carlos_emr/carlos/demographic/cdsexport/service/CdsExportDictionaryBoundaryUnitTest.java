@@ -22,7 +22,6 @@
 package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 
 import static org.assertj.core.api.Assertions.*;
-import static org.mockito.Mockito.*;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsLogicalProfile;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
@@ -31,7 +30,11 @@ import java.io.*;
 import java.util.*;
 import org.junit.jupiter.api.Test;
 
-/** Data-dictionary capacities are independent of the broader historical XSD limits. */
+/**
+ * Data-dictionary capacities are independent of the broader XSD limits: text CARLOS writes keeps
+ * the dictionary's 1,000 and 32,000 characters at the writer, and an imported element retained
+ * unchanged keeps the schema's 1,024 and 32,768 (CdsExportDictionaryLength).
+ */
 class CdsExportDictionaryBoundaryUnitTest {
     private static final CdsExportDateDto UNKNOWN =
             new CdsExportDateDto(CdsExportDateDto.Precision.ABSENT, null);
@@ -82,86 +85,48 @@ class CdsExportDictionaryBoundaryUnitTest {
     }
 
     @Test
-    void
-            shouldVerifyAllergyDirectAndRetainedValuesUseTheSameThirtyTwoKBoundary_forDictionaryBoundaryContract()
-                    throws Exception {
+    void shouldHoldAllergyNotesCarlosWrites_toTheDictionaryLengthAndImportedOnesToTheSchema()
+            throws Exception {
         var exact = allergy("😀".repeat(32000));
         CdsExportAllergyXmlWriter.validate(exact);
         assertThatThrownBy(() -> CdsExportAllergyXmlWriter.validate(allergy("x".repeat(32001))))
                 .hasMessage("CDS_EXPORT_ALLERGY_VALUES_REQUIRES_REVIEW");
-        var decision =
-                new CdsExportAllergyFieldReconciler.Result(
-                        "a".repeat(64),
-                        "protected-unit",
-                        new CdsExportAllergyMappingDto(
-                                allergy("x".repeat(32001)),
-                                Map.of(
-                                        new CdsExportNativeFieldKeyDto(
-                                                "allergies", "1", "DESCRIPTION"),
-                                        new CdsExportFieldAssessmentDto(
-                                                CdsExportFieldAssessmentDto.Presence.VALUE,
-                                                CdsExportFieldAssessmentDto.Outcome.MAPPED,
-                                                "OffendingAgentDescription",
-                                                "TEST"))),
-                        Set.of(),
-                        Set.of());
-        var values = mock(CdsExportRetainedSectionWriter.Values.class);
-        var index = mock(CdsExportRetainedIndexDto.class);
-        when(index.sourceManifestSha256()).thenReturn("a".repeat(64));
-        when(index.appliedUnits()).thenReturn(Set.of("protected-unit"));
-        var checked =
-                new CdsExportRetainedReceiptVerificationDto(
-                        "a".repeat(64), Map.of(), Set.of(), Set.of());
+        // The retained assembler passes true only for the imported element's own text, unchanged
+        // (CdsExportAllergyRetainedAssemblerUnitTest): it is exported as imported.
+        for (int length : List.of(32001, 32768))
+            CdsExportAllergyXmlWriter.validate(allergy("x".repeat(length)), true);
         assertThatThrownBy(
-                        () ->
-                                new CdsExportAllergyRetainedAssembler()
-                                        .prepare(
-                                                27, decision, index, checked, List.of(), values,
-                                                () -> {}))
+                        () -> CdsExportAllergyXmlWriter.validate(allergy("x".repeat(32769)), true))
                 .hasMessage("CDS_EXPORT_ALLERGY_VALUES_REQUIRES_REVIEW");
     }
 
     @Test
-    void
-            shouldVerifyRetainedMedicationCannotBypassTheDirectWriterCapacityGate_forDictionaryBoundaryContract() {
-        var mapping =
-                new CdsExportMedicationDto(
-                        UNKNOWN,
-                        UNKNOWN,
-                        null,
-                        null,
-                        null,
-                        Map.of(Field.DrugName, "Synthetic", Field.Notes, "x".repeat(32001)));
-        var fields =
-                Map.of(
-                        new CdsExportNativeFieldKeyDto("drugs", "1", "customName"),
-                        new CdsExportFieldAssessmentDto(
-                                CdsExportFieldAssessmentDto.Presence.VALUE,
-                                CdsExportFieldAssessmentDto.Outcome.MAPPED,
-                                "DrugName",
-                                "TEST"));
-        var decision =
-                new CdsExportMedicationFieldReconciler.Result(
-                        "a".repeat(64),
-                        "protected-unit",
-                        new CdsExportMedicationMappingDto(mapping, fields),
-                        Set.of(),
-                        Set.of(),
-                        false);
-        var values = mock(CdsExportRetainedSectionWriter.Values.class);
-        var index = mock(CdsExportRetainedIndexDto.class);
-        when(index.sourceManifestSha256()).thenReturn("a".repeat(64));
-        when(index.appliedUnits()).thenReturn(Set.of("protected-unit"));
-        var checked =
-                new CdsExportRetainedReceiptVerificationDto(
-                        "a".repeat(64), Map.of(), Set.of(), Set.of());
-        assertThatThrownBy(
-                        () ->
-                                new CdsExportMedicationRetainedAssembler()
-                                        .prepare(
-                                                27, decision, index, checked, List.of(), values,
-                                                () -> {}))
-                .hasMessage("CDS_EXPORT_MEDICATION_VALUES_REQUIRES_REVIEW");
+    void shouldHoldMedicationTextCarlosWrites_toTheDictionaryLengthAndImportedElementsToTheSchema()
+            throws Exception {
+        for (var field :
+                List.of(
+                        Field.Duration,
+                        Field.RefillDuration,
+                        Field.Quantity,
+                        Field.RefillQuantity,
+                        Field.Notes,
+                        Field.PrescriptionInstructions)) {
+            boolean thousand = field.maximum() == 1000;
+            assertThat(field.schemaMaximum()).isEqualTo(thousand ? 1024 : 32768);
+            var values = new EnumMap<Field, String>(Field.class);
+            values.put(Field.DrugName, "Synthetic medication");
+            values.put(field, "x".repeat(field.maximum() + 1));
+            var gap = new CdsExportMedicationDto(UNKNOWN, UNKNOWN, null, null, null, values);
+            // Written from the reconciled value it is CARLOS text and keeps the dictionary length.
+            assertThatThrownBy(() -> CdsExportMedicationXmlWriter.validate(gap))
+                    .hasMessage("CDS_EXPORT_MEDICATION_VALUES_REQUIRES_REVIEW");
+            // Kept as its imported element it keeps the schema's.
+            CdsExportMedicationXmlWriter.validate(gap, Set.of(field));
+            values.put(field, "x".repeat(field.schemaMaximum() + 1));
+            var past = new CdsExportMedicationDto(UNKNOWN, UNKNOWN, null, null, null, values);
+            assertThatThrownBy(() -> CdsExportMedicationXmlWriter.validate(past, Set.of(field)))
+                    .hasMessage("CDS_EXPORT_MEDICATION_VALUES_REQUIRES_REVIEW");
+        }
     }
 
     @Test

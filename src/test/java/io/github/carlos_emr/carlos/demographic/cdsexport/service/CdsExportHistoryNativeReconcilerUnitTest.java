@@ -367,6 +367,68 @@ class CdsExportHistoryNativeReconcilerUnitTest {
     }
 
     @Test
+    void shouldExportUnchangedImportedTextInTheDictionaryGap_andCarryItOnceCarlosWritesNotes()
+            throws Exception {
+        // Owner decision (#56) for a text64K (ProblemList Notes) and a text1K (AlertDescription
+        // and Notes of an alert): imported text between the dictionary's length and the schema's
+        // is exported exactly as imported while nobody changes it. Once CARLOS writes the Notes
+        // (here the archive statement) they keep the dictionary length by the native rule: whole
+        // parts only, and the imported Notes are carried exactly in the residual.
+        for (var entry :
+                Map.of(
+                                CdsCategory.PROBLEM_LIST,
+                                List.of("Concerns", "ProblemDiagnosisDescription[1]"),
+                                CdsCategory.ALERTS_AND_SPECIAL_NEEDS,
+                                List.of("Reminders", "AlertDescription[1]"))
+                        .entrySet()) {
+            var category = entry.getKey();
+            String tag = entry.getValue().get(0), description = entry.getValue().get(1);
+            int dictionary = CdsExportNativeHistoryMapper.notesLimit(category),
+                    schema = CdsExportDictionaryLength.schema(dictionary);
+            for (int length : new int[] {dictionary + 1, schema}) {
+                String imported = "n".repeat(length);
+                // An alert's description is a text1K too; a problem's is not.
+                String shown =
+                        category == CdsCategory.ALERTS_AND_SPECIAL_NEEDS
+                                ? "d".repeat(length)
+                                : "Original imported narrative";
+                var fields =
+                        List.of(
+                                field(category, description, shown),
+                                field(category, "Notes[1]", imported));
+                String unchanged =
+                        new String(
+                                render(
+                                        category,
+                                        reconcile(
+                                                        category,
+                                                        tag,
+                                                        fields,
+                                                        "Original imported narrative",
+                                                        false)
+                                                .content()),
+                                StandardCharsets.UTF_8);
+                assertThat(unchanged).contains("<Notes>" + imported + "</Notes>", shown);
+                var archived =
+                        reconcile(category, tag, fields, "Original imported narrative", true);
+                byte[] rendered = render(category, archived.content());
+                assertThat(new String(rendered, StandardCharsets.UTF_8))
+                        .contains(
+                                "<Notes>"
+                                        + CdsExportNativeHistoryMapper.ARCHIVED_ITEM_STATEMENT
+                                        + "</Notes>",
+                                shown);
+                var residual =
+                        new com.fasterxml.jackson.databind.ObjectMapper()
+                                .readTree(
+                                        CdsExportNativeHistoryMapperUnitTest.residual(
+                                                rendered, "CARLOS.NativeHistory.v1"));
+                assertThat(residual.get("importedNotes").asText()).isEqualTo(imported);
+            }
+        }
+    }
+
+    @Test
     void shouldReplaceAnImportedNarrativeCarrier_whenTheEditFitsTheDescription()
             throws Exception {
         String imported = "Original imported narrative";

@@ -771,6 +771,17 @@ class CdsExportMedicationFieldReconcilerUnitTest {
                 List.of());
     }
 
+    /** {@link #source()} whose imported Notes are {@code notes}. */
+    static CdsMedicationDto sourceWithNotes(String notes) throws Exception {
+        var value = (com.fasterxml.jackson.databind.node.ObjectNode) JSON.valueToTree(source());
+        value.put("providerNotes", notes);
+        return JSON.copy()
+                .disable(
+                        com.fasterxml.jackson.databind.DeserializationFeature
+                                .ADJUST_DATES_TO_CONTEXT_TIME_ZONE)
+                .treeToValue(value, CdsMedicationDto.class);
+    }
+
     static CdsMedicationDto sourceOnlyStrength() throws Exception {
         var value = (com.fasterxml.jackson.databind.node.ObjectNode) JSON.valueToTree(source());
         value.putNull("strengthAmount");
