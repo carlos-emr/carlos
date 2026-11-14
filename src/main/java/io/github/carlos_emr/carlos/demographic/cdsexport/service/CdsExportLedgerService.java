@@ -542,6 +542,44 @@ public class CdsExportLedgerService {
     }
 
     /**
+     * Records the newest sealed member of this attempt's finished-chart checkpoint ({@link
+     * CdsExportChartCheckpointPersister}) on the attempt row, under the live fence, with how many of
+     * the charts it names this attempt adopted from an earlier attempt. The chain only grows: a
+     * pointer that counts fewer charts, or fewer adopted ones, than the pointer already recorded is
+     * refused. Identifiers and counts only; never a patient value.
+     */
+    public void recordCheckpoint(
+            CdsExportLeaseDto lease,
+            io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportChartCheckpointDto pointer,
+            long adopted) {
+        Objects.requireNonNull(pointer);
+        if (adopted < 0 || adopted > pointer.charts())
+            throw new IllegalArgumentException("CDS_EXPORT_CHART_CHECKPOINT_INVALID");
+        transaction(
+                write,
+                () -> {
+                    var run = owned(lease);
+                    var now = runs.now();
+                    if (run.isCancelRequested())
+                        throw new CancellationException("CDS_EXPORT_CANCELLED");
+                    var attempt = attempt(run, lease.epoch());
+                    if (attempt.getCheckpointCharts() != null
+                            && (pointer.charts() < attempt.getCheckpointCharts()
+                                    || adopted < attempt.getAdoptedCharts()))
+                        throw new IllegalStateException("CDS_EXPORT_CHART_CHECKPOINT_INVALID");
+                    attempt.setCheckpointMember(pointer.memberId());
+                    attempt.setCheckpointDigest(pointer.sha256());
+                    attempt.setCheckpointBytes(pointer.bytes());
+                    attempt.setCheckpointCharts(pointer.charts());
+                    attempt.setAdoptedCharts(adopted);
+                    attempt.setUpdatedAt(now);
+                    // The heartbeat refreshes the run row; it changes nothing recorded above.
+                    runs.renewLease(run, now, now.plusSeconds(LEASE_SECONDS));
+                    return null;
+                });
+    }
+
+    /**
      * Records only an independently finished package, retaining each epoch's ownership after
      * restart.
      */

@@ -773,6 +773,9 @@ Migration `V1.0.59.48` indexes `cds_import_unit` (the import's record of each im
 that one chart's entries are read in order from the index. Without it the capture sorted every
 entry of an imported chart again for each page it read, and the time grew with the square of the
 chart. On a clinic with many imported charts the index build adds a little time to the upgrade.
+Migration `V1.0.59.49` adds five nullable columns to `cds_export_attempt`: the pointer to an
+attempt's sealed finished-chart checkpoint and how many of its charts it adopted. It changes no
+row.
 
 No setting limits how much of a chart is captured. `cds.export.maxCapturedFields` and
 `cds.export.maxCapturedBytes` are retired: remove them from `carlos.properties`. If they are

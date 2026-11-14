@@ -293,6 +293,45 @@ class CdsExportLedgerIntegrationTest {
                 .containsExactly(first.epoch(), second.epoch());
     }
 
+    private static io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportChartCheckpointDto
+            pointer(char member, long charts) {
+        return new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportChartCheckpointDto(
+                String.valueOf(member).repeat(64), "f".repeat(64), 128 + charts, charts);
+    }
+
+    @Test
+    void shouldRecordTheNewestCheckpointMember_onTheAttemptRowUnderTheLiveFence() {
+        var job = ledger.accept(document("recipient"));
+        var lease = ledger.claim(job.id(), COMPATIBLE);
+        ledger.recordCheckpoint(lease, pointer('1', 3), 0);
+        ledger.recordCheckpoint(lease, pointer('2', 5), 2);
+        assertThat(
+                        sql.queryForMap(
+                                "select checkpoint_member,checkpoint_digest,checkpoint_bytes,"
+                                        + "checkpoint_charts,adopted_charts from cds_export_attempt"
+                                        + " where run_id=? and epoch=?",
+                                job.id(),
+                                lease.epoch()))
+                .containsEntry("checkpoint_member", "2".repeat(64))
+                .containsEntry("checkpoint_digest", "f".repeat(64))
+                .containsEntry("checkpoint_bytes", 133L)
+                .containsEntry("checkpoint_charts", 5L)
+                .containsEntry("adopted_charts", 2L);
+        // The chain only grows: an older pointer, or fewer adopted charts, is refused.
+        assertThatThrownBy(() -> ledger.recordCheckpoint(lease, pointer('3', 4), 2))
+                .hasMessage("CDS_EXPORT_CHART_CHECKPOINT_INVALID");
+        assertThatThrownBy(() -> ledger.recordCheckpoint(lease, pointer('3', 6), 1))
+                .hasMessage("CDS_EXPORT_CHART_CHECKPOINT_INVALID");
+        assertThatThrownBy(() -> ledger.recordCheckpoint(lease, pointer('3', 6), 7))
+                .hasMessage("CDS_EXPORT_CHART_CHECKPOINT_INVALID");
+        // A stopped attempt records nothing more.
+        ledger.stop(lease, CdsExportState.FAILED, "CDS_EXPORT_IO_FAILED");
+        assertThatThrownBy(() -> ledger.recordCheckpoint(lease, pointer('4', 9), 2))
+                .isInstanceOf(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                .CdsExportOwnerFencedException.class);
+    }
+
     @Test
     void shouldRollbackAttemptCreation_whenItsClaimAuditFails() {
         var job = ledger.accept(document("recipient"));

@@ -377,6 +377,9 @@ public class CdsExportExecutionService {
         private final AtomicLong alive = new AtomicLong(started);
 
         private final AtomicBoolean stalled = new AtomicBoolean();
+
+        /** Set by each heartbeat; the engine thread seals its finished-chart checkpoint then. */
+        private final AtomicBoolean checkpointDue = new AtomicBoolean();
         private final java.util.concurrent.atomic.AtomicReference<RuntimeException>
                 heartbeatFailure = new java.util.concurrent.atomic.AtomicReference<>();
         private final java.util.concurrent.ScheduledExecutorService heartbeat;
@@ -419,6 +422,7 @@ public class CdsExportExecutionService {
                         try {
                             local(false);
                             ledger.checkpoint(lease);
+                            checkpointDue.set(true);
                         } catch (RuntimeException failed) {
                             heartbeatFailure.compareAndSet(null, failed);
                             // The engine thread cannot record its own silence: this thread does,
@@ -459,6 +463,11 @@ public class CdsExportExecutionService {
             if (TransactionSynchronizationManager.isActualTransactionActive())
                 throw new IllegalStateException("CDS_EXPORT_AMBIENT_TRANSACTION_REFUSED");
             if (probe()) ledger.checkpoint(lease);
+        }
+
+        @Override
+        public boolean checkpointDue() {
+            return checkpointDue.getAndSet(false);
         }
 
         @Override

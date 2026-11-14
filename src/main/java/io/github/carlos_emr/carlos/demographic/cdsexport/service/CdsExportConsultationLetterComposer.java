@@ -146,6 +146,10 @@ public class CdsExportConsultationLetterComposer implements CdsExportDataSummary
     public CdsExportDataSummaryOccurrenceService.Printed print(
             CdsExportDataSummaryPlanner.Group group, CdsExportDataSummaryOccurrenceService.Plan plan)
             throws IOException {
+        // A printed letter reads the clinic's reference rows, logo and settings live, outside the
+        // capture: a chart that prints one is never adopted by a resumed export
+        // (CdsExportChartInputs).
+        CdsExportChartInputs.uncaptured();
         var request = group.rows().getFirst();
         if (!TABLE.equals(request.table())) throw new IllegalStateException("CDS_EXPORT_PRINTED_FORM_SCOPE_INVALID");
         var referring = provider(request.text("providerNo"));

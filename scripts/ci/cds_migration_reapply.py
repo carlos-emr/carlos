@@ -15,7 +15,8 @@ def verify_export_migration_reapply(repository: Path, query):
              'V1.0.59.45__cds_export_held_patients.sql',
              'V1.0.59.46__index_measurements_deleted_owners.sql',
              'V1.0.59.47__index_cds_laboratory_result_native_lab.sql',
-             'V1.0.59.48__index_cds_import_unit_patient_id.sql')
+             'V1.0.59.48__index_cds_import_unit_patient_id.sql',
+             'V1.0.59.49__cds_export_attempt_checkpoint.sql')
     migrations = [folder.joinpath(name).read_text() for name in names]
     def first_statement(sql):
         # Semicolons in explanatory comments are not SQL statement boundaries.
@@ -182,6 +183,40 @@ def verify_export_migration_reapply(repository: Path, query):
             refused = True
         if not refused:
             raise RuntimeError('A same-name cds_import_unit index of another shape was accepted')
+        # cds_export_attempt checkpoint pointer: the columns are added once, a replay changes
+        # nothing, no existing attempt row is rewritten, and a same-name column of another shape
+        # is refused.
+        attempt_rows = ('SELECT id,run_id,epoch,state,COALESCE(HEX(context_document),\'-\'),expires_at,revision '
+                        'FROM cds_export_attempt ORDER BY id')
+        attempts = execute(attempt_rows)
+        checkpoint_columns = ("SELECT CONCAT(column_name,':',column_type,':',is_nullable,':',"
+                              "COALESCE(collation_name,'-')) FROM information_schema.columns "
+                              "WHERE table_schema=DATABASE() AND table_name='cds_export_attempt' "
+                              "AND ordinal_position>17 ORDER BY ordinal_position")
+        # Crash after the first column was added: the replay adds only the missing ones.
+        execute('ALTER TABLE cds_export_attempt ADD COLUMN checkpoint_member VARCHAR(64) NULL')
+        execute(migrations[8]); execute(migrations[8])
+        if execute(checkpoint_columns) != [
+                'checkpoint_member:varchar(64):YES:utf8mb4_bin',
+                'checkpoint_digest:varchar(64):YES:utf8mb4_bin',
+                'checkpoint_bytes:bigint(20):YES:-',
+                'checkpoint_charts:bigint(20):YES:-',
+                'adopted_charts:bigint(20):YES:-']:
+            raise RuntimeError('cds_export_attempt checkpoint replay did not end with exactly its columns')
+        if execute(attempt_rows) != attempts:
+            raise RuntimeError('cds_export_attempt checkpoint replay changed an attempt')
+        if execute("SELECT COUNT(*) FROM cds_export_attempt WHERE checkpoint_member IS NOT NULL "
+                   "OR checkpoint_digest IS NOT NULL OR checkpoint_bytes IS NOT NULL "
+                   "OR checkpoint_charts IS NOT NULL OR adopted_charts IS NOT NULL") != ['0']:
+            raise RuntimeError('cds_export_attempt checkpoint replay invented a checkpoint')
+        execute('ALTER TABLE cds_export_attempt MODIFY checkpoint_charts INT NULL')
+        try:
+            execute(migrations[8])
+            refused = False
+        except Exception:
+            refused = True
+        if not refused:
+            raise RuntimeError('A same-name cds_export_attempt column of another shape was accepted')
         return {'protocol': 1, 'status': 'PARTIAL_DDL_REPLAY_PASSED',
                 'nativeWitnessPreserved': True, 'existingAttemptPreserved': True,
                 'missingAttemptBackfilledOnce': True, 'explicitDenialPreserved': True,
@@ -190,6 +225,7 @@ def verify_export_migration_reapply(repository: Path, query):
                 'measurementsDeletedIndexesRecovered': True,
                 'laboratoryResultIndexReplayed': True,
                 'importUnitIndexReplayed': True,
+                'attemptCheckpointReplayed': True,
                 'migrations': {name: hashlib.sha256(folder.joinpath(name).read_bytes()).hexdigest() for name in names}}
     finally:
         query('DROP DATABASE ' + database)

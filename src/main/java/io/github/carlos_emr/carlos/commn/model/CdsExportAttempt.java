@@ -67,6 +67,29 @@ public class CdsExportAttempt extends AbstractModel<String> {
     @jakarta.persistence.Version
     @Column(name = "revision", nullable = false)
     private long revision;
+
+    /**
+     * The newest sealed {@code CHART_CHECKPOINT} member of this attempt: the finished charts it
+     * kept, in a chain of encrypted members of its own staging store. A resumed attempt trusts a
+     * member only when it is exactly the one named here (identifier, plaintext SHA-256, length).
+     * All five checkpoint columns are null when the attempt sealed none.
+     */
+    @Column(name = "checkpoint_member", nullable = true, length = 64)
+    private String checkpointMember;
+
+    @Column(name = "checkpoint_digest", nullable = true, length = 64)
+    private String checkpointDigest;
+
+    @Column(name = "checkpoint_bytes", nullable = true)
+    private Long checkpointBytes;
+
+    /** The finished charts the sealed chain names (built here or adopted). */
+    @Column(name = "checkpoint_charts", nullable = true)
+    private Long checkpointCharts;
+
+    /** How many of those charts this attempt adopted from an earlier attempt of the job. */
+    @Column(name = "adopted_charts", nullable = true)
+    private Long adoptedCharts;
     @Override
     public String getId() { return id; }
     public void setId(String value) { id = value; }
@@ -102,5 +125,15 @@ public class CdsExportAttempt extends AbstractModel<String> {
     public void setExpiresAt(java.time.Instant value) { expiresAt = value; }
     public long getRevision() { return revision; }
     public void setRevision(long value) { revision = value; }
+    public String getCheckpointMember() { return checkpointMember; }
+    public void setCheckpointMember(String value) { checkpointMember = value; }
+    public String getCheckpointDigest() { return checkpointDigest; }
+    public void setCheckpointDigest(String value) { checkpointDigest = value; }
+    public Long getCheckpointBytes() { return checkpointBytes; }
+    public void setCheckpointBytes(Long value) { checkpointBytes = value; }
+    public Long getCheckpointCharts() { return checkpointCharts; }
+    public void setCheckpointCharts(Long value) { checkpointCharts = value; }
+    public Long getAdoptedCharts() { return adoptedCharts; }
+    public void setAdoptedCharts(Long value) { adoptedCharts = value; }
     @Override public String toString() { return "CdsExportAttempt[protected]"; }
 }

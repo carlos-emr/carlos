@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "8c0be23db01c93f1abe92876f064a34859682678cce2d232939bed1cbce9add5",
+ "migration_sha256": "31ba1f95f564b1f6f1c48c3ba8e249012a2f2a559bf3eb4813f0248f426205b1",
  "province": "on",
  "schema": {
   "checks": [
@@ -14212,6 +14212,66 @@
     null,
     null,
     6
+   ],
+   [
+    "cds_export_attempt",
+    "adopted_charts",
+    "bigint(20)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    22
+   ],
+   [
+    "cds_export_attempt",
+    "checkpoint_bytes",
+    "bigint(20)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    20
+   ],
+   [
+    "cds_export_attempt",
+    "checkpoint_charts",
+    "bigint(20)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    21
+   ],
+   [
+    "cds_export_attempt",
+    "checkpoint_digest",
+    "varchar(64)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    19
+   ],
+   [
+    "cds_export_attempt",
+    "checkpoint_member",
+    "varchar(64)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    18
    ],
    [
     "cds_export_attempt",

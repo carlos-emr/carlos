@@ -99,6 +99,9 @@ public class CdsExportRourkeChartComposer implements CdsExportDataSummaryOccurre
     public CdsExportDataSummaryOccurrenceService.Printed print(
             CdsExportDataSummaryPlanner.Group group, CdsExportDataSummaryOccurrenceService.Plan plan)
             throws IOException {
+        // A printed chart reads the provider directory live, outside the capture: a chart that
+        // prints one is never adopted by a resumed export (CdsExportChartInputs).
+        CdsExportChartInputs.uncaptured();
         var root = group.rows().getFirst();
         Properties props = properties(group, plan.demographic());
         var output = new ByteArrayOutputStream();
