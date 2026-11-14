@@ -63,4 +63,36 @@ class CdsPreparedHistoryDefaultsUnitTest {
                     .hasMessage("CDS_PREPARED_HISTORY_DEFAULTS_INVALID");
         }
     }
+
+    @Test
+    void shouldReadNoOtherSections_fromAHistoryPayloadThatNamesNone() throws Exception {
+        // Sealed before items filed under several CPP sections were restored, or of one section:
+        // the stored bytes are unchanged and the decoded copy has none.
+        var source = json.readTree("{\"content\":\"Item\",\"issueCode\":\"FamHistory\"}");
+        var result = CdsPreparedHistoryDefaults.applyNative(source);
+        assertThat(result.path("additionalIssueCodes").isArray()).isTrue();
+        assertThat(result.path("additionalIssueCodes")).isEmpty();
+        assertThat(source.has("additionalIssueCodes")).isFalse();
+        var kept =
+                CdsPreparedHistoryDefaults.applyNative(
+                        json.readTree("{\"additionalIssueCodes\":[\"MedHistory\"]}"));
+        assertThat(kept.path("additionalIssueCodes").get(0).asText()).isEqualTo("MedHistory");
+        // A medication payload, which shares the archive default, never gains the member.
+        assertThat(CdsPreparedHistoryDefaults.apply(source).has("additionalIssueCodes")).isFalse();
+    }
+
+    @Test
+    void shouldRefuseOtherSectionsThatAreNotText_insteadOfReadingThemAsNone() throws Exception {
+        for (String value :
+                new String[] {
+                    "{\"additionalIssueCodes\":null}",
+                    "{\"additionalIssueCodes\":\"MedHistory\"}",
+                    "{\"additionalIssueCodes\":[1]}",
+                    "{\"additionalIssueCodes\":[null]}"
+                }) {
+            var source = json.readTree(value);
+            assertThatThrownBy(() -> CdsPreparedHistoryDefaults.applyNative(source))
+                    .hasMessage("CDS_PREPARED_HISTORY_DEFAULTS_INVALID");
+        }
+    }
 }

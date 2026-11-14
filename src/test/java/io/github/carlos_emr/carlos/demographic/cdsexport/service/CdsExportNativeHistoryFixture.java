@@ -44,6 +44,25 @@ public final class CdsExportNativeHistoryFixture {
     }
 
     /**
+     * The composed, schema-valid patient document holding a CPP item its chart files under
+     * several CPP sections, exported once, under the first of them.
+     *
+     * @param tags the section tags (issue codes) the item's links carry, in link order
+     */
+    public static byte[] filedUnderDocument(String body, String... tags) throws Exception {
+        var item = CdsExportNativeHistoryMapperUnitTest.filedUnder(91, body, tags);
+        var mapped =
+                new CdsExportNativeHistoryMapper()
+                        .map(
+                                27,
+                                CdsExportNativeHistoryMapper.category(item),
+                                List.of(item),
+                                CdsExportNativeHistoryMapperUnitTest.providers(),
+                                ZoneId.of("America/Toronto"));
+        return CdsExportNativeHistoryMapperUnitTest.render(mapped.value());
+    }
+
+    /**
      * The composed, schema-valid patient document holding one diagnosis exported on its own (a
      * patient issue no CPP item files): a ProblemList entry whose text is the catalogue
      * description.

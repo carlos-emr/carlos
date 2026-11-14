@@ -37,4 +37,26 @@ public final class CdsPreparedHistoryDefaults {
         if (!result.has("archived")) result.put("archived", false);
         return result;
     }
+
+    /**
+     * {@link #apply}, for a prepared note or CPP item ({@code CdsHistoryNativeDto}) alone. A
+     * payload sealed before an item filed under several CPP sections was restored, and every
+     * payload of an item of one section, omits {@code additionalIssueCodes}: it is empty there. A
+     * present value that is not an array of text is refused; the record's own check refuses any
+     * other code.
+     */
+    public static ObjectNode applyNative(JsonNode value) {
+        ObjectNode result = apply(value);
+        JsonNode codes = result.get("additionalIssueCodes");
+        if (codes == null) result.putArray("additionalIssueCodes");
+        else {
+            if (!codes.isArray()) throw invalid();
+            for (JsonNode code : codes) if (!code.isTextual()) throw invalid();
+        }
+        return result;
+    }
+
+    private static IllegalArgumentException invalid() {
+        return new IllegalArgumentException("CDS_PREPARED_HISTORY_DEFAULTS_INVALID");
+    }
 }

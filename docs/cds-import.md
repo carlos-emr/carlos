@@ -188,6 +188,7 @@ it is said here.
 | --- | --- | --- |
 | `CARLOS.History.Narrative.v1` | A CPP narrative too long for its description element (which is then left out), or a PersonalHistory narrative | Restored (the note body), as before. |
 | `CARLOS.NativeHistory.v1` `exactNarrative` / `narrative`, `patientIssue.issue.description` | The exact body of a CPP item or note that holds a character XML cannot carry, or the exact description of a diagnosis sent on its own; the element and the narrative carrier show U+FFFD | Restored, see "Exact text a CARLOS sender carries" below. |
+| `CARLOS.NativeHistory.v1` `sections` | Every CPP section tag of an item the sender's chart files under two or more CPP sections; the item itself is written once, under the first | Restored (the item's links), see "CPP items filed under several sections" below. |
 | `CARLOS.NativeHistory.v1` `importedNotes`, `revisions`, extension facts | Imported Notes left out of Notes on an edited imported item; every revision | Source only. No native value is changed: Notes was never a native column. |
 | `CARLOS.NativeDemographic.v1` (`CARLOS.Demographic.v1`) `note` | A patient note longer than NoteAboutPatient (64,000), with a character XML cannot carry, or in a legacy frame | Restored, see "Exact text a CARLOS sender carries" below. A legacy frame needs nothing: the element already holds the note as the sender's chart shows it. |
 | `CARLOS.NativeDemographic.v1` `demographic` (names, title, birth columns, sex, status, status date, health card, phones, chart number, e-mail, SIN, languages, address parts) and `properties` | The stored value of a Demographics element the sender could not write exactly or that this importer would store in another form, and the `demographicExt` rows | Restored, see "CARLOS demographic values" below. |
@@ -286,6 +287,34 @@ packaged WAF admits a 16 MiB form and nginx and Tomcat 50 MB, and a larger form 
 anything is written, so the note stays as it was. The note and its revision history are LONGTEXT,
 and the packaged server accepts a 1 GiB statement. The CPP editor also copies the note into the
 legacy CPP and eChart summaries, which are MEDIUMTEXT (16 MiB); one imported note cannot fill them.
+
+### CPP items filed under several sections
+
+A CARLOS chart can file one CPP item under two or more CPP sections (the encounter and CPP
+editors' issue search offers the six section tags), and shows it in each of those boxes. A CDS
+item has one section, so a CARLOS sender writes it once, under the first of its sections in CDS
+PatientRecord order (PersonalHistory, FamilyHistory, PastHealth, ProblemList, RiskFactors,
+AlertsAndSpecialNeeds), names the others in its Notes (`Also filed under:` and one section name
+per line), and lists every tag at the root of the item's `CARLOS.NativeHistory.v1` details, in
+that order: `"sections":["FamHistory","MedHistory"]`. An imported item the sender edited has it
+at the root of `nativeHistory` instead (`docs/cds-export.md`).
+
+The importer reads the list from the item's last `CARLOS.NativeHistory.v1` as a stream, keeping
+no other value (`CdsHistorySectionsReader`), and files the note under every tag in it: its own
+section's, as for any CPP item, and each other one, by the same rule (the patient issue of that
+tag, created when the chart has none) (`CdsHistoryPersister.otherSections`, `write`). So the
+receiving chart shows the item in every box the sender's chart did, and the unit's receipt names
+each tag's patient issue and link (`casemgmt_issue#<tag>`, `casemgmt_issue_notes#<tag>`), which
+an export from the receiving chart proves before writing the item again as the record it was
+imported from. The prepared item names the other tags (`additionalIssueCodes`, omitted when there
+are none, so a payload sealed earlier keeps its bytes and reads as none). A tag the receiving
+issue catalogue does not hold exactly once is not linked and is reported as
+`CDS_HISTORY_SECTION_NOT_RESTORED` (path `ResidualInfo`); the item keeps its other sections. A
+list that is not two to six distinct section tags including the record's own, or details that
+cannot be read, is never guessed at: the item is filed under its own section only and the report
+names `CDS_HISTORY_SECTIONS_NOT_APPLIED` (path `ResidualInfo`). Either way the record's retained
+source keeps the sender's list, and an item from a sender that is not CARLOS has none. A
+receiver that is not CARLOS files the item under its one section and shows the Notes line.
 
 ### CARLOS demographic values
 
