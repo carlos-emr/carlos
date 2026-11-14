@@ -853,18 +853,78 @@ class CdsExportNativeMedicationMapperUnitTest {
     }
 
     @Test
-    void shouldRefuseUnboundImportedAuthorityAndMalformedNativeRegimens() throws Exception {
-        for (var changes :
-                List.of(
-                        Map.of("cds_currentness", "CURRENT"),
-                        Map.of("cds_dose_text", "1"),
-                        Map.of("cds_projection_incomplete", "1"),
-                        Map.of("archived", "yes"))) {
-            var fields = source();
-            fields.putAll(changes);
-            assertThatThrownBy(() -> mapper.map(27, medication(fields), List.of(), Map.of()))
-                    .isInstanceOf(java.io.IOException.class);
-        }
+    void shouldRefuseAnArchiveFlagNoWriterStores_asAMalformedNativeRow() throws Exception {
+        // drugs.archived is TINYINT(1) and every writer (Drug.archived, a boolean; the CDS
+        // importer; the OSCAR 19 migration, which copies OSCAR's boolean column) stores 0 or 1.
+        var fields = source();
+        fields.put("archived", "yes");
+        assertThatThrownBy(() -> mapper.map(27, medication(fields), List.of(), Map.of()))
+                .isInstanceOf(java.io.IOException.class);
+    }
+
+    @Test
+    void shouldExportTheLongTermCopyOfAnImportedPrescription_withItsImportColumnsInsteadOfHolding()
+            throws Exception {
+        // The Rx page's long-term toggle (RxWriteScript2Action.updateLongTermStatus) saves a copy
+        // of an imported prescription with the import's provenance columns (Prescription.syncDrug)
+        // and archives the imported row. No import unit claims the copy: it held the patient as
+        // CDS_EXPORT_NATIVE_MEDICATION_REQUIRES_REVIEW.
+        var fields = source();
+        fields.put("cds_dose_text", "1-2 puffs");
+        fields.put("cds_currentness", "CURRENT");
+        fields.put("cds_projection_incomplete", "0");
+        fields.put("rxStatus", "Active");
+        fields.put("past_med", "0");
+        fields.put("long_term", "1");
+        var copy = mapper.map(27, medication(fields), List.of(), Map.of());
+        // The dose the Rx page shows (Prescription.getDosageDisplay) is Dosage.
+        assertThat(copy.value().fields())
+                .containsEntry(Field.Dosage, "1-2 puffs")
+                .containsEntry(Field.PrescriptionStatus, "Active")
+                .containsEntry(Field.LongTermMedication, "Y");
+        // Every column of a native prescription is accounted to its residual, the exact row.
+        for (String column :
+                List.of("cds_dose_text", "cds_currentness", "cds_projection_incomplete"))
+            assertThat(
+                            copy.fields()
+                                    .get(
+                                            new CdsExportNativeFieldKeyDto(
+                                                    "drugs",
+                                                    medication(fields).recordKey(),
+                                                    column))
+                                    .outcome())
+                    .as(column)
+                    .isNotEqualTo(CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW);
+        assertThat(copy.metadata())
+                .contains("\"cds_dose_text\":\"1-2 puffs\"", "\"cds_currentness\":\"CURRENT\"");
+        // A CARLOS import of the copy stores the same dose text and currentness the copy had.
+        var received = receive(copy);
+        assertThat(received.dose()).isEqualTo("1-2 puffs");
+        assertThat(received.currentness())
+                .isEqualTo(
+                        io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsMedicationDto
+                                .Currentness.CURRENT);
+        // A copy of an import that could not project every element keeps that flag, exactly, in
+        // the residual; a currentness the status does not give travels there too.
+        fields.put("cds_projection_incomplete", "1");
+        fields.put("cds_currentness", "UNKNOWN");
+        var incomplete = mapper.map(27, medication(fields), List.of(), Map.of());
+        assertThat(incomplete.value()).isNotNull();
+        for (String column : List.of("cds_projection_incomplete", "cds_currentness"))
+            assertThat(
+                            incomplete
+                                    .fields()
+                                    .get(
+                                            new CdsExportNativeFieldKeyDto(
+                                                    "drugs",
+                                                    medication(fields).recordKey(),
+                                                    column))
+                                    .destination())
+                    .as(column)
+                    .isEqualTo("MedicationsAndTreatments/ResidualInfo");
+        assertThat(incomplete.metadata())
+                .contains("\"cds_projection_incomplete\":\"1\"", "\"cds_currentness\":\"UNKNOWN\"");
+        render(CdsCategory.MEDICATIONS_AND_TREATMENTS, xml -> mapper.write(incomplete, xml));
     }
 
     @Test

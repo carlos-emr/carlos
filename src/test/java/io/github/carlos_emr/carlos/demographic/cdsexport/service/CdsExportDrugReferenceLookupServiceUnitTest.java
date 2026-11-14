@@ -60,20 +60,35 @@ class CdsExportDrugReferenceLookupServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseMismatchedAndMalformedPublicProducts_andReportAnUnknownDinAsAbsent()
+    void shouldReportAMismatchedOrMalformedProductAndAnUnknownDin_asNoUsableReference()
             throws Exception {
+        // DrugRef's answer is reference data, not the chart: an answer the reference cannot
+        // describe held the prescription's patient (CDS_EXPORT_DRUG_REFERENCE_REQUIRES_REVIEW).
+        // It is now no usable reference, and the prescription is exported unqualified, as for a
+        // DIN DrugRef does not know.
+        var negative = new Hashtable<String, Object>();
+        negative.put("name", "Native ingredient");
+        negative.put("strength", -5.0d);
+        negative.put("unit", "mg");
+        var unnamed = new Hashtable<String, Object>();
+        unnamed.put("strength", "5");
+        unnamed.put("unit", "mg");
         for (var change :
                 List.of(
-                        Map.of("regional_identifier", "99999999"),
-                        Map.of("components", "bad"),
-                        Map.of("product", 17))) {
+                        Map.<String, Object>of("regional_identifier", "99999999"),
+                        Map.<String, Object>of("components", "bad"),
+                        Map.<String, Object>of("product", 17),
+                        Map.<String, Object>of("product", " "),
+                        Map.<String, Object>of("components", new Vector<>(List.of(negative))),
+                        Map.<String, Object>of("components", new Vector<>(List.of(unnamed))),
+                        Map.<String, Object>of("components", new Vector<>(List.of("bad"))))) {
             var product = product();
             product.putAll(change);
             var client = mock(RxDrugRef.class);
             when(client.getDrugByDIN("00123456", Boolean.FALSE)).thenReturn(product);
-            assertThatThrownBy(
-                            () -> new CdsExportDrugReferenceLookupService(client).read("00123456"))
-                    .hasMessage("CDS_EXPORT_DRUG_REFERENCE_REQUIRES_REVIEW");
+            assertThat(new CdsExportDrugReferenceLookupService(client).read("00123456"))
+                    .as(change.keySet().toString())
+                    .isNull();
         }
         // A21: DrugRef answers a DIN it no longer holds with no product (RxDrugRef returns null);
         // that is reported as absent, so the prescription is exported unqualified, not held.
@@ -110,8 +125,9 @@ class CdsExportDrugReferenceLookupServiceUnitTest {
         assertThat(CdsExportDrugReferenceLookupService.strength(0.125d)).isEqualTo("0.125");
         assertThat(CdsExportDrugReferenceLookupService.strength(0.0d)).isEqualTo("0");
         assertThat(CdsExportDrugReferenceLookupService.strength("2.5 mg/mL")).isEqualTo("2.5 mg/mL");
-        assertThatThrownBy(() -> CdsExportDrugReferenceLookupService.strength(Double.NaN))
-                .hasMessage("CDS_EXPORT_DRUG_REFERENCE_REQUIRES_REVIEW");
+        // No ingredient has a negative or non-finite strength: no usable reference.
+        assertThat(CdsExportDrugReferenceLookupService.strength(Double.NaN)).isNull();
+        assertThat(CdsExportDrugReferenceLookupService.strength(-1.5d)).isNull();
     }
 
     @Test

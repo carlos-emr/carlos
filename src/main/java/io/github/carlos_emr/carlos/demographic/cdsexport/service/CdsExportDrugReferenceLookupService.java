@@ -22,7 +22,6 @@
 package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDrugReferenceDto;
-import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException;
 import io.github.carlos_emr.carlos.prescript.util.RxDrugRef;
 import java.io.IOException;
 import java.util.*;
@@ -47,15 +46,23 @@ public class CdsExportDrugReferenceLookupService {
     }
 
     /**
-     * The public product DrugRef holds for a DIN, or null when DrugRef answers that it has no
-     * product for it (an unknown DIN, such as a product no longer in the installed dictionary).
-     * A malformed or mismatched answer is refused; a transport failure is an I/O failure.
+     * The public product DrugRef holds for a DIN, or null when DrugRef has no usable product for
+     * it: an unknown DIN (a product no longer in the installed dictionary), or an answer the
+     * reference cannot describe (another DIN, no product name, no ingredient list, an ingredient
+     * without its name, unit or strength, a strength that is negative or not a finite number,
+     * text longer than the reference holds). Either way the prescription is exported as an
+     * unqualified catalogue selection, with no DIN or Strength element and its stored values
+     * exactly in the medication residual ({@code CdsExportNativeMedicationMapper}); DrugRef's
+     * answer is reference data, not the chart, so it never holds the patient (it did, as
+     * {@code CDS_EXPORT_DRUG_REFERENCE_REQUIRES_REVIEW}). A transport failure is an I/O failure.
      */
     public CdsExportDrugReferenceDto read(String din) throws IOException {
         if (TransactionSynchronizationManager.isActualTransactionActive())
             throw new IllegalStateException(
                     "CDS_EXPORT_REFERENCE_LOOKUP_INSIDE_TRANSACTION_REFUSED");
-        if (din == null || !din.matches("[0-9]{8}")) review();
+        // The source reader asks only for an eight-digit DIN (CdsExportDrugReferenceSourceReader).
+        if (din == null || !din.matches("[0-9]{8}"))
+            throw new IllegalArgumentException("CDS_EXPORT_DRUG_REFERENCE_DIN_INVALID");
         try {
             // false avoids the native client's HTML detail enrichment. No patient or prescription
             // identifier, name, dose, author or chart content enters the request.
@@ -66,20 +73,21 @@ public class CdsExportDrugReferenceLookupService {
             // number_of_ais, is not bounded); every one is read. Only the first is written, as
             // Strength (Guide 10.5).
             if (!din.equals(product.get("regional_identifier"))
-                    || !(product.get("product") instanceof String name)
-                    || !(product.get("components") instanceof Vector<?> components)) review();
+                    || !(product.get("product") instanceof String)
+                    || !(product.get("components") instanceof Vector<?>)) return null;
             var result = new ArrayList<CdsExportDrugReferenceDto.Component>();
             for (var item : (Vector<?>) product.get("components")) {
                 if (!(item instanceof Hashtable<?, ?> component)
                         || !(component.get("name") instanceof String)
                         || !(component.get("unit") instanceof String)
                         || !(component.get("strength") instanceof String
-                                || component.get("strength") instanceof Number)) review();
-                var component = (Hashtable<?, ?>) item;
+                                || component.get("strength") instanceof Number)) return null;
+                String strength = strength(component.get("strength"));
+                if (strength == null) return null;
                 result.add(
                         new CdsExportDrugReferenceDto.Component(
                                 (String) component.get("name"),
-                                strength(component.get("strength")),
+                                strength,
                                 (String) component.get("unit")));
             }
             return new CdsExportDrugReferenceDto(
@@ -88,10 +96,9 @@ public class CdsExportDrugReferenceLookupService {
                     din,
                     (String) product.get("product"),
                     result);
-        } catch (CdsExportMappingReviewException invalid) {
-            throw invalid;
-        } catch (IllegalArgumentException invalid) {
-            throw new CdsExportMappingReviewException("CDS_EXPORT_DRUG_REFERENCE_REQUIRES_REVIEW");
+        } catch (IllegalArgumentException unusable) {
+            // Text longer than the reference holds (CdsExportDrugReferenceDto): not usable.
+            return null;
         } catch (Exception failure) {
             if (Thread.currentThread().isInterrupted() || failure instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
@@ -104,24 +111,22 @@ public class CdsExportDrugReferenceLookupService {
         }
     }
 
-    private static void review() throws IOException {
-        throw new CdsExportMappingReviewException("CDS_EXPORT_DRUG_REFERENCE_REQUIRES_REVIEW");
-    }
-
     /**
      * DrugRef serves numeric strengths as doubles (DrugLookUpManager); Double.toString would
      * publish "500.0" or "1.0E7". The exact plain decimal without a trailing zero is written
      * instead (a trailing zero is on ISMP Canada's do-not-use list). Text strengths stay as
      * authored.
+     *
+     * @return the strength's text, or null for a negative or non-finite number, which no
+     *     ingredient has: the product is then not a usable reference
      */
-    static String strength(Object value) throws IOException {
+    static String strength(Object value) {
         if (value instanceof String text) return text;
         try {
             var decimal = new java.math.BigDecimal(value.toString()).stripTrailingZeros();
-            if (decimal.signum() < 0) review();
+            if (decimal.signum() < 0) return null;
             return (decimal.signum() == 0 ? java.math.BigDecimal.ZERO : decimal).toPlainString();
         } catch (NumberFormatException notFinite) {
-            review();
             return null;
         }
     }

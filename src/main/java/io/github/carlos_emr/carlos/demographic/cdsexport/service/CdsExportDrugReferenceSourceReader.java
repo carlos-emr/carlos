@@ -27,7 +27,6 @@ import io.github.carlos_emr.carlos.commn.dto.*;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDrugReferenceDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl;
-import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException;
 import java.io.IOException;
 import java.util.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -147,25 +146,26 @@ public class CdsExportDrugReferenceSourceReader implements CdsExportNativeSource
                 table(), "TRUSTED_PUBLIC_REFERENCE", fields, List.of("drugid"));
     }
 
-    private void requireSnapshot(int patient) throws IOException {
+    /**
+     * The prescriptions read in the capture snapshot must be the ones the references were frozen
+     * for. A difference is a source changed during capture, which guards the job (the chart is
+     * read again), never a property of the chart.
+     */
+    private void requireSnapshot(int patient) {
         if (this.patient == 0
                 || this.patient != patient
                 || !inputs.equals(
                         drugs.readCdsExportDrugReferenceInputs(patient)))
-            invalid();
-    }
-
-    @Override
-    public long count(int patient) {
-        try {
-            requireSnapshot(patient);
-            return references.size();
-        } catch (IOException failed) {
             throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
                     .CdsExportReviewException(
                     io.github.carlos_emr.carlos.demographic.cdsexport.support
                             .CdsExportReviewException.Reason.SOURCE_CHANGED);
-        }
+    }
+
+    @Override
+    public long count(int patient) {
+        requireSnapshot(patient);
+        return references.size();
     }
 
     @Override
@@ -187,7 +187,11 @@ public class CdsExportDrugReferenceSourceReader implements CdsExportNativeSource
         }
     }
 
+    /**
+     * A broken invariant of the reader's own inputs (the projection's ascending drug ids, a
+     * reference the lookup returned for another DIN), never a value of the chart.
+     */
     private static void invalid() throws IOException {
-        throw new CdsExportMappingReviewException("CDS_EXPORT_DRUG_REFERENCE_REQUIRES_REVIEW");
+        throw new IOException("CDS_EXPORT_DRUG_REFERENCE_SCOPE_INVALID");
     }
 }
