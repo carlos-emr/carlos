@@ -412,22 +412,24 @@ public class CdsExportPreventionSnapshotService {
             Set<String> columns,
             Runnable checkpoint)
             throws IOException {
+        // The clinic's vaccine catalogue (CVCImmunization, CVCMapping), not chart data: no count
+        // or size of it fails an export (10,000 rows and 4 MiB did, for every patient). Its rows
+        // are held while the classifier is built from them, as the classifier holds them.
         long count = source.countCdsExportRows(patient);
-        if (count < 0 || count > 10_000) invalid();
+        if (count < 0) invalid();
         var result = new ArrayList<CdsExportCapturedTextRowDto>();
         Long after = null;
-        long bytes = 0;
         while (true) {
             checkpoint.run();
             var page = source.findCdsExportRowsAfter(patient, after, 32);
             if (page.size() > 32) invalid();
             for (var row : page) {
                 if (after != null && row.id() <= after
-                        || !row.cells().keySet().equals(columns)
-                        || result.size() >= 10_000) invalid();
+                        || !row.cells().keySet().equals(columns)) invalid();
                 var fields = new TreeMap<String, String>();
                 for (var entry : row.cells().entrySet()) {
                     var cell = entry.getValue();
+                    // Every catalogue column is at most varchar(255): 1,020 bytes in utf8mb4.
                     if (cell.exactNumeric() != null || cell.bytes() > 4096) invalid();
                     if (cell.sqlNull()) {
                         fields.put(entry.getKey(), null);
@@ -445,8 +447,6 @@ public class CdsExportPreventionSnapshotService {
                         value = input.readNBytes(4097);
                         if (value.length != cell.bytes() || input.read() != -1) invalid();
                     }
-                    bytes += value.length;
-                    if (bytes > 4_194_304) invalid();
                     try {
                         fields.put(
                                 entry.getKey(),

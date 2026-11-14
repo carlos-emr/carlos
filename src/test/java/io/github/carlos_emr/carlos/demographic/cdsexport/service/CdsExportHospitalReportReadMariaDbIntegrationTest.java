@@ -351,7 +351,7 @@ class CdsExportHospitalReportReadMariaDbIntegrationTest {
                                 .isEqualTo(CdsExportHospitalReportSources.REQUIRED);
                     }
                 });
-        var files = new CdsExportHospitalReportFileSourceReader(reports, "", "1024");
+        var files = new CdsExportHospitalReportFileSourceReader(reports, "");
         assertThatCode(
                         () ->
                                 new CdsExportSourceSchemaValidator()

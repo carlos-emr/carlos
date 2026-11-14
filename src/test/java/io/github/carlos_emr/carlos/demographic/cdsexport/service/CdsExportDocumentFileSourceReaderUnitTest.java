@@ -28,19 +28,18 @@ import io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto;
 import java.io.*;
 import java.util.*;
 import org.junit.jupiter.api.*;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 
 @Tag("unit")
 @Tag("cds-export")
 class CdsExportDocumentFileSourceReaderUnitTest {
     private final DocumentDao documents = mock(DocumentDao.class);
 
-    @ParameterizedTest
-    @ValueSource(strings = {"invalid", "-1", "0", "1099511627777", " 1"})
-    void shouldKeepMetadataAndAnEmptyDocumentDomainAvailable_whenCaptureBoundsAreInvalid(
-            String bound) throws Exception {
-        var reader = new CdsExportDocumentFileSourceReader(documents, "", bound);
+    @Test
+    void shouldCaptureWithNoDocumentBound_forARetiredSetting() throws Exception {
+        // cds.export.maxDocumentBytes no longer reaches the reader: a document of any size is
+        // captured, and no value of the retired setting can stop or hold a capture.
+        assertThat(CdsExportActivePlanService.RETIRED).contains("maxDocumentBytes");
+        var reader = new CdsExportDocumentFileSourceReader(documents, "");
         when(documents.findCdsExportFileRowsAfter(27, null, 32)).thenReturn(List.of());
         assertThat(reader.count(27)).isZero();
         var values = new ByteArrayOutputStream();
@@ -63,22 +62,9 @@ class CdsExportDocumentFileSourceReaderUnitTest {
         assertThat(result.valueBytes()).isZero();
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"invalid", "-1", "0", "1099511627777", " 1"})
-    void shouldRefuseInvalidBounds_beforeOpeningAnyPresentNativeFile(String bound) {
-        var row = mock(CdsExportRawRowDto.class);
-        when(row.id()).thenReturn(7L);
-        when(documents.findCdsExportFileRowsAfter(27, null, 32)).thenReturn(List.of(row));
-        var reader = new CdsExportDocumentFileSourceReader(documents, "", bound);
-        assertThatThrownBy(
-                        () -> reader.capture(27, mock(CdsExportNativeCaptureComposer.Writer.class)))
-                .hasMessage("CDS_EXPORT_DOCUMENT_BOUND_INVALID");
-        verify(row, never()).cells();
-    }
-
     @Test
     void shouldDeclareTheCompleteDocumentAndFileDependencyRecipe_forDocumentFileSourceReaderContract() throws Exception {
-        var reader = new CdsExportDocumentFileSourceReader(documents, "", "1024");
+        var reader = new CdsExportDocumentFileSourceReader(documents, "");
         assertThat(reader.requiredTables())
                 .containsExactlyInAnyOrder("document", "ctl_document", "native_document_files");
         assertThatCode(
@@ -90,7 +76,7 @@ class CdsExportDocumentFileSourceReaderUnitTest {
 
     @Test
     void shouldPropagateCancellation_beforeAnySourceQuery() {
-        var reader = new CdsExportDocumentFileSourceReader(documents, "", "1024");
+        var reader = new CdsExportDocumentFileSourceReader(documents, "");
         assertThatThrownBy(
                         () ->
                                 reader.capture(
@@ -110,7 +96,7 @@ class CdsExportDocumentFileSourceReaderUnitTest {
         // file to read; the capture plan leaves them out (reviews R3 and R6).
         when(documents.countCdsExportRows(27)).thenReturn(5L);
         when(documents.countCdsExportFileRows(27)).thenReturn(2L);
-        var reader = new CdsExportDocumentFileSourceReader(documents, "", "1024");
+        var reader = new CdsExportDocumentFileSourceReader(documents, "");
         assertThat(reader.count(27)).isEqualTo(2);
         verify(documents, never()).countCdsExportRows(27);
     }
@@ -141,7 +127,7 @@ class CdsExportDocumentFileSourceReaderUnitTest {
                             name);
             when(documents.findCdsExportFileRowsAfter(27, null, 32))
                     .thenReturn(List.of(new CdsExportRawRowDto(7, Map.of("docfilename", cell))));
-            var reader = new CdsExportDocumentFileSourceReader(documents, root.toString(), "1024");
+            var reader = new CdsExportDocumentFileSourceReader(documents, root.toString());
             var values = new ByteArrayOutputStream();
             var index = new ByteArrayOutputStream();
             assertThatThrownBy(

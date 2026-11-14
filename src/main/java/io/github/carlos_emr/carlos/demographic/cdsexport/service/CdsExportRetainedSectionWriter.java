@@ -412,14 +412,21 @@ public final class CdsExportRetainedSectionWriter {
         if (open) xml.end();
     }
 
+    /**
+     * One retained attribute value, whole: the XML writer takes an attribute as one string. The
+     * pinned schema's attributes are enumerations and dates, so a value the import kept from a
+     * valid file is short; its length is never a reason to refuse it (65,536 characters stopped
+     * the job).
+     */
     private static String attribute(Reader input, Runnable checkpoint) throws IOException {
         var result = new StringBuilder();
         char[] buffer = new char[1024];
         int count;
         while ((count = input.read(buffer)) != -1) {
             checkpoint.run();
-            if (count == 0 || result.length() + count > 65_536)
-                throw new IOException("CDS_EXPORT_RETAINED_ATTRIBUTE_LIMIT");
+            // A blocking read returns at least one character or the end: anything else is not
+            // the retained value's reader.
+            if (count == 0) throw new IOException("CDS_EXPORT_RETAINED_ATTRIBUTE_READ_INVALID");
             result.append(buffer, 0, count);
         }
         return result.toString();

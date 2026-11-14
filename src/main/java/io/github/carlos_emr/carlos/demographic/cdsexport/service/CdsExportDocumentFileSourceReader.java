@@ -44,15 +44,16 @@ public class CdsExportDocumentFileSourceReader implements CdsExportNativeSourceR
     static final String TABLE = "native_document_files";
     private final DocumentDao documents;
     private final String root;
-    private final String configuredMaximumBytes;
 
+    /**
+     * A stored document of any size is captured: the file is streamed, never held in memory,
+     * and is a file member of the package ({@code cds.export.maxDocumentBytes} is retired).
+     */
     public CdsExportDocumentFileSourceReader(
             @Qualifier("documentDaoImpl") DocumentDao documents,
-            @Value("${DOCUMENT_DIR:}") String root,
-            @Value("${cds.export.maxDocumentBytes:1073741824}") String maximumBytes) {
+            @Value("${DOCUMENT_DIR:}") String root) {
         this.documents = Objects.requireNonNull(documents);
         this.root = Objects.requireNonNull(root);
-        configuredMaximumBytes = Objects.requireNonNull(maximumBytes);
     }
 
     @Override
@@ -103,7 +104,6 @@ public class CdsExportDocumentFileSourceReader implements CdsExportNativeSourceR
             int patient, CdsExportNativeCaptureComposer.Writer output, Runnable checkpoint)
             throws IOException {
         Long after = null;
-        long maximumBytes = -1;
         while (true) {
             checkpoint.run();
             var page = documents.findCdsExportFileRowsAfter(patient, after, 32);
@@ -111,8 +111,6 @@ public class CdsExportDocumentFileSourceReader implements CdsExportNativeSourceR
             for (var document : page) {
                 checkpoint.run();
                 if (document.id() < 1 || after != null && document.id() <= after) invalid();
-                if (maximumBytes < 1) maximumBytes = maximumBytes();
-                long frozenMaximum = maximumBytes;
                 var cell = document.cells().get("docfilename");
                 if (cell == null
                         || cell.sqlNull()
@@ -132,25 +130,13 @@ public class CdsExportDocumentFileSourceReader implements CdsExportNativeSourceR
                             row.text("filename", filename);
                             try (var input =
                                     new CdsExportDocumentInputStream(
-                                            Path.of(root), filename, frozenMaximum, checkpoint)) {
+                                            Path.of(root), filename, checkpoint)) {
                                 row.binary("content", input);
                             }
                         });
                 after = document.id();
             }
             if (page.size() < 32) break;
-        }
-    }
-
-    /** Invalid active capture settings cannot disable metadata-only job observation or an empty document domain. */
-    private long maximumBytes() throws IOException {
-        try {
-            if (!configuredMaximumBytes.matches("[0-9]{1,13}")) throw new NumberFormatException();
-            long value = Long.parseLong(configuredMaximumBytes);
-            if (value < 1 || value > (1L << 40)) throw new NumberFormatException();
-            return value;
-        } catch (NumberFormatException invalid) {
-            throw new IOException("CDS_EXPORT_DOCUMENT_BOUND_INVALID");
         }
     }
 

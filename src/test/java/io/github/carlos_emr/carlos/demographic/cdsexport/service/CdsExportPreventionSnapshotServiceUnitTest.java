@@ -398,13 +398,16 @@ class CdsExportPreventionSnapshotServiceUnitTest {
     }
 
     @Test
-    void shouldVerifyTrustedLoaderPreservesBytesAndRejectsMissingOversizedAndLeafSymlinkFiles_forPreventionSnapshotServiceContract()
+    void shouldVerifyTrustedLoaderPreservesBytesOfAnySizeAndRejectsLeafSymlinkFiles_forPreventionSnapshotServiceContract()
             throws Exception {
         assertThat(new CdsExportPreventionConfigurationLoader(file.toString()).load())
                 .isEqualTo(XML.getBytes(StandardCharsets.UTF_8));
-        Files.write(file, new byte[1_048_577]);
-        assertThatThrownBy(() -> new CdsExportPreventionConfigurationLoader(file.toString()).load())
-                .hasMessage("CDS_EXPORT_PREVENTION_CONFIG_UNAVAILABLE");
+        // Any size is read whole (1 MiB used to stop every export); only a link is refused.
+        byte[] large = new byte[1_048_577];
+        java.util.Arrays.fill(large, (byte) ' ');
+        Files.write(file, large);
+        assertThat(new CdsExportPreventionConfigurationLoader(file.toString()).load())
+                .isEqualTo(large);
         Files.delete(file);
         Files.createSymbolicLink(file, Files.writeString(root.resolve("other.xml"), XML));
         assertThatThrownBy(() -> new CdsExportPreventionConfigurationLoader(file.toString()).load())

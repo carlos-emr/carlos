@@ -70,7 +70,7 @@ class CdsExportDocumentInputStreamUnitTest {
     }
 
     private CdsExportDocumentInputStream open(String name) throws IOException {
-        return new CdsExportDocumentInputStream(root, name, 4L << 20, () -> {});
+        return new CdsExportDocumentInputStream(root, name, () -> {});
     }
 
     @Test
@@ -78,7 +78,7 @@ class CdsExportDocumentInputStreamUnitTest {
         var probes = new AtomicInteger();
         try (var input =
                 new CdsExportDocumentInputStream(
-                        root, "report.bin", 4L << 20, probes::incrementAndGet)) {
+                        root, "report.bin", probes::incrementAndGet)) {
             assertThat(input.readAllBytes()).isEqualTo(body);
             assertThat(input.read()).isEqualTo(-1);
         }
@@ -90,7 +90,7 @@ class CdsExportDocumentInputStreamUnitTest {
         var probes = new AtomicInteger();
         try (var input =
                 new CdsExportDocumentInputStream(
-                        root, "report.bin", 4L << 20, probes::incrementAndGet)) {
+                        root, "report.bin", probes::incrementAndGet)) {
             assertThat(input.read()).isEqualTo(body[0] & 255);
         }
         assertThat(probes.get()).isGreaterThan(4);
@@ -142,7 +142,7 @@ class CdsExportDocumentInputStreamUnitTest {
         assertThatThrownBy(
                         () ->
                                 new CdsExportDocumentInputStream(
-                                        root.resolve("absent"), "report.bin", 4L << 20, () -> {}))
+                                        root.resolve("absent"), "report.bin", () -> {}))
                 .isNotInstanceOf(
                         io.github.carlos_emr.carlos.demographic.cdsexport.support
                                 .CdsExportMappingReviewException.class)
@@ -175,7 +175,7 @@ class CdsExportDocumentInputStreamUnitTest {
             throws Exception {
         Path alias = Files.createSymbolicLink(root.resolve("documents"), root);
         assertThatThrownBy(
-                        () -> new CdsExportDocumentInputStream(alias, "report.bin", 4L << 20, () -> {}))
+                        () -> new CdsExportDocumentInputStream(alias, "report.bin", () -> {}))
                 .hasMessage("CDS_EXPORT_DOCUMENT_STORAGE_UNTRUSTED");
     }
 
@@ -196,14 +196,25 @@ class CdsExportDocumentInputStreamUnitTest {
     }
 
     @Test
-    void shouldRefuseAFileLargerThanTheExplicitByteBudget_forDocumentInputStreamContract() {
-        // One oversized document holds its patient (cds.export.maxDocumentBytes names the bound)
-        // rather than failing every other patient's export.
-        assertThatThrownBy(() -> new CdsExportDocumentInputStream(root, "report.bin", 2, () -> {}))
-                .isInstanceOf(
-                        io.github.carlos_emr.carlos.demographic.cdsexport.support
-                                .CdsExportMappingReviewException.class)
-                .hasMessage("CDS_EXPORT_NATIVE_REPORT_FILE_TOO_LARGE");
+    void shouldStreamADocumentOfAnySize_insteadOfHoldingItsPatient() throws Exception {
+        // Before: a file larger than cds.export.maxDocumentBytes (1 GiB by default) held its
+        // patient with CDS_EXPORT_NATIVE_REPORT_FILE_TOO_LARGE. The stream has no size bound: the
+        // file is read through to its end, a block at a time, and becomes a package member.
+        byte[] large = new byte[3 * 1024 * 1024 + 17];
+        new java.util.Random(7).nextBytes(large);
+        Files.write(root.resolve("large.bin"), large);
+        var digest = java.security.MessageDigest.getInstance("SHA-256");
+        long total = 0;
+        try (var input = open("large.bin")) {
+            byte[] block = new byte[8192];
+            for (int read; (read = input.read(block)) != -1; ) {
+                digest.update(block, 0, read);
+                total += read;
+            }
+        }
+        assertThat(total).isEqualTo(large.length);
+        assertThat(digest.digest())
+                .isEqualTo(java.security.MessageDigest.getInstance("SHA-256").digest(large));
     }
 
     @Test
@@ -260,7 +271,6 @@ class CdsExportDocumentInputStreamUnitTest {
                 new CdsExportDocumentInputStream(
                         root,
                         "report.bin",
-                        4L << 20,
                         () -> {
                             if (cancelled.get())
                                 throw new java.util.concurrent.CancellationException("CANCELLED");

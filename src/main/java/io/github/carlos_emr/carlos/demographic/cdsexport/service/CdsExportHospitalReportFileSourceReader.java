@@ -74,15 +74,15 @@ public class CdsExportHospitalReportFileSourceReader implements CdsExportNativeS
 
     private final CdsExportHospitalReportReadDao reports;
     private final String root;
-    private final String configuredMaximumBytes;
 
+    /**
+     * A stored report file of any size is captured: the file is streamed, never held in memory
+     * ({@code cds.export.maxDocumentBytes} is retired).
+     */
     public CdsExportHospitalReportFileSourceReader(
-            CdsExportHospitalReportReadDao reports,
-            @Value("${DOCUMENT_DIR:}") String root,
-            @Value("${cds.export.maxDocumentBytes:1073741824}") String maximumBytes) {
+            CdsExportHospitalReportReadDao reports, @Value("${DOCUMENT_DIR:}") String root) {
         this.reports = Objects.requireNonNull(reports);
         this.root = Objects.requireNonNull(root);
-        configuredMaximumBytes = Objects.requireNonNull(maximumBytes);
     }
 
     @Override
@@ -133,7 +133,6 @@ public class CdsExportHospitalReportFileSourceReader implements CdsExportNativeS
             int patient, CdsExportNativeCaptureComposer.Writer output, Runnable checkpoint)
             throws IOException {
         Long after = null;
-        long maximumBytes = -1;
         Path directory = null;
         while (true) {
             checkpoint.run();
@@ -152,12 +151,10 @@ public class CdsExportHospitalReportFileSourceReader implements CdsExportNativeS
                 State state;
                 if (stored == null || stored.isEmpty()) state = State.NOT_RECORDED;
                 else {
-                    if (maximumBytes < 1) maximumBytes = maximumBytes();
                     if (directory == null) directory = directory();
                     relative = relative(directory, stored);
                     state = relative == null ? State.UNSUPPORTED_NAME : State.READ;
                 }
-                long frozenMaximum = maximumBytes;
                 Path frozenDirectory = directory;
                 String frozenRelative = relative;
                 State found = state;
@@ -170,14 +167,10 @@ public class CdsExportHospitalReportFileSourceReader implements CdsExportNativeS
                                 try {
                                     input =
                                             new CdsExportDocumentInputStream(
-                                                    frozenDirectory,
-                                                    frozenRelative,
-                                                    frozenMaximum,
-                                                    checkpoint);
+                                                    frozenDirectory, frozenRelative, checkpoint);
                                 } catch (CdsExportMappingReviewException unreadable) {
                                     // A purged file or a name the stream refuses concerns this
                                     // report alone: it is exported from its recorded details.
-                                    // A file over the document bound still holds the patient.
                                     if (MISSING_CODE.equals(unreadable.getMessage()))
                                         result = State.MISSING;
                                     else if (UNSUPPORTED_CODE.equals(unreadable.getMessage()))
@@ -232,18 +225,6 @@ public class CdsExportHospitalReportFileSourceReader implements CdsExportNativeS
             return directory;
         } catch (InvalidPathException malformed) {
             throw new IOException("CDS_EXPORT_DOCUMENT_SOURCE_UNAVAILABLE");
-        }
-    }
-
-    /** Invalid capture settings cannot disable metadata-only job observation. */
-    private long maximumBytes() throws IOException {
-        try {
-            if (!configuredMaximumBytes.matches("[0-9]{1,13}")) throw new NumberFormatException();
-            long value = Long.parseLong(configuredMaximumBytes);
-            if (value < 1 || value > (1L << 40)) throw new NumberFormatException();
-            return value;
-        } catch (NumberFormatException invalid) {
-            throw new IOException("CDS_EXPORT_DOCUMENT_BOUND_INVALID");
         }
     }
 

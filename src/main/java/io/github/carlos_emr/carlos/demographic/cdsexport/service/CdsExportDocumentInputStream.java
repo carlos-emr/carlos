@@ -48,15 +48,20 @@ final class CdsExportDocumentInputStream extends InputStream {
     private long delivered;
     private boolean closed, failed, verified;
 
-    CdsExportDocumentInputStream(Path root, String filename, long maximumBytes, Runnable checkpoint)
+    /**
+     * Opens one stored document file. Its size is never a reason to refuse it: a document of any
+     * size is streamed into the capture and from there into the package as a file member
+     * ({@code cds.export.maxDocumentBytes}, which held the patient of a file over 1 GiB, is
+     * retired).
+     */
+    CdsExportDocumentInputStream(Path root, String filename, Runnable checkpoint)
             throws IOException {
         this.checkpoint = Objects.requireNonNull(checkpoint);
         checkpoint.run();
         try {
             if (root == null
                     || !root.isAbsolute()
-                    || !root.equals(root.normalize())
-                    || maximumBytes < 1) invalid();
+                    || !root.equals(root.normalize())) invalid();
             Path relative = relativeName(filename);
             for (Path cursor = root; cursor != null; cursor = cursor.getParent()) {
                 var view =
@@ -92,7 +97,6 @@ final class CdsExportDocumentInputStream extends InputStream {
             fileIdentity = present(fileView);
             trusted(fileIdentity, false);
             if (fileIdentity.size() < 0 || fileIdentity.fileKey() == null) invalid();
-            if (fileIdentity.size() > maximumBytes) hold("CDS_EXPORT_NATIVE_REPORT_FILE_TOO_LARGE");
             channel =
                     current.newByteChannel(
                             name, Set.of(StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS));

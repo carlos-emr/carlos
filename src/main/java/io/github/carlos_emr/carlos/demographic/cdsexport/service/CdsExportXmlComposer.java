@@ -381,7 +381,10 @@ public final class CdsExportXmlComposer {
             check();
             name(name);
             String prefix = prefix(namespace, true);
-            if (!attributePhase || value == null || value.length() > 65_536) {
+            // No length is refused (65,536 characters stopped the job): the pinned schema's
+            // attributes are enumerations and dates, and the validator checks each against its
+            // type.
+            if (!attributePhase || value == null) {
                 throw new IOException("CDS_EXPORT_XML_ATTRIBUTE_INVALID");
             }
             valid(value);

@@ -86,6 +86,71 @@ class CdsExportRetainedSectionWriterUnitTest {
     }
 
     @Test
+    void shouldWriteARetainedAttributeOfAnyLength_insteadOfStoppingTheJob() throws Exception {
+        // Before: an attribute value longer than 65,536 characters stopped the job
+        // (CDS_EXPORT_RETAINED_ATTRIBUTE_LIMIT). The schema's attributes are enumerations and
+        // dates, so only a damaged store could hold one; its length still refuses nothing.
+        var records = parse(Path.of("src/test/resources/cds-spec/choices-01.xml"), "attribute");
+        var demographics =
+                records.stream()
+                        .filter(record -> record.section().equals("Demographics"))
+                        .findFirst()
+                        .orElseThrow();
+        var captured = capture(demographics);
+        String value = "R" + "x".repeat(70_000);
+        String[] target = {null};
+        for (int i = 0; i < captured.fields.size(); i++) {
+            var field = captured.fields.get(i);
+            if (field.sourcePath().endsWith("@phoneNumberType")) {
+                // A value past the inline form is held as a payload and read as a stream.
+                captured.fields.set(
+                        i,
+                        new CdsExportRetainedFieldDto(
+                                field.id(),
+                                field.runId(),
+                                field.sourcePatientKey(),
+                                field.fieldUnitKey(),
+                                field.category(),
+                                field.sourcePath(),
+                                field.occurrence(),
+                                field.namespace(),
+                                field.valueType(),
+                                field.precision(),
+                                null,
+                                null,
+                                new CdsExportRetainedFieldDto.Payload(
+                                        "/frozen/owned-value", "e".repeat(64), 0, value.length())));
+                target[0] = field.id();
+                break;
+            }
+        }
+        assertThat(target[0]).isNotNull();
+        var values =
+                new CdsExportRetainedSectionWriter.Values() {
+                    @Override
+                    public Reader text(CdsExportRetainedFieldDto field) throws IOException {
+                        return field.id().equals(target[0])
+                                ? new StringReader(value)
+                                : captured.text(field);
+                    }
+
+                    @Override
+                    public InputStream binary(CdsExportRetainedFieldDto field) throws IOException {
+                        return captured.binary(field);
+                    }
+                };
+        byte[] output =
+                compose(
+                        List.of(
+                                section(
+                                        CdsCategory.DEMOGRAPHICS,
+                                        writer.prepare(captured.fields, values, () -> {}))),
+                        Set.of(CdsCategory.DEMOGRAPHICS));
+        assertThat(new String(output, StandardCharsets.UTF_8))
+                .contains("phoneNumberType=\"" + value + "\"");
+    }
+
+    @Test
     void shouldKeepRepeatedOccurrencesAndEmptyComplexNodes_andUseEffectiveText() throws Exception {
         var fields = new ArrayList<CdsExportRetainedFieldDto>();
         fields.add(

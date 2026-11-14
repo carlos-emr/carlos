@@ -28,10 +28,13 @@ import java.util.Objects;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-/** Trusted server setting only. Each call returns exact bounded bytes; source capture owns authorization, snapshot binding and cleanup. */
+/**
+ * Trusted server setting only. Each call returns the configuration's exact bytes, whatever its
+ * size (it is clinic configuration, not chart data: no size of it refuses an export); source
+ * capture owns authorization, snapshot binding and cleanup.
+ */
 @Service
 public class CdsExportPreventionConfigurationLoader {
-    static final int MAX_XML = 1_048_576;
     private final String location;
 
     public CdsExportPreventionConfigurationLoader(
@@ -53,7 +56,7 @@ public class CdsExportPreventionConfigurationLoader {
                     invalid();
                 try (var input = getClass().getClassLoader().getResourceAsStream(resource)) {
                     if (input == null) invalid();
-                    xml = input.readNBytes(MAX_XML + 1);
+                    xml = input.readAllBytes();
                 }
             } else {
                 var configured = Path.of(location);
@@ -65,19 +68,20 @@ public class CdsExportPreventionConfigurationLoader {
                 var before =
                         Files.readAttributes(
                                 path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
-                if (!before.isRegularFile() || before.size() > MAX_XML) invalid();
+                if (!before.isRegularFile()) invalid();
                 try (var input = Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS)) {
-                    xml = input.readNBytes(MAX_XML + 1);
+                    xml = input.readAllBytes();
                 }
                 var after =
                         Files.readAttributes(
                                 path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
                 if (!after.isRegularFile()
                         || before.size() != after.size()
+                        || xml.length != before.size()
                         || !before.lastModifiedTime().equals(after.lastModifiedTime())
                         || !Objects.equals(before.fileKey(), after.fileKey())) invalid();
             }
-            if (xml.length < 1 || xml.length > MAX_XML) invalid();
+            if (xml.length < 1) invalid();
             return xml;
         } catch (IOException | RuntimeException failed) {
             throw new IOException("CDS_EXPORT_PREVENTION_CONFIG_UNAVAILABLE");

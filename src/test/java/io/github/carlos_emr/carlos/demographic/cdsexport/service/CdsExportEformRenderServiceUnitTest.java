@@ -107,6 +107,7 @@ class CdsExportEformRenderServiceUnitTest {
             CdsExportEformRenderService.Renderer renderer, String intervalMillis) {
         var settings = new Properties();
         settings.setProperty("cds.export.eformRenderIntervalMillis", intervalMillis);
+        // Retired: a rendered form of any size is spooled.
         settings.setProperty("cds.export.maxDocumentBytes", "1024");
         return new CdsExportEformRenderService(renderer, settings, System::nanoTime);
     }
@@ -152,7 +153,7 @@ class CdsExportEformRenderServiceUnitTest {
     }
 
     @Test
-    void shouldClassifyTimeoutsCapacityOversizeAndNonPdfOutput_asNotedReasons() throws Exception {
+    void shouldClassifyTimeoutsCapacityAndNonPdfOutput_andSpoolARenderOfAnySize() throws Exception {
         assertThat(
                         service(
                                         (identity, fdid) -> {
@@ -172,8 +173,11 @@ class CdsExportEformRenderServiceUnitTest {
                                 .render(1, who, spool, () -> {})
                                 .reason())
                 .isEqualTo(Reason.RENDERER_BUSY);
-        assertThat(service((identity, fdid) -> output(new byte[2048]), "0").render(1, who, spool, () -> {}).reason())
-                .isEqualTo(Reason.TOO_LARGE);
+        // Before: a render larger than cds.export.maxDocumentBytes was left out (TOO_LARGE).
+        byte[] large = java.util.Arrays.copyOf(PDF, 4096);
+        var whole = service((identity, fdid) -> output(large), "0").render(1, who, spool, () -> {});
+        assertThat(whole.rendered()).isTrue();
+        assertThat(spool.members.get(whole.file().memberId())).isEqualTo(large);
         assertThat(
                         service((identity, fdid) -> output("<html>".getBytes(StandardCharsets.US_ASCII)), "0")
                                 .render(1, who, spool, () -> {})

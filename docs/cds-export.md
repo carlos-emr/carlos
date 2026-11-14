@@ -773,8 +773,10 @@ disposition, and it is neither an expected occurrence nor a reason to hold the p
 document's problem holds only its patient: an HTML document with no stored HTML or an unknown
 document or link status (`CDS_EXPORT_NATIVE_REPORT_STATUS_REQUIRES_REVIEW`), an empty file
 (`..._FILE_EMPTY`), a missing file
-(`..._FILE_MISSING`), an unsupported stored name (`..._FILENAME_UNSUPPORTED`) or a file over
-`cds.export.maxDocumentBytes` (`..._FILE_TOO_LARGE`). No column of the document or its link holds
+(`..._FILE_MISSING`) or an unsupported stored name (`..._FILENAME_UNSUPPORTED`). A file of any
+size is exported: it is streamed into the capture and into the package as a file member
+(`cds.export.maxDocumentBytes`, which held the patient of a file over 1 GiB with
+`..._FILE_TOO_LARGE`, is retired and ignored). No column of the document or its link holds
 the patient for its size or its characters: every one is a short varchar that fits Notes, a
 character XML 1.0 cannot carry is written in the Notes JSON as its `\uXXXX` escape, and a source
 author or facility holding such a character is left out of its `text120` element and stays exact
@@ -1018,8 +1020,8 @@ belongs to no chart; a report whose only links name such charts is unattributabl
 before, holds every chart (`CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED`). Only these hold the patient: a link whose
 patient or report number is not spelled as its canonical decimal number (a legacy alias such as
 `0` + the chart number; `CDS_EXPORT_HRM_REPORT_LINK_REQUIRES_REVIEW`), a sign-off state other
-than 0 or 1, a file over `cds.export.maxDocumentBytes`
-(`CDS_EXPORT_NATIVE_REPORT_FILE_TOO_LARGE`) and an ambiguous wall-clock time. Untrusted storage
+than 0 or 1 and an ambiguous wall-clock time. A report file of any size is read
+(`CDS_EXPORT_NATIVE_REPORT_FILE_TOO_LARGE` and `cds.export.maxDocumentBytes` are retired). Untrusted storage
 still stops the job.
 
 A message that holds several reports no longer holds the patient
@@ -1638,7 +1640,7 @@ the record's CARLOS residual. These numbers were CARLOS's own and are gone:
 | `cds.export.captureTimeoutSeconds` (120 s) on the capture transaction and the legacy table's guard | `CdsExportNativeCaptureService`, `CdsExportSourceSnapshotService`, `CdsExportSourceReadLock` | the job (`CDS_EXPORT_EXECUTION_FAILED`) | removed: a capture has no deadline; the setting is retired |
 | 4,096 import runs naming one chart | `CdsExportImportOptionsSourceReader` | the whole job (`CDS_EXPORT_IMPORT_OPTIONS_RUN_LIMIT`) | every run is read |
 | 10,000 prevention rows | `CdsExportPreventionScopePlanner` | the whole job | every row is planned |
-| 10,000 rows or 4 MiB of the clinic's vaccine catalogue (`CVCImmunization`, `CVCMapping`), 10,000 items of the prevention configuration | `CdsExportPreventionClassifier`, `CdsExportPreventionConfigurationService` | every patient of the job (`CDS_EXPORT_PREVENTION_CLASSIFICATION_INVALID`, `CDS_EXPORT_PREVENTION_CONFIG_INVALID`) | removed when a capture is read: the catalogue is the clinic's vocabulary, held while the classifier is built from it (about 2 KB a row). The capture of the catalogue (`CdsExportPreventionSnapshotService`) still stops at 10,000 rows, and the configuration file at 1 MiB |
+| 10,000 rows or 4 MiB of the clinic's vaccine catalogue (`CVCImmunization`, `CVCMapping`), 10,000 items of the prevention configuration | `CdsExportPreventionClassifier`, `CdsExportPreventionConfigurationService` | every patient of the job (`CDS_EXPORT_PREVENTION_CLASSIFICATION_INVALID`, `CDS_EXPORT_PREVENTION_CONFIG_INVALID`) | removed when a capture is read: the catalogue is the clinic's vocabulary, held while the classifier is built from it (about 2 KB a row). The capture of the catalogue (`CdsExportPreventionSnapshotService`) no longer stops at 10,000 rows or 4 MiB, and the configuration file is read whatever its size, its items' attributes whatever their number or length (1 MiB, 64 and 4,096 stopped every export); only an item name longer than the prevention type column (255) and a shape other than `preventions/item` still refuse the configuration |
 | 65,536 retained fields, 131,072 nodes, 16 MiB of source paths or 4,096 changes in one imported record | `CdsExportRetainedOccurrenceFields`, `CdsExportRetainedSectionWriter` | the job (`..._SOURCE_FIELDS_REQUIRED`, `CDS_EXPORT_RETAINED_STRUCTURE_REQUIRES_REVIEW`) | removed: `cds_import_field` stores any number of fields for one unit, and one record is rebuilt together whatever its size |
 | 1,000,000 captured fields in the rows of one occurrence | `CdsExportNativeFieldAssessmentValidator` | the job (`CDS_EXPORT_FIELD_ASSESSMENT_RESOURCE_LIMIT`) | removed: the caller already holds those rows together |
 | 8,192 eForm renderings of one chart | `CdsExportEformRenderings` | the job (`CDS_EXPORT_EFORM_RENDERING_CAPTURE_INVALID`) | removed: one descriptor for each eForm is held (its identity, author and content digest) |
@@ -2053,8 +2055,8 @@ print or fax keeps one), at least `cds.export.eformRenderIntervalMillis` apart (
 Each render is bounded by the renderer's deadlines (slot wait 30 s, browser start 30 s, render
 90 s); three consecutive browser failures or timeouts open a five-minute breaker
 (`RENDERER_UNAVAILABLE`). Each attempt is timed, and a PHI-free line per chart records counts and
-times (`CDS_EXPORT_EFORM_RENDERS`). A capacity refusal is `RENDERER_BUSY`, a larger PDF than
-`cds.export.maxDocumentBytes` `TOO_LARGE`, a process without the renderer bean (the command line)
+times (`CDS_EXPORT_EFORM_RENDERS`). A capacity refusal is `RENDERER_BUSY`, a process without the
+renderer bean (the command line)
 `NOT_IN_THIS_PROCESS`. Only a `SecurityException` (changed authorization), cancellation and a
 spool write failure leave the render path, as on every other export path. A render without a
 request derives its base URL from Tomcat's connector (see `docs/eform-browser-pdf-renderer.md`,

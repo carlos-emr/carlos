@@ -30,7 +30,6 @@ import io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Pl
 import io.github.carlos_emr.carlos.commn.dto.CdsExportRawCellDto;
 import io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportCapturedFieldDto;
-import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
@@ -178,7 +177,7 @@ class CdsExportHospitalReportFileSourceReaderUnitTest {
         byte[] message = "<OmdCds/>".getBytes(StandardCharsets.UTF_8);
         file("LabUpload.20220225.xml.1690313901104", message);
         Path nested = file("hrm/2026/LabUpload with spaces.xml.1691537353747", message);
-        var reader = new CdsExportHospitalReportFileSourceReader(reports, root.toString(), "1024");
+        var reader = new CdsExportHospitalReportFileSourceReader(reports, root.toString());
         var captured =
                 capture(
                         reader,
@@ -213,17 +212,23 @@ class CdsExportHospitalReportFileSourceReaderUnitTest {
     }
 
     @Test
-    void shouldHoldOnlyThePatient_whenAStoredMessageExceedsTheDocumentBound() throws Exception {
-        file("LabUpload.large.xml", new byte[2048]);
-        var reader = new CdsExportHospitalReportFileSourceReader(reports, root.toString(), "1024");
-        assertThatThrownBy(() -> capture(reader, List.of(row(1, "LabUpload.large.xml"))))
-                .isInstanceOf(CdsExportMappingReviewException.class)
-                .hasMessage("CDS_EXPORT_NATIVE_REPORT_FILE_TOO_LARGE");
+    void shouldReadAStoredMessageOfAnySize_insteadOfHoldingThePatient() throws Exception {
+        // Before: a file over cds.export.maxDocumentBytes held the patient
+        // (CDS_EXPORT_NATIVE_REPORT_FILE_TOO_LARGE); the setting is retired.
+        // Far past the bound these tests configured (1,024 bytes); the harness holds 1 MiB.
+        byte[] large = new byte[512 * 1024 + 3];
+        java.util.Arrays.fill(large, (byte) 'x');
+        file("LabUpload.large.xml", large);
+        var reader = new CdsExportHospitalReportFileSourceReader(reports, root.toString());
+        var captured = capture(reader, List.of(row(1, "LabUpload.large.xml")));
+        var only = captured.get(CdsExportPatientTableSourceReader.key(1));
+        assertThat(only.get("state")).isEqualTo("READ");
+        assertThat((byte[]) only.get("content")).isEqualTo(large);
     }
 
     @Test
     void shouldRefuseAnUnusableDocumentDirectory_beforeOpeningAnyFile() throws Exception {
-        var reader = new CdsExportHospitalReportFileSourceReader(reports, "relative/dir", "1024");
+        var reader = new CdsExportHospitalReportFileSourceReader(reports, "relative/dir");
         assertThatThrownBy(() -> capture(reader, List.of(row(1, "LabUpload.xml"))))
                 .hasMessage("CDS_EXPORT_DOCUMENT_SOURCE_UNAVAILABLE");
     }
@@ -245,7 +250,7 @@ class CdsExportHospitalReportFileSourceReaderUnitTest {
 
     @Test
     void shouldDeclareEveryHrmCaptureAsItsDependency_forTheFileContract() throws Exception {
-        var reader = new CdsExportHospitalReportFileSourceReader(reports, "", "1024");
+        var reader = new CdsExportHospitalReportFileSourceReader(reports, "");
         assertThat(reader.requiredTables())
                 .containsExactlyInAnyOrder(
                         "HRMDocumentToDemographic",
