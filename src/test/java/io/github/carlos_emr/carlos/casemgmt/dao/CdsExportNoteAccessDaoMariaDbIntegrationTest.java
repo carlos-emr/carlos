@@ -215,6 +215,63 @@ class CdsExportNoteAccessDaoMariaDbIntegrationTest {
     }
 
     @Test
+    void shouldReadEveryProgramGrantPastFourThousandRows_withTheShortListRule() {
+        // #58: more than 4,096 rows the database's equality matches used to refuse the check
+        // (CDS_EXPORT_NOTE_AUTHORIZATION_DENIED). Every row is read now, a page at a time in id
+        // order, and the decision is the one a short list gives. Here 4,200 rows name the access type only under the database's
+        // accent-insensitive equality ("notes" with an accented e), so they are not the grant;
+        // the one exact grant, read on the second page, decides.
+        fixture(
+                () -> {
+                    membership(id, id + 1);
+                    sql.update(
+                            "insert into access_type(access_id,name,type) values(?,?,'access')",
+                            id,
+                            "read Cds" + id + " notes");
+                    sql.update(
+                            "insert into access_type(access_id,name,type) values(?,?,'access')",
+                            id + 1,
+                            "read Cds" + id + " not\u00e9s");
+                    var nearMisses = new java.util.ArrayList<Object[]>();
+                    for (int i = 0; i < 4_200; i++)
+                        nearMisses.add(
+                                new Object[] {(long) id + 10 + i, id, Integer.toString(id + 1)});
+                    sql.batchUpdate(
+                            "insert into program_access(id,program_id,access_type_id,all_roles)"
+                                + " values(?,?,?,1)",
+                            nearMisses);
+                    // The statement the access check runs returns every one of them.
+                    assertThat(
+                                    sql.queryForObject(
+                                            "select count(*) from program_access g join"
+                                                + " access_type a on a.access_id ="
+                                                + " g.access_type_id where g.program_id = ? and"
+                                                + " a.name = ?",
+                                            Integer.class,
+                                            id,
+                                            "read cds" + id + " notes"))
+                            .isEqualTo(4_200);
+                    assertThat(read(scope())).isFalse();
+                    sql.update(
+                            "insert into program_access(id,program_id,access_type_id,all_roles)"
+                                + " values(?,?,?,1)",
+                            (long) id + 10 + 4_200,
+                            id,
+                            Integer.toString(id));
+                    assertThat(read(scope())).isTrue();
+                    // A second exact grant, on the first page, makes the reading ambiguous as it
+                    // does among two rows: the note stays unreadable.
+                    sql.update(
+                            "insert into program_access(id,program_id,access_type_id,all_roles)"
+                                + " values(?,?,?,1)",
+                            id,
+                            id,
+                            Integer.toString(id));
+                    assertThat(read(scope())).isFalse();
+                });
+    }
+
+    @Test
     void shouldBindPhysicalScopeToItsPatient_andRejectMalformedDependencies() {
         fixture(
                 () -> {

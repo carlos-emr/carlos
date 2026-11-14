@@ -1569,9 +1569,6 @@ chosen by physician stores only the physicians.
   installation. It is the installation's own configuration, not a chart.
 - MariaDB's own limits stay as integrity checks of what the schema read returns: 4,096 columns
   in a table and 16 columns in a key.
-- A program's access rows of one access type are read up to 4,096; more denies the note
-  (`CdsExportNoteAccessDao`). It is an authorization decision that fails closed, and nothing
-  about what is authorized was changed here.
 - An attempt's staged members live in one directory and each is fsynced; neither is a limit.
 - The cleanup of one attempt directory gives up after 15 minutes and is retried by the next
   sweep (`CdsExportRetentionService.retire`). It validates the whole directory before deleting
@@ -1732,6 +1729,7 @@ the record's CARLOS residual. These numbers were CARLOS's own and are gone:
 | 8,192 revisions of a note, 8,192 note rows, chains or reviews per chart | `CdsExportNativeHistoryMapper`, `CdsExportNoteRevisionPlanner` | the job | removed here; the history occurrence service's own window still applies |
 | 8,192 notes in the note scope read, in one note authorization call and in the revision inventory, and the inventory's estimate of its receipts against the caller's byte bound (about 3,500 notes at the default) | `CdsExportNoteAccessDao.readScopes`, `CdsExportNoteSourceReader`, `CdsExportAccessService.requireNotesRead`, `CdsExportNoteRevisionInventoryService`, `CdsExportNoteRevisionReader` | the patient (`CDS_EXPORT_RESOURCE_LIMIT`), or the job | removed: the scopes and the authorization are read 8,192 notes a statement; the inventory counts every note and holds its receipts in the worker's heap |
 | 64 MiB for one captured text row, and the smaller bound many readers passed for their table (from 4 KiB for screening, immunization and prevention rows to 14 MiB for an import unit) | `CdsExportCapturedTextRowsReader` and the readers that call it | the job (`CDS_EXPORT_NATIVE_ROW_INVALID`) | removed: a row of any length is read. The number a reader passes now decides only how a value is read: up to it, the value is collected whole and decoded; past it, it is decoded as its verified bytes arrive, so its bytes and its text are never both held whole |
+| 4,096 program access rows naming one access type; more held the patient as an access change (`CDS_EXPORT_NOTE_AUTHORIZATION_DENIED`) | `CdsExportNoteAccessDao.canRead` | the patient | removed: every row the database's equality matches is read, 4,096 a statement in id order, and decided by the rule a short list always had: the one row whose name is exactly the access name decides, and a second such row leaves the note unreadable. No note a short list leaves unreadable becomes readable |
 | 4 MiB for one capture's manifest (about 40,000 notes) | `CdsExportNativeCaptureService` | the job (`CDS_EXPORT_CAPTURE_MANIFEST_LIMIT`) | removed: the manifest is written and read as a stream |
 | 8 MiB of retained import options for one chart | `CdsExportRetainedIndexService` | the job (`CDS_EXPORT_IMPORT_OPTIONS_BYTE_LIMIT`) | removed: each run's options are still verified, not added up |
 | 100,000 program-restricted documents or preventions | `CdsExportPatientTableReadSupport` | the patient (`CDS_EXPORT_DOCUMENT_PROGRAM_SCOPE`, `CDS_EXPORT_PREVENTION_PROGRAM_SCOPE`) | removed: every restriction is read and authorized |
