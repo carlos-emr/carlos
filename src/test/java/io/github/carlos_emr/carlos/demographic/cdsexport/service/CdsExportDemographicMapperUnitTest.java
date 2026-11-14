@@ -575,6 +575,71 @@ class CdsExportDemographicMapperUnitTest {
     }
 
     @Test
+    void shouldCarryValuesAnImportWouldStoreInAnotherForm_besideTheElementsWrittenAsBefore()
+            throws Exception {
+        // A CARLOS import stores a language's name for its code (ENG and eng are English, fra is
+        // French), a postal code as PostalCode holds it (no display space), a health number
+        // without its spaces, an issuer or subdivision code without "CA-", and a plain-text
+        // status spelled as a CARLOS label as that label's code. The elements are written as
+        // before and the stored values travel in the native record.
+        var fields = baseline();
+        fields.put("official_lang", "ENG");
+        fields.put("spoken_lang", "fra");
+        fields.put("address", "1 Main St");
+        fields.put("province", "CA-ON");
+        fields.put("postal", "K1A 0B1");
+        fields.put("hin", "1234 567 890");
+        fields.put("hc_type", "CA-ON");
+        fields.put("patient_status", "Moved");
+        var result = mapper.map(row(fields));
+        assertThat(result.baseRowRepresentable()).isTrue();
+        var document = parse(xml(result));
+        assertThat(text(document, "cds", "PreferredOfficialLanguage")).isEqualTo("ENG");
+        assertThat(text(document, "cds", "PreferredSpokenLanguage")).isEqualTo("fra");
+        assertThat(text(document, "cds_dt", "PostalCode")).isEqualTo("K1A0B1");
+        assertThat(text(document, "cds_dt", "CountrySubdivisionCode")).isEqualTo("CA-ON");
+        assertThat(text(document, "cds_dt", "Number")).isEqualTo("1234 567 890");
+        assertThat(text(document, "cds_dt", "ProvinceCode")).isEqualTo("CA-ON");
+        assertThat(text(document, "cds", "PersonStatusAsPlainText")).isEqualTo("Moved");
+        for (String column :
+                List.of(
+                        "official_lang",
+                        "spoken_lang",
+                        "province",
+                        "postal",
+                        "hin",
+                        "hc_type",
+                        "patient_status")) assertCarried(result, column);
+        assertThat(result.fields().get("official_lang").rule())
+                .isEqualTo(CdsExportDemographicMapper.READ_BACK_IN_ANOTHER_FORM);
+        assertThat(result.fields().get("hin").rule())
+                .isEqualTo(CdsExportDemographicMapper.HEALTH_NUMBER_WITH_SPACES);
+        assertThat(result.fields().get("patient_status").rule())
+                .isEqualTo(CdsExportDemographicMapper.STATUS_SPELLED_AS_A_LABEL);
+        // The forms' own values are imported back as they are: nothing is carried.
+        fields.put("official_lang", "English");
+        fields.put("spoken_lang", "English");
+        fields.put("province", "ON");
+        fields.put("postal", "K1A0B1");
+        fields.put("hin", "1234567890");
+        fields.put("hc_type", "ON");
+        fields.put("patient_status", "MO");
+        var named = mapper.map(row(fields));
+        for (var expected :
+                Map.of(
+                                "official_lang", "PreferredOfficialLanguage",
+                                "spoken_lang", "PreferredSpokenLanguage",
+                                "province", "Address[M]/Structured/CountrySubdivisionCode",
+                                "postal", "Address[M]/Structured/PostalZipCode/PostalCode",
+                                "hin", "HealthCard/Number",
+                                "hc_type", "HealthCard/ProvinceCode",
+                                "patient_status", "PersonStatusCode/PersonStatusAsPlainText")
+                        .entrySet())
+            assertThat(named.fields().get(expected.getKey()).destination())
+                    .isEqualTo(expected.getValue());
+    }
+
+    @Test
     void shouldExportMovedAndFiredByMeaning_insteadOfTheirTwoLetterCodes() throws Exception {
         // Review D8: another EMR sees "Moved", not "MO"; CARLOS maps the label back on import.
         for (var status : Map.of("MO", "Moved", "FI", "Fired").entrySet()) {

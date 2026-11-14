@@ -468,6 +468,19 @@ public class CdsDemographicPersister {
             case "hc_type" -> patient.setHcType(value);
             case "phone" -> patient.setPhone(value);
             case "phone2" -> patient.setPhone2(value);
+            case "chart_no" -> patient.setChartNo(value);
+            case "email" -> patient.setEmail(value);
+            case "sin" -> patient.setSin(value);
+            case "official_lang" -> patient.setOfficialLanguage(value);
+            case "spoken_lang" -> patient.setSpokenLanguage(value);
+            case "address" -> patient.setAddress(value);
+            case "city" -> patient.setCity(value);
+            case "province" -> patient.setProvince(value);
+            case "postal" -> patient.setPostal(value);
+            case "residentialAddress" -> patient.setResidentialAddress(value);
+            case "residentialCity" -> patient.setResidentialCity(value);
+            case "residentialProvince" -> patient.setResidentialProvince(value);
+            case "residentialPostal" -> patient.setResidentialPostal(value);
             default -> throw new CdsImportException("DEMOGRAPHIC_CARRIED_COLUMN_INVALID");
         }
     }

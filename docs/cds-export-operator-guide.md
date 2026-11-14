@@ -160,7 +160,9 @@ status or birth date the screens would have refused is exported by a documented 
 name, gender U, an empty status, the birth date 0001-01-01), a character no XML file can hold is
 shown as U+FFFD, and the stored value travels exactly in the `CARLOS.NativeDemographic.v1`
 record, which a CARLOS import restores. A hidden or repeated extension row is exported the same
-way.
+way, and so is a value a receiving CARLOS would otherwise store in another form (a language code
+such as ENG, an issuer or province such as CA-ON, a postal code typed with its space, a health
+number with spaces).
 
 The same holds for roster, pharmacy and contact values: a fee-for-service or clinic-defined
 roster status, a roster entry missing its date, a second preferred pharmacy, Phone 2 or Notes on
