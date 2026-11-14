@@ -109,6 +109,20 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
             Objects.requireNonNull(form);
         }
 
+        /** Compares the image by content, not by array identity. */
+        @Override
+        public boolean equals(Object other) {
+            return other instanceof StoredImage that
+                    && form == that.form
+                    && java.util.Arrays.equals(image, that.image)
+                    && Objects.equals(failure, that.failure);
+        }
+
+        @Override
+        public int hashCode() {
+            return 31 * Objects.hash(form, failure) + java.util.Arrays.hashCode(image);
+        }
+
         @Override
         public String toString() {
             return "StoredImage[" + form + "]";

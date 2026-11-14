@@ -137,10 +137,15 @@ public final class CdsExportNativeCaptureReader {
         var lines = new CdsExportJsonLines(index, 1_048_576, checkpoint);
         // One set of working buffers per read, zeroed after every value and released at the end.
         var work = new Work();
+        // The value digest stays local to this read (it is not thread-safe, so it is never held in
+        // a field) and is passed down with the working buffers.
+        MessageDigest digest = sha256();
         try {
-            return scan(values, lines, plan, maximumFields, maximumBytes, checkpoint, output, work);
+            return scan(
+                    values, lines, plan, maximumFields, maximumBytes, checkpoint, output, work, digest);
         } finally {
             work.clear();
+            digest.reset();
         }
     }
 
@@ -152,7 +157,8 @@ public final class CdsExportNativeCaptureReader {
             long maximumBytes,
             Runnable checkpoint,
             Fields output,
-            Work work)
+            Work work,
+            MessageDigest digest)
             throws IOException {
         JsonNode header = lines.required();
         exact(header, "kind", "protocol");
@@ -237,7 +243,8 @@ public final class CdsExportNativeCaptureReader {
                             checkpoint,
                             Objects.requireNonNull(
                                     output.output(field), "CDS_EXPORT_FIELD_SINK_REQUIRED"),
-                            work);
+                            work,
+                            digest);
                     output.verified(field);
                     offset += field.bytes();
                     fields++;
@@ -270,14 +277,13 @@ public final class CdsExportNativeCaptureReader {
     }
 
     /**
-     * The working buffers of one read: the value chunk, the UTF-8 check's characters, the digest
-     * and the decoder. Reused for every value of the read instead of being allocated per value;
+     * The working buffers of one read: the value chunk, the UTF-8 check's characters and the
+     * decoder. Reused for every value of the read instead of being allocated per value;
      * the part a value used is zeroed as soon as that value is checked, and everything at the end.
      */
     private static final class Work {
         private final byte[] bytes = new byte[65_540];
         private final CharBuffer chars = CharBuffer.allocate(8_192);
-        private final MessageDigest digest = sha256();
         private final java.nio.charset.CharsetDecoder decoder =
                 StandardCharsets.UTF_8
                         .newDecoder()
@@ -287,7 +293,6 @@ public final class CdsExportNativeCaptureReader {
         void clear() {
             Arrays.fill(bytes, (byte) 0);
             Arrays.fill(chars.array(), '\u0000');
-            digest.reset();
         }
     }
 
@@ -296,9 +301,9 @@ public final class CdsExportNativeCaptureReader {
             CdsExportCapturedFieldDto field,
             Runnable checkpoint,
             OutputStream target,
-            Work work)
+            Work work,
+            MessageDigest digest)
             throws IOException {
-        MessageDigest digest = work.digest;
         digest.reset();
         long remaining = field.bytes();
         byte[] bytes = work.bytes;
