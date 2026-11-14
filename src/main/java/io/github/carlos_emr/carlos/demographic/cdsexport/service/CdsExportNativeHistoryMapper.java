@@ -1151,10 +1151,12 @@ public final class CdsExportNativeHistoryMapper {
                     default -> 50;
                 };
         if (target.equals("LifeStage")) {
-            // A select (N, I, C, T, A); any other value is not one CARLOS's editor writes.
-            if (!Set.of("N", "I", "C", "T", "A").contains(value))
-                review("CDS_EXPORT_NATIVE_HISTORY_LIFE_STAGE_REQUIRES_REVIEW");
-            put(text, target, value);
+            // The editor's select (N, I, C, T, A) is the element's list. The REST notes service
+            // stores the value it is sent (NotesService), so any other value is written, labelled,
+            // in the item's Notes and exactly in the extension facts, as a value too long for its
+            // element is.
+            if (Set.of("N", "I", "C", "T", "A").contains(value)) put(text, target, value);
+            else overflow.add(key + ":\n" + CdsExportXmlText.element(value));
             return;
         }
         boolean fits = CdsExportNativeFieldAssessments.legal(value, maximum);
