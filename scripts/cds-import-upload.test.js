@@ -326,3 +326,42 @@ test('any number of selected files is uploaded and submitted, one file after ano
     .map(step => step + ' ' + n)).flat());
   await until(() => /^130 file\(s\) accepted/.test(p.node('cdsNotice').textContent), 'no completion notice', 20000);
 });
+
+test('twenty-five files are each begun and submitted while every earlier upload still holds its reservation', async () => {
+  const count = 25;
+  const files = Array.from({length: count}, (_, n) => new File([Buffer.from('<q' + n + '/>')], `chart-${n}.xml`));
+  const id = (prefix, n) => prefix + '-0000-4000-8000-' + String(n).padStart(12, '0');
+  const upload = (n, state, receivedBytes) => ({id: id('22222222', n), fileName: files[n].name,
+    expectedBytes: files[n].size, receivedBytes, chunkBytes: 65536, committedChunks: receivedBytes ? 1 : 0, state});
+  // The stub server keeps a reservation for every begun upload: none is released, since no run
+  // here publishes its snapshot. The server has no count of its own to refuse a new upload with.
+  let reserved = 0; let mostReserved = 0;
+  const p = page({chunkStallMillis: '120000'}, {
+    files,
+    sent: xhr => {
+      const n = Number(new URL(xhr.url, ORIGIN).searchParams.get('uploadId').slice(-12));
+      xhr.reply(200, {ok: true, upload: upload(n, 'OPEN', files[n].size)});
+    },
+    answer: row => {
+      if (row.url.pathname.endsWith('/cdsImportSubmit')) {
+        const n = Number(row.init.body.get('uploadId').slice(-12));
+        row.respond({ok: true, accepted: true, job: {id: id('44444444', n), state: 'ACCEPTED'}}, 202);
+        return true;
+      }
+      if (!row.url.pathname.endsWith('/cdsUpload')) return false;
+      if (row.init.body.get('operation') === 'begin') {
+        const n = files.findIndex(file => file.name === row.init.body.get('fileName'));
+        reserved++; mostReserved = Math.max(mostReserved, reserved);
+        row.respond({ok: true, upload: upload(n, 'OPEN', 0)});
+      } else {
+        const n = Number(row.init.body.get('uploadId').slice(-12));
+        row.respond({ok: true, upload: upload(n, 'COMPLETE', files[n].size)});
+      }
+      return true;
+    }
+  });
+  p.node('cdsImportForm').fire('submit');
+  await until(() => /^25 file\(s\) accepted/.test(p.node('cdsNotice').textContent), 'not every file was accepted', 50000);
+  assert.equal(mostReserved, count, 'all twenty-five reservations were held at once');
+  assert.equal(p.requests.filter(row => row.url.pathname.endsWith('/cdsImportSubmit')).length, count);
+});

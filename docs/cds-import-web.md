@@ -74,7 +74,7 @@ Date-only, partial and missing source note timestamps remain unknown in native e
 
 - Prototype actions enforce HTTP methods, reauthorize, bind a bounded command and delegate. No action chooses an arbitrary server input or report path.
 - `CdsImportViewModelAssembler` and `CdsSourceFieldsViewModelAssembler` build immutable bounded presentation models. JSPs render encoded model values and perform no DAO work.
-- `CdsUploadService` owns durable byte checkpoints, reservation bookkeeping and payload retirement. No upload size or total is refused: each chunk is checked against the upload store's free-disk reserve before it is written (`UPLOAD_DISK_RESERVE_REFUSED`, HTTP 507), and the only count is of uploads still holding a reservation. Body transfer occurs outside database transactions; short row-locked transactions seal completed chunks.
+- `CdsUploadService` owns durable byte checkpoints, reservation bookkeeping and payload retirement. No upload size, total or count is refused: each chunk is checked against the upload store's free-disk reserve before it is written (`UPLOAD_DISK_RESERVE_REFUSED`, HTTP 507), and any number of uploads may wait for their runs' snapshots. Body transfer occurs outside database transactions; short row-locked transactions seal completed chunks.
 - `CdsImportService` owns durable job operations. Focused native demographic/history/appointment writers load bounded hash-bound DTOs prepared outside the clinical transaction. Unbounded source metadata scans do not run under a clinical unit's database locks.
 - Source-field reads take a shared admission lock through authorization and bounded metadata selection. Protected payload I/O occurs after that short transaction ends.
 - The browser keeps only bounded opaque run IDs in local storage, replaces bounded table pages, limits decoded status JSON to 2 MiB through a backpressured `pipeTo`/`WritableStream` consumer and aborts timed-out requests. Oversize or malformed UTF-8 cancels the source and fails visibly. It clears stale run content when switching runs and requires a fresh receipt before enabling run controls.
@@ -88,14 +88,14 @@ Date-only, partial and missing source note timestamps remain unknown in native e
 | `cds.import.source.<namespace>.profiles` | Registered `pcon-2024-02` and/or `omd-5.2` profiles |
 | `cds.import.uploadRoot` | Required private upload storage |
 | `cds.import.upload.maxChunkBytes` | 4 MiB transfer unit; supported range 64 KiB–16 MiB |
-| `cds.import.upload.maxFiles` | 20,000 uploads holding a reservation at once (an inode guard; one import needs one upload) |
 | `cds.import.minimumFreeDiskBytes` | 512 MiB free-disk reserve, checked before every chunk |
-| `cds.import.upload.ttlHours` | 24 hours for unsubmitted expiry |
+| `cds.import.upload.ttlHours` | 24 hours: the unsubmitted upload's stall window; the upload list shows when each unsubmitted upload is removed |
 | `cds.import.clinicalZone` | Explicit clinic/source time zone; no guessed local-time resolution |
 | `cds.import.native.maxNoteBytes` | 256 KiB bounded native narrative projection; maximum 384 KiB |
 
-A file of any size is uploaded: `cds.import.upload.maxFileBytes` and `maxTotalBytes` are retired
-and ignored (see the [configuration reference](cds-import-configuration.md#retired-settings)).
+A file of any size, and any number of files, is uploaded: `cds.import.upload.maxFileBytes`,
+`maxTotalBytes` and `maxFiles` are retired and ignored (see the
+[configuration reference](cds-import-configuration.md#retired-settings)).
 
 Live JSON requests use the explicit browser contract `apiVersion=2`; successful JSON responses include numeric `apiVersion: 2` and `X-CARLOS-CDS-API-Version: 2`. A missing, duplicated or unsupported mutator version requires a refresh before reading a raw chunk or reserving upload quota. Durable report and original-field downloads remain separately authorized, versionless immutable files, including JSON completion receipts. The foreground CLI protocol is independent.
 

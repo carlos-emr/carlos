@@ -243,7 +243,8 @@ class CdsImportJobServiceUnitTest {
                                 original.submissionKey(),
                                 null,
                                 preview.id(),
-                                0));
+                                0,
+                                null));
         when(ledger.findSubmission(actor.operator(), command(false).submissionKey()))
                 .thenReturn(null);
         var pending =
@@ -305,7 +306,8 @@ class CdsImportJobServiceUnitTest {
                                 original.submissionKey(),
                                 null,
                                 null,
-                                0));
+                                0,
+                                null));
         var failure =
                 assertThrows(CdsImportException.class, () -> service.accept(actor, command(true)));
         assertEquals("UPLOAD_ACTUAL_ALREADY_ACCEPTED", failure.getCode());
@@ -333,7 +335,8 @@ class CdsImportJobServiceUnitTest {
                                 original.submissionKey(),
                                 null,
                                 null,
-                                0));
+                                0,
+                                null));
         var failure =
                 assertThrows(CdsImportException.class, () -> service.accept(actor, command(false)));
         assertEquals("UPLOAD_PREVIEW_SNAPSHOT_PENDING", failure.getCode());
@@ -374,7 +377,8 @@ class CdsImportJobServiceUnitTest {
                                 "web-upload-fixed",
                                 null,
                                 null,
-                                0));
+                                0,
+                                null));
         when(uploads.claimForSubmission(actor.operator(), upload)).thenReturn(source);
         when(uploads.sourceForAcceptedRun(
                         eq(actor.operator()), eq(upload), anyString(), anyString(), anyBoolean()))

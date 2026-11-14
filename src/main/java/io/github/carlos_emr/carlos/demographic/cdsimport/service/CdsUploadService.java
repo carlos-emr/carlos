@@ -69,11 +69,16 @@ import org.springframework.transaction.support.TransactionTemplate;
  * <p>No transaction here carries a clock: a slow but working database never fails an upload. A
  * lost connection fails the request (HTTP 503), and the page sends the same chunk again.
  *
- * <p>No size refuses an upload. A file of any size is sent as chunks of the configured transfer
- * size, and each chunk is checked against the upload store's free-disk reserve before it is
- * written ({@code UPLOAD_DISK_RESERVE_REFUSED}, HTTP 507), after which the same upload resumes once
- * space is freed. The only count is of uploads still holding a reservation, which keeps a client
- * that begins uploads in a loop from exhausting inodes; one import needs one upload.
+ * <p>No size or count refuses an upload. A file of any size is sent as chunks of the configured
+ * transfer size, and each chunk is checked against the upload store's free-disk reserve before it
+ * is written ({@code UPLOAD_DISK_RESERVE_REFUSED}, HTTP 507), after which the same upload resumes
+ * once space is freed. Any number of uploads may be begun and wait for their runs' snapshots: a
+ * store that runs out of space refuses at the reserve, and one that runs out of inodes fails the
+ * step that needed one ({@code UPLOAD_STORAGE_UNAVAILABLE}, HTTP 503).
+ *
+ * <p>An upload that is neither submitted nor sent a chunk for {@code cds.import.upload.ttlHours}
+ * (24 by default) is abandoned and its bytes removed: that idle interval is the unsubmitted
+ * upload's stall window, and each receipt states when it ends ({@link CdsUploadDto#removedAt()}).
  *
  * <p>No clock refuses a chunk either. A chunk fails only when no byte of it arrives for {@link
  * #CHUNK_STALL_MILLIS} ({@code UPLOAD_CHUNK_STALLED}, HTTP 408), and the page then sends the same
@@ -147,12 +152,7 @@ public class CdsUploadService {
                             if (budget == null) throw problem("UPLOAD_SCHEMA_NOT_READY", 503);
                             // The reserved bytes are bookkeeping released with each upload; the
                             // disk reserve, checked before every chunk, is what protects the
-                            // store. Only the count of pending uploads is refused, against a
-                            // client that begins uploads in a loop.
-                            if (uploads.reservedCount()
-                                    >= configuration.number("cds.import.upload.maxFiles", 20_000)) {
-                                throw problem("UPLOAD_CAPACITY_BUSY", 429);
-                            }
+                            // store. No count of pending uploads is refused.
                             CdsUpload upload = new CdsUpload();
                             upload.setId(id);
                             upload.setOperator(operator);
@@ -722,10 +722,7 @@ public class CdsUploadService {
     /** Bounded maintenance hook; submitted/uncertain sources are intentionally never expiry-deleted. */
     public int cleanupExpired(int limit) throws IOException {
         int count = Math.max(1, Math.min(limit, 200));
-        Instant before =
-                Instant.now()
-                        .minusSeconds(
-                                configuration.number("cds.import.upload.ttlHours", 24) * 3600);
+        Instant before = Instant.now().minus(idleWindow());
         List<CdsUploadDto> candidates =
                 write(() -> uploads.expired(before, count).stream().map(this::dto).toList());
         int cleaned = 0;
@@ -867,7 +864,18 @@ public class CdsUploadService {
         return row;
     }
 
+    /** The unsubmitted upload's stall window: idle this long, it is abandoned and removed. */
+    private java.time.Duration idleWindow() {
+        return java.time.Duration.ofHours(configuration.number("cds.import.upload.ttlHours", 24));
+    }
+
     private CdsUploadDto dto(CdsUpload row) {
+        // Only an upload that cleanup may still abandon (begun or finished, never submitted) has a
+        // removal time; every stored chunk moves it on, since it restarts the idle interval.
+        Long removedAt =
+                Set.of("OPEN", "COMPLETE").contains(row.getState())
+                        ? row.getUpdatedAt().plus(idleWindow()).toEpochMilli()
+                        : null;
         return new CdsUploadDto(
                 row.getId(),
                 row.getSourceName(),
@@ -880,7 +888,8 @@ public class CdsUploadService {
                 row.getSubmissionKey(),
                 row.getRunId(),
                 row.getDryRunId(),
-                row.getUpdatedAt().toEpochMilli());
+                row.getUpdatedAt().toEpochMilli(),
+                removedAt);
     }
 
     private static String payloadName(CdsUpload row) {

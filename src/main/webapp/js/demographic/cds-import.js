@@ -87,6 +87,18 @@
         return labels[state]?.[french ? 1 : 0] || (french ? 'Vérifier le transfert' : 'Check transfer status');
     }
 
+    /**
+     * When the server removes an upload that is still unsubmitted: it gives each such upload the
+     * end of its idle window (every stored chunk moves it on), and none once it is submitted.
+     */
+    function uploadRemoval(upload, french = false) {
+        const at = upload?.removedAt;
+        if (!Number.isSafeInteger(at) || at < 1) return '';
+        const time = new Date(at).toLocaleString(french ? 'fr-CA' : 'en-CA');
+        return french ? 'Supprimé le ' + time + ' s’il n’est ni soumis ni repris d’ici là'
+            : 'Removed at ' + time + ' unless submitted or resumed before then';
+    }
+
     function jobPresentation(job, summary = {}, french = false) {
         summary = summary && typeof summary === 'object' && !Array.isArray(summary) ? summary : {};
         const count = value => Number.isSafeInteger(value) && value >= 0 ? value : null;
@@ -369,7 +381,7 @@
         return offset;
     }
 
-    const api = {API_VERSION, API_VERSION_HEADER, jobStatusUrl, friendlyState, uploadPresentation, jobPresentation, monitorAcceptedRun, readOpenedJobStatus, statusPresentation, boundedIds, latestUploadAttempt, mayStopPolling, recoveryControls, indexedSourceValuePath, reviewEligibility,
+    const api = {API_VERSION, API_VERSION_HEADER, jobStatusUrl, friendlyState, uploadPresentation, uploadRemoval, jobPresentation, monitorAcceptedRun, readOpenedJobStatus, statusPresentation, boundedIds, latestUploadAttempt, mayStopPolling, recoveryControls, indexedSourceValuePath, reviewEligibility,
         effectiveOptions, sha256, boundedJson, apiResponse, postChunk, verifyPrefix};
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     global.CarlosCdsImport = api;
@@ -738,7 +750,13 @@
             const rows = Array.isArray(data.rows) ? data.rows : [];
             if (rows.length > 50) throw new Error('IMPORT_PAGE_LIMIT_VIOLATED');
             const nodes = rows.map(upload => {
-                const row = document.createElement('tr'); cell(row, upload.fileName + ' — ' + upload.id); cell(row, uploadPresentation(upload.state, fr));
+                const row = document.createElement('tr'); cell(row, upload.fileName + ' — ' + upload.id);
+                const state = cell(row, uploadPresentation(upload.state, fr));
+                const removal = uploadRemoval(upload, fr);
+                if (removal) {
+                    const when = document.createElement('div'); when.className = 'small text-muted';
+                    when.textContent = removal; state.append(when);
+                }
                 cell(row, upload.receivedBytes + ' / ' + upload.expectedBytes);
                 const actions = cell(row, '');
                 const latestAttempt = latestUploadAttempt(upload);
