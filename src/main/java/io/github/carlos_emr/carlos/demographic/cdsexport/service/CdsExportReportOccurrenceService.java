@@ -1141,19 +1141,37 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                         if (!emitter.emit(loaded, windowUnits, window)) review();
                                         return true;
                                     });
+                            long capturedFiles =
+                                    source.capture()
+                                            .tables()
+                                            .get(CdsExportDocumentFileSourceReader.TABLE)
+                                            .rows();
+                            // A file no window took belongs to an imported document no report
+                            // uses (the chart's, held below with that document), or to no
+                            // document row of the capture at all. A file is read from its own
+                            // document row in the same snapshot, so the second contradicts the
+                            // capture: refused, as the chart read whole refuses it (load), and
+                            // never held as if it were the chart's.
+                            if (taken[3] != capturedFiles
+                                    && rowlessFile(
+                                            lease,
+                                            patient,
+                                            tables,
+                                            source,
+                                            bounds,
+                                            control,
+                                            nativeNumbers,
+                                            importedDocuments)) invalid();
                             // Every document an imported report names is used by one; every
                             // document and link row was taken by the window of its document (a
-                            // row whose document is in no window is taken by none); a reviewer
-                            // row or a file left over names a document the chart does not hold.
+                            // row whose document is in no window is taken by none: a link of a
+                            // document the chart does not hold holds the patient, with any review
+                            // of it, read whole or in windows); a reviewer row left over names a
+                            // document the chart neither holds nor links.
                             if (!chartOwned.containsAll(pending)
                                     || taken[0] != documentRowCount
                                     || taken[1] != linkRowCount) review();
-                            if (taken[2] != reviewerRows
-                                    || taken[3]
-                                            != source.capture()
-                                                    .tables()
-                                                    .get(CdsExportDocumentFileSourceReader.TABLE)
-                                                    .rows()) invalid();
+                            if (taken[2] != reviewerRows || taken[3] != capturedFiles) invalid();
                         }
                         // Embedded documents of native HL7 laboratory reports, after the chart's
                         // own documents.
@@ -1756,6 +1774,42 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
     }
 
     /**
+     * For a chart read in windows that left a captured file untaken: whether a file names a
+     * document with no document row in the capture. Every document row is either a native
+     * document (its number listed) or one an applied import names, so a file of neither has no
+     * row. One more pass over the capture, made only in that case; it keeps no file.
+     */
+    private boolean rowlessFile(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> tables,
+            CdsExportPatientCaptureDto source,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control,
+            int[] nativeNumbers,
+            Set<String> importedDocuments)
+            throws IOException {
+        boolean[] rowless = {false};
+        new CdsExportCapturedDocumentFiles()
+                .read(
+                        captures,
+                        lease,
+                        patient,
+                        tables,
+                        source,
+                        bounds,
+                        control,
+                        number -> {
+                            if (Arrays.binarySearch(nativeNumbers, number) < 0
+                                    && !importedDocuments.contains(Integer.toString(number)))
+                                rowless[0] = true;
+                            return false;
+                        },
+                        null);
+        return rowless[0];
+    }
+
+    /**
      * Reads the document and link rows {@code keep} names, their witnesses, their reviewer and
      * route rows and their captured file descriptors, and checks each row against its witness.
      * In every pass every row is checked for its shape, whether or not the window keeps it.
@@ -1934,7 +1988,18 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                     && !"DOC".equals(row.fields().get("lab_type"))) invalid();
                             String document = number(row, REVIEWERS.get(row.table()));
                             if (keep != null && !keep.test(document)) return;
-                            if (!current.containsKey(key("document", document))) invalid();
+                            // A review is captured through the patient's link, so a review of a
+                            // linked document the chart no longer holds belongs to that dangling
+                            // link: it is kept here, no occurrence uses it, and the patient is
+                            // held with the link, as when the chart is read in windows (where
+                            // neither is in any window). A review of a document the chart
+                            // neither holds nor links cannot have been captured.
+                            if (!current.containsKey(key("document", document))
+                                    && !current.containsKey(
+                                            key(
+                                                    "ctl_document",
+                                                    patient.patient() + "_" + document)))
+                                invalid();
                             if (budget.exceeded()) return;
                             long size = 1024L;
                             for (var value : row.fields().values())

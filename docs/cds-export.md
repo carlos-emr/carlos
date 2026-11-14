@@ -1317,7 +1317,17 @@ the same table together. A section therefore reads its rows in windows
   child row the window loaded is used by one of its owners, and it emits as many rows as it
   holds owners. Over the chart: the windows emitted as many rows as the capture states, and they
   took as many child rows as the capture holds, so a child row whose owner is in no window (an
-  orphan) is taken by none and the chart is refused, as it was when read whole.
+  orphan) is taken by none and the chart is refused, as it was when read whole. The two readings
+  decide alike, case by case. In Reports, a link to a document whose row the chart no longer
+  holds (deleted outside CARLOS; no CARLOS screen deletes a document row) holds the patient, with
+  any review or inbox route of that document (they are captured through the link): read whole,
+  such a review used to refuse the job as an invalid capture, while read in windows it held the
+  patient. A captured file whose document row the capture does not hold is refused as an invalid
+  capture by both (`CDS_EXPORT_REPORT_OCCURRENCE_INVALID`), as a document without its link is: a
+  file is read from its own document row in the same snapshot (`Plan.DOCUMENT_FILES` selects only
+  rows `Plan.DOCUMENTS` also selects), so no chart can produce it, and read in windows it used to
+  hold the patient as if the chart were at fault
+  (`CdsExportNativeReportAssemblyUnitTest`).
 - **Spilled.** Nothing of a windowed section is written to staging: a window is read again from
   the capture instead. The structures that would have to be spilled are the ones no window
   bounds, listed below.
