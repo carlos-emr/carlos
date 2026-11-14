@@ -366,8 +366,10 @@ public final class DocumentSummaryReviewBinding {
     }
 
     public static String noticeVersion(String language) { return "fr".equals(language) ? NOTICE_VERSION_FR : NOTICE_VERSION; }
-    private static String noticeHeading(String language) { return "fr".equals(language) ? NOTICE_HEADING_FR : NOTICE_HEADING; }
-    private static String noticeBody(String language) { return "fr".equals(language) ? NOTICE_BODY_FR : NOTICE_BODY; }
+    /** The notice heading in a notice language; any other value renders English. */
+    public static String noticeHeading(String language) { return "fr".equals(language) ? NOTICE_HEADING_FR : NOTICE_HEADING; }
+    /** The notice body in a notice language; any other value renders English. */
+    public static String noticeBody(String language) { return "fr".equals(language) ? NOTICE_BODY_FR : NOTICE_BODY; }
 
     /** One language per notice: heading, status line and body all from the same set. */
     private static String notice(String language, String reviewStatus) {
