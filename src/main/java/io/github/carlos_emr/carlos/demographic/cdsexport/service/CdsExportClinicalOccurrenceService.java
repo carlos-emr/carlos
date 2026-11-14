@@ -629,9 +629,11 @@ public class CdsExportClinicalOccurrenceService {
                                             assessedRows.addAll(indications);
                                             String provider = row.fields().get("provider_no");
                                             if (provider != null && !provider.isEmpty()) {
+                                                // A provider number with no provider record
+                                                // has no row to assess: the mapper carried
+                                                // the stored number (decision A2).
                                                 var resolved = providers.get(provider);
-                                                if (resolved == null) scope();
-                                                assessedRows.add(resolved);
+                                                if (resolved != null) assessedRows.add(resolved);
                                             }
                                         }
                                         new CdsExportNativeFieldAssessmentValidator()

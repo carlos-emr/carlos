@@ -250,8 +250,12 @@ class CdsExportMedicationFieldReconcilerUnitTest {
     }
 
     @Test
-    void shouldHoldARestoredQuantityUnitOrAsNeededFlag_whenChangedAfterImport() throws Exception {
-        // The retained carrier would restate the imported value beside a changed chart.
+    void shouldSupersedeTheSendersCarrier_whenARestoredQuantityUnitOrAsNeededFlagChanged()
+            throws Exception {
+        // The retained carrier would restate the imported value beside a changed chart: the
+        // current value is exported, the sender's carrier is superseded and the current row
+        // travels in CARLOS.Medication.CurrentSource.v1 (a change only the REST service or a
+        // direct edit can make; no patient is held for it).
         for (var change :
                 List.of(
                         Map.entry("unitName", "L"),
@@ -267,10 +271,25 @@ class CdsExportMedicationFieldReconcilerUnitTest {
                                     true,
                                     restoredSource(),
                                     restoredBaseline()));
-            assertThat(result.mapping().nativeRowRepresentable()).as(change.getKey()).isFalse();
-            assertThat(result.mapping().fields().get(key(change.getKey())).rule())
-                    .isEqualTo("RESTORED_SOURCE_CONTEXT_CHANGED_REQUIRES_REVIEW");
+            assertThat(result.mapping().nativeRowRepresentable()).as(change.getKey()).isTrue();
+            assertThat(result.supersedesSenderSource()).isTrue();
+            assertThat(
+                            JSON.readTree(result.currentSource().replace("\\u0020", " "))
+                                    .get("fields")
+                                    .get(change.getKey())
+                                    .asText())
+                    .isEqualTo(change.getValue());
         }
+        assertThat(
+                        reconcile(
+                                        fixture(
+                                                restoredBaseline(),
+                                                numbers(),
+                                                true,
+                                                restoredSource(),
+                                                restoredBaseline()))
+                                .supersedesSenderSource())
+                .isFalse();
         // A prepared unit the sealed baseline never held is not proven.
         var unproven = restoredBaseline();
         unproven.put("unitName", "tablet");
@@ -359,7 +378,7 @@ class CdsExportMedicationFieldReconcilerUnitTest {
     }
 
     @Test
-    void shouldRequireReviewForAFloatEditHiddenInTheLegacyDisplay_andItsStaleGeneratedInstructions()
+    void shouldCarryAFloatEditHiddenInTheLegacyDisplay_andItsStaleGeneratedInstructions()
             throws Exception {
         var changed = new HashMap<>(numbers());
         changed.put("takemin", numeric("3f000001"));
@@ -367,10 +386,14 @@ class CdsExportMedicationFieldReconcilerUnitTest {
         var result = reconcile(f);
         assertThat(f.witness().digest())
                 .isEqualTo(f.checked().units().get(ADDRESS).getFirst().expected().digest());
-        assertThat(result.mapping().nativeRowRepresentable()).isFalse();
-        assertThat(result.currentPaths()).contains("Dosage");
+        // The dose text the chart shows is still exported; the changed bounds and the SIG the
+        // import generated from the old values travel in the current-source carrier.
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.currentPaths()).contains("Dosage", "generatedInstructions");
+        assertThat(result.mapping().value().fields()).containsEntry(Field.Dosage, "0.5-1");
         assertThat(result.mapping().fields().get(key("special")).rule())
-                .isEqualTo("GENERATED_SIG_DEPENDENCIES_CHANGED_REQUIRES_REVIEW");
+                .isEqualTo(CdsExportMedicationFieldReconciler.CARRIED);
+        assertThat(result.currentSource()).contains("\"takemin\"");
     }
 
     @Test
@@ -382,17 +405,22 @@ class CdsExportMedicationFieldReconcilerUnitTest {
     }
 
     @Test
-    void shouldRequireReview_forChangedStructuredStrengthOrAnOriginalClockDate() throws Exception {
+    void shouldExportAChangedStrengthTextAndDate_asOnANeverImportedPrescription()
+            throws Exception {
+        // A changed strength text has no typed Strength: the element is removed and the text
+        // carried. A changed date is a plain calendar date and supersedes the source clock.
         var fields = baseline();
         fields.put("dosage", "10 mg");
-        assertThat(reconcile(fixture(fields, numbers(), true)).mapping().nativeRowRepresentable())
-                .isFalse();
+        var strength = reconcile(fixture(fields, numbers(), true));
+        assertThat(strength.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(strength.mapping().value().strengthAmount()).isNull();
+        assertThat(strength.currentSource()).contains("\"dosage\":\"10\\u0020mg\"");
         fields = baseline();
         fields.put("written_date", "2024-03-01");
         var result = reconcile(fixture(fields, numbers(), true));
-        assertThat(result.mapping().nativeRowRepresentable()).isFalse();
-        assertThat(result.mapping().fields().get(key("written_date")).rule())
-                .isEqualTo("UNPROJECTED_CLOCK_OR_OFFSET_REQUIRES_RECONCILIATION");
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.mapping().value().written().lexical()).isEqualTo("2024-03-01");
+        assertThat(result.currentPaths()).contains("PrescriptionWrittenDate");
     }
 
     @Test

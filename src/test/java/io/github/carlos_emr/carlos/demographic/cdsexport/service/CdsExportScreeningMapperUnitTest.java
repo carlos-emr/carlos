@@ -469,6 +469,22 @@ class CdsExportScreeningMapperUnitTest {
         assertThat(result.representable()).isTrue();
         assertThat(field(result, row, "prevention_type").rule())
                 .isEqualTo(CdsExportScreeningMapper.OVERLONG_IN_RESIDUAL);
+        // The rendered entry: the fixed label as the description, the complete type and status
+        // as the first lines of Notes, and the exact row in the residual.
+        assertThat(result.value().description()).isEqualTo(CdsExportScreeningMapper.LONG_TYPE);
+        assertThat(result.value().notes()).startsWith(name + "\n").contains("Completed externally");
+        assertThat(result.value().notes().lines().findFirst()).contains(name);
+        assertThat(result.value().sourceContext()).contains("\"prevention_type\":\"" + name + "\"");
+        // With comments the type and status still lead, and the comments follow whole.
+        var commented =
+                mapper.map(
+                        27,
+                        row,
+                        List.of(extension(42, 31, "comments", "Follow up in one year")),
+                        List.of(),
+                        definitions);
+        assertThat(commented.value().notes()).endsWith("\nFollow up in one year");
+        assertThat(commented.value().notes()).startsWith(name);
     }
 
     @Test

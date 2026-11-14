@@ -75,6 +75,9 @@ public final class CdsExportNativeMedicationMapper {
                     "MEDICATION_IDENTITY_REQUIRED",
                     "CONFLICTING_NATIVE_DOSE_UNITS",
                     "PRESCRIBER_NAME_MUST_NOT_BE_SPLIT",
+                    // A provider number with no provider record (migrated data): nobody is
+                    // named as PrescribedBy, and the stored number travels in the residual.
+                    "EXACT_CAPTURED_PRESCRIBER_REQUIRED",
                     // The Rx page saves "Past medication" and the status select independently
                     // (prescribe.jsp), so "Yes" beside Active, or "No" beside Completed, is an
                     // ordinary saved prescription. Both standard elements are written as stored.

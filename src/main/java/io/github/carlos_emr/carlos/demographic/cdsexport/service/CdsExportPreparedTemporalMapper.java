@@ -61,7 +61,16 @@ public final class CdsExportPreparedTemporalMapper {
                         || !java.util.Objects.equals(check.localDateTime(), value.localDateTime()) || !java.util.Objects.equals(check.offsetDateTime(), value.offsetDateTime())) invalid();
             }
             return new CdsExportDateDto(precision, lexical);
-        } catch (RuntimeException invalid) { throw new IOException("CDS_EXPORT_PREPARED_TEMPORAL_REQUIRES_REVIEW"); }
+        } catch (RuntimeException failure) { invalid(); return null; }
     }
-    private static void invalid() throws IOException { throw new IOException("CDS_EXPORT_PREPARED_TEMPORAL_REQUIRES_REVIEW"); }
+
+    /**
+     * A sealed preparation whose date does not re-derive from its own original text and recorded
+     * shift contradicts its source: an integrity fault of this one patient's import. It is a
+     * named outcome for that patient (job status and ReadMe), never a failed job.
+     */
+    private static void invalid() throws IOException {
+        throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                .CdsExportMappingReviewException("CDS_EXPORT_PREPARED_TEMPORAL_REQUIRES_REVIEW");
+    }
 }

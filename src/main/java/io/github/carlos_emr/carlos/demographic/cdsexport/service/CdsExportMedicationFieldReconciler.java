@@ -40,6 +40,10 @@ public final class CdsExportMedicationFieldReconciler {
      *     every changed value has a CDS element: the complete current row of an imported
      *     prescription whose in-place change (deleted or discontinued, hidden from the CPP, ...)
      *     CDS 5.2 has no element for
+     * @param supersedesSenderSource whether a quantity unit or as-needed flag the import restored
+     *     from a CARLOS sender's {@code CARLOS.Medication.Source.v1} was changed since: that
+     *     carrier would restate the old value, so the assembler removes it (the receipt lists
+     *     its fields as replaced) and the current row travels in {@code currentSource}
      * @param archived the archive state the occurrence's {@code CARLOS.Medication.Archived.v1}
      *     must state once the archive columns were changed in CARLOS, or null when the retained
      *     marker (or its absence) still stands
@@ -52,7 +56,8 @@ public final class CdsExportMedicationFieldReconciler {
             Set<String> currentPaths,
             boolean retainedStrengthRequired,
             String currentSource,
-            Boolean archived) {
+            Boolean archived,
+            boolean supersedesSenderSource) {
         public Result {
             preparedPaths = Set.copyOf(preparedPaths);
             currentPaths = Set.copyOf(currentPaths);
@@ -74,7 +79,8 @@ public final class CdsExportMedicationFieldReconciler {
                     currentPaths,
                     retainedStrengthRequired,
                     null,
-                    null);
+                    null,
+                    false);
         }
 
         @Override
@@ -116,7 +122,28 @@ public final class CdsExportMedicationFieldReconciler {
                     "NUMERIC_QUANTITY_REQUIRES_REVIEW",
                     "NONNEGATIVE_INTEGER_CAPACITY_REQUIRES_REVIEW",
                     "NATIVE_BOOLEAN_REQUIRES_REVIEW",
-                    "UNRECOGNIZED_TREATMENT_TYPE");
+                    "UNRECOGNIZED_TREATMENT_TYPE",
+                    "EXACT_CAPTURED_PRESCRIBER_REQUIRED",
+                    // A change made outside the Rx screens (the REST service, a direct edit) is
+                    // decided as on a never-imported row: the element is written by the same
+                    // rule or left out, and the stored columns are carried.
+                    "REGIONAL_DRUG_IDENTIFIER_AUTHORITY_REQUIRES_REVIEW",
+                    "UNSTRUCTURED_STRENGTH_REQUIRES_RECONCILIATION",
+                    "MULTIPLE_NATIVE_DRUG_NAMES_REQUIRE_RECONCILIATION",
+                    "MEDICATION_CURRENTNESS_NOT_ESTABLISHED",
+                    "UNRECOGNIZED_PRESCRIPTION_STATUS",
+                    "SQL_FLOAT_DISPLAY_IS_NOT_AN_EXACT_DOSE_WITNESS",
+                    "CONFLICTING_NATIVE_DOSE_UNITS",
+                    "PRESCRIBER_NAME_MUST_NOT_BE_SPLIT",
+                    "CONFLICTING_MEDICATION_CURRENTNESS",
+                    "CONFLICTING_NATIVE_TREATMENT_TYPE_INDICATOR",
+                    "CONFLICTING_NATIVE_AS_NEEDED_INDICATOR",
+                    "CONFLICTING_PRESCRIBER_NAME",
+                    "CONFLICTING_PRESCRIBER_IDENTIFIER",
+                    "UNKNOWN_START_DATE_REQUIRES_RECONCILIATION",
+                    "CDS_EXPORT_LEGACY_DATE_SENTINEL_REQUIRES_REVIEW",
+                    "CDS_EXPORT_NATIVE_DATE_PRECISION_REQUIRES_REVIEW",
+                    "UNKNOWN_MEDICATION_PRECISION_FIELD");
 
     private static final List<Group> GROUPS =
             List.of(
@@ -258,6 +285,7 @@ public final class CdsExportMedicationFieldReconciler {
             }
         samePrecision &= priorPrecisionIds.equals(currentPrecisionIds);
         var restored = restoredColumns(source);
+        boolean supersedesSender = false;
         for (var group : groups(source)) {
             boolean proved = true;
             for (String column : group.columns())
@@ -274,13 +302,13 @@ public final class CdsExportMedicationFieldReconciler {
             if (!unchanged
                     && (!restoredChanged.isEmpty()
                             || group.path().equals(Field.Quantity.name())
-                                    && restored.contains("unitName"))) {
+                                    && restored.contains("unitName")))
                 // The retained CARLOS.Medication.Source.v1 carrier would restate a value the
                 // import restored from it (or the quantity it was checked against) and contradict
-                // the current chart (#6198).
-                mark(current, decisions, group, "RESTORED_SOURCE_CONTEXT_CHANGED_REQUIRES_REVIEW");
-                continue;
-            }
+                // the current chart (#6198). The current value is exported, the sender's carrier
+                // is superseded (removed, its fields listed as replaced) and the complete current
+                // row travels in CARLOS.Medication.CurrentSource.v1.
+                supersedesSender = true;
             if (source.strengthSourceOnly() && group.path().equals("Strength") && !unchanged) {
                 mark(current, decisions, group, "SOURCE_ONLY_STRENGTH_PROJECTION_CHANGED");
                 continue;
@@ -289,21 +317,13 @@ public final class CdsExportMedicationFieldReconciler {
                     group.path().equals("StartDate")
                             || group.path().equals("PrescriptionWrittenDate");
             if (date && !samePrecision) {
-                mark(current, decisions, group, "CHANGED_PRECISION_DEPENDENCY_REQUIRES_REVIEW");
+                // The date's precision rows changed since the import: the current column and its
+                // current precision rows are the date, as on a never-imported row.
+                currentPaths.add(group.path());
                 continue;
             }
-            var oldDate = group.path().equals("StartDate") ? old.start() : old.written();
-            if (date
-                    && !unchanged
-                    && (oldDate.precision() == CdsExportDateDto.Precision.DATE_TIME
-                            || hasOffset(oldDate))) {
-                mark(
-                        current,
-                        decisions,
-                        group,
-                        "UNPROJECTED_CLOCK_OR_OFFSET_REQUIRES_RECONCILIATION");
-                continue;
-            }
+            // A date changed in CARLOS is a plain calendar date; it supersedes a source clock
+            // or offset the native column never held, as an edited demographic date does.
             if (group.path().equals("generatedInstructions")
                     && unchanged
                     && !Collections.disjoint(
@@ -319,11 +339,10 @@ public final class CdsExportMedicationFieldReconciler {
                                     "dosage",
                                     "route",
                                     "freqcode"))) {
-                mark(
-                        current,
-                        decisions,
-                        group,
-                        "GENERATED_SIG_DEPENDENCIES_CHANGED_REQUIRES_REVIEW");
+                // The SIG the import generated from the source values no longer matches the
+                // changed columns. It has no element on this path; like every other column
+                // without one it travels in the current-source carrier.
+                currentPaths.add(group.path());
                 continue;
             }
             if (unchanged) {
@@ -401,18 +420,40 @@ public final class CdsExportMedicationFieldReconciler {
                 }
             } else if ("0".equals(flag)) archived = false;
         }
-        boolean carried = false;
-        for (String column : current.fields().keySet()) {
-            var key = new CdsExportNativeFieldKeyDto(current.table(), current.recordKey(), column);
-            var prior = decisions.get(key);
-            if (prior.outcome() != Outcome.REQUIRES_REVIEW || !CARRIED_RULES.contains(prior.rule()))
-                continue;
+        boolean carried = supersedesSender;
+        boolean outsidePrescriber = false, unestablished = false;
+        for (var entry : new ArrayList<>(decisions.entrySet())) {
+            var key = entry.getKey();
+            var prior = entry.getValue();
+            if (prior.outcome() != Outcome.REQUIRES_REVIEW) continue;
+            boolean row = key.table().equals(current.table());
+            // A value longer than its element is left out and carried, never clipped; only
+            // text no XML document can hold still requires review.
+            boolean overlong =
+                    row
+                            && "WIRE_TEXT_REQUIRES_REVIEW".equals(prior.rule())
+                            && CdsExportNativeFieldAssessments.legal(
+                                    current.fields().get(key.column()), Integer.MAX_VALUE);
+            if (!(row || key.table().equals("partial_date"))
+                    || !CARRIED_RULES.contains(prior.rule()) && !overlong) continue;
             carried = true;
+            outsidePrescriber |= prior.rule().startsWith("CONFLICTING_PRESCRIBER_");
+            unestablished |= prior.rule().equals("MEDICATION_CURRENTNESS_NOT_ESTABLISHED");
             decisions.put(
                     key,
                     new CdsExportFieldAssessmentDto(
                             prior.presence(), Outcome.MAPPED, RESIDUAL, CARRIED));
         }
+        if (unestablished && archived == null && currentPaths.contains(STATUS)) {
+            // As on a never-imported row: an unknown status is not written, and a false
+            // past-medication flag beside it does not establish current treatment.
+            selected.remove(Field.PrescriptionStatus);
+            if (!"1".equals(current.fields().get("past_med")))
+                selected.remove(Field.PastMedications);
+        }
+        boolean startUnknown =
+                currentPaths.contains("StartDate")
+                        && "1".equals(current.fields().get("start_date_unknown"));
         boolean blocked =
                 decisions.values().stream()
                         .anyMatch(field -> field.outcome() == Outcome.REQUIRES_REVIEW);
@@ -424,12 +465,17 @@ public final class CdsExportMedicationFieldReconciler {
                             chosen.contains("PrescriptionWrittenDate")
                                     ? old.written()
                                     : candidate.written(),
-                            chosen.contains("StartDate") ? old.start() : candidate.start(),
+                            chosen.contains("StartDate")
+                                    ? old.start()
+                                    : startUnknown
+                                            ? new CdsExportDateDto(
+                                                    CdsExportDateDto.Precision.ABSENT, null)
+                                            : candidate.start(),
                             chosen.contains("Strength") ? old.strengthAmount() : null,
                             chosen.contains("Strength") ? old.strengthUnit() : null,
                             chosen.contains("PrescribedBy")
                                     ? old.prescriber()
-                                    : candidate.prescriber(),
+                                    : outsidePrescriber ? null : candidate.prescriber(),
                             selected);
         return new Result(
                 index.sourceManifestSha256(),
@@ -439,7 +485,8 @@ public final class CdsExportMedicationFieldReconciler {
                 currentPaths,
                 source.strengthSourceOnly(),
                 currentSource,
-                blocked ? null : archived);
+                blocked ? null : archived,
+                !blocked && supersedesSender);
     }
 
     /**

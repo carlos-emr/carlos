@@ -96,7 +96,16 @@ public final class CdsExportMedicationRetainedAssembler {
         if (!decision.sourceManifestSha256().equals(index.sourceManifestSha256())
                 || !index.sourceManifestSha256().equals(checked.sourceManifestSha256())
                 || !index.appliedUnits().contains(decision.unitAddress())) scope();
-        CdsExportMedicationXmlWriter.validate(decision.mapping().value());
+        try {
+            CdsExportMedicationXmlWriter.validate(decision.mapping().value());
+        } catch (io.github.carlos_emr.carlos.demographic.cdsexport.support
+                        .CdsExportMappingReviewException held) {
+            throw held;
+        } catch (IOException unwritable) {
+            // A value of this one prescription the writer cannot hold concerns this patient's
+            // chart: the patient is held under a named code, the job is not stopped.
+            review("CDS_EXPORT_MEDICATION_VALUES_REQUIRES_REVIEW");
+        }
         var fields =
                 new CdsExportRetainedOccurrenceFields()
                         .fieldsFor(
@@ -150,7 +159,9 @@ public final class CdsExportMedicationRetainedAssembler {
                             CdsNativeExtensionContract.MEDICATION_REASONS,
                             CdsNativeExtensionContract.STRING_TYPE,
                             reasons.residual()));
-        if (decision.currentSource() != null || decision.archived() != null)
+        if (decision.currentSource() != null
+                || decision.archived() != null
+                || decision.supersedesSenderSource())
             current(decision, relative, values, changes, additions, checkpoint);
         if (!additions.isEmpty()) residual(relative, additions, changes, checkpoint);
         values.requireActive();
@@ -195,12 +206,23 @@ public final class CdsExportMedicationRetainedAssembler {
                     CdsExportAllergyRetainedAssembler.token(
                             values, entry.getValue(), checkpoint, 128);
             if (!CdsNativeExtensionContract.MEDICATION_ARCHIVED.equals(name)
-                    && !CdsNativeExtensionContract.MEDICATION_CURRENT_SOURCE.equals(name)) continue;
+                    && !CdsNativeExtensionContract.MEDICATION_CURRENT_SOURCE.equals(name)
+                    && !CdsNativeExtensionContract.MEDICATION_SOURCE_CONTEXT.equals(name)) continue;
             String path = entry.getKey().substring(0, entry.getKey().lastIndexOf('/'));
             if (existing.putIfAbsent(name, path) != null
                     || !relative.containsKey(path + "/DataType[1]")
                     || !relative.containsKey(path + "/Content[1]"))
                 review("CDS_EXPORT_MEDICATION_EXTENSION_REQUIRES_REVIEW");
+        }
+        if (decision.supersedesSenderSource()) {
+            // The sender's own complete-row carrier would restate a quantity unit or as-needed
+            // flag that CARLOS has since changed, and a CARLOS importer would restore it: the
+            // element is removed (its fields are listed as replaced) and the current row
+            // travels in CARLOS.Medication.CurrentSource.v1.
+            String path = existing.get(CdsNativeExtensionContract.MEDICATION_SOURCE_CONTEXT);
+            if (path != null)
+                changes.add(
+                        new CdsExportRetainedSectionWriter.Change(path, ids(relative, path), null));
         }
         if (decision.archived() != null) {
             String state = Boolean.toString(decision.archived());

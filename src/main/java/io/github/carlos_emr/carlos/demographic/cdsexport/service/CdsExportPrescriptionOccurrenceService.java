@@ -101,8 +101,9 @@ public class CdsExportPrescriptionOccurrenceService {
         var contexts = new ArrayList<Source>();
         for (var parent : parents) {
             String id = parent.fields().get("provider_no");
+            // A script whose provider number has no provider record (migrated data) is exported
+            // without public author values; the stored number is in the record's own fields.
             var author = id == null || id.isEmpty() ? null : providers.get(id);
-            if (id != null && !id.isEmpty() && author == null) invalid();
             contexts.add(new Source(parent, author));
         }
         return List.copyOf(contexts);
@@ -166,9 +167,9 @@ public class CdsExportPrescriptionOccurrenceService {
             if (!row.table().equals("drugs")
                     || !Integer.toString(patient).equals(row.fields().get("demographic_no")))
                 invalid();
-            String parent = row.fields().get("script_no");
-            if (parent != null && !parent.isEmpty() && !parent.equals("0") && !ids.contains(parent))
-                invalid();
+            // A drug whose script_no names no script of this patient (migrated data) is not
+            // held: the stored number travels exactly with the drug's own row in
+            // CARLOS.Medication.Source.v1, and no script record is invented for it.
         }
     }
 

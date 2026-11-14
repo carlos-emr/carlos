@@ -384,6 +384,106 @@ class CdsExportMedicationRetainedAssemblerUnitTest {
                                 .toList());
     }
 
+    /** The residual elements of an exported occurrence, name to content, in document order. */
+    private Map<String, String> residuals(CdsExportXmlComposer.Content content, String name)
+            throws Exception {
+        var record = parse(content, name).get(1);
+        var parser = new CdsFieldParser();
+        var names = new ArrayList<String>();
+        var contents = new ArrayList<String>();
+        parser.forEachField(
+                record,
+                field -> {
+                    try {
+                        String path = CdsFieldParser.unindexed(field.path());
+                        if (path.equals("ResidualInfo/DataElement/Name"))
+                            names.add(parser.readToken(record, field, 128));
+                        if (path.equals("ResidualInfo/DataElement/Content"))
+                            contents.add(parser.readToken(record, field, 1 << 20));
+                    } catch (java.io.IOException invalid) {
+                        throw new java.io.UncheckedIOException(invalid);
+                    }
+                });
+        var result = new LinkedHashMap<String, String>();
+        for (int i = 0; i < names.size(); i++)
+            assertThat(result.put(names.get(i), contents.get(i))).isNull();
+        return result;
+    }
+
+    @Test
+    void shouldCorrectASendersArchiveMarkerAndReplaceItsEarlierCurrentRow_onALaterExport()
+            throws Exception {
+        // The chart came from a CARLOS export of an imported prescription that had been hidden
+        // from the CPP there: it carries CARLOS.Medication.Archived.v1 false and that sender's
+        // CARLOS.Medication.CurrentSource.v1. It is then deleted here. The archive marker must
+        // say true, and the one current-source element must state this chart's row, not two.
+        var current = CdsExportMedicationFieldReconcilerUnitTest.baseline();
+        current.put("archived", "1");
+        current.put("archived_reason", "deleted");
+        current.put("archived_date", "2026-01-02 03:04:05");
+        var f =
+                fixture(
+                        current,
+                        null,
+                        false,
+                        true,
+                        List.of(
+                                List.of(
+                                        CdsNativeExtensionContract.MEDICATION_ARCHIVED,
+                                        "boolean",
+                                        "false"),
+                                List.of(
+                                        CdsNativeExtensionContract.MEDICATION_CURRENT_SOURCE,
+                                        "string",
+                                        "{\"version\":1,\"fields\":{\"hide_cpp\":\"1\"}}")));
+        var plan = prepare(f);
+        var residual = residuals(plan.content(), "second-export");
+        assertThat(residual.keySet())
+                .containsExactly(
+                        "Vendor.custom",
+                        CdsNativeExtensionContract.MEDICATION_ARCHIVED,
+                        CdsNativeExtensionContract.MEDICATION_CURRENT_SOURCE);
+        assertThat(residual.get(CdsNativeExtensionContract.MEDICATION_ARCHIVED)).isEqualTo("true");
+        var row =
+                new com.fasterxml.jackson.databind.ObjectMapper()
+                        .readTree(residual.get(CdsNativeExtensionContract.MEDICATION_CURRENT_SOURCE))
+                        .get("fields");
+        assertThat(row.get("archived_reason").asText()).isEqualTo("deleted");
+        assertThat(row.get("drugid").asText()).isEqualTo("51");
+        // Exactly the two superseded contents and the status elements are listed as replaced.
+        assertThat(plan.replacedFields())
+                .containsAll(
+                        f.fields().stream()
+                                .filter(
+                                        field ->
+                                                field.sourcePath()
+                                                                .endsWith("DataElement[2]/Content[1]")
+                                                        || field.sourcePath()
+                                                                .endsWith(
+                                                                        "DataElement[3]/Content[1]"))
+                                .map(CdsExportRetainedFieldDto::id)
+                                .toList());
+        // A marker that already says the current state is left as the sender wrote it.
+        var unhidden = CdsExportMedicationFieldReconcilerUnitTest.baseline();
+        unhidden.put("hide_cpp", "1");
+        var kept =
+                fixture(
+                        unhidden,
+                        null,
+                        false,
+                        true,
+                        List.of(
+                                List.of(
+                                        CdsNativeExtensionContract.MEDICATION_ARCHIVED,
+                                        "boolean",
+                                        "false")));
+        var keptPlan = prepare(kept);
+        assertThat(residuals(keptPlan.content(), "kept"))
+                .containsEntry(CdsNativeExtensionContract.MEDICATION_ARCHIVED, "false")
+                .containsKey(CdsNativeExtensionContract.MEDICATION_CURRENT_SOURCE);
+        assertThat(keptPlan.replacedFields()).isEmpty();
+    }
+
     private static CdsExportMedicationReasonMapper.Result reasons() throws Exception {
         var drug =
                 CdsExportMedicationMapperUnitTest.medication(
@@ -422,6 +522,20 @@ class CdsExportMedicationRetainedAssemblerUnitTest {
             Path strengthPayload,
             boolean omitStrength,
             boolean sourceExtras)
+            throws Exception {
+        return fixture(current, strengthPayload, omitStrength, sourceExtras, List.of());
+    }
+
+    /**
+     * {@code senderMarkers}: further residual elements the sender wrote after its vendor element,
+     * each as name, data type and content (a CARLOS sender's own carriers).
+     */
+    static Fixture fixture(
+            Map<String, String> current,
+            Path strengthPayload,
+            boolean omitStrength,
+            boolean sourceExtras,
+            List<List<String>> senderMarkers)
             throws Exception {
         boolean sourceOnlyStrength = strengthPayload != null;
         var base =
@@ -472,6 +586,12 @@ class CdsExportMedicationRetainedAssemblerUnitTest {
                             "ResidualInfo[1]/DataElement[1]/Content[1]",
                             "cds_dt",
                             "Vendor café 😀 content"));
+        }
+        for (int i = 0; i < senderMarkers.size(); i++) {
+            String element = "ResidualInfo[1]/DataElement[" + (i + 2) + "]/";
+            fields.add(field(element + "Name[1]", "cds_dt", senderMarkers.get(i).get(0)));
+            fields.add(field(element + "DataType[1]", "cds_dt", senderMarkers.get(i).get(1)));
+            fields.add(field(element + "Content[1]", "cds_dt", senderMarkers.get(i).get(2)));
         }
         var metadata = new LinkedHashMap<String, CdsExportCapturedTextRowDto>();
         for (var field : fields) metadata.put(field.id(), metadata(field));

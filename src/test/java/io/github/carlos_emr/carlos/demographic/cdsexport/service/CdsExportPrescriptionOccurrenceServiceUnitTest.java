@@ -180,20 +180,23 @@ class CdsExportPrescriptionOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseAnUnresolvedPublicScriptAuthor_insteadOfInventingTheExportingClinician()
+    void shouldExportAScriptWhoseProviderHasNoRecord_withoutInventingTheExportingClinician()
             throws Exception {
+        // A provider number with no provider row (migrated data) no longer holds the patient:
+        // the script is exported with no public author, its stored number in its own fields.
         var f = captured(true, false);
-        assertThatThrownBy(
-                        () ->
-                                new CdsExportPrescriptionOccurrenceService(f.fixture.captures)
-                                        .sources(
-                                                f.fixture.lease,
-                                                f.fixture.patient,
-                                                f.tables,
-                                                f.source,
-                                                f.fixture.bounds,
-                                                f.fixture.control))
-                .hasMessage("CDS_EXPORT_PRESCRIPTION_OWNERSHIP_REQUIRES_REVIEW");
+        var sources =
+                new CdsExportPrescriptionOccurrenceService(f.fixture.captures)
+                        .sources(
+                                f.fixture.lease,
+                                f.fixture.patient,
+                                f.tables,
+                                f.source,
+                                f.fixture.bounds,
+                                f.fixture.control);
+        assertThat(sources).hasSize(1);
+        assertThat(sources.getFirst().author()).isNull();
+        assertThat(sources.getFirst().prescription().fields().get("provider_no")).isNotEmpty();
     }
 
     @Test
@@ -322,15 +325,14 @@ class CdsExportPrescriptionOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseOrphanCrossPatientDuplicateAndSpoofedParents() throws Exception {
+    void shouldRefuseCrossPatientDuplicateAndSpoofedParents_butNotADanglingScriptNumber() throws Exception {
         var drug =
                 CdsExportMedicationMapperUnitTest.medication(
                         CdsExportNativeMedicationMapperUnitTest.source());
-        for (var parents :
-                List.of(
-                        List.<CdsExportCapturedTextRowDto>of(),
-                        List.of(parent(28)),
-                        List.of(parent(27), parent(27))))
+        // A drug whose script_no names no script of the patient is not held: the number
+        // travels with the drug's own row (CARLOS.Medication.Source.v1).
+        CdsExportPrescriptionOccurrenceService.requireOwnership(27, List.of(), List.of(drug));
+        for (var parents : List.of(List.of(parent(28)), List.of(parent(27), parent(27))))
             assertThatThrownBy(
                             () ->
                                     CdsExportPrescriptionOccurrenceService.requireOwnership(

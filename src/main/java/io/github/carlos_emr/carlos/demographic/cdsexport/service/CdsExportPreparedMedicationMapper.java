@@ -34,11 +34,21 @@ public final class CdsExportPreparedMedicationMapper {
         java.util.Objects.requireNonNull(source);
         if (source.strengthSourceOnly())
             throw new IOException("CDS_EXPORT_MEDICATION_LARGE_STRENGTH_REQUIRES_RETAINED_CARRIER");
-        return forRetainedReconciliation(source);
+        return convert(source, false);
     }
 
     /** A source-only strength remains exclusively in authenticated retained fields. */
     CdsExportMedicationDto forRetainedReconciliation(CdsMedicationDto source) throws IOException {
+        return convert(source, true);
+    }
+
+    private static void integrity(String code) throws IOException {
+        throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                .CdsExportMappingReviewException(code);
+    }
+
+    private CdsExportMedicationDto convert(CdsMedicationDto source, boolean retained)
+            throws IOException {
         java.util.Objects.requireNonNull(source);
         var values = new EnumMap<Field, String>(Field.class);
         put(values, Field.DrugIdentificationNumber, source.din());
@@ -53,7 +63,10 @@ public final class CdsExportPreparedMedicationMapper {
         if (source.duration() != null) {
             String duration =
                     CdsExportMedicationMapper.duration(source.duration(), source.durationUnit());
-            if (duration == null) throw new IOException("CDS_EXPORT_PREPARED_DURATION_INVALID");
+            // The importer stores only a whole amount with a D, W, M or Y unit, so any other
+            // prepared duration contradicts its sealed source: an integrity fault of this one
+            // patient's import, named for that patient and never a failed job.
+            if (duration == null) integrity("CDS_EXPORT_PREPARED_DURATION_INVALID");
             values.put(Field.Duration, duration);
         }
         put(values, Field.RefillDuration, source.refillDurationDays());
@@ -86,14 +99,19 @@ public final class CdsExportPreparedMedicationMapper {
                 || source.prescriberLastName() != null
                 || source.prescriberOhip() != null
                 || source.prescriberName() != null) {
-            // Full-name display is not evidence from which first/last names can be recovered.
-            if (source.prescriberFirstName() == null || source.prescriberLastName() == null)
+            // Full-name display is not evidence from which first/last names can be recovered. A
+            // source that named its prescriber by an OHIP number alone, or by one name part, is
+            // ordinary source data: no typed prescriber is asserted here, and the reconciler
+            // keeps the original PrescribedBy elements from the retained source while the
+            // prescriber is unchanged (a changed one is the current CARLOS provider).
+            if (source.prescriberFirstName() != null && source.prescriberLastName() != null)
+                prescriber =
+                        new CdsExportPublicProviderDto(
+                                source.prescriberFirstName(),
+                                source.prescriberLastName(),
+                                source.prescriberOhip());
+            else if (!retained)
                 throw new IOException("CDS_EXPORT_PREPARED_PRESCRIBER_COMPONENTS_REQUIRED");
-            prescriber =
-                    new CdsExportPublicProviderDto(
-                            source.prescriberFirstName(),
-                            source.prescriberLastName(),
-                            source.prescriberOhip());
         }
         var dates = new CdsExportPreparedTemporalMapper();
         return new CdsExportMedicationDto(
