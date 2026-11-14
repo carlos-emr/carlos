@@ -254,7 +254,9 @@ public class CdsExportDataSummaryPdfService {
                                     ? value.text()
                                     : CdsExportDataSummaryHtmlComposer.shownText(
                                             value.content(), binaries.get(entry.getKey()));
-                    if (text != null && !(drawn(text) && renderer.drawsEveryCharacter(text)))
+                    // The fonts are asked only about text that is not plain ASCII.
+                    if (text != null
+                            && !(drawn(text) && (plain(text) || renderer.drawsEveryCharacter(text))))
                         return false;
                 }
             }
@@ -262,6 +264,15 @@ public class CdsExportDataSummaryPdfService {
         } catch (PDFGenerationException | RuntimeException unavailable) {
             return false;
         }
+    }
+
+    /** Printable ASCII, tab and the line breaks: every bundled face draws these. */
+    private static boolean plain(String text) {
+        for (int index = 0; index < text.length(); index++) {
+            char c = text.charAt(index);
+            if (!(c >= 0x20 && c <= 0x7e || c == '\t' || c == '\n' || c == '\r')) return false;
+        }
+        return true;
     }
 
     private static boolean drawn(String text) {
