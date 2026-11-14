@@ -143,14 +143,57 @@ public class CdsExportProblemRegistryOccurrenceService {
                 Math.addExact(
                         captured.get(CdsExportProblemRegistrySources.REGISTRY).rows(),
                         captured.get(CdsExportProblemRegistrySources.EPISODES).rows());
-        if (parentRows > bounds.nativeRows()) limit();
         for (String address : index.appliedUnits())
             for (var reference : index.references().getOrDefault(address, List.of()))
                 if (PARENTS.contains(reference.table())) ambiguous();
+        var seen = new HashSet<String>();
+        var used = new HashSet<List<String>>();
+        // The coding rows the chart's problems name: the same in every window.
+        var named = new HashSet<List<String>>();
+        // 0 emitted, 1 deleted (accounted, not exported)
+        long[] counts = new long[2];
+        // Precision rows the capture holds [0] and those taken by the window of their registry
+        // entry, over every window [1].
+        long[] children = new long[2];
+        var mapper = new CdsExportProblemRegistryMapper();
+        // The chart is read whole when it fits one window, as it always was, and window by window
+        // otherwise (CdsExportSectionWindowPlanner): the precision rows, witnesses and rows of
+        // one window are held at a time. An owner is a registry entry or an episode.
+        CdsExportSectionWindowPlanner.forEachWindow(
+                parentRows,
+                bounds.window(),
+                owners -> {
+                    var listed =
+                            rows.forEachTable(
+                                    lease,
+                                    patient,
+                                    tables,
+                                    PARENTS,
+                                    source.manifest(),
+                                    bounds.fields(),
+                                    bounds.bytes(),
+                                    67_108_864,
+                                    control,
+                                    row ->
+                                            owners.add(
+                                                    key(
+                                                            row.table(),
+                                                            row.fields()
+                                                                    .get(
+                                                                            row.table()
+                                                                                            .equals(
+                                                                                                    CdsExportProblemRegistrySources
+                                                                                                            .REGISTRY)
+                                                                                    ? "dxresearch_no"
+                                                                                    : "id"))));
+                    if (!listed.equals(source.capture())) scope();
+                },
+                (window, budget) -> {
         var precision = new HashMap<String, List<CdsExportCapturedTextRowDto>>();
         var references = new HashMap<List<String>, List<CdsExportCapturedTextRowDto>>();
         var auxiliaryKeys = new HashSet<String>();
-        long[] lookup = new long[4];
+        // 2 precision rows and 3 coding rows the capture holds; 4 precision rows this window took
+        long[] lookup = new long[5];
         var auxiliary =
                 rows.forEachTable(
                         lease,
@@ -165,26 +208,33 @@ public class CdsExportProblemRegistryOccurrenceService {
                         262_144,
                         control,
                         row -> {
-                            if (++lookup[0] > bounds.lookupRows()) limit();
-                            for (var value : row.fields().values())
-                                if (value != null)
-                                    lookup[1] =
-                                            Math.addExact(
-                                                    lookup[1],
-                                                    value.getBytes(StandardCharsets.UTF_8).length
-                                                            + 64L);
-                            if (lookup[1] > bounds.indexBytes()
-                                    || !auxiliaryKeys.add(key(row.table(), row.recordKey())))
-                                limit();
+                            // A window found too large keeps nothing more; it is read again
+                            // with fewer owners.
+                            if (budget.exceeded()) return;
                             if (row.table().equals(CdsExportProblemRegistrySources.PRECISION)) {
+                                lookup[2]++;
+                                if (!window.contains(
+                                        key(
+                                                CdsExportProblemRegistrySources.REGISTRY,
+                                                row.fields().get("table_id")))) return;
+                                long size = 0;
+                                for (var value : row.fields().values())
+                                    if (value != null)
+                                        size += value.getBytes(StandardCharsets.UTF_8).length + 64L;
+                                if (!budget.add(0, size)) return;
+                                // A repeated row is refused, whichever window meets it.
+                                if (!auxiliaryKeys.add(key(row.table(), row.recordKey()))) scope();
                                 precision
                                         .computeIfAbsent(
                                                 row.fields().get("table_id"),
                                                 ignored -> new ArrayList<>())
                                         .add(row);
-                                lookup[2]++;
+                                lookup[4]++;
                             } else if (row.table()
                                     .equals(CdsExportProblemRegistrySources.REFERENCES)) {
+                                // Coding rows are the clinic's vocabulary, not the chart's
+                                // rows: every window holds the ones this chart names.
+                                if (!auxiliaryKeys.add(key(row.table(), row.recordKey()))) scope();
                                 references
                                         .computeIfAbsent(
                                                 lookupKey(
@@ -195,12 +245,12 @@ public class CdsExportProblemRegistryOccurrenceService {
                                 lookup[3]++;
                             } else scope();
                         });
+        if (budget.exceeded()) return false;
         if (!auxiliary.equals(source.capture())
                 || lookup[2] != captured.get(CdsExportProblemRegistrySources.PRECISION).rows()
                 || lookup[3] != captured.get(CdsExportProblemRegistrySources.REFERENCES).rows())
             scope();
         var exact = new HashMap<String, CdsExportNativeRowReceiptDto>();
-        long[] witnessBytes = {lookup[1]};
         var scan =
                 witnesses.scan(
                         lease,
@@ -212,29 +262,30 @@ public class CdsExportProblemRegistryOccurrenceService {
                         control,
                         witness -> {
                             if (!WITNESSED.contains(witness.table())) return;
-                            if (exact.size() >= bounds.nativeRows() + (long) bounds.lookupRows())
-                                limit();
-                            witnessBytes[0] =
-                                    Math.addExact(
-                                            witnessBytes[0],
-                                            1024L
-                                                    + (witness.state() == null
-                                                            ? 0
-                                                            : witness.state().columns().size()
-                                                                    * 256L));
-                            if (witnessBytes[0] > bounds.indexBytes()
-                                    || exact.putIfAbsent(
-                                                    key(witness.table(), witness.recordKey()),
-                                                    witness)
-                                            != null) limit();
+                            boolean parent = PARENTS.contains(witness.table());
+                            // The witness of an owner of this window, or of a precision row
+                            // this window took.
+                            if (parent
+                                    ? !window.contains(key(witness.table(), witness.id()))
+                                    : !auxiliaryKeys.contains(
+                                            key(witness.table(), witness.recordKey()))) return;
+                            long size =
+                                    1024L
+                                            + (witness.state() == null
+                                                    ? 0
+                                                    : witness.state().columns().size() * 256L);
+                            if (parent ? !budget.owner(size) : !budget.add(0, size)) return;
+                            if (exact.putIfAbsent(
+                                            key(witness.table(), witness.recordKey()), witness)
+                                    != null) scope();
                         });
+        if (budget.exceeded()) return false;
         if (!scan.sourceManifestSha256().equals(source.manifest().plaintextSha256())
-                || exact.size() != Math.addExact(parentRows, lookup[2])) scope();
-        var seen = new HashSet<String>();
-        var used = new HashSet<List<String>>();
-        // 0 emitted, 1 deleted (accounted, not exported)
-        long[] counts = new long[2];
-        var mapper = new CdsExportProblemRegistryMapper();
+                || exact.size() != Math.addExact(window.size(), lookup[4])) scope();
+        children[0] = lookup[2];
+        children[1] = Math.addExact(children[1], lookup[4]);
+        named.addAll(references.keySet());
+        long[] emitted = {0};
         var finished =
                 rows.forEachTable(
                         lease,
@@ -252,7 +303,11 @@ public class CdsExportProblemRegistryOccurrenceService {
                             boolean registry =
                                     row.table().equals(CdsExportProblemRegistrySources.REGISTRY);
                             String id = row.fields().get(registry ? "dxresearch_no" : "id");
-                            if (id == null || !seen.add(key(row.table(), id))) scope();
+                            // A row with no id belongs to no window: refused.
+                            if (id == null) scope();
+                            if (!window.contains(key(row.table(), id))) return;
+                            emitted[0]++;
+                            if (!seen.add(key(row.table(), id))) scope();
                             var dates = registry ? precision.remove(id) : null;
                             if (dates == null) dates = List.of();
                             var current = new ArrayList<CdsExportCapturedTextRowDto>();
@@ -272,15 +327,15 @@ public class CdsExportProblemRegistryOccurrenceService {
                                             : lookupKey(
                                                     row.fields().get("codingSystem"),
                                                     row.fields().get("code"));
-                            var named =
+                            var coded =
                                     removed
                                             ? List.<CdsExportCapturedTextRowDto>of()
                                             : references.getOrDefault(lookupKey, List.of());
                             var mapping =
                                     registry
                                             ? mapper.mapRegistry(
-                                                    patient.patient(), row, dates, named)
-                                            : mapper.mapEpisode(patient.patient(), row, named);
+                                                    patient.patient(), row, dates, coded)
+                                            : mapper.mapEpisode(patient.patient(), row, coded);
                             new CdsExportNativeFieldAssessmentValidator()
                                     .requireRepresentable(
                                             mapping.rows(),
@@ -292,7 +347,7 @@ public class CdsExportProblemRegistryOccurrenceService {
                                 counts[1]++;
                                 return;
                             }
-                            if (!named.isEmpty()) used.add(lookupKey);
+                            if (!coded.isEmpty()) used.add(lookupKey);
                             var identity =
                                     new CdsExportIdentityDto(
                                             patientKey,
@@ -320,10 +375,17 @@ public class CdsExportProblemRegistryOccurrenceService {
                                             Set.of()));
                             counts[0]++;
                         });
+        // Every witness and precision row this window loaded was used by one of its owners.
         if (!finished.equals(source.capture())
                 || !precision.isEmpty()
                 || !exact.isEmpty()
-                || !used.containsAll(references.keySet())
+                || emitted[0] != window.size()) scope();
+        return true;
+                });
+        // Every precision row was taken by the window of its registry entry: one whose entry is
+        // in no window is taken by none and makes the count fall short.
+        if (!used.containsAll(named)
+                || children[1] != children[0]
                 || seen.size() != parentRows
                 || Math.addExact(counts[0], counts[1]) != parentRows) scope();
         captures.authorizeSources(lease, patient, tables, control);
@@ -371,10 +433,6 @@ public class CdsExportProblemRegistryOccurrenceService {
 
     private static void scope() throws IOException {
         throw new IOException("CDS_EXPORT_PROBLEM_REGISTRY_OCCURRENCE_SCOPE_INVALID");
-    }
-
-    private static void limit() {
-        throw new CdsExportReviewException(CdsExportReviewException.Reason.RESOURCE_LIMIT);
     }
 
     private static void ambiguous() {

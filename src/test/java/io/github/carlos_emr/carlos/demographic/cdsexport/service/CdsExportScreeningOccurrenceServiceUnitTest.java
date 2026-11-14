@@ -68,6 +68,9 @@ class CdsExportScreeningOccurrenceServiceUnitTest {
     private CdsExportPatientCaptureDto source;
     private Set<String> tables;
     private long emitted;
+    private CdsExportClinicalOccurrenceService.Bounds bounds =
+            new CdsExportClinicalOccurrenceService.Bounds(
+                    100000, 8L << 20, 1000, 8L << 20, 100, 1000);
 
     @BeforeEach
     void prepare() throws Exception {
@@ -244,9 +247,7 @@ class CdsExportScreeningOccurrenceServiceUnitTest {
                                                     tables,
                                                     source,
                                                     index,
-                                                    new CdsExportClinicalOccurrenceService.Bounds(
-                                                            100000, 8L << 20, 1000, 8L << 20, 100,
-                                                            1000),
+                                                    bounds,
                                                     control,
                                                     emitter,
                                                     receipts::add);
@@ -359,6 +360,92 @@ class CdsExportScreeningOccurrenceServiceUnitTest {
         assertThat(document.getElementsByTagNameNS("cds_dt", "YearOnly").item(0).getTextContent())
                 .isEqualTo("2024");
         verify(captures).authorizeSources(any(), eq(patient), eq(tables), eq(control));
+    }
+
+    /** A chart of {@code count} screenings; some have extensions and some a precision row. */
+    private void chart(int count) {
+        var ids = new TreeSet<Integer>();
+        var screened = new ArrayList<CdsExportCapturedTextRowDto>();
+        var children = new ArrayList<CdsExportCapturedTextRowDto>();
+        for (int id = 1001; id <= 1000 + count; id++) {
+            ids.add(id);
+            screened.add(
+                    parent(
+                            id,
+                            id % 2 == 0
+                                    ? Map.of("refused", "1")
+                                    : Map.of("prevention_type", "OtherB")));
+            if (id % 3 == 0) children.add(extension(100_000 + id, id, "result", "abnormal"));
+            if (id % 4 == 0) children.add(extension(200_000 + id, id, "comments", "Repeat"));
+            if (id % 5 == 0) children.add(precision(300_000 + id, id, "YYYY"));
+        }
+        selection = ids;
+        parents = screened;
+        auxiliary = children;
+        witnesses = new ArrayList<>();
+        for (var row : parents) witnesses.add(witness(row));
+        for (var row : auxiliary) witnesses.add(witness(row));
+        receipts.clear();
+        // compose() stubs the row reader again; a second stubbing must not run the first.
+        reset(rows);
+        clearInvocations(witnessReader);
+    }
+
+    @Test
+    void shouldEmitTheSameBytesAndReceipts_whenAChartIsReadInSmallWindows() throws Exception {
+        chart(13);
+        byte[] expected = compose();
+        var whole = List.copyOf(receipts);
+        assertThat(emitted).isEqualTo(13);
+        verify(witnessReader, times(1))
+                .scan(any(), any(), anySet(), any(), anyLong(), anyLong(), any(), any());
+        for (int window : new int[] {1, 2, 5, 12}) {
+            chart(13);
+            bounds = bounds.withWindow(window, 8L << 20);
+            assertThat(compose()).isEqualTo(expected);
+            assertThat(receipts).isEqualTo(whole);
+            assertThat(emitted).isEqualTo(13);
+            verify(witnessReader, times((13 + window - 1) / window))
+                    .scan(any(), any(), anySet(), any(), anyLong(), anyLong(), any(), any());
+        }
+        // A byte limit smaller than the chart's rows and witnesses windows it too.
+        chart(13);
+        bounds = bounds.withWindow(8192, 24_000);
+        assertThat(compose()).isEqualTo(expected);
+        assertThat(receipts).isEqualTo(whole);
+    }
+
+    @Test
+    void shouldRefuseAnOrphanOrUnwitnessedRow_whenTheChartIsReadByWindow() {
+        chart(9);
+        bounds = bounds.withWindow(2, 8L << 20);
+        witnesses.remove(witnesses.size() - 1);
+        assertThatThrownBy(this::compose)
+                .hasMessage("CDS_EXPORT_SCREENING_OCCURRENCE_SCOPE_INVALID");
+        chart(9);
+        bounds = bounds.withWindow(2, 8L << 20);
+        parents = new ArrayList<>(parents.subList(0, 8));
+        assertThatThrownBy(this::compose)
+                .hasMessage("CDS_EXPORT_SCREENING_OCCURRENCE_SCOPE_INVALID");
+    }
+
+    @Test
+    void shouldExportTheChart_pastTheFormerRowBound() throws Exception {
+        // 8,193 screenings: one more than the former cds.export.maxNativeRows.
+        chart(8193);
+        bounds =
+                new CdsExportClinicalOccurrenceService.Bounds(
+                        CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
+                        CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
+                        1_000_000,
+                        64L << 20,
+                        8192,
+                        131_072);
+        compose();
+        assertThat(emitted).isEqualTo(8193);
+        assertThat(receipts).hasSize(8193);
+        assertThat(receipts.getFirst().identity()).isEqualTo(identity("1001"));
+        assertThat(receipts.getLast().identity()).isEqualTo(identity("9193"));
     }
 
     @Test

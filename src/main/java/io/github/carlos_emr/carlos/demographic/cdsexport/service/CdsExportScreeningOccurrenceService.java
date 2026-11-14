@@ -144,7 +144,7 @@ public class CdsExportScreeningOccurrenceService {
                 || index == null
                 || !index.sourceManifestSha256().equals(source.manifest().plaintextSha256()))
             scope();
-        if (source.capture().tables().get(parentTable).rows() > bounds.nativeRows()) limit();
+        long parentRows = source.capture().tables().get(parentTable).rows();
         var selection =
                 closure.verifyEmbedded(
                         lease, patient, tables, source, bounds.fields(), bounds.bytes(), control);
@@ -166,10 +166,50 @@ public class CdsExportScreeningOccurrenceService {
             for (var reference : index.references().getOrDefault(address, List.of()))
                 if (reference.table().equals("preventions")
                         && screeningIds.contains(reference.id())) ambiguous();
+        var seen = new HashSet<Integer>();
+        // 0 emitted, 1 assessed fields, 2 superseded versions (accounted, not exported)
+        long[] counts = new long[3];
+        // Extension and precision rows the capture holds [0, 1] and those taken by the window of
+        // their screening, over every window [2, 3].
+        long[] children = new long[4];
+        // A screening shown only inside a program is written when a fresh check says every
+        // exporting identity works in it; a program nobody exporting works in holds the patient,
+        // and each program so granted is checked again after the screenings are written.
+        var granted = new TreeSet<String>();
+        java.util.function.Predicate<String> readable =
+                program -> {
+                    if (!control.restrictedProgramReadable(patient.patient(), category, program))
+                        throw CdsExportPreventionAccessService.hold();
+                    granted.add(program);
+                    return true;
+                };
+        // The chart is read whole when it fits one window, as it always was, and window by window
+        // otherwise (CdsExportSectionWindowPlanner): the child rows, witnesses and rows of one
+        // window are held at a time.
+        CdsExportSectionWindowPlanner.forEachWindow(
+                parentRows,
+                bounds.window(),
+                owners -> {
+                    var listed =
+                            rows.forEach(
+                                    lease,
+                                    patient,
+                                    tables,
+                                    parentTable,
+                                    source.manifest(),
+                                    bounds.fields(),
+                                    bounds.bytes(),
+                                    4096,
+                                    control,
+                                    row -> owners.add(row.fields().get("id")));
+                    if (!listed.equals(source.capture())) scope();
+                },
+                (window, budget) -> {
         var extensions = new HashMap<String, List<CdsExportCapturedTextRowDto>>();
         var precision = new HashMap<String, List<CdsExportCapturedTextRowDto>>();
         var auxiliaryKeys = new HashSet<String>();
-        long[] lookup = new long[4];
+        // 0, 1 unused; 2 extension rows and 3 precision rows the capture holds; 4, 5 those taken
+        long[] lookup = new long[6];
         var auxiliary =
                 rows.forEachTable(
                         lease,
@@ -182,32 +222,34 @@ public class CdsExportScreeningOccurrenceService {
                         67_108_864,
                         control,
                         row -> {
-                            if (++lookup[0] > bounds.lookupRows()) limit();
-                            for (var value : row.fields().values())
-                                if (value != null)
-                                    lookup[1] =
-                                            Math.addExact(
-                                                    lookup[1],
-                                                    value.getBytes(StandardCharsets.UTF_8).length
-                                                            + 64L);
-                            if (lookup[1] > bounds.indexBytes()
-                                    || !auxiliaryKeys.add(key(row.table(), row.fields().get("id"))))
-                                limit();
+                            // A window found too large keeps nothing more; it is read again
+                            // with fewer screenings.
+                            if (budget.exceeded()) return;
                             boolean extension = row.table().equals(extensionTable);
                             if (!extension && !row.table().equals(precisionTable)) scope();
                             String owner =
                                     row.fields().get(extension ? "prevention_id" : "table_id");
                             if (!screenings.contains(integer(owner))) scope();
+                            lookup[extension ? 2 : 3]++;
+                            if (!window.contains(owner)) return;
+                            long size = 0;
+                            for (var value : row.fields().values())
+                                if (value != null)
+                                    size += value.getBytes(StandardCharsets.UTF_8).length + 64L;
+                            if (!budget.add(0, size)) return;
+                            // A repeated child row id is refused, whichever window meets it.
+                            if (!auxiliaryKeys.add(key(row.table(), row.fields().get("id"))))
+                                scope();
                             (extension ? extensions : precision)
                                     .computeIfAbsent(owner, ignored -> new ArrayList<>())
                                     .add(row);
-                            lookup[extension ? 2 : 3]++;
+                            lookup[extension ? 4 : 5]++;
                         });
+        if (budget.exceeded()) return false;
         if (!auxiliary.equals(source.capture())
                 || lookup[2] != auxiliary.tables().get(extensionTable).rows()
                 || lookup[3] != auxiliary.tables().get(precisionTable).rows()) scope();
         var exact = new HashMap<String, CdsExportNativeRowReceiptDto>();
-        long[] witnessBytes = {lookup[1]};
         var scan =
                 witnesses.scan(
                         lease,
@@ -220,39 +262,30 @@ public class CdsExportScreeningOccurrenceService {
                         witness -> {
                             if (!CdsExportPreventionSources.SCREENING_TABLES.contains(
                                     witness.table())) return;
-                            if (exact.size() >= bounds.nativeRows() + (long) bounds.lookupRows())
-                                limit();
-                            witnessBytes[0] =
-                                    Math.addExact(
-                                            witnessBytes[0],
-                                            1024L
-                                                    + (witness.state() == null
-                                                            ? 0
-                                                            : witness.state().columns().size()
-                                                                    * 256L));
-                            if (witnessBytes[0] > bounds.indexBytes()
-                                    || exact.putIfAbsent(
-                                                    key(witness.table(), witness.id()), witness)
-                                            != null) limit();
+                            boolean parent = witness.table().equals(parentTable);
+                            // The witness of a screening of this window, or of a child row
+                            // this window took.
+                            if (parent
+                                    ? !window.contains(witness.id())
+                                    : !auxiliaryKeys.contains(
+                                            key(witness.table(), witness.id()))) return;
+                            long size =
+                                    1024L
+                                            + (witness.state() == null
+                                                    ? 0
+                                                    : witness.state().columns().size() * 256L);
+                            if (parent ? !budget.owner(size) : !budget.add(0, size)) return;
+                            if (exact.putIfAbsent(key(witness.table(), witness.id()), witness)
+                                    != null) scope();
                         });
+        if (budget.exceeded()) return false;
         if (!scan.sourceManifestSha256().equals(source.manifest().plaintextSha256())
-                || exact.size()
-                        != source.capture().tables().get(parentTable).rows()
-                                + auxiliaryKeys.size()) scope();
-        var seen = new HashSet<Integer>();
-        // 0 emitted, 1 assessed fields, 2 superseded versions (accounted, not exported)
-        long[] counts = new long[3];
-        // A screening shown only inside a program is written when a fresh check says every
-        // exporting identity works in it; a program nobody exporting works in holds the patient,
-        // and each program so granted is checked again after the screenings are written.
-        var granted = new TreeSet<String>();
-        java.util.function.Predicate<String> readable =
-                program -> {
-                    if (!control.restrictedProgramReadable(patient.patient(), category, program))
-                        throw CdsExportPreventionAccessService.hold();
-                    granted.add(program);
-                    return true;
-                };
+                || exact.size() != window.size() + auxiliaryKeys.size()) scope();
+        children[0] = lookup[2];
+        children[1] = lookup[3];
+        children[2] = Math.addExact(children[2], lookup[4]);
+        children[3] = Math.addExact(children[3], lookup[5]);
+        long[] emitted = {0};
         var finished =
                 rows.forEach(
                         lease,
@@ -268,6 +301,12 @@ public class CdsExportScreeningOccurrenceService {
                             patient.require(lease);
                             control.checkpoint();
                             String id = row.fields().get("id");
+                            if (!window.contains(id)) {
+                                // A row with no id belongs to no window: refused.
+                                if (id == null) scope();
+                                return;
+                            }
+                            emitted[0]++;
                             if (!seen.add(integer(id)) || !screenings.contains(integer(id)))
                                 scope();
                             var child = extensions.remove(id);
@@ -344,19 +383,26 @@ public class CdsExportScreeningOccurrenceService {
                                             Set.of()));
                             counts[0]++;
                         });
+        // Every witness and child row this window loaded was used by one of its screenings.
+        if (!finished.equals(source.capture())
+                || !extensions.isEmpty()
+                || !precision.isEmpty()
+                || !exact.isEmpty()
+                || emitted[0] != window.size()) scope();
+        return true;
+                });
+        // Every child row was taken by the window of its screening: one whose screening is in no
+        // window is taken by none and makes the count fall short.
         long expected =
                 Math.addExact(
                         Math.multiplyExact(Math.addExact(counts[0], counts[2]), 16),
                         Math.addExact(
-                                Math.multiplyExact(lookup[2], 4),
-                                Math.multiplyExact(lookup[3], 5)));
-        if (!finished.equals(source.capture())
-                || !seen.equals(screenings)
-                || !extensions.isEmpty()
-                || !precision.isEmpty()
-                || !exact.isEmpty()
-                || Math.addExact(counts[0], counts[2])
-                        != source.capture().tables().get(parentTable).rows()
+                                Math.multiplyExact(children[0], 4),
+                                Math.multiplyExact(children[1], 5)));
+        if (!seen.equals(screenings)
+                || children[2] != children[0]
+                || children[3] != children[1]
+                || Math.addExact(counts[0], counts[2]) != parentRows
                 || counts[1] != expected) scope();
         for (String program : granted)
             if (!control.restrictedProgramReadable(patient.patient(), category, program))
@@ -383,10 +429,6 @@ public class CdsExportScreeningOccurrenceService {
 
     private static void scope() throws IOException {
         throw new IOException("CDS_EXPORT_SCREENING_OCCURRENCE_SCOPE_INVALID");
-    }
-
-    private static void limit() {
-        throw new CdsExportReviewException(CdsExportReviewException.Reason.RESOURCE_LIMIT);
     }
 
     private static void review() {

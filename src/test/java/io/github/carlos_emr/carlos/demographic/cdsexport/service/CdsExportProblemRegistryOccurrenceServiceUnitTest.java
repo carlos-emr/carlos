@@ -63,6 +63,10 @@ class CdsExportProblemRegistryOccurrenceServiceUnitTest {
     private Map<String, List<CdsExportRetainedIndexDto.Reference>> references = Map.of();
     private Set<String> tables;
     private long emitted;
+    private byte[] xml;
+    private CdsExportClinicalOccurrenceService.Bounds bounds =
+            new CdsExportClinicalOccurrenceService.Bounds(
+                    100000, 8L << 20, 1000, 8L << 20, 100, 1000);
 
     @BeforeEach
     void prepare() {
@@ -253,9 +257,7 @@ class CdsExportProblemRegistryOccurrenceServiceUnitTest {
                                                     tables,
                                                     source,
                                                     index,
-                                                    new CdsExportClinicalOccurrenceService.Bounds(
-                                                            100000, 8L << 20, 1000, 8L << 20, 100,
-                                                            1000),
+                                                    bounds,
                                                     control,
                                                     emitter,
                                                     receipts::add);
@@ -273,9 +275,97 @@ class CdsExportProblemRegistryOccurrenceServiceUnitTest {
                         CdsExportXmlLimitsDto.defaults(),
                         ignored -> {},
                         () -> {});
+        xml = output.toByteArray();
         var factory = DocumentBuilderFactory.newDefaultInstance();
         factory.setNamespaceAware(true);
         return factory.newDocumentBuilder().parse(new ByteArrayInputStream(output.toByteArray()));
+    }
+
+    /** A chart of {@code count} registry entries and episodes, mixed, some with precision rows. */
+    private void chart(int count) {
+        parents = new ArrayList<>();
+        auxiliary =
+                new ArrayList<>(
+                        List.of(
+                                reference(
+                                        "icd9", "2500", "icd9", "1301", "2500", "DIABETES MELLITUS")));
+        for (int id = 1001; id <= 1000 + count; id++) {
+            if (id % 4 == 0) {
+                parents.add(episode(id, Map.of("status", "Complete", "endDate", "2024-09-30")));
+                continue;
+            }
+            parents.add(registry(id, id % 7 == 0 ? Map.of("status", "D") : Map.of()));
+            if (id % 3 == 0) auxiliary.add(precision(500_000 + id, id, "4", "YYYY-MM"));
+        }
+        witnesses = new ArrayList<>();
+        for (var row : parents) witnesses.add(witness(row));
+        for (var row : auxiliary)
+            if (!row.table().equals(CdsExportProblemRegistrySources.REFERENCES))
+                witnesses.add(witness(row));
+        receipts.clear();
+        // compose() stubs the readers again; a second stubbing must not run the first.
+        reset(rows, witnessReader);
+    }
+
+    @Test
+    void shouldEmitTheSameBytesAndReceipts_whenAChartIsReadInSmallWindows() throws Exception {
+        chart(15);
+        compose();
+        byte[] expected = xml;
+        var whole = List.copyOf(receipts);
+        long count = emitted;
+        assertThat(count).isEqualTo(13);
+        for (int window : new int[] {1, 2, 4, 14}) {
+            chart(15);
+            bounds = bounds.withWindow(window, 8L << 20);
+            compose();
+            assertThat(xml).isEqualTo(expected);
+            assertThat(receipts).isEqualTo(whole);
+            assertThat(emitted).isEqualTo(count);
+            verify(witnessReader, times((15 + window - 1) / window))
+                    .scan(any(), any(), anySet(), any(), anyLong(), anyLong(), any(), any());
+        }
+        chart(15);
+        bounds = bounds.withWindow(8192, 20_000);
+        compose();
+        assertThat(xml).isEqualTo(expected);
+        assertThat(receipts).isEqualTo(whole);
+    }
+
+    @Test
+    void shouldRefuseAPrecisionRowOfNoCapturedEntry_whenTheChartIsReadByWindow() {
+        chart(9);
+        bounds = bounds.withWindow(2, 8L << 20);
+        var orphan = precision(777_777, 99, "4", "YYYY");
+        auxiliary.add(orphan);
+        witnesses.add(witness(orphan));
+        assertThatThrownBy(this::compose)
+                .hasMessage("CDS_EXPORT_PROBLEM_REGISTRY_OCCURRENCE_SCOPE_INVALID");
+        chart(9);
+        bounds = bounds.withWindow(2, 8L << 20);
+        witnesses.remove(0);
+        assertThatThrownBy(this::compose)
+                .hasMessage("CDS_EXPORT_PROBLEM_REGISTRY_OCCURRENCE_SCOPE_INVALID");
+    }
+
+    @Test
+    void shouldExportTheChart_pastTheFormerRowBound() throws Exception {
+        // 8,193 registry entries and episodes: one more than the former cds.export.maxNativeRows.
+        chart(8193);
+        bounds =
+                new CdsExportClinicalOccurrenceService.Bounds(
+                        CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
+                        CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
+                        1_000_000,
+                        64L << 20,
+                        8192,
+                        131_072);
+        compose();
+        assertThat(receipts).hasSize((int) emitted);
+        assertThat(emitted).isGreaterThan(6000);
+        // 1001 is a deleted entry: accounted, not exported.
+        assertThat(receipts.getFirst().nativeId()).isEqualTo("1002");
+        assertThat(receipts.getLast().nativeId()).isEqualTo("9193");
     }
 
     private static CdsExportXmlComposer.Section demographic() {
