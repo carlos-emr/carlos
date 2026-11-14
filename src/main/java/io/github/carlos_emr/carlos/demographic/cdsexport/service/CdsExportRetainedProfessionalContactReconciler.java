@@ -68,7 +68,12 @@ public final class CdsExportRetainedProfessionalContactReconciler {
             var candidates=nativeMapping.physicians().stream().filter(physician-> physician.role()==role).toList(); var physician=candidates.isEmpty()?null:candidates.getFirst();
             if (binding.projected()) {
                 var link=associations.get(binding.association().id());
-                if (link==null||physician==null||!link.recordKey().equals(physician.associationRecordKey())){blockers.add("ORIGINAL_PROFESSIONAL_RELATIONSHIP_MISSING_OR_MOVED"); continue; }
+                if (link==null){blockers.add("ORIGINAL_PROFESSIONAL_RELATIONSHIP_MISSING_OR_MOVED"); continue; }
+                // The imported association is no longer the chart's one physician in this role: the Health Care Team removed it or made it inactive, gave it
+                // another role, or lists a second member in the role. As on any chart the element states the current physician of the role, or none; the native
+                // mapper has decided the imported association and its contact (not exported when removed, carried otherwise), and the imported element's source
+                // fields stay in the import's retained source, replaced. It was a hold.
+                if (physician==null||!link.recordKey().equals(physician.associationRecordKey())){changes.add(new CdsExportRetainedSectionWriter.Change(role.wireName()+"[1]", binding.sourceFields(), physician==null?null:xml-> new CdsExportProfessionalContactXmlWriter().writeNameContent(physician, xml))); continue; }
                 if (!CdsExportCapturedTextWitness.matches(binding.association(), "contactId", link.fields().get("contactId"))){blockers.add("ORIGINAL_PROFESSIONAL_CONTACT_REFERENCE_CHANGED"); continue; }
                 if (!Objects.equals(physician.name().firstName(), binding.preparation().firstName())||!Objects.equals(physician.name().lastName(), binding.preparation().lastName()))changes.add(new CdsExportRetainedSectionWriter.Change(role.wireName()+"[1]", binding.sourceFields(), xml-> new CdsExportProfessionalContactXmlWriter().writeNameContent(physician, xml)));
             }else if (physician!=null) {

@@ -95,14 +95,12 @@ status of a pharmacy deleted in Manage Pharmacy but still preferred) travel in t
 `related` list; a removed link (status 0) and a pharmacy only it names are not in the chart and
 are not exported (`REMOVED_PHARMACY_ASSOCIATION_NOT_IN_CURRENT_CHART`), whether or not that
 pharmacy's row still exists. The links' `consentToContact` of 1 is the model default
-(`DEFAULT_CONTACT_CONSENT_HAS_NO_CDS_CARRIER`) and never holds a chart. A pharmacy hold names its
-rule instead of the umbrella `CDS_EXPORT_UNMAPPED_DATA` (`CdsExportPharmacyMapper.REVIEW_CODES`):
-an active link to a pharmacy row that no longer exists is
-`CDS_EXPORT_NATIVE_PHARMACY_LINK_DANGLING`, an unknown link status
-`CDS_EXPORT_NATIVE_PHARMACY_LINK_STATUS_UNKNOWN`, two first preferences
-`CDS_EXPORT_NATIVE_PHARMACY_FIRST_PREFERENCE_TIED`, an unknown consent flag
-`CDS_EXPORT_NATIVE_PHARMACY_CONSENT_UNKNOWN` and a missing name
-`CDS_EXPORT_NATIVE_PHARMACY_NAME_REQUIRED`. Text XML cannot carry no longer holds
+(`DEFAULT_CONTACT_CONSENT_HAS_NO_CDS_CARRIER`) and never holds a chart. No pharmacy value holds
+a chart any more (see "Contacts, physicians and pharmacies: no remaining hold" below): an active
+link to a pharmacy row that no longer exists, a link status or consent flag no screen writes,
+two links both ranked first and a preferred pharmacy saved without a name were each a named hold
+(`CdsExportPharmacyMapper.REVIEW_CODES`, now only reached by a result built with a review in it)
+and are carried exactly instead. Text XML cannot carry no longer holds
 (`CDS_EXPORT_NATIVE_PHARMACY_WIRE_TEXT_REQUIRES_REVIEW` is gone): a name shows U+FFFD in its
 place and is carried exactly, and any other such value is carried in the native demographic
 record. No screen writes a dangling link: Manage
@@ -127,10 +125,59 @@ keep the receipt truthful (`withNativeCarriers`), follow an imported contact the
 made inactive and an imported pharmacy preference that was removed or re-ranked (see "Imported
 charts edited in CARLOS" below), and the contact-mapping and original-relationship checks that
 used to fail the whole job are patient holds. Remaining holds: required values that are
-missing (name, birth date, sex, status), duplicate or hidden extension rows, tied first pharmacy
-preferences, a dangling pharmacy or contact link, two family or two referring physicians, an
-unknown contact consent or purpose flag, and provider values (OHIP number over six characters,
-names over 50) on an enrolled physician.
+missing (name, birth date, sex, status), duplicate or hidden extension rows, and provider values
+(OHIP number over six characters, names over 50) on an enrolled physician. Tied first pharmacy
+preferences, a dangling pharmacy or contact link, two family or two referring physicians and an
+unknown contact consent or purpose flag no longer hold: see the next section.
+
+#### Contacts, physicians and pharmacies: no remaining hold
+
+Every hold of `CdsExportPersonalContactMapper`, `CdsExportProfessionalContactMapper`,
+`CdsExportPharmacyMapper` and `CdsExportContactConsent` could be reached by data in an ordinary
+chart, several of them from a screen. None was imposed from outside: the schema makes both parts
+of Contact/Name optional and gives the other elements a length. Each value now follows one
+rule: the element says what it can say truthfully, and the stored value travels exactly in the
+native demographic record's `related` list (`CARLOS.NativeDemographic.v1`), which the supporting
+mapper fills from every carried decision.
+
+| Was a hold | Reached by | Now |
+| --- | --- | --- |
+| A health care team member with MRP, EC or SDM ticked beside a Family Doctor or Referring Doctor role (undecided column, `CDS_EXPORT_UNMAPPED_DATA`) | procontact.jsp, Health Care Team | The physician is exported; the flag is carried. |
+| Two members in the Family Doctor (or Referring Doctor) role (`MULTIPLE_PROFESSIONAL_RELATIONSHIPS_EXCEED_WIRE_CARDINALITY`) | Health Care Team | The element states one physician and none is chosen: no element for that role; every such association and contact is carried. The other role is still written. |
+| A physician's name part longer than 50 characters, or with nothing stored (`COMPLETE_PROFESSIONAL_NAME_REQUIRED_WITHOUT_INVENTED_PARTS`) | Add/Edit professional contact (the columns hold 100) | Both parts are required elements: a part with nothing stored is written empty, a longer one as its first 50 characters with the stored name carried whole. A contact with no name at all states no physician and is carried. |
+| A team member whose contact row is a plain contact, is marked deleted, or is missing (`EXACT_CURRENT_PROFESSIONAL_CONTACT_REQUIRED`, `EXACT_LINKED_PROFESSIONAL_CONTACT_REQUIRED`) | The contact search lists every contact row | A plain contact is exported in the role with its subtype carried; a deleted or missing row gives no element and the association is carried. |
+| A personal contact saved without a name (`CONTACT_NAME_MISSING_OR_UNREPRESENTABLE`) | Add contact | Written with an empty Name (schema-valid; nothing invented), with its purposes, phones and note. |
+| A relationship longer than 50 characters or holding a character XML cannot carry (`CONTACT_PURPOSE_VALUES_REQUIRES_REVIEW`) | The relationship box (the column holds 100) | No ContactPurpose from it; the text is carried. |
+| A relationship stored as a CtlRelationships row id (`LEGACY_RELATIONSHIP_ID_REQUIRES_REVIEW`) | Older data | The digits are not written as a purpose; the id is carried. |
+| EC or SDM stored as "false" beside a relationship naming the same purpose, or as another spelling (`CONFLICTING_CONTACT_PURPOSE_ASSERTIONS_REQUIRES_REVIEW`, `UNKNOWN_NATIVE_CONTACT_PURPOSE_FLAG_REQUIRES_REVIEW`) | Older data (the screens write "true" or empty) | The relationship is the purpose; the stored flag is carried. |
+| A personal contact whose row is of the professional subtype or marked deleted (`UNEXPECTED_NATIVE_CONTACT_SUBTYPE_REQUIRES_REVIEW`, `DELETED_OR_UNKNOWN_CONTACT_HISTORY_REQUIRES_REVIEW`), or whose row is missing (`EXACT_LINKED_CONTACT_MISSING_REQUIRES_REVIEW`) | The contact search; contact administration | Exported with the subtype or flag carried; a missing row gives no Contact and the association is carried. |
+| A set MRP flag on a personal contact (undecided column) | Not offered by the personal contact screens | Carried. |
+| An active pharmacy link to a missing row, a status no screen writes, two links ranked first, a consent flag of another spelling, a preferred pharmacy without a name (`CDS_EXPORT_NATIVE_PHARMACY_LINK_DANGLING`, `..._LINK_STATUS_UNKNOWN`, `..._FIRST_PREFERENCE_TIED`, `..._CONSENT_UNKNOWN`, `..._NAME_REQUIRED`) | SQL outside CARLOS; concurrent ranking | No PreferredPharmacy is asserted from such a link; links and pharmacies are carried. For an imported chart the imported element is removed too (`CdsExportRetainedPharmacyReconciler`), never kept as if it were the one preference. |
+| The note of an imported contact edited on one side only (`EDITED_COMPOUND_OR_UNPROJECTED_CONTACT_VALUE_REQUIRES_REVIEW`) | Manage Contacts saves the note on the association, the contact editor on the contact | When the imported element holds nothing CARLOS keeps only in the import's source (no middle name, one purpose, one phone of each type), the element is removed and the contact is decided from its current rows like any contact (`Result.current`); both notes are carried. |
+
+| An imported family or referring physician that the Health Care Team removed, made inactive, moved to the other role, or joined with a second member in the role (`ORIGINAL_PROFESSIONAL_RELATIONSHIP_MISSING_OR_MOVED`, `CDS_EXPORT_PROFESSIONAL_RELATIONSHIP_REQUIRES_REVIEW`) | Health Care Team | The imported element is replaced by the chart's current physician of that role, or removed when there is none (`CdsExportRetainedProfessionalContactReconciler`); its source fields stay in the import's retained source, replaced. |
+
+No placeholder text is written for any of these.
+
+**Still held, with the screen that reaches it.** These need the import's retained source to
+state the contact, and deciding the contact from its current rows would lose what only that
+source holds:
+
+- An imported contact that has a separate middle name and whose first name is edited (the
+  contact editor), or whose note is edited on one side.
+- An imported contact with several purposes (CARLOS keeps the marker "Multiple source purposes;
+  see imported Contact details" as its relationship) whose relationship, EC or SDM is changed in
+  Manage Contacts, or who is picked again from the contact search with another relationship
+  (`RETAINED_CONTACT_PURPOSE_RECONCILIATION_REQUIRED`, `CDS_EXPORT_CONTACT_MAPPING_REQUIRES_REVIEW`).
+- An imported contact with two phones of one type, or a home or mobile extension, whose phone of
+  that type is edited.
+- An imported association that Manage Contacts re-pointed at another contact row
+  (`CDS_EXPORT_CONTACT_RECONCILIATION_SCOPE_INVALID`, a plain I/O failure).
+- An imported family or referring physician whose team entry was re-pointed at another contact
+  row (`ORIGINAL_PROFESSIONAL_CONTACT_REFERENCE_CHANGED`), and a team member added in a role
+  for which the import kept a physician it did not file in the team
+  (`UNPROJECTED_SOURCE_PROFESSIONAL_RELATIONSHIP_CONFLICT`); both end as
+  `CDS_EXPORT_PROFESSIONAL_RELATIONSHIP_REQUIRES_REVIEW`.
 
 The health-care-team roles Specialist and Dietician (procontact.jsp) have no FamilyPhysician or
 ReferredPhysician meaning, but an active external contact (type 2) in such a role is a

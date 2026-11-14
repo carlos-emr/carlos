@@ -222,22 +222,23 @@ public final class CdsExportPharmacyMapper {
                 for (String column : row.fields().keySet())
                     if (present(row.fields().get(column)))
                         state.operational(column, "REMOVED_PHARMACY_ASSOCIATION_NOT_IN_CURRENT_CHART");
-            } else if (!lookup.containsKey(row.fields().get("pharmacyID")))
-                state.review(
-                        "pharmacyID",
-                        "PreferredPharmacy",
-                        "LINKED_PHARMACY_MISSING_REQUIRES_REVIEW");
-            else if (!"1".equals(row.fields().get("status")))
-                state.review(
-                        "status",
-                        "PreferredPharmacy",
-                        "UNKNOWN_PHARMACY_ASSOCIATION_STATUS_REQUIRES_REVIEW");
-            else if (preferredCount <= 1 && !selected) {
+            } else if (!lookup.containsKey(row.fields().get("pharmacyID"))
+                    || !"1".equals(row.fields().get("status"))
+                    || preferredCount > 1) {
+                // A link to a pharmacy row this chart does not have, a status no screen writes,
+                // or two links both ranked first (PreferredPharmacy holds one pharmacy and
+                // neither is chosen for the other): the stored link travels exactly in the
+                // native demographic record, with its pharmacy when there is one. Never held.
+                for (String column : List.of("pharmacyID", "preferredOrder", "status", "consentToContact"))
+                    if (present(row.fields().get(column))) state.carry(column);
+                if (lookup.containsKey(row.fields().get("pharmacyID")))
+                    additional.add(row.fields().get("pharmacyID"));
+            } else if (!selected) {
                 // A second or third preferred pharmacy: PreferredPharmacy holds one, so the link
                 // and its pharmacy travel in the native demographic NewCategory record.
                 for (String column : List.of("pharmacyID", "preferredOrder", "status", "consentToContact"))
                     if (present(row.fields().get(column))) state.carry(column);
-            } else if (selected) {
+            } else {
                 state.set(
                         "pharmacyID",
                         Outcome.MAPPED,
@@ -249,17 +250,6 @@ public final class CdsExportPharmacyMapper {
                         "PreferredPharmacy",
                         "EXACT_NATIVE_FIRST_PREFERENCE");
                 state.operational("status", "EXACT_ACTIVE_PHARMACY_ASSOCIATION");
-            } else {
-                state.review(
-                        "status",
-                        "PreferredPharmacy",
-                        "ADDITIONAL_OR_HISTORICAL_PHARMACY_ASSOCIATION_REQUIRES_REVIEW");
-                state.review(
-                        "preferredOrder",
-                        "PreferredPharmacy",
-                        preferredCount > 1
-                                ? "DUPLICATE_FIRST_PHARMACY_PREFERENCE_REQUIRES_REVIEW"
-                                : "PHARMACY_PREFERENCE_REQUIRES_REVIEW");
             }
         }
         CdsExportPreferredPharmacyDto preferred = null;
@@ -306,14 +296,9 @@ public final class CdsExportPharmacyMapper {
         // carried exactly; a longer chain-store name is carried, and the whole pharmacy then
         // travels in the native record.
         String name = state.carriedText("name", root + "/Name", 50);
-        if (name == null) {
-            if (!present(state.raw("name")))
-                state.review(
-                        "name",
-                        root + "/Name",
-                        "REQUIRED_PHARMACY_NAME_MISSING_OR_UNREPRESENTABLE");
-            return null;
-        }
+        // PreferredPharmacy/Name is required: a pharmacy saved without a name, or with one the
+        // element cannot hold, gives no element and travels whole in the native record.
+        if (name == null) return null;
         String line = state.token("address", root + "/Address/Structured/Line1", 50);
         String city = state.token("city", root + "/Address/Structured/City", 80);
         String subdivision = state.raw("province");

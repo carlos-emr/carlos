@@ -223,6 +223,35 @@ class CdsExportContactFieldReconcilerUnitTest {
     }
 
     @Test
+    void shouldDecideTheContactFromItsCurrentRows_whenItsTwoNotesWereEditedApart()
+            throws Exception {
+        // Manage Contacts saves the note on the association only, the contact editor on the
+        // contact only. Either left the two notes different and held the chart
+        // (EDITED_COMPOUND_OR_UNPROJECTED_CONTACT_VALUE_REQUIRES_REVIEW). With nothing in the
+        // imported element that CARLOS keeps only in the import's source (no middle name, one
+        // purpose, one phone of each type), the contact is decided as any current contact.
+        fixture(null, "0012", false);
+        association.put("note", "Call after 6 pm");
+        var result = invoke();
+        assertThat(result.representable()).isTrue();
+        assertThat(result.current()).isTrue();
+        assertThat(result.superseded()).isFalse();
+        // Both notes travel exactly in the native record, as for a contact added in CARLOS.
+        for (String table : List.of("Contact", "DemographicContact"))
+            assertThat(
+                            CdsExportDemographicSupportingMapper.carries(
+                                    result.fields().get(key(table, "note"))))
+                    .as(table)
+                    .isTrue();
+        // An element with a separate middle name is not replaced by rows that never held it.
+        fixture("Middle😀", "0012", false);
+        association.put("note", "Call after 6 pm");
+        result = invoke();
+        assertThat(result.current()).isFalse();
+        assertThat(result.representable()).isFalse();
+    }
+
+    @Test
     void shouldVerifyClearingOneOfTheTwoNoteCopiesCannotResurrectTheOther_forContactFieldReconcilerContract() throws Exception {
         contact.put("note", null);
         var result = invoke();

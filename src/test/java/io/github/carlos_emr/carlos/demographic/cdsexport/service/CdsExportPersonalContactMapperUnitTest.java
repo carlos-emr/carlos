@@ -45,15 +45,23 @@ class CdsExportPersonalContactMapperUnitTest {
     private final CdsExportPersonalContactMapper mapper = new CdsExportPersonalContactMapper();
 
     @Test
-    void shouldReviewMissingContactIdentity_withoutThrowingForANullDatabaseColumn()
+    void shouldCarryAnAssociationWithNoContactRow_withoutHoldingTheChart()
             throws Exception {
-        var result = map(List.of(changed(association(-1, 9), "contactId", null)), List.of());
-        assertThat(result.nativeRepresentable()).isFalse();
-        assertThat(result.fields().values())
-                .anyMatch(
-                        field ->
-                                field.rule()
-                                        .equals("EXACT_LINKED_CONTACT_MISSING_REQUIRES_REVIEW"));
+        // Was a hold (EXACT_LINKED_CONTACT_MISSING_REQUIRES_REVIEW). There is no name to write,
+        // so no Contact element; the stored association travels in the native record.
+        var link = changed(association(-1, 9), "contactId", null);
+        var result = map(List.of(link), List.of());
+        assertThat(result.nativeRepresentable()).isTrue();
+        assertThat(result.contacts()).isEmpty();
+        assertThat(
+                        CdsExportDemographicSupportingMapper.carries(
+                                result.fields()
+                                        .get(
+                                                new CdsExportNativeFieldKeyDto(
+                                                        "DemographicContact",
+                                                        link.recordKey(),
+                                                        "role"))))
+                .isTrue();
     }
 
     @Test
@@ -171,14 +179,20 @@ class CdsExportPersonalContactMapperUnitTest {
 
     @Test
     void
-            shouldVerifyMissingNamesCannotProduceARepresentableAnonymousContact_forPersonalContactMapperContract()
+            shouldExportAContactSavedWithoutAName_withItsPurposeAndNoInventedName()
                     throws Exception {
+        // Was a hold (CONTACT_NAME_MISSING_OR_UNREPRESENTABLE). Both parts of Contact/Name are
+        // optional in the schema: the contact is written with an empty Name, nothing invented.
         var result =
                 map(
                         List.of(association(-1, 9)),
                         List.of(changed(changed(contact(9), "firstName", null), "lastName", null)));
-        assertThat(result.nativeRepresentable()).isFalse();
-        assertThat(result.contacts()).isEmpty();
+        assertThat(result.nativeRepresentable()).isTrue();
+        assertThat(result.contacts()).hasSize(1);
+        assertThat(result.contacts().getFirst().firstName()).isNull();
+        assertThat(result.contacts().getFirst().lastName()).isNull();
+        // The composed document is schema-valid and the importer's parser reads it.
+        parse(result, HASH);
     }
 
     @Test
@@ -224,23 +238,36 @@ class CdsExportPersonalContactMapperUnitTest {
     }
 
     @Test
-    void shouldRefuseALegacyRelationshipId_insteadOfExportingItsDigitsAsThePurpose()
+    void shouldCarryALegacyRelationshipId_insteadOfExportingItsDigitsAsThePurpose()
             throws Exception {
         // D4: older health-care-team data stored CtlRelationships ids ("3" is Parent in the
-        // shipped table). The export cannot resolve the site-editable table, so it holds the
-        // patient rather than writing <PurposeAsPlainText>3</PurposeAsPlainText>.
+        // shipped table). The export cannot resolve the site-editable table, so it writes no
+        // <PurposeAsPlainText>3</PurposeAsPlainText>; the chart was held, and now the contact
+        // is exported and the stored id travels exactly in the native record.
         for (String legacy : List.of("3", " 21 ")) {
             var link = changed(changed(changed(association(-1, 9), "role", legacy), "ec", "false"), "sdm", "false");
             var result = map(List.of(link), List.of(contact(9)));
-            assertThat(result.nativeRepresentable()).isFalse();
+            assertThat(result.nativeRepresentable()).isTrue();
+            assertThat(result.contacts()).hasSize(1);
+            assertThat(result.contacts().getFirst().purposes()).isEmpty();
             assertThat(
-                            result.fields()
-                                    .get(
-                                            new CdsExportNativeFieldKeyDto(
-                                                    "DemographicContact", link.recordKey(), "role"))
-                                    .rule())
-                    .isEqualTo("LEGACY_RELATIONSHIP_ID_REQUIRES_REVIEW");
+                            CdsExportDemographicSupportingMapper.carries(
+                                    result.fields()
+                                            .get(
+                                                    new CdsExportNativeFieldKeyDto(
+                                                            "DemographicContact",
+                                                            link.recordKey(),
+                                                            "role"))))
+                    .isTrue();
         }
+        // A typed relationship longer than PurposeAsPlainText (50; the column holds 100) is
+        // carried the same way and was a hold too (CONTACT_PURPOSE_VALUES_REQUIRES_REVIEW).
+        var wordy = changed(association(-1, 9), "role", "Neighbour who ".repeat(5).strip());
+        var carried = map(List.of(wordy), List.of(contact(9)));
+        assertThat(carried.nativeRepresentable()).isTrue();
+        // Only the coded purposes of the fixture's own flags remain: no plain-text purpose.
+        assertThat(carried.contacts().getFirst().purposes())
+                .allMatch(CdsExportPersonalContactDto.Purpose::coded);
         // contact.jsp and AddAlternateContact.jsp write the relationship's text value, which
         // remains an exact plain-text purpose through the schema and receiving parser.
         var current = changed(changed(changed(association(-1, 9), "role", "Parent"), "ec", "false"), "sdm", "false");
@@ -373,29 +400,37 @@ class CdsExportPersonalContactMapperUnitTest {
                                     .name())
                     .isEqualTo(pair.getKey().equals("deleted") ? "OPERATIONAL" : "MAPPED");
         }
-        assertThat(
-                        map(
-                                        List.of(association(-1, 9)),
-                                        List.of(changed(contact(9), "deleted", "1")))
-                                .nativeRepresentable())
-                .isFalse();
-        assertThat(
-                        map(
-                                        List.of(association(-1, 9)),
-                                        List.of(changed(contact(9), "type", "ProfessionalContact")))
-                                .nativeRepresentable())
-                .isFalse();
+        // A contact row marked deleted, or of the professional subtype, that a current
+        // personal association names is still the patient's contact in the chart: exported,
+        // with the stored flag or subtype carried. Both were holds.
+        for (var pair : List.of(Map.entry("deleted", "1"), Map.entry("type", "ProfessionalContact"))) {
+            var row = changed(contact(9), pair.getKey(), pair.getValue());
+            var result = map(List.of(association(-1, 9)), List.of(row));
+            assertThat(result.nativeRepresentable()).isTrue();
+            assertThat(result.contacts()).hasSize(1);
+            assertThat(
+                            CdsExportDemographicSupportingMapper.carries(
+                                    result.fields()
+                                            .get(
+                                                    new CdsExportNativeFieldKeyDto(
+                                                            "Contact", row.recordKey(), pair.getKey()))))
+                    .isTrue();
+        }
     }
 
     @Test
     void
-            shouldVerifyPaddedMissingAndSourceOnlyReferencesRemainVisibleReview_insteadOfAliasResolution()
+            shouldCarryPaddedAndMissingReferencesAndReviewOnlyTheImportMarker_insteadOfAliasResolution()
                     throws Exception {
+        // "09" is not contact 9: no alias is resolved, no Contact is written, and the stored
+        // association is carried (it was a hold).
         var result = map(List.of(changed(association(-1, 9), "contactId", "09")), List.of());
-        assertThat(result.nativeRepresentable()).isFalse();
+        assertThat(result.nativeRepresentable()).isTrue();
         assertThat(result.fields()).hasSize(18);
         assertThat(result.contacts()).isEmpty();
-        assertThat(map(List.of(association(-1, 9)), List.of()).nativeRepresentable()).isFalse();
+        assertThat(map(List.of(association(-1, 9)), List.of()).nativeRepresentable()).isTrue();
+        // The importer's own marker for several source purposes still needs the import's
+        // retained purposes: the one relationship value that is not carried.
         var retained =
                 map(
                         List.of(
@@ -413,36 +448,46 @@ class CdsExportPersonalContactMapperUnitTest {
                     throws Exception {
         // Updated for D5: consent "1" is the UI and model default (see CdsExportContactConsent) and
         // is covered by shouldAcceptTheDefaultContactConsent_andCarryAnExplicitRefusal, which also
-        // carries an explicit refusal ("0"); an unknown spelling still holds the chart.
+        // carries an explicit refusal ("0"). A spelling no screen writes, a set
+        // responsible-provider flag and "false" beside a relationship naming the same purpose
+        // were holds; each is now carried exactly beside the exported contact.
         for (var pair :
                 List.of(
                         Map.entry("ec", "yes"),
                         Map.entry("sdm", "1"),
                         Map.entry("consentToContact", "true"),
-                        Map.entry("mrp", "1")))
+                        Map.entry("mrp", "1"))) {
+            var link = changed(association(-1, 9), pair.getKey(), pair.getValue());
+            var result = map(List.of(link), List.of(contact(9)));
+            assertThat(result.nativeRepresentable()).as(pair.getKey()).isTrue();
+            assertThat(result.contacts()).hasSize(1);
             assertThat(
-                            map(
-                                            List.of(
-                                                    changed(
-                                                            association(-1, 9),
-                                                            pair.getKey(),
-                                                            pair.getValue())),
-                                            List.of(contact(9)))
-                                    .nativeRepresentable())
-                    .isFalse();
+                            CdsExportDemographicSupportingMapper.carries(
+                                    result.fields()
+                                            .get(
+                                                    new CdsExportNativeFieldKeyDto(
+                                                            "DemographicContact",
+                                                            link.recordKey(),
+                                                            pair.getKey()))))
+                    .as(pair.getKey())
+                    .isTrue();
+        }
+        var conflicting =
+                changed(changed(association(-1, 9), "role", "Emergency Contact"), "ec", "false");
+        var result = map(List.of(conflicting), List.of(contact(9)));
+        assertThat(result.nativeRepresentable()).isTrue();
+        // The relationship the chart shows is the purpose; the stored "false" is carried.
+        assertThat(result.contacts().getFirst().purposes())
+                .contains(new CdsExportPersonalContactDto.Purpose(true, "EC"));
         assertThat(
-                        map(
-                                        List.of(
-                                                changed(
-                                                        changed(
-                                                                association(-1, 9),
-                                                                "role",
-                                                                "Emergency Contact"),
-                                                        "ec",
-                                                        "false")),
-                                        List.of(contact(9)))
-                                .nativeRepresentable())
-                .isFalse();
+                        CdsExportDemographicSupportingMapper.carries(
+                                result.fields()
+                                        .get(
+                                                new CdsExportNativeFieldKeyDto(
+                                                        "DemographicContact",
+                                                        conflicting.recordKey(),
+                                                        "ec"))))
+                .isTrue();
     }
 
     @Test

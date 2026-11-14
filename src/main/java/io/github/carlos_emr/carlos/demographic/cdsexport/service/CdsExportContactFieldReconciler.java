@@ -78,6 +78,10 @@ public final class CdsExportContactFieldReconciler {
      * @param superseded the imported association was removed or made inactive in CARLOS: its
      *     Contact element is removed (the only change) and the native rows are decided as for
      *     any removed or inactive association, so a later association may name the contact again
+     * @param current the imported contact was edited in a way its imported element cannot state
+     *     (the note of the contact and of its association now differ) and the element holds
+     *     nothing CARLOS keeps only in the import's retained source: the element is removed and
+     *     the contact is decided from its current rows, as any contact added in CARLOS
      */
     public record Result(
             CdsExportRetainedContactBinding.Result binding,
@@ -85,7 +89,8 @@ public final class CdsExportContactFieldReconciler {
             Set<String> retainedPaths,
             Set<String> currentPaths,
             List<CdsExportRetainedSectionWriter.Change> changes,
-            boolean superseded) {
+            boolean superseded,
+            boolean current) {
         public Result {
             fields = Map.copyOf(fields);
             retainedPaths = Set.copyOf(retainedPaths);
@@ -240,7 +245,8 @@ public final class CdsExportContactFieldReconciler {
                     Set.of(),
                     Set.of(),
                     List.of(new CdsExportRetainedSectionWriter.Change(sourceContact, ids, null)),
-                    true);
+                    true,
+                    false);
         }
         // Any other association state (an unknown flag no CARLOS screen writes) stays an
         // explicit review, never a carry beside the still-retained imported element.
@@ -295,6 +301,20 @@ public final class CdsExportContactFieldReconciler {
                 purposes.add(field.getKey().split("/", 2)[0]);
         }
         String prefix = "Contact[" + binding.ordinal() + "]";
+        // What the imported element states that no CARLOS column holds: a separate middle
+        // name, a second phone of one type, several purposes behind the importer's marker.
+        // Deciding such a contact from its current rows alone would lose it.
+        var middleName = relative.get("Name[1]/MiddleName[1]");
+        boolean sourceOnly =
+                middleName != null && !read(values, middleName, 50, checkpoint).isBlank()
+                        || source.roles().contains(CdsContactNormalizationService.MULTIPLE_PURPOSES);
+        for (String phoneType : List.of("R", "C", "W")) {
+            int retainedPhones = phones.getOrDefault(phoneType, List.of()).size();
+            sourceOnly |=
+                    retainedPhones > 1
+                            || retainedPhones == 1 && source.phones().get(phoneType) == null;
+        }
+        boolean decideAsCurrent = false;
         for (var group : Group.values()) {
             checkpoint.run();
             boolean proved = true;
@@ -356,6 +376,14 @@ public final class CdsExportContactFieldReconciler {
                                         && oldPhone != null
                                         && oldPhone.extension() != null
                                         && !oldPhone.extension().isEmpty();
+            }
+            if (blocked && group == Group.NOTE && !sourceOnly) {
+                // Manage Contacts saves the note on the association and the contact editor on
+                // the contact: after either, the two differ and the one Note element cannot say
+                // which is meant. The contact is decided from its current rows (both notes
+                // travel exactly, as for any contact); it was a hold.
+                decideAsCurrent = true;
+                continue;
             }
             if (blocked) {
                 mark(
@@ -464,7 +492,7 @@ public final class CdsExportContactFieldReconciler {
                 .validate(List.of(contact, association), decisions, 1000, checkpoint);
         values.requireActive();
         checkpoint.run();
-        return new Result(binding, decisions, retained, current, changes, false);
+        return new Result(binding, decisions, retained, current, changes, false, decideAsCurrent);
     }
 
     private static CdsNativeRowState qualify(

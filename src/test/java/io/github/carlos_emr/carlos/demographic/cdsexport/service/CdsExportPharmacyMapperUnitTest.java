@@ -158,10 +158,15 @@ class CdsExportPharmacyMapperUnitTest {
     @Test
     void shouldVerifyDuplicateFirstPreferencesAreNeverSelected_byRowOrderEvenForTheSamePharmacy()
             throws Exception {
+        // Two links ranked first held the chart (FIRST_PREFERENCE_TIED). PreferredPharmacy
+        // holds one pharmacy: neither link is chosen, and both travel in the native record.
         var result = map(List.of(link(-1, 9), link(-2, 9)), List.of(pharmacy(9)));
-        assertThat(result.nativeRepresentable()).isFalse();
+        assertThat(result.nativeRepresentable()).isTrue();
         assertThat(result.preferred()).isNull();
         assertThat(result.fields()).hasSize(29);
+        assertCarried(result, link(-1, 9), "preferredOrder");
+        assertCarried(result, link(-2, 9), "preferredOrder");
+        assertCarried(result, pharmacy(9), "name");
     }
 
     @Test
@@ -184,35 +189,42 @@ class CdsExportPharmacyMapperUnitTest {
             throws Exception {
         for (var row :
                 List.of(changed(link(-1, 9), "status", ""), changed(link(-1, 9), "status", null))) {
+            // A status no screen writes: no preference is asserted and nothing is held.
             var result = map(List.of(row), List.of(pharmacy(9)));
-            assertThat(result.nativeRepresentable()).isFalse();
+            assertThat(result.nativeRepresentable()).isTrue();
             assertThat(result.preferred()).isNull();
+            assertCarried(result, row, "pharmacyID");
+            assertCarried(result, pharmacy(9), "name");
         }
         // A lone second preference has no first one to export; it travels in the record.
         var second = map(List.of(changed(link(-1, 9), "preferredOrder", "2")), List.of(pharmacy(9)));
         assertThat(second.nativeRepresentable()).isTrue();
         assertThat(second.preferred()).isNull();
+        // A link to a pharmacy row the chart does not have is carried, never held.
         var missing = map(List.of(link(-1, 9)), List.of());
-        assertThat(missing.nativeRepresentable()).isFalse();
+        assertThat(missing.nativeRepresentable()).isTrue();
         assertThat(missing.preferred()).isNull();
+        assertCarried(missing, link(-1, 9), "pharmacyID");
         var empty = map(List.of(), List.of());
         assertThat(empty.nativeRepresentable()).isTrue();
         assertThat(empty.preferred()).isNull();
     }
 
     @Test
-    void shouldNameEachPharmacyReviewRule_withItsOwnHoldCode() throws Exception {
+    void shouldHoldNoPharmacyValue_andKeepTheNamedCodesForAResultThatAsksForReview()
+            throws Exception {
+        // Each of these named a hold of its own; none holds a chart any more.
         assertThat(map(List.of(link(-1, 9)), List.of(pharmacy(9))).reviewCode()).isNull();
-        assertThat(map(List.of(link(-1, 9)), List.of()).reviewCode())
-                .isEqualTo("CDS_EXPORT_NATIVE_PHARMACY_LINK_DANGLING");
+        assertThat(map(List.of(link(-1, 9)), List.of()).reviewCode()).isNull();
         assertThat(map(List.of(changed(link(-1, 9), "status", "")), List.of(pharmacy(9))).reviewCode())
-                .isEqualTo("CDS_EXPORT_NATIVE_PHARMACY_LINK_STATUS_UNKNOWN");
+                .isNull();
         assertThat(map(List.of(link(-1, 9), link(-2, 9)), List.of(pharmacy(9))).reviewCode())
-                .isEqualTo("CDS_EXPORT_NATIVE_PHARMACY_FIRST_PREFERENCE_TIED");
-        assertThat(
-                        map(List.of(changed(link(-1, 9), "consentToContact", "7")), List.of(pharmacy(9)))
-                                .reviewCode())
-                .isEqualTo("CDS_EXPORT_NATIVE_PHARMACY_CONSENT_UNKNOWN");
+                .isNull();
+        var odd = changed(link(-1, 9), "consentToContact", "7");
+        var consent = map(List.of(odd), List.of(pharmacy(9)));
+        assertThat(consent.reviewCode()).isNull();
+        assertThat(consent.preferred()).isNotNull();
+        assertCarried(consent, odd, "consentToContact");
         // A removed link to a pharmacy row that no longer exists is not in the chart either.
         var removed = map(List.of(changed(link(-1, 9), "status", "0")), List.of());
         assertThat(removed.nativeRepresentable()).isTrue();
@@ -232,7 +244,7 @@ class CdsExportPharmacyMapperUnitTest {
         assertThat(
                         map(List.of(changed(link(-1, 9), "consentToContact", "true")), List.of(pharmacy(9)))
                                 .nativeRepresentable())
-                .isFalse();
+                .isTrue();
         var refused = changed(link(-1, 9), "consentToContact", "0");
         var carried = map(List.of(refused), List.of(pharmacy(9)));
         assertThat(carried.nativeRepresentable()).isTrue();
@@ -356,9 +368,13 @@ class CdsExportPharmacyMapperUnitTest {
     @Test
     void shouldVerifyMissingRequiredNamesCannotLeaveARepresentableAssociation_forPharmacyMapperContract() throws Exception {
         for (String name : Arrays.asList(null, "")) {
+            // PreferredPharmacy/Name is required: a pharmacy saved without a name gives no
+            // element (none is invented) and travels whole in the native record. Was a hold.
             var result = map(List.of(link(-1, 9)), List.of(changed(pharmacy(9), "name", name)));
-            assertThat(result.nativeRepresentable()).isFalse();
+            assertThat(result.nativeRepresentable()).isTrue();
             assertThat(result.preferred()).isNull();
+            assertCarried(result, link(-1, 9), "pharmacyID");
+            assertCarried(result, pharmacy(9), "address");
         }
     }
 

@@ -95,7 +95,12 @@ public final class CdsExportRetainedPharmacyReconciler {
             // link (a removed one is not exported, a lower-ranked one travels in the native
             // demographic record); the imported element's source fields stay in the import's
             // retained source and the receipt lists them as replaced.
-            else if (!"1".equals(link.fields().get("status")) || !"1".equals(link.fields().get("preferredOrder"))) {
+            // The same holds when the chart states no first preference at all although the
+            // imported link is still ranked first: a second link ranked first beside it (neither
+            // is chosen), or a pharmacy name the element cannot hold. The native mapper carries
+            // the links and pharmacies exactly, and the imported element is not kept as if it
+            // were the chart's one preference.
+            else if (!"1".equals(link.fields().get("status")) || !"1".equals(link.fields().get("preferredOrder")) || mapping.preferred() == null) {
                 if ("0".equals(link.fields().get("status"))) {
                     var key = new CdsExportNativeFieldKeyDto(link.table(), link.recordKey(), "status");
                     decisions.put(key, new CdsExportFieldAssessmentDto(decisions.get(key).presence(), Outcome.OPERATIONAL, "", REMOVED_IMPORTED_PHARMACY));

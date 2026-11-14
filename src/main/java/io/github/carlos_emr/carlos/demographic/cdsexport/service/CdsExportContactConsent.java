@@ -36,7 +36,7 @@ import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFieldAsses
  * is a deliberate instruction not to contact that person or pharmacy: dropping it would silently
  * lift a restriction, so it travels exactly in the native demographic NewCategory record
  * ({@value #REFUSAL_CARRIED_RULE}) beside the exported contact, never held and never dropped. Any
- * other spelling, which no screen writes, requires review. SQL NULL (the form's "Unknown") is
+ * other spelling, which no screen writes, is carried exactly too. SQL NULL (the form's "Unknown") is
  * absent.
  */
 final class CdsExportContactConsent {
@@ -57,7 +57,8 @@ final class CdsExportContactConsent {
             state.set("consentToContact", carried.outcome(), carried.destination(), REFUSAL_CARRIED_RULE);
         }
         else
-            state.review(
-                    "consentToContact", destination, "UNKNOWN_CONTACT_CONSENT_REQUIRES_REVIEW");
+            // Any other spelling (no screen writes one): not read as consent or refusal, and
+            // carried exactly in the native demographic record. Never held.
+            state.carry("consentToContact");
     }
 }

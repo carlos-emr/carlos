@@ -256,6 +256,28 @@ public final class CdsExportProfessionalContactMapper {
                         "programNo");
         var carriedContacts = new HashSet<String>();
         var removedContacts = new HashSet<String>();
+        // The associations ReferredPhysician or FamilyPhysician can state: an active, current
+        // external professional relationship in one of the two roles, naming a current contact
+        // row of this chart that has a name. Each element holds one physician, so a role two
+        // such associations hold is stated by neither. Everything else travels exactly in the
+        // native demographic record; nothing here holds the patient.
+        var eligible = new EnumMap<Role, List<CdsExportCapturedTextRowDto>>(Role.class);
+        for (var row : associations) {
+            checkpoint.run();
+            var state = states.get(row);
+            Role role = role(state.raw("role"));
+            var named = state.raw("contactId") == null ? null : lookup.get(state.raw("contactId"));
+            if (role != null
+                    && "2".equals(state.raw("type"))
+                    && "professional".equals(state.raw("category"))
+                    && "0".equals(state.raw("deleted"))
+                    && "1".equals(state.raw("active"))
+                    && named != null
+                    && "0".equals(named.fields().get("deleted"))
+                    && !(blank(named.fields().get("firstName"))
+                            && blank(named.fields().get("lastName"))))
+                eligible.computeIfAbsent(role, ignored -> new ArrayList<>()).add(row);
+        }
         for (var row : associations) {
             checkpoint.run();
             var state = states.get(row);
@@ -267,20 +289,17 @@ public final class CdsExportProfessionalContactMapper {
                 if ("2".equals(state.raw("type"))) removedContacts.add(state.raw("contactId"));
                 continue;
             }
-            Role role =
-                    Arrays.stream(Role.values())
-                            .filter(candidate -> candidate.label.equals(state.raw("role")))
-                            .findFirst()
-                            .orElse(null);
+            Role role = role(state.raw("role"));
             // A provider or specialist from another table (type 0, 1, 3), an inactive member,
-            // and roles ReferredPhysician/FamilyPhysician do not mean (Specialist, Dietician...)
-            // that callers did not route to Demographics/Contact (contactRoleAssociations): the
-            // stored association and its contact travel in the native demographic record.
-            if (!"2".equals(state.raw("type"))
-                    || !"professional".equals(state.raw("category"))
-                    || !"0".equals(state.raw("deleted"))
-                    || !"1".equals(state.raw("active"))
-                    || role == null) {
+            // roles ReferredPhysician/FamilyPhysician do not mean (Specialist, Dietician...)
+            // that callers did not route to Demographics/Contact (contactRoleAssociations), a
+            // role that two current members hold (the health care team may list two referring
+            // physicians; the element states one and none is chosen for the other), a contact
+            // row that is missing, marked deleted or has no name: the stored association and
+            // its contact travel in the native demographic record.
+            if (role == null
+                    || eligible.getOrDefault(role, List.of()).size() != 1
+                    || !eligible.get(role).getFirst().recordKey().equals(row.recordKey())) {
                 state.carryRemaining(identity);
                 if ("2".equals(state.raw("type"))) carriedContacts.add(state.raw("contactId"));
                 continue;
@@ -297,15 +316,13 @@ public final class CdsExportProfessionalContactMapper {
                     Outcome.MAPPED,
                     role.wire,
                     "EXACT_NATIVE_PROFESSIONAL_RELATIONSHIP_LABEL");
-            if (state.raw("contactId") == null || !lookup.containsKey(state.raw("contactId"))) {
-                state.review("contactId", role.wire, "EXACT_LINKED_PROFESSIONAL_CONTACT_REQUIRED");
-                continue;
-            }
             state.set(
                     "contactId",
                     Outcome.MAPPED,
                     role.wire,
                     "EXACT_PATIENT_PROFESSIONAL_CONTACT_REFERENCE");
+            // Health-care-team values the two elements have no place for (a note, a set flag).
+            state.carryRemaining(identity);
             grouped.computeIfAbsent(role, ignored -> new ArrayList<>()).add(row);
         }
         var physicians = new ArrayList<Physician>();
@@ -313,37 +330,23 @@ public final class CdsExportProfessionalContactMapper {
         for (Role role : Role.values()) {
             checkpoint.run();
             var group = grouped.getOrDefault(role, List.of());
-            if (group.size() > 1) {
-                for (var row : group)
-                    states.get(row)
-                            .review(
-                                    "role",
-                                    role.wire,
-                                    "MULTIPLE_PROFESSIONAL_RELATIONSHIPS_EXCEED_WIRE_CARDINALITY");
-                continue;
-            }
             if (group.isEmpty()) continue;
             var association = group.getFirst();
             var row = lookup.get(association.fields().get("contactId"));
             var state = states.get(row);
-            if (!"ProfessionalContact".equals(state.raw("type"))
-                    || !"0".equals(state.raw("deleted"))) {
-                state.review("type", role.wire, "EXACT_CURRENT_PROFESSIONAL_CONTACT_REQUIRED");
-                continue;
-            }
-            state.operational("type", "EXACT_EXTERNAL_PROFESSIONAL_CONTACT_SUBTYPE");
+            // The contact search lists every contact row, so the team may name a plain contact
+            // as a physician: the chart shows the person in the role all the same, and the
+            // stored subtype travels in the native record.
+            if ("ProfessionalContact".equals(state.raw("type")))
+                state.operational("type", "EXACT_EXTERNAL_PROFESSIONAL_CONTACT_SUBTYPE");
+            else if (present(state.raw("type"))) state.carry("type");
             state.operational("deleted", "EXACT_CURRENT_NATIVE_PROFESSIONAL_CONTACT");
-            String first = state.carriedText("firstName", "ProfessionalPhysician/FirstName", 50),
-                    last = state.carriedText("lastName", "ProfessionalPhysician/LastName", 50);
-            if ("".equals(state.raw("firstName"))) first = "";
-            if ("".equals(state.raw("lastName"))) last = "";
-            if (first == null || last == null || first.isBlank() && last.isBlank()) {
-                state.review(
-                        "firstName",
-                        role.wire,
-                        "COMPLETE_PROFESSIONAL_NAME_REQUIRED_WITHOUT_INVENTED_PARTS");
-                continue;
-            }
+            // Both parts are required elements of at most 50 characters (the columns hold
+            // 100). A part with nothing stored is written empty; a longer one is written as
+            // its first 50 characters and carried whole (carriedText); a character XML cannot
+            // carry is shown as U+FFFD and carried exactly.
+            String first = part(state, "firstName", "ProfessionalPhysician/FirstName"),
+                    last = part(state, "lastName", "ProfessionalPhysician/LastName");
             for (String column : List.of("firstName", "lastName"))
                 uses.computeIfAbsent(
                                 new CdsExportNativeFieldKeyDto("Contact", row.recordKey(), column),
@@ -404,6 +407,29 @@ public final class CdsExportProfessionalContactMapper {
 
     private static boolean present(String value) {
         return value != null && !value.isEmpty();
+    }
+
+    private static boolean blank(String value) {
+        return value == null || value.isBlank();
+    }
+
+    private static Role role(String label) {
+        return Arrays.stream(Role.values())
+                .filter(candidate -> candidate.label.equals(label))
+                .findFirst()
+                .orElse(null);
+    }
+
+    /** One required name part: empty when nothing is stored, at most 50 code points. */
+    private static String part(
+            CdsExportNativeFieldAssessments state, String column, String destination) {
+        String raw = state.raw(column);
+        if (raw == null || raw.isEmpty()) return "";
+        String shown = state.carriedText(column, destination, 50);
+        if (shown != null) return shown;
+        // Longer than the element: carriedText has carried the stored value whole.
+        String text = CdsExportXmlText.element(raw);
+        return text.substring(0, text.offsetByCodePoints(0, 50));
     }
 
     private static void scope() throws IOException {

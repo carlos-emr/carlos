@@ -58,7 +58,6 @@ public record CdsExportPersonalContactDto(
         phones = List.copyOf(phones);
         if (sourceRecordKey == null
                 || !sourceRecordKey.matches("[0-9]{20}")
-                || firstName == null && lastName == null
                 || firstName != null && !text(firstName, 50)
                 || lastName != null && !text(lastName, 50)
                 || purposes.size() > 8192

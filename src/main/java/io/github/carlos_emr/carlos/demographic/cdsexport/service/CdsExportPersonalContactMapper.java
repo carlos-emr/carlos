@@ -226,7 +226,10 @@ public final class CdsExportPersonalContactMapper {
             var contact =
                     state.raw("contactId") == null ? null : lookup.get(state.raw("contactId"));
             if (contact == null) {
-                state.review("contactId", root, "EXACT_LINKED_CONTACT_MISSING_REQUIRES_REVIEW");
+                // The association names no contact row of this chart (an empty or dangling
+                // contactId): there is no name to write, so the stored association travels
+                // exactly in the native demographic record. Never held.
+                state.carryRemaining(identity);
                 continue;
             }
             for (String column : List.of("type", "category", "deleted", "active"))
@@ -264,16 +267,20 @@ public final class CdsExportPersonalContactMapper {
                 state.operational("type", "EXACT_NATIVE_PERSONAL_CONTACT_TYPE");
             else if (professionalGroup && "ProfessionalContact".equals(state.raw("type")))
                 state.operational("type", "EXACT_NATIVE_PROFESSIONAL_CONTACT_TYPE");
-            else state.review("type", root, "UNEXPECTED_NATIVE_CONTACT_SUBTYPE_REQUIRES_REVIEW");
+            // The contact search lists every contact row, so a personal relationship may name a
+            // professional contact (and the reverse): the person is the patient's contact all
+            // the same, and the stored subtype travels in the native demographic record.
+            else if (present(state.raw("type"))) state.carry("type");
             if ("0".equals(state.raw("deleted")))
                 state.operational("deleted", "EXACT_CURRENT_NATIVE_CONTACT");
-            else
-                state.review("deleted", root, "DELETED_OR_UNKNOWN_CONTACT_HISTORY_REQUIRES_REVIEW");
+            // The chart lists a contact by its association; a contact row marked deleted while
+            // a current association names it is still shown, and the flag is carried.
+            else if (present(state.raw("deleted"))) state.carry("deleted");
+            // Both name parts are optional in Demographics/Contact/Name: a contact saved with
+            // no name, or with parts longer than the element (carried exactly), is written with
+            // the parts it has and never held.
             String first = state.carriedText("firstName", root + "/Name/FirstName", 50),
                     last = state.carriedText("lastName", root + "/Name/LastName", 50);
-            if (first == null && last == null)
-                state.review(
-                        "firstName", root + "/Name", "CONTACT_NAME_MISSING_OR_UNREPRESENTABLE");
             var purposes = new LinkedHashSet<CdsExportPersonalContactDto.Purpose>();
             for (var link : group) {
                 var linkState = states.get(link);
@@ -285,20 +292,19 @@ public final class CdsExportPersonalContactMapper {
                                 root + "/ContactPurpose",
                                 "RETAINED_CONTACT_PURPOSE_RECONCILIATION_REQUIRED");
                     else if (!CdsExportNativeFieldAssessments.legal(role, 50))
-                        linkState.review(
-                                "role",
-                                root + "/ContactPurpose",
-                                "CONTACT_PURPOSE_VALUES_REQUIRES_REVIEW");
+                        // A typed relationship longer than PurposeAsPlainText (50; the column
+                        // holds 100) or holding a character XML cannot carry: no ContactPurpose
+                        // is written from it and the stored text travels in the native record.
+                        linkState.carry("role");
                     else if (legacyRelationshipId(role))
                         // Older health-care-team data stored a CtlRelationships row id ("3" is
                         // Parent in the shipped table); DemographicContactCreator still resolves
                         // it for display. The export capture does not include that site-editable
                         // table, so the id cannot be resolved from authenticated evidence, and
-                        // emitting the digits as a plain-text purpose would lose the relationship.
-                        linkState.review(
-                                "role",
-                                root + "/ContactPurpose",
-                                "LEGACY_RELATIONSHIP_ID_REQUIRES_REVIEW");
+                        // emitting the digits as a plain-text purpose would misstate the
+                        // relationship: no ContactPurpose is written from it and the stored id
+                        // travels exactly in the native record.
+                        linkState.carry("role");
                     else {
                         String code = ROLES.get(role);
                         purposes.add(
@@ -353,16 +359,17 @@ public final class CdsExportPersonalContactMapper {
             // Contact columns Demographics/Contact has no element for travel in the record.
             state.carryRemaining(Set.of("id", "updateDate"));
             String note = note(row, group, states, root);
-            if (first != null || last != null)
-                mapped.add(
-                        new CdsExportPersonalContactDto(
-                                row.recordKey(),
-                                first,
-                                last,
-                                new ArrayList<>(purposes),
-                                phones,
-                                email,
-                                note));
+            // An association value Contact has no element for (a set responsible-provider flag).
+            for (var link : group) states.get(link).carryRemaining(identity);
+            mapped.add(
+                    new CdsExportPersonalContactDto(
+                            row.recordKey(),
+                            first,
+                            last,
+                            new ArrayList<>(purposes),
+                            phones,
+                            email,
+                            note));
         }
         new CdsExportNativeFieldAssessmentValidator().validate(all, fields, 1_000_000, checkpoint);
         checkpoint.run();
@@ -410,21 +417,15 @@ public final class CdsExportPersonalContactMapper {
                     root + "/ContactPurpose",
                     "EXACT_NATIVE_CONTACT_PURPOSE_FLAG");
         } else if (value.equals("false")) {
-            if (state.raw("role") != null && code.equals(ROLES.get(state.raw("role")))) {
-                state.review(
-                        column,
-                        root + "/ContactPurpose",
-                        "CONFLICTING_CONTACT_PURPOSE_ASSERTIONS_REQUIRES_REVIEW");
-                state.review(
-                        "role",
-                        root + "/ContactPurpose",
-                        "CONFLICTING_CONTACT_PURPOSE_ASSERTIONS_REQUIRES_REVIEW");
-            } else state.operational(column, "EXACT_UNSET_CONTACT_PURPOSE_FLAG");
+            // "false" beside a relationship that names the same purpose (no screen writes
+            // "false"; older data does): the relationship the chart shows is the purpose, and
+            // the stored flag travels in the native record.
+            if (state.raw("role") != null && code.equals(ROLES.get(state.raw("role"))))
+                state.carry(column);
+            else state.operational(column, "EXACT_UNSET_CONTACT_PURPOSE_FLAG");
         } else
-            state.review(
-                    column,
-                    root + "/ContactPurpose",
-                    "UNKNOWN_NATIVE_CONTACT_PURPOSE_FLAG_REQUIRES_REVIEW");
+            // Any other spelling: no purpose is asserted from it; carried exactly.
+            state.carry(column);
     }
 
     private static void phone(

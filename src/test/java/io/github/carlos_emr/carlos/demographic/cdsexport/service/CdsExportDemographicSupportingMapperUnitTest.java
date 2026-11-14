@@ -842,27 +842,24 @@ class CdsExportDemographicSupportingMapperUnitTest {
     }
 
     @Test
-    void shouldNameTheDanglingLinkRule_whenThePreferredPharmacyRowIsGone() throws Exception {
+    void shouldCarryTheDanglingLinks_whenThePreferredPharmacyRowIsGone() throws Exception {
         // The census database after a cleanup script deleted every "FAKE-C2 %" pharmacy row:
         // A05's links remained, pointing at rows that no longer exist. No CARLOS screen does
-        // this (Manage Pharmacy only marks a pharmacy deleted), so it is still a hold, now
-        // reported by its own code instead of CDS_EXPORT_UNMAPPED_DATA.
+        // this (Manage Pharmacy only marks a pharmacy deleted). It was a hold
+        // (CDS_EXPORT_NATIVE_PHARMACY_LINK_DANGLING); the stored links are now carried.
         pharmacies(
                 List.of(
                         storedLink(47, 32, "1", "1", "2026-10-05 08:12:00"),
                         storedLink(48, 33, "1", "2", "2026-10-05 08:12:30"),
                         storedLink(49, 34, "0", "3", "2026-10-05 08:13:00")),
                 List.of());
-        assertThatThrownBy(() -> assemble(ALL))
-                .isInstanceOf(CdsExportMappingReviewException.class)
-                .hasMessage("CDS_EXPORT_NATIVE_PHARMACY_LINK_DANGLING");
-        assertThatThrownBy(
-                        () ->
-                                assemble(
-                                        Set.of(
-                                                CdsCategory.DEMOGRAPHICS,
-                                                CdsCategory.ALERTS_AND_SPECIAL_NEEDS)))
-                .hasMessage("CDS_EXPORT_NATIVE_PHARMACY_LINK_DANGLING");
+        for (var selected :
+                List.of(ALL, Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.ALERTS_AND_SPECIAL_NEEDS))) {
+            var result = assemble(selected);
+            assertThat(result.fields().values())
+                    .noneMatch(field -> field.outcome() == Outcome.REQUIRES_REVIEW);
+            assertThat(result.pharmacy().mapping().preferred()).isNull();
+        }
         // A removed link is not in the chart, whether or not its pharmacy row still exists.
         pharmacies(List.of(storedLink(49, 34, "0", "3", "2026-10-05 08:13:00")), List.of());
         assertThat(assemble(ALL).fields().values())

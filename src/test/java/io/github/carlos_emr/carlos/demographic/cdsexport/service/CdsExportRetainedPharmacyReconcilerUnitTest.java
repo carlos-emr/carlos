@@ -103,10 +103,12 @@ class CdsExportRetainedPharmacyReconcilerUnitTest {
         // Notes have no PreferredPharmacy element: they are carried in the native demographic record and no longer withhold the name edit.
         change("pharmacyInfo", "name", "Current"); change("pharmacyInfo", "notes", "Additional clinical context"); var result = reconcile(); assertThat(result.representable()).isTrue(); assertThat(result.proposedChanges()).hasSize(1);
     }
-    @Test void shouldRequireReviewForUnknownPreferenceStates_beforeOfferingAnySourceReplacement() throws Exception {
-        // Updated: a removed (status 0) or re-ranked imported preference no longer holds the chart
-        // (see the removal and re-ranking tests below); a status no CARLOS screen writes still does.
-        setup(); change("demographicPharmacy", "status", "2"); assertThat(reconcile().representable()).isFalse();
+    @Test void shouldCarryAnUnknownPreferenceState_andStateNoPreferredPharmacy() throws Exception {
+        // A removed (status 0) or re-ranked imported preference does not hold the chart (see the
+        // removal and re-ranking tests below). Neither does a status no CARLOS screen writes any
+        // more: the imported element is removed, as for any link that is not the current first
+        // preference, and the stored link is carried exactly in the native record.
+        setup(); change("demographicPharmacy", "status", "2"); var unknown = reconcile(); assertThat(unknown.representable()).isTrue(); assertThat(unknown.proposedChanges()).hasSize(1);
         // "No Consent" set on the imported link in CARLOS is carried in the native record and no longer holds the chart.
         setup(); change("demographicPharmacy", "consentToContact", "0"); assertThat(reconcile().representable()).isTrue();
     }
@@ -145,8 +147,10 @@ class CdsExportRetainedPharmacyReconcilerUnitTest {
         rows.add(CdsExportRetainedPharmacyBindingUnitTest.changed(CdsExportPharmacyMapperUnitTest.link(2, 11), "preferredOrder", "2"));
         var result = reconcile(); assertThat(result.representable()).isTrue(); assertThat(result.changes()).isEmpty();
     }
-    @Test void shouldRequireReviewForDuplicateFirstPreferences_withoutChoosingTheOriginalByConvenience() throws Exception {
-        rows.add(CdsExportPharmacyMapperUnitTest.link(2, 9)); var result = reconcile(); assertThat(result.representable()).isFalse(); assertThat(result.proposedChanges()).isEmpty();
+    @Test void shouldStateNoPreferredPharmacy_whenASecondLinkIsRankedFirstBesideTheImportedOne() throws Exception {
+        // Was a hold. Neither link is chosen, the original included: the imported element is removed and both links travel exactly in the native record.
+        rows.add(CdsExportPharmacyMapperUnitTest.link(2, 9)); var result = reconcile(); assertThat(result.representable()).isTrue(); assertThat(result.proposedChanges()).hasSize(1);
+        assertThat(result.fields().entrySet().stream().filter(field -> field.getKey().table().equals("demographicPharmacy") && field.getKey().column().equals("preferredOrder")).map(java.util.Map.Entry::getValue)).hasSize(2).allMatch(CdsExportDemographicSupportingMapper::carries);
     }
     @Test void shouldRefuseAStaleReceiptComparison_evenWhenCurrentRowsHaveValidIndependentWitnesses() throws Exception {
         change("pharmacyInfo", "name", "Current"); var graph = fixture.fixture.graph(); assertThatThrownBy(() -> reconcile(graph, nativeRows(graph.index().sourceManifestSha256()), graph.checked(), () -> { })).hasMessage("CDS_EXPORT_PHARMACY_CURRENT_WITNESS_SCOPE_INVALID");
@@ -167,8 +171,9 @@ class CdsExportRetainedPharmacyReconcilerUnitTest {
         var result = reconcile(); assertThat(result.representable()).isTrue(); assertThat(result.sourceFields()).isEmpty(); assertThat(result.changes()).hasSize(1);
         assertThat(result.changes().getFirst().relativePath()).isEqualTo("PreferredPharmacy[1]"); assertThat(result.changes().getFirst().expectedPriorFields()).isEmpty();
     }
-    @Test void shouldWithholdNameChanges_whenDuplicatePreferencesPreventOneCurrentPharmacy() throws Exception {
-        change("pharmacyInfo", "name", "Current"); rows.add(CdsExportPharmacyMapperUnitTest.link(2, 9)); var result = reconcile(); assertThat(result.representable()).isFalse(); assertThat(result.proposedChanges()).isEmpty();
+    @Test void shouldStateNoPreferredPharmacy_whenANameEditMeetsTwoFirstPreferences() throws Exception {
+        // Was a hold. With two links ranked first the chart states no one preferred pharmacy: the imported element is removed (one change) and the renamed pharmacy and both links are carried.
+        change("pharmacyInfo", "name", "Current"); rows.add(CdsExportPharmacyMapperUnitTest.link(2, 9)); var result = reconcile(); assertThat(result.representable()).isTrue(); assertThat(result.proposedChanges()).hasSize(1);
     }
     @Test void shouldChangeOnlyTheCity_whilePreservingAllOriginalStreetLinesAndResidentialAddressType() throws Exception {
         completeSource(); fixture.source("Address[1]/@addressType", "R"); change("pharmacyInfo", "city", "Toronto"); var result = reconcile();

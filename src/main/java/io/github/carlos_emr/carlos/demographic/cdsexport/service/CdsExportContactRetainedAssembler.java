@@ -227,11 +227,12 @@ public final class CdsExportContactRetainedAssembler {
             if (!parentAddress.equals(decision.binding().parentUnitAddress())
                     || !consumedOrdinals.add(decision.binding().ordinal())) scope();
             for (var field : decision.binding().fields()) if (!claimed.add(field.id())) scope();
-            if (named.contains(contactId) && !decision.superseded()) {
+            if ((named.contains(contactId) || decision.current()) && !decision.superseded()) {
                 // The imported relationship is still current and a further one names the same
-                // person: the contact is decided with all its current associations, as on any
-                // chart (one Contact, every purpose), and appended. The imported element is
-                // removed; its source fields stay in the import's retained source, replaced.
+                // person, or its notes were edited apart (decision.current()): the contact is
+                // decided with all its current associations, as on any chart (one Contact, every
+                // purpose), and appended. The imported element is removed; its source fields
+                // stay in the import's retained source, replaced.
                 var ids = new HashSet<String>();
                 for (var field : decision.binding().fields()) ids.add(field.id());
                 changes.add(
