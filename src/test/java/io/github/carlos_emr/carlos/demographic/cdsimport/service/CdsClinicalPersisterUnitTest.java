@@ -542,6 +542,47 @@ class CdsClinicalPersisterUnitTest {
     }
 
     @Test
+    void shouldLoadPreventionTypes_whenConfigurationExceeds1MiB() throws Exception {
+        // A clinic's own prevention list, larger than the 1 MiB the import once read: the item
+        // that maps the source type is the last one in the file.
+        Path configured = directory.resolve("preventions-large.xml");
+        StringBuilder xml = new StringBuilder("<preventions>");
+        for (int n = 0; n < 16_000; n++)
+            xml.append("<item name='Local item ")
+                    .append(n)
+                    .append("' healthCanadaType='LocalType")
+                    .append(n)
+                    .append("' layout='injection' desc='A locally maintained prevention'/>");
+        xml.append("<item name='OtherA' healthCanadaType='' layout='injection'/>")
+                .append("<item name='Local booster' healthCanadaType='Tdap' layout='injection'/>")
+                .append("</preventions>");
+        java.nio.file.Files.writeString(configured, xml);
+        assertThat(java.nio.file.Files.size(configured)).isGreaterThan(1L << 20);
+        var source =
+                normalization.immunization(
+                        CdsClinicalFixture.record(
+                                directory,
+                                "Immunizations",
+                                Map.of(
+                                        "ImmunizationName",
+                                        "Independent source brand",
+                                        "ImmunizationType",
+                                        "Tdap",
+                                        "RefusedFlag/ynIndicatorsimple",
+                                        "N")));
+        var writer =
+                new CdsImmunizationPersister(
+                        mock(PreventionDao.class),
+                        mock(PreventionExtDao.class),
+                        dates,
+                        normalization,
+                        "America/Toronto",
+                        configured.toString());
+        assertThat(writer.candidate(42, "999998", source).getPreventionType())
+                .isEqualTo("Local booster");
+    }
+
+    @Test
     void shouldRetainUndatedAdministrationAndNativeManufacturer_whenSourceDateIsAbsent()
             throws Exception {
         var source =
