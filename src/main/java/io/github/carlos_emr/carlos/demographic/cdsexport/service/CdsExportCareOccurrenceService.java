@@ -759,7 +759,8 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
             if (category().wireName().equals(row.fields().get("category")))
                 parents.put(address, row);
         }
-        if (parents.size() > bounds.nativeRows()) limit();
+        // The parents are rows the retained index already holds; this map adds one entry for
+        // each imported CareElements record, and no count of them refuses the chart.
         var children = new HashMap<String, List<String>>();
         for (var edge : index.tables().getOrDefault("cds_import_dependency", Map.of()).values()) {
             control.checkpoint();
@@ -876,9 +877,9 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
 
     /**
      * The first pass over the patient's captured care rows (CdsExportCapturedCareRowsReader).
-     * A window holds at most {@code nativeRows} measurement rows and about {@code indexBytes} of
-     * rows; a chart with more is read in several windows, never held for its size. The rows of
-     * a chart that fits one window are kept and verified here, as before.
+     * A window holds at most {@code windowRows} measurement rows and about {@code windowBytes}
+     * of rows; a chart with more is read in several windows, never held for its size. The rows
+     * of a chart that fits one window are kept and verified here, as before.
      */
     private CdsExportCapturedCareRowsReader.Capture captureCareRows(
             CdsExportLeaseDto lease,
@@ -917,7 +918,7 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
                         control::checkpoint)
                 .capture(
                         new CdsExportCapturedCareRowsReader.Limits(
-                                bounds.nativeRows(), bounds.indexBytes()));
+                                bounds.windowRows(), bounds.windowBytes()));
     }
 
     /**
@@ -1026,9 +1027,5 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
 
     private static void review() {
         throw new CdsExportReviewException(CdsExportReviewException.Reason.UNMAPPED_DATA);
-    }
-
-    private static void limit() {
-        throw new CdsExportReviewException(CdsExportReviewException.Reason.RESOURCE_LIMIT);
     }
 }

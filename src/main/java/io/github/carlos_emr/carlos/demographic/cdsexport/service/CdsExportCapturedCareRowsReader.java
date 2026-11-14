@@ -30,7 +30,6 @@ import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNativeCapt
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNativeRowReceiptDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNativeRowReceiptsDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException;
-import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException;
 import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -167,8 +166,7 @@ final class CdsExportCapturedCareRowsReader {
                                 if (fixed.putIfAbsent(key, row) != null) invalid();
                                 used[0] = Math.addExact(used[0], size);
                                 // The vocabulary is the clinic's, captured for the types this
-                                // chart uses; it is held in every window.
-                                if (used[0] > limits.bytes() / 2) limit();
+                                // chart uses; it is held in every window, whatever its size.
                                 return;
                             }
                             long owner = owner(row);
@@ -207,7 +205,15 @@ final class CdsExportCapturedCareRowsReader {
         unique(deletedIds.sorted());
         unique(extensionIds.sorted());
         requireOwners(current, deletedOwners.sorted(), extensionOwners);
-        var windows = plan(owners, sizes, observed, limits.bytes() - used[0], limits.observations());
+        // The vocabulary takes its share of a window first; however large it is, at least half
+        // of the window is left for the measurements, and nothing is refused for its size.
+        var windows =
+                plan(
+                        owners,
+                        sizes,
+                        observed,
+                        Math.max(limits.bytes() / 2, limits.bytes() - used[0]),
+                        limits.observations());
         if (retaining[0] && used[2] + used[0] <= limits.bytes()) {
             retained.putAll(fixed);
             return new Capture(fixed, windows, slice(retained));
@@ -560,10 +566,6 @@ final class CdsExportCapturedCareRowsReader {
 
     private static void invalid() throws IOException {
         throw new IOException("CDS_EXPORT_CARE_OCCURRENCE_INVALID");
-    }
-
-    private static void limit() {
-        throw new CdsExportReviewException(CdsExportReviewException.Reason.RESOURCE_LIMIT);
     }
 
     /** A growable array of longs: eight bytes a row instead of a row object. */
