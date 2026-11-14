@@ -139,6 +139,14 @@ public final class CdsExportNativeHistoryMapper {
      */
     static final String FOREIGN_PROGRAM_ISSUE_RULE = "FOREIGN_PROGRAM_ISSUE_FOLLOWS_LINKED_NOTE_ACCESS";
 
+    /**
+     * Rule of a diagnosis description written with U+FFFD for each character XML cannot carry;
+     * the exact description travels in the item's {@code CARLOS.NativeHistory.v1} details. The
+     * same rule name as a vaccine value written that way.
+     */
+    static final String DESCRIPTION_REPLACED_RULE =
+            "CHARACTER_XML_CANNOT_CARRY_REPLACED_EXACT_IN_RESIDUAL";
+
     static final String ARCHIVED_CLINICAL_NOTE_STATEMENT =
             "[CARLOS: this note was archived (removed from the active record) in its latest"
                     + " revision. It is kept for the record and is not a current note.]";
@@ -494,9 +502,14 @@ public final class CdsExportNativeHistoryMapper {
         var codes = codes(category, current);
         // DiagnosisProcedureCode and DiagnosisCode hold one code. An item with several assigned
         // diagnoses (A24) writes none of them there rather than choosing one: every code is
-        // listed in Notes, and each issue's complete facts stay in the revision context.
-        var coding = codes.size() == 1 ? codes.getFirst() : null;
-        if (codes.size() > 1) overflow.add(codedDiagnoses(codes));
+        // listed in Notes, and each issue's complete facts stay in the revision context. So is
+        // a code the element cannot carry exactly (an issue the Issue admin screen created has
+        // no coding system), which held the patient (CDS_EXPORT_NATIVE_HISTORY_CODE_REQUIRES_REVIEW).
+        var coding =
+                codes.size() == 1 && standardCode(codes.getFirst().system(), codes.getFirst().value())
+                        ? codes.getFirst()
+                        : null;
+        if (coding == null && !codes.isEmpty()) overflow.add(codedDiagnoses(codes));
         String body = bodies.getLast();
         boolean archived = "1".equals(current.note().value().fields().get("archived"));
         if (category == CdsCategory.CLINICAL_NOTES) {
@@ -857,15 +870,23 @@ public final class CdsExportNativeHistoryMapper {
                     code = source.fields().get("code"),
                     system = source.fields().get("type");
             if (description != null && !description.isEmpty()) {
-                String destination =
-                        description.codePointCount(0, description.length()) <= 250
-                                ? "ProblemDiagnosisDescription"
-                                : "Notes";
-                // issue.description is varchar(255): it always fits Notes, so only a
-                // character XML cannot carry is refused here.
-                if (!CdsExportNativeFieldAssessments.legal(description, Integer.MAX_VALUE))
-                    review("CDS_EXPORT_NATIVE_ISSUE_DESCRIPTION_CAPACITY");
-                text.put(destination, description);
+                // The Issue admin screen stores the description as typed or pasted, and a paste
+                // can hold a character XML cannot carry. It holds nobody: the description is
+                // written with U+FFFD in that character's place (one for one, so its length is
+                // unchanged) and travels exactly in this item's CARLOS.NativeHistory.v1 details
+                // (patientIssue.issue.description), from which a CARLOS importer restores it once
+                // the element proves to be its U+FFFD form.
+                String shown = CdsExportXmlText.element(description);
+                boolean fits = shown.codePointCount(0, shown.length()) <= 250;
+                String destination = fits ? "ProblemDiagnosisDescription" : "Notes,ResidualInfo";
+                if (fits) text.put("ProblemDiagnosisDescription", shown);
+                else {
+                    // issue.description is varchar(255), so it always fits Notes. A receiving
+                    // CARLOS files a ProblemList item without a description from its narrative
+                    // carrier (CARLOS.History.Narrative.v1), as it does a long CPP problem.
+                    text.put("Notes", shown);
+                    text.put("NativeNarrative", shown);
+                }
                 fields.put(
                         new CdsExportNativeFieldKeyDto(
                                 source.table(), source.recordKey(), "description"),
@@ -873,17 +894,19 @@ public final class CdsExportNativeHistoryMapper {
                                 CdsExportFieldAssessmentDto.Presence.VALUE,
                                 Outcome.MAPPED,
                                 destination,
-                                "EXACT_NATIVE_DIAGNOSIS_DESCRIPTION"));
+                                shown.equals(description)
+                                        ? "EXACT_NATIVE_DIAGNOSIS_DESCRIPTION"
+                                        : DESCRIPTION_REPLACED_RULE));
             }
-            if (code != null && !code.isEmpty()) {
-                if (!token(code, 20)
-                        || !CdsExportNativeFieldAssessments.legal(system, 250)
-                        || system.isEmpty())
-                    review("CDS_EXPORT_NATIVE_HISTORY_CODE_REQUIRES_REVIEW");
+            // A code or coding system no DiagnosisCode carries exactly (an issue the Issue admin
+            // screen created, which stores no coding system; a code with irregular spacing or a
+            // character XML cannot carry) is left out of DiagnosisCode, as a Disease Registry
+            // code is: it travels exactly in the item's details with the rest of the catalogue
+            // row (issue.code, issue.type).
+            if (code != null && !code.isEmpty() && standardCode(system, code))
                 coding =
                         new CdsExportNativeHistoryDto.Code(
                                 system, code, codeDescription(source.fields()));
-            }
             String resolved = issue.value().fields().get("resolved");
             if (resolved != null) {
                 if (!Set.of("0", "1").contains(resolved))
@@ -970,11 +993,12 @@ public final class CdsExportNativeHistoryMapper {
 
     /**
      * The distinct diagnosis codes linked to the current revision of a FamilyHistory, PastHealth
-     * or ProblemList item, in link order; empty for any other category.
+     * or ProblemList item, in link order; empty for any other category. A code no DiagnosisCode
+     * carries exactly ({@link #standardCode}) is listed too, with an empty system when the
+     * catalogue row stores none: the item then names it in Notes instead of coding it.
      */
     private static List<CdsExportNativeHistoryDto.Code> codes(
-            CdsCategory category, CdsExportHistoryFieldReconciler.Current current)
-            throws IOException {
+            CdsCategory category, CdsExportHistoryFieldReconciler.Current current) {
         if (!Set.of(CdsCategory.FAMILY_HISTORY, CdsCategory.PAST_HEALTH, CdsCategory.PROBLEM_LIST)
                 .contains(category)) return List.of();
         var codes = new LinkedHashSet<CdsExportNativeHistoryDto.Code>();
@@ -993,41 +1017,56 @@ public final class CdsExportNativeHistoryMapper {
                     || TAGS.containsKey(value)
                     || "system".equals(definition.get("type"))) continue;
             String system = definition.get("type");
-            if (system == null
-                    || !token(value, 20)
-                    || !CdsExportNativeFieldAssessments.legal(system, 250))
-                review("CDS_EXPORT_NATIVE_HISTORY_CODE_REQUIRES_REVIEW");
             codes.add(
-                    new CdsExportNativeHistoryDto.Code(system, value, codeDescription(definition)));
+                    new CdsExportNativeHistoryDto.Code(
+                            system == null ? "" : system, value, codeDescription(definition)));
         }
         return List.copyOf(codes);
     }
 
-    /** Names every diagnosis code of an item, one per line, for its Notes. */
+    /**
+     * Whether DiagnosisCode carries this coding system and code exactly: a coding system that is
+     * not blank (StandardCodingSystem, 250 characters, keeps its spaces) and a code that is an
+     * {@code xs:token} of at most 20 characters, so no schema-aware reader changes it. The Issue
+     * admin screen stores no coding system (it has no box for one) and takes any code.
+     */
+    static boolean standardCode(String system, String code) {
+        return system != null
+                && !system.isBlank()
+                && CdsExportNativeFieldAssessments.legal(system, 250)
+                && code != null
+                && token(code, 20);
+    }
+
+    /**
+     * Names every diagnosis code of an item, one per line, for its Notes: the coding system (none
+     * when the catalogue row stores none), the code and its description, each with U+FFFD for a
+     * character XML cannot carry. The exact catalogue rows stay in the item's details.
+     */
     static String codedDiagnoses(List<CdsExportNativeHistoryDto.Code> codes) {
         var lines = new ArrayList<String>();
         for (var code : codes)
             lines.add(
-                    code.system()
-                            + " "
-                            + code.value()
+                    (code.system().isBlank() ? "" : CdsExportXmlText.element(code.system()) + " ")
+                            + CdsExportXmlText.element(code.value())
                             + (code.description().isEmpty() ? "" : " " + code.description()));
         return "Coded diagnoses:\n" + String.join("\n", lines);
     }
 
     /**
-     * The issue description for StandardCodeDescription, an xs:token. A description with edge,
-     * repeated or line-break spaces (the seeded ICSW420, for one) is written in the form a
-     * schema-aware reader keeps anyway: spaces collapsed and trimmed (A26). The exact catalogue
-     * description travels in the native context with the issue's other facts.
+     * The issue description for StandardCodeDescription, an xs:token of at most 250 characters.
+     * A description with edge, repeated or line-break spaces (the seeded ICSW420, for one) is
+     * written in the form a schema-aware reader keeps anyway: spaces collapsed and trimmed (A26).
+     * A character XML cannot carry is U+FFFD in its place. A description longer than the element
+     * (issue.description holds 255 characters) is written empty, as a Disease Registry code's
+     * is: the element is required. The exact catalogue description travels in the native
+     * context with the issue's other facts in every case.
      */
-    private static String codeDescription(Map<String, String> definition) throws IOException {
+    private static String codeDescription(Map<String, String> definition) {
         String description = definition.get("description");
         if (description == null) return "";
-        String normalized = tokenValue(description);
-        if (!token(normalized, 250))
-            review("CDS_EXPORT_NATIVE_HISTORY_CODE_DESCRIPTION_REQUIRES_REVIEW");
-        return normalized;
+        String normalized = tokenValue(CdsExportXmlText.element(description));
+        return token(normalized, 250) ? normalized : "";
     }
 
     /** The xs:token value of a string: tab, line feed and carriage return become spaces, runs collapse, edges trim. */

@@ -4,10 +4,13 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 
+import io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Plan;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * A patient document as the exporter writes it for one CPP item or encounter note, for tests on
@@ -37,6 +40,30 @@ public final class CdsExportNativeHistoryFixture {
                                 revisions,
                                 CdsExportNativeHistoryMapperUnitTest.providers(),
                                 ZoneId.of("America/Toronto"));
+        return CdsExportNativeHistoryMapperUnitTest.render(mapped.value());
+    }
+
+    /**
+     * The composed, schema-valid patient document holding one diagnosis exported on its own (a
+     * patient issue no CPP item files): a ProblemList entry whose text is the catalogue
+     * description.
+     *
+     * @param system the catalogue row's coding system ({@code issue.type}), or null
+     */
+    public static byte[] diagnosisDocument(String code, String system, String description)
+            throws Exception {
+        var issue =
+                CdsExportNativeHistoryMapperUnitTest.row(
+                        Plan.CASE_ISSUES,
+                        41,
+                        Map.of("demographic_no", "27", "issue_id", "51", "resolved", "0"));
+        var catalogue = new LinkedHashMap<String, String>();
+        catalogue.put("code", code);
+        catalogue.put("description", description);
+        if (system != null) catalogue.put("type", system);
+        var definition =
+                CdsExportNativeHistoryMapperUnitTest.row(Plan.ISSUE_CATALOGUE, 51, catalogue);
+        var mapped = new CdsExportNativeHistoryMapper().mapIssue(27, issue, definition);
         return CdsExportNativeHistoryMapperUnitTest.render(mapped.value());
     }
 }

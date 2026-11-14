@@ -952,6 +952,129 @@ class CdsExportNativeHistoryMapperUnitTest {
         render(linked.value());
     }
 
+    @Test
+    void shouldWriteADiagnosisDescriptionWithUFffd_andCarryTheExactDescriptionInItsDetails()
+            throws Exception {
+        // The Issue admin screen stores a description as pasted. One holding a character XML
+        // cannot carry held the patient (CDS_EXPORT_NATIVE_ISSUE_DESCRIPTION_CAPACITY, and
+        // CDS_EXPORT_NATIVE_HISTORY_CODE_DESCRIPTION_REQUIRES_REVIEW for its code description).
+        String pasted = "Asthma\u0007 with  \u000bwheeze ￿";
+        var issue =
+                row(
+                        Plan.CASE_ISSUES,
+                        41,
+                        Map.of("demographic_no", "27", "issue_id", "51", "resolved", "0"));
+        for (String description : List.of(pasted, pasted + "x".repeat(230))) {
+            var definition =
+                    row(
+                            Plan.ISSUE_CATALOGUE,
+                            51,
+                            Map.of("code", "493", "type", "icd9", "description", description));
+            var result = mapper.mapIssue(27, issue, definition);
+            new CdsExportNativeFieldAssessmentValidator()
+                    .requireRepresentable(result.rows(), result.fields(), () -> {});
+            String shown = CdsNativeExtensionContract.xmlElementText(description);
+            assertThat(shown).startsWith("Asthma� with  �wheeze �");
+            if (description.equals(pasted)) {
+                assertThat(result.value().text())
+                        .containsEntry("ProblemDiagnosisDescription", shown)
+                        .doesNotContainKeys("Notes", "NativeNarrative");
+                // StandardCodeDescription is an xs:token: the same text, spaces collapsed.
+                assertThat(result.value().code().description())
+                        .isEqualTo("Asthma� with �wheeze �");
+            } else {
+                // Longer than ProblemDiagnosisDescription (the column holds 255): Notes for every
+                // receiver and the narrative carrier a receiving CARLOS files the item from.
+                // StandardCodeDescription is required and is written empty.
+                assertThat(result.value().text())
+                        .containsEntry("Notes", shown)
+                        .containsEntry("NativeNarrative", shown)
+                        .doesNotContainKey("ProblemDiagnosisDescription");
+                assertThat(result.value().code().description()).isEmpty();
+            }
+            assertThat(
+                            result.fields()
+                                    .get(
+                                            new CdsExportNativeFieldKeyDto(
+                                                    "issue",
+                                                    definition.value().recordKey(),
+                                                    "description"))
+                                    .rule())
+                    .isEqualTo(CdsExportNativeHistoryMapper.DESCRIPTION_REPLACED_RULE);
+            byte[] xml = render(result.value());
+            var details =
+                    new com.fasterxml.jackson.databind.ObjectMapper()
+                            .readTree(residual(xml, CdsNativeExtensionContract.NATIVE_HISTORY));
+            assertThat(details.get("patientIssue").get("issue").get("description").asText())
+                    .isEqualTo(description);
+            if (!description.equals(pasted))
+                assertThat(
+                                CdsNativeExtensionContract.decodeNarrative(
+                                        residual(xml, CdsNativeExtensionContract.HISTORY_NARRATIVE)))
+                        .isEqualTo(shown);
+        }
+    }
+
+    @Test
+    void shouldNameACodeNoDiagnosisCodeCarries_inNotesOrItsDetailsInsteadOfHoldingThePatient()
+            throws Exception {
+        // An issue the Issue admin screen created has no coding system (the screen has no box
+        // for one). Assigned to a CPP item, or listed on its own, it held the patient
+        // (CDS_EXPORT_NATIVE_HISTORY_CODE_REQUIRES_REVIEW).
+        var adminFields = new LinkedHashMap<String, String>();
+        adminFields.put("code", "HOUSE1");
+        adminFields.put("description", "Housing support");
+        adminFields.put("role", "doctor");
+        adminFields.put("sortOrderId", "0");
+        adminFields.put("update_date", "2026-01-01 00:00:00");
+        var admin = row(Plan.ISSUE_CATALOGUE, 52, adminFields);
+        var item =
+                uiNote(
+                        91,
+                        "Needs housing",
+                        "10034",
+                        List.of(uiIssue(41, 68, "10034"), uiIssue(43, 52, "10034")),
+                        List.of(catalogue(68, "Concerns", "system"), admin));
+        var result = map(CdsCategory.PROBLEM_LIST, List.of(item));
+        assertThat(result.value().code()).isNull();
+        assertThat(result.value().text())
+                .containsEntry("ProblemDiagnosisDescription", "Needs housing")
+                .containsEntry("Notes", "Coded diagnoses:\nHOUSE1 Housing support");
+        assertThat(result.value().metadata()).contains("\"definition.code\":\"HOUSE1\"");
+        assertThat(new String(render(result.value()), StandardCharsets.UTF_8))
+                .doesNotContain("DiagnosisCode")
+                .contains("Coded diagnoses:");
+        // Listed on its own it keeps its description; its code and the coding system it lacks
+        // travel in its details only, as a Disease Registry code no element carries.
+        var standalone =
+                mapper.mapIssue(
+                        27,
+                        row(
+                                Plan.CASE_ISSUES,
+                                44,
+                                Map.of("demographic_no", "27", "issue_id", "52", "resolved", "0")),
+                        admin);
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(standalone.rows(), standalone.fields(), () -> {});
+        assertThat(standalone.value().code()).isNull();
+        assertThat(standalone.value().text())
+                .containsEntry("ProblemDiagnosisDescription", "Housing support");
+        var details =
+                new com.fasterxml.jackson.databind.ObjectMapper()
+                        .readTree(
+                                residual(
+                                        render(standalone.value()),
+                                        CdsNativeExtensionContract.NATIVE_HISTORY));
+        assertThat(details.get("patientIssue").get("issue").get("code").asText())
+                .isEqualTo("HOUSE1");
+        assertThat(details.get("patientIssue").get("issue").has("type")).isFalse();
+        // A code with irregular spacing, or a blank system, is no DiagnosisCode either: a
+        // schema-aware reader would change the code, and a blank system names none.
+        assertThat(CdsExportNativeHistoryMapper.standardCode("icd9", "250  .00")).isFalse();
+        assertThat(CdsExportNativeHistoryMapper.standardCode(" ", "250")).isFalse();
+        assertThat(CdsExportNativeHistoryMapper.standardCode("icd9", "250.00")).isTrue();
+    }
+
     private static CdsExportHistoryFieldReconciler.Row extension(long id, String key, String value) {
         return row(
                 Plan.CASE_NOTE_EXT, id, Map.of("note_id", "91", "key_val", key, "value", value));

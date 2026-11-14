@@ -4673,12 +4673,19 @@ instead of holding the patient; the exact rows still travel in `CARLOS.NativeHis
 - A FamilyHistory, PastHealth or ProblemList item with several assigned diagnoses (A24) writes no
   DiagnosisProcedureCode/DiagnosisCode rather than choosing one, and lists every code in Notes
   (`Coded diagnoses:` then one `system code description` per line).
+- An assigned diagnosis whose code DiagnosisCode cannot carry exactly is listed the same way and
+  writes no DiagnosisCode: an issue the Issue admin screen created (`IssueAdmin2Action`, which has
+  no box for a coding system, so `issue.type` is NULL; its line is then `code description`), a
+  code with edge, repeated or line-break spaces (`StandardCode` is an `xs:token`, which a
+  schema-aware reader would change), or a code or system holding a character XML cannot carry
+  (written with U+FFFD in its place in Notes). The catalogue row stays exact in the revision's
+  issue facts. It held the patient (`CDS_EXPORT_NATIVE_HISTORY_CODE_REQUIRES_REVIEW`).
 - A CPP extension value its element cannot hold exactly (A25): a free-text Age at Onset
   ("childhood", "40s", a risk factor's "0", since AgeAtOnset is `xs:nonNegativeInteger` and
   AgeOfOnset `xs:positiveInteger`), Treatment or Problem Description over 250 characters, Exposure
-  Details over 120, Relationship or Problem Status over 50. The element is left out and Notes holds
-  `Age at Onset:` (the key) and the exact value. Notes keeps the long narrative first when there is
-  one, and the archived statement leads it. An invalid Life Stage (a select) still holds.
+  Details over 120, Relationship or Problem Status over 50, a Life Stage outside the list (below).
+  The element is left out and Notes holds `Age at Onset:` (the key) and the exact value. Notes
+  keeps the long narrative first when there is one, and the archived statement leads it.
 - A CPP editor field its section has no element for: the editor (`prepareExtraFields` in
   `newCaseManagementView.js.jsp`) shows Start Date and Resolution Date in every section, and
   Medical History also Procedure Date, Treatment, Problem Status, Life Stage and Procedure, and an
@@ -4692,7 +4699,33 @@ instead of holding the patient; the exact rows still travel in `CARLOS.NativeHis
   neither is written in Notes. Every extension row stays exact in `CARLOS.NativeHistory.v1`.
 - A coded issue description with edge, repeated or line-break spaces (the seeded `ICSW420` ends in
   a space) is written token-normalized in StandardCodeDescription, an `xs:token`, as any
-  schema-aware reader keeps it anyway (A26); the exact description is in the context.
+  schema-aware reader keeps it anyway (A26); the exact description is in the context. One longer
+  than the element's 250 characters (`issue.description` holds 255) is written empty, as a Disease
+  Registry code's is: StandardCodeDescription is required.
+
+A patient issue no CPP item files (a diagnosis that is unlinked, or linked only to encounter
+notes) is exported on its own as a ProblemList item (`CdsExportNativeHistoryMapper.mapIssue`): its
+catalogue description is ProblemDiagnosisDescription, its code DiagnosisCode, its resolved flag
+ProblemStatus, and the patient issue and catalogue rows travel exactly in its
+`CARLOS.NativeHistory.v1` details (`{"version":1,"patientIssue":{"casemgmt_issue":{...},"issue":{...}}}`).
+
+- A description holding a character XML cannot carry (the Issue admin screen stores what is
+  pasted) is written with U+FFFD in that character's place, one for one, in ProblemDiagnosisDescription
+  and StandardCodeDescription (rule `CHARACTER_XML_CANNOT_CARRY_REPLACED_EXACT_IN_RESIDUAL`); the
+  exact description is `patientIssue.issue.description` in the details. A CARLOS importer restores
+  it once ProblemDiagnosisDescription proves to be its U+FFFD form (see `docs/cds-import.md`). It
+  held the patient (`CDS_EXPORT_NATIVE_ISSUE_DESCRIPTION_CAPACITY`,
+  `CDS_EXPORT_NATIVE_HISTORY_CODE_DESCRIPTION_REQUIRES_REVIEW`). The same character in a CPP item's
+  assigned diagnosis is U+FFFD in its StandardCodeDescription or Notes line and exact in the
+  revision's issue facts.
+- A description longer than ProblemDiagnosisDescription's 250 characters is written in Notes, as
+  before, and now also in `CARLOS.History.Narrative.v1`, from which a CARLOS importer files the
+  item's text when no description stands, as it does a long CPP problem; it used to arrive as the
+  importer's placeholder.
+- A code or coding system DiagnosisCode cannot carry exactly (an issue the Issue admin screen
+  created, with no coding system; a code with irregular spacing) leaves DiagnosisCode out, as a
+  Disease Registry code does; both stay exact in the details. It held the patient
+  (`CDS_EXPORT_NATIVE_HISTORY_CODE_REQUIRES_REVIEW`).
 
 A FamilyHistory, PastHealth, ProblemList, RiskFactors or AlertsAndSpecialNeeds item whose text is
 longer than its description element (250 characters; RiskFactor 120; AlertDescription 1,000) is
