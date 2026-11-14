@@ -126,8 +126,11 @@ class DemographicExportAction42ActionDocumentCarryUnitTest extends DemographicEx
         assertThat(bea.get(1).embedded()).isEqualTo(latin1(other2));
         assertThat(archive.keySet()).noneMatch(name -> name.contains("document_102_"));
 
+        verify(response).setHeader("X-Export-Status", "success");
+        verify(response, never()).setHeader("X-Export-Status", "incomplete");
         // Nothing went wrong, so the export log records nothing against any document.
-        assertThat(text(archive, "ExportEvent.log")).doesNotContain("NOT exported", ".pdf");
+        assertThat(text(archive, "ExportEvent.log"))
+                .doesNotContain("NOT exported", ".pdf", "XSD validation", "could not be re-read");
         assertThat(text(archive, "ReadMe.txt")).doesNotContain("See ExportEvent.log");
         assertThat(exportDirectoriesLeft()).isEmpty();
     }
@@ -186,6 +189,11 @@ class DemographicExportAction42ActionDocumentCarryUnitTest extends DemographicEx
                         + "its document id is missing or not numeric, so its file could not be named");
         assertThat(log).doesNotContain("small.pdf", "carried.pdf", "other.pdf");
         assertThat(text(archive, "ReadMe.txt")).contains("(See ExportEvent.log for detail)");
+        // The archive is missing two documents of chart 101: the response says so.
+        verify(response).setHeader("X-Export-Status", "incomplete");
+        verify(response, never()).setHeader("X-Export-Status", "success");
+        verify(response).setHeader("X-Export-Incomplete-Count", "1");
+        verify(response).setHeader("X-Export-Incomplete-Charts", "101");
         assertThat(exportDirectoriesLeft()).isEmpty();
     }
 

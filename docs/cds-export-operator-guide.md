@@ -967,6 +967,33 @@ embedded Content and a FilePath. A document that cannot be exported at all (its 
 read or copied, or its id cannot name a file) no longer stops the export: the other documents
 and patients are exported, and `ExportEvent.log` in the archive names the document, its patient
 and the reason, which the ReadMe's error count points to. Only a failure of the export itself,
-such as its working directory disappearing, still fails the whole export. Each generated file is re-read with the JDK's predefined-entity ceilings
+such as its working directory disappearing, still fails the whole export.
+
+HRM reports follow the same two limits and count against the same per-patient total. While an
+HRM report file is parsed, its Base64 media is decoded straight into the export's working
+directory instead of into memory; it is then embedded, or carried as
+`hrm_<chart>_<HRM document>_<report>.<extension>` with FilePath (a text report as a UTF-8 `.txt`
+file). What remains in memory is one HRM file's report fields and text at a time. An HRM file
+that cannot be read or parsed is recorded in `ExportEvent.log`; it used to count as a file with
+no reports and was left out without a word.
+
+A chart that cannot be exported no longer stops the export or disappears from it. If its file
+cannot be named or written, the chart is recorded in `ExportEvent.log` by chart number and
+reason, and the charts after it are still exported; the export used to stop there, drop every
+later chart and report success. A contact-only record is noted in the log. When anything was
+left out (a chart, a document, an HRM report, a chart refused by a patient directive), the
+archive is still produced but the response is not a success: `X-Export-Status` is `incomplete`,
+`X-Export-Incomplete-Count` gives the number of charts affected and
+`X-Export-Incomplete-Charts` their numbers (as many as fit in 1,000 characters). The export page
+downloads the archive and shows a warning naming the charts instead of its success message; the
+ReadMe has a "Charts exported incompletely" line and `ExportEvent.log` an entry for each item,
+both without that limit, and the audit record's outcome is `incomplete`. A failure that leaves
+nothing writable (the working directory gone, the disk refusing every write) fails the export
+as a whole. A chart with no most responsible provider is exported at the top of the archive and
+counted in the ReadMe as "No most responsible physician"; it used to fail the whole export.
+A download that cannot start is answered as an error, and one that breaks off part-way is
+audited as `stream_failed`; both used to be reported and audited as a success.
+
+Each generated file is re-read with the JDK's predefined-entity ceilings
 lifted, so a large chart's escaped notes are no longer reported as failing the schema, and a
 file that cannot be re-read is reported as such rather than as a schema failure (#5845).

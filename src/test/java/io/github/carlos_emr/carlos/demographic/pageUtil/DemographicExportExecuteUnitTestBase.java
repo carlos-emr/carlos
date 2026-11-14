@@ -43,6 +43,7 @@ import java.util.zip.ZipInputStream;
 
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.WriteListener;
+import jakarta.xml.bind.JAXBContext;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -60,6 +61,7 @@ import io.github.carlos_emr.carlos.commn.dao.PharmacyInfoDao;
 import io.github.carlos_emr.carlos.commn.dao.PreventionDao;
 import io.github.carlos_emr.carlos.commn.dao.PreventionExtDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
+import io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService;
@@ -67,6 +69,15 @@ import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.demographic.data.DemographicRelationship;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToProviderDao;
+import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
+import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
+import io.github.carlos_emr.carlos.hospitalReportManager.xsd.OmdCds;
+import io.github.carlos_emr.carlos.hospitalReportManager.xsd.PatientRecord;
+import io.github.carlos_emr.carlos.hospitalReportManager.xsd.ReportClass;
+import io.github.carlos_emr.carlos.hospitalReportManager.xsd.ReportContent;
+import io.github.carlos_emr.carlos.hospitalReportManager.xsd.ReportFormat;
+import io.github.carlos_emr.carlos.hospitalReportManager.xsd.ReportsReceived;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.prevention.PreventionData;
@@ -102,6 +113,25 @@ abstract class DemographicExportExecuteUnitTestBase extends DemographicExportAct
     /** The prevention table behind the real prevention readers; empty for every chart by default. */
     protected final PreventionDao preventionDao = mock(PreventionDao.class);
 
+    /** Provider lookups; {@code 999}, every fixture chart's MRP, resolves to FAKE Doctor. */
+    protected final ProviderDao providerDao = mock(ProviderDao.class);
+    /**
+     * When set to zero or more, the response stream fails once that many bytes were written, as
+     * a client that goes away part-way through the download does.
+     */
+    protected int failStreamAfterBytes = -1;
+
+    /** Something a test does to the export directory while one chart is being exported. */
+    @FunctionalInterface
+    protected interface DuringExport {
+        void accept(Path exportDirectory) throws Exception;
+    }
+
+    /** Chart numbers whose patient directive refuses the export. */
+    protected final java.util.Set<String> refusedByDirective = new java.util.HashSet<>();
+
+    private final Map<String, DuringExport> duringExport = new HashMap<>();
+    private final Map<String, List<HRMDocumentToDemographic>> chartHrmDocuments = new HashMap<>();
     private final Map<String, Demographic> charts = new LinkedHashMap<>();
     private final Map<String, ArrayList<EDoc>> chartDocuments = new HashMap<>();
     private final Map<String, String> savedProperties = new HashMap<>();
@@ -134,7 +164,9 @@ abstract class DemographicExportExecuteUnitTestBase extends DemographicExportAct
         registerMock(DocumentDao.class, mock(DocumentDao.class));
         registerMock(ProgramManager2.class, mock(ProgramManager2.class));
         registerMock(EFormDocsDao.class, mock(EFormDocsDao.class));
-        ProviderDao providerDao = mock(ProviderDao.class);
+        registerMock(HRMDocumentToProviderDao.class, mock(HRMDocumentToProviderDao.class));
+        when(hrmDocumentToDemographicDao.findByDemographicNo(anyString()))
+                .thenAnswer(read -> new ArrayList<>(chartHrmDocuments.getOrDefault(read.getArgument(0), List.of())));
         Provider provider = new Provider();
         provider.setFirstName("FAKE");
         provider.setLastName("Doctor");
@@ -145,7 +177,12 @@ abstract class DemographicExportExecuteUnitTestBase extends DemographicExportAct
         savedPartialDateDao = swapPreventionDataField("partialDateDao", partialDateDao);
 
         scopedMocks.add(mockConstruction(DemographicData.class, (data, context) ->
-                when(data.getDemographic(any(), anyString())).thenAnswer(read -> charts.get(read.getArgument(1)))));
+                when(data.getDemographic(any(), anyString())).thenAnswer(read -> {
+                    if (refusedByDirective.contains(read.<String>getArgument(1))) {
+                        throw new PatientDirectiveException("synthetic patient directive");
+                    }
+                    return charts.get(read.getArgument(1));
+                })));
         scopedMocks.add(mockConstruction(DemographicRelationship.class));
         scopedMocks.add(mockConstruction(DemographicSets.class, (sets, context) ->
                 when(sets.getDemographicSet(PATIENT_SET)).thenAnswer(read -> new ArrayList<>(charts.keySet()))));
@@ -163,15 +200,23 @@ abstract class DemographicExportExecuteUnitTestBase extends DemographicExportAct
             when(clinic.getClinicPhone()).thenReturn("555-555-0100");
         }));
         var documentLists = mockStatic(EDocUtil.class);
-        documentLists.when(() -> EDocUtil.listDemoDocs(any(), anyString()))
-                .thenAnswer(read -> new ArrayList<>(chartDocuments.getOrDefault(read.getArgument(1), new ArrayList<>())));
+        documentLists.when(() -> EDocUtil.listDemoDocs(any(), anyString())).thenAnswer(read -> {
+            DuringExport hook = duringExport.get(read.getArgument(1));
+            if (hook != null) {
+                hook.accept(exportDirectory());
+            }
+            return new ArrayList<>(chartDocuments.getOrDefault(read.getArgument(1), new ArrayList<>()));
+        });
         scopedMocks.add(documentLists);
 
         when(request.getMethod()).thenReturn("POST");
         when(request.getParameter("exReportsReceived")).thenReturn("on");
         when(response.getOutputStream()).thenReturn(new ServletOutputStream() {
             @Override
-            public void write(int b) {
+            public void write(int b) throws java.io.IOException {
+                if (failStreamAfterBytes >= 0 && streamed.size() >= failStreamAfterBytes) {
+                    throw new java.io.IOException("synthetic client abort");
+                }
                 streamed.write(b);
             }
 
@@ -216,7 +261,7 @@ abstract class DemographicExportExecuteUnitTestBase extends DemographicExportAct
     }
 
     /** Adds a chart to the patient set the request exports, in order. */
-    protected void chart(int demographicNo, String firstName) {
+    protected Demographic chart(int demographicNo, String firstName) {
         Demographic chart = new Demographic();
         chart.setDemographicNo(demographicNo);
         chart.setFirstName(firstName);
@@ -230,6 +275,7 @@ abstract class DemographicExportExecuteUnitTestBase extends DemographicExportAct
         chart.setOfficialLanguage("English");
         chart.setProviderNo(PROVIDER_NO);
         charts.put(String.valueOf(demographicNo), chart);
+        return chart;
     }
 
     /**
@@ -251,6 +297,68 @@ abstract class DemographicExportExecuteUnitTestBase extends DemographicExportAct
         document.setDateTimeStamp("2026-01-15 10:00:00");
         chartDocuments.computeIfAbsent(String.valueOf(demographicNo), chart -> new ArrayList<>()).add(document);
         return document;
+    }
+
+    /**
+     * Runs {@code hook} with the request's export directory while the given chart is being
+     * exported (when the loop lists that chart's documents, before its file is written).
+     */
+    protected void duringExportOf(int demographicNo, DuringExport hook) {
+        duringExport.put(String.valueOf(demographicNo), hook);
+    }
+
+    /** The request's own directory under TMP_DIR, while the export is running. */
+    protected Path exportDirectory() throws Exception {
+        try (var children = Files.list(tmpDir)) {
+            return children.filter(Files::isDirectory).findFirst().orElseThrow();
+        }
+    }
+
+    /**
+     * Stores an HRM report file and links it to a chart. Each content becomes one report of the
+     * file, in order: a {@code byte[]} is Base64 media of a PDF report, a {@code String} is the
+     * text of a text report.
+     */
+    protected void hrmDocument(int demographicNo, int hrmDocumentId, String fileName, Object... contents) throws Exception {
+        writeHrmFile(documentDir.resolve(fileName), contents);
+        linkHrmDocument(demographicNo, hrmDocumentId, fileName);
+    }
+
+    /** Links a stored HRM file, whatever it holds, to a chart. */
+    protected void linkHrmDocument(int demographicNo, int hrmDocumentId, String fileName) {
+        HRMDocumentToDemographic link = new HRMDocumentToDemographic();
+        link.setHrmDocumentId(hrmDocumentId);
+        chartHrmDocuments.computeIfAbsent(String.valueOf(demographicNo), chart -> new ArrayList<>()).add(link);
+        HRMDocument document = new HRMDocument();
+        document.setReportFile(fileName);
+        document.setSourceFacility("FAKE Hospital");
+        when(hrmDocumentDao.findById(hrmDocumentId)).thenReturn(List.of(document));
+    }
+
+    /** Writes an HRM report file the way the hospital report manager stores one. */
+    protected static void writeHrmFile(Path file, Object... contents) throws Exception {
+        PatientRecord record = new PatientRecord();
+        for (Object content : contents) {
+            ReportsReceived report = new ReportsReceived();
+            ReportContent reportContent = new ReportContent();
+            if (content instanceof byte[] media) {
+                reportContent.setMedia(media);
+                report.setFormat(ReportFormat.BINARY);
+                report.setFileExtensionAndVersion(".pdf");
+            } else {
+                reportContent.setTextContent((String) content);
+                report.setFormat(ReportFormat.TEXT);
+                report.setFileExtensionAndVersion("txt");
+            }
+            report.setContent(reportContent);
+            report.setClazz(ReportClass.CONSULTANT_REPORT);
+            report.setSendingFacility("4001");
+            record.getReportsReceived().add(report);
+        }
+        OmdCds root = new OmdCds();
+        root.setPatientRecord(record);
+        JAXBContext.newInstance("io.github.carlos_emr.carlos.hospitalReportManager.xsd")
+                .createMarshaller().marshal(root, file.toFile());
     }
 
     /** The name of a chart's XML inside the archive. */
