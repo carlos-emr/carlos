@@ -1767,10 +1767,18 @@ build string).
 - MariaDB's own limits stay as integrity checks of what the schema read returns: 4,096 columns
   in a table and 16 columns in a key.
 - An attempt's staged members live in one directory and each is fsynced; neither is a limit.
-- The cleanup of one attempt directory gives up after 15 minutes and is retried by the next
-  sweep (`CdsExportRetentionService.retire`). It validates the whole directory before deleting
-  anything, so a directory too large to list in 15 minutes would not be erased. That holds disk,
-  not an export.
+- One sweep spends at most 15 minutes on the cleanup (or trim) of one attempt directory, then
+  stops (`CdsExportRetentionService`, logged as `CDS_EXPORT_CLEANUP_CONTINUES run=<id>
+  epoch=<n>`) and the next sweep, a minute later, continues it. The erasure is progressive
+  (`CdsExportStagingFactory.purgeAttempt` and `trimAttempt`): each member is checked just
+  before it is unlinked (a private staged member of this attempt, owned by the service, not
+  linked elsewhere) and what one sweep erased stays erased, so the directory itself is where the
+  next sweep resumes. The 15 minutes decide how the cleanup is spread over sweeps, never whether
+  a directory of any size is erased. Until this change the purge checked every member before
+  erasing any, so a directory too large to check in 15 minutes was never erased and held disk
+  for good. An entry that is not such a member is left untouched; every member around it is
+  still erased, and the cleanup ends with that entry's code (`CDS_EXPORT_CLEANUP_UNKNOWN_MEMBER`
+  or `CDS_EXPORT_CLEANUP_MEMBER_CHANGED`) and keeps the directory for the operator to look at.
 - The check of each finished patient XML (`CdsExportXmlValidator`) refuses no document for its
   size, its number of elements, the size of a binary value or the time the check takes (#57).
   Those bounds (`CdsExportXmlLimitsDto`: 64 GiB of XML, also applied to the composer's output,
@@ -1855,7 +1863,7 @@ an attempt whose worker vanished before any outcome is kept the same way when th
 claimed, until its own seven-day ceiling. Every other attempt of the job is due at once, as
 before. The retention sweep (`CdsExportRetentionService`, every minute while the online worker
 runs) first trims each `KEEPING` attempt, under its cleanup lease: it reads the checkpoint from
-the recorded pointer and erases, through the same anchored and validated deletion as a purge
+the recorded pointer and erases, through the same anchored, progressive deletion as a purge
 (`CdsExportStagingFactory.trimAttempt`), every member the checkpoint does not pin (captures,
 spools, partial outputs, members sealed after the last record); the chart XML, the attachments
 and the checkpoint members stay, and the attempt becomes `KEPT`. A checkpoint that does not
