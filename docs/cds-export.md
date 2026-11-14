@@ -586,18 +586,38 @@ in the ProblemList scope (read plans `DISEASE_REGISTRY`, `DISEASE_REGISTRY_PRECI
   `partial_date` table 3, field 4): `YYYY` is YearOnly, `YYYY-MM` is YearMonth, no marker or an
   empty one is the stored full date. When a concurrent save left two precision rows, the export
   uses the newest, as the registry list does (`PartialDateDao.getPartialDate`), and the older one
-  stays in the residual. Another field or marker holds the patient
-  (`CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_DATE_PRECISION_REQUIRES_REVIEW`); a stored date that is not
-  a calendar day holds it as `CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_DATE_REQUIRES_REVIEW`.
+  stays in the residual. A marker the registry does not write is the stored full date, as the
+  list shows it (`PartialDateDao.getDatePartial`), and a precision row of another field (the
+  registry writes only field 4) names no date the list shows; both stay in the residual. A start
+  date that is not a calendar day (MariaDB's zero date, which the packaged non-strict `sql_mode`
+  stores for a date the column cannot hold, as `dxResearchUpdate2Action` saves for a mistyped
+  five-digit year), and a marker with no start date stored, give no OnsetDate, the stored values
+  in the residual (rule `STORED_DATE_NOT_A_CALENDAR_DAY_CARRIED_IN_RESIDUAL`). These held the
+  patient (`CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_DATE_PRECISION_REQUIRES_REVIEW`,
+  `CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_DATE_REQUIRES_REVIEW`). A resolved entry whose stored
+  `update_date` is not a calendar time gives no ResolutionDate the same way; every registry writer
+  stamps the save time, so only a row changed in the database has one.
 - Status `D` is a deleted entry: the registry list (`status<>'D'`) never shows it, as the legacy
   exporter never exported it. Its row and precision rows stay captured and every field gets the
   `DELETED_DISEASE_REGISTRY_ENTRY_NOT_SHOWN_IN_CHART` disposition; it is neither an expected
-  occurrence nor a reason to hold the patient. A NULL or other status holds the patient
-  (`CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_STATUS_REQUIRES_REVIEW`).
+  occurrence nor a reason to hold the patient. A NULL or other status still holds the patient
+  (`CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_STATUS_REQUIRES_REVIEW`), but nothing writes one: the
+  column is written only as `A` (`dxResearch2Action`, `DiseaseRegistryService`,
+  `DiseaseRegistryHandler`, `BillingOnReviewDiagPersister`, `CaseManagementManagerImpl.saveToDx`)
+  and changed only to `C` or `D` (`dxResearchUpdate2Action`); OSCAR 19's registry screens write
+  the same three, and the CDS importer never writes `dxresearch`. Only a row changed in the
+  database has another.
 - An episode with status `Current` is `Active` and `Complete` is `Resolved`; `startDate` and
-  `endDate` are OnsetDate and ResolutionDate (full dates, as stored). `Deleted`, the third status
-  the episode form saves, gets `DELETED_EPISODE_NOT_CURRENT` and is not exported. Any other
-  status holds the patient (`CDS_EXPORT_NATIVE_EPISODE_STATUS_REQUIRES_REVIEW`). The episode
+  `endDate` are OnsetDate and ResolutionDate (full dates, as stored). A date that is not a
+  calendar day (MariaDB's zero date, which an OSCAR 19 episode form, which checked no date, could
+  leave for a mistyped year) gives no element and stays in the residual
+  (`STORED_DATE_NOT_A_CALENDAR_DAY_CARRIED_IN_RESIDUAL`); it held the patient
+  (`CDS_EXPORT_NATIVE_EPISODE_DATE_REQUIRES_REVIEW`). `Deleted`, the third status the episode
+  form saves, gets `DELETED_EPISODE_NOT_CURRENT` and is not exported. Any other status still
+  holds the patient (`CDS_EXPORT_NATIVE_EPISODE_STATUS_REQUIRES_REVIEW`), but no screen writes
+  one: the episode form's status is a select of the three (`episodeForm.jsp`, which
+  `Episode2Action.validEpisode` also enforces), and the pregnancy screens write only `Current`
+  and `Complete` (`Pregnancy2Action`). The episode
   description is ProblemDiagnosisDescription when the code table has no description for the
   code, otherwise ProblemDescription beside the code-table description; the notes are Notes.
 - DiagnosisCode is the stored coding system and code exactly as stored, as the CPP problems send

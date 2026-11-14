@@ -332,23 +332,67 @@ class CdsExportProblemRegistryMapperUnitTest {
     }
 
     @Test
-    void shouldHoldAnUnknownPrecisionMarkerOrField_forReview() {
-        assertThatThrownBy(
-                        () ->
-                                mapper.mapRegistry(
-                                        27,
-                                        registry(5, Map.of()),
-                                        List.of(precision(9, 5, "4", "DD")),
-                                        List.of()))
-                .hasMessage("CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_DATE_PRECISION_REQUIRES_REVIEW");
-        assertThatThrownBy(
-                        () ->
-                                mapper.mapRegistry(
-                                        27,
-                                        registry(5, Map.of()),
-                                        List.of(precision(9, 5, "7", "YYYY")),
-                                        List.of()))
-                .hasMessage("CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_DATE_PRECISION_REQUIRES_REVIEW");
+    void shouldExportTheStartDateTheListShows_forAPrecisionRowItDoesNotRead() throws Exception {
+        // These held the patient (CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_DATE_PRECISION_REQUIRES_REVIEW).
+        // A marker the registry does not write: the list shows the full date, the marker is
+        // carried.
+        var unknown = precision(9, 5, "4", "DD");
+        var marked = mapper.mapRegistry(27, registry(5, Map.of()), List.of(unknown), List.of());
+        requireAccounted(marked);
+        assertThat(marked.value().dates().get("OnsetDate"))
+                .isEqualTo(new CdsExportDateDto(CdsExportDateDto.Precision.DATE, "2024-03-05"));
+        assertThat(field(marked, unknown, "format").destination())
+                .isEqualTo(CdsExportProblemRegistryMapper.RESIDUAL);
+        // A row of another field names no date the registry list shows: carried, never read.
+        var other = precision(9, 5, "7", "YYYY");
+        var otherField = mapper.mapRegistry(27, registry(5, Map.of()), List.of(other), List.of());
+        requireAccounted(otherField);
+        assertThat(otherField.value().dates().get("OnsetDate").lexical()).isEqualTo("2024-03-05");
+        assertThat(field(otherField, other, "field_name").destination())
+                .isEqualTo(CdsExportProblemRegistryMapper.RESIDUAL);
+        assertThat(metadata(otherField.value()).path("diseaseRegistry").path("precision"))
+                .hasSize(1);
+        // A marker with no start date stored: no OnsetDate, the marker carried.
+        var noStart = new HashMap<String, String>();
+        noStart.put("start_date", null);
+        var year = precision(9, 5, "4", "YYYY");
+        var withoutDate = mapper.mapRegistry(27, registry(5, noStart), List.of(year), List.of());
+        requireAccounted(withoutDate);
+        assertThat(withoutDate.value().dates()).doesNotContainKey("OnsetDate");
+        assertThat(field(withoutDate, year, "format").destination())
+                .isEqualTo(CdsExportProblemRegistryMapper.RESIDUAL);
+    }
+
+    @Test
+    void shouldLeaveOutARegistryDateThatIsNotACalendarDay_andCarryTheStoredValue()
+            throws Exception {
+        // The registry's update screen parses a typed start date leniently, and the packaged
+        // non-strict sql_mode stores MariaDB's zero date for one the column cannot hold (a
+        // mistyped five-digit year). It held the patient
+        // (CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_DATE_REQUIRES_REVIEW).
+        var entry =
+                registry(
+                        5,
+                        Map.of(
+                                "start_date", "0000-00-00",
+                                "status", "C",
+                                "update_date", "0000-00-00 00:00:00"));
+        var year = precision(9, 5, "4", "YYYY");
+        var result = mapper.mapRegistry(27, entry, List.of(year), List.of());
+        requireAccounted(result);
+        assertThat(result.value().dates()).doesNotContainKeys("OnsetDate", "ResolutionDate");
+        assertThat(result.value().text()).containsEntry("ProblemStatus", "Resolved");
+        for (String column : List.of("start_date", "update_date"))
+            assertThat(field(result, entry, column))
+                    .extracting(CdsExportFieldAssessmentDto::destination, CdsExportFieldAssessmentDto::rule)
+                    .containsExactly(
+                            CdsExportProblemRegistryMapper.RESIDUAL,
+                            CdsExportProblemRegistryMapper.NOT_A_CALENDAR_DAY);
+        assertThat(field(result, year, "format").destination())
+                .isEqualTo(CdsExportProblemRegistryMapper.RESIDUAL);
+        var carried = metadata(result.value()).path("diseaseRegistry").path("entry");
+        assertThat(carried.path("start_date").asText()).isEqualTo("0000-00-00");
+        assertThat(carried.path("update_date").asText()).isEqualTo("0000-00-00 00:00:00");
     }
 
     @Test
@@ -477,10 +521,29 @@ class CdsExportProblemRegistryMapperUnitTest {
     }
 
     @Test
-    void shouldHoldAnEpisodeDateThatIsNotACalendarDay_forReview() {
-        assertThatThrownBy(
-                        () -> mapper.mapEpisode(27, episode(6, Map.of("startDate", "0000-00-00")), List.of()))
-                .hasMessage("CDS_EXPORT_NATIVE_EPISODE_DATE_REQUIRES_REVIEW");
+    void shouldLeaveOutAnEpisodeDateThatIsNotACalendarDay_andCarryTheStoredValue()
+            throws Exception {
+        // An OSCAR 19 episode form saved a typed date as parsed, and a date the column cannot
+        // hold became MariaDB's zero date. It held the patient
+        // (CDS_EXPORT_NATIVE_EPISODE_DATE_REQUIRES_REVIEW).
+        var row =
+                episode(
+                        6,
+                        Map.of(
+                                "startDate", "0000-00-00",
+                                "status", "Complete",
+                                "endDate", "2024-09-30"));
+        var result = mapper.mapEpisode(27, row, List.of());
+        requireAccounted(result);
+        assertThat(result.value().dates())
+                .doesNotContainKey("OnsetDate")
+                .containsEntry(
+                        "ResolutionDate",
+                        new CdsExportDateDto(CdsExportDateDto.Precision.DATE, "2024-09-30"));
+        assertThat(field(result, row, "startDate").rule())
+                .isEqualTo(CdsExportProblemRegistryMapper.NOT_A_CALENDAR_DAY);
+        assertThat(metadata(result.value()).path("episode").path("entry").path("startDate").asText())
+                .isEqualTo("0000-00-00");
     }
 
     @Test

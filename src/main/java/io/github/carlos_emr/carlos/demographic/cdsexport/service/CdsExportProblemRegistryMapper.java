@@ -57,7 +57,8 @@ import java.util.*;
  * the BC MSP table's continued descriptions, are joined by " / " in table row order). A code whose
  * table has no row for it, or whose system has no reviewed table, is still exported, with an empty
  * standard description. A start date left at the column default {@code 0001-01-01} gives no
- * OnsetDate. A
+ * OnsetDate, and a stored date that is not a calendar day gives no element ({@link
+ * #NOT_A_CALENDAR_DAY}). A
  * code, system or text a standard element cannot carry exactly is left out of that element only.
  * Every captured value, apart from the row identity and patient owner, also travels in the
  * {@code CARLOS.NativeHistory.v1} residual as JSON with SQL NULL and empty text distinct and every
@@ -156,7 +157,8 @@ public final class CdsExportProblemRegistryMapper {
         var when = new LinkedHashMap<String, CdsExportDateDto>();
         text.put("ProblemStatus", "A".equals(status) ? "Active" : "Resolved");
         source.set("status", Outcome.MAPPED, STATUS, "EXACT_NATIVE_REGISTRY_STATUS");
-        var onset = registryOnset(source.raw("start_date"), dates);
+        String start = source.raw("start_date");
+        var onset = registryOnset(start, dates);
         if (onset != null) {
             when.put("OnsetDate", onset);
             source.set("start_date", Outcome.MAPPED, ONSET, "EXACT_NATIVE_REGISTRY_START_DATE");
@@ -164,21 +166,29 @@ public final class CdsExportProblemRegistryMapper {
             carried(
                     source,
                     "start_date",
-                    NO_ONSET_RECORDED.equals(source.raw("start_date"))
+                    NO_ONSET_RECORDED.equals(start)
                             ? "REGISTRY_START_DATE_COLUMN_DEFAULT_NO_ONSET_RECORDED"
-                            : "EXACT_NATIVE_REGISTRY_START_DATE");
+                            : start != null && !start.isEmpty()
+                                    ? NOT_A_CALENDAR_DAY
+                                    : "EXACT_NATIVE_REGISTRY_START_DATE");
         String updated = source.raw("update_date");
         LocalDate updatedDay = clockDay(updated);
-        if ("C".equals(status)) {
-            if (updatedDay == null)
-                review("CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_DATE_REQUIRES_REVIEW");
+        if ("C".equals(status) && updatedDay != null) {
             when.put("ResolutionDate", day(updatedDay));
             source.set(
                     "update_date",
                     Outcome.MAPPED,
                     RESOLUTION,
                     "EXACT_NATIVE_REGISTRY_RESOLUTION_DAY_CLOCK_IN_RESIDUAL");
-        } else carried(source, "update_date", "EXACT_NATIVE_REGISTRY_LAST_CHANGE");
+        } else
+            // A resolved entry whose stored time is not a calendar time gives no ResolutionDate
+            // (it held the patient as CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_DATE_REQUIRES_REVIEW);
+            // every registry writer stamps the save time, so only a row changed directly in the
+            // database has one. The stored value stays in the residual either way.
+            carried(
+                    source,
+                    "update_date",
+                    "C".equals(status) ? NOT_A_CALENDAR_DAY : "EXACT_NATIVE_REGISTRY_LAST_CHANGE");
         carried(source, "association", "EXACT_NATIVE_REGISTRY_ISSUE_ASSOCIATION");
         carried(source, "providerNo", "EXACT_NATIVE_REGISTRY_ENTRY_PROVIDER");
         var coding =
@@ -230,7 +240,15 @@ public final class CdsExportProblemRegistryMapper {
                 continue;
             }
             var day = calendarDay(stored);
-            if (day == null) review("CDS_EXPORT_NATIVE_EPISODE_DATE_REQUIRES_REVIEW");
+            if (day == null) {
+                // A stored value that is not a calendar day (MariaDB's zero date, which the
+                // packaged non-strict sql_mode stores for a date the column cannot hold, as an
+                // OSCAR 19 episode form saved for a mistyped year) gives no element; the stored
+                // value stays in the residual. It held the patient
+                // (CDS_EXPORT_NATIVE_EPISODE_DATE_REQUIRES_REVIEW).
+                carried(source, date.getKey(), NOT_A_CALENDAR_DAY);
+                continue;
+            }
             when.put(date.getValue(), day(day));
             source.set(
                     date.getKey(),
@@ -278,21 +296,40 @@ public final class CdsExportProblemRegistryMapper {
     }
 
     /**
+     * Rule of a stored date that is not a calendar day (MariaDB's zero date, year 0): no element
+     * is written, and the stored value, with any precision row, stays in the residual.
+     */
+    static final String NOT_A_CALENDAR_DAY = "STORED_DATE_NOT_A_CALENDAR_DAY_CARRIED_IN_RESIDUAL";
+
+    /**
      * The registry start date at the precision the registry list shows ({@code PartialDateDao}
-     * substring display): no marker or an empty one is the stored full date. The list reads the
-     * newest precision row of the entry ({@code getPartialDate} orders by id descending); an older
-     * duplicate row, which only a concurrent save can leave, stays in the residual.
+     * substring display): {@code YYYY} keeps the year and {@code YYYY-MM} the year-month of the
+     * stored date; no marker, an empty one or any other one is the stored full date, as the list
+     * shows it ({@code PartialDateDao.getDatePartial}). The list reads the newest precision row of
+     * the entry's start date ({@code getPartialDate} orders by id descending); an older duplicate
+     * row, which only a concurrent save can leave, and a row of another field (the registry
+     * writes only {@code PartialDate.DXRESEARCH_STARTDATE}, so no screen leaves one) stay in the
+     * residual. No start date, the column default {@code 0001-01-01} (none entered) and a stored
+     * value that is not a calendar day (MariaDB's zero date, which the packaged non-strict
+     * {@code sql_mode} stores for a date the column cannot hold, as the registry's update screen
+     * saves for a mistyped five-digit year) give no OnsetDate, with the stored value and any
+     * precision row in the residual. Each of these held the patient
+     * ({@code CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_DATE_PRECISION_REQUIRES_REVIEW},
+     * {@code CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_DATE_REQUIRES_REVIEW}).
      */
     private static CdsExportDateDto registryOnset(
-            String stored, List<CdsExportNativeFieldAssessments> dates) throws IOException {
+            String stored, List<CdsExportNativeFieldAssessments> dates) {
         CdsExportNativeFieldAssessments newest = null;
         for (var fields : dates) {
             fields.operational("id", "VERIFIED_NATIVE_PRECISION_ROW_IDENTITY");
             fields.operational("table_id", "VERIFIED_NATIVE_PRECISION_OWNER");
             fields.operational("table_name", "VERIFIED_NATIVE_PRECISION_OWNER_TABLE");
-            // PartialDate.DXRESEARCH_STARTDATE; the registry writes no other date field.
-            if (!"4".equals(fields.raw("field_name")))
-                review("CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_DATE_PRECISION_REQUIRES_REVIEW");
+            // PartialDate.DXRESEARCH_STARTDATE (4) is the one date the registry list reads.
+            if (!"4".equals(fields.raw("field_name"))) {
+                for (String column : List.of("field_name", "format"))
+                    carried(fields, column, "PRECISION_ROW_OF_NO_REGISTRY_DATE_CARRIED");
+                continue;
+            }
             // Rows arrive in ascending id order, so the last one is the row the chart reads.
             if (newest != null)
                 for (String column : List.of("field_name", "format"))
@@ -302,32 +339,31 @@ public final class CdsExportProblemRegistryMapper {
             fields.set("format", Outcome.MAPPED, ONSET, "EXPLICIT_NATIVE_DATE_PRECISION");
         }
         String marker = newest == null ? null : newest.raw("format");
-        if (stored == null || stored.isEmpty()) {
-            if (marker != null && !marker.isEmpty())
-                review("CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_DATE_PRECISION_REQUIRES_REVIEW");
-            return null;
-        }
-        // 0001-01-01 is the column default, left when no start date was entered: there is no
-        // onset to send (the stored value and any precision row stay in the residual).
-        if (NO_ONSET_RECORDED.equals(stored)) {
+        var day = calendarDay(stored);
+        if (stored == null || stored.isEmpty() || NO_ONSET_RECORDED.equals(stored) || day == null) {
             if (newest != null)
                 for (String column : List.of("field_name", "format"))
-                    carried(newest, column, "REGISTRY_START_DATE_COLUMN_DEFAULT_NO_ONSET_RECORDED");
+                    carried(
+                            newest,
+                            column,
+                            NO_ONSET_RECORDED.equals(stored)
+                                    ? "REGISTRY_START_DATE_COLUMN_DEFAULT_NO_ONSET_RECORDED"
+                                    : "PRECISION_OF_NO_CALENDAR_START_DATE_CARRIED");
             return null;
         }
-        var day = calendarDay(stored);
-        if (day == null) review("CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_DATE_REQUIRES_REVIEW");
-        if (marker == null || marker.isEmpty()) return day(day);
-        if (marker.equals("YYYY"))
+        if ("YYYY".equals(marker))
             return new CdsExportDateDto(
                     CdsExportDateDto.Precision.YEAR,
                     String.format(Locale.ROOT, "%04d", day.getYear()));
-        if (marker.equals("YYYY-MM"))
+        if ("YYYY-MM".equals(marker))
             return new CdsExportDateDto(
                     CdsExportDateDto.Precision.YEAR_MONTH,
                     String.format(Locale.ROOT, "%04d-%02d", day.getYear(), day.getMonthValue()));
-        review("CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_DATE_PRECISION_REQUIRES_REVIEW");
-        return null;
+        // A marker the registry does not write (PartialDateDao.getFormat writes YYYY, YYYY-MM or
+        // none) leaves the list showing the full date; the marker stays in the residual.
+        if (marker != null && !marker.isEmpty())
+            carried(newest, "format", "UNKNOWN_PRECISION_MARKER_FULL_DATE_AS_THE_LIST_SHOWS_IT");
+        return day(day);
     }
 
     /**

@@ -489,12 +489,11 @@ code table does not list, or from a system without a code table here (the SNOMED
 codes), is still sent with its code and no standard description. A code its table describes on
 more than one row (the bundled BC MSP table continues some long descriptions on a second row) is
 sent with each description, in table order, joined by " / ". An entry saved without a start date
-is sent without an onset date. Two cases hold the patient: an entry or episode with a status
-CARLOS does not write (`CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_STATUS_REQUIRES_REVIEW`,
-`CDS_EXPORT_NATIVE_EPISODE_STATUS_REQUIRES_REVIEW`), and a start date or precision the registry
-cannot show (`CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_DATE_REQUIRES_REVIEW`,
-`CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_DATE_PRECISION_REQUIRES_REVIEW`,
-`CDS_EXPORT_NATIVE_EPISODE_DATE_REQUIRES_REVIEW`). A diagnosis that is both an Ongoing Concern
+is sent without an onset date, and so is one whose stored date is not a calendar day (a mistyped
+year the database could not hold); the stored value travels in the item's CARLOS details. Only an
+entry or episode with a status no CARLOS or OSCAR 19 screen writes holds the patient
+(`CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_STATUS_REQUIRES_REVIEW`,
+`CDS_EXPORT_NATIVE_EPISODE_STATUS_REQUIRES_REVIEW`). A diagnosis that is both an Ongoing Concern
 and a registry entry is two records in CARLOS and is sent as two ProblemList items. Selecting
 ProblemList requires read access to `_dxresearch` (the Disease Registry), which by default only
 the doctor role has; admission refuses a missing one by name.
