@@ -126,21 +126,37 @@ class CdsExportDemographicHealthCardReconcilerUnitTest {
     }
 
     @Test
-    void shouldVerifyIncompleteAndUnsupportedNativeEditsCannotReplayTheOldCard_forDemographicHealthCardReconcilerContract() throws Exception {
+    void shouldRemoveTheImportedCard_whenTheEditedCardHasNoUsableNumberOrIssuer()
+            throws Exception {
+        // The number cleared while the version stays, or an issuer outside the pinned list: no
+        // HealthCard can hold the chart's card any more. The imported card is removed (never
+        // replayed) and the current parts travel in the native demographic record.
         for (var entry :
                 List.of(
                         Map.entry("hin", ""),
                         Map.entry("hc_type", ""),
                         Map.entry("hc_type", "unknown"),
-                        Map.entry("ver", "ABC"),
                         Map.entry("hin", "A".repeat(21)))) {
             setup();
             fixture.currentField(entry.getKey(), entry.getValue());
             var result = reconcile();
-            assertThat(result.representable()).isFalse();
-            assertThatThrownBy(result::changes)
-                    .hasMessage("CDS_EXPORT_DEMOGRAPHIC_HEALTH_CARD_REQUIRES_REVIEW");
+            assertThat(result.representable()).isTrue();
+            assertThat(text(render(result), "Number")).isEmpty();
+            assertThat(result.fields().values())
+                    .anyMatch(
+                            field ->
+                                    field.rule()
+                                            .equals(
+                                                    "EDITED_HEALTH_CARD_WITHOUT_A_USABLE_NUMBER_CARRIED"));
         }
+        // A version code longer than the element: the card stays, without Version.
+        setup();
+        fixture.currentField("ver", "ABC");
+        var version = reconcile();
+        assertThat(version.representable()).isTrue();
+        var document = render(version);
+        assertThat(text(document, "Number")).hasSize(1);
+        assertThat(text(document, "Version")).isEmpty();
     }
 
     @Test

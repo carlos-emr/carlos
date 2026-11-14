@@ -207,19 +207,28 @@ class CdsExportDemographicNamesReconcilerUnitTest {
     }
 
     @Test
-    void
-            shouldVerifyInvalidRequiredNamesAndUnrepresentablePrefixesHaveNoSourceFallback_forDemographicNamesReconcilerContract()
-                    throws Exception {
+    void shouldWriteTheDocumentedPart_insteadOfFallingBackToTheSourceName() throws Exception {
+        // A name cleared, blanked or too long, or an unlisted title, has its documented element
+        // (an empty or cut Part, no NamePrefix), never the imported value.
         for (var change :
                 List.of(
                         Map.entry("first_name", ""),
-                        Map.entry("last_name", " "),
                         Map.entry("first_name", "A".repeat(51)),
-                        Map.entry("title", "Unknown"))) {
+                        Map.entry("last_name", " "))) {
             setup();
             fixture.currentField(change.getKey(), change.getValue());
-            assertThat(reconcile().representable()).isFalse();
+            var result = reconcile();
+            assertThat(result.representable()).isTrue();
+            String expected =
+                    io.github.carlos_emr.carlos.demographic.cds.contract
+                            .CdsDemographicCarrierContract.namePart(change.getValue());
+            assertThat(text(render(result), "Part")).contains(expected);
         }
+        setup();
+        fixture.currentField("title", "Unknown");
+        var title = reconcile();
+        assertThat(title.representable()).isTrue();
+        assertThat(text(render(title), "NamePrefix")).isEmpty();
     }
 
     @Test

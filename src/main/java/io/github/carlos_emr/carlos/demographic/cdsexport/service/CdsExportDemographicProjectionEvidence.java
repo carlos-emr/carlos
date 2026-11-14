@@ -326,6 +326,9 @@ public final class CdsExportDemographicProjectionEvidence {
         result.put("roster_termination_date", roster == null ? null : roster.terminationDate());
         result.put("roster_termination_reason", roster == null ? null : roster.terminationReason());
         result.put("roster_enrolled_to", roster == null ? null : roster.enrolledProvider());
+        // The importer stored these exactly as a CARLOS sender carried them, over the element
+        // projection above (CdsDemographicPersister.restore).
+        result.putAll(value.carried());
         return result;
     }
 

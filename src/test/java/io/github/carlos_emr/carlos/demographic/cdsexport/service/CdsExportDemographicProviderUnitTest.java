@@ -105,14 +105,19 @@ class CdsExportDemographicProviderUnitTest {
                     throws Exception {
         var mapper = new CdsExportDemographicMapper();
         assertThat(mapper.map(demographic("0é27")).baseRowRepresentable()).isFalse();
+        // A number that names no captured provider record exactly (here one that differs only by
+        // letter case) gives no PrimaryPhysician and travels in the native demographic record;
+        // the export operator is never substituted and the chart is not held.
         var result =
                 mapper.map(
                         demographic("0É27"),
                         CdsExportPublicProviderMapperUnitTest.provider("CPSO", "000123"));
-        assertThat(result.baseRowRepresentable()).isFalse();
+        assertThat(result.baseRowRepresentable()).isTrue();
         assertThat(result.primaryPhysician()).isNull();
         assertThat(result.fields().get("provider_no").rule())
-                .isEqualTo("EXACT_PRIMARY_PHYSICIAN_REFERENCE_REQUIRED");
+                .isEqualTo(CdsExportDemographicMapper.PRIMARY_PHYSICIAN_WITHOUT_A_PROVIDER_RECORD);
+        assertThat(result.fields().get("provider_no").destination())
+                .isEqualTo(CdsExportDemographicSupportingMapper.DESTINATION);
     }
 
     static CdsExportDemographicRowDto demographic(String provider) {

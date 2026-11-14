@@ -247,6 +247,23 @@ public class CdsNativePreparationService {
             } catch (IllegalArgumentException invalid) {
                 throw new CdsImportException("NATIVE_PREPARATION_VERIFICATION_FAILED");
             }
+        if (type
+                == io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsDemographicNativeDto
+                        .class)
+            try {
+                // A preparation sealed before a CARLOS sender's demographic record was read back.
+                return JSON.treeToValue(
+                        io.github.carlos_emr.carlos.demographic.cds.contract
+                                .CdsPreparedDemographicDefaults.apply(
+                                JSON.reader()
+                                        .with(
+                                                com.fasterxml.jackson.core.JsonParser.Feature
+                                                        .STRICT_DUPLICATE_DETECTION)
+                                        .readTree(prepared.getPayload())),
+                        type);
+            } catch (IllegalArgumentException invalid) {
+                throw new CdsImportException("NATIVE_PREPARATION_VERIFICATION_FAILED");
+            }
         return JSON.readValue(prepared.getPayload(), type);
     }
 

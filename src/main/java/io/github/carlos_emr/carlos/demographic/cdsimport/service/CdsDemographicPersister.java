@@ -100,8 +100,11 @@ public class CdsDemographicPersister {
 
     public void validate(CdsRecordDto record, CdsImportCommand command) throws IOException {
         var source = identity.source(record, command);
-        if (source.firstName() == null
-                || source.lastName() == null
+        // A CARLOS sender writes a missing or blank name as an empty Part and carries the stored
+        // name, which the import restores.
+        var carried = new CdsDemographicCarriedValuesResolver(fields).identity(record);
+        if (source.firstName() == null && !carried.containsKey("first_name")
+                || source.lastName() == null && !carried.containsKey("last_name")
                 || source.gender() == null
                 || source.birthDate() == null)
             throw new CdsImportException("DEMOGRAPHIC_REQUIRED_VALUE_MISSING");
@@ -225,27 +228,85 @@ public class CdsDemographicPersister {
         var related = relations.prepare(record, command);
         detail.diagnostics().forEach(notice);
         related.diagnostics().forEach(notice);
+        // The phone rows this chart gets from its elements; a carried row of the same key is not
+        // restored (CARLOS keeps one row per key).
+        var phoneKeys = new java.util.HashSet<String>();
+        if (home.value() != null && present(home.value().extension())) phoneKeys.add("hPhoneExt");
+        if (work.value() != null && present(work.value().extension())) phoneKeys.add("wPhoneExt");
+        if (cell.value() != null && present(cell.value().number())) phoneKeys.add("demo_cell");
+        var carrier = new CdsDemographicCarriedValuesResolver(fields);
+        var restored =
+                carrier.resolve(
+                        record,
+                        scalars.get(CdsDemographicNativeDto.MIDDLE_NAMES_SCALAR),
+                        phoneKeys,
+                        notice);
         var dto =
-                new CdsDemographicNativeDto(
-                        source.sourceId(),
-                        source.firstName(),
-                        source.lastName(),
-                        source.birthDate().toString(),
-                        source.healthNumber(),
-                        source.issuer(),
-                        source.gender(),
-                        source.status(),
-                        scalars,
-                        mailing.value(),
-                        residential.value(),
-                        home.value(),
-                        work.value(),
-                        cell.value(),
-                        provider.localProviderNo(),
-                        detail,
-                        related,
-                        List.copyOf(warnings.values()));
-        preparation.store(run, epoch, unit, record.effectiveSha256(), command, dto);
+                prepared(
+                        source, scalars, mailing, residential, home, work, cell, provider, detail,
+                        related, warnings, restored.columns(), restored.properties());
+        try {
+            preparation.store(run, epoch, unit, record.effectiveSha256(), command, dto);
+        } catch (CdsImportException capacity) {
+            if (!"NATIVE_PREPARATION_CAPACITY_EXCEEDED".equals(capacity.getCode())
+                    || restored.properties().isEmpty()) throw capacity;
+            // The sealed preparation holds at most 1 MiB: rows that do not fit with the chart
+            // stay in the import's retained source record, reported.
+            notice.accept(
+                    new CdsClinicalDiagnosticDto(
+                            CdsDemographicCarriedValuesResolver.NOT_RESTORED, "NewCategory"));
+            dto =
+                    prepared(
+                            source, scalars, mailing, residential, home, work, cell, provider,
+                            detail, related, warnings, restored.columns(), List.of());
+            preparation.store(run, epoch, unit, record.effectiveSha256(), command, dto);
+        }
+    }
+
+    private static CdsDemographicNativeDto prepared(
+            CdsPatientIdentityDto source,
+            Map<String, String> scalars,
+            Candidate<Address> mailing,
+            Candidate<Address> residential,
+            Candidate<Phone> home,
+            Candidate<Phone> work,
+            Candidate<Phone> cell,
+            io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsProviderMatchDto provider,
+            io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsDemographicDetailsDto detail,
+            io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsDemographicRelationsDto related,
+            Map<String, CdsClinicalDiagnosticDto> warnings,
+            Map<String, String> carried,
+            List<CdsDemographicNativeDto.Property> properties) {
+        return new CdsDemographicNativeDto(
+                source.sourceId(),
+                // An empty name Part a CARLOS sender carries; the exact name is restored on write.
+                source.firstName() == null && carried.containsKey("first_name")
+                        ? ""
+                        : source.firstName(),
+                source.lastName() == null && carried.containsKey("last_name")
+                        ? ""
+                        : source.lastName(),
+                source.birthDate().toString(),
+                source.healthNumber(),
+                source.issuer(),
+                source.gender(),
+                source.status(),
+                scalars,
+                mailing.value(),
+                residential.value(),
+                home.value(),
+                work.value(),
+                cell.value(),
+                provider.localProviderNo(),
+                detail,
+                related,
+                List.copyOf(warnings.values()),
+                carried,
+                properties);
+    }
+
+    private static boolean present(String value) {
+        return value != null && !value.isEmpty();
     }
 
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
@@ -328,6 +389,9 @@ public class CdsDemographicPersister {
         applyAddress(patient, dto.residential(), true);
         if (dto.home() != null) patient.setPhone(dto.home().number());
         if (dto.work() != null) patient.setPhone2(dto.work().number());
+        // The exact stored values a CARLOS sender carries for elements it could not write
+        // exactly, proven when the preparation was made (CdsDemographicCarriedValuesResolver).
+        dto.carried().forEach((column, value) -> restore(patient, column, value));
         demographics.persistImportedDemographic(patient);
         Map<String, String> result = new LinkedHashMap<>();
         result.put("demographic", patient.getDemographicNo().toString());
@@ -356,6 +420,21 @@ public class CdsDemographicPersister {
                         new CdsClinicalDiagnosticDto(
                                 "CDS_CELL_EXTENSION_SOURCE_ONLY", "PhoneNumber"));
         }
+        // The sender's demographicExt rows: properties, hidden rows and rows without a key.
+        for (var property : dto.properties()) {
+            DemographicExt row = new DemographicExt();
+            row.setDemographicNo(patient.getDemographicNo());
+            row.setProviderNo(command.providerNo());
+            row.setKey(property.key());
+            row.setValue(property.value());
+            row.setHidden(property.hidden());
+            extensions.persist(row);
+            extensions.flush();
+            Integer nativeId = row.getId();
+            if (nativeId == null || nativeId < 1)
+                throw new CdsImportException("DEMOGRAPHIC_EXTENSION_NATIVE_ID_MISSING");
+            result.put("demographicExt#" + result.size(), Integer.toString(nativeId));
+        }
         if (command.programId() != null) {
             Admission admission = new Admission();
             admission.setClientId(patient.getDemographicNo());
@@ -368,6 +447,29 @@ public class CdsDemographicPersister {
             result.put("admission", admission.getId().toString());
         }
         return result;
+    }
+
+    /** Stores one carried column exactly (see {@link CdsDemographicCarriedValuesResolver#COLUMNS}). */
+    static void restore(Demographic patient, String column, String value) {
+        switch (column) {
+            case "first_name" -> patient.setFirstName(value);
+            case "last_name" -> patient.setLastName(value);
+            case "middleNames" -> patient.setMiddleNames(value);
+            case "title" -> patient.setTitle(value);
+            case "year_of_birth" -> patient.setYearOfBirth(value);
+            case "month_of_birth" -> patient.setMonthOfBirth(value);
+            case "date_of_birth" -> patient.setDateOfBirth(value);
+            case "sex" -> patient.setSex(value);
+            case "patient_status" -> patient.setPatientStatus(value);
+            case "patient_status_date" -> patient.setPatientStatusDate(nativeDate(value));
+            case "hin" -> patient.setHin(value);
+            case "ver" -> patient.setVer(value);
+            case "hc_renew_date" -> patient.setHcRenewDate(nativeDate(value));
+            case "hc_type" -> patient.setHcType(value);
+            case "phone" -> patient.setPhone(value);
+            case "phone2" -> patient.setPhone2(value);
+            default -> throw new CdsImportException("DEMOGRAPHIC_CARRIED_COLUMN_INVALID");
+        }
     }
 
     private static java.sql.Date nativeDate(String value) {

@@ -215,20 +215,69 @@ public class CdsPatientIdentityResolver {
     @Transactional(readOnly = true)
     public boolean matchesCanonical(
             CdsPatientIdentityDto source, int targetNo, CdsImportCommand command) {
+        return matchesCanonical(source, java.util.Map.of(), targetNo, command);
+    }
+
+    /**
+     * As {@link #matchesCanonical(CdsPatientIdentityDto, int, CdsImportCommand)}, for a chart
+     * whose identity columns the import restored from a CARLOS sender's native demographic record
+     * ({@code CdsDemographicCarriedValuesResolver#identity}): a restored column is compared with
+     * the value restored, every other one with its element.
+     */
+    @Transactional(readOnly = true)
+    public boolean matchesCanonical(
+            CdsPatientIdentityDto source,
+            java.util.Map<String, String> carried,
+            int targetNo,
+            CdsImportCommand command) {
         Demographic target = entityManager.find(Demographic.class, targetNo);
-        if (target == null
-                || !Objects.equals(source.birthDate(), birthDate(target))
-                || !Objects.equals(source.firstName(), target.getFirstName())
-                || !Objects.equals(source.lastName(), target.getLastName())
-                || !Objects.equals(source.gender(), target.getSex())
+        if (target == null) return false;
+        boolean birth =
+                java.util.stream.Stream.of("year_of_birth", "month_of_birth", "date_of_birth")
+                                .anyMatch(carried::containsKey)
+                        ? Objects.equals(
+                                        carried.getOrDefault("year_of_birth", target.getYearOfBirth()),
+                                        target.getYearOfBirth())
+                                && Objects.equals(
+                                        carried.getOrDefault("month_of_birth", target.getMonthOfBirth()),
+                                        target.getMonthOfBirth())
+                                && Objects.equals(
+                                        carried.getOrDefault("date_of_birth", target.getDateOfBirth()),
+                                        target.getDateOfBirth())
+                        : Objects.equals(source.birthDate(), birthDate(target));
+        if (!birth
                 || !Objects.equals(
-                        source.status() == null ? "" : source.status(), target.getPatientStatus())
+                        carried.containsKey("first_name")
+                                ? carried.get("first_name")
+                                : source.firstName(),
+                        target.getFirstName())
                 || !Objects.equals(
-                        source.healthNumber() == null ? "" : source.healthNumber(),
-                        target.getHin() == null ? "" : target.getHin().replace(" ", ""))
+                        carried.containsKey("last_name") ? carried.get("last_name") : source.lastName(),
+                        target.getLastName())
                 || !Objects.equals(
-                        source.issuer() == null ? "" : normalizedIssuer(source.issuer()),
-                        target.getHcType() == null ? "" : normalizedIssuer(target.getHcType())))
+                        carried.containsKey("sex") ? carried.get("sex") : source.gender(),
+                        target.getSex())
+                || !Objects.equals(
+                        carried.containsKey("patient_status")
+                                ? carried.get("patient_status")
+                                : source.status() == null ? "" : source.status(),
+                        target.getPatientStatus())
+                || !Objects.equals(
+                        carried.containsKey("hin")
+                                ? carried.get("hin")
+                                : source.healthNumber() == null ? "" : source.healthNumber(),
+                        carried.containsKey("hin")
+                                ? target.getHin()
+                                : target.getHin() == null ? "" : target.getHin().replace(" ", ""))
+                || !Objects.equals(
+                        carried.containsKey("hc_type")
+                                ? carried.get("hc_type")
+                                : source.issuer() == null ? "" : normalizedIssuer(source.issuer()),
+                        carried.containsKey("hc_type")
+                                ? target.getHcType()
+                                : target.getHcType() == null
+                                        ? ""
+                                        : normalizedIssuer(target.getHcType())))
             return false;
         if (!command.synthetic()
                 && source.healthNumber() != null

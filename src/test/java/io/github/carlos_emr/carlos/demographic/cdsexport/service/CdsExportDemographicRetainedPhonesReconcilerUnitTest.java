@@ -193,11 +193,23 @@ class CdsExportDemographicRetainedPhonesReconcilerUnitTest {
     @Test
     void shouldVerifyHiddenDuplicateAndUnknownNativePropertiesRemainVisible_toTheEnclosingAssembly()
             throws Exception {
+        // A row the REST API hid, or a second row of a phone key, no longer holds the imported
+        // chart: the hidden row is carried, and of two rows the one the chart shows decides.
         change(0, "hidden", "1");
-        assertThat(reconcile().phonesRepresentable()).isFalse();
+        var hidden = reconcile();
+        assertThat(hidden.phonesRepresentable()).isTrue();
+        assertThat(
+                        hidden.fields()
+                                .get(
+                                        new CdsExportNativeFieldKeyDto(
+                                                "demographicExt",
+                                                CdsExportPatientTableSourceReader.key(1),
+                                                "hidden"))
+                                .destination())
+                .isEqualTo(CdsExportDemographicSupportingMapper.DESTINATION);
         setup();
         current.add(property(3, "hPhoneExt", "0012"));
-        assertThat(reconcile().phonesRepresentable()).isFalse();
+        assertThat(reconcile().phonesRepresentable()).isTrue();
         setup();
         // Updated for D5: another property row used to be deferred to an enclosing assembly that
         // never decided it, so an imported chart edited through the Master Record failed its

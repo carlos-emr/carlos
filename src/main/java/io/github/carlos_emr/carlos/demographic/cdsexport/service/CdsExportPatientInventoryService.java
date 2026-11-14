@@ -294,6 +294,9 @@ public class CdsExportPatientInventoryService {
         // chart: its retained source fields are accounted as removed by the care assembly.
         var removedCare =
                 care.removedImportedParents(lease, patient, tables, source, index, bounds, control);
+        // A chart that re-exports a retained NewCategory record always writes its own native
+        // demographic record after them (CdsExportDemographicSupportingMapper.nothingCarried).
+        boolean retainedNewCategory = false;
         for (var unit : index.tables().getOrDefault("cds_import_unit", Map.of()).values()) {
             control.checkpoint();
             String wire = unit.fields().get("category");
@@ -303,6 +306,7 @@ public class CdsExportPatientInventoryService {
             if (!index.appliedUnits().contains(address)) continue;
             if (!lease.document().command().categories().contains(category)) invalid();
             if (category == CdsCategory.CARE_ELEMENTS && removedCare.contains(address)) continue;
+            if (category == CdsCategory.NEW_CATEGORY) retainedNewCategory = true;
             if (RETAINED.contains(category)) {
                 add(
                         expected,
@@ -348,11 +352,12 @@ public class CdsExportPatientInventoryService {
             var demographic = new CdsExportDemographicSupportingReader(captures);
             String id = Integer.toString(patient.patient());
             if (lease.document().command().categories().contains(CdsCategory.NEW_CATEGORY)
-                    && CdsExportDemographicSupportingMapper.map(
-                                    demographic.rows(
-                                            lease, patient, tables, source, bounds, control),
-                                    control::checkpoint)
-                            != null)
+                    && (retainedNewCategory
+                            || CdsExportDemographicSupportingMapper.map(
+                                            demographic.rows(
+                                                    lease, patient, tables, source, bounds, control),
+                                            control::checkpoint)
+                                    != null))
                 add(
                         expected,
                         nativeIdentity(patientKey, CdsCategory.NEW_CATEGORY, "demographic", id));

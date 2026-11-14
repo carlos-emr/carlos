@@ -49,12 +49,29 @@ class CdsExportLayoutUnitTest {
     }
 
     @Test void shouldRefuseUnrepresentableComponents_withoutTruncationOrPathFallback() {
-        for (String name : new String[]{"../name", "a\nname", "a\uD800", "   "}) {
+        // The demographic mapper never writes these in a name (a control character is U+FFFD
+        // there); the composer still refuses them.
+        for (String name : new String[]{"a\nname", "a\uD800"}) {
             assertThatThrownBy(() -> paths.compose(patient(name, "Test")))
                     .hasMessage("CDS_EXPORT_FILENAME_NAME_REQUIRES_REVIEW");
         }
         assertThatThrownBy(() -> paths.compose(patient("a".repeat(1025), "Test")))
                 .hasMessage("CDS_EXPORT_FILENAME_NAME_REQUIRES_REVIEW");
+    }
+
+    @Test void shouldNameTheFile_whenTheNameIsEmptyOrStartsWithADot() {
+        // An empty or blank legal name (written as an empty Part) is an empty segment; a leading
+        // dot, which would hide the file, is written as "_", as reserved characters are.
+        assertThat(paths.compose(patient("", "Test")).patientXmlFile())
+                .isEqualTo("_Test_C27_04031971.xml");
+        assertThat(paths.compose(patient("   ", "Test")).patientXmlFile())
+                .isEqualTo("_Test_C27_04031971.xml");
+        assertThat(paths.compose(patient("Anne", "\u00a0")).patientXmlFile())
+                .isEqualTo("Anne__C27_04031971.xml");
+        assertThat(paths.compose(patient("../name", "Test")).patientXmlFile())
+                .isEqualTo("_._name_Test_C27_04031971.xml");
+        assertThat(paths.compose(patient(".J", "Test")).patientXmlFile())
+                .isEqualTo("_J_Test_C27_04031971.xml");
     }
 
     @Test void shouldWritePortableFileNames_forRealNamesWithDotsReservedCharactersOrSpaces() {

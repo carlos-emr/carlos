@@ -24,7 +24,9 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportEmailLexical;
 
 import io.github.carlos_emr.carlos.commn.dto.CdsExportDemographicRowDto;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsDemographicCarrierContract;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsHealthCardAuthority;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionContract;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDemographicMappingDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDemographicMappingDto.Address;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDemographicMappingDto.Assessment;
@@ -43,28 +45,47 @@ import java.util.Set;
 
 /**
  * Maps exact captured base-row values, without querying mutable clinical rows or applying
- * entity/UI defaults. Every column receives a disposition. Unsupported populated values
- * remain explicit blockers; they are never discarded or concatenated into clinical notes.
+ * entity/UI defaults. Every column receives a disposition, and no value holds the chart.
+ *
+ * <p>A value its element cannot hold exactly is decided by a documented rule
+ * ({@link CdsDemographicCarrierContract}): a required element (a legal name part, DateOfBirth,
+ * Gender, PersonStatusCode) gets the value the rule gives, an optional element is left out, and
+ * the exact stored column travels in the native demographic NewCategory record
+ * ({@link CdsExportDemographicSupportingMapper}), where the CARLOS importer restores it. Nothing
+ * is discarded or concatenated into clinical notes.
  */
 public final class CdsExportDemographicMapper {
-    private static final Map<String, String> TITLES = titles();
+    /** Rule of a missing or blank legal name part, written as the empty Part. */
+    static final String MISSING_NAME = "MISSING_NAME_WRITTEN_AS_AN_EMPTY_PART_EXACT_VALUE_CARRIED";
+
+    /** Rule of a name longer than a name part, written as its first 50 characters. */
+    static final String CUT_NAME = "NAME_CUT_TO_THE_PART_LENGTH_EXACT_VALUE_CARRIED";
+
+    /** Rule of untrimmed or doubled white space in a token, written collapsed. */
+    static final String COLLAPSED = "XS_TOKEN_WHITESPACE_COLLAPSED_EXACT_VALUE_CARRIED";
+
+    /** Rule of a stored sex no Administrative Gender code holds, written as U. */
+    static final String UNKNOWN_SEX = "UNKNOWN_OR_MISSING_SEX_WRITTEN_AS_U_EXACT_VALUE_CARRIED";
+
+    /** Rule of stored birth columns that are not one calendar date, written as 0001-01-01. */
+    static final String NO_BIRTH_DATE =
+            "BIRTH_DATE_NOT_A_CALENDAR_DATE_WRITTEN_AS_0001_01_01_EXACT_VALUE_CARRIED";
+
+    /** Rule of a birth column stored without its leading zero, written in full. */
+    static final String BIRTH_COLUMN_IN_FULL = "BIRTH_DATE_WRITTEN_IN_FULL_EXACT_VALUE_CARRIED";
+
+    /** Rule of a missing patient status, written as an empty PersonStatusAsPlainText. */
+    static final String MISSING_STATUS =
+            "MISSING_PATIENT_STATUS_WRITTEN_AS_EMPTY_PLAIN_TEXT_EXACT_VALUE_CARRIED";
 
     public CdsExportDemographicMappingDto map(CdsExportDemographicRowDto row) {
         var state = new State(row.fields());
-        String first = state.token("first_name", "Names/LegalName/FirstName/Part", 50, true);
-        String last = state.token("last_name", "Names/LegalName/LastName/Part", 50, true);
+        String first = name(state, "first_name", "Names/LegalName/FirstName/Part");
+        String last = name(state, "last_name", "Names/LegalName/LastName/Part");
         String middle = middleNames(state);
-        String title = state.code("title", "Names/NamePrefix", TITLES);
+        String title = title(state);
         LocalDate birth = birth(state);
-        String gender = state.code("sex", "Gender", Map.of("M", "M", "F", "F", "O", "O", "U", "U"));
-        // The add form offers "X" (Intersex, commn.Gender). Administrative Gender has M, F, O and
-        // U; X is sent as O (Other) and the exact native code travels in the native demographic
-        // NewCategory record.
-        if ("X".equals(state.value("sex"))) {
-            gender = "O";
-            state.alsoCarried("sex", "Gender", "INTERSEX_AS_OTHER_WITH_EXACT_CODE_CARRIED");
-        }
-        if (!state.present("sex")) state.review("sex", "Gender", "REQUIRED_VALUE_MISSING");
+        String gender = gender(state);
         var health = health(state);
         String chart = state.optionalToken("chart_no", "ChartNumber", 15);
         var addresses = new ArrayList<Address>();
@@ -93,34 +114,8 @@ public final class CdsExportDemographicMapper {
             state.carry("email");
             email = null;
         }
-        String status = state.value("patient_status");
-        boolean enumerated = true;
-        if (!state.present("patient_status")) {
-            state.review("patient_status", "PersonStatusCode", "REQUIRED_VALUE_MISSING");
-            status = null;
-        } else {
-            String mapped = Map.of("AC", "A", "IN", "I", "DE", "D").get(status);
-            if (mapped != null) {
-                status = mapped;
-                state.mapped(
-                        "patient_status",
-                        "PersonStatusCode/PersonStatusAsEnum",
-                        "NATIVE_STATUS_CODE");
-            } else {
-                status =
-                        state.text(
-                                "patient_status", "PersonStatusCode/PersonStatusAsPlainText", 50);
-                // CARLOS's own non-CDS statuses travel by meaning, not as a bare two-letter code
-                // (the add/edit forms' "MO - Moved", "FI - Fired"); CdsPatientIdentityResolver
-                // maps the label back. A clinic-defined status is exported as it is stored.
-                String label =
-                        io.github.carlos_emr.carlos.demographic.cds.contract
-                                .CdsPatientStatusLabels.LABELS
-                                .get(status);
-                if (label != null) status = label;
-                enumerated = false;
-            }
-        }
+        var status = CdsDemographicCarrierContract.personStatus(state.value("patient_status"));
+        status(state, status);
         LocalDate statusDate = state.date("patient_status_date", "PersonStatusDate");
         String sin = sin(state);
         // These columns are retained in the authenticated source capture, not asserted as
@@ -145,14 +140,24 @@ public final class CdsExportDemographicMapper {
                 official,
                 spoken,
                 email,
-                status,
-                enumerated,
+                status.text(),
+                status.enumerated(),
                 statusDate,
                 sin,
                 state.assessments);
     }
 
-    /** Exact captured primary-provider join; lookup matching never uses a name or collation-normalized ID. */
+    /**
+     * Exact captured primary-provider join; lookup matching never uses a name or
+     * collation-normalized ID.
+     *
+     * <p>A stored number that names no captured provider record exactly (a number the REST API
+     * wrote, or one that differs from the record's only by letter case or trailing space) is
+     * exported without PrimaryPhysician, as a prescription is without its prescriber; the
+     * stored number travels in the native demographic record. A provider number is local to
+     * the sending CARLOS, so a CARLOS importer never restores it: it matches the physician from
+     * the PrimaryPhysician element, as for any sender.
+     */
     public CdsExportDemographicMappingDto map(
             CdsExportDemographicRowDto row,
             io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportCapturedTextRowDto
@@ -171,13 +176,16 @@ public final class CdsExportDemographicMapper {
                     Map.of(),
                     new Assessment(
                             Presence.VALUE,
-                            Outcome.REQUIRES_REVIEW,
-                            "PrimaryPhysician",
-                            "EXACT_PRIMARY_PHYSICIAN_REFERENCE_REQUIRED"));
+                            Outcome.MAPPED,
+                            CdsExportDemographicSupportingMapper.DESTINATION,
+                            PRIMARY_PHYSICIAN_WITHOUT_A_PROVIDER_RECORD));
         }
         var mapped =
                 new CdsExportPublicProviderMapper()
                         .map(provider, CdsExportPublicProviderMapper.Target.PRIMARY_PHYSICIAN);
+        // Provider first_name and last_name are varchar(30) NOT NULL (V1 baseline), so a
+        // captured provider row always forms a CDS name: PUBLIC_PROVIDER_VALUES_REQUIRES_REVIEW
+        // is kept for a row that no CARLOS schema can store.
         return base.withPrimaryPhysician(
                 mapped.value(),
                 mapped.fields(),
@@ -189,6 +197,10 @@ public final class CdsExportDemographicMapper {
                                 ? "EXACT_CAPTURED_PUBLIC_PROVIDER"
                                 : "PUBLIC_PROVIDER_VALUES_REQUIRES_REVIEW"));
     }
+
+    /** Rule of a primary-physician number that names no captured provider record. */
+    static final String PRIMARY_PHYSICIAN_WITHOUT_A_PROVIDER_RECORD =
+            "PRIMARY_PHYSICIAN_NUMBER_WITHOUT_A_PROVIDER_RECORD_CARRIED";
 
     /**
      * The SIN box is free text (15 characters): "123 456 789" and "123-456-789" are its ordinary
@@ -212,32 +224,174 @@ public final class CdsExportDemographicMapper {
         return null;
     }
 
-    private static LocalDate birth(State state) {
-        String[] columns = {"year_of_birth", "month_of_birth", "date_of_birth"};
-        try {
-            String year = state.value(columns[0]),
-                    month = state.value(columns[1]),
-                    day = state.value(columns[2]);
-            if (year == null
-                    || !year.matches("[0-9]{4}")
-                    || month == null
-                    || !month.matches("[0-9]{1,2}")
-                    || day == null
-                    || !day.matches("[0-9]{1,2}")) throw new DateTimeException("incomplete");
-            LocalDate date =
-                    LocalDate.of(
-                            Integer.parseInt(year), Integer.parseInt(month), Integer.parseInt(day));
-            if (date.getYear() < 1) throw new DateTimeException("range");
-            for (String column : columns)
-                state.mapped(column, "DateOfBirth", "EXACT_NATIVE_CALENDAR_DATE");
-            return date;
-        } catch (DateTimeException failure) {
-            for (String column : columns)
-                state.review(column, "DateOfBirth", "EXACT_BIRTH_DATE_REQUIRED");
-            return null;
+    /**
+     * A required legal name part (FirstName, LastName). The demographic forms require both names,
+     * but the REST demographic service and the PHS/STAR registration feed save what they are
+     * sent, an empty name included. The Part is {@link CdsDemographicCarrierContract#namePart};
+     * whenever it is not the stored name exactly (a missing or blank name, untrimmed or doubled
+     * white space, a character XML cannot carry), the stored column is carried.
+     */
+    private static String name(State state, String column, String path) {
+        String stored = state.value(column);
+        String part = CdsDemographicCarrierContract.namePart(stored);
+        if (!part.isEmpty() && part.equals(stored)) {
+            state.mapped(column, path, "EXACT_NATIVE_TEXT");
+            return part;
         }
+        String token = stored == null ? "" : CdsDemographicCarrierContract.token(stored);
+        String shown = CdsNativeExtensionContract.xmlElementText(token);
+        state.alsoCarried(
+                column,
+                path,
+                token.isEmpty()
+                        ? MISSING_NAME
+                        : !shown.equals(part)
+                                ? CUT_NAME
+                                : !shown.equals(token)
+                                        ? CdsExportNativeFieldAssessments.REPLACED
+                                        : COLLAPSED);
+        return part;
     }
 
+    /**
+     * Middle names are OtherName parts of type GIV ({@link
+     * CdsDemographicCarrierContract#middleNameParts}). The form and the REST service accept 100
+     * characters and a part holds 50: longer middle names are written as their space-separated
+     * names, one part each, which the CARLOS importer joins with single spaces, and a single name
+     * longer than a part is written as its first 50 characters. Nothing is appended inside a
+     * name. Whenever the joined parts are not the stored column exactly, the column is carried
+     * and the CARLOS importer restores it. Blank middle names have no part and are carried.
+     *
+     * @return the middle names as the element shows them, or null when no part is written
+     */
+    private static String middleNames(State state) {
+        String path = "Names/LegalName/OtherName/Part";
+        if (!state.present("middleNames")) return null;
+        String stored = state.value("middleNames");
+        var parts = CdsDemographicCarrierContract.middleNameParts(stored);
+        if (parts.isEmpty()) {
+            state.carry("middleNames");
+            return null;
+        }
+        String token = CdsDemographicCarrierContract.token(stored);
+        String shown = CdsNativeExtensionContract.xmlElementText(token);
+        if (String.join(" ", parts).equals(stored))
+            state.mapped(
+                    "middleNames",
+                    path,
+                    parts.size() == 1
+                            ? "EXACT_NATIVE_TEXT"
+                            : "SPACE_SEPARATED_MIDDLE_NAMES_AS_ORDERED_PARTS");
+        else
+            state.alsoCarried(
+                    "middleNames",
+                    path,
+                    !String.join(" ", parts).equals(shown)
+                            ? "MIDDLE_NAME_CUT_TO_THE_PART_LENGTH_EXACT_VALUE_CARRIED"
+                            : !shown.equals(token)
+                                    ? CdsExportNativeFieldAssessments.REPLACED
+                                    : COLLAPSED);
+        return shown;
+    }
+
+    /** The OtherName parts that carry a mapped middleNames value; see {@link #middleNames}. */
+    static java.util.List<String> middleNameParts(String middle) {
+        return CdsDemographicCarrierContract.middleNameParts(middle);
+    }
+
+    /**
+     * NamePrefix is optional and coded. The add form stores the codes in capitals (DR, MRS,
+     * RT_HON); the element holds the schema's spelling and the stored code is carried, so a
+     * CARLOS import keeps the form's code. A title outside the list (the REST service accepts any
+     * text) is left out and carried.
+     */
+    private static String title(State state) {
+        if (!state.present("title")) return null;
+        String stored = state.value("title");
+        String code = CdsDemographicCarrierContract.title(stored);
+        if (code == null) state.carry("title");
+        else if (code.equals(stored)) state.mapped("title", "Names/NamePrefix", "REVIEWED_NATIVE_CODE");
+        else
+            state.alsoCarried(
+                    "title", "Names/NamePrefix", "REVIEWED_NATIVE_CODE_EXACT_VALUE_CARRIED");
+        return code;
+    }
+
+    /**
+     * Gender is required ({@link CdsDemographicCarrierContract#gender}). The add form offers "X"
+     * (Intersex, commn.Gender), which is O (Other); the REST service and the PHS/STAR feed (PID-8)
+     * can store any one-character code or none, which is U, the schema's unknown gender. The
+     * stored code is carried whenever the element is not that code.
+     */
+    private static String gender(State state) {
+        String stored = state.value("sex");
+        String gender = CdsDemographicCarrierContract.gender(stored);
+        if (gender.equals(stored)) state.mapped("sex", "Gender", "REVIEWED_NATIVE_CODE");
+        else if ("X".equals(stored))
+            state.alsoCarried("sex", "Gender", "INTERSEX_AS_OTHER_WITH_EXACT_CODE_CARRIED");
+        else state.alsoCarried("sex", "Gender", UNKNOWN_SEX);
+        return gender;
+    }
+
+    /**
+     * PersonStatusCode is required ({@link CdsDemographicCarrierContract#personStatus}). The
+     * REST demographic update saves the status it is sent, none included.
+     */
+    private static void status(State state, CdsDemographicCarrierContract.PersonStatus status) {
+        String stored = state.value("patient_status");
+        if (!state.present("patient_status")) {
+            state.alsoCarried(
+                    "patient_status", "PersonStatusCode/PersonStatusAsPlainText", MISSING_STATUS);
+            return;
+        }
+        if (status.enumerated()) {
+            state.mapped("patient_status", "PersonStatusCode/PersonStatusAsEnum", "NATIVE_STATUS_CODE");
+            return;
+        }
+        String path = "PersonStatusCode/PersonStatusAsPlainText";
+        // CARLOS's own non-CDS statuses travel by meaning, not as a bare two-letter code (the
+        // add/edit forms' "MO - Moved", "FI - Fired"); CdsPatientIdentityResolver maps the label
+        // back. A clinic-defined status is exported as it is stored.
+        String label =
+                io.github.carlos_emr.carlos.demographic.cds.contract.CdsPatientStatusLabels.LABELS
+                        .getOrDefault(stored, stored);
+        if (status.text().equals(label)) state.mapped("patient_status", path, "EXACT_NATIVE_TEXT");
+        else state.alsoCarried("patient_status", path, CdsExportNativeFieldAssessments.REPLACED);
+    }
+
+    /**
+     * DateOfBirth is required. The demographic forms build it from three selects, but the REST
+     * demographic service checks it with a lenient calendar (a month 13 or day 40 is saved) and
+     * accepts none at all. Stored columns that are not one calendar date ({@link
+     * CdsDemographicCarrierContract#birthDate}) are written as {@link
+     * CdsDemographicCarrierContract#NO_BIRTH_DATE}, a date nobody can mistake for a birth date,
+     * and carried. A real date stored without a leading zero ("2" for February) is written in
+     * full and carried.
+     */
+    private static LocalDate birth(State state) {
+        String[] columns = {"year_of_birth", "month_of_birth", "date_of_birth"};
+        LocalDate date =
+                CdsDemographicCarrierContract.birthDate(
+                        state.value(columns[0]), state.value(columns[1]), state.value(columns[2]));
+        if (date == null) {
+            for (String column : columns) state.alsoCarried(column, "DateOfBirth", NO_BIRTH_DATE);
+            return LocalDate.parse(CdsDemographicCarrierContract.NO_BIRTH_DATE);
+        }
+        var written = CdsDemographicCarrierContract.birthColumns(date);
+        for (int i = 0; i < columns.length; i++)
+            if (written.get(i).equals(state.value(columns[i])))
+                state.mapped(columns[i], "DateOfBirth", "EXACT_NATIVE_CALENDAR_DATE");
+            else state.alsoCarried(columns[i], "DateOfBirth", BIRTH_COLUMN_IN_FULL);
+        return date;
+    }
+
+    /**
+     * HealthCard is optional and its Number required. A card whose number no Number can hold (a
+     * version code or expiry typed without a number, a blank number, a character XML cannot
+     * carry) is left out whole, and its populated columns are carried. A version longer than the
+     * element's two characters (the form box takes three) or an expiry that is not a calendar
+     * date leaves only that element out, carried.
+     */
     private static HealthCard health(State state) {
         boolean card = Set.of("hin", "ver", "hc_renew_date").stream().anyMatch(state::present);
         if (!card) {
@@ -250,16 +404,18 @@ public final class CdsExportDemographicMapper {
             return null;
         }
         String province = CdsHealthCardAuthority.wire(state.value("hc_type"));
-        if (province == null) {
+        String number = State.usableToken(state.value("hin"), 20);
+        if (province == null || number == null) {
             // The forms default the issuer to "OT" (Other) and offer "US"; ProvinceCode is
             // required and the pinned schema's -50/-70/-90 codes carry no documented meaning, so
-            // a card of an unlisted issuer travels whole in the native demographic record.
+            // a card of an unlisted issuer travels whole in the native demographic record, as
+            // does a card without a usable number.
             for (String column : List.of("hin", "ver", "hc_renew_date", "hc_type"))
                 if (state.present(column)) state.carry(column);
             return null;
         }
-        String number = state.token("hin", "HealthCard/Number", 20, true);
-        String version = state.token("ver", "HealthCard/Version", 2, false);
+        state.token("hin", "HealthCard/Number", number);
+        String version = state.optionalToken("ver", "HealthCard/Version", 2);
         state.mapped("hc_type", "HealthCard/ProvinceCode", "PINNED_HEALTH_CARD_AUTHORITY");
         LocalDate expiry = state.date("hc_renew_date", "HealthCard/Expirydate");
         return new HealthCard(number, version, expiry, province);
@@ -337,37 +493,6 @@ public final class CdsExportDemographicMapper {
     }
 
     /**
-     * The native middleNames column holds up to 100 code points, and one schema name part holds
-     * 50. The CARLOS importer builds middleNames by joining the ordered GIV OtherName parts with
-     * single spaces (CdsDemographicPersister), so a longer value is written as its
-     * space-separated names, one OtherName part each, and the importer rebuilds the identical
-     * string. A value that fits one part keeps its single part. A single name longer than 50
-     * still requires review; nothing is truncated.
-     */
-    private static String middleNames(State state) {
-        String path = "Names/LegalName/OtherName/Part";
-        String value = state.value("middleNames");
-        if (!state.present("middleNames") || value.codePointCount(0, value.length()) <= 50)
-            return state.token("middleNames", path, 50, false);
-        String checked = state.token("middleNames", path, 100, false);
-        if (checked == null) return null;
-        for (String part : checked.split(" ", -1))
-            if (part.codePointCount(0, part.length()) > 50) {
-                state.review("middleNames", path, "WIRE_LENGTH_REQUIRES_REVIEW");
-                return null;
-            }
-        state.mapped("middleNames", path, "SPACE_SEPARATED_MIDDLE_NAMES_AS_ORDERED_PARTS");
-        return checked;
-    }
-
-    /** The OtherName parts that carry a mapped middleNames value; see {@link #middleNames}. */
-    static java.util.List<String> middleNameParts(String middle) {
-        return middle.codePointCount(0, middle.length()) <= 50
-                ? java.util.List.of(middle)
-                : java.util.List.of(middle.split(" ", -1));
-    }
-
-    /**
      * Native spoken_lang stores the display name that add-form-personal.jsp offers from
      * SpokenLangProperties (spoken_languages_codes.properties). That same table gives its ISO
      * 639-2 code, and the CARLOS importer reverses it with SpokenLangProperties.getLangByCode
@@ -396,25 +521,16 @@ public final class CdsExportDemographicMapper {
         return code.toLowerCase(java.util.Locale.ROOT);
     }
 
+    /**
+     * PhoneNumber is optional: a number its 25-character token cannot hold (blank, or with a
+     * character XML cannot carry; the REST service saves what it is sent) is left out and
+     * carried. An extension left without its number travels in the record
+     * ({@link CdsExportDemographicPhonesMapper}).
+     */
     private static void phone(
             State state, java.util.List<Phone> phones, String type, String column) {
-        String number = state.token(column, "PhoneNumber[" + type + "]/phoneNumber", 25, false);
+        String number = state.optionalToken(column, "PhoneNumber[" + type + "]/phoneNumber", 25);
         if (number != null) phones.add(new Phone(type, number));
-    }
-
-    private static Map<String, String> titles() {
-        var result = new LinkedHashMap<String, String>();
-        for (String title :
-                Set.of(
-                        "Bro", "Capt", "Chief", "Cst", "Corp", "Dr", "Fr", "Hon", "Lt", "Madam",
-                        "Mme", "Mlle", "Major", "Mayor", "Miss", "Mr", "Mssr", "Mrs", "Ms", "Prof",
-                        "Reeve", "Rev", "RtHon", "Sen", "Sgt", "Sr")) {
-            result.put(title, title);
-            result.put(title.toUpperCase(java.util.Locale.ROOT), title);
-        }
-        // add-form-personal.jsp stores "Right Honourable" as RT_HON; the schema code is RtHon.
-        result.put("RT_HON", "RtHon");
-        return Map.copyOf(result);
     }
 
     private static final class State {
@@ -455,10 +571,6 @@ public final class CdsExportDemographicMapper {
             assessments.put(column, new Assessment(presence(value(column)), outcome, path, rule));
         }
 
-        private void review(String column, String path, String rule) {
-            set(column, Outcome.REQUIRES_REVIEW, path, rule);
-        }
-
         private void mapped(String column, String path, String rule) {
             set(column, Outcome.MAPPED, path, rule);
         }
@@ -480,8 +592,8 @@ public final class CdsExportDemographicMapper {
         }
 
         /**
-         * The element holds a normalized form of the value; the exact stored value also travels
-         * in the native demographic record.
+         * The element holds the value a documented rule gives for it; the exact stored value
+         * (SQL NULL and empty text included) also travels in the native demographic record.
          */
         private void alsoCarried(String column, String path, String rule) {
             set(
@@ -491,17 +603,44 @@ public final class CdsExportDemographicMapper {
                     rule);
         }
 
-        /** An optional token: a value the element cannot hold is carried, never a hold. */
+        /**
+         * The xs:token form of a value when an element of {@code maximum} characters can hold it
+         * (not blank, no character XML cannot carry), else null.
+         */
+        private static String usableToken(String value, int maximum) {
+            if (value == null) return null;
+            String collapsed = CdsDemographicCarrierContract.token(value);
+            return collapsed.isEmpty()
+                            || collapsed.codePointCount(0, collapsed.length()) > maximum
+                            || !CdsNativeExtensionContract.xmlElementText(collapsed)
+                                    .equals(collapsed)
+                    ? null
+                    : collapsed;
+        }
+
+        /**
+         * Decides a column written as {@code written}, its xs:token form: untrimmed or doubled
+         * white space is collapsed, as every schema reader sees an xs:token, and the exact stored
+         * value is carried.
+         */
+        private void token(String column, String path, String written) {
+            if (written.equals(value(column))) mapped(column, path, "EXACT_NATIVE_TEXT");
+            else alsoCarried(column, path, COLLAPSED);
+        }
+
+        /**
+         * An optional token element: a value it cannot hold (blank, longer than the element, or
+         * with a character XML cannot carry) is left out and carried, never a hold.
+         */
         private String optionalToken(String column, String path, int maximum) {
-            String result = token(column, path, maximum, false);
-            if (result == null
-                    && present(column)
-                    && assessments.get(column).outcome() == Outcome.REQUIRES_REVIEW
-                    && legalText(value(column))) {
+            if (!present(column)) return null;
+            String written = usableToken(value(column), maximum);
+            if (written == null) {
                 carry(column);
                 return null;
             }
-            return result;
+            token(column, path, written);
+            return written;
         }
 
         /** An optional code element: an unlisted value is carried, never a hold. */
@@ -513,76 +652,11 @@ public final class CdsExportDemographicMapper {
             return result;
         }
 
-        private String token(String column, String path, int maximum, boolean required) {
-            if (!present(column)) {
-                if (required) review(column, path, "REQUIRED_VALUE_MISSING");
-                return null;
-            }
-            String value = value(column);
-            if (value.startsWith(" ")
-                    || value.endsWith(" ")
-                    || value.contains("  ")
-                    || value.indexOf('\t') >= 0
-                    || value.indexOf('\r') >= 0
-                    || value.indexOf('\n') >= 0) {
-                // Untrimmed copy-pasted text: the element is xs:token, so every schema reader sees
-                // the collapsed value anyway. The collapsed value is written and the exact stored
-                // value travels in the native demographic record.
-                String collapsed = value.strip().replaceAll("[ \t\r\n]+", " ");
-                if (collapsed.isEmpty() || !legalText(value)) {
-                    review(column, path, "TOKEN_WHITESPACE_REQUIRES_REVIEW");
-                    return null;
-                }
-                if (collapsed.codePointCount(0, collapsed.length()) > maximum
-                        || !legalText(collapsed)) {
-                    review(column, path, "WIRE_LENGTH_REQUIRES_REVIEW");
-                    return null;
-                }
-                alsoCarried(column, path, "XS_TOKEN_WHITESPACE_COLLAPSED_EXACT_VALUE_CARRIED");
-                return collapsed;
-            }
-            return text(column, path, maximum);
-        }
-
-        private String text(String column, String path, int maximum) {
-            String value = value(column);
-            if (!present(column)) return null;
-            if (value.codePointCount(0, value.length()) > maximum) {
-                review(column, path, "WIRE_LENGTH_REQUIRES_REVIEW");
-                return null;
-            }
-            if (value.codePoints()
-                    .anyMatch(
-                            code ->
-                                    code < 0x20 && code != '\t' && code != '\n' && code != '\r'
-                                            || code >= 0xd800 && code <= 0xdfff
-                                            || code == 0xfffe
-                                            || code == 0xffff)) {
-                review(column, path, "XML_CHARACTER_REQUIRES_REVIEW");
-                return null;
-            }
-            mapped(column, path, "EXACT_NATIVE_TEXT");
-            return value;
-        }
-
-        private static boolean legalText(String value) {
-            return value.codePoints()
-                    .noneMatch(
-                            code ->
-                                    code < 0x20 && code != '\t' && code != '\n' && code != '\r'
-                                            || code >= 0xd800 && code <= 0xdfff
-                                            || code == 0xfffe
-                                            || code == 0xffff);
-        }
-
-        private String code(String column, String path, Map<String, String> mapping) {
-            if (!present(column)) return null;
-            String result = mapping.get(value(column));
-            if (result == null) review(column, path, "CODE_REQUIRES_REVIEW");
-            else mapped(column, path, "REVIEWED_NATIVE_CODE");
-            return result;
-        }
-
+        /**
+         * An optional date element. A DATE column is captured as yyyy-MM-dd; a stored value that
+         * is not a calendar date (the zero date, which a session without strict SQL mode stores)
+         * is left out and carried.
+         */
         private LocalDate date(String column, String path) {
             if (!present(column)) return null;
             try {
@@ -594,7 +668,7 @@ public final class CdsExportDemographicMapper {
                 mapped(column, path, "EXACT_NATIVE_CALENDAR_DATE");
                 return date;
             } catch (DateTimeException failure) {
-                review(column, path, "EXACT_CALENDAR_DATE_REQUIRED");
+                carry(column);
                 return null;
             }
         }

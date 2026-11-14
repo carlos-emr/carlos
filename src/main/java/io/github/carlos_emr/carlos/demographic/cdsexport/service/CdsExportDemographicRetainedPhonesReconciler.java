@@ -82,7 +82,8 @@ public final class CdsExportDemographicRetainedPhonesReconciler {
         }
     }
 
-    private record Property(boolean unchanged) {}
+    /** A phone row the import wrote: its id and whether its key, value and flag are unchanged. */
+    private record Property(String id, boolean unchanged) {}
 
     public Result reconcile(
             int patient,
@@ -143,9 +144,20 @@ public final class CdsExportDemographicRetainedPhonesReconciler {
         for (String kind : List.of("R", "W", "C")) {
             checkpoint.run();
             String key = KEYS.get(kind);
+            // The visible row of this key the chart shows decides the phone, as on a chart
+            // added in CARLOS (CdsExportDemographicPhonesMapper): a hidden row, or another row
+            // of a repeated key, is carried by the native decisions below and never holds.
             var properties =
-                    known.stream().filter(row -> key.equals(row.fields().get("key_val"))).toList();
-            var property = properties.size() == 1 ? properties.getFirst() : null;
+                    known.stream()
+                            .filter(
+                                    row ->
+                                            key.equals(row.fields().get("key_val"))
+                                                    && "0".equals(row.fields().get("hidden")))
+                            .toList();
+            var property =
+                    properties.stream()
+                            .max(CdsExportDemographicPhonesMapper::compareShown)
+                            .orElse(null);
             var prior = original.get(key);
             var occurrences = byKind.getOrDefault(kind, List.of());
             var prepared =
@@ -156,7 +168,12 @@ public final class CdsExportDemographicRetainedPhonesReconciler {
                                     : evidence.preparation().cell();
             String column = kind.equals("R") ? "phone" : "phone2";
             boolean propertyProven = prior != null || expected(evidence.preparation(), key) == null;
-            boolean propertyChanged = prior == null ? property != null : !prior.unchanged();
+            boolean propertyChanged =
+                    prior == null
+                            ? property != null
+                            : !prior.unchanged()
+                                    || property == null
+                                    || !prior.id().equals(property.fields().get("id"));
             boolean numberProven =
                     kind.equals("C")
                             ? propertyProven
@@ -181,28 +198,10 @@ public final class CdsExportDemographicRetainedPhonesReconciler {
                                     .changedColumns()
                                     .contains(column);
             boolean edited = numberChanged || propertyChanged;
-            boolean metadataInvalid =
-                    properties.size() > 1
-                            || properties.stream()
-                                    .anyMatch(
-                                            row ->
-                                                    !"0".equals(row.fields().get("hidden"))
-                                                            || fields.get(
-                                                                                    new CdsExportNativeFieldKeyDto(
-                                                                                            row
-                                                                                                    .table(),
-                                                                                            row
-                                                                                                    .recordKey(),
-                                                                                            "key_val"))
-                                                                            .outcome()
-                                                                    == Outcome.REQUIRES_REVIEW);
             String rule;
             boolean review = false;
             if (!numberProven || !propertyProven) {
                 rule = "PREPARED_NATIVE_PHONE_PROJECTION_NOT_PROVEN";
-                review = true;
-            } else if (metadataInvalid) {
-                rule = "HIDDEN_OR_DUPLICATE_PHONE_PROPERTY_REQUIRES_REVIEW";
                 review = true;
             } else if (prepared != null && occurrences.isEmpty()) {
                 rule = "PREPARED_SOURCE_PHONE_REQUIRED";
@@ -331,8 +330,8 @@ public final class CdsExportDemographicRetainedPhonesReconciler {
                                     new CdsExportNativeFieldKeyDto(
                                             property.table(), property.recordKey(), "value"))))
                 markProperty(property, fields, Outcome.MAPPED, "PhoneNumber[C]", rule);
-            if (review)
-                for (var row : properties)
+            if (review && property != null)
+                for (var row : List.of(property))
                     markProperty(
                             row,
                             fields,
@@ -501,6 +500,12 @@ public final class CdsExportDemographicRetainedPhonesReconciler {
                         || !Set.of("date_time").containsAll(difference.unqualifiedColumns()))
                     throw new IOException(
                             "CDS_EXPORT_DEMOGRAPHIC_PHONE_FIELD_CODEC_REQUIRES_REVIEW");
+                // A row the import restored from a CARLOS sender's native demographic record is
+                // no phone projection: the current row is decided as on a chart added in CARLOS.
+                if (restored(old, preparation)) {
+                    alias(index, address, id);
+                    continue;
+                }
                 String originalKey = null;
                 for (String candidate : KEYS.values())
                     if (CdsExportCapturedTextWitness.matches(old, "key_val", candidate))
@@ -515,18 +520,11 @@ public final class CdsExportDemographicRetainedPhonesReconciler {
                                 old, "value", expected(preparation, originalKey)))
                     throw new IOException(
                             "CDS_EXPORT_DEMOGRAPHIC_PHONE_PROPERTY_PROJECTION_REQUIRES_REVIEW");
-                for (var other : index.references().entrySet())
-                    if (!other.getKey().equals(address)
-                            && other.getValue().stream()
-                                    .anyMatch(
-                                            candidate ->
-                                                    candidate.table().equals("demographicExt")
-                                                            && candidate.id().equals(id)))
-                        throw new IOException(
-                                "CDS_EXPORT_DEMOGRAPHIC_PHONE_PROPERTY_ALIAS_REQUIRES_REVIEW");
+                alias(index, address, id);
                 if (result.putIfAbsent(
                                 originalKey,
                                 new Property(
+                                        id,
                                         Collections.disjoint(
                                                 difference.changedColumns(),
                                                 Set.of(
@@ -539,6 +537,34 @@ public final class CdsExportDemographicRetainedPhonesReconciler {
                             "CDS_EXPORT_DEMOGRAPHIC_PHONE_PROPERTY_ALIAS_REQUIRES_REVIEW");
             }
         return result;
+    }
+
+    /** No other import unit may claim the same row. */
+    private static void alias(CdsExportRetainedIndexDto index, String address, String id)
+            throws IOException {
+        for (var other : index.references().entrySet())
+            if (!other.getKey().equals(address)
+                    && other.getValue().stream()
+                            .anyMatch(
+                                    candidate ->
+                                            candidate.table().equals("demographicExt")
+                                                    && candidate.id().equals(id)))
+                throw new IOException(
+                        "CDS_EXPORT_DEMOGRAPHIC_PHONE_PROPERTY_ALIAS_REQUIRES_REVIEW");
+    }
+
+    /**
+     * Whether the row, as the import wrote it, is one the preparation restored from a CARLOS
+     * sender's native demographic record (same key, value and flag).
+     */
+    private static boolean restored(CdsNativeRowState old, CdsDemographicNativeDto preparation)
+            throws IOException {
+        for (var property : preparation.properties())
+            if (CdsExportCapturedTextWitness.matches(old, "key_val", property.key())
+                    && CdsExportCapturedTextWitness.matches(old, "value", property.value())
+                    && CdsExportCapturedTextWitness.matches(
+                            old, "hidden", property.hidden() ? "1" : "0")) return true;
+        return false;
     }
 
     private static String expected(CdsDemographicNativeDto preparation, String key) {

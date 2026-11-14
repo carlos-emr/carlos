@@ -305,12 +305,14 @@ class CdsExportDemographicAddressReconcilerUnitTest {
     }
 
     @Test
-    void shouldStillHoldTheChart_forAnAddressValueNoXmlDocumentCanCarry() throws Exception {
+    void shouldLeaveOutACityNoXmlDocumentCanCarry_insteadOfHoldingTheChart() throws Exception {
+        // Before: CURRENT_NATIVE_ADDRESS_REQUIRES_REVIEW held the chart. The city is left out of
+        // the address and travels in the native demographic record (the native decision).
         formatted();
         fixture.currentField("city", "Bad\u0001Town");
         var result = reconcile();
-        assertThat(result.representable()).isFalse();
-        assertThat(rule(result, "city")).isEqualTo("CURRENT_NATIVE_ADDRESS_REQUIRES_REVIEW");
+        assertThat(result.representable()).isTrue();
+        assertThat(text(render(result), "City")).doesNotContain("Bad\u0001Town", "Bad\ufffdTown");
     }
 
     @Test

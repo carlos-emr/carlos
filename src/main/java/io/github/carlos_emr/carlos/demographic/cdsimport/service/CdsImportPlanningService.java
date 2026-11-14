@@ -523,8 +523,14 @@ public class CdsImportPlanningService {
                         }
                         boolean canonicalReplay = patient.targetDemographicNo() != null;
                         if (canonicalReplay) {
+                            // The chart the import wrote holds the exact identity values a CARLOS
+                            // sender carries for elements it could not write exactly.
                             if (!identity.matchesCanonical(
-                                    source, patient.targetDemographicNo(), command))
+                                    source,
+                                    new CdsDemographicCarriedValuesResolver(fields)
+                                            .identity(demographic[0]),
+                                    patient.targetDemographicNo(),
+                                    command))
                                 throw new CdsImportException("CANONICAL_TARGET_IDENTITY_CONFLICT");
                         } else {
                             var target = identity.resolve(source, command);

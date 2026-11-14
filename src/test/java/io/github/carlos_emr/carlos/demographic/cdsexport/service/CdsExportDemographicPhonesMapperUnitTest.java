@@ -108,29 +108,54 @@ class CdsExportDemographicPhonesMapperUnitTest {
     }
 
     @Test
-    void shouldVerifyDuplicateVisibleKeysRequireReviewEven_whenTheStringsAreEqual()
+    void shouldDecideTheRowTheChartShows_andCarryAnotherRowOfARepeatedPhoneKey()
             throws Exception {
-        var result = map(List.of(property(1, "hPhoneExt", "12"), property(2, "hPhoneExt", "12")));
-        assertThat(result.baseRowRepresentable()).isFalse();
-        assertThat(result.phones().getFirst().extension()).isNull();
+        // A table adopted without the one-row-per-key index (V1.0.54) can hold two rows of one
+        // phone key. The chart shows the later row (DemographicExtDao.getLatestDemographicExt):
+        // it gives the extension, and the other row travels in the native record.
+        var later = changed(property(2, "hPhoneExt", "34"), "date_time", "2024-02-01 00:00:00");
+        var result = map(List.of(property(1, "hPhoneExt", "12"), later));
+        assertThat(result.baseRowRepresentable()).isTrue();
+        assertThat(result.phones().getFirst().extension()).isEqualTo("34");
         assertThat(result.relatedFields()).hasSize(16);
-        assertThatThrownBy(() -> parse(result))
-                .hasMessage("CDS_EXPORT_DEMOGRAPHIC_MAPPING_REQUIRES_REVIEW");
+        assertCarriedRow(result, 1);
+        assertThat(value(result, 2).destination()).isEqualTo("PhoneNumber[R]/extension");
+        parse(result);
+        // Equal times: the higher id is the row shown; equal values change nothing.
+        var tied = map(List.of(property(1, "hPhoneExt", "12"), property(2, "hPhoneExt", "12")));
+        assertThat(tied.baseRowRepresentable()).isTrue();
+        assertThat(tied.phones().getFirst().extension()).isEqualTo("12");
+        assertCarriedRow(tied, 1);
+        assertThat(value(tied, 2).destination()).isEqualTo("PhoneNumber[R]/extension");
+        parse(tied);
     }
 
     @Test
-    void
-            shouldVerifyHiddenUnknownAndUnmappedPropertiesAreNeverTreatedAsEmptySourceTables_forDemographicPhonesMapperContract()
-                    throws Exception {
+    void shouldCarryHiddenAndKeylessRows_insteadOfHoldingTheChart() throws Exception {
+        // Only the REST API writes the hidden flag and an extra without a key; nothing in CARLOS
+        // reads the flag. Such a row travels whole in the native record and never holds.
         for (var row :
                 List.of(
                         changed(property(1, "hPhoneExt", "12"), "hidden", "1"),
-                        changed(property(1, "hPhoneExt", "12"), "hidden", null),
-                        property(1, null, "Additional value"),
-                        property(1, "", "Additional value"))) {
+                        changed(property(1, "hPhoneExt", "12"), "hidden", null))) {
             var result = map(List.of(row));
-            assertThat(result.baseRowRepresentable()).isFalse();
+            assertThat(result.baseRowRepresentable()).isTrue();
+            assertThat(result.phones().getFirst().extension()).isNull();
             assertThat(result.relatedFields()).hasSize(8);
+            assertCarriedRow(result, 1);
+            var hidden = field(result, 1, "hidden");
+            assertThat(hidden.outcome()).isEqualTo(Outcome.MAPPED);
+            assertThat(hidden.destination())
+                    .isEqualTo(CdsExportDemographicSupportingMapper.DESTINATION);
+            assertThat(hidden.rule()).isEqualTo(CdsExportDemographicPhonesMapper.HIDDEN_PROPERTY);
+            parse(result);
+        }
+        for (String key : new String[] {null, ""}) {
+            var result = map(List.of(property(1, key, "Additional value")));
+            assertThat(result.baseRowRepresentable()).isTrue();
+            assertThat(value(result, 1).destination())
+                    .isEqualTo(CdsExportDemographicSupportingMapper.DESTINATION);
+            assertThat(field(result, 1, "key_val").outcome()).isEqualTo(Outcome.ABSENT);
         }
         // A visible property with a key and no Demographics element travels in the native
         // demographic NewCategory record instead of holding the chart.
@@ -143,7 +168,29 @@ class CdsExportDemographicPhonesMapperUnitTest {
                         List.of(
                                 property(1, "demo_cell", "613-555-0000"),
                                 changed(property(2, "demo_cell", "Older mobile"), "hidden", "1")));
-        assertThat(hidden.baseRowRepresentable()).isFalse();
+        assertThat(hidden.baseRowRepresentable()).isTrue();
+        assertThat(hidden.phones())
+                .extracting(CdsExportDemographicMappingDto.Phone::number)
+                .contains("613-555-0000");
+        assertCarriedRow(hidden, 2);
+    }
+
+    private static CdsExportFieldAssessmentDto field(
+            CdsExportDemographicMappingDto value, long id, String column) {
+        return value.relatedFields()
+                .get(
+                        new CdsExportNativeFieldKeyDto(
+                                "demographicExt", CdsExportPatientTableSourceReader.key(id), column));
+    }
+
+    /** The row's key and value travel in the native demographic record. */
+    private static void assertCarriedRow(CdsExportDemographicMappingDto value, long id) {
+        for (String column : List.of("key_val", "value")) {
+            var decision = field(value, id, column);
+            assertThat(decision.outcome()).isEqualTo(Outcome.MAPPED);
+            assertThat(decision.destination())
+                    .isEqualTo(CdsExportDemographicSupportingMapper.DESTINATION);
+        }
     }
 
     @Test

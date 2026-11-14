@@ -176,7 +176,9 @@ class CdsExportDemographicAdjunctAssemblyUnitTest {
     @Test
     void shouldVerifyOneUnrepresentableCoreFieldPreventsIndependentValidEdits_fromLeakingIntoAPlan()
             throws Exception {
-        fixture.currentField("sex", "BAD");
+        // A baseline that is not what the import prepared still holds the chart (an integrity
+        // check no screen can reach); a sex outside the codes no longer does (Gender U).
+        fixture.oldField("first_name", "Different existing");
         current.set(1, changed(current.get(1), "value", "0023"));
         var result = reconcile();
         assertThat(result.coreRepresentable()).isFalse();

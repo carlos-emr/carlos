@@ -228,13 +228,21 @@ public final class CdsExportDemographicSupportingMapper {
         }
     }
 
+    /**
+     * JSON of the record of a chart that carries nothing ({@link #nothingCarried}): the version
+     * 1 members, all empty.
+     */
+    static final String NOTHING_CARRIED_JSON =
+            "{\"version\":1,\"demographic\":{},\"roster\":{},\"careTeam\":[],"
+                    + "\"properties\":[],\"related\":[]}";
+
     /** The record's JSON and the decision of every value it carries. */
     public record Record(
             String json, Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields) {
         public Record {
             Objects.requireNonNull(json);
             fields = Map.copyOf(fields);
-            if (fields.isEmpty()
+            if (fields.isEmpty() && !json.equals(NOTHING_CARRIED_JSON)
                     || fields.values().stream()
                             .anyMatch(field -> field.outcome() != Outcome.MAPPED || !carries(field)))
                 throw new IllegalArgumentException(
@@ -340,12 +348,17 @@ public final class CdsExportDemographicSupportingMapper {
         return Map.copyOf(result);
     }
 
-    /** Provider numbers the record may name: the care team and the current enrolled provider. */
+    /**
+     * Provider numbers the record may name: the care team and the current enrolled provider, and
+     * the primary physician, whose number the record carries when it names no provider record.
+     */
     static List<String> references(
             CdsExportCapturedTextRowDto current, CdsExportCapturedTextRowDto custom) {
         var result = new ArrayList<>(careTeamReferences(custom));
-        String enrolled = current.fields().get("roster_enrolled_to");
-        if (present(enrolled) && !result.contains(enrolled)) result.add(enrolled);
+        for (String column : List.of("roster_enrolled_to", "provider_no")) {
+            String id = current.fields().get(column);
+            if (present(id) && !result.contains(id)) result.add(id);
+        }
         return List.copyOf(result);
     }
 
@@ -377,8 +390,12 @@ public final class CdsExportDemographicSupportingMapper {
         var raw = new LinkedHashMap<>(current.fields());
         raw.remove("demographic_no");
         var row = new CdsExportDemographicRowDto(rows.patient(), raw);
-        // Base-row values whose element cannot hold them, or holds only a normalized form.
-        var base = new CdsExportDemographicMapper().map(row);
+        // Base-row values whose element cannot hold them, or holds only a normalized form. The
+        // primary physician's provider row decides whether its number is carried.
+        String physician = current.fields().get("provider_no");
+        var base =
+                new CdsExportDemographicMapper()
+                        .map(row, present(physician) ? rows.providers().get(physician) : null);
         for (String column : CdsExportDemographicRowDto.COLUMNS) {
             checkpoint.run();
             String value = current.fields().get(column);
@@ -462,22 +479,25 @@ public final class CdsExportDemographicSupportingMapper {
                             .sorted(Comparator.comparing(CdsExportCapturedTextRowDto::recordKey))
                             .toList()) {
                 checkpoint.run();
-                var key =
-                        new CdsExportNativeFieldKeyDto(
-                                property.table(), property.recordKey(), "value");
-                var decision = phones.relatedFields().get(key);
-                if (decision == null || !carries(decision)) continue;
+                boolean carried = false;
+                for (String column : List.of("key_val", "value", "hidden")) {
+                    var field =
+                            new CdsExportNativeFieldKeyDto(
+                                    property.table(), property.recordKey(), column);
+                    var decision = phones.relatedFields().get(field);
+                    if (decision == null || !carries(decision)) continue;
+                    fields.put(field, decision);
+                    carried = true;
+                }
+                if (!carried) continue;
                 var entry = new LinkedHashMap<String, Object>();
                 entry.put("id", property.fields().get("id"));
                 entry.put("key", property.fields().get("key_val"));
                 entry.put("value", property.fields().get("value"));
+                // Only a row whose flag is set states it, so a visible row's entry is unchanged.
+                String hidden = property.fields().get("hidden");
+                if (!"0".equals(hidden)) entry.put("hidden", hidden);
                 properties.add(entry);
-                for (String column : List.of("key_val", "value")) {
-                    var field =
-                            new CdsExportNativeFieldKeyDto(
-                                    property.table(), property.recordKey(), column);
-                    fields.put(field, phones.relatedFields().get(field));
-                }
             }
         }
         // Pharmacy and contact values PreferredPharmacy, Contact, ReferredPhysician and
@@ -560,6 +580,17 @@ public final class CdsExportDemographicSupportingMapper {
         // demographic values.
         checkpoint.run();
         return new Record(json, fields);
+    }
+
+    /**
+     * The record of a chart that carries no value, written only when the chart also re-exports a
+     * retained NewCategory record. A CARLOS importer restores from the last native demographic
+     * record of a patient file; a chart imported from another CARLOS re-exports that sender's
+     * record before its own, so its own record must always follow, even empty, or the earlier
+     * sender's values would be taken for this chart's.
+     */
+    public static Record nothingCarried() {
+        return new Record(NOTHING_CARRIED_JSON, Map.of());
     }
 
     /** Schema-ordered NewCategory content of the record. */
