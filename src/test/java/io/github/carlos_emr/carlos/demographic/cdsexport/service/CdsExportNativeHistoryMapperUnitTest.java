@@ -1657,4 +1657,78 @@ class CdsExportNativeHistoryMapperUnitTest {
                 .isEqualTo("a\u0001");
         render(note.value());
     }
+
+    /** A CPP item whose current revision links the given section tags, in link order. */
+    static CdsExportHistoryFieldReconciler.Current filedUnder(
+            long id, String body, String... tags) {
+        var issues = new ArrayList<CdsExportHistoryFieldReconciler.Row>();
+        var definitions = new ArrayList<CdsExportHistoryFieldReconciler.Row>();
+        for (int i = 0; i < tags.length; i++) {
+            issues.add(uiIssue(41 + i, 51 + i, "10034"));
+            definitions.add(catalogue(51 + i, tags[i], "system"));
+        }
+        return uiNote(id, body, "10034", issues, definitions);
+    }
+
+    @Test
+    void shouldExportAnItemFiledUnderTwoSectionsOnce_underTheFirstNamingTheOther()
+            throws Exception {
+        // The clinician filed a family history item under Past Health too; the link order does
+        // not decide. It held the patient (CDS_EXPORT_NATIVE_HISTORY_CATEGORY_AMBIGUOUS).
+        var item = filedUnder(91, "Mother: type 2 diabetes", "MedHistory", "FamHistory");
+        assertThat(CdsExportNativeHistoryMapper.category(item))
+                .isEqualTo(CdsCategory.FAMILY_HISTORY);
+        var result = map(CdsCategory.FAMILY_HISTORY, List.of(item));
+        assertThat(result.value().text())
+                .containsEntry("ProblemDiagnosisProcedureDescription", "Mother: type 2 diabetes")
+                .containsEntry("Notes", "Also filed under:\nPast Health");
+        var details = new com.fasterxml.jackson.databind.ObjectMapper().readTree(
+                result.value().metadata());
+        assertThat(details.get("sections").toString()).isEqualTo("[\"FamHistory\",\"MedHistory\"]");
+        // Both tag rows stay exact in the revision's issue facts.
+        assertThat(details.get("revisions").get(0).get("issues").findValuesAsText("definition.code"))
+                .containsExactlyInAnyOrder("FamHistory", "MedHistory");
+        String xml = new String(render(result.value()), StandardCharsets.UTF_8);
+        assertThat(xml).contains("<Notes>Also filed under:\nPast Health</Notes>");
+        // The category is the rule's: the other section is an integrity fault of the caller.
+        assertThatThrownBy(() -> map(CdsCategory.PAST_HEALTH, List.of(item)))
+                .hasMessage("CDS_EXPORT_NATIVE_HISTORY_SCOPE_INVALID");
+        // An item of one section has neither.
+        var single = map(CdsCategory.FAMILY_HISTORY, List.of(filedUnder(92, "Father", "FamHistory")));
+        assertThat(single.value().text()).doesNotContainKey("Notes");
+        assertThat(single.value().metadata()).doesNotContain("\"sections\"");
+    }
+
+    @Test
+    void shouldNameEveryOtherSection_inTheReadableCopyOfAPersonalHistoryItem() throws Exception {
+        var item = filedUnder(91, "Lives alone; uses a walker", "Reminders", "Concerns", "SocHistory");
+        assertThat(CdsExportNativeHistoryMapper.category(item))
+                .isEqualTo(CdsCategory.PERSONAL_HISTORY);
+        var result = map(CdsCategory.PERSONAL_HISTORY, List.of(item));
+        assertThat(result.value().text())
+                .containsEntry(
+                        CdsExportNativeHistoryMapper.STATEMENTS,
+                        "Also filed under:\nProblem List\nAlerts and Special Needs");
+        assertThat(result.value().metadata())
+                .contains("\"sections\":[\"SocHistory\",\"Concerns\",\"Reminders\"]");
+        assertThat(new String(render(result.value()), StandardCharsets.UTF_8))
+                .contains("Also filed under:");
+    }
+
+    @Test
+    void shouldLeadTheNotesStatements_withTheOtherSections() throws Exception {
+        // A problem also kept as a risk factor, with a value its element cannot hold: the other
+        // section is named first, so it is the last statement Notes would leave out.
+        var item = filedUnder(91, "Smoker", "RiskFactors", "Concerns");
+        var withExtension =
+                new CdsExportHistoryFieldReconciler.Current(
+                        item.note(),
+                        List.of(extension(301, "Problem Status", "s".repeat(51))),
+                        item.links(),
+                        item.patientIssues(),
+                        item.definitions());
+        var result = map(CdsCategory.PROBLEM_LIST, List.of(withExtension));
+        assertThat(result.value().text().get("Notes"))
+                .isEqualTo("Also filed under:\nRisk Factors\n\nProblem Status:\n" + "s".repeat(51));
+    }
 }

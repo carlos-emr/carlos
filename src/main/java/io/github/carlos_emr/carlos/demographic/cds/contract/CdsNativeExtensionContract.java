@@ -132,6 +132,25 @@ public final class CdsNativeExtensionContract {
      */
     public static final String NOTE_BODY_LENGTH = "bodyLength";
 
+    /**
+     * Member at the root of a CPP item's revision details ({@link #NATIVE_HISTORY}): the CPP
+     * section tags the item's current revision is filed under, written only when there are two
+     * or more, as issue codes in {@link #HISTORY_SECTION_TAGS} order. A CDS item has one section,
+     * so the exporter writes the item once, under the first of them, and names the others in its
+     * Notes; a CARLOS importer links the item to each other tag as well, so the receiving chart
+     * shows it in every CPP box the sender's chart did.
+     */
+    public static final String HISTORY_SECTIONS = "sections";
+
+    /**
+     * The six CPP section tags (issue codes) in the order of their sections in a CDS
+     * PatientRecord: PersonalHistory, FamilyHistory, PastHealth, ProblemList, RiskFactors,
+     * AlertsAndSpecialNeeds.
+     */
+    public static final java.util.List<String> HISTORY_SECTION_TAGS =
+            java.util.List.of(
+                    "SocHistory", "FamHistory", "MedHistory", "Concerns", "RiskFactors", "Reminders");
+
     /** CategoryName of the NewCategory record that carries a chart's native demographic values. */
     public static final String NATIVE_DEMOGRAPHIC_CATEGORY = "CARLOS.NativeDemographic.v1";
 

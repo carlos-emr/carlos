@@ -168,6 +168,12 @@ public final class CdsExportNativeHistoryMapper {
 
     static CdsCategory category(CdsExportHistoryFieldReconciler.Current current)
             throws IOException {
+        return category(sections(current));
+    }
+
+    /** The CPP sections the current revision's linked catalogue entries file the note under. */
+    private static EnumSet<CdsCategory> sections(CdsExportHistoryFieldReconciler.Current current)
+            throws IOException {
         var categories = EnumSet.noneOf(CdsCategory.class);
         for (var link : current.links()) {
             var patientIssue = current.patientIssues().get(link.fields().get("id"));
@@ -178,7 +184,7 @@ public final class CdsExportNativeHistoryMapper {
             var category = tag(definition.value());
             if (category != null) categories.add(category);
         }
-        return category(categories);
+        return categories;
     }
 
     /** The CPP section a catalogue entry files its notes under, or null for any other entry. */
@@ -188,12 +194,81 @@ public final class CdsExportNativeHistoryMapper {
     }
 
     /**
-     * The section of a note whose linked catalogue entries carry these CPP tags: the one tag, or
-     * ClinicalNotes for none. A note tagged for two sections has no single wire home.
+     * The section of a note whose linked catalogue entries carry these CPP tags: ClinicalNotes for
+     * none, otherwise the first of them in CDS PatientRecord order (PersonalHistory,
+     * FamilyHistory, PastHealth, ProblemList, RiskFactors, AlertsAndSpecialNeeds; the order
+     * {@link CdsCategory} declares).
+     *
+     * <p>A clinician can file one item under two CPP sections: the issue search of the encounter
+     * and CPP editors ({@code CaseManagementManagerImpl.searchIssues}) offers the six section
+     * tags to any role with "write nurse issues", and the chart then shows the item in both CPP
+     * boxes. A CDS item has one section, so such an item is written once, under the first; its
+     * Notes name the others ({@link #ALSO_FILED_UNDER}) and its details carry every tag
+     * ({@link CdsNativeExtensionContract#HISTORY_SECTIONS}), which a CARLOS importer links again.
+     * The rule depends on the set of tags only, so the same item is filed under the same section
+     * on every export and by every CARLOS that imports it. It held the patient
+     * ({@code CDS_EXPORT_NATIVE_HISTORY_CATEGORY_AMBIGUOUS}).
      */
     static CdsCategory category(Set<CdsCategory> categories) throws IOException {
-        if (categories.size() > 1) review("CDS_EXPORT_NATIVE_HISTORY_CATEGORY_AMBIGUOUS");
-        return categories.isEmpty() ? CdsCategory.CLINICAL_NOTES : categories.iterator().next();
+        return categories.isEmpty() ? CdsCategory.CLINICAL_NOTES : Collections.min(categories);
+    }
+
+    /**
+     * Leads the Notes statement of an item filed under several CPP sections; one section name
+     * per line follows. A receiver that is not CARLOS shows the item in one section only, so its
+     * other sections are named in words.
+     */
+    static final String ALSO_FILED_UNDER = "Also filed under:";
+
+    /** The CDS section names the {@link #ALSO_FILED_UNDER} statement uses. */
+    private static final Map<CdsCategory, String> SECTION_NAMES =
+            Map.of(
+                    CdsCategory.PERSONAL_HISTORY,
+                    "Personal History",
+                    CdsCategory.FAMILY_HISTORY,
+                    "Family History",
+                    CdsCategory.PAST_HEALTH,
+                    "Past Health",
+                    CdsCategory.PROBLEM_LIST,
+                    "Problem List",
+                    CdsCategory.RISK_FACTORS,
+                    "Risk Factors",
+                    CdsCategory.ALERTS_AND_SPECIAL_NEEDS,
+                    "Alerts and Special Needs");
+
+    /**
+     * For an item whose current revision is filed under two or more CPP sections: every section
+     * tag in CDS PatientRecord order in the details ({@link
+     * CdsNativeExtensionContract#HISTORY_SECTIONS}), and the statement that names the sections
+     * other than {@code category}, its first, at the head of its Notes statements.
+     */
+    private static void otherSections(
+            CdsCategory category,
+            Set<CdsCategory> sections,
+            Map<String, Object> context,
+            Set<String> overflow)
+            throws IOException {
+        if (sections.size() < 2) return;
+        if (category != category(sections)) invalid();
+        var tags = new ArrayList<String>();
+        var names = new ArrayList<String>();
+        for (var section : new TreeSet<>(sections)) {
+            tags.add(tagCode(section));
+            if (section != category) names.add(SECTION_NAMES.get(section));
+        }
+        if (!tags.equals(
+                CdsNativeExtensionContract.HISTORY_SECTION_TAGS.stream()
+                        .filter(tags::contains)
+                        .toList())) invalid();
+        context.put(CdsNativeExtensionContract.HISTORY_SECTIONS, tags);
+        overflow.add(ALSO_FILED_UNDER + "\n" + String.join("\n", names));
+    }
+
+    /** The CPP section tag (issue code) of a section. */
+    private static String tagCode(CdsCategory section) throws IOException {
+        for (var entry : TAGS.entrySet()) if (entry.getValue() == section) return entry.getKey();
+        invalid();
+        return null;
     }
 
     public Result map(
@@ -556,6 +631,9 @@ public final class CdsExportNativeHistoryMapper {
                         .put(CdsNativeExtensionContract.NOTE_BODY_LENGTH, bodies.get(i).length());
         var context = versioned("revisions", metadata);
         if (importedSource != null) context.put(sourceKey, importedSource);
+        // An item filed under several CPP sections: written here, under the first; every tag in
+        // the details, and the other sections named first among its Notes statements.
+        otherSections(category, sections(current), context, overflow);
         // A character XML cannot carry is its JSON escape; the decoded details are unchanged.
         String json = CdsExportResidualJson.text(JSON.writeValueAsString(context));
         extensions(category, currentExtensions, text, dates, overflow);

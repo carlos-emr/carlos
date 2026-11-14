@@ -4696,6 +4696,25 @@ The packaged history-source component was checked through a genuine import of al
 `CdsExportNativeHistoryMapper` writes what a standard CPP element cannot hold in the item's Notes
 instead of holding the patient; the exact rows still travel in `CARLOS.NativeHistory.v1`:
 
+- An item filed under two or more CPP sections (owner decision 2026-11-14: once, restore both).
+  The issue search of the encounter and CPP editors (`CaseManagementManagerImpl.searchIssues`,
+  filtered only by role) returns the six section tags, whose role is `nurse`, to any role with
+  "write nurse issues" (the doctor role by default), so a clinician can assign a second section's
+  tag, and the chart then shows the item in both CPP boxes. A CDS item has one section, so the
+  item is written once, under the first of its sections in CDS PatientRecord order
+  (PersonalHistory, FamilyHistory, PastHealth, ProblemList, RiskFactors, AlertsAndSpecialNeeds;
+  `CdsExportNativeHistoryMapper.category`). The rule depends only on the set of tags, never on the
+  order they were assigned in, so every export, and every CARLOS that imports the item and
+  exports it again, files it under the same section. Its Notes statements begin with
+  `Also filed under:` and one CDS section name per line (`Personal History`, `Family History`,
+  `Past Health`, `Problem List`, `Risk Factors`, `Alerts and Special Needs`), ahead of any other
+  statement, so it is the last one Notes would leave out; a PersonalHistory item has no Notes and
+  the line leads the statements in its plain-text copy. Its `CARLOS.NativeHistory.v1` details
+  carry every tag of the current revision as `sections`, in the same order (for example
+  `"sections":["FamHistory","MedHistory"]`), and a CARLOS importer links the item to each other
+  tag as well, so the receiving chart shows it in every box the sender's did (`docs/cds-import.md`).
+  Every tag row is exact in the revision's issue facts, as before. It held the patient
+  (`CDS_EXPORT_NATIVE_HISTORY_CATEGORY_AMBIGUOUS`).
 - A FamilyHistory, PastHealth or ProblemList item with several assigned diagnoses (A24) writes no
   DiagnosisProcedureCode/DiagnosisCode rather than choosing one, and lists every code in Notes
   (`Coded diagnoses:` then one `system code description` per line).
@@ -4754,13 +4773,6 @@ local to the sender and is never restored, as a primary physician's is not.
 
 What still holds a chart in the native history and issue mapping, and why:
 
-- A note filed under two CPP sections (`CDS_EXPORT_NATIVE_HISTORY_CATEGORY_AMBIGUOUS`). Reachable:
-  the issue search of the encounter and CPP editors (`CaseManagementManagerImpl.searchIssues`,
-  filtered only by role) returns the six section tags, whose role is `nurse`, to any role with
-  "write nurse issues" (the doctor role by default), so a clinician can assign a second section's
-  tag. The chart then shows the item in both CPP boxes. It is not settled: a CDS item has one
-  section, and a CARLOS importer links an imported item to its one section tag
-  (`CdsHistoryPersister`), so neither exporting it once nor twice transfers it unchanged.
 - A CPP section tag or other system marker (OMeds, TicklerNote, ...) that files no note
   (`CDS_EXPORT_NATIVE_SYSTEM_ISSUE_WITHOUT_NOTE_REQUIRES_REVIEW`). Reachable: Administration's
   default encounter issues create the patient issue of every code an administrator lists, with no
