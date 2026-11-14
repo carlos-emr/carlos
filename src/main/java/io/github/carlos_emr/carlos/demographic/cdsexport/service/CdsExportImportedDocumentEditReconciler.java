@@ -510,10 +510,9 @@ final class CdsExportImportedDocumentEditReconciler {
                 var out = new StringBuilder();
                 try (Reader input = Objects.requireNonNull(values.text(field))) {
                     char[] buffer = new char[1024];
-                    for (int n; (n = input.read(buffer)) != -1; ) {
-                        out.append(buffer, 0, n);
-                        if (out.length() > 32_768) review("CDS_EXPORT_IMPORTED_REPORT_EDIT_CAPACITY");
-                    }
+                    // Only Class, SubClass, SourceFacility and the author elements are read
+                    // here; the schema the import validated keeps each to 250 characters or less.
+                    for (int n; (n = input.read(buffer)) != -1; ) out.append(buffer, 0, n);
                 }
                 return out.toString();
             }

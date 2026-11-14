@@ -45,6 +45,9 @@ public final class CdsExportNativeReportMapper {
                     "Lab Report",
                     "Other Letter");
 
+    /** Reports/Notes: text32K in the schema, 32,000 characters in the migration dictionary. */
+    static final int NOTES_LENGTH = 32000;
+
     public record Result(
             Map<String, String> text,
             Map<String, CdsExportDateDto> dates,
@@ -215,9 +218,8 @@ public final class CdsExportNativeReportMapper {
                             "EXACT_STORED_HTML_DOCUMENT_CONTENT");
                     continue;
                 }
-                if (entry.getValue() != null
-                        && !CdsExportNativeFieldAssessments.legal(entry.getValue(), 32768))
-                    review("CDS_EXPORT_NATIVE_REPORT_METADATA_CAPACITY");
+                // No column is refused for its size or characters: every one of them is a short
+                // varchar, and Notes writes a character XML cannot carry as its JSON escape.
                 state.set(
                         entry.getKey(),
                         Outcome.MAPPED,
@@ -280,11 +282,13 @@ public final class CdsExportNativeReportMapper {
                 Map.of("source", "SourceAuthorPhysician", "sourceFacility", "SourceFacility")
                         .entrySet()) {
             String value = source.get(entry.getKey());
-            if (value != null && !value.isEmpty()) {
-                if (!CdsExportNativeFieldAssessments.legal(value, 120))
-                    review("CDS_EXPORT_NATIVE_REPORT_SOURCE_CAPACITY");
+            // AuthorFreeText and SourceFacility are text120. The columns are no longer than that,
+            // so only a character XML cannot carry keeps a value out of its element; it stays
+            // exact in Notes with the rest of the row and holds nothing.
+            if (value != null
+                    && !value.isEmpty()
+                    && CdsExportNativeFieldAssessments.legal(value, 120))
                 text.put(entry.getValue(), value);
-            }
         }
         CdsExportPublicProviderDto reviewer = null;
         CdsExportDateDto reviewDate = null;
@@ -373,8 +377,15 @@ public final class CdsExportNativeReportMapper {
         }
         String notes =
                 "[CARLOS native report source context]\n"
-                        + JsonMapper.builder().build().writeValueAsString(details);
-        if (!CdsExportNativeFieldAssessments.legal(notes, 32000))
+                        + CdsExportResidualJson.text(
+                                JsonMapper.builder().build().writeValueAsString(details));
+        // Notes is the only free text of a Reports record and the category has no ResidualInfo,
+        // so the dictionary's 32,000 characters are the room there is. The document and link rows
+        // always fit (short varchars); only the review rows of a document routed to dozens of
+        // providers can exceed it. Carrying those needs a second Reports record, which the
+        // patient inventory would have to expect, so until then the patient is held rather than
+        // a review being cut.
+        if (notes.codePointCount(0, notes.length()) > NOTES_LENGTH)
             review("CDS_EXPORT_NATIVE_REPORT_METADATA_CAPACITY");
         text.put("Notes", notes);
         return new Result(text, dates, reviewer, reviewDate, fields, rows, additional);

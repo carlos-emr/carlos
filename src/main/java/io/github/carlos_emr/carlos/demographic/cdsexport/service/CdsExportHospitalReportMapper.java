@@ -611,8 +611,13 @@ final class CdsExportHospitalReportMapper {
         for (String line : preface) notes.append(line).append('\n');
         if (!preface.isEmpty()) notes.append('\n');
         notes.append(NOTES_HEADER).append('\n');
-        notes.append(JsonMapper.builder().build().writeValueAsString(details));
-        if (!CdsExportNativeFieldAssessments.legal(notes.toString(), 32000))
+        notes.append(
+                CdsExportResidualJson.text(JsonMapper.builder().build().writeValueAsString(details)));
+        // Notes is the record's only free text and Reports has no ResidualInfo: comments and
+        // message values are held, not cut, when they pass its 32,000 characters (see
+        // CdsExportNativeReportMapper.NOTES_LENGTH).
+        if (!CdsExportNativeFieldAssessments.legal(
+                notes.toString(), CdsExportNativeReportMapper.NOTES_LENGTH))
             review("CDS_EXPORT_HRM_REPORT_METADATA_CAPACITY");
         text.put("Notes", notes.toString());
         return new Result(

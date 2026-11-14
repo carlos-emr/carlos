@@ -255,8 +255,13 @@ final class CdsExportLaboratoryDocumentMapper {
                     "[CARLOS embedded laboratory document]\nAccession number: "
                             + accession
                             + "\n"
-                            + JsonMapper.builder().build().writeValueAsString(details);
-            if (!CdsExportNativeFieldAssessments.legal(written, 32000))
+                            + CdsExportResidualJson.text(
+                                    JsonMapper.builder().build().writeValueAsString(details));
+            // Notes is the record's only free text and Reports has no ResidualInfo: the reviews
+            // and the laboratory's notes are held, not cut, when they pass its 32,000 characters
+            // (see CdsExportNativeReportMapper.NOTES_LENGTH).
+            if (!CdsExportNativeFieldAssessments.legal(
+                    written, CdsExportNativeReportMapper.NOTES_LENGTH))
                 review("CDS_EXPORT_NATIVE_LAB_DOCUMENT_NOTES_CAPACITY");
             text.put("Notes", written);
             // An acknowledgement of the report is a review of each of its documents; the date-only

@@ -430,6 +430,25 @@ class CdsExportNativeReportMapperUnitTest {
     }
 
     @Test
+    void shouldExportTheReport_whenAColumnHoldsACharacterXmlCannotCarry() throws Exception {
+        // Before: CDS_EXPORT_NATIVE_REPORT_SOURCE_CAPACITY and ..._METADATA_CAPACITY held the
+        // patient for one pasted control character in the facility or the description.
+        String facility = "General\u000bHospital", description = "Consult\ufffeletter";
+        var mapped =
+                map(edit(edit(document(), "sourceFacility", facility), "docdesc", description));
+        assertThat(mapped.text()).doesNotContainKey("SourceFacility");
+        String notes = mapped.text().get("Notes");
+        assertThat(notes).doesNotContain("\u000b", "\ufffe");
+        var decoded =
+                new com.fasterxml.jackson.databind.ObjectMapper()
+                        .readTree(notes.substring(notes.indexOf('\n') + 1))
+                        .get("document");
+        assertThat(decoded.get("sourceFacility").asText()).isEqualTo(facility);
+        assertThat(decoded.get("docdesc").asText()).isEqualTo(description);
+        assertThat(render(CdsCategory.REPORTS, body -> mapper.write(mapped, body))).isNotEmpty();
+    }
+
+    @Test
     void shouldRefuseOversizedMetadata_insteadOfClippingTheReportDescriptionOrSourceContext() {
         assertThatThrownBy(() -> map(edit(document(), "docdesc", "x".repeat(32769))))
                 .hasMessage("CDS_EXPORT_NATIVE_REPORT_METADATA_CAPACITY");

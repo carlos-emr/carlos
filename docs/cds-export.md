@@ -725,8 +725,19 @@ document's problem holds only its patient: an HTML document with no stored HTML 
 document or link status (`CDS_EXPORT_NATIVE_REPORT_STATUS_REQUIRES_REVIEW`), blank stored HTML
 (`..._STORED_HTML_REQUIRES_REVIEW`), an empty file (`..._FILE_EMPTY`), a missing file
 (`..._FILE_MISSING`), an unsupported stored name (`..._FILENAME_UNSUPPORTED`) or a file over
-`cds.export.maxDocumentBytes` (`..._FILE_TOO_LARGE`). An untrusted `DOCUMENT_DIR` stops the job
-with `CDS_EXPORT_DOCUMENT_STORAGE_UNTRUSTED`. Attachments are copied from the patient's
+`cds.export.maxDocumentBytes` (`..._FILE_TOO_LARGE`). No column of the document or its link holds
+the patient for its size or its characters: every one is a short varchar that fits Notes, a
+character XML 1.0 cannot carry is written in the Notes JSON as its `\uXXXX` escape, and a source
+author or facility holding such a character is left out of its `text120` element and stays exact
+in Notes. Notes (`text32K`; 32,000 characters in the dictionary) is the only free text of a
+Reports record and the category has no `ResidualInfo`, so one limit remains: a document, an
+embedded laboratory document or an HRM report whose reviews, inbox comments or report comments
+take its Notes past 32,000 characters holds the patient
+(`CDS_EXPORT_NATIVE_REPORT_METADATA_CAPACITY`, `CDS_EXPORT_NATIVE_LAB_DOCUMENT_NOTES_CAPACITY`,
+`CDS_EXPORT_HRM_REPORT_METADATA_CAPACITY`) rather than losing a review or a comment. Removing
+that hold needs a second Reports record for the overflow, like the one imported reports already
+get for their reviews, and the patient inventory to expect it. An untrusted `DOCUMENT_DIR` stops
+the job with `CDS_EXPORT_DOCUMENT_STORAGE_UNTRUSTED`. Attachments are copied from the patient's
 encrypted capture through one authenticated pass of its values member
 (`CdsExportStagingService.verifiedRanges`), which is verified again as a whole before the
 patient's output is accepted.
