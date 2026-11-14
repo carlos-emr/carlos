@@ -711,7 +711,12 @@ The codes `CDS_EXPORT_RESOURCE_LIMIT`, `CDS_EXPORT_PACKAGE_VOLUME_LIMIT`,
 chart stops it.
 
 A download of a finished package re-checks every chart's current authorization several times.
-That check now costs one short pass per chart, so it no longer dominates a large download.
+That check now costs one short pass per chart, so it no longer dominates a large download. While
+the package is being sent, a check keeps it moving (a block at least every 10 seconds), so a long
+check never makes the connection go quiet. The check before the first byte cannot send anything;
+the packaged nginx lets the download route wait up to 24 hours for it (other pages keep 300
+seconds). A proxy or load balancer of your own in front of nginx needs the same allowance for
+`/carlos/form/cdsExportDownload`.
 
 ### Resuming a stopped export
 
