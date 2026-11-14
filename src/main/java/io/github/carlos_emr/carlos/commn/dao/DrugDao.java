@@ -38,7 +38,12 @@ import io.github.carlos_emr.carlos.prescript.dto.DrugListItemDTO;
 
 public interface DrugDao extends AbstractDao<Drug>, CdsExportPatientTableReadDao {
 
-    /** Scalar discovery for authorized export; callers own a short read-only transaction. */
+    /**
+     * Scalar discovery for authorized export; callers own a short read-only transaction. One row
+     * is a prescription's id, its drug catalogue id and its DIN. {@code maximum} is the most rows
+     * the caller accepts; the export passes {@link Integer#MAX_VALUE}, every prescription of the
+     * chart, because no count of prescriptions holds a patient.
+     */
     java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportDrugReferenceInputDto>
             readCdsExportDrugReferenceInputs(int patient, int maximum);
 

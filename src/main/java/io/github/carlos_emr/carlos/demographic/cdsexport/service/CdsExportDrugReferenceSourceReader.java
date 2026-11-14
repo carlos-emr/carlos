@@ -74,7 +74,7 @@ public class CdsExportDrugReferenceSourceReader implements CdsExportNativeSource
         if (this.patient != 0 || patient < 1) invalid();
         control.checkpoint();
         var inputs = projection.read(patient);
-        if (inputs == null || inputs.size() > 8192) invalid();
+        if (inputs == null) invalid();
         var references = new LinkedHashMap<Long, CdsExportDrugReferenceDto>();
         var codes = new HashMap<String, CdsExportDrugReferenceDto>();
         Long previous = null;
@@ -150,7 +150,9 @@ public class CdsExportDrugReferenceSourceReader implements CdsExportNativeSource
     private void requireSnapshot(int patient) throws IOException {
         if (this.patient == 0
                 || this.patient != patient
-                || !inputs.equals(drugs.readCdsExportDrugReferenceInputs(patient, 8192))) invalid();
+                || !inputs.equals(
+                        drugs.readCdsExportDrugReferenceInputs(patient, Integer.MAX_VALUE)))
+            invalid();
     }
 
     @Override

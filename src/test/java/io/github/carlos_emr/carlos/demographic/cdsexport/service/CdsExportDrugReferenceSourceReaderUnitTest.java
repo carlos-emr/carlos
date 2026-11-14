@@ -57,7 +57,7 @@ class CdsExportDrugReferenceSourceReaderUnitTest {
         var control = mock(CdsExportRunControl.class);
         var inputs = List.of(input(50, 0), input(51, 17), input(52, 17));
         when(projection.read(27)).thenReturn(inputs);
-        when(drugs.readCdsExportDrugReferenceInputs(27, 8192)).thenReturn(inputs);
+        when(drugs.readCdsExportDrugReferenceInputs(27, Integer.MAX_VALUE)).thenReturn(inputs);
         when(lookup.read("00123456")).thenReturn(reference());
         var singleton = new CdsExportDrugReferenceSourceReader(drugs, projection, lookup);
         var scoped = singleton.forCapture(27, control);
@@ -91,7 +91,7 @@ class CdsExportDrugReferenceSourceReaderUnitTest {
         assertThat(emitted.getFirst()).containsEntry("drugid", "51");
         assertThat(emitted.getFirst().get("public_reference"))
                 .contains("HEALTH_CANADA_DIN_VIA_DRUGREF", "Native ingredient");
-        when(drugs.readCdsExportDrugReferenceInputs(27, 8192)).thenReturn(List.of(input(51, 18)));
+        when(drugs.readCdsExportDrugReferenceInputs(27, Integer.MAX_VALUE)).thenReturn(List.of(input(51, 18)));
         assertThatThrownBy(() -> scoped.count(27)).hasMessage("CDS_EXPORT_SOURCE_CHANGED");
         assertThatThrownBy(() -> singleton.count(27)).hasMessage("CDS_EXPORT_SOURCE_CHANGED");
     }
@@ -102,7 +102,7 @@ class CdsExportDrugReferenceSourceReaderUnitTest {
         var drugs = mock(DrugDao.class);
         var projection = new CdsExportDrugReferenceProjectionService(drugs);
         var lookup = mock(CdsExportDrugReferenceLookupService.class);
-        when(drugs.readCdsExportDrugReferenceInputs(27, 8192)).thenReturn(List.of(input(51, 0)));
+        when(drugs.readCdsExportDrugReferenceInputs(27, Integer.MAX_VALUE)).thenReturn(List.of(input(51, 0)));
         var scoped =
                 new CdsExportDrugReferenceSourceReader(drugs, projection, lookup)
                         .forCapture(27, mock(CdsExportRunControl.class));
@@ -126,7 +126,7 @@ class CdsExportDrugReferenceSourceReaderUnitTest {
                         new CdsExportDrugReferenceInputDto(54, BigInteger.valueOf(18), "00999999"),
                         input(55, 17));
         when(projection.read(27)).thenReturn(inputs);
-        when(drugs.readCdsExportDrugReferenceInputs(27, 8192)).thenReturn(inputs);
+        when(drugs.readCdsExportDrugReferenceInputs(27, Integer.MAX_VALUE)).thenReturn(inputs);
         when(lookup.read("00999999")).thenReturn(null);
         when(lookup.read("00123456")).thenReturn(reference());
         var scoped =
@@ -160,4 +160,22 @@ class CdsExportDrugReferenceSourceReaderUnitTest {
                 .hasMessage("CDS_EXPORT_DRUG_REFERENCE_REQUIRES_REVIEW");
         verifyNoInteractions(drugs);
     }
+    @Test
+    void shouldReadEveryPrescription_whenAChartHasMoreThan8192OfThem() throws Exception {
+        // 8,193 prescriptions held the patient (CDS_EXPORT_DRUG_REFERENCE_REQUIRES_REVIEW).
+        var drugs = mock(DrugDao.class);
+        var projection = mock(CdsExportDrugReferenceProjectionService.class);
+        var lookup = mock(CdsExportDrugReferenceLookupService.class);
+        var inputs = new java.util.ArrayList<CdsExportDrugReferenceInputDto>();
+        for (int drug = 1; drug <= 8193; drug++) inputs.add(input(drug, 17));
+        when(projection.read(27)).thenReturn(inputs);
+        when(drugs.readCdsExportDrugReferenceInputs(27, Integer.MAX_VALUE)).thenReturn(inputs);
+        when(lookup.read("00123456")).thenReturn(reference());
+        var scoped =
+                new CdsExportDrugReferenceSourceReader(drugs, projection, lookup)
+                        .forCapture(27, mock(CdsExportRunControl.class));
+        assertThat(scoped.count(27)).isEqualTo(8193);
+        verify(lookup, times(1)).read("00123456");
+    }
+
 }

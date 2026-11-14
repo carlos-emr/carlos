@@ -25,7 +25,6 @@ import io.github.carlos_emr.carlos.commn.dto.CdsExportProviderRowDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 /** Reads only the finite public-provider projection from an authenticated patient capture. */
@@ -47,10 +46,10 @@ public final class CdsExportPublicProviderReader {
         patient.require(lease);
         var result = new LinkedHashMap<String, CdsExportCapturedTextRowDto>();
         var table = source.capture().tables().get("provider");
-        if (table == null
-                || table.rows() > bounds.lookupRows()
-                || !table.columns().equals(CdsExportProviderRowDto.COLUMNS)) invalid();
-        long[] bytes = {0};
+        // The providers a chart names are the clinic's rows, a few short columns each. They are
+        // held together because any row of the chart may name any of them; no count or size of
+        // them refuses the chart.
+        if (table == null || !table.columns().equals(CdsExportProviderRowDto.COLUMNS)) invalid();
         var actual =
                 new CdsExportCapturedTextRowsReader(captures)
                         .forEach(
@@ -61,7 +60,7 @@ public final class CdsExportPublicProviderReader {
                                 source.manifest(),
                                 bounds.fields(),
                                 bounds.bytes(),
-                                (int) Math.min(67_108_864L, bounds.indexBytes()),
+                                67_108_864,
                                 control,
                                 row -> {
                                     control.checkpoint();
@@ -77,21 +76,7 @@ public final class CdsExportPublicProviderReader {
                                                     .equals(
                                                             CdsExportPublicProviderSourceReader.key(
                                                                     id))
-                                            || result.putIfAbsent(id, row) != null
-                                            || result.size() > bounds.lookupRows()) invalid();
-                                    bytes[0] = Math.addExact(bytes[0], 2048);
-                                    for (String value : row.fields().values())
-                                        if (value != null)
-                                            bytes[0] =
-                                                    Math.addExact(
-                                                            bytes[0],
-                                                            64L
-                                                                    + 3L
-                                                                            * value.getBytes(
-                                                                                            StandardCharsets
-                                                                                                    .UTF_8)
-                                                                                    .length);
-                                    if (bytes[0] > bounds.indexBytes()) invalid();
+                                            || result.putIfAbsent(id, row) != null) invalid();
                                 });
         if (!actual.equals(source.capture()) || result.size() != table.rows()) invalid();
         captures.authorizeCapturedSources(lease, patient, tables, actual, control);

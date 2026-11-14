@@ -43,6 +43,7 @@ public class CdsExportDrugReferenceProjectionService {
     }
 
     public List<CdsExportDrugReferenceInputDto> read(int patient) {
-        return drugs.readCdsExportDrugReferenceInputs(patient, 8192);
+        // Every prescription of the chart: three scalars a row, and no count holds the patient.
+        return drugs.readCdsExportDrugReferenceInputs(patient, Integer.MAX_VALUE);
     }
 }

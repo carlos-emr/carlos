@@ -1110,7 +1110,9 @@ the same table together. A section therefore reads its rows in windows
   bytes an id); the retained fields the windows used (a reference to a field the retained
   source already holds, about 40 bytes); the clinic's own vocabulary that the chart names
   (providers, appointment statuses and reason codes, diagnosis code descriptions, the measurement
-  types): these are not rows of the chart and every window holds them.
+  types): these are not rows of the chart and every window holds them. The public provider
+  lookup (`CdsExportPublicProviderReader`) no longer counts them against `maxLookupRows` or
+  `maxIndexBytes` either.
 - **Completeness.** Every check of the whole-chart read is kept. Per window: every witness and
   child row the window loaded is used by one of its owners, and it emits as many rows as it
   holds owners. Over the chart: the windows emitted as many rows as the capture states, and they
@@ -1122,7 +1124,7 @@ the same table together. A section therefore reads its rows in windows
 
 | Section | State | What a window holds |
 | --- | --- | --- |
-| Medications, Allergies (`CdsExportClinicalOccurrenceService`) | windowed | witnesses of the window's prescriptions or allergies; their precision rows, reasons and drug references; every public provider row the chart names |
+| Medications, Allergies (`CdsExportClinicalOccurrenceService`) | windowed | witnesses of the window's prescriptions or allergies; their precision rows, reasons and drug references; every public provider row the chart names. At capture the drug reference reader lists every prescription's id, catalogue id and DIN (three scalars a row; its 8,192-prescription hold is gone) |
 | Appointments (`CdsExportAppointmentOccurrenceService`, and through its visitor each appointment's NewCategory source record) | windowed | witnesses of the window's appointments; the providers, status definitions, reason-list items, the demographic row and earlier display names for every window; every current and archived appointment number (a string each) |
 | Immunizations (`CdsExportImmunizationOccurrenceService`) | windowed | witnesses, extensions and precision rows of the window's vaccines. The edit chains of imported vaccines are decided once for the chart from two witness passes that keep two digests for each recorded edit and a flag for each row an edit names (`CdsExportPreventionVersions.Chain`) |
 | Screenings (`CdsExportScreeningOccurrenceService`) | windowed | witnesses, extensions and precision rows of the window's screenings |
@@ -1134,7 +1136,7 @@ the same table together. A section therefore reads its rows in windows
 
 The sections that are not windowed still read `cds.export.maxNativeRows` (8,192),
 `maxIndexBytes` (64 MiB) and `maxLookupRows` (131,072) from the plan and still stop the job with
-`RESOURCE_LIMIT` (or, for printed prescriptions and the drug reference, hold the patient) when a
+`RESOURCE_LIMIT` (or, for printed prescriptions, hold the patient) when a
 chart passes them: lifting those numbers without a window would hold the whole chart on the heap.
 What each needs:
 
