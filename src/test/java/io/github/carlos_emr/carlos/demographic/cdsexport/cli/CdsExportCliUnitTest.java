@@ -126,7 +126,7 @@ class CdsExportCliUnitTest {
     }
 
     @Test
-    void shouldVerifyProgressCloseRefusesWorkThatDoesNotRetire_withinItsBound() throws Exception {
+    void shouldReportWorkThatDoesNotRetire_withinItsBoundWithoutFailing() throws Exception {
         var started = new CountDownLatch(1);
         var release = new Semaphore(0);
         try (var progress = new CdsExportCli.ProgressExecutor(TimeUnit.MILLISECONDS.toNanos(25))) {
@@ -137,15 +137,69 @@ class CdsExportCliUnitTest {
                     });
             try {
                 assertThat(started.await(5, TimeUnit.SECONDS)).isTrue();
-                assertThatThrownBy(progress::close)
-                        .isInstanceOf(IllegalStateException.class)
-                        .hasMessage("CDS_EXPORT_PROGRESS_CLEANUP_INCOMPLETE");
+                // Once a command is done its progress thread may still be busy; that is
+                // reported, never turned into a failure of the job.
+                assertThat(progress.retire()).isFalse();
+                var printed = new java.util.concurrent.atomic.AtomicBoolean();
+                progress.print(() -> printed.set(true));
+                assertThat(printed).isFalse();
             } finally {
                 release.release();
                 progress.shutdownNow();
                 progress.awaitTermination(5, TimeUnit.SECONDS);
             }
             assertThat(progress.isTerminated()).isTrue();
+        }
+    }
+
+    @Test
+    void shouldExitWithTheJobsOwnCode_whenItsProgressThreadNeverEnds() throws Exception {
+        // The command once waited 30 s for its progress thread and then failed with
+        // CDS_EXPORT_PROGRESS_CLEANUP_INCOMPLETE (exit 2), after the job had finished.
+        var reading = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        when(runtime.status(RUN))
+                .thenAnswer(
+                        call -> {
+                            if (!Thread.currentThread().getName().equals("cds-export-progress"))
+                                return job(CdsExportState.READY, true);
+                            // A status read the database never answers, deaf to interruption.
+                            reading.countDown();
+                            while (release.getCount() > 0) {
+                                try {
+                                    release.await();
+                                } catch (InterruptedException ignored) {
+                                    // Keeps waiting, as a blocked socket read would.
+                                }
+                            }
+                            throw new IllegalStateException("RELEASED");
+                        });
+        when(runtime.execute(RUN))
+                .thenAnswer(
+                        call -> {
+                            assertThat(reading.await(5, TimeUnit.SECONDS)).isTrue();
+                            return job(CdsExportState.READY, true);
+                        });
+        try {
+            int code =
+                    CdsExportCli.runAuthorized(
+                            configuration,
+                            CdsExportCliArguments.parse(fresh()),
+                            delegation,
+                            out,
+                            err,
+                            (selected, args, proof) -> runtime,
+                            new CdsExportCli.Progress(0, 10, TimeUnit.MILLISECONDS.toNanos(50)));
+            assertThat(code).isZero();
+            assertThat(error.toString(StandardCharsets.UTF_8))
+                    .contains("CDS_EXPORT_PROGRESS_LINGERING")
+                    .doesNotContain("CDS_EXPORT_PROGRESS_CLEANUP_INCOMPLETE", "CDS_EXPORT_RUNTIME");
+            String console = output.toString(StandardCharsets.UTF_8);
+            assertThat(console).contains("\"event\":\"RESULT\"", "\"complete\":true");
+            assertThat(console.substring(console.indexOf("\"event\":\"RESULT\"")))
+                    .doesNotContain("\"event\":\"PROGRESS\"");
+        } finally {
+            release.countDown();
         }
     }
 

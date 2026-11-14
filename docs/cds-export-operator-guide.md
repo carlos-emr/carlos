@@ -628,6 +628,13 @@ cancellation. Resume is subject to the original binding and current authorizatio
 | 5 | The package is ready but leaves out held patients; it is not a complete migration. |
 | 130 | Waiting interrupted (Ctrl-C); durable cancellation was not requested. The lease is released before the process exits, so the job can be resumed at once. A SIGTERM-stopped wait exits 143 with the same meaning. |
 
+The exit code is always the job's own outcome. A foreground export prints a progress line every
+15 seconds; when the job is done the command waits up to 30 seconds for that reporting to stop
+(it can be waiting on a status read the database has not answered). If it has not stopped, the
+command prints `CDS_EXPORT_PROGRESS_LINGERING` on standard error, leaves it to end with the
+process (it prints nothing more) and still exits with the job's code. Until this change it
+exited 2 with `CDS_EXPORT_PROGRESS_CLEANUP_INCOMPLETE` after the job had finished.
+
 ### How long an export takes, and what can stop a large one
 
 Plan on about one second for each chart, plus about half a minute to start and the time to
