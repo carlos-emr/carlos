@@ -226,10 +226,15 @@ final class CdsExportLaboratoryDocumentMapper {
             String subclass = name.isEmpty() ? ordered : name;
             if (!subclass.isEmpty() && CdsExportNativeFieldAssessments.legal(subclass, 60))
                 text.put("SubClass", subclass);
-            String collected = scalar(obx, 14);
-            if (collected.isEmpty()) collected = scalar(obr, 7);
-            if (!collected.isEmpty())
-                dates.put("EventDateTime", CdsExportNativeLaboratoryMapper.temporal(collected, zone));
+            // The first of OBX-14 and OBR-7 that is a calendar time, as for the report's results
+            // (CdsExportNativeLaboratoryMapper); a time passed over is stated in Notes.
+            for (String sent : List.of(scalar(obx, 14), scalar(obr, 7))) {
+                var event = sent.isEmpty() ? null : CdsExportNativeLaboratoryMapper.temporal(sent, zone);
+                if (event != null) {
+                    dates.put("EventDateTime", event);
+                    break;
+                }
+            }
             String laboratory = source.information().fields().get("sending_facility");
             if (laboratory == null || laboratory.isEmpty())
                 laboratory = new Terser(source.parsed().message()).get("/MSH-4-1");
@@ -298,6 +303,16 @@ final class CdsExportLaboratoryDocumentMapper {
             identification.put("orderNumber", order);
             identification.put("subId", scalar(obx, 4));
             identification.put("resultStatus", scalar(obx, 11));
+            // Only a document whose collection time is not written as sent gains this entry, so
+            // every other document keeps its Notes bytes.
+            var sentTimes = new ArrayList<String>();
+            for (String sent : List.of(scalar(obx, 14), scalar(obr, 7))) {
+                if (sent.isEmpty()) continue;
+                var reading = CdsExportNativeLaboratoryMapper.read(sent, java.time.ZoneOffset.UTC);
+                if (!reading.asSent()) sentTimes.add(sent);
+                if (reading.date() != null) break;
+            }
+            if (!sentTimes.isEmpty()) identification.put("collectionTimesSent", sentTimes);
             identification.put("dataType", payload.dataType());
             identification.put("dataSubtype", payload.subtype());
             identification.put("encoding", payload.encoding() == null ? "" : payload.encoding());
@@ -413,6 +428,8 @@ final class CdsExportLaboratoryDocumentMapper {
     private static String componentText(
             CdsExportNativeLaboratoryParser.Raw raw, Segment segment, int field, int component)
             throws IOException {
+        // A result the laboratory sent before any order has no order segment.
+        if (segment == null) return "";
         var repetitions = raw.repetitions(segment, field);
         if (repetitions.isEmpty()) return "";
         var components =
@@ -423,7 +440,7 @@ final class CdsExportLaboratoryDocumentMapper {
     }
 
     private static String scalar(Segment segment, int field) throws HL7Exception {
-        return literal(Terser.get(segment, field, 0, 1, 1));
+        return segment == null ? "" : literal(Terser.get(segment, field, 0, 1, 1));
     }
 
     private static String literal(String value) {

@@ -4699,11 +4699,20 @@ laboratory information. That field now carries only laboratory facts (sub-ID, or
 order number, the complete text of a long result); CARLOS provenance stays in the NewCategory
 residual. A result with no flag is written as the dictionary's Unknown (`U`), and the HL7 flags
 with no CDS equivalent, including HL7 `U` ("significant change up"), are written as plain text.
-A numeric, date or coded value with unexpected components needs review. A structured numeric
+A value of any type is written. A numeric or date value with more components than its first, a
+number that is not a decimal (`<5`, `POSITIVE`) and a type this mapping does not read
+structurally (a laboratory's own `NUM`, `TXT` or `DOC`, an `RP`, a `TM`) are the laboratory's
+whole text of the value; they held the patient (`CDS_EXPORT_NATIVE_LAB_VALUE_COMPONENTS_REQUIRES_REVIEW`,
+`..._VALUE_TYPE_REQUIRES_REVIEW`, `..._NUMERIC_VALUE_INVALID`). A structured numeric
 (`SN`) is written as its comparator, number, separator and second number (`>60`, `1:20`,
 `>=1.030`), with its unit; the Excelleris titre whose SN separators are themselves escaped
-(`\S\1\S\:\S\20`) gives the same text, and anything else with that type requires review
-(`CDS_EXPORT_NATIVE_LAB_VALUE_COMPONENTS_REQUIRES_REVIEW`). An embedded document (`ED`, one per
+(`\S\1\S\:\S\20`) gives the same text, and any other value of that type is its whole text.
+A report that names no laboratory (no stored sending facility and an empty MSH-4) has an empty
+`LaboratoryName`: the element is mandatory and its type allows empty text, which is what CARLOS
+holds, and the CARLOS importer keeps the laboratory unnamed. A name longer than the element's
+120 characters leaves it empty and is written whole in `TestResultsInformationReportedByTheLab`
+as `Laboratory name (complete): <name>`. Both held the patient
+(`CDS_EXPORT_NATIVE_LAB_NAME_REQUIRED`). An embedded document (`ED`, one per
 value repetition) is not a result: the parser keeps it in `Parsed.documents()` and the Reports
 assembler writes it as a Lab Report (`CdsExportLaboratoryDocumentMapper`): ED.5, or the legacy
 OBX-5.1 payload when ED.5 is empty, decoded by ED.4 (A, Base64, Hex) or, undeclared, as strict
@@ -4711,36 +4720,73 @@ base64 when it decodes to a known signature or document length; raw RTF is a bin
 anything else, including a declared encoding the payload does not satisfy, is a Text report.
 Bytes are staged as `REPORT_ATTACHMENT` at `Reports/<hash>.<ext>`, declared by their own
 signature; Notes carry the stored accession number and the observation's identification, and the
-report's acknowledgements are its ReportReviewed. The inventory expects one Reports identity per
-document (`hl7TextMessage` + `lab:ordinal`) and requests review when Reports is not selected. A
-time with hour or minute precision (`YYYYMMDDHH[MM]`, with or without an offset) is exported as
-its FullDate; seconds are never invented. An OBR without OBX (a pending, cancelled or fee order)
-adds no observation; a message with no order or not one patient still requires review
-(`CDS_EXPORT_NATIVE_LAB_INCOMPLETE_MESSAGE`). Every line break of the stored message is a segment
-break, as CARLOS's own lab handlers read it (`CdsExportNativeLaboratoryParser.segmentBreaks`):
+report's acknowledgements are its ReportReviewed; its EventDateTime is the first of OBX-14 and
+OBR-7 that is a calendar time, and a sent time passed over or written without its offset is
+listed in the Notes JSON as `collectionTimesSent`. The inventory expects one Reports identity per
+document (`hl7TextMessage` + `lab:ordinal`) and names the document as not exported when Reports
+is not selected. A time is written at the precision the laboratory sent
+(`CdsExportNativeLaboratoryMapper.read`): a year, a month or a date as such, and one with hour or
+minute precision (`YYYYMMDDHH[MM]`, with or without an offset) as its FullDate, since seconds are
+never invented; a date sent with an offset is that date. A time with seconds is a FullDateTime at
+the laboratory's offset, or in the clinic's zone when it sent none; one whose offset no
+`xs:dateTime` holds (beyond ±14:00, or minutes of 60 or more) is the laboratory's wall clock
+without an offset. Text that is no calendar time (not an HL7 TS, year 0000, a thirteenth month, an
+hour 24) is not written: LabRequisitionDateTime (OBR-6) is left out, and CollectionDateTime is the
+first of OBX-14 and OBR-7 that is a calendar time, else the chart's report date (below). Every
+sent time that is not written as sent is stated in `TestResultsInformationReportedByTheLab` as
+`Requisition time sent by the laboratory: <text>` or `Collection time sent by the laboratory:
+<text>`, which the CARLOS importer keeps in the result's laboratory information (the NTE of the
+message it builds), so a receiving CARLOS has the exact text. These held the patient
+(`CDS_EXPORT_NATIVE_LAB_DATE_REQUIRES_REVIEW`, `..._OFFSET_REQUIRES_REVIEW`,
+`..._CLOCK_PRECISION_REQUIRES_REVIEW`). An OBR without OBX (a pending, cancelled or fee order)
+adds no observation, and a message with no order exports no result; one with no PID exports the
+results the chart routed to this patient; a result sent before any order is a result of no order,
+with empty order fields. These held the patient (`CDS_EXPORT_NATIVE_LAB_INCOMPLETE_MESSAGE`,
+`..._RESULT_WITHOUT_ORDER`). A message that names two patients still holds
+(`CDS_EXPORT_NATIVE_LAB_MULTIPLE_PATIENTS`): exporting it would put another patient's results in
+this patient's file. `MessageUploader` routes a message to the patient of its first PID and
+`Utilities.separateMessages` splits every uploaded HL7 file at each PID, so only an XML upload of
+a batch message (the PATHL7 and Excelleris handlers take each message whole) could store one.
+Every line break of the stored message is a segment
+break, as CARLOS's own lab handlers read it (`CdsExportNativeLaboratoryParser.segments`):
 HAPI ends a segment only at CR, but a report uploaded inside an XML file (Excelleris ON and
 PATHL7 wrap each message in CDATA) is stored as the XML parser returns it, with LF between
 segments, and `ExcellerisOntarioHandler`, `PATHL7Handler`, `CMLHandler` and the others parse
 `hl7Body.replaceAll("\n", "\r\n")`. Read as stored, such a report was one long MSH segment
 with no PID or OBR, so every Excelleris ON upload held its patient with
 `CDS_EXPORT_NATIVE_LAB_INCOMPLETE_MESSAGE` (census charts A27ED, an embedded PDF, and A27SN, an
-SN titre). HL7 v2 never carries a literal line break inside a field (it is escaped as `\.br\`
+SN titre). Two exceptions follow `DefaultGenericHandler`, which `Factory.getHandler` uses for a
+message its typed handler refuses: whitespace that starts a line is dropped (HAPI drops it too),
+and a line whose fourth character is not the field separator continues the segment before it
+("Labs often insert breaks into comments"), keeping that line break in the text. Such a report
+held the patient (`CDS_EXPORT_NATIVE_LAB_SEGMENT_ALIGNMENT`, `..._MESSAGE_REQUIRES_REVIEW`).
+Otherwise HL7 v2 never carries a literal line break inside a field (it is escaped as `\.br\`
 or `\X0A\`), so the conversion changes no value; the tests read the repository samples as
-the upload stores them (`CdsExportNativeLaboratoryFeedUnitTest.stored`). An observation with neither OBX-14 nor OBR-7 is
+the upload stores them (`CdsExportNativeLaboratoryFeedUnitTest.stored`). An observation with no
+OBX-14 or OBR-7 that is a calendar time is
 given the report date the chart lists: `hl7TextInfo.obr_date`, which `MessageUploader` stores
 from the handler's `getServiceDate()` (OBR-6 for `EpsilonHandler`) or, when that is empty,
-`getMsgDate()` (MSH-7), reformatted to `yyyy-MM-dd HH:mm:ss` (an unparseable date fails the
-upload, so every uploaded report has one). `CdsExportNativeLaboratoryMapper.chartDateSource`
+`getMsgDate()` (MSH-7), reformatted to `yyyy-MM-dd HH:mm:ss`. A date the upload cannot read is
+stored empty (`UtilDateUtilities.StringToDate` answers null and `DateToString` writes ""): the
+date is then MSH-7's when it is a calendar time, and otherwise the day CARLOS stored the report
+(`hl7TextMessage.created`, NOT NULL and set on every store), which is then the field `MAPPED` to
+`LaboratoryResults/CollectionDateTime`. `CdsExportNativeLaboratoryMapper.chartDateSource`
 names the first OBR-7, OBR-6, OBR-14 or OBR-22 (message order), then MSH-7, whose wall clock
 equals that stored value, and `CollectionDateTime` takes that field at its own precision
 (minute precision is a FullDate); when no field matches, the stored value's day is written,
 since the upload may have padded its time. The obr_date field is then `MAPPED` to
 `LaboratoryResults/CollectionDateTime` under `CHART_REPORT_DATE_WITHOUT_SENT_COLLECTION_TIME`,
 and `CARLOS.NativeLaboratory.v1` gains a `collection` entry (rule, source field, observation
-ordinals) after `rows`; a report that sent its collection times keeps its residual bytes. Only
-an empty or unreadable stored date still holds (`CDS_EXPORT_NATIVE_LAB_COLLECTION_REQUIRED`). An "ORU" message without its R01 trigger cannot be
-parsed by HAPI (`Can't determine message structure`), so no CARLOS handler stored one; the
-parser refuses it the same way (`CDS_EXPORT_NATIVE_LAB_MESSAGE_REQUIRES_REVIEW`).
+ordinals) after `rows`; a report that sent its collection times keeps its residual bytes.
+`CDS_EXPORT_NATIVE_LAB_COLLECTION_REQUIRED` remains only for a message row written outside CARLOS
+without its stored time. Every message CARLOS stored as a laboratory report is read as one,
+whatever MSH-9 names: `SpireHandler` stores `MDM^R01` as received (it rewrites the type only to
+parse it), and HAPI reads a structure it has no class for as a generic message. Such reports held
+the patient (`CDS_EXPORT_NATIVE_LAB_MESSAGE_TYPE_REQUIRES_REVIEW`). An "ORU" message without its
+R01 trigger cannot be parsed by HAPI (`Can't determine message structure`), by the typed handler
+or by `DefaultGenericHandler`, so no CARLOS upload stored one; the parser refuses it the same way
+(`CDS_EXPORT_NATIVE_LAB_MESSAGE_REQUIRES_REVIEW`, like `..._MESSAGE_ENCODING` and
+`..._SEGMENT_ALIGNMENT`, now guards only rows written outside CARLOS).
 No laboratory value holds a chart for its length. A result of any type longer than ResultValue's
 120 characters is written whole in `TestResultsInformationReportedByTheLab` as `Result text
 (complete):`, as a long text result already was; abnormal flags longer than their element are

@@ -397,20 +397,25 @@ display reads it; before this release every such report held its patient with
 for eGFR, or a titre "1:20") is the result text with its unit. An embedded document (the PDF
 pathology, cytology and histology reports LifeLabs sends through Excelleris) is a Lab Report
 under Reports, attached as the decoded file, with the report's accession number in its Notes
-and the report's inbox acknowledgements as its reviewers; select Reports with
-LaboratoryResults, or the patient is held. A time the laboratory sent only to the minute or
-hour is exported as its date (CDS requires seconds, which are never invented); the exact time
-is in the NewCategory record. An ordered test with no result yet (a pending, cancelled or fee
-line) adds no result and travels only in that record. A result the laboratory sent without a
-collection time (no OBX-14 or OBR-7, as in Epsilon's general results) is exported with the
-report date the chart lists for that lab, at the precision the laboratory sent it, and the
-NewCategory record says that the message carried no collection time and which field the date
-came from. Only a report the chart has no date for at all would still hold
-(`CDS_EXPORT_NATIVE_LAB_COLLECTION_REQUIRED`); CARLOS's lab upload never stores one. A
-malformed structured numeric still holds the patient
-(`CDS_EXPORT_NATIVE_LAB_VALUE_COMPONENTS_REQUIRES_REVIEW`), as does a message CARLOS's own lab
-handlers could not have stored (for example "ORU" without its R01 trigger:
-`CDS_EXPORT_NATIVE_LAB_MESSAGE_REQUIRES_REVIEW`).
+and the report's inbox acknowledgements as its reviewers; without Reports the chart is still
+exported and the document is listed in the ReadMe as not exported. A time the laboratory sent
+only to the minute or hour is exported as its date (CDS requires seconds, which are never
+invented); the exact time is in the NewCategory record. An ordered test with no result yet (a
+pending, cancelled or fee line) adds no result and travels only in that record. A result the
+laboratory sent without a collection time (no OBX-14 or OBR-7, as in Epsilon's general results)
+is exported with the report date the chart lists for that lab, at the precision the laboratory
+sent it, and the NewCategory record says that the message carried no collection time and which
+field the date came from; when the upload stored no date, the date is the message's own time
+(MSH-7) or, failing that, the day CARLOS received the report. No laboratory value holds its
+patient any longer: a value of any type, including a malformed structured numeric, is the
+laboratory's text of it; a laboratory name that is missing is written empty; a time that is no
+calendar time, or whose offset no date-time can hold, is stated in the result's laboratory
+information as `Collection time sent by the laboratory: ...` or `Requisition time sent by the
+laboratory: ...`; and a report whose header names another message type (Spire sends `MDM^R01`),
+whose segments are indented or whose comments were broken across lines is read the way CARLOS's
+lab display reads it. Export patients held for those reasons again. Only a message that names
+two patients still holds (`CDS_EXPORT_NATIVE_LAB_MULTIPLE_PATIENTS`), since exporting it would
+put another patient's results in the file.
 
 Vaccines export under Immunizations. A name, manufacturer, lot, route, site or dose typed
 longer than CDS allows (120 characters; 250 for instructions) is not cut and does not hold the
