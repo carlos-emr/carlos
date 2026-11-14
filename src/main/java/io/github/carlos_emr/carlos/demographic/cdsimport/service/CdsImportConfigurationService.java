@@ -178,7 +178,10 @@ public class CdsImportConfigurationService {
      * the archive, the parse spools and the plan are streamed to the import's private storage, so
      * only a genuine storage failure (the reserve reached, or an I/O error) stops an import for
      * its size, under its own code. A decompression bomb is one such import: it is expanded as a
-     * stream and stops at the reserve ({@code CDS_INPUT_DISK_RESERVE}).
+     * stream and stops at the reserve ({@code CDS_INPUT_DISK_RESERVE}). The browser upload's
+     * size and total byte budget are retired for the same reason: an upload of any size is stored
+     * chunk by chunk, each chunk checked against the reserve of the upload store before it is
+     * written ({@code UPLOAD_DISK_RESERVE_REFUSED}).
      */
     public static final List<String> RETIRED_SETTINGS =
             List.of(
@@ -186,12 +189,14 @@ public class CdsImportConfigurationService {
                     "cds.import.maxExpandedBytes",
                     "cds.import.maxEntries",
                     "cds.import.maxBinaryBytes",
-                    "cds.import.maxCompressionRatio");
+                    "cds.import.maxCompressionRatio",
+                    "cds.import.upload.maxFileBytes",
+                    "cds.import.upload.maxTotalBytes");
 
     private final AtomicBoolean retiredReported = new AtomicBoolean();
 
     public CdsInputLimitsDto limits() {
-        retired();
+        reportRetiredSettings();
         CdsInputLimitsDto defaults = CdsInputLimitsDto.defaults();
         return new CdsInputLimitsDto(
                 Math.toIntExact(number("cds.import.maxXmlDepth", defaults.maxXmlDepth())),
@@ -207,7 +212,7 @@ public class CdsImportConfigurationService {
     }
 
     /** Names the ignored settings once per process; setting names only, never a value. */
-    private void retired() {
+    void reportRetiredSettings() {
         if (retiredReported.get()) return;
         List<String> present = new ArrayList<>();
         for (String key : RETIRED_SETTINGS)

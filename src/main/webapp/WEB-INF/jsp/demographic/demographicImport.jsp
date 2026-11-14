@@ -49,7 +49,6 @@
 <main id="cdsImport" class="container-fluid p-3"
       data-context="${carlos:forHtmlAttribute(pageContext.request.contextPath)}"
       data-owner="${carlos:forHtmlAttribute(model.operatorKey)}"
-      data-max-file-bytes="${carlos:forHtmlAttribute(model.maxFileBytes)}"
       data-chunk-bytes="${carlos:forHtmlAttribute(model.chunkBytes)}">
     <h1 class="h3"><fmt:message key="title" bundle="${cds}"/></h1>
     <p><fmt:message key="intro" bundle="${cds}"/></p>

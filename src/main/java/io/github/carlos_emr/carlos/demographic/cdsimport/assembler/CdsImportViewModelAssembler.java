@@ -90,7 +90,6 @@ public class CdsImportViewModelAssembler {
                 program,
                 facility,
                 Math.toIntExact(configuration.number("cds.import.upload.maxChunkBytes", 4L << 20)),
-                configuration.number("cds.import.upload.maxFileBytes", 64L << 30),
                 sources);
     }
 }

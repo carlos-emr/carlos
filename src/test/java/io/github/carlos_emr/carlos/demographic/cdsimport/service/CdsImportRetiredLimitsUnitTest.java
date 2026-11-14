@@ -70,6 +70,8 @@ class CdsImportRetiredLimitsUnitTest {
         settings.setProperty("cds.import.maxBinaryBytes", "1024");
         // Accepted whatever its value: a malformed retired setting fails nothing either.
         settings.setProperty("cds.import.maxCompressionRatio", "not-a-ratio-7319");
+        settings.setProperty("cds.import.upload.maxFileBytes", "65536");
+        settings.setProperty("cds.import.upload.maxTotalBytes", "131072");
         var configuration = new CdsImportConfigurationService(settings);
         try (var log = LogCapture.forLogger(CdsImportConfigurationService.class)) {
             CdsInputLimitsDto first = configuration.limits();
@@ -81,7 +83,8 @@ class CdsImportRetiredLimitsUnitTest {
             assertTrue(message.startsWith("CDS_IMPORT_RETIRED_SETTINGS_IGNORED"));
             for (String key : CdsImportConfigurationService.RETIRED_SETTINGS)
                 assertTrue(message.contains(key), key);
-            for (String value : new String[] {"2048", "4096", "1024", "not-a-ratio-7319"})
+            for (String value :
+                    new String[] {"2048", "4096", "1024", "not-a-ratio-7319", "65536", "131072"})
                 assertFalse(message.contains(value), "A retired setting's value is never logged");
         }
     }

@@ -25,7 +25,7 @@ import java.util.List;
 
 /** Immutable bounded presentation for the existing demographic import JSP. */
 public record CdsImportViewModel(boolean enabled, boolean learningEnabled, String operatorKey, String providerNo,
-        String programId, String facilityId, int chunkBytes, long maxFileBytes, List<Source> sources) {
+        String programId, String facilityId, int chunkBytes, List<Source> sources) {
     public CdsImportViewModel { sources = List.copyOf(sources); }
     public boolean isEnabled() { return enabled; }
     public boolean isLearningEnabled() { return learningEnabled; }
@@ -34,7 +34,6 @@ public record CdsImportViewModel(boolean enabled, boolean learningEnabled, Strin
     public String getProgramId() { return programId; }
     public String getFacilityId() { return facilityId; }
     public int getChunkBytes() { return chunkBytes; }
-    public long getMaxFileBytes() { return maxFileBytes; }
     public List<Source> getSources() { return sources; }
 
     public record Source(String namespace, String profile, String label) {

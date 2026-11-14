@@ -61,6 +61,12 @@ import org.springframework.transaction.support.TransactionTemplate;
  * Durable owner-scoped, raw-body uploads. Body reads and hashing run outside database transactions;
  * a short row-locked transaction seals each bounded append and its fixed-size chunk receipt.
  * Orphan file/journal tails are truncated to the last known database checkpoint on the next append.
+ *
+ * <p>No size refuses an upload. A file of any size is sent as chunks of the configured transfer
+ * size, and each chunk is checked against the upload store's free-disk reserve before it is
+ * written ({@code UPLOAD_DISK_RESERVE_REFUSED}, HTTP 507), after which the same upload resumes once
+ * space is freed. The only count is of uploads still holding a reservation, which keeps a client
+ * that begins uploads in a loop from exhausting inodes; one import needs one upload.
  */
 @Service
 public class CdsUploadService {
@@ -95,11 +101,10 @@ public class CdsUploadService {
 
     public CdsUploadDto begin(String operator, String name, long bytes) throws IOException {
         configuration.requireEnabled();
+        configuration.reportRetiredSettings();
         requireName(name);
-        if (bytes < 1
-                || bytes > configuration.number("cds.import.upload.maxFileBytes", 64L << 30)) {
-            throw problem("UPLOAD_FILE_SIZE_REFUSED", 413);
-        }
+        // An empty file is not a source; any other size is accepted and stored chunk by chunk.
+        if (bytes < 1) throw problem("UPLOAD_FILE_SIZE_REFUSED", 413);
         String id = UUID.randomUUID().toString();
         reserveDisk(root(), Math.min(bytes, chunkBytes()));
         // Reserve before creating per-upload files: repeated busy refusals cannot exhaust inodes.
@@ -108,13 +113,12 @@ public class CdsUploadService {
                         () -> {
                             CdsImportAdmission budget = admission.lock("UPLOAD_BUDGET");
                             if (budget == null) throw problem("UPLOAD_SCHEMA_NOT_READY", 503);
-                            long maximum =
-                                    configuration.number(
-                                            "cds.import.upload.maxTotalBytes", 256L << 30);
-                            if (bytes > maximum - budget.getReservedBytes()
-                                    || uploads.reservedCount()
-                                            >= configuration.number(
-                                                    "cds.import.upload.maxFiles", 20_000)) {
+                            // The reserved bytes are bookkeeping released with each upload; the
+                            // disk reserve, checked before every chunk, is what protects the
+                            // store. Only the count of pending uploads is refused, against a
+                            // client that begins uploads in a loop.
+                            if (uploads.reservedCount()
+                                    >= configuration.number("cds.import.upload.maxFiles", 20_000)) {
                                 throw problem("UPLOAD_CAPACITY_BUSY", 429);
                             }
                             CdsUpload upload = new CdsUpload();
