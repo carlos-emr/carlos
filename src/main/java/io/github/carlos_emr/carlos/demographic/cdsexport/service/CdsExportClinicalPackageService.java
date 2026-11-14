@@ -1547,6 +1547,12 @@ public class CdsExportClinicalPackageService {
      */
     static String heldCode(Exception refused) {
         if (refused instanceof CdsExportMappingReviewException mapping) return mapping.getMessage();
+        // A chart of a group linked by Merge Records was refused: the whole file is held.
+        if (refused
+                instanceof
+                io.github.carlos_emr.carlos.demographic.cdsexport.support
+                        .CdsExportMergedChartAccessException)
+            return CdsExportReviewException.Reason.MERGED_CHART_ACCESS.code();
         if (refused instanceof SecurityException) return ACCESS_CHANGED;
         if (refused instanceof CdsExportReviewException review)
             return switch (review.reason()) {
@@ -1554,6 +1560,7 @@ public class CdsExportClinicalPackageService {
                         PREVENTION_PROGRAM_SCOPE,
                         DOCUMENT_PROGRAM_SCOPE,
                         MERGED_PATIENT_SCOPE,
+                        MERGED_CHART_ACCESS,
                         SOURCE_CHANGED,
                         AMBIGUOUS_SOURCE,
                         INCOMPLETE_RENDER,

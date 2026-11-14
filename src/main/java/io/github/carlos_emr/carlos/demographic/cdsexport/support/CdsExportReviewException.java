@@ -36,7 +36,19 @@ public final class CdsExportReviewException extends RuntimeException {
          * works in, so the chart as those identities see it lacks it. The patient is held.
          */
         DOCUMENT_PROGRAM_SCOPE,
+        /**
+         * Retired: a chart with an active Merge Records link was once held. Charts linked by
+         * Merge Records are now exported as one patient file ({@code CdsMergedChartContract});
+         * this reason is never raised and stays so that held records of older jobs still read.
+         */
         MERGED_PATIENT_SCOPE,
+        /**
+         * One chart of a group linked by Merge Records was refused by an access check it would
+         * also have to pass if it were exported alone, so the group's patient file, which holds
+         * every chart's records, is held whole. The held record names the group's head and the
+         * refused chart.
+         */
+        MERGED_CHART_ACCESS,
         SOURCE_CHANGED,
         AMBIGUOUS_SOURCE,
         INCOMPLETE_RENDER,

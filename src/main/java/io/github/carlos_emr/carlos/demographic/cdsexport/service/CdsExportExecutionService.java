@@ -694,8 +694,98 @@ public class CdsExportExecutionService {
         private CdsExportPatientAuthorization session;
 
         private CdsExportPatientAuthorization session(int patient) {
+            var sessions = group;
+            if (sessions != null) return sessions.get(patient);
             var current = session;
             return current != null && current.patient() == patient ? current : null;
+        }
+
+        /**
+         * The sessions of the open patient file of charts linked by Merge Records, one per chart
+         * in the order the group was opened (the head first), or null outside a group.
+         */
+        private java.util.LinkedHashMap<Integer, CdsExportPatientAuthorization> group;
+
+        /** The checked capture reads of each chart of the open group. */
+        private java.util.Map<Integer, CdsExportVerifiedCaptures> groupVerified;
+
+        /**
+         * A refusal of a check of one chart of the open group, naming the chart so that the
+         * whole patient file is held; outside a group the refusal is returned unchanged.
+         */
+        private SecurityException grouped(int chart, SecurityException refused) {
+            if (group == null
+                    || refused
+                            instanceof
+                            io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                    .CdsExportMergedChartAccessException) return refused;
+            return new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                    .CdsExportMergedChartAccessException(chart, refused);
+        }
+
+        @Override
+        public void beginGroup(java.util.List<Integer> charts) {
+            outsideCapture();
+            discardGroup();
+            var sessions = new java.util.LinkedHashMap<Integer, CdsExportPatientAuthorization>();
+            var reads = new java.util.HashMap<Integer, CdsExportVerifiedCaptures>();
+            group = sessions;
+            groupVerified = reads;
+            // Each chart's own opening pass, exactly as if it were exported alone.
+            for (int chart : java.util.List.copyOf(charts)) {
+                if (sessions.containsKey(chart))
+                    throw new IllegalStateException("CDS_EXPORT_SESSION_ACTIVE");
+                try {
+                    sessions.put(chart, new CdsExportPatientAuthorization(chart, fresh()));
+                } catch (SecurityException refused) {
+                    throw grouped(chart, refused);
+                }
+                reads.put(chart, new CdsExportVerifiedCaptures(chart));
+            }
+        }
+
+        @Override
+        public void endGroup() {
+            var sessions = group;
+            // The file's last read is done: nothing replays past this point.
+            closeGroupVerified();
+            if (sessions == null) throw new IllegalStateException("CDS_EXPORT_SESSION_NOT_STARTED");
+            try {
+                outsideCapture();
+                // Every chart's closing pass: a right revoked for any of them while the file was
+                // read holds the whole file.
+                for (var entry : sessions.entrySet()) {
+                    if (!entry.getValue().session())
+                        throw new IllegalStateException("CDS_EXPORT_SESSION_NOT_STARTED");
+                    try {
+                        entry.getValue().finish();
+                    } catch (SecurityException refused) {
+                        throw grouped(entry.getKey(), refused);
+                    }
+                }
+            } finally {
+                group = null;
+            }
+        }
+
+        @Override
+        public void discardGroup() {
+            group = null;
+            closeGroupVerified();
+        }
+
+        private void closeGroupVerified() {
+            var reads = groupVerified;
+            groupVerified = null;
+            if (reads == null) return;
+            for (var current : reads.values())
+                try {
+                    current.close();
+                } catch (java.io.UncheckedIOException uncleared) {
+                    heartbeatFailure.compareAndSet(
+                            null, new IllegalStateException("CDS_EXPORT_SESSION_CLEANUP_FAILED"));
+                    LOG.warn("CDS_EXPORT_SESSION_CLEANUP_FAILED run={}", lease.runId());
+                }
         }
 
         /** The live checks of this attempt's actor and command. */
@@ -710,6 +800,7 @@ public class CdsExportExecutionService {
         @Override
         public void beginPatient(int patient) {
             outsideCapture();
+            discardGroup();
             closeVerified();
             session = null;
             // The opening pass: every fixed gate, from the live database, before any read.
@@ -739,7 +830,8 @@ public class CdsExportExecutionService {
         public void beginAuthorizationPass(int patient) {
             outsideCapture();
             // A pass never replaces a session: that would drop the session's closing check.
-            if (session != null) throw new IllegalStateException("CDS_EXPORT_SESSION_ACTIVE");
+            if (session != null || group != null)
+                throw new IllegalStateException("CDS_EXPORT_SESSION_ACTIVE");
             session = CdsExportPatientAuthorization.pass(patient, fresh());
         }
 
@@ -753,6 +845,11 @@ public class CdsExportExecutionService {
 
         @Override
         public CdsExportVerifiedCaptures verifiedCaptures(int patient) {
+            var reads = groupVerified;
+            if (reads != null) {
+                var member = reads.get(patient);
+                return member != null && member.usable() ? member : null;
+            }
             var current = verified;
             return current != null && current.patient() == patient && current.usable()
                     ? current
@@ -795,28 +892,42 @@ public class CdsExportExecutionService {
         public void authorizePatient(int patient) {
             outsideCapture();
             var current = session(patient);
-            if (current != null) current.patient(patient);
-            else access.requirePatient(lease.document().actor(), lease.document().command(), patient);
+            try {
+                if (current != null) current.patient(patient);
+                else
+                    access.requirePatient(
+                            lease.document().actor(), lease.document().command(), patient);
+            } catch (SecurityException refused) {
+                throw grouped(patient, refused);
+            }
         }
 
         @Override
         public void authorizePharmacy(int patient) {
             outsideCapture();
             var current = session(patient);
-            if (current != null) current.pharmacy(patient);
-            else
-                access.requirePharmacyRead(
-                        lease.document().actor(), lease.document().command(), patient);
+            try {
+                if (current != null) current.pharmacy(patient);
+                else
+                    access.requirePharmacyRead(
+                            lease.document().actor(), lease.document().command(), patient);
+            } catch (SecurityException refused) {
+                throw grouped(patient, refused);
+            }
         }
 
         @Override
         public void authorizeCaseManagement(int patient) {
             outsideCapture();
             var current = session(patient);
-            if (current != null) current.caseManagement(patient);
-            else
-                access.requireCaseManagementRead(
-                        lease.document().actor(), lease.document().command(), patient);
+            try {
+                if (current != null) current.caseManagement(patient);
+                else
+                    access.requireCaseManagementRead(
+                            lease.document().actor(), lease.document().command(), patient);
+            } catch (SecurityException refused) {
+                throw grouped(patient, refused);
+            }
         }
 
         @Override
@@ -826,20 +937,29 @@ public class CdsExportExecutionService {
                         scope) {
             outsideCapture();
             var current = scope == null ? null : session(scope.patient());
-            if (current != null) current.note(category, scope);
-            else
-                access.requireNoteRead(
-                        lease.document().actor(), lease.document().command(), category, scope);
+            try {
+                if (current != null) current.note(category, scope);
+                else
+                    access.requireNoteRead(
+                            lease.document().actor(), lease.document().command(), category, scope);
+            } catch (SecurityException refused) {
+                if (scope == null) throw refused;
+                throw grouped(scope.patient(), refused);
+            }
         }
 
         @Override
         public boolean issueProgramReadable(int patient, CdsCategory category, String program) {
             outsideCapture();
             var current = session(patient);
-            if (current != null) return current.issueProgram(patient, category, program);
-            return access.canReadIssueProgram(
-                    lease.document().actor(), lease.document().command(), category, patient,
-                    program);
+            try {
+                if (current != null) return current.issueProgram(patient, category, program);
+                return access.canReadIssueProgram(
+                        lease.document().actor(), lease.document().command(), category, patient,
+                        program);
+            } catch (SecurityException refused) {
+                throw grouped(patient, refused);
+            }
         }
 
         @Override
@@ -847,19 +967,27 @@ public class CdsExportExecutionService {
                 int patient, CdsCategory category, String program) {
             outsideCapture();
             var current = session(patient);
-            if (current != null) return current.restrictedProgram(patient, category, program);
-            return access.canReadRestrictedProgram(
-                    lease.document().actor(), lease.document().command(), category, patient,
-                    program);
+            try {
+                if (current != null) return current.restrictedProgram(patient, category, program);
+                return access.canReadRestrictedProgram(
+                        lease.document().actor(), lease.document().command(), category, patient,
+                        program);
+            } catch (SecurityException refused) {
+                throw grouped(patient, refused);
+            }
         }
 
         @Override
         public boolean recordReadable(int patient, String object) {
             outsideCapture();
             var current = session(patient);
-            if (current != null) return current.record(patient, object);
-            return access.canReadRecordObject(
-                    lease.document().actor(), lease.document().command(), patient, object);
+            try {
+                if (current != null) return current.record(patient, object);
+                return access.canReadRecordObject(
+                        lease.document().actor(), lease.document().command(), patient, object);
+            } catch (SecurityException refused) {
+                throw grouped(patient, refused);
+            }
         }
 
         @Override
@@ -872,19 +1000,28 @@ public class CdsExportExecutionService {
             outsideCapture();
             var batch = java.util.List.copyOf(scopes);
             var current = batch.isEmpty() ? null : session(batch.getFirst().patient());
-            if (current != null) {
-                current.notes(category, batch);
-                return;
+            try {
+                if (current != null) {
+                    current.notes(category, batch);
+                    return;
+                }
+                access.requireNotesRead(
+                        lease.document().actor(), lease.document().command(), category, batch);
+            } catch (SecurityException refused) {
+                if (batch.isEmpty()) throw refused;
+                throw grouped(batch.getFirst().patient(), refused);
             }
-            access.requireNotesRead(
-                    lease.document().actor(), lease.document().command(), category, batch);
         }
 
         @Override
         public io.github.carlos_emr.carlos.utility.LoggedInInfo authorizeRendering(int patient) {
             outsideCapture();
-            return access.requireEformRendering(
-                    lease.document().actor(), lease.document().command(), patient);
+            try {
+                return access.requireEformRendering(
+                        lease.document().actor(), lease.document().command(), patient);
+            } catch (SecurityException refused) {
+                throw grouped(patient, refused);
+            }
         }
 
         @Override
@@ -892,14 +1029,18 @@ public class CdsExportExecutionService {
                 int patient, CdsCategory category, boolean sensitiveLaboratory) {
             outsideCapture();
             var current = session(patient);
-            if (current != null) current.category(patient, category, sensitiveLaboratory);
-            else
-                access.requireCategory(
-                        lease.document().actor(),
-                        lease.document().command(),
-                        patient,
-                        category,
-                        sensitiveLaboratory);
+            try {
+                if (current != null) current.category(patient, category, sensitiveLaboratory);
+                else
+                    access.requireCategory(
+                            lease.document().actor(),
+                            lease.document().command(),
+                            patient,
+                            category,
+                            sensitiveLaboratory);
+            } catch (SecurityException refused) {
+                throw grouped(patient, refused);
+            }
         }
     }
 }

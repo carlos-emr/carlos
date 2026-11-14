@@ -1048,6 +1048,40 @@ class CdsExportAccessServiceUnitTest {
     }
 
     @Test
+    void shouldCheckAMergedChartTheJobDidNotName_onlyInsideItsSealedGroupAndAsIfAlone() {
+        var actor = access.webActor(session, command("100"));
+        // 34 is merged into 27, the chart the job named: alone it is not a selected patient.
+        assertThatThrownBy(() -> access.requirePatient(actor, command("100"), 34))
+                .isInstanceOf(SecurityException.class);
+        try (var group = CdsExportAccessService.sealedGroup(List.of(27, 34), List.of(27))) {
+            assertThat(access.requirePatient(actor, command("100"), 34)).isNotNull();
+            // Every other check applies to it exactly as it would to the chart exported alone.
+            when(permissions.hasPrivilegeReadOnly(any(), eq("_demographic"), eq("r"), eq("34")))
+                    .thenReturn(false);
+            assertThatThrownBy(() -> access.requirePatient(actor, command("100"), 34))
+                    .isInstanceOf(SecurityException.class);
+            assertThat(access.requirePatient(actor, command("100"), 27)).isNotNull();
+            // A chart outside the group is refused as before.
+            assertThatThrownBy(() -> access.requirePatient(actor, command("100"), 28))
+                    .isInstanceOf(SecurityException.class);
+            // Groups do not nest.
+            assertThatThrownBy(
+                            () -> CdsExportAccessService.sealedGroup(List.of(40), List.of(40)))
+                    .hasMessage("CDS_EXPORT_SESSION_ACTIVE");
+        }
+        when(permissions.hasPrivilegeReadOnly(any(), eq("_demographic"), eq("r"), eq("34")))
+                .thenReturn(true);
+        // A group none of whose selected charts the job named lets nothing through.
+        try (var group = CdsExportAccessService.sealedGroup(List.of(40, 41), List.of(40))) {
+            assertThatThrownBy(() -> access.requirePatient(actor, command("100"), 41))
+                    .isInstanceOf(SecurityException.class);
+        }
+        // Closed, the scope relaxes nothing.
+        assertThatThrownBy(() -> access.requirePatient(actor, command("100"), 34))
+                .isInstanceOf(SecurityException.class);
+    }
+
+    @Test
     void shouldRefuseARevokedCategoryPermission_andAChangedPatientRestriction() {
         var actor = access.webActor(session, command("100"));
         when(permissions.hasPrivilegeReadOnly(any(), eq("_rx"), eq("r"), eq("27")))

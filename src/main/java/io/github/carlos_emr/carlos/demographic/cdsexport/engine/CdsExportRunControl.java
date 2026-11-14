@@ -154,6 +154,29 @@ public interface CdsExportRunControl {
     default void endAuthorizationPass() {}
 
     /**
+     * Opens one authorization session for every chart of a patient file of charts linked by
+     * Merge Records: each chart gets its own opening pass, exactly as if it were exported alone.
+     * A check refused for any chart of the group is reported as {@code
+     * CdsExportMergedChartAccessException} naming that chart, so the whole file is held. The
+     * caller holds the group's sealed scope ({@code CdsExportAccessService.sealedGroup}) open
+     * meanwhile. An adapter without sessions answers every check fresh, which is always correct.
+     *
+     * @param charts every chart of the group, the head first
+     */
+    default void beginGroup(java.util.List<Integer> charts) {}
+
+    /**
+     * Runs every chart's closing pass after the file's last read and ends the group.
+     *
+     * @throws SecurityException naming the refused chart ({@code
+     *     CdsExportMergedChartAccessException}) when a closing pass is refused
+     */
+    default void endGroup() {}
+
+    /** Drops the group's sessions, whatever ended it; never runs a check; always safe. */
+    default void discardGroup() {}
+
+    /**
      * The checked capture reads of the patient whose session is open, for the patient's later
      * reads of the same sealed members to replay instead of decrypting and checking them again;
      * null when no session is open for this patient or on another thread. It is zeroed when the
