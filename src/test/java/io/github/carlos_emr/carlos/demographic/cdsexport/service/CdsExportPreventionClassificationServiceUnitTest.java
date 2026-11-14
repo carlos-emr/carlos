@@ -140,6 +140,20 @@ class CdsExportPreventionClassificationServiceUnitTest {
         service = new CdsExportPreventionClassificationService(captures, configuration, rows);
     }
 
+    @Test
+    void shouldPartitionEveryPrevention_ofAChartPastTheFormerScopeBound() throws Exception {
+        // 10,001 preventions: one more than the count that failed the chart with
+        // CDS_EXPORT_PREVENTION_SCOPE_LIMIT.
+        var many = new ArrayList<CdsExportCapturedTextRowDto>();
+        for (int id = 1; id <= 10_001; id++) many.add(row(id, id % 2 == 0 ? "PAP" : "Td"));
+        metadata = many;
+        var result = classify();
+        assertThat(result.rows()).isEqualTo(10_001);
+        assertThat(result.immunizations()).hasSize(5_001);
+        assertThat(result.otherPreventions()).hasSize(5_000);
+        assertThat(result.representable()).isTrue();
+    }
+
     private CdsExportPreventionScopePlanner.Result classify() throws Exception {
         return service.classify(lease, patient, TABLES, source, receipt, 1000, 4L << 20, control);
     }

@@ -26,7 +26,6 @@ import io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineKey
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
@@ -156,8 +155,10 @@ public class CdsExportPreventionClassificationService {
                                 control);
         if (!source.manifest().plaintextSha256().equals(classifier.sourceManifestSha256()))
             throw new IOException("CDS_EXPORT_PREVENTION_SCOPE_INVALID");
+        // One short scope row for each prevention of the chart (its id, type and program, about
+        // 400 bytes), held while the chart is partitioned. No count of them refuses the chart:
+        // 10,000 rows or 4 MiB of them used to fail it with CDS_EXPORT_PREVENTION_SCOPE_LIMIT.
         var metadata = new ArrayList<CdsExportCapturedTextRowDto>();
-        long[] bytes = {0};
         var actual =
                 rows.forEach(
                         lease,
@@ -169,17 +170,7 @@ public class CdsExportPreventionClassificationService {
                         maximumBytes,
                         4096,
                         control,
-                        row -> {
-                            if (metadata.size() >= 10_000)
-                                throw new IOException("CDS_EXPORT_PREVENTION_SCOPE_LIMIT");
-                            for (String value : row.fields().values())
-                                if (value != null) {
-                                    bytes[0] += value.getBytes(StandardCharsets.UTF_8).length;
-                                    if (bytes[0] > 4_194_304)
-                                        throw new IOException("CDS_EXPORT_PREVENTION_SCOPE_LIMIT");
-                                }
-                            metadata.add(row);
-                        });
+                        metadata::add);
         if (!actual.equals(source.capture()))
             throw new IOException("CDS_EXPORT_PREVENTION_SCOPE_INVALID");
         var result =

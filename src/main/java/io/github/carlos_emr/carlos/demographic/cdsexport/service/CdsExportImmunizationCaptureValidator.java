@@ -165,6 +165,8 @@ public class CdsExportImmunizationCaptureValidator {
         if (selection.patient() != patient.patient()
                 || !selection.sourceManifestSha256().equals(source.manifest().plaintextSha256()))
             invalid();
+        // The scope row of each prevention of the chart, whatever their number (10,000 of them
+        // used to refuse the chart): about 400 bytes a prevention while the capture is checked.
         var metadata = new HashMap<Integer, Map<String, String>>();
         var actual =
                 rows.forEach(
@@ -182,8 +184,7 @@ public class CdsExportImmunizationCaptureValidator {
                                     || !row.fields()
                                             .keySet()
                                             .equals(CdsExportPreventionScopePlanner.COLUMNS)
-                                    || !row.exactNumbers().isEmpty()
-                                    || metadata.size() >= 10_000) invalid();
+                                    || !row.exactNumbers().isEmpty()) invalid();
                             int id = integer(row.fields().get("id"));
                             if (!row.recordKey().equals(CdsExportPatientTableSourceReader.key(id))
                                     || !Integer.toString(patient.patient())

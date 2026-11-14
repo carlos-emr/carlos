@@ -26,7 +26,6 @@ import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunCont
 import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException;
 import io.github.carlos_emr.carlos.demographic.cdsexport.validator.CdsExportXmlValidator;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.*;
 import org.springframework.stereotype.Service;
@@ -63,8 +62,12 @@ public class CdsExportPatientFileBindingService {
                 || patient.patient() != document.patient()
                 || !source.manifest().plaintextSha256().equals(document.sourceManifestSha256()))
             invalid();
+        // The binding needs the patient's own row and the provider record of the selected
+        // primary physician; the other providers the chart names are read past, not held. A
+        // second row of either kind is kept so that it is refused as it always was.
         var nativeRows = new ArrayList<CdsExportCapturedTextRowDto>();
-        long[] bytes = {0};
+        String selected = patient.selection().physicianNo();
+        int[] kept = new int[2];
         var read =
                 rows.forEachTable(
                         lease,
@@ -78,19 +81,9 @@ public class CdsExportPatientFileBindingService {
                         control,
                         row -> {
                             control.checkpoint();
-                            bytes[0] = Math.addExact(bytes[0], 1024L);
-                            for (String value : row.fields().values())
-                                if (value != null)
-                                    bytes[0] =
-                                            Math.addExact(
-                                                    bytes[0],
-                                                    64L
-                                                            + value.getBytes(StandardCharsets.UTF_8)
-                                                                            .length
-                                                                    * 2L);
-                            if (nativeRows.size() >= bounds.lookupRows()
-                                    || bytes[0] > bounds.indexBytes()) limit();
-                            nativeRows.add(row);
+                            if (!needed(selected, row)) return;
+                            if (kept[row.table().equals("demographic") ? 0 : 1]++ < 2)
+                                nativeRows.add(row);
                         });
         if (!read.equals(source.capture())) invalid();
         var result =
@@ -104,6 +97,17 @@ public class CdsExportPatientFileBindingService {
         patient.require(lease);
         control.checkpoint();
         return result;
+    }
+
+    /**
+     * Whether the binding reads this row: the patient's own row, or the provider record of the
+     * selected primary physician. {@link #fromRows} looks at no other row.
+     */
+    static boolean needed(String selectedPhysician, CdsExportCapturedTextRowDto row) {
+        return row.table().equals("demographic")
+                || row.table().equals("provider")
+                        && selectedPhysician != null
+                        && selectedPhysician.equals(row.fields().get("provider_no"));
     }
 
     /** Pure binding over already authenticated, same-snapshot rows; exposed to owning orchestration tests only. */
@@ -193,9 +197,5 @@ public class CdsExportPatientFileBindingService {
 
     private static CdsExportReviewException review() {
         return new CdsExportReviewException(CdsExportReviewException.Reason.UNMAPPED_DATA);
-    }
-
-    private static void limit() {
-        throw new CdsExportReviewException(CdsExportReviewException.Reason.RESOURCE_LIMIT);
     }
 }

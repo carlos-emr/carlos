@@ -724,8 +724,8 @@ to them. No number of occurrences in one chart stops an export either:
 audit, and `CDS_EXPORT_NATIVE_CARE_PATIENT_LIMIT_EXCEEDED` no longer exists. The three
 settings named first still stop a job (`CDS_EXPORT_RESOURCE_LIMIT`) for a chart with more
 than 8,192 rows of one kind among its documents (counted across the document and its
-patient link: about 4,096 documents), hospital reports, notes or demographic properties;
-that is a limit of this release, not a setting to raise (8,192 is also its maximum).
+patient link: about 4,096 documents), hospital reports or notes; that is a limit of this
+release, not a setting to raise (8,192 is also its maximum).
 Upgrading applies migration `V1.0.59.46`, which indexes `measurementsDeleted` (deleted
 and superseded measurements) by patient and by original measurement id. On a clinic
 with many refiled lab results the index build adds a little time to the upgrade.

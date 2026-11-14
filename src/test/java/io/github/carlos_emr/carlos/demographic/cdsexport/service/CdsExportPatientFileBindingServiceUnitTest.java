@@ -171,4 +171,34 @@ class CdsExportPatientFileBindingServiceUnitTest {
         assertThat(new CdsExportPathComposer().compose(result).physicianFolder())
                 .isEqualTo(CdsExportPathComposer.UNASSIGNED_FOLDER);
     }
+
+    @Test
+    void shouldBindTheSameFile_fromOnlyTheRowsItKeepsOfAClinicsProviders() throws Exception {
+        // Every provider a chart names is captured; the binding used to hold them all and stop
+        // the job at maxLookupRows of them. It keeps the patient's row and the selected
+        // physician's record and reads past the rest, with the same result.
+        var providers = new ArrayList<CdsExportCapturedTextRowDto>();
+        for (int number = 200_000; number < 340_000; number++) {
+            var other = new HashMap<>(provider);
+            other.put("provider_no", Integer.toString(number));
+            other.put("last_name", "Other");
+            providers.add(
+                    new CdsExportCapturedTextRowDto(
+                            "provider",
+                            CdsExportPublicProviderSourceReader.key(Integer.toString(number)),
+                            other));
+        }
+        providers.add(physician());
+        var kept =
+                providers.stream()
+                        .filter(row -> CdsExportPatientFileBindingService.needed("111111", row))
+                        .toList();
+        assertThat(kept).containsExactly(physician());
+        assertThat(bind("111111", "1980-01-02", "C27", kept))
+                .isEqualTo(bind("111111", "1980-01-02", "C27", providers));
+        var patient = new CdsExportCapturedTextRowDto("demographic", "0000000027", demographic);
+        assertThat(CdsExportPatientFileBindingService.needed("111111", patient)).isTrue();
+        assertThat(CdsExportPatientFileBindingService.needed(null, patient)).isTrue();
+        assertThat(CdsExportPatientFileBindingService.needed(null, physician())).isFalse();
+    }
 }

@@ -52,16 +52,18 @@ abstract class CdsExportLaboratoryWindowFixture {
     static final List<String> REPORT_TABLES =
             List.of("cds_laboratory_result", "hl7TextInfo", "hl7TextMessage", "patientLabRouting");
 
-    final CdsExportNativeCaptureService captures = mock(CdsExportNativeCaptureService.class);
+    // The mocks record nothing: a chart of thousands of reports makes millions of calls
+    // (every checkpoint), and a recorded call would keep the rows a window handed to it.
+    final CdsExportNativeCaptureService captures = mock(CdsExportNativeCaptureService.class, withSettings().stubOnly());
     final CdsExportNativeRowReceiptReader witnessReader =
-            mock(CdsExportNativeRowReceiptReader.class);
-    final CdsExportCapturedTextRowsReader rows = mock(CdsExportCapturedTextRowsReader.class);
-    final CdsExportClinicalZoneService zones = mock(CdsExportClinicalZoneService.class);
-    final CdsExportRetainedValuesService values = mock(CdsExportRetainedValuesService.class);
+            mock(CdsExportNativeRowReceiptReader.class, withSettings().stubOnly());
+    final CdsExportCapturedTextRowsReader rows = mock(CdsExportCapturedTextRowsReader.class, withSettings().stubOnly());
+    final CdsExportClinicalZoneService zones = mock(CdsExportClinicalZoneService.class, withSettings().stubOnly());
+    final CdsExportRetainedValuesService values = mock(CdsExportRetainedValuesService.class, withSettings().stubOnly());
     final CdsExportRetainedReceiptVerificationService verification =
-            mock(CdsExportRetainedReceiptVerificationService.class);
-    final CdsExportCohortService.Patient patient = mock(CdsExportCohortService.Patient.class);
-    final CdsExportRunControl control = mock(CdsExportRunControl.class);
+            mock(CdsExportRetainedReceiptVerificationService.class, withSettings().stubOnly());
+    final CdsExportCohortService.Patient patient = mock(CdsExportCohortService.Patient.class, withSettings().stubOnly());
+    final CdsExportRunControl control = mock(CdsExportRunControl.class, withSettings().stubOnly());
 
     /** The capture: each table's rows by record key, as the capture holds them. */
     final Map<String, SortedMap<String, CdsExportCapturedTextRowDto>> tables = new TreeMap<>();
@@ -333,7 +335,7 @@ abstract class CdsExportLaboratoryWindowFixture {
                             Set.copyOf(plan.columns()), tables.get(plan.table()).size(), SOURCE));
         scopes.put("provider", new CdsExportCapturedTableDto(Set.of("provider_no"), 0, SOURCE));
         scopes.put("demographic_merged", new CdsExportCapturedTableDto(Set.of("id"), 0, SOURCE));
-        var generation = mock(CdsExportNativeCaptureDto.class);
+        var generation = mock(CdsExportNativeCaptureDto.class, withSettings().stubOnly());
         when(generation.tables()).thenReturn(scopes);
         when(generation.values())
                 .thenReturn(new CdsExportStagedFileDto("1".repeat(64), "SOURCE_VALUES", SOURCE, 1));
@@ -412,7 +414,7 @@ abstract class CdsExportLaboratoryWindowFixture {
                 .thenReturn(
                         new CdsExportRetainedReceiptVerificationDto(
                                 SOURCE, checked, references.keySet(), Set.of()));
-        var streams = mock(CdsExportRetainedSectionWriter.Values.class);
+        var streams = mock(CdsExportRetainedSectionWriter.Values.class, withSettings().stubOnly());
         doAnswer(
                         call -> {
                             call.<CdsExportRetainedValuesService.Work>getArgument(10)

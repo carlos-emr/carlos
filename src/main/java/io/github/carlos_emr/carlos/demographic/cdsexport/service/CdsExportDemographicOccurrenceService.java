@@ -27,7 +27,6 @@ import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunCont
 import io.github.carlos_emr.carlos.demographic.cdsexport.validator.CdsExportDemographicClosureValidator;
 import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import org.springframework.stereotype.Service;
 
@@ -143,13 +142,13 @@ public class CdsExportDemographicOccurrenceService {
                 || source.capture().patient() != patient.patient()) scope();
         new CdsExportPatientIdentityReconciler()
                 .identity(lease.document().senderNamespace(), patient.patient());
-        for (String table : TABLES)
-            if (source.capture().tables().get(table).rows() > bounds.nativeRows()) limit();
         new CdsExportMergeScopeValidator(rows)
                 .requireUnmerged(
                         lease, patient, tables, source, bounds.fields(), bounds.bytes(), control);
+        // The Demographics element is one occurrence built from all of these rows together (the
+        // patient's row, properties, contacts, pharmacies and roster states, and the providers
+        // they name), so they are one window of one owner: read whole, whatever their number.
         var collected = new LinkedHashMap<String, List<CdsExportCapturedTextRowDto>>();
-        long[] totalBytes = {0};
         for (String table : new TreeSet<>(TABLES)) {
             var items = new ArrayList<CdsExportCapturedTextRowDto>();
             var actual =
@@ -163,22 +162,7 @@ public class CdsExportDemographicOccurrenceService {
                             bounds.bytes(),
                             1 << 20,
                             control,
-                            row -> {
-                                if (items.size() >= bounds.nativeRows()) limit();
-                                totalBytes[0] = Math.addExact(totalBytes[0], 2048L);
-                                for (String value : row.fields().values())
-                                    if (value != null)
-                                        totalBytes[0] =
-                                                Math.addExact(
-                                                        totalBytes[0],
-                                                        32L
-                                                                + value.getBytes(
-                                                                                StandardCharsets
-                                                                                        .UTF_8)
-                                                                        .length);
-                                if (totalBytes[0] > bounds.indexBytes()) limit();
-                                items.add(row);
-                            });
+                            items::add);
             if (!actual.equals(source.capture())
                     || items.size() != source.capture().tables().get(table).rows()) scope();
             collected.put(table, List.copyOf(items));
@@ -197,7 +181,6 @@ public class CdsExportDemographicOccurrenceService {
                         witness -> {
                             var selected = receipts.get(witness.table());
                             if (selected == null) return;
-                            if (selected.size() >= bounds.nativeRows()) limit();
                             selected.add(witness);
                         });
         if (!scanned.sourceManifestSha256().equals(source.manifest().plaintextSha256())
@@ -621,9 +604,5 @@ public class CdsExportDemographicOccurrenceService {
 
     private static void scope() throws IOException {
         throw new IOException("CDS_EXPORT_DEMOGRAPHIC_OCCURRENCE_SCOPE_INVALID");
-    }
-
-    private static void limit() throws IOException {
-        throw new IOException("CDS_EXPORT_DEMOGRAPHIC_OCCURRENCE_RESOURCE_LIMIT");
     }
 }

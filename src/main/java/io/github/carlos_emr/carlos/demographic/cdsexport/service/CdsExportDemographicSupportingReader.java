@@ -106,8 +106,8 @@ public final class CdsExportDemographicSupportingReader {
             throws IOException {
         patient.require(lease);
         var captured = source.capture().tables().get(table);
-        if (!tables.contains(table) || captured == null || captured.rows() > bounds.nativeRows())
-            invalid();
+        // The rows of one patient that one record carries together: no count refuses them.
+        if (!tables.contains(table) || captured == null) invalid();
         var found = new ArrayList<CdsExportCapturedTextRowDto>();
         var actual =
                 new CdsExportCapturedTextRowsReader(captures)
@@ -122,8 +122,7 @@ public final class CdsExportDemographicSupportingReader {
                                 ROW_BYTES,
                                 control,
                                 row -> {
-                                    if (found.size() >= bounds.nativeRows()
-                                            || !table.equals(row.table())) invalid();
+                                    if (!table.equals(row.table())) invalid();
                                     found.add(row);
                                 });
         if (!actual.equals(source.capture()) || found.size() != captured.rows()) invalid();

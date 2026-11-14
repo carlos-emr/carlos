@@ -160,11 +160,11 @@ class CdsExportLaboratoryWindowUnitTest extends CdsExportLaboratoryWindowFixture
         bounds = bounds.withWindow(window, 64L << 20);
         handed = new ArrayList<>();
         long[] most = {0}, least = {Long.MAX_VALUE};
-        beforeRows = () -> handed.clear();
         beforeWitnesses =
                 () -> {
-                    // The pass over the report tables has just ended: what it kept is the
-                    // window's, and the rows of every earlier window are gone.
+                    // The pass over the report tables has just ended. Of every report message
+                    // any pass has handed out so far, only this window's are still held: the
+                    // rows of every earlier window are gone.
                     System.gc();
                     long kept = handed.stream().filter(row -> row.get() != null).count();
                     most[0] = Math.max(most[0], kept);

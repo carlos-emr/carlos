@@ -77,7 +77,11 @@ class CdsExportDemographicOccurrenceServiceUnitTest {
                 .hasMessage("CDS_EXPORT_DEMOGRAPHIC_OCCURRENCE_SCOPE_INVALID");
         verifyNoInteractions(values, verification, witnesses, captures, rows);
     }
-    @Test void shouldEnforceEachTableRowBudget_beforeTheMergeOrClinicalSourceScan() throws Exception {
+    @Test void shouldReadATablePastTheFormerRowBound_withoutRefusingTheChart() throws Exception {
+        // Eleven contacts with a former bound of ten rows a table stopped the export with
+        // CDS_EXPORT_DEMOGRAPHIC_OCCURRENCE_RESOURCE_LIMIT. The rows of the one Demographics
+        // occurrence are read together whatever their number: the assembly goes on to the merge
+        // check, which this capture (it holds no demographic_merged table) fails.
         var tables = new LinkedHashMap<String, CdsExportCapturedTableDto>();
         for (String table : List.of("demographic", "demographicExt", "demographiccust", "demographicArchive", "provider", "Contact", "DemographicContact", "pharmacyInfo", "demographicPharmacy"))
             tables.put(table, new CdsExportCapturedTableDto(Set.of("id"), table.equals("Contact") ? 11 : 0, HASH));
@@ -85,9 +89,10 @@ class CdsExportDemographicOccurrenceServiceUnitTest {
         assertThatThrownBy(() -> service.append(lease(), patient, HASH, tables.keySet(), source,
                 new CdsExportStagedFileDto("4".repeat(64), "RETAINED_MANIFEST", HASH, 1), new CdsExportClinicalOccurrenceService.Bounds(100, 100, 100, 100, 10, 10),
                 mock(CdsExportRunControl.class), emitter(), receipt -> {}))
-                .hasMessage("CDS_EXPORT_DEMOGRAPHIC_OCCURRENCE_RESOURCE_LIMIT");
-        verifyNoInteractions(values, verification, witnesses, captures, rows);
-    }    @Test void shouldPoisonTheWholeDocument_whenTheCallerSwallowsASourceScopeFailure() {
+                .hasMessage("CDS_EXPORT_MERGE_SCOPE_INVALID");
+    }
+
+    @Test void shouldPoisonTheWholeDocument_whenTheCallerSwallowsASourceScopeFailure() {
         var source = source(Map.of("demographic", new CdsExportCapturedTableDto(Set.of("demographic_no"), 1, HASH)));
         var output = new java.io.ByteArrayOutputStream();
         assertThatThrownBy(() -> new CdsExportXmlComposer().composeFromSource(output, HASH, HASH, "2026.08.0-test", CdsLogicalProfile.ONTARIO_MD_5_2,
