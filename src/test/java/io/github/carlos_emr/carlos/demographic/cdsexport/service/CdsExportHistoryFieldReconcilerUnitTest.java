@@ -346,6 +346,26 @@ class CdsExportHistoryFieldReconcilerUnitTest {
     }
 
     @Test
+    void shouldReportATagRowWithNoBaseline_asUnprovenForTheOccurrenceService() throws Exception {
+        // An import made before units kept field baselines has none for its category tag, and
+        // the chart's issue list changes that row in place. It held the patient
+        // (CDS_EXPORT_HISTORY_ISSUE_EDIT_REQUIRES_RECONCILIATION); the occurrence service now
+        // exports the item from its native revisions. A baseline that disagrees with the receipt
+        // is a damaged ledger and still a review.
+        fixture(CdsCategory.FAMILY_HISTORY);
+        baseline.remove("casemgmt_issue/41");
+        assertThatThrownBy(this::choose)
+                .hasMessage("CDS_EXPORT_HISTORY_ISSUE_BASELINE_REQUIRED");
+        assertThat(CdsExportHistoryFieldReconciler.UNPROVEN_BASELINE)
+                .containsExactlyInAnyOrder(
+                        "CDS_EXPORT_HISTORY_ISSUE_BASELINE_REQUIRED",
+                        "CDS_EXPORT_HISTORY_NATIVE_BASELINE_REQUIRED")
+                .doesNotContain(
+                        "CDS_EXPORT_HISTORY_ISSUE_EDIT_REQUIRES_RECONCILIATION",
+                        "CDS_EXPORT_HISTORY_NATIVE_BASELINE_MISMATCH");
+    }
+
+    @Test
     void shouldRejectAChangedCatalogueCode_evenWhenThePatientIssueRowIsUnchanged() {
         fixture(CdsCategory.FAMILY_HISTORY);
         var fields = new LinkedHashMap<>(definitions.get("51").value().fields());

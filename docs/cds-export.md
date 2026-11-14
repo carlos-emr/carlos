@@ -4751,6 +4751,56 @@ and no public name in the details, as an appointment with no provider record has
 the stored number travels in the revision details (`providerNo`, `signingProviderNo`, rule
 `NATIVE_PROVIDER_NUMBER_WITHOUT_PROVIDER_RECORD_CARRIED`). A sending CARLOS provider number is
 local to the sender and is never restored, as a primary physician's is not.
+
+What still holds a chart in the native history and issue mapping, and why:
+
+- A note filed under two CPP sections (`CDS_EXPORT_NATIVE_HISTORY_CATEGORY_AMBIGUOUS`). Reachable:
+  the issue search of the encounter and CPP editors (`CaseManagementManagerImpl.searchIssues`,
+  filtered only by role) returns the six section tags, whose role is `nurse`, to any role with
+  "write nurse issues" (the doctor role by default), so a clinician can assign a second section's
+  tag. The chart then shows the item in both CPP boxes. It is not settled: a CDS item has one
+  section, and a CARLOS importer links an imported item to its one section tag
+  (`CdsHistoryPersister`), so neither exporting it once nor twice transfers it unchanged.
+- A CPP section tag or other system marker (OMeds, TicklerNote, ...) that files no note
+  (`CDS_EXPORT_NATIVE_SYSTEM_ISSUE_WITHOUT_NOTE_REQUIRES_REVIEW`). Reachable: Administration's
+  default encounter issues create the patient issue of every code an administrator lists, with no
+  note, when an encounter opens (`EctIncomingEncounter2Action.assignDefaultIssues`, with
+  `wl_default_issue`), and a marker code can be listed. It is not settled: the marker states
+  nothing clinical and has no item to travel with, and a ProblemList item for it would file an
+  invented note in a receiving CARLOS.
+- A patient issue of a program the exporting identities do not work in that no exported note
+  links (`CDS_EXPORT_NATIVE_ISSUE_PROGRAM_REQUIRES_REVIEW`): an authorization outcome, as a
+  prevention or document of another program is (`PREVENTION_PROGRAM_SCOPE`,
+  `DOCUMENT_PROGRAM_SCOPE`); the chart those identities see lacks it.
+- Unreachable, by the columns' writers: an `archived` or `signed` flag other than 0 or 1
+  (`CDS_EXPORT_NATIVE_HISTORY_FLAG_INVALID`) and a `resolved` flag other than 0 or 1
+  (`CDS_EXPORT_NATIVE_ISSUE_STATUS_REQUIRES_REVIEW`): `CaseManagementNote.signed` and `archived`
+  and `CaseManagementIssue.resolved` are Java `boolean` fields that Hibernate stores as 0 or 1,
+  and the one native update of `casemgmt_note` (`CaseManagementNoteDAOImpl`) sets
+  `reporter_caisi_role` only. A NULL note text or revision time
+  (`CDS_EXPORT_NATIVE_NOTE_BODY_REQUIRED`, `CDS_EXPORT_NATIVE_NOTE_AUTHOR_TIME_REQUIRED`):
+  `note` and `update_date` are NOT NULL. An empty or XML-illegal extension key, or a date no
+  DATE column holds (`CDS_EXPORT_NATIVE_NOTE_EXTENSION_KEY_REQUIRED`,
+  `CDS_EXPORT_NATIVE_NOTE_EXTENSION_TEXT_INVALID`): `key_val` is NOT NULL and every writer uses a
+  fixed key (`CaseManagementEntry2Action`'s editor fields, `NotesService`'s `NoteExtTo1`
+  constants, `CdsHistoryPersister`'s `cdsDate*` rows, and their copies in
+  `copyRevisionMetadata`), and `date_value` is a DATE. A provider record that forms no public
+  name (`CDS_EXPORT_NATIVE_NOTE_PROVIDER_REQUIRES_REVIEW`): first and last names are NOT NULL
+  `varchar(30)`, and a character XML cannot carry is written with U+FFFD
+  (`CdsExportPublicProviderMapper`). No clinic zone (`CDS_EXPORT_NATIVE_HISTORY_ZONE_REQUIRED`):
+  the history section reads it (`CdsExportClinicalZoneService.Bound` requires one) whenever it maps
+  a native item. Archived Notes past their limit
+  (`CDS_EXPORT_NATIVE_HISTORY_ARCHIVED_NOTES_CAPACITY`): the mapper keeps the archived statement's
+  room when it fills Notes, and Notes holds no character XML cannot carry; an imported item's Notes
+  are composed by the native reconciler. A column no rule decides
+  (`CDS_EXPORT_NATIVE_HISTORY_UNMAPPED_FIELD`, `CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_UNMAPPED_FIELD`):
+  every column of every captured row has a rule; this is a check of the code. A captured catalogue
+  entry no exported issue names (`CDS_EXPORT_UNMAPPED_DATA`): the capture reads exactly the
+  entries the patient's issues name (`ISSUE_CATALOGUE`), in the same snapshot.
+- A category the caller passes that the note's own links do not give was
+  `CDS_EXPORT_NATIVE_HISTORY_CATEGORY_CHANGED_REQUIRES_REVIEW`; the caller derives the category
+  from the same captured links (`CdsExportHistoryCurrentContext.category`), and a re-filed item is
+  exported under its current section, so a mismatch is now an integrity fault of the job.
 - A coded issue description with edge, repeated or line-break spaces (the seeded `ICSW420` ends in
   a space) is written token-normalized in StandardCodeDescription, an `xs:token`, as any
   schema-aware reader keeps it anyway (A26); the exact description is in the context. One longer
@@ -4881,14 +4931,57 @@ row exactly; a change of the row's update time alone, which every save stamps, i
 imported tag row pointed at another issue definition moves the item out of its section and is
 exported as a re-filed item, as above.
 
-Still held for an imported history item: what the import's receipt cannot prove (a missing or
-changed baseline, `CDS_EXPORT_HISTORY_NATIVE_BASELINE_REQUIRED`,
-`..._DATE_BASELINE_REQUIRED`, `..._ISSUE_LINK_BASELINE_REQUIRED`, `..._FIELD_CODEC_REQUIRES_REVIEW`,
-`..._ISSUE_EDIT_REQUIRES_RECONCILIATION` when the issue row has no usable baseline); the
-import's date metadata rows removed while the observation date is unchanged
-(`CDS_EXPORT_HISTORY_DATE_EXTENSION_DELETION_REQUIRES_REVIEW`; every save copies them, no screen
-deletes them); an imported row changed in place with no new revision (no screen does it); and a
-revision saved locked (`LOCKED_NOTE_REQUIRES_AUTHORIZATION_REVIEW`: privacy).
+An imported item whose import unit kept no field baseline for a row CARLOS has since changed in
+place is exported as CARLOS holds it now. Units keep the rows they wrote as a sealed baseline
+(`cds_import_unit.native_baseline`) since that column was added; an import made before it
+(2026.08.0-beta5 to beta7 shipped the importer without it) has none, and the column is never
+backfilled. For such a unit an unchanged row is its own baseline, but two rows change in place:
+the CPP box's reordering writes the imported note row's `position`, and the chart's issue list
+writes the flags (and so the update time) of its category tag row. The receipt then cannot prove
+any imported element current, and the item held the patient
+(`CDS_EXPORT_HISTORY_NATIVE_BASELINE_REQUIRED`, and
+`CDS_EXPORT_HISTORY_ISSUE_EDIT_REQUIRES_RECONCILIATION` for the tag, now
+`CDS_EXPORT_HISTORY_ISSUE_BASELINE_REQUIRED`). It is now emitted as a native item from every
+revision, as a re-filed item is (`CdsExportHistoryOccurrenceService.carried`), and the import's
+section elements travel exactly in its `CARLOS.NativeHistory.v1` context under `importedSource`
+(rule `UNPROVEN_IMPORTED_ITEM_SOURCE_CARRIED`, the section name, each element's path and value);
+its receipt lists every retained field as replaced. A receiving CARLOS files the item's current
+text, as for any native item, and keeps the context as source (`CdsExportHistoryImportedEditUnitTest`).
+
+Still held for an imported history item, each only by a damaged ledger, a row changed in the
+database, or the owner's decision:
+
+- A baseline that is not the row the receipt names
+  (`CDS_EXPORT_HISTORY_NATIVE_BASELINE_MISMATCH`, and `..._ISSUE_EDIT_REQUIRES_RECONCILIATION`
+  for the tag row): the baseline and the receipt are written in the same unit transaction
+  (`CdsImportUnitService`), and an unchanged row's witness is used only when its digest is the
+  receipt's.
+- The import's date metadata rows (`cdsDate*`) or category link row missing their baseline or
+  different from it (`..._DATE_BASELINE_REQUIRED`, `..._ISSUE_LINK_BASELINE_REQUIRED`): no screen
+  or API changes these rows of the imported revision. A CPP save updates the new revision's copies
+  (`CaseManagementManagerImpl.saveSubmittedCppExtensions` reads `revision.getId()`), every revision
+  copies them (`copyRevisionMetadata`), and no writer updates or deletes a `casemgmt_issue_notes`
+  row; so an unchanged row is its own baseline even for an import that kept none. Likewise their
+  removal while the observation date is unchanged
+  (`CDS_EXPORT_HISTORY_DATE_EXTENSION_DELETION_REQUIRES_REVIEW`).
+- A column that cannot be compared with its baseline (`..._FIELD_CODEC_REQUIRES_REVIEW`): only a
+  schema change of `casemgmt_note`, `casemgmt_note_ext`, `casemgmt_issue` or
+  `casemgmt_issue_notes` after the import produces one, and no migration since baselines were
+  added (V1.0.59.40) changes those tables.
+- An import unit's references that do not name the one note, tag issue and link the importer
+  writes for a CPP item (`..._ISSUE_ASSOCIATION_REQUIRES_REVIEW`, and in the occurrence plan a
+  unit naming no note or two notes, a note two units name, or two imported notes in one chain,
+  `CDS_EXPORT_UNMAPPED_DATA`, `CDS_EXPORT_AMBIGUOUS_SOURCE`): `CdsHistoryPersister` writes one
+  note with a fresh uuid per unit, and no API gives an existing note another uuid. An abandoned
+  or unfinished unit is never an applied unit, and a resumed one keeps its own receipt.
+- A revision identity that disagrees with the chain (`..._REVISION_IDENTITY_REQUIRES_REVIEW`,
+  `..._CURRENT_REVISION_REQUIRES_REVIEW`): every revision takes its previous revision's uuid.
+- An imported row changed in place with no new revision beyond the two writes above (no screen
+  does it), and a revision saved locked (`LOCKED_NOTE_REQUIRES_AUTHORIZATION_REVIEW`: privacy,
+  owner decision, #6213).
+- A retained date of a synthetic course copy that its date shift cannot move
+  (`CDS_EXPORT_HISTORY_SOURCE_DATE_REQUIRES_REVIEW`, a partial date with a shift): only the
+  separately authorized course-copy workflow shifts dates, and its patients are synthetic.
 
 No CARLOS screen or API changes an imported note row's text in place. The CPP editor
 (`issueNoteSave`, `issueNoteSaveJson`), the REST note service (`saveIssueNote`, `saveNote`) and

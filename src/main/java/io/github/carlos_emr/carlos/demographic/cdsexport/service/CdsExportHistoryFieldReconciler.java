@@ -232,8 +232,13 @@ public final class CdsExportHistoryFieldReconciler {
                         key(ref.expected().table(), ref.expected().id()), actual.witness().state());
         }
         var oldNote = baseline.get(key("casemgmt_note", importedId));
-        if (oldNote == null || !oldNote.digest().equals(noteRefs.getFirst().digest()))
-            review("CDS_EXPORT_HISTORY_NATIVE_BASELINE_REQUIRED");
+        // No baseline: the unit kept none (an import made before units kept field baselines)
+        // and the imported row has changed in place since (the CPP box's reordering writes its
+        // position). The occurrence service then exports the item as CARLOS holds it now
+        // (UNPROVEN_BASELINE). A baseline other than the row the receipt names is a damaged ledger.
+        if (oldNote == null) review("CDS_EXPORT_HISTORY_NATIVE_BASELINE_REQUIRED");
+        if (!oldNote.digest().equals(noteRefs.getFirst().digest()))
+            review("CDS_EXPORT_HISTORY_NATIVE_BASELINE_MISMATCH");
         var originalRow = context.original("casemgmt_note", importedId);
         if (originalRow == null) scope();
         String originalUuid = originalRow.value().fields().get("uuid"),
@@ -418,6 +423,30 @@ public final class CdsExportHistoryFieldReconciler {
     static final String REFILED_SOURCE_RULE = "REFILED_IMPORTED_ITEM_SOURCE_SECTION_CARRIED";
 
     /**
+     * The rule that carries the imported elements of an item whose import unit has no field
+     * baseline for a row CARLOS has since changed in place: the item is exported as CARLOS holds
+     * it now and its import's elements travel beside it, as a re-filed item's do.
+     */
+    static final String UNPROVEN_SOURCE_RULE = "UNPROVEN_IMPORTED_ITEM_SOURCE_CARRIED";
+
+    /**
+     * The reviews {@link #reconcile} raises when a row of an imported item changed in place and
+     * its import unit kept no baseline to compare it with. Units have kept baselines
+     * ({@code cds_import_unit.native_baseline}) since that column was added; an import made
+     * before it (2026.08.0-beta5 to beta7 shipped the importer without it) has none, and the
+     * column is never backfilled from current rows. The CPP box's reordering writes the imported
+     * note row's position, and the chart's issue list writes its category tag's flags. Such an
+     * item held the patient; the occurrence service now exports it as CARLOS holds it
+     * ({@link #UNPROVEN_SOURCE_RULE}). A baseline that disagrees with the receipt is a damaged
+     * ledger and still holds ({@code ..._NATIVE_BASELINE_MISMATCH},
+     * {@code ..._ISSUE_EDIT_REQUIRES_RECONCILIATION}).
+     */
+    static final Set<String> UNPROVEN_BASELINE =
+            Set.of(
+                    "CDS_EXPORT_HISTORY_NATIVE_BASELINE_REQUIRED",
+                    "CDS_EXPORT_HISTORY_ISSUE_BASELINE_REQUIRED");
+
+    /**
      * The retained elements of an imported item that a clinician re-filed into another CPP
      * section (B5), for its native context. Each element keeps its path under the import's own
      * section and its exact logical value, in source order; a date takes the verified import
@@ -433,6 +462,22 @@ public final class CdsExportHistoryFieldReconciler {
             CdsExportRetainedSectionWriter.Values values,
             Runnable checkpoint)
             throws IOException {
+        return importedSource(REFILED_SOURCE_RULE, sourceCategory, fields, dates, values, checkpoint);
+    }
+
+    /**
+     * {@link #refiledSource} under another rule: the retained elements of an imported item that
+     * is exported from its native revisions ({@link #UNPROVEN_SOURCE_RULE}).
+     */
+    static Map<String, Object> importedSource(
+            String rule,
+            CdsCategory sourceCategory,
+            List<CdsExportRetainedFieldDto> fields,
+            Map<String, CdsExportDateDto> dates,
+            CdsExportRetainedSectionWriter.Values values,
+            Runnable checkpoint)
+            throws IOException {
+        Objects.requireNonNull(rule);
         Objects.requireNonNull(values);
         if (sourceCategory == null || fields == null || fields.isEmpty() || dates == null)
             scope();
@@ -457,7 +502,7 @@ public final class CdsExportHistoryFieldReconciler {
             elements.add(element);
         }
         var carried = new LinkedHashMap<String, Object>();
-        carried.put("rule", REFILED_SOURCE_RULE);
+        carried.put("rule", rule);
         carried.put("section", sourceCategory.wireName());
         carried.put("elements", elements);
         return carried;
@@ -872,11 +917,13 @@ public final class CdsExportHistoryFieldReconciler {
             CdsExportCaseManagementProjectionEvidence.verify(
                     definition.value(), definition.witness());
             var old = baseline.get(key("casemgmt_issue", row.fields().get("id")));
-            var difference = old == null ? null : compare(old, issue.witness().state());
+            // As for the note row: a category-tag row changed in place (the chart's issue list
+            // edits its flags) with no baseline in an import made before units kept them.
+            if (old == null) review("CDS_EXPORT_HISTORY_ISSUE_BASELINE_REQUIRED");
+            var difference = compare(old, issue.witness().state());
             boolean redefined =
                     !Objects.equals(prepared.issueCode(), definition.value().fields().get("code"));
-            if (old == null
-                    || !old.digest().equals(expected.getFirst().digest())
+            if (!old.digest().equals(expected.getFirst().digest())
                     || difference.schemaChanged()
                     || !difference.unqualifiedColumns().isEmpty()
                     // In native context a changed flag or definition of the patient issue

@@ -588,6 +588,68 @@ class CdsExportHistoryImportedEditUnitTest {
                 .doesNotContain("<FamilyHistory");
     }
 
+    @Test
+    void shouldExportAnImportedItemWithNoBaseline_fromItsNativeRowsCarryingItsImportedElements()
+            throws Exception {
+        // An import made before units kept field baselines has none for its note row, and the
+        // CPP box's reordering writes that row's position in place. It held the patient
+        // (CDS_EXPORT_HISTORY_NATIVE_BASELINE_REQUIRED). The item is exported as CARLOS holds it
+        // now, and its imported elements travel exactly beside it, none presented as current.
+        imported(CdsCategory.FAMILY_HISTORY, "FamHistory", true);
+        source("ProblemDiagnosisProcedureDescription[1]", "Imported narrative");
+        source("StartDate[1]/FullDate[1]", "2020-01-01");
+        source("Relationship[1]", "Mother");
+        var fields = new LinkedHashMap<>(imported.note().value().fields());
+        fields.put("position", "3");
+        var reordered =
+                new CdsExportHistoryFieldReconciler.Current(
+                        row(Plan.CASE_NOTES, "91", fields),
+                        imported.extensions(),
+                        imported.links(),
+                        imported.patientIssues(),
+                        imported.definitions());
+        var carried =
+                CdsExportHistoryFieldReconciler.importedSource(
+                        CdsExportHistoryFieldReconciler.UNPROVEN_SOURCE_RULE,
+                        CdsCategory.FAMILY_HISTORY,
+                        retained,
+                        Map.of(),
+                        values,
+                        () -> {});
+        var mapped =
+                new CdsExportNativeHistoryMapper()
+                        .mapCarryingImportedSource(
+                                27,
+                                CdsCategory.FAMILY_HISTORY,
+                                List.of(reordered),
+                                providers(),
+                                ZONE,
+                                program -> false,
+                                carried);
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(mapped.rows(), mapped.fields(), () -> {});
+        assertThat(mapped.value().text())
+                .containsEntry("ProblemDiagnosisProcedureDescription", "Imported narrative");
+        var context =
+                com.fasterxml.jackson.databind.json.JsonMapper.builder()
+                        .build()
+                        .readTree(mapped.value().metadata());
+        assertThat(context.has("refiledImportedSource")).isFalse();
+        var source = context.get("importedSource");
+        assertThat(source.get("rule").asText()).isEqualTo("UNPROVEN_IMPORTED_ITEM_SOURCE_CARRIED");
+        assertThat(source.get("section").asText()).isEqualTo("FamilyHistory");
+        var elements = new LinkedHashMap<String, String>();
+        source.get("elements")
+                .forEach(e -> elements.put(e.get("path").asText(), e.get("value").asText()));
+        assertThat(elements)
+                .containsExactly(
+                        Map.entry("ProblemDiagnosisProcedureDescription[1]", "Imported narrative"),
+                        Map.entry("StartDate[1]/FullDate[1]", "2020-01-01"),
+                        Map.entry("Relationship[1]", "Mother"));
+        assertThat(new String(render(mapped.value()), StandardCharsets.UTF_8))
+                .contains("importedSource", "Imported narrative");
+    }
+
     private void source(String path, String value) throws Exception {
         var type =
                 CdsWireSchema.schemaModel()

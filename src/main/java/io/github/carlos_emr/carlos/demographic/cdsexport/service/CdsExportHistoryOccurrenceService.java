@@ -487,7 +487,15 @@ public class CdsExportHistoryOccurrenceService {
                                     return allowed;
                                 };
                         if (occurrence.sourceCategory() != null) {
-                            refiled(occurrence, category, context, readable, granted, output);
+                            carried(
+                                    occurrence,
+                                    category,
+                                    occurrence.sourceCategory(),
+                                    CdsExportHistoryFieldReconciler.REFILED_SOURCE_RULE,
+                                    context,
+                                    readable,
+                                    granted,
+                                    output);
                             count++;
                             fields =
                                     Math.addExact(
@@ -610,8 +618,29 @@ public class CdsExportHistoryOccurrenceService {
                                                     control,
                                                     nativeHistory);
                         } catch (CdsExportHistoryFieldReconciler.MappingReview expectedReview) {
-                            throw new CdsExportReviewException(
-                                    CdsExportReviewException.Reason.UNMAPPED_DATA);
+                            if (!CdsExportHistoryFieldReconciler.UNPROVEN_BASELINE.contains(
+                                    expectedReview.getMessage()))
+                                throw new CdsExportReviewException(
+                                        CdsExportReviewException.Reason.UNMAPPED_DATA);
+                            // The import unit kept no baseline for a row CARLOS has changed in
+                            // place (an import made before units kept them), so no imported
+                            // element can be proved current. The item is exported as CARLOS holds
+                            // it now, every revision natively, and the import's elements travel
+                            // exactly beside it, as a re-filed item's do. It held the patient.
+                            var accounted =
+                                    carried(
+                                            occurrence,
+                                            category,
+                                            category,
+                                            CdsExportHistoryFieldReconciler.UNPROVEN_SOURCE_RULE,
+                                            context,
+                                            readable,
+                                            granted,
+                                            output);
+                            for (var field : accounted) if (!used.add(field.id())) invalid();
+                            count++;
+                            fields = Math.addExact(fields, accounted.size());
+                            continue;
                         } catch (IOException sourceFailure) {
                             if ("CDS_EXPORT_HISTORY_SOURCE_DATE_REQUIRES_REVIEW"
                                     .equals(sourceFailure.getMessage())) review();
@@ -770,10 +799,16 @@ public class CdsExportHistoryOccurrenceService {
         /** The retained source fields of a re-filed item, in its import's own section. */
         private List<CdsExportRetainedFieldDto> sourceFields(Occurrence occurrence)
                 throws IOException {
+            return sourceFields(occurrence, occurrence.sourceCategory());
+        }
+
+        /** The retained source fields of an imported item, in its import's section. */
+        private List<CdsExportRetainedFieldDto> sourceFields(
+                Occurrence occurrence, CdsCategory sourceCategory) throws IOException {
             return new CdsExportRetainedOccurrenceFields()
                     .fieldsFor(
                             patient.patient(),
-                            occurrence.sourceCategory(),
+                            sourceCategory,
                             occurrence.address(),
                             index,
                             checked,
@@ -782,16 +817,24 @@ public class CdsExportHistoryOccurrenceService {
         }
 
         /**
-         * Emits an imported item a clinician re-filed into another CPP section (B5): every native
-         * revision under its current section, as any native item, with the import's section
-         * elements carried exactly in its native context
-         * ({@link CdsExportHistoryFieldReconciler#refiledSource}). The retained source is read
-         * through the same authenticated, note-authorized reader as an unmoved imported item, so
-         * nothing of the original record is dropped and none of it is presented as current.
+         * Emits an imported item from its native revisions under its current section, as any
+         * native item, with the import's section elements carried exactly in its native context
+         * ({@link CdsExportHistoryFieldReconciler#importedSource}): an item a clinician re-filed
+         * into another CPP section (B5, {@link CdsExportHistoryFieldReconciler#REFILED_SOURCE_RULE}),
+         * or one whose import unit kept no baseline for a row CARLOS changed in place
+         * ({@link CdsExportHistoryFieldReconciler#UNPROVEN_SOURCE_RULE}). The retained source is
+         * read through the same authenticated, note-authorized reader as an unmoved imported
+         * item, so nothing of the original record is dropped and none of it is presented as
+         * current. Its receipt lists every retained field as replaced.
+         *
+         * @param sourceCategory the import's own section
+         * @return the retained fields the item accounts for
          */
-        private void refiled(
+        private List<CdsExportRetainedFieldDto> carried(
                 Occurrence occurrence,
                 CdsCategory category,
+                CdsCategory sourceCategory,
+                String rule,
                 CdsExportHistoryCurrentContext context,
                 java.util.function.Predicate<String> readable,
                 Set<String> granted,
@@ -812,35 +855,54 @@ public class CdsExportHistoryOccurrenceService {
                 imported = Long.parseLong(notes.getFirst().id());
             } catch (NumberFormatException malformed) {
                 invalid();
-                return;
+                return List.of();
             }
             if (!occurrence.revisions().contains(imported)) invalid();
-            var source =
-                    new CdsExportHistoryRetainedSource()
-                            .read(
-                                    patient.patient(),
-                                    occurrence.sourceCategory(),
-                                    occurrence.address(),
-                                    index,
-                                    checked,
-                                    retained,
-                                    context.scope(imported),
-                                    streams,
-                                    control);
-            var fields = sourceFields(occurrence);
+            CdsExportHistoryRetainedSource.Result source;
+            try {
+                source =
+                        new CdsExportHistoryRetainedSource()
+                                .read(
+                                        patient.patient(),
+                                        sourceCategory,
+                                        occurrence.address(),
+                                        index,
+                                        checked,
+                                        retained,
+                                        context.scope(imported),
+                                        streams,
+                                        control);
+            } catch (IOException sourceFailure) {
+                // As for an unmoved imported item: a retained date a synthetic course copy's date
+                // shift cannot move holds the patient, never the job.
+                if ("CDS_EXPORT_HISTORY_SOURCE_DATE_REQUIRES_REVIEW"
+                        .equals(sourceFailure.getMessage())) review();
+                throw sourceFailure;
+            }
+            var fields = sourceFields(occurrence, sourceCategory);
             var ids = new HashSet<String>();
             for (var field : fields) ids.add(field.id());
             if (!ids.equals(source.sourceFields())) invalid();
             var carried =
-                    CdsExportHistoryFieldReconciler.refiledSource(
-                            occurrence.sourceCategory(),
+                    CdsExportHistoryFieldReconciler.importedSource(
+                            rule,
+                            sourceCategory,
                             fields,
                             source.dates(),
                             streams,
                             control::checkpoint);
+            var mapper = new CdsExportNativeHistoryMapper();
             var mapped =
-                    new CdsExportNativeHistoryMapper()
-                            .map(
+                    rule.equals(CdsExportHistoryFieldReconciler.REFILED_SOURCE_RULE)
+                            ? mapper.map(
+                                    patient.patient(),
+                                    category,
+                                    current,
+                                    providers,
+                                    zone,
+                                    readable,
+                                    carried)
+                            : mapper.mapCarryingImportedSource(
                                     patient.patient(),
                                     category,
                                     current,
@@ -866,7 +928,7 @@ public class CdsExportHistoryOccurrenceService {
                             body -> new CdsExportNativeHistoryXmlWriter().write(mapped.value(), body)));
             streams.requireActive();
             for (long id : occurrence.revisions()) control.authorizeNote(category, context.scope(id));
-            control.authorizeNote(occurrence.sourceCategory(), context.scope(imported));
+            control.authorizeNote(sourceCategory, context.scope(imported));
             reauthorizePrograms(control, patient.patient(), category, granted);
             output.accept(
                     new CdsExportClinicalOccurrenceService.Receipt(
@@ -878,6 +940,7 @@ public class CdsExportHistoryOccurrenceService {
                             mapped.fields(),
                             Set.of(),
                             ids));
+            return fields;
         }
 
         /**

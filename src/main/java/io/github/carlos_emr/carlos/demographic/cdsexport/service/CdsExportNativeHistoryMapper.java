@@ -237,6 +237,54 @@ public final class CdsExportNativeHistoryMapper {
             java.util.function.Predicate<String> readableProgram,
             Map<String, Object> refiledSource)
             throws IOException {
+        return map(
+                patient,
+                category,
+                revisions,
+                providers,
+                zone,
+                readableProgram,
+                "refiledImportedSource",
+                refiledSource);
+    }
+
+    /**
+     * As {@link #map(int, CdsCategory, List, Map, ZoneId, java.util.function.Predicate)}, for an
+     * imported item exported from its native revisions because its import unit kept no baseline
+     * for a row CARLOS has changed in place ({@link CdsExportHistoryFieldReconciler#UNPROVEN_BASELINE}):
+     * {@code importedSource} ({@link CdsExportHistoryFieldReconciler#importedSource}) travels in
+     * the item's native context under {@code importedSource}.
+     */
+    Result mapCarryingImportedSource(
+            int patient,
+            CdsCategory category,
+            List<CdsExportHistoryFieldReconciler.Current> revisions,
+            Map<String, CdsExportCapturedTextRowDto> providers,
+            ZoneId zone,
+            java.util.function.Predicate<String> readableProgram,
+            Map<String, Object> importedSource)
+            throws IOException {
+        return map(
+                patient,
+                category,
+                revisions,
+                providers,
+                zone,
+                readableProgram,
+                "importedSource",
+                Objects.requireNonNull(importedSource));
+    }
+
+    private Result map(
+            int patient,
+            CdsCategory category,
+            List<CdsExportHistoryFieldReconciler.Current> revisions,
+            Map<String, CdsExportCapturedTextRowDto> providers,
+            ZoneId zone,
+            java.util.function.Predicate<String> readableProgram,
+            String sourceKey,
+            Map<String, Object> importedSource)
+            throws IOException {
         Objects.requireNonNull(readableProgram);
         if (patient < 1
                 || revisions.isEmpty()
@@ -507,7 +555,7 @@ public final class CdsExportNativeHistoryMapper {
                 metadata.get(i)
                         .put(CdsNativeExtensionContract.NOTE_BODY_LENGTH, bodies.get(i).length());
         var context = versioned("revisions", metadata);
-        if (refiledSource != null) context.put("refiledImportedSource", refiledSource);
+        if (importedSource != null) context.put(sourceKey, importedSource);
         // A character XML cannot carry is its JSON escape; the decoded details are unchanged.
         String json = CdsExportResidualJson.text(JSON.writeValueAsString(context));
         extensions(category, currentExtensions, text, dates, overflow);
