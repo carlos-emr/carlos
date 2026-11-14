@@ -279,7 +279,12 @@ every derivation. The base URL derived this way is logged once, origin only.
   caller-owned chromedriver service is stopped afterwards as a backstop
   when quit times out.
 - **Bounded concurrency.** At most 2 concurrent renders (30s slot wait, then a clean failure)
-  so rendering can never saturate Tomcat's request workers. Every WebDriver/CDP HTTP command is
+  so rendering can never saturate Tomcat's request workers. The CDS export is the one caller that
+  waits longer: it renders one form at a time, so it never holds more than one slot, and it keeps
+  its place in the queue for as long as a slot takes, checking about once a second outside the
+  queue's lock whether its job was cancelled (`renderSavedEformPdf` with a slot-wait check,
+  `RenderAdmission.acquire(Kind, Runnable)`). A full queue is still refused at once for every
+  caller. Every WebDriver/CDP HTTP command is
   additionally client-bounded at 90s (vs Selenium's ~180s default), which sharply cuts down —
   but does not eliminate — how long a wedged Chromium can hold one of the 2 render slots; see
   "Known limitations and tracked follow-ups" for the honest worst-case shape.

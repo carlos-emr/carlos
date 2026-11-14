@@ -83,6 +83,29 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
+    void shouldWaitForASlotAsLongAsTheCallerAsks_andLeaveTheQueueWhenItStops() throws Exception {
+        // The CDS export's slot wait: past the ordinary 30-second deadline it would keep waiting;
+        // its own check ends the wait, with no render started and nothing left queued.
+        int permits = EFormBrowserPdfService.RENDER_SLOTS.drainPermits();
+        var checks = new java.util.concurrent.atomic.AtomicInteger();
+        var stop = new java.util.concurrent.CancellationException("CDS_EXPORT_CANCELLED");
+        try {
+            assertThatThrownBy(() -> new EFormBrowserPdfService().renderSavedEformPdfAuthorized(
+                            4242, "999998", null, false, () -> {
+                                if (checks.incrementAndGet() == 2) throw stop;
+                            }))
+                    .isSameAs(stop);
+        } finally {
+            EFormBrowserPdfService.RENDER_SLOTS.release(permits);
+        }
+        assertThat(checks).hasValue(2);
+        try (var next = EFormBrowserPdfService.ADMISSION.acquire(RenderAdmission.Kind.PDF, Duration.ZERO)) {
+            assertThat(next).isNotNull();
+        }
+        assertThat(EFormBrowserPdfService.RENDER_SLOTS.availablePermits()).isEqualTo(permits);
+    }
+
+    @Test
     void shouldRefuseBeforeStartingBrowser_whenThePdfWaitingQueueIsFull() throws Exception {
         int permits = EFormBrowserPdfService.RENDER_SLOTS.drainPermits();
         var workers = new java.util.ArrayList<Thread>();

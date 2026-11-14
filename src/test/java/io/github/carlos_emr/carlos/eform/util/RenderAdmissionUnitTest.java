@@ -137,4 +137,99 @@ class RenderAdmissionUnitTest {
             assertThat(slots.availablePermits()).isEqualTo(1);
         } finally { worker.interrupt();worker.join(2000); }
     }
+
+    @Test
+    void shouldKeepItsPlaceWhileItWaitsAsLongAsItTakes_andCheckAboutOnceASecond() throws Exception {
+        // The CDS export's wait: no deadline, its place in the queue kept between its checks.
+        var slots = new Semaphore(0);
+        var admission = new RenderAdmission(slots);
+        var checks = new java.util.concurrent.atomic.AtomicInteger();
+        var served = java.util.Collections.synchronizedList(new java.util.ArrayList<String>());
+        var export = new FutureTask<>(() -> {
+            try (var lease = admission.acquire(RenderAdmission.Kind.PDF, (Runnable) checks::incrementAndGet)) {
+                if (lease == null) return false;
+                served.add("export");
+                return true;
+            }
+        });
+        var behind = new FutureTask<>(() -> {
+            try (var lease = admission.acquire(RenderAdmission.Kind.PDF, Duration.ofSeconds(30))) {
+                if (lease == null) return false;
+                served.add("behind");
+                return true;
+            }
+        });
+        Thread first = new Thread(export), second = new Thread(behind);
+        first.start();
+        try {
+            long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+            while (checks.get() < 2 && System.nanoTime() < deadline) Thread.sleep(20);
+            // Two checks: it has waited past a second and is still queued.
+            assertThat(checks.get()).isGreaterThanOrEqualTo(2);
+            assertThat(export.isDone()).isFalse();
+            second.start();
+            deadline = System.nanoTime() + Duration.ofSeconds(2).toNanos();
+            while (second.getState() != Thread.State.TIMED_WAITING && System.nanoTime() < deadline) Thread.yield();
+            assertThat(second.getState()).isEqualTo(Thread.State.TIMED_WAITING);
+            slots.release();
+            assertThat(export.get(5, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            assertThat(behind.get(5, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            // Its place was kept: it was served before the caller that queued after it.
+            assertThat(served).containsExactly("export", "behind");
+            assertThat(slots.availablePermits()).isEqualTo(1);
+        } finally {
+            first.interrupt(); second.interrupt();
+            first.join(2000); second.join(2000);
+            assertThat(first.isAlive()).isFalse();
+            assertThat(second.isAlive()).isFalse();
+        }
+    }
+
+    @Test
+    void shouldGiveUpItsPlace_whenItsCheckEndsTheWait() throws Exception {
+        var slots = new Semaphore(0);
+        var admission = new RenderAdmission(slots);
+        var stop = new java.util.concurrent.CancellationException("CDS_EXPORT_CANCELLED");
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> admission.acquire(RenderAdmission.Kind.PDF, () -> {
+                            throw stop;
+                        }))
+                .isSameAs(stop);
+        slots.release();
+        // Nothing of it is left in the queue: the next caller is first and is served at once.
+        try (var next = admission.acquire(RenderAdmission.Kind.PDF, Duration.ZERO)) {
+            assertThat(next).isNotNull();
+        }
+        assertThat(slots.availablePermits()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldRefuseAFullQueueAtOnce_evenToACallerThatWouldWaitAsLongAsItTakes() throws Exception {
+        var slots = new Semaphore(0);
+        var admission = new RenderAdmission(slots);
+        var workers = new java.util.ArrayList<Thread>();
+        try {
+            for (int i = 0; i < 4; i++) {
+                Thread worker = new Thread(() -> {
+                    try (var lease = admission.acquire(RenderAdmission.Kind.PDF, Duration.ofSeconds(30))) {
+                        // Interrupted at the end of the test.
+                    } catch (InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                    }
+                });
+                workers.add(worker); worker.start();
+                long deadline = System.nanoTime() + Duration.ofSeconds(2).toNanos();
+                while (worker.getState() != Thread.State.TIMED_WAITING && System.nanoTime() < deadline) Thread.yield();
+                assertThat(worker.getState()).isEqualTo(Thread.State.TIMED_WAITING);
+            }
+            var checks = new java.util.concurrent.atomic.AtomicInteger();
+            long started = System.nanoTime();
+            assertThat(admission.acquire(RenderAdmission.Kind.PDF, (Runnable) checks::incrementAndGet)).isNull();
+            assertThat(Duration.ofNanos(System.nanoTime() - started)).isLessThan(Duration.ofSeconds(1));
+            assertThat(checks).hasValue(0);
+        } finally {
+            for (Thread worker : workers) worker.interrupt();
+            for (Thread worker : workers) { worker.join(2000); assertThat(worker.isAlive()).isFalse(); }
+        }
+    }
 }
