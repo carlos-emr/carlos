@@ -80,7 +80,7 @@ are added only after seal verification).
 | `CARLOS.History.PersonalNarrative.v1` | string | PersonalHistory | Earlier raw narrative carrier, still read. |
 | `CARLOS.History.NarrativeText.v1` | string | PersonalHistory | Not interpreted: the exporter's whitespace-collapsed copy of the narrative (and Social History dates) for other EMRs. The narrative is restored from `CARLOS.History.Narrative.v1` only; the copy is retained as protected source data and never imported as a second value. |
 | `CARLOS.Medication.Source.v1` | string (JSON) | Medications | Restores the native quantity unit and as-needed flag (#6198) when the standard Quantity and Frequency/TreatmentType agree with it, and the stored strength text of a record with no Strength when DrugDescription proves it; refused when malformed, duplicated or contradicted. The rest stays protected source. |
-| `CARLOS.Prevention.Source.v1` | string (JSON) | Immunizations | Restores the free-text "Other" administering provider and the reminder date (#6198) when the carrier's status matches RefusedFlag; refused when malformed or duplicated. The rest stays protected source. |
+| `CARLOS.Prevention.Source.v1` | string (JSON) | Immunizations | Restores the free-text "Other" administering provider, the reminder date (#6198) and the sender's own prevention type when the carrier's status matches RefusedFlag; refused when malformed or duplicated. The rest stays protected source. |
 | `CARLOS.Prevention.Source.v1` | string (JSON) | PastHealth | Not interpreted: retained as protected source data like any other residual. |
 | `CARLOS.Appointment.Source.v1` | string (JSON) | NewCategory `CARLOS.NativeAppointment.v1` | Read for the Appointments element it names (see "CARLOS appointment source record"): restores the exact stored end, the complete notes and the scheduler context once the record proves itself; otherwise reported and not used. Always also retained as protected source data. |
 
@@ -141,13 +141,26 @@ the import's retained source fields.
   reminder. The carrier describes its record: its native status must be the RefusedFlag the
   exporter wrote (given and completed externally `N`, refused and ineligible `Y`), else
   `CDS_IMMUNIZATION_NATIVE_FIELD_REQUIRES_REVIEW` (path `RefusedFlag`).
+- **Vaccine type.** The sender's `prevention_type` is stored as the vaccine's type in place of the
+  configuration's mapping of ImmunizationType. A CARLOS sender exports some vaccines without
+  ImmunizationType (a type outside CT-020 such as COVID-19, Pneu-C-20 or RZV, an Rh injection, a
+  catalogue vaccine, a type its prevention file does not define), and the configuration would
+  file each under the catch-all `OtherA`. An empty type, or one longer than the receiving column
+  (255 characters, the sender's own column), restores nothing and the configuration maps the
+  element as for any sender; a carrier without the column (an earlier CARLOS) restores no type.
+  On re-export the restored type is proved from the sealed preparation itself, whatever the
+  receiving configuration declares, so an unchanged vaccine is exported from its retained
+  elements. An entry the sender named with a fixed label because nothing else named it
+  (`Unnamed immunization`, `Immunization (type in Notes)`, `Other immunization or injection`,
+  `Rh immune globulin`, or its type) keeps that label as its name, and a type the sender moved to
+  Notes (`Type: ...`) stays in the comments.
 
 A malformed or duplicated carrier, a restorable value longer than any column it could be restored
 to, a `prn` other than 0 or 1, an unknown status or an
 invalid date is `CDS_MEDICATION_NATIVE_STATE_REQUIRES_REVIEW` or
 `CDS_IMMUNIZATION_NATIVE_STATE_REQUIRES_REVIEW` (path `ResidualInfo`); nothing is guessed. The
 restored values are part of the sealed preparation (`CdsMedicationDto.quantityUnit`/`asNeeded`,
-`CdsImmunizationDto.providerName`/`reminderDate`), omitted when absent so earlier payloads keep
+`CdsImmunizationDto.providerName`/`reminderDate`/`nativeType`), omitted when absent so earlier payloads keep
 their bytes and seal, and defaulted after seal verification. The import receipt's native-baseline
 witness records the rows as written. Re-exporting the unedited imported chart writes the
 original elements beside the retained original carrier (the reconcilers account the restored
@@ -179,7 +192,7 @@ it is said here.
 | `CARLOS.NativeDemographic.v1` (`CARLOS.Demographic.v1`) `note` | A patient note longer than NoteAboutPatient (64,000), with a character XML cannot carry, or in a legacy frame | Restored, see "Exact text a CARLOS sender carries" below. A legacy frame needs nothing: the element already holds the note as the sender's chart shows it. |
 | `CARLOS.NativeDemographic.v1` `demographic` (names, title, birth columns, sex, status, status date, health card, phones, chart number, e-mail, SIN, languages, address parts) and `properties` | The stored value of a Demographics element the sender could not write exactly or that this importer would store in another form, and the `demographicExt` rows | Restored, see "CARLOS demographic values" below. |
 | `CARLOS.NativeDemographic.v1` other `demographic` columns, `roster`, `careTeam`, `related` | Demographic, enrolment, contact, health care team and pharmacy values with no element (preferred name, pronoun, Date Joined, the nurse, a second pharmacy...) | Source only; the standard elements are imported as from any sender. |
-| `CARLOS.Medication.Source.v1`, `CARLOS.Medication.CurrentSource.v1`, `CARLOS.Allergy.Source.v1`, `CARLOS.Prevention.Source.v1` | The complete native row, including text an element shows with U+FFFD | The fields listed above are restored (quantity unit, as-needed, strength text, "Other" provider, reminder date), and the exact text of an element shown with U+FFFD (see "Exact text a CARLOS sender carries" below). The other columns stay source only. |
+| `CARLOS.Medication.Source.v1`, `CARLOS.Medication.CurrentSource.v1`, `CARLOS.Allergy.Source.v1`, `CARLOS.Prevention.Source.v1` | The complete native row, including text an element shows with U+FFFD | The fields listed above are restored (quantity unit, as-needed, strength text, "Other" provider, reminder date, prevention type), and the exact text of an element shown with U+FFFD (see "Exact text a CARLOS sender carries" below). The other columns stay source only. |
 | `CARLOS.Laboratory.v1`, `CARLOS.NativeLaboratory.v1`, `CARLOS.Observation.v1`, `CARLOS.NativeObservation.v1`, `CARLOS.Prescription.v1`, `CARLOS.ImportedLaboratoryReview.v1` | The stored message, measurement, script or comment. For a message that names several patients, the sender's part only (its MSH segment and the PID groups of the exported patient, with a `part` entry; owner decision 2026-11-14), so the importer stores that part's results, built from the elements as for any report | Source only. A laboratory time the sender could not write as sent (no calendar time, or an offset no date-time holds) is not lost: the sender states it in `TestResultsInformationReportedByTheLab` (`Collection time sent by the laboratory: ...`, `Requisition time sent by the laboratory: ...`), which the importer writes, as for any sender, into the laboratory information (NTE) of the result it builds. An empty `LaboratoryName` (the report named no laboratory) leaves the result's laboratory unnamed. |
 | `carlos-data-summary-record.json` and image files inside a data-summary PDF | The exact record of a data summary whose PDF could not show everything | Not read. The PDF is stored unchanged (its bytes are checked against the planned digest), so the attachments stay inside the stored document. |
 | A data summary exported as HTML (Format Text, `html`) and its exact record (Format Text, `json`, SubClass "CARLOS data summary record") | A data summary no PDF could be made of, and its exact record | Not read back into tables. Each is kept as a text document of the chart requiring review, the HTML shown as text and never run (`CDS_REPORT_HTML_RETAINED_AS_TEXT`, `CDS_REPORT_TEXT_MEDIA_DECLARATION_RETAINED`). |
@@ -387,7 +400,8 @@ imported from its standard elements only; an applied record is reported as
 `CDS_APPOINTMENT_SOURCE_RECORD_APPLIED`. Not restored, by decision: the status code (the status
 arrives as the sender's status text; a code depends on the receiving clinic's own status table),
 the provider number (the provider is matched from the Provider element, as always), the booking
-name and remarks (they already travel as labelled lines of the notes), the reason-list item and
+name, the remarks and an imported status written beside a status code (they already travel as
+labelled lines of the notes), the reason-list item and
 the program. They stay in the retained record. What was restored is part of the sealed
 preparation (`CdsAppointmentNativeDto.source`, defaulted to "nothing restored" for earlier
 payloads after seal verification, `CdsPreparedAppointmentDefaults`). Re-exporting such an
