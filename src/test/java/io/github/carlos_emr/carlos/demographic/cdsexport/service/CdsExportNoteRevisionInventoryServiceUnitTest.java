@@ -55,58 +55,76 @@ class CdsExportNoteRevisionInventoryServiceUnitTest {
     void setup() throws Exception {
         service = new CdsExportNoteRevisionInventoryService(captures, receipts);
         when(patient.patient()).thenReturn(27);
+        chart(1);
+    }
+
+    private static LinkedHashMap<String, String> fields(long note) {
         var fields = new LinkedHashMap<String, String>();
         for (String name :
                 io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Plan
                         .CASE_NOTES
                         .columns()) fields.put(name, null);
-        fields.put("note_id", "91");
+        fields.put("note_id", Long.toString(note));
         fields.put("demographic_no", "27");
         fields.put("program_no", "");
         fields.put("reporter_caisi_role", "1");
-        fields.put("uuid", UUID_A);
+        // Note 91 keeps the fixture's own UUID; every other note is its own revision chain.
+        fields.put(
+                "uuid",
+                note == 91
+                        ? UUID_A
+                        : String.format(Locale.ROOT, "%08x-aaaa-4aaa-8aaa-aaaaaaaaaaaa", note));
         fields.put("signed", "0");
         fields.put("archived", "0");
         fields.put("update_date", "2020-01-01 01:02:03");
         fields.put("note", "Owned clinical body");
         fields.put("history", "");
+        return fields;
+    }
+
+    /** One synthetic chart of {@code count} notes, numbered from 91, as both scans see it. */
+    private void chart(int count) throws Exception {
         var columns = new ArrayList<CdsNativeRowDigest.Column>();
-        var cells = new ArrayList<CdsNativeRowState.Cell>();
-        for (var field : fields.entrySet()) {
-            columns.add(new CdsNativeRowDigest.Column(field.getKey(), "VARCHAR", 255, 0));
-            var text = field.getValue();
-            byte[] bytes = text == null ? null : text.getBytes(StandardCharsets.UTF_8);
-            cells.add(
-                    new CdsNativeRowState.Cell(
-                            text == null,
-                            text == null ? 0 : bytes.length,
-                            text == null
-                                    ? null
-                                    : HexFormat.of()
-                                            .formatHex(
-                                                    io.github.carlos_emr.carlos.utility
-                                                            .CdsImportKeys.digest()
-                                                            .digest(bytes))));
+        for (String name : fields(91).keySet())
+            columns.add(new CdsNativeRowDigest.Column(name, "VARCHAR", 255, 0));
+        var witnesses = new ArrayList<CdsExportNativeRowReceiptDto>();
+        var scopes = new ArrayList<CdsExportNoteAccessDto>();
+        for (long note = 91; note < 91 + count; note++) {
+            var cells = new ArrayList<CdsNativeRowState.Cell>();
+            for (String text : fields(note).values()) {
+                byte[] bytes = text == null ? null : text.getBytes(StandardCharsets.UTF_8);
+                cells.add(
+                        new CdsNativeRowState.Cell(
+                                text == null,
+                                text == null ? 0 : bytes.length,
+                                text == null
+                                        ? null
+                                        : HexFormat.of()
+                                                .formatHex(
+                                                        io.github.carlos_emr.carlos.utility
+                                                                .CdsImportKeys.digest()
+                                                                .digest(bytes))));
+            }
+            var state =
+                    new CdsNativeRowState("casemgmt_note", Long.toString(note), columns, cells);
+            witnesses.add(
+                    new CdsExportNativeRowReceiptDto(
+                            "casemgmt_note",
+                            Long.toString(note),
+                            CdsExportPatientTableSourceReader.key(note),
+                            state.digest(),
+                            state));
+            scopes.add(new CdsExportNoteAccessDto(note, 27, "", "1"));
         }
-        var state = new CdsNativeRowState("casemgmt_note", "91", columns, cells);
-        witness =
-                new CdsExportNativeRowReceiptDto(
-                        "casemgmt_note",
-                        "91",
-                        CdsExportPatientTableSourceReader.key(91),
-                        state.digest(),
-                        state);
+        witness = witnesses.getFirst();
+        var names = fields(91).keySet();
         capture = mock(CdsExportNativeCaptureDto.class);
         when(capture.tables())
                 .thenReturn(
                         Map.of(
                                 "casemgmt_note",
                                 new CdsExportCapturedTableDto(
-                                        fields.keySet(),
-                                        1,
-                                        HASH,
-                                        columns,
-                                        List.of(new CdsExportNoteAccessDto(91, 27, "", "1")))));
+                                        names, count, HASH, columns, scopes)));
         when(capture.values())
                 .thenReturn(new CdsExportStagedFileDto("1".repeat(64), "SOURCE_VALUES", HASH, 1));
         when(capture.index())
@@ -117,24 +135,29 @@ class CdsExportNoteRevisionInventoryServiceUnitTest {
                         new CdsExportStagedFileDto("3".repeat(64), "SOURCE_MANIFEST", HASH, 1));
         var values = new ByteArrayOutputStream();
         var index = new ByteArrayOutputStream();
+        long maximumFields = 1000L * count, maximumBytes = (1L << 20) * count;
         new CdsExportNativeCaptureComposer()
                 .compose(
                         values,
                         index,
                         tables,
-                        1000,
-                        1L << 20,
+                        maximumFields,
+                        maximumBytes,
                         () -> {},
                         writer -> {
-                            writer.beginTable("casemgmt_note", fields.keySet(), 1);
-                            writer.row(
-                                    CdsExportPatientTableSourceReader.key(91),
-                                    row -> {
-                                        for (var field : fields.entrySet())
-                                            row.text(field.getKey(), field.getValue());
-                                    });
+                            writer.beginTable("casemgmt_note", names, count);
+                            for (long note = 91; note < 91 + count; note++) {
+                                var row = fields(note);
+                                writer.row(
+                                        CdsExportPatientTableSourceReader.key(note),
+                                        cells -> {
+                                            for (var field : row.entrySet())
+                                                cells.text(field.getKey(), field.getValue());
+                                        });
+                            }
                             writer.endTable();
                         });
+        reset(captures, receipts);
         when(captures.scan(any(), any(), anySet(), any(), anyLong(), anyLong(), any(), any()))
                 .thenAnswer(
                         call -> {
@@ -145,9 +168,9 @@ class CdsExportNoteRevisionInventoryServiceUnitTest {
                                             Map.of(
                                                     "casemgmt_note",
                                                     new CdsExportNativeCaptureReader.Table(
-                                                            fields.keySet(), 1)),
-                                            1000,
-                                            1L << 20,
+                                                            names, count)),
+                                            maximumFields,
+                                            maximumBytes,
                                             () -> {},
                                             call.getArgument(7));
                             return capture;
@@ -155,10 +178,11 @@ class CdsExportNoteRevisionInventoryServiceUnitTest {
         when(receipts.scan(any(), any(), anySet(), any(), anyLong(), anyLong(), any(), any()))
                 .thenAnswer(
                         call -> {
-                            call.<CdsExportNativeRowReceiptReader.Receipts>getArgument(7)
-                                    .accept(witness);
+                            for (var each : witnesses)
+                                call.<CdsExportNativeRowReceiptReader.Receipts>getArgument(7)
+                                        .accept(each);
                             return new CdsExportNativeRowReceiptsDto(
-                                    HASH, Map.of("casemgmt_note", 1L), 1, 0, Set.of());
+                                    HASH, Map.of("casemgmt_note", (long) count), count, 0, Set.of());
                         });
     }
 
@@ -203,10 +227,23 @@ class CdsExportNoteRevisionInventoryServiceUnitTest {
         verifyNoInteractions(captures);
     }
 
+    /**
+     * A chart of 16,391 notes. The inventory used to hold a chart with more than 8,192 notes,
+     * and one whose receipts were estimated above the caller's byte bound (about 3,500 notes at
+     * the default), under {@code CDS_EXPORT_RESOURCE_LIMIT}. Neither holds a chart now,
+     * whatever that former bound says.
+     */
     @Test
-    void shouldEnforceTheWitnessMemoryBudget_beforeAllocatingTheMetadataList() {
-        assertThatThrownBy(() -> run(1)).hasMessage("CDS_EXPORT_RESOURCE_LIMIT");
-        verifyNoInteractions(captures);
+    void shouldInventoryEveryNoteOfALongChart_whateverTheFormerMemoryBoundSays() throws Exception {
+        int count = 2 * 8192 + 7;
+        chart(count);
+        for (long formerBound : new long[] {1, 1L << 20, Long.MAX_VALUE}) {
+            var result = run(formerBound);
+            assertThat(result.rows()).isEqualTo(count);
+            assertThat(result.chains()).hasSize(count);
+        }
+        verify(captures, times(6))
+                .authorizeCapturedSources(lease, patient, tables, capture, control);
     }
 
     @Test

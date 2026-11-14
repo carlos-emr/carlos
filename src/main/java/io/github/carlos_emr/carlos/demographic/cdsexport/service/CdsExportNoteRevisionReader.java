@@ -175,7 +175,9 @@ public final class CdsExportNoteRevisionReader {
         void finish() throws IOException {
             if (closed || pending != null) invalid();
             if (key == null) return;
-            if (!values.keySet().equals(COLUMNS) || ++rows > 8192) invalid();
+            // Any number of notes: a chart is not refused for how many it has.
+            if (!values.keySet().equals(COLUMNS)) invalid();
+            rows++;
             CdsExportNoteRevisionDto revision;
             try {
                 long note = Long.parseLong(values.get("note_id"));

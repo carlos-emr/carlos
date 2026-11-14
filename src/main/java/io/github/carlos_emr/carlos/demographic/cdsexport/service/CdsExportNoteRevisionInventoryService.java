@@ -27,7 +27,13 @@ import java.io.IOException;
 import java.util.*;
 import org.springframework.stereotype.Service;
 
-/** Owns both authenticated scans for a complete, bounded current/revision inventory. It emits no clinical content. */
+/**
+ * Owns both authenticated scans for a complete current/revision inventory. It emits no clinical
+ * content. A chart of any number of notes is inventoried: no count and no size estimate refuses
+ * or holds one. The inventory holds one receipt and one metadata row for each note in the
+ * worker's heap, so a chart too long for that heap fails as an out-of-memory error of the
+ * worker, never as a hold of the patient.
+ */
 @Service
 public class CdsExportNoteRevisionInventoryService {
     private final CdsExportNativeCaptureService captures;
@@ -54,15 +60,12 @@ public class CdsExportNoteRevisionInventoryService {
         Objects.requireNonNull(control);
         patient.require(lease);
         control.checkpoint();
-        if (maximumInventoryBytes < 1
-                || maximumInventoryBytes > 268_435_456L
-                || !source.capture().tables().keySet().equals(requiredTables)
+        // maximumInventoryBytes is the caller's former bound: not applied and not checked.
+        if (!source.capture().tables().keySet().equals(requiredTables)
                 || !requiredTables.contains("casemgmt_note")) invalid();
         var scope = source.capture().tables().get("casemgmt_note");
-        if (scope.rows() > 8192) limit();
         var witnesses = new HashMap<Long, CdsExportNativeRowReceiptDto>();
         var metadata = new ArrayList<CdsExportNoteRevisionDto>();
-        long[] memory = {0};
         var scanned =
                 receipts.scan(
                         lease,
@@ -87,12 +90,7 @@ public class CdsExportNoteRevisionInventoryService {
                                     || row.state() == null
                                     || row.partial()
                                     || row.digest() == null
-                                    || witnesses.size() >= 8192
                                     || witnesses.putIfAbsent(id, row) != null) invalid();
-                            memory[0] =
-                                    Math.addExact(
-                                            memory[0], 4096L + row.state().columns().size() * 512L);
-                            if (memory[0] > maximumInventoryBytes) limit();
                         });
         if (!scanned.sourceManifestSha256().equals(source.manifest().plaintextSha256())
                 || witnesses.size() != scope.rows()
@@ -108,12 +106,7 @@ public class CdsExportNoteRevisionInventoryService {
                                 maximumFields,
                                 maximumBytes,
                                 control,
-                                row -> {
-                                    if (metadata.size() >= 8192) limit();
-                                    metadata.add(row);
-                                    memory[0] = Math.addExact(memory[0], 2048L);
-                                    if (memory[0] > maximumInventoryBytes) limit();
-                                });
+                                metadata::add);
         if (!actual.equals(source.capture())) invalid();
         var result =
                 new CdsExportNoteRevisionPlanner()
@@ -132,12 +125,5 @@ public class CdsExportNoteRevisionInventoryService {
 
     private static void invalid() throws IOException {
         throw new IOException("CDS_EXPORT_NOTE_REVISION_INVENTORY_INVALID");
-    }
-
-    private static void limit() {
-        throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
-                .CdsExportReviewException(
-                io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException
-                        .Reason.RESOURCE_LIMIT);
     }
 }

@@ -36,44 +36,49 @@ import org.springframework.transaction.annotation.Transactional;
 @Repository
 @Transactional(readOnly = true, propagation = Propagation.MANDATORY)
 public class CdsExportNoteAccessDao extends AbstractJpaDao {
-    /** Complete bounded patient note scope; a hidden or malformed note refuses the whole read rather than disappearing. */
+    /**
+     * The complete note scope of a patient, in note order; a hidden or malformed note refuses the
+     * whole read rather than disappearing. A chart of any number of notes is read: {@code page}
+     * is how many notes one statement returns (1 to 8192), never how many the chart may have.
+     * Each statement continues after the last note of the one before it, by the primary key.
+     */
     @SuppressWarnings("unchecked")
-    public List<CdsExportNoteAccessDto> readScopes(int patient, int maximum) {
-        if (patient < 1 || maximum < 1 || maximum > 8192)
+    public List<CdsExportNoteAccessDto> readScopes(int patient, int page) {
+        if (patient < 1 || page < 1 || page > 8192)
             throw new IllegalArgumentException("CDS_EXPORT_NOTE_ACCESS_SCOPE_INVALID");
         if (hasForeignRevision(patient, null)) deny();
-        List<Object[]> rows =
-                entityManager()
-                        .createNativeQuery(
-                                "SELECT note_id, program_no, reporter_caisi_role, locked FROM"
-                                    + " casemgmt_note WHERE demographic_no = :patient ORDER BY"
-                                    + " note_id",
-                                Object[].class)
-                        .setParameter("patient", patient)
-                        .setHint("jakarta.persistence.query.timeout", 30_000)
-                        .setMaxResults(maximum + 1)
-                        .getResultList();
-        if (rows.size() > maximum)
-            throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
-                    .CdsExportReviewException(
-                    io.github.carlos_emr.carlos.demographic.cdsexport.support
-                            .CdsExportReviewException.Reason.RESOURCE_LIMIT);
         var result = new java.util.ArrayList<CdsExportNoteAccessDto>();
         long previous = 0;
-        for (Object[] row : rows) {
-            if (!(row[0] instanceof Number)
-                    || row[3] != null
-                            && !"0".equals(row[3])
-                            && !Character.valueOf('0').equals(row[3])) deny();
-            long id = ((Number) row[0]).longValue();
-            if (id <= previous) deny();
-            previous = id;
-            try {
-                result.add(
-                        new CdsExportNoteAccessDto(id, patient, (String) row[1], (String) row[2]));
-            } catch (IllegalArgumentException invalid) {
-                deny();
+        while (true) {
+            List<Object[]> rows =
+                    entityManager()
+                            .createNativeQuery(
+                                    "SELECT note_id, program_no, reporter_caisi_role, locked FROM"
+                                        + " casemgmt_note WHERE demographic_no = :patient AND"
+                                        + " note_id > :after ORDER BY note_id",
+                                    Object[].class)
+                            .setParameter("patient", patient)
+                            .setParameter("after", previous)
+                            .setHint("jakarta.persistence.query.timeout", 30_000)
+                            .setMaxResults(page)
+                            .getResultList();
+            for (Object[] row : rows) {
+                if (!(row[0] instanceof Number)
+                        || row[3] != null
+                                && !"0".equals(row[3])
+                                && !Character.valueOf('0').equals(row[3])) deny();
+                long id = ((Number) row[0]).longValue();
+                if (id <= previous) deny();
+                previous = id;
+                try {
+                    result.add(
+                            new CdsExportNoteAccessDto(
+                                    id, patient, (String) row[1], (String) row[2]));
+                } catch (IllegalArgumentException invalid) {
+                    deny();
+                }
             }
+            if (rows.size() < page) break;
         }
         return List.copyOf(result);
     }
@@ -105,7 +110,11 @@ public class CdsExportNoteAccessDao extends AbstractJpaDao {
         }
     }
 
-    /** Exact live scopes for one bounded retained patient batch, including ownership conflicts. */
+    /**
+     * Exact live scopes for one batch of a patient's notes, including ownership conflicts. At
+     * most 8192 notes a call: that is the size of one statement's list, and the access service
+     * asks in as many batches as a chart needs.
+     */
     @SuppressWarnings("unchecked")
     public List<CdsExportNoteAccessDto> findScopes(int patient, List<Long> noteIds) {
         var ids = List.copyOf(noteIds);

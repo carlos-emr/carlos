@@ -117,6 +117,78 @@ class CdsExportNoteSourceReaderUnitTest {
         verifyNoInteractions(notes, scopes);
     }
 
+    /**
+     * A chart of 16,391 notes (two full pages and a part) through the real scope DAO, the real
+     * projection service and the reader. The scope read used to stop at 8,192 notes and hold
+     * the patient ({@code CDS_EXPORT_RESOURCE_LIMIT}); it now reads a page of notes a
+     * statement, each continuing after the last note of the one before.
+     */
+    @Test
+    void shouldReadEveryNoteScopeOfALongChart_aPageOfNotesAStatement() throws Exception {
+        int count = 2 * 8192 + 7;
+        var statements = new ArrayList<long[]>();
+        var manager = mock(jakarta.persistence.EntityManager.class);
+        when(manager.createNativeQuery(anyString(), eq(Object[].class)))
+                .thenAnswer(
+                        call -> {
+                            String sql = call.getArgument(0);
+                            assertThat(sql).contains("note_id > :after ORDER BY note_id");
+                            var query = mock(jakarta.persistence.Query.class, RETURNS_SELF);
+                            long[] read = new long[2];
+                            when(query.setParameter(eq("after"), any()))
+                                    .thenAnswer(
+                                            bound -> {
+                                                read[0] = bound.<Long>getArgument(1);
+                                                return query;
+                                            });
+                            when(query.setMaxResults(anyInt()))
+                                    .thenAnswer(
+                                            bound -> {
+                                                read[1] = bound.<Integer>getArgument(0);
+                                                return query;
+                                            });
+                            when(query.getResultList())
+                                    .thenAnswer(
+                                            ignored -> {
+                                                statements.add(read.clone());
+                                                var page = new ArrayList<Object[]>();
+                                                for (long id = read[0] + 1;
+                                                        id <= count && page.size() < read[1];
+                                                        id++)
+                                                    page.add(new Object[] {id, "17", "1", "0"});
+                                                return page;
+                                            });
+                            return query;
+                        });
+        // The foreign-revision probe finds nothing.
+        when(manager.createNativeQuery(anyString()))
+                .thenAnswer(
+                        call -> {
+                            var query = mock(jakarta.persistence.Query.class, RETURNS_SELF);
+                            when(query.getResultList()).thenReturn(List.of());
+                            return query;
+                        });
+        var dao = new CdsExportNoteAccessDao();
+        org.springframework.test.util.ReflectionTestUtils.setField(dao, "entityManager", manager);
+        var chartReader =
+                new CdsExportNoteSourceReader(
+                        notes, dao, new CdsExportNoteScopeProjectionService(dao));
+        when(notes.countCdsExportRows(27)).thenReturn((long) count);
+
+        var planned = chartReader.forCapture(27, control);
+
+        assertThat(planned.noteAccess()).hasSize(count);
+        assertThat(planned.noteAccess().getFirst().noteId()).isEqualTo(1);
+        assertThat(planned.noteAccess().getLast().noteId()).isEqualTo(count);
+        // Three statements: after 0, after 8192, after 16384; none asks for more than a page.
+        assertThat(statements).extracting(read -> read[0]).containsExactly(0L, 8192L, 16384L);
+        assertThat(statements).allMatch(read -> read[1] == 8192);
+        // Every note is authorized, one by one, and the snapshot's own scope read agrees.
+        planned.authorizeReadScope(27, control);
+        verify(control, times(count)).authorizeNote(eq(CdsCategory.CLINICAL_NOTES), any());
+        assertThat(planned.count(27)).isEqualTo(count);
+    }
+
     @Test
     void shouldLeaveRestoredGenerationsToTheirSealedScopes_insteadOfReadingTodaysNoteUniverse() {
         reader.authorizeReadScope(27, control);

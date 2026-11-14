@@ -28,11 +28,16 @@ import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.*;
 
-/** Bounded scalar preflight only; callers must authorize the patient/categories before discovery and each note before payload capture. */
+/**
+ * Scalar preflight only; callers must authorize the patient/categories before discovery and each
+ * note before payload capture. The transaction has no timeout: a chart of any number of notes is
+ * read, a page of notes a statement, and each statement keeps its own bound.
+ */
 @Service
-@Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW, isolation = Isolation.READ_COMMITTED, timeout = 30)
+@Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW, isolation = Isolation.READ_COMMITTED)
 public class CdsExportNoteScopeProjectionService {
     private final CdsExportNoteAccessDao notes;
     public CdsExportNoteScopeProjectionService(CdsExportNoteAccessDao notes) { this.notes = Objects.requireNonNull(notes); }
-    public List<CdsExportNoteAccessDto> read(int patient, int maximum) { return notes.readScopes(patient, maximum); }
+    /** Every note scope of the patient; {@code page} is the notes one statement returns. */
+    public List<CdsExportNoteAccessDto> read(int patient, int page) { return notes.readScopes(patient, page); }
 }

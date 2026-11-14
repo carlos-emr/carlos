@@ -488,6 +488,86 @@ class CdsExportAccessServiceUnitTest {
         verify(accounts, times(2)).find(7);
     }
 
+    /**
+     * A chart of 16,391 notes in one call. A list of more than 8,192 notes used to be refused
+     * outright; it is now checked in batches of live scopes, and every note is still compared
+     * with its live scope and authorized under its own program and reporter role.
+     */
+    @Test
+    void shouldAuthorizeEveryNoteOfALongChart_inBatchesOfLiveScopes() {
+        var command = noteCommand("100");
+        var actor = access.webActor(session, command);
+        int count = 2 * 8192 + 7;
+        var chart =
+                java.util.stream.LongStream.rangeClosed(1, count)
+                        .mapToObj(
+                                id ->
+                                        new io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                                .CdsExportNoteAccessDto(
+                                                id, 27, id <= 8192 ? "17" : "18", "1"))
+                        .toList();
+        var asked = new java.util.ArrayList<List<Long>>();
+        when(notes.findScopes(eq(27), anyList()))
+                .thenAnswer(
+                        call -> {
+                            List<Long> ids = call.getArgument(1);
+                            asked.add(List.copyOf(ids));
+                            return chart.subList(
+                                    (int) (ids.getFirst() - 1), (int) (long) ids.getLast());
+                        });
+        when(notes.canRead(eq("100"), any(), isNull(), eq(true))).thenReturn(true);
+        clearInvocations(accounts);
+
+        access.requireNotesRead(actor, command, CdsCategory.CLINICAL_NOTES, chart);
+
+        // One identity, three batches of at most 8,192, every note asked for exactly once.
+        verify(accounts, times(1)).find(7);
+        assertThat(asked).extracting(List::size).containsExactly(8192, 8192, 7);
+        assertThat(asked.stream().flatMap(List::stream).toList())
+                .isEqualTo(chart.stream().map(scope -> scope.noteId()).toList());
+        // Each distinct program and reporter role of the chart is authorized once, at its first
+        // note: program 17 at note 1 and program 18 at note 8,193, in the second batch.
+        verify(notes).canRead("100", chart.getFirst(), null, true);
+        verify(notes).canRead("100", chart.get(8192), null, true);
+        verify(notes, times(2)).canRead(anyString(), any(), isNull(), eq(true));
+        // A note of the last batch whose live scope changed still refuses the chart.
+        when(notes.findScopes(eq(27), anyList()))
+                .thenAnswer(
+                        call -> {
+                            List<Long> ids = call.getArgument(1);
+                            var live =
+                                    new java.util.ArrayList<>(
+                                            chart.subList(
+                                                    (int) (ids.getFirst() - 1),
+                                                    (int) (long) ids.getLast()));
+                            if (ids.getLast() == count)
+                                live.set(
+                                        live.size() - 1,
+                                        new io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                                .CdsExportNoteAccessDto(count, 27, "19", "1"));
+                            return live;
+                        });
+        assertThatThrownBy(
+                        () ->
+                                access.requireNotesRead(
+                                        actor, command, CdsCategory.CLINICAL_NOTES, chart))
+                .isInstanceOf(SecurityException.class);
+        // And a program of a later batch the provider cannot read refuses it as well.
+        when(notes.findScopes(eq(27), anyList()))
+                .thenAnswer(
+                        call -> {
+                            List<Long> ids = call.getArgument(1);
+                            return chart.subList(
+                                    (int) (ids.getFirst() - 1), (int) (long) ids.getLast());
+                        });
+        when(notes.canRead("100", chart.get(8192), null, true)).thenReturn(false);
+        assertThatThrownBy(
+                        () ->
+                                access.requireNotesRead(
+                                        actor, command, CdsCategory.CLINICAL_NOTES, chart))
+                .isInstanceOf(SecurityException.class);
+    }
+
     @Test
     void shouldRefuseChangedMissingDuplicateForeignAndOversizedNoteBatches_beforeGrantReuse() {
         var command = noteCommand("100");

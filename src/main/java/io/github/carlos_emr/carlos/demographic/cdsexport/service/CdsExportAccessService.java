@@ -402,6 +402,8 @@ public class CdsExportAccessService {
     /**
      * Rechecks every exact retained note in one fresh patient transaction. Identical
      * program/reporter-role grants share that transaction only; nothing survives a boundary.
+     * Any number of notes is checked: their live scopes are read 8,192 notes a statement, and
+     * every note is compared and authorized exactly as a single batch was.
      */
     public void requireNotesRead(
             CdsExportActorDto actor,
@@ -413,7 +415,6 @@ public class CdsExportAccessService {
                     expected) {
         var batch = java.util.List.copyOf(expected);
         if (batch.isEmpty()
-                || batch.size() > 8192
                 || command == null
                 || category == null
                 || !CdsExportNoteSourceReader.CATEGORIES.contains(category)
@@ -429,10 +430,15 @@ public class CdsExportAccessService {
                 patient,
                 () -> {
                     CurrentIdentity current = chartIdentity(actor, command, patient, category);
-                    var actual =
-                            notes.findScopes(
-                                    patient, batch.stream().map(scope -> scope.noteId()).toList());
-                    if (!batch.equals(actual)) deny();
+                    // How the live scopes are read, never how many notes a chart may have.
+                    for (int start = 0; start < batch.size(); start += 8192) {
+                        var part = batch.subList(start, Math.min(batch.size(), start + 8192));
+                        var actual =
+                                notes.findScopes(
+                                        patient,
+                                        part.stream().map(scope -> scope.noteId()).toList());
+                        if (!part.equals(actual)) deny();
+                    }
                     record Grant(String program, String reporterRole) {}
                     var checked = new java.util.HashSet<Grant>();
                     boolean filter = configuration.filterNotesOnFacility();

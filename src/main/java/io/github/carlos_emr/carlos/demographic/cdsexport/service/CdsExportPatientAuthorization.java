@@ -92,7 +92,10 @@ final class CdsExportPatientAuthorization {
                 CdsExportNoteAccessDto scope,
                 CdsExportAccessService.PatientGrants grants);
 
-        /** Every given note of one category, uncached, in ascending note order (at most 8192). */
+        /**
+         * Every given note of one category, uncached, in ascending note order. Any number of
+         * notes: the access service checks them in batches of {@link #NOTE_BATCH}.
+         */
         void notes(CdsCategory category, List<CdsExportNoteAccessDto> scopes);
 
         /** The closing pass: everything the session granted, uncached, in one transaction. */
@@ -150,7 +153,7 @@ final class CdsExportPatientAuthorization {
         }
     }
 
-    /** The largest batch the uncached note check accepts. */
+    /** The notes the uncached note check reads in one statement; it takes any number. */
     static final int NOTE_BATCH = 8192;
 
     private final int patient;

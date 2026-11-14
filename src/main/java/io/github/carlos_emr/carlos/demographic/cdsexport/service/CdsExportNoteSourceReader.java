@@ -52,7 +52,8 @@ public class CdsExportNoteSourceReader extends CdsExportPatientTableSourceReader
                     CdsCategory.RISK_FACTORS,
                     CdsCategory.ALERTS_AND_SPECIAL_NEEDS,
                     CdsCategory.CLINICAL_NOTES);
-    private static final int MAXIMUM = 8192;
+    /** The notes one statement of the scope read returns. A chart may have any number. */
+    private static final int PAGE = 8192;
     private final CaseManagementNoteDAO notes;
     private final CdsExportNoteAccessDao scopes;
     private final CdsExportNoteScopeProjectionService projection;
@@ -90,10 +91,9 @@ public class CdsExportNoteSourceReader extends CdsExportPatientTableSourceReader
         if (this.patient != 0 || patient < 1)
             throw new IOException("CDS_EXPORT_NOTE_CAPTURE_SCOPE_INVALID");
         control.checkpoint();
-        var access = projection.read(patient, MAXIMUM);
+        var access = projection.read(patient, PAGE);
         control.checkpoint();
-        if (access == null || access.size() > MAXIMUM)
-            throw new IOException("CDS_EXPORT_NOTE_CAPTURE_SCOPE_INVALID");
+        if (access == null) throw new IOException("CDS_EXPORT_NOTE_CAPTURE_SCOPE_INVALID");
         long previous = 0;
         for (var scope : access) {
             if (scope == null || scope.patient() != patient || scope.noteId() <= previous)
@@ -138,7 +138,7 @@ public class CdsExportNoteSourceReader extends CdsExportPatientTableSourceReader
     private void requireSnapshot(int patient) {
         if (this.patient == 0 || this.patient != patient)
             throw new IllegalStateException("CDS_EXPORT_NOTE_CAPTURE_NOT_PREPARED");
-        if (!access.equals(scopes.readScopes(patient, MAXIMUM))) changed();
+        if (!access.equals(scopes.readScopes(patient, PAGE))) changed();
     }
 
     private static void changed() {
