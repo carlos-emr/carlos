@@ -479,6 +479,20 @@ class CdsExportEnrolmentHistoryUnitTest {
     }
 
     @Test
+    void shouldProjectTheChart_whenItHasMoreThan65536EnrolmentRows() throws Exception {
+        // The projection once refused more than 65,536 enrolment rows (the current row and its
+        // demographicArchive rows; every demographic save adds one) and so failed the whole job.
+        var history = new CdsExportEnrolmentHistory(27, () -> {});
+        for (long id = 1; id <= 65_536; id++)
+            history.accept(archive(id, null, null, null, null, null), null);
+        var row = current(null, null, null, null, null);
+        history.accept(row, null);
+        var result = history.finish(65_536);
+        assertThat(result.sourceRows()).isEqualTo(65_537);
+        assertThat(projection(row, result, null).sourceRows()).isEqualTo(65_537);
+    }
+
+    @Test
     void shouldVerifyActualSchemaAndReceivingImporterRetainTheCompleteNativeEventSequenceAndPatientNote_forEnrolmentHistoryContract()
             throws Exception {
         var history = history();

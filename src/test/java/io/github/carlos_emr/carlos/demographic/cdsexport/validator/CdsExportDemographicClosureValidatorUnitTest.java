@@ -48,6 +48,15 @@ class CdsExportDemographicClosureValidatorUnitTest {
         assertThat(receipt.nativeFields()).isEqualTo(1); assertThat(receipt.retainedSourceFields()).isEqualTo(1);
         assertThat(receipt.toString()).doesNotContain(HASH, "Ada");
     }
+    @Test void shouldCloseTheRecord_whenItHasMoreThan65536SourceFields() throws Exception {
+        // The closure once refused an imported Demographics record of more than 65,536 source
+        // fields (Contact and EnrolmentHistory repeat without limit), which failed the whole job.
+        var sources = new HashSet<String>();
+        for (int field = 0; field <= 65_536; field++) sources.add(String.format(Locale.ROOT, "%064x", field));
+        var receipt = validator.validate(HASH, rows, sources,
+                result(Map.of(KEY, MAPPED), Set.of(), Set.of(), sources, List.of()), 100, () -> {});
+        assertThat(receipt.retainedSourceFields()).isEqualTo(65_537);
+    }
     @Test void shouldRefuseADeferredField_evenWhenTheAssemblyClaimsOtherFieldsAreComplete() {
         var result = result(Map.of(KEY, MAPPED), Set.of(new CdsExportNativeFieldKeyDto("demographiccust", "27", "cust1")), Set.of(), Set.of(SOURCE), List.of());
         assertThatThrownBy(() -> validator.validate(HASH, rows, Set.of(SOURCE), result, 100, () -> {})).hasMessage("CDS_EXPORT_DEMOGRAPHIC_CLOSURE_SCOPE_INVALID");

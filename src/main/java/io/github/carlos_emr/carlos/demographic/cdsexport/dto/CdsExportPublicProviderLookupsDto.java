@@ -24,10 +24,10 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.dto;
 import java.io.IOException;
 import java.util.Map;
 
-/** Bounded public references from one authenticated patient capture; a provider ID never binds another generation. */
+/** Public references from one authenticated patient capture, however many; a provider ID never binds another generation. */
 public record CdsExportPublicProviderLookupsDto(String sourceManifestSha256, Map<String, CdsExportCapturedTextRowDto> providers) {
     public CdsExportPublicProviderLookupsDto {
-        if (sourceManifestSha256==null||!sourceManifestSha256.matches("[0-9a-f]{64}")||providers==null||providers.size()>65536)throw new IllegalArgumentException("CDS_EXPORT_PUBLIC_PROVIDER_LOOKUPS_INVALID"); providers=Map.copyOf(providers);
+        if (sourceManifestSha256==null||!sourceManifestSha256.matches("[0-9a-f]{64}")||providers==null)throw new IllegalArgumentException("CDS_EXPORT_PUBLIC_PROVIDER_LOOKUPS_INVALID"); providers=Map.copyOf(providers);
     }
     /** Refuses cross-generation lookup reuse before a public clinical value can be emitted. */
     public void requireGeneration(String expected)throws IOException {if (!sourceManifestSha256.equals(expected))throw new IOException("CDS_EXPORT_PUBLIC_PROVIDER_LOOKUPS_GENERATION_INVALID"); }
