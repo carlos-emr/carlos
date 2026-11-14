@@ -290,7 +290,8 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
                                     clinic,
                                     counts,
                                     supportingRecords,
-                                    imported);
+                                    imported,
+                                    identity(lease, patient, tables, source, bounds, control));
                     // A report that is parsed is held parsed with its window: counted before
                     // anything is emitted, so a chart that does not fit is read in windows.
                     if (whole[0] != null && !parsedFits(whole[0], imported, wholeBudget))
@@ -398,6 +399,8 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
         final long[] counts;
         final boolean supportingRecords;
         final Set<String> imported;
+        /** The chart's identity, read once and only for a message that names several patients. */
+        final CdsExportNativeLaboratoryParser.Charts identity;
         /** Retained fields the imported results used: references to ids the fields hold. */
         final Set<String> consumed = new HashSet<>();
         /**
@@ -429,7 +432,8 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
                 ZoneId[] clinic,
                 long[] counts,
                 boolean supportingRecords,
-                Set<String> imported) {
+                Set<String> imported,
+                CdsExportNativeLaboratoryParser.Charts identity) {
             this.lease = lease;
             this.patient = patient;
             this.patientKey = patientKey;
@@ -448,6 +452,7 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
             this.counts = counts;
             this.supportingRecords = supportingRecords;
             this.imported = imported;
+            this.identity = identity;
         }
 
         @Override
@@ -613,7 +618,12 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
             chart.counts[1] = Math.addExact(chart.counts[1], sourceValue.sourceFields().size());
         }
         var nativeSources =
-                nativeSources(patient.patient(), current, chart.imported, control::checkpoint);
+                nativeSources(
+                        patient.patient(),
+                        current,
+                        chart.imported,
+                        chart.identity,
+                        control::checkpoint);
         // Without NewCategory a report's source record is not written: its values
         // with no laboratory element are decided OPERATIONAL (not selected) in each
         // result's receipt, and the chart is exported, never held.
@@ -637,6 +647,22 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
             var mapper = new CdsExportNativeLaboratoryMapper();
             var nativeRoutes = routes.getOrDefault(nativeSource.id(), List.of());
             for (var route : nativeRoutes) if (!routed.add(nativeId(route))) invalid();
+            if (nativeSource.foreign()) {
+                // The message names several patients and none is this chart's: nothing of it is
+                // exported (owner decision 2026-11-14). Every field of the report and of its
+                // inbox routes is accounted, and the ReadMe names the report
+                // (CdsExportPatientInventoryService.OTHER_PATIENTS_REPORT_LABEL).
+                var foreign = new ArrayList<>(nativeSource.rows());
+                foreign.addAll(nativeRoutes);
+                new CdsExportNativeFieldAssessmentValidator()
+                        .requireRepresentable(
+                                foreign,
+                                CdsExportNativeLaboratoryMapper.foreign(nativeSource, nativeRoutes),
+                                control::checkpoint);
+                for (var row : nativeSource.rows())
+                    if (!owned.add(key(row.table(), nativeId(row)))) invalid();
+                continue;
+            }
             var reviews =
                     CdsExportInboxReviewMapper.laboratory()
                             .map(nativeRoutes, List.of(), chart.providers, zone);
@@ -856,8 +882,31 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
             CdsExportCapturedTextRowDto information,
             CdsExportCapturedTextRowDto routing,
             CdsExportNativeLaboratoryParser.Parsed parsed) {
+        /** The columns of {@code hl7TextInfo} CARLOS assigns itself rather than reads from the message. */
+        static final Set<String> CARLOS_INFORMATION = Set.of("id", "lab_no");
+
         List<CdsExportCapturedTextRowDto> rows() {
             return List.of(message, information, routing);
+        }
+
+        /**
+         * A value the upload stored for the report ({@code hl7TextInfo}), or null when it is not
+         * this chart's. {@code MessageUploader} read every such value through the handler from
+         * the message's first patient (its name, health number, orders, dates, accession and
+         * label), so when that patient's part of a message that names several patients is not
+         * exported, none of them is used and the report is read from this chart's part alone
+         * ({@link CdsExportNativeLaboratoryParser.Selection#storedInformation}).
+         */
+        String stored(String column) {
+            if (information == null) return null;
+            if (!parsed.selection().storedInformation() && !CARLOS_INFORMATION.contains(column))
+                return null;
+            return information.fields().get(column);
+        }
+
+        /** Whether no part of the message is this chart's: nothing of the report is exported. */
+        boolean foreign() {
+            return parsed.selection().part() == CdsExportNativeLaboratoryParser.Part.NONE;
         }
 
         @Override
@@ -870,9 +919,10 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
             int patient,
             Map<String, CdsExportCapturedTextRowDto> current,
             CdsExportRetainedIndexDto index,
+            CdsExportNativeLaboratoryParser.Charts identity,
             Runnable checkpoint)
             throws IOException {
-        return nativeSources(patient, current, importedMessages(index), checkpoint);
+        return nativeSources(patient, current, importedMessages(index), identity, checkpoint);
     }
 
     /**
@@ -880,11 +930,14 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
      *
      * @param current every report row of the chart, or the rows of one window's reports
      * @param imported the report numbers an applied import unit names
+     * @param identity the chart's identity, asked for only by a message that names several
+     *     patients ({@link CdsExportNativeLaboratoryParser#select})
      */
     private static List<NativeSource> nativeSources(
             int patient,
             Map<String, CdsExportCapturedTextRowDto> current,
             Set<String> imported,
+            CdsExportNativeLaboratoryParser.Charts identity,
             Runnable checkpoint)
             throws IOException {
         requireOwnership(patient, current);
@@ -911,7 +964,7 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
             if (imported.contains(id)) review();
             var parsed =
                     new CdsExportNativeLaboratoryParser()
-                            .parse(row.fields().get("message"), checkpoint);
+                            .parse(row.fields().get("message"), identity, checkpoint);
             sources.add(new NativeSource(id, row, information.get(id), routing.get(id), parsed));
         }
         sources.sort(Comparator.comparing(NativeSource::id));
@@ -955,6 +1008,7 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
                 .requireUnmerged(
                         lease, patient, tables, source, bounds.fields(), bounds.bytes(), control);
         var imported = importedMessages(index);
+        var identity = identity(lease, patient, tables, source, bounds, control);
         var limits = bounds.window();
         long reportRows = reportRows(source);
         var routeScope = source.capture().tables().get(ROUTES);
@@ -971,7 +1025,11 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
                     if (loaded == null) return false;
                     var sources =
                             nativeSources(
-                                    patient.patient(), loaded.rows, imported, control::checkpoint);
+                                    patient.patient(),
+                                    loaded.rows,
+                                    imported,
+                                    identity,
+                                    control::checkpoint);
                     if (!window.whole() && sources.size() != window.size()) invalid();
                     boolean routed = false;
                     for (var report : sources) routed |= visitor.routed(report);
@@ -1091,6 +1149,41 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
                         for (int i = 0; i < pairs.size(); i++) owners.add(Integer.toString(i));
                     },
                     work);
+    }
+
+    /**
+     * The chart's identity as CARLOS stores it (its captured {@code demographic} row), read the
+     * first time a message that names several patients asks for it, then kept for the chart.
+     */
+    private CdsExportNativeLaboratoryParser.Charts identity(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> tables,
+            CdsExportPatientCaptureDto source,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control) {
+        var known = new CdsExportNativeLaboratoryParser.Chart[1];
+        return () -> {
+            if (known[0] != null) return known[0];
+            if (!tables.contains("demographic")) invalid();
+            var found = new ArrayList<Map<String, String>>();
+            rows.forEach(
+                    lease,
+                    patient,
+                    tables,
+                    "demographic",
+                    source.manifest(),
+                    bounds.fields(),
+                    bounds.bytes(),
+                    4096,
+                    control,
+                    row -> found.add(row.fields()));
+            if (found.size() != 1
+                    || !Integer.toString(patient.patient())
+                            .equals(found.getFirst().get("demographic_no"))) invalid();
+            known[0] = CdsExportNativeLaboratoryParser.Chart.of(found.getFirst());
+            return known[0];
+        };
     }
 
     /** The report numbers an applied import unit of any category names. */

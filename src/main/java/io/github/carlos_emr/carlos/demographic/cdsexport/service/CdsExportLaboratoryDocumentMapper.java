@@ -235,7 +235,7 @@ final class CdsExportLaboratoryDocumentMapper {
                     break;
                 }
             }
-            String laboratory = source.information().fields().get("sending_facility");
+            String laboratory = source.stored("sending_facility");
             if (laboratory == null || laboratory.isEmpty())
                 laboratory = new Terser(source.parsed().message()).get("/MSH-4-1");
             laboratory = literal(laboratory);
@@ -284,11 +284,11 @@ final class CdsExportLaboratoryDocumentMapper {
             Segment obx = document.result(), obr = document.order();
             String name = componentText(raw, obx, 3, 2);
             String ordered = componentText(raw, obr, 4, 2);
-            String laboratory = source.information().fields().get("sending_facility");
+            String laboratory = source.stored("sending_facility");
             if (laboratory == null || laboratory.isEmpty())
                 laboratory = new Terser(source.parsed().message()).get("/MSH-4-1");
             laboratory = literal(laboratory);
-            String stored = source.information().fields().get("accessionNum");
+            String stored = source.stored("accessionNum");
             String order = scalar(obr, 3);
             String accession = stored == null || stored.isEmpty() ? order : stored;
             // Fixed key order, so an unchanged report produces the same Notes bytes.

@@ -77,6 +77,14 @@ public class CdsExportPatientInventoryService {
     /** ReadMe label: measurements with no CareElements element, carried only by NewCategory. */
     public static final String MEASUREMENT_WITHOUT_ELEMENT_NOT_EXPORTED_LABEL =
             "Measurements with no CDS element" + NOT_SELECTED;
+
+    /**
+     * ReadMe label's fixed start for a laboratory report whose message names several patients,
+     * none of them this patient (owner decision 2026-11-14); {@link #otherPatientsReport} adds the
+     * date, laboratory and accession number CARLOS lists the report by.
+     */
+    public static final String OTHER_PATIENTS_REPORT_LABEL =
+            "Laboratory report naming several patients, none of them this patient";
     private final CdsExportRetainedIndexService indices;
     private final CdsExportNativeRowReceiptReader rows;
     private final CdsExportHistoryInventoryService histories;
@@ -275,6 +283,9 @@ public class CdsExportPatientInventoryService {
         // Captured records whose NewCategory record is not written because the job did not select
         // NewCategory: named per ReadMe label and source table, never a reason to hold the chart.
         var notSelected = new LinkedHashMap<String, SortedMap<String, SortedSet<String>>>();
+        // The rule of a label whose records are not exported for another reason than the
+        // selection (NOT_SELECTED_RULE otherwise).
+        var rules = new HashMap<String, String>();
         // Every current appointment has one NewCategory source record
         // (CdsExportAppointmentSourceMapper), in the order of its Appointments element.
         for (String appointment : new TreeSet<>(appointments)) {
@@ -405,6 +416,18 @@ public class CdsExportPatientInventoryService {
                             CdsExportLaboratoryOccurrenceService.NativeSource laboratory,
                             List<CdsExportCapturedTextRowDto> routes)
                             throws IOException {
+                        // A message naming several patients, none of them this chart's: nothing
+                        // of it is expected, and the ReadMe names the report.
+                        if (laboratory.foreign()) {
+                            withhold(
+                                    notSelected,
+                                    rules,
+                                    otherPatientsReport(laboratory),
+                                    CdsExportNativeLaboratoryMapper.OTHER_PATIENTS_ONLY,
+                                    "hl7TextMessage",
+                                    laboratory.id());
+                            return;
+                        }
                         // An embedded document is a Reports entry
                         // (CdsExportLaboratoryDocumentMapper). A job that left Reports out still
                         // exports the chart: the document is named as not exported, and its
@@ -670,7 +693,47 @@ public class CdsExportPatientInventoryService {
         control.authorizePatient(patient.patient());
         patient.require(lease);
         control.checkpoint();
-        return new Inventory(source.manifest().plaintextSha256(), patientKey, expected, notSelected);
+        return new Inventory(
+                source.manifest().plaintextSha256(), patientKey, expected, notSelected, rules);
+    }
+
+    /**
+     * The ReadMe label of a laboratory report no part of which is this patient's: {@value
+     * #OTHER_PATIENTS_REPORT_LABEL}, then the report's date, laboratory and accession number as
+     * CARLOS lists the report in the chart ({@code hl7TextInfo}: the date part of {@code
+     * obr_date}, else the day CARLOS stored the report; {@code sending_facility}, else MSH-4;
+     * {@code accessionNum}), each named "no date", "no laboratory named" or "no accession number"
+     * when none is stored.
+     */
+    static String otherPatientsReport(CdsExportLaboratoryOccurrenceService.NativeSource laboratory)
+            throws IOException {
+        var stored = laboratory.information() == null ? Map.<String, String>of() : laboratory.information().fields();
+        String date = stored.get("obr_date");
+        if (date == null || !date.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}.*")) {
+            date = laboratory.message().fields().get("created");
+            if (date == null || !date.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}.*")) date = null;
+        }
+        String named = stored.get("sending_facility");
+        if (named == null || named.isBlank()) {
+            try {
+                named =
+                        new ca.uhn.hl7v2.util.Terser(laboratory.parsed().message())
+                                .get("/MSH-4-1");
+            } catch (ca.uhn.hl7v2.HL7Exception unreadable) {
+                named = null;
+            }
+        }
+        String accession = stored.get("accessionNum");
+        return OTHER_PATIENTS_REPORT_LABEL
+                + " ("
+                + (date == null ? "no date" : date.substring(0, 10))
+                + ", "
+                + (named == null || named.isBlank() ? "no laboratory named" : named.strip())
+                + ", "
+                + (accession == null || accession.isBlank()
+                        ? "no accession number"
+                        : "accession " + accession.strip())
+                + ")";
     }
 
     private static boolean applied(CdsExportRetainedIndexDto index, CdsCategory category) {
@@ -757,6 +820,20 @@ public class CdsExportPatientInventoryService {
         return List.copyOf(reviewed);
     }
 
+    /** Names one captured record that is not exported for {@code rule}, under its ReadMe label. */
+    private static void withhold(
+            Map<String, SortedMap<String, SortedSet<String>>> notSelected,
+            Map<String, String> rules,
+            String label,
+            String rule,
+            String table,
+            String id)
+            throws IOException {
+        String known = rules.putIfAbsent(label, rule);
+        if (known != null && !known.equals(rule)) invalid();
+        withhold(notSelected, label, table, id);
+    }
+
     /** Names one captured record whose NewCategory record the job's selection left out. */
     private static void withhold(
             Map<String, SortedMap<String, SortedSet<String>>> notSelected,
@@ -787,12 +864,15 @@ public class CdsExportPatientInventoryService {
         private final CdsExportOccurrenceIndex index;
         private final Map<String, Long> notExported;
         private final Map<String, SortedMap<String, SortedSet<String>>> notSelected;
+        private final Map<String, String> rules;
 
         private Inventory(
                 String source,
                 String patient,
                 CdsExportOccurrenceIndex index,
-                Map<String, SortedMap<String, SortedSet<String>>> notSelected) {
+                Map<String, SortedMap<String, SortedSet<String>>> notSelected,
+                Map<String, String> rules) {
+            this.rules = Map.copyOf(rules);
             sourceManifestSha256 = source;
             patientKey = patient;
             this.index = index;
@@ -814,6 +894,15 @@ public class CdsExportPatientInventoryService {
                     });
             this.notSelected = Collections.unmodifiableMap(names);
             notExported = Collections.unmodifiableMap(counts);
+        }
+
+        /**
+         * The rule a ReadMe label's records are not exported under: {@code
+         * NO_CDS_ELEMENT_NEW_CATEGORY_NOT_SELECTED} unless the label is another reason's (a
+         * laboratory report naming only other patients).
+         */
+        public String rule(String label) {
+            return rules.getOrDefault(label, CdsExportDemographicSupportingMapper.NOT_SELECTED_RULE);
         }
 
         /**

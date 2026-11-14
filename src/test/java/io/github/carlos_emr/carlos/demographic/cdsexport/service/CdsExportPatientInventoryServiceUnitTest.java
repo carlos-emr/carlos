@@ -429,6 +429,36 @@ class CdsExportPatientInventoryServiceUnitTest {
     }
 
     @Test
+    void shouldExpectNothingOfAReportNamingOnlyOtherPatients_andNameItForTheReadme()
+            throws Exception {
+        // Owner decision 2026-11-14: a stored message that names several patients exports only
+        // this patient's part; when no part is this patient's, nothing of it is expected and the
+        // ReadMe names the report by its date, laboratory and accession number.
+        var f = fixture(CdsCategory.LABORATORY_RESULTS, CdsCategory.NEW_CATEGORY);
+        var source =
+                CdsExportNativeLaboratoryMapperUnitTest.source(
+                        CdsExportNativeLaboratoryMapperUnitTest.message() + "PID|2||ANOTHER\r",
+                        "2026-07-10 12:30:00");
+        assertThat(source.foreign()).isTrue();
+        nativeLaboratories(f, source);
+        var inventory = capture(f);
+        assertThat(inventory.identities())
+                .noneMatch(
+                        identity ->
+                                identity.category() == CdsCategory.LABORATORY_RESULTS
+                                        || identity.category() == CdsCategory.NEW_CATEGORY);
+        String label =
+                "Laboratory report naming several patients, none of them this patient"
+                        + " (2026-07-10, Native Lab, accession ACC-1)";
+        assertThat(inventory.notExported()).containsEntry(label, 1L);
+        assertThat(inventory.notSelected().get(label).get("hl7TextMessage")).containsExactly("91");
+        assertThat(inventory.rule(label))
+                .isEqualTo(CdsExportNativeLaboratoryMapper.OTHER_PATIENTS_ONLY);
+        assertThat(inventory.rule(CdsExportPatientInventoryService.LABORATORY_NOT_EXPORTED_LABEL))
+                .isEqualTo(CdsExportDemographicSupportingMapper.NOT_SELECTED_RULE);
+    }
+
+    @Test
     void shouldExpectAReportsOccurrence_forEachEmbeddedLabDocument() throws Exception {
         var f =
                 fixture(

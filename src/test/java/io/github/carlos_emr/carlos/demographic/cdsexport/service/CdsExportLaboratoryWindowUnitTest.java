@@ -104,6 +104,35 @@ class CdsExportLaboratoryWindowUnitTest extends CdsExportLaboratoryWindowFixture
     }
 
     @Test
+    void shouldAccountAReportNamingOnlyOtherPatients_withoutEmittingAnyOfIt() throws Exception {
+        // Owner decision 2026-11-14: a stored message that names several patients, none of them
+        // this chart's, exports nothing; its rows are still owned and accounted, read whole or in
+        // windows, and the chart is not held.
+        nativeReport(8);
+        report(21, message(21) + "PID|2||ANOTHER\r");
+        route(1, 21, "101", "A", "2026-07-12 10:00:00", null);
+        var chart = new TreeMap<String, CdsExportCapturedTextRowDto>();
+        chart.put(
+                "27",
+                new CdsExportCapturedTextRowDto(
+                        "demographic",
+                        CdsExportPatientTableSourceReader.key(27),
+                        Map.of(
+                                "demographic_no", "27",
+                                "hin", "9999999999",
+                                "last_name", "FAKE-Window",
+                                "first_name", "Fixture")));
+        tables.put("demographic", chart);
+        var whole = compose();
+        assertThat(receipts).hasSize(4);
+        assertThat(receipts).allMatch(receipt -> receipt.nativeId().startsWith("8:"));
+        assertThat(new String(whole, StandardCharsets.UTF_8)).doesNotContain("native-21");
+        bounds = bounds.withWindow(1, 64L << 20);
+        assertThat(compose()).isEqualTo(whole);
+        assertThat(receipts).hasSize(4);
+    }
+
+    @Test
     void shouldEmitTheSameBytes_whenOneReportIsLargerThanTheWholeWindow() throws Exception {
         mixedChart(4, 9);
         // One report far larger than the window's bytes, in the middle of the chart.

@@ -145,7 +145,7 @@ final class CdsExportNativeLaboratoryMapper {
                 put(text, "TestName", reportedName.isEmpty() ? orderedName : reportedName, 120);
                 // The accession CARLOS stores, shows and groups versions by is the handler's
                 // (hl7TextInfo.accessionNum); OBR-3 is only the generic order number.
-                String stored = source.information().fields().get("accessionNum");
+                String stored = source.stored("accessionNum");
                 String order = scalar(obr, 3, 0, 1);
                 String accession = stored == null || stored.isEmpty() ? order : stored;
                 put(text, "AccessionNumber", accession, 120);
@@ -284,12 +284,39 @@ final class CdsExportNativeLaboratoryMapper {
         return assessments(source, CdsExportInboxReviewMapper.Reviews.NONE);
     }
 
+    /**
+     * Rule of every field of a report whose message names several patients, none of them this
+     * chart's: nothing of it is exported and the ReadMe names it (owner decision 2026-11-14).
+     */
+    static final String OTHER_PATIENTS_ONLY = "MESSAGE_NAMES_ONLY_OTHER_PATIENTS_NOT_EXPORTED";
+
+    /**
+     * Rule of the stored message of a report that names several patients: the carried message is
+     * this chart's part of it (the MSH segment and this chart's PID groups), not the stored one.
+     */
+    static final String THIS_PATIENTS_PART = "THIS_PATIENTS_PART_OF_A_MESSAGE_NAMING_SEVERAL_PATIENTS";
+
+    /**
+     * Rule of a value the upload stored for such a report from the message's first patient when
+     * that patient's part is not this chart's: it is neither written nor carried.
+     */
+    static final String ANOTHER_PATIENTS_PART = "ANOTHER_PATIENTS_PART_OF_THE_MESSAGE_NOT_EXPORTED";
+
     /** The report's own rows, and its inbox routes and their providers as {@code reviews} decided them. */
     static Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> assessments(
             CdsExportLaboratoryOccurrenceService.NativeSource source,
             CdsExportInboxReviewMapper.Reviews reviews)
             throws IOException {
         var result = new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
+        var selection = source.parsed().selection();
+        if (source.foreign()) {
+            for (var row : source.rows()) {
+                var assessed = new CdsExportNativeFieldAssessments(row, result);
+                for (String column : row.fields().keySet())
+                    assessed.operational(column, OTHER_PATIENTS_ONLY);
+            }
+            return result;
+        }
         result.putAll(reviews.fields());
         // The stored field the chart's report date came from, when an observation carries it:
         // obr_date (directly or through the HL7 field it names) or, when the upload stored none,
@@ -314,12 +341,49 @@ final class CdsExportNativeLaboratoryMapper {
                             CHART_REPORT_DATE);
                     continue;
                 }
+                if (row == source.message()
+                        && entry.getKey().equals("message")
+                        && selection.part() == CdsExportNativeLaboratoryParser.Part.THIS_PATIENT) {
+                    assessed.set(
+                            entry.getKey(),
+                            CdsExportFieldAssessmentDto.Outcome.MAPPED,
+                            "NewCategory/ResidualInfo",
+                            THIS_PATIENTS_PART);
+                    continue;
+                }
+                if (row == source.information()
+                        && !selection.storedInformation()
+                        && !CdsExportLaboratoryOccurrenceService.NativeSource.CARLOS_INFORMATION
+                                .contains(entry.getKey())) {
+                    assessed.operational(entry.getKey(), ANOTHER_PATIENTS_PART);
+                    continue;
+                }
                 assessed.set(
                         entry.getKey(),
                         CdsExportFieldAssessmentDto.Outcome.MAPPED,
                         "NewCategory/ResidualInfo",
                         "COMPLETE_NATIVE_LABORATORY_SOURCE_CONTEXT");
             }
+        }
+        return result;
+    }
+
+    /**
+     * Every field of a report no part of which is this chart's ({@link #OTHER_PATIENTS_ONLY}) and
+     * of its inbox routes: nothing of it is exported, every value is accounted.
+     */
+    static Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> foreign(
+            CdsExportLaboratoryOccurrenceService.NativeSource source,
+            List<CdsExportCapturedTextRowDto> routes)
+            throws IOException {
+        if (!source.foreign()) throw new IOException("CDS_EXPORT_NATIVE_LAB_SELECTION_INVALID");
+        var result =
+                new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>(
+                        assessments(source, CdsExportInboxReviewMapper.Reviews.NONE));
+        for (var route : routes) {
+            var assessed = new CdsExportNativeFieldAssessments(route, result);
+            for (String column : route.fields().keySet())
+                assessed.operational(column, OTHER_PATIENTS_ONLY);
         }
         return result;
     }
@@ -382,7 +446,7 @@ final class CdsExportNativeLaboratoryMapper {
 
     private static Map.Entry<String, String> chartDateCandidate(
             CdsExportLaboratoryOccurrenceService.NativeSource source) throws IOException {
-        String stored = source.information() == null ? null : source.information().fields().get("obr_date");
+        String stored = source.stored("obr_date");
         var match = stored == null ? null : STORED_REPORT_DATE.matcher(stored);
         try {
             String sent = literal(new Terser(source.parsed().message()).get("/MSH-7-1"));
@@ -459,7 +523,7 @@ final class CdsExportNativeLaboratoryMapper {
      */
     static String laboratoryName(CdsExportLaboratoryOccurrenceService.NativeSource source)
             throws HL7Exception {
-        String laboratory = source.information().fields().get("sending_facility");
+        String laboratory = source.stored("sending_facility");
         if (laboratory == null || laboratory.isEmpty())
             laboratory = new Terser(source.parsed().message()).get("/MSH-4-1");
         return literal(laboratory);
@@ -554,8 +618,10 @@ final class CdsExportNativeLaboratoryMapper {
         // Every map is built in one fixed key order (version, rows; each row table, then its
         // sorted fields), so an unchanged report produces the same residual bytes on every run
         // and worker. Map.of iterates in a per-JVM salted order.
+        if (source.foreign()) throw new IOException("CDS_EXPORT_NATIVE_LAB_SELECTION_INVALID");
+        var selection = source.parsed().selection();
         var rows = new ArrayList<Map<String, Object>>();
-        for (var row : source.rows()) rows.add(supportingRow(row));
+        for (var row : source.rows()) rows.add(supportingRow(carriedRow(source, row)));
         for (var row : CdsExportInboxReviewMapper.carried(carried)) {
             if (!row.table().equals("providerLabRouting")) throw new IOException("CDS_EXPORT_NATIVE_LAB_ROUTE_INVALID");
             rows.add(supportingRow(row));
@@ -573,6 +639,15 @@ final class CdsExportNativeLaboratoryMapper {
             collection.put("source", field == null ? "" : field);
             collection.put("observations", undated);
             context.put("collection", collection);
+        }
+        // Only a message that names several patients gains this entry: the carried message is this
+        // chart's part of it (owner decision 2026-11-14).
+        if (selection.part() == CdsExportNativeLaboratoryParser.Part.THIS_PATIENT) {
+            var part = new LinkedHashMap<String, Object>();
+            part.put("rule", THIS_PATIENTS_PART);
+            part.put("groups", selection.groups());
+            part.put("exported", selection.exported());
+            context.put("part", part);
         }
         CdsExportNativeHistoryXmlWriter.residualElement(
                 xml,
@@ -615,6 +690,30 @@ final class CdsExportNativeLaboratoryMapper {
                 CdsExportScreeningMapper.tokenSafe(
                         JsonMapper.builder().build().writeValueAsString(context)));
         xml.end();
+    }
+
+    /**
+     * A report row as its supporting record carries it: the stored message is this chart's part
+     * of a message that names several patients, and the values the upload read from another
+     * patient's part are left out (only the columns CARLOS assigns stay).
+     */
+    private static CdsExportCapturedTextRowDto carriedRow(
+            CdsExportLaboratoryOccurrenceService.NativeSource source,
+            CdsExportCapturedTextRowDto row) {
+        var selection = source.parsed().selection();
+        if (row == source.message()
+                && selection.part() == CdsExportNativeLaboratoryParser.Part.THIS_PATIENT) {
+            var fields = new java.util.HashMap<>(row.fields());
+            fields.put("message", selection.carried());
+            return new CdsExportCapturedTextRowDto(row.table(), row.recordKey(), fields);
+        }
+        if (row == source.information() && !selection.storedInformation()) {
+            var fields = new java.util.HashMap<String, String>();
+            for (String column : CdsExportLaboratoryOccurrenceService.NativeSource.CARLOS_INFORMATION)
+                if (row.fields().containsKey(column)) fields.put(column, row.fields().get(column));
+            return new CdsExportCapturedTextRowDto(row.table(), row.recordKey(), fields);
+        }
+        return row;
     }
 
     private static Map<String, Object> supportingRow(CdsExportCapturedTextRowDto row) {
