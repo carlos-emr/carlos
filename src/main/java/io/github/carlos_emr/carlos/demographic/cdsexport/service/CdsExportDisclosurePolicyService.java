@@ -59,7 +59,12 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class CdsExportDisclosurePolicyService {
-    private static final int MAXIMUM_POLICY_BYTES = 32768;
+    /**
+     * A policy file is read whole; the only bound is the JVM's, the largest array it can make.
+     * Its size is the operator's: {@code policy.json} pins every other file by SHA-256, so no
+     * count of recipients, certificates, audit plans or providers and no file size is refused.
+     */
+    private static final int POLICY_FILE_BYTES = Integer.MAX_VALUE - 8;
     private static final JsonMapper JSON = JsonMapper.builder()
             .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
             .disable(MapperFeature.ALLOW_COERCION_OF_SCALARS)
@@ -100,21 +105,21 @@ public class CdsExportDisclosurePolicyService {
         Objects.requireNonNull(command); Objects.requireNonNull(now); Path root;
         try { root = CdsExportProtectedFiles.absolute(settings.getProperty("cds.export.policyRoot", "")); }
         catch (IOException invalid) { throw new CdsExportReviewException(Reason.AUDIT_ACCESS_UNAVAILABLE); }
-        byte[] manifestBytes = read(root.resolve("policy.json"), MAXIMUM_POLICY_BYTES, Reason.AUDIT_ACCESS_UNAVAILABLE);
+        byte[] manifestBytes = read(root.resolve("policy.json"), POLICY_FILE_BYTES, Reason.AUDIT_ACCESS_UNAVAILABLE);
         var manifest = parse(manifestBytes, ManifestDocument.class, Reason.AUDIT_ACCESS_UNAVAILABLE);
-        if (manifest.protocol() != 1 || !manifest.enabled() || !hash(manifest.senderSha256()) || !pins(manifest.recipients(), 64)
-                || !pins(manifest.certificates(), 64) || !pins(manifest.auditPlans(), 100)) unavailable(Reason.AUDIT_ACCESS_UNAVAILABLE);
-        byte[] senderBytes = read(root.resolve("sender.json"), MAXIMUM_POLICY_BYTES, Reason.AUDIT_ACCESS_UNAVAILABLE);
+        if (manifest.protocol() != 1 || !manifest.enabled() || !hash(manifest.senderSha256()) || !pins(manifest.recipients())
+                || !pins(manifest.certificates()) || !pins(manifest.auditPlans())) unavailable(Reason.AUDIT_ACCESS_UNAVAILABLE);
+        byte[] senderBytes = read(root.resolve("sender.json"), POLICY_FILE_BYTES, Reason.AUDIT_ACCESS_UNAVAILABLE);
         requirePin(senderBytes, manifest.senderSha256(), Reason.AUDIT_ACCESS_UNAVAILABLE);
         var sender = parse(senderBytes, SenderDocument.class, Reason.AUDIT_ACCESS_UNAVAILABLE);
         if (sender.protocol() != 1 || !sender.enabled() || !namespace(sender.namespace())
                 || !text(sender.physicianGroup(), 512) || !text(sender.groupContactInformation(), 4096)) unavailable(Reason.AUDIT_ACCESS_UNAVAILABLE);
-        byte[] recipientBytes = read(root.resolve("recipients").resolve(command.recipientId() + ".json"), MAXIMUM_POLICY_BYTES, Reason.RECIPIENT_UNAVAILABLE);
+        byte[] recipientBytes = read(root.resolve("recipients").resolve(command.recipientId() + ".json"), POLICY_FILE_BYTES, Reason.RECIPIENT_UNAVAILABLE);
         requirePin(recipientBytes, manifest.recipients().get(command.recipientId()), Reason.RECIPIENT_UNAVAILABLE);
         var recipient = parse(recipientBytes, RecipientDocument.class, Reason.RECIPIENT_UNAVAILABLE);
         if (recipient.protocol() != 1 || !recipient.enabled() || !command.recipientId().equals(recipient.id()) || !identifier(recipient.certificateId())
                 || !hash(recipient.certificateSha256()) || !profiles(recipient.profiles(), command.profile())) unavailable(Reason.RECIPIENT_UNAVAILABLE);
-        byte[] certificateBytes = read(root.resolve("certificates").resolve(recipient.certificateId() + ".der"), MAXIMUM_POLICY_BYTES, Reason.RECIPIENT_UNAVAILABLE);
+        byte[] certificateBytes = read(root.resolve("certificates").resolve(recipient.certificateId() + ".der"), POLICY_FILE_BYTES, Reason.RECIPIENT_UNAVAILABLE);
         requirePin(certificateBytes, manifest.certificates().get(recipient.certificateId()), Reason.RECIPIENT_UNAVAILABLE);
         X509Certificate certificate;
         try {
@@ -122,13 +127,13 @@ public class CdsExportDisclosurePolicyService {
             if (!MessageDigest.isEqual(certificateBytes, certificate.getEncoded())) unavailable(Reason.RECIPIENT_UNAVAILABLE);
             CdsExportDeliveryComposer.validateRecipient(certificate, recipient.certificateSha256(), now);
         } catch (CertificateException | IOException invalid) { throw new CdsExportReviewException(Reason.RECIPIENT_UNAVAILABLE); }
-        byte[] auditBytes = read(root.resolve("audit").resolve(command.auditPlanId() + ".json"), MAXIMUM_POLICY_BYTES, Reason.AUDIT_ACCESS_UNAVAILABLE);
+        byte[] auditBytes = read(root.resolve("audit").resolve(command.auditPlanId() + ".json"), POLICY_FILE_BYTES, Reason.AUDIT_ACCESS_UNAVAILABLE);
         requirePin(auditBytes, manifest.auditPlans().get(command.auditPlanId()), Reason.AUDIT_ACCESS_UNAVAILABLE);
         var audit = parse(auditBytes, AuditDocument.class, Reason.AUDIT_ACCESS_UNAVAILABLE);
         if (audit.protocol() != 1 || !audit.enabled() || !command.auditPlanId().equals(audit.id()) || !text(audit.description(), 4096)
                 || !identifiers(audit.recipientIds()) || !audit.recipientIds().contains(command.recipientId())
                 || !providers(audit.providerNos()) || !audit.providerNos().contains(command.providerNo()) || !profiles(audit.profiles(), command.profile())) unavailable(Reason.AUDIT_ACCESS_UNAVAILABLE);
-        if (!MessageDigest.isEqual(manifestBytes, read(root.resolve("policy.json"), MAXIMUM_POLICY_BYTES, Reason.AUDIT_ACCESS_UNAVAILABLE))) unavailable(Reason.SOURCE_CHANGED);
+        if (!MessageDigest.isEqual(manifestBytes, read(root.resolve("policy.json"), POLICY_FILE_BYTES, Reason.AUDIT_ACCESS_UNAVAILABLE))) unavailable(Reason.SOURCE_CHANGED);
         String digest = arrangementDigest(manifestBytes, senderBytes, recipientBytes, certificateBytes, auditBytes);
         return new Resolved(sender.namespace(), sender.physicianGroup(), sender.groupContactInformation(), recipient.certificateSha256(), certificate, digest, audit.description());
     }
@@ -156,11 +161,11 @@ public class CdsExportDisclosurePolicyService {
         return value != null && !value.isBlank() && value.length() <= maximum && CdsExportNativeFieldAssessments.legal(value, maximum) && value.codePoints().noneMatch(Character::isISOControl);
     }
     private static boolean identifiers(List<String> values) {
-        return values != null && !values.isEmpty() && values.size() <= 64 && values.stream().allMatch(CdsExportDisclosurePolicyService::identifier)
+        return values != null && !values.isEmpty() && values.stream().allMatch(CdsExportDisclosurePolicyService::identifier)
                 && new HashSet<>(values).size() == values.size();
     }
     private static boolean providers(List<String> values) {
-        return values != null && !values.isEmpty() && values.size() <= 100 && values.stream().allMatch(value -> value != null && value.matches("[A-Za-z0-9_-]{1,16}"))
+        return values != null && !values.isEmpty() && values.stream().allMatch(value -> value != null && value.matches("[A-Za-z0-9_-]{1,16}"))
                 && new HashSet<>(values).size() == values.size();
     }
     private static boolean profiles(List<String> values, CdsLogicalProfile selected) {
@@ -168,8 +173,8 @@ public class CdsExportDisclosurePolicyService {
         var known = Arrays.stream(CdsLogicalProfile.values()).map(CdsLogicalProfile::identifier).collect(java.util.stream.Collectors.toSet());
         return known.containsAll(values) && values.contains(selected.identifier());
     }
-    private static boolean pins(Map<String, String> pins, int maximum) {
-        return pins != null && !pins.isEmpty() && pins.size() <= maximum && pins.entrySet().stream().allMatch(entry -> identifier(entry.getKey()) && hash(entry.getValue()));
+    private static boolean pins(Map<String, String> pins) {
+        return pins != null && !pins.isEmpty() && pins.entrySet().stream().allMatch(entry -> identifier(entry.getKey()) && hash(entry.getValue()));
     }
     private static void requirePin(byte[] bytes, String expected, Reason reason) {
         try {
