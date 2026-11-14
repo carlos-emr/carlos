@@ -150,6 +150,8 @@ class CdsExportSelectionIntegrationTest {
                             PersistenceManagedTypes.of(
                                     CdsExportRun.class.getName(),
                                     Demographic.class.getName(),
+                                    io.github.carlos_emr.carlos.commn.model.DemographicMerged.class
+                                            .getName(),
                                     DemographicCust.class.getName(),
                                     io.github.carlos_emr.carlos.commn.model.DemographicExt.class
                                             .getName(),
@@ -195,7 +197,9 @@ class CdsExportSelectionIntegrationTest {
                 io.github.carlos_emr.carlos.commn.dao.AppointmentStatusDaoImpl.class,
                 io.github.carlos_emr.carlos.commn.dao.LookupListItemDaoImpl.class,
                 io.github.carlos_emr.carlos.PMmodule.dao.ProviderDaoImpl.class,
-                io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDaoImpl.class);
+                io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDaoImpl.class,
+                io.github.carlos_emr.carlos.commn.dao.DemographicMergedDaoImpl.class,
+                CdsExportMergeGroupPlanner.class);
         // Sealed native-baseline witnesses need an installation key (IMP-1).
         context.registerBean(
                 io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTargetReceiptService.class,
@@ -220,9 +224,16 @@ class CdsExportSelectionIntegrationTest {
     @AfterEach
     void closeOwnedResources() throws Exception {
         try {
-            if (sql != null)
+            if (sql != null) {
+                // Links first: merged_to refers to the chart.
+                for (int id : owned)
+                    sql.update(
+                            "delete from demographic_merged where demographic_no=? or merged_to=?",
+                            id,
+                            id);
                 for (int id : owned)
                     sql.update("delete from demographic where demographic_no=?", id);
+            }
         } finally {
             try {
                 if (context != null) context.close();
@@ -250,6 +261,76 @@ class CdsExportSelectionIntegrationTest {
                                 Long.class,
                                 physician))
                 .isEqualTo(3);
+    }
+
+    @Test
+    void shouldBringAMergedChartsWholeGroup_whenARosterSelectsOnlyTheMergedChart()
+            throws Exception {
+        // The head's physician is not in the roster; one of its two merged charts is.
+        insert(first, "OTHER", "AC");
+        insert(first + 1, physician, "AC");
+        insert(first + 2, "OTHER", "IN");
+        insert(first + 3, physician, "AC");
+        merge(first + 1, first, 0);
+        merge(first + 2, first, 0);
+
+        var result = selections.capture(roster(), store, () -> {});
+
+        assertThat(rows(result))
+                .extracting(CdsExportSelectionRowDto::demographicNo)
+                .containsExactly(first + 1, first + 3);
+        assertThat(result.patients()).isEqualTo(2);
+        assertThat(result.patientFiles()).isEqualTo(2);
+        var plan = groups(result);
+        assertThat(plan).hasSize(1);
+        var group = plan.getFirst();
+        assertThat(group.head()).isEqualTo(first);
+        assertThat(group.physicianNo()).isEqualTo("OTHER");
+        assertThat(group.members()).containsExactly(first + 1, first + 2);
+        assertThat(group.selected()).containsExactly(first + 1);
+        assertThat(group.links()).hasSize(2);
+        assertThat(group.shape()).isEmpty();
+    }
+
+    @Test
+    void shouldMakeOnePatientFile_whenAnExplicitSelectionNamesAHeadAndItsMergedChart()
+            throws Exception {
+        insert(first, physician, "AC");
+        insert(first + 1, physician, "AC");
+        insert(first + 2, physician, "AC");
+        merge(first + 1, first, 0);
+
+        var result =
+                selections.capture(
+                        selected(List.of(first, first + 1, first + 2)), store, () -> {});
+
+        assertThat(result.patients()).isEqualTo(3);
+        assertThat(result.patientFiles()).isEqualTo(2);
+        var plan = groups(result);
+        assertThat(plan).hasSize(1);
+        assertThat(plan.getFirst().head()).isEqualTo(first);
+        assertThat(plan.getFirst().members()).containsExactly(first + 1);
+        assertThat(plan.getFirst().selected()).containsExactly(first, first + 1);
+    }
+
+    @Test
+    void shouldFollowAChainToItsHead_andLeaveAChartWithOnlyUnmergedLinksAlone()
+            throws Exception {
+        // first -> first + 1 -> first + 2; first + 3 was merged into first + 2 and unmerged.
+        for (int offset = 0; offset < 4; offset++) insert(first + offset, physician, "AC");
+        merge(first, first + 1, 0);
+        merge(first + 1, first + 2, 0);
+        merge(first + 3, first + 2, 1);
+
+        var result = selections.capture(selected(List.of(first, first + 3)), store, () -> {});
+
+        assertThat(result.patientFiles()).isEqualTo(2);
+        var plan = groups(result);
+        assertThat(plan).hasSize(1);
+        assertThat(plan.getFirst().head()).isEqualTo(first + 2);
+        assertThat(plan.getFirst().members()).containsExactly(first, first + 1);
+        assertThat(plan.getFirst().selected()).containsExactly(first);
+        assertThat(plan.getFirst().shape()).containsExactly("CHAIN");
     }
 
     @Test
@@ -1867,6 +1948,36 @@ class CdsExportSelectionIntegrationTest {
                 id,
                 provider,
                 status);
+    }
+
+    private void merge(int chart, int into, int deleted) {
+        sql.update(
+                "insert into demographic_merged(demographic_no,merged_to,deleted,lastUpdateUser,lastUpdateDate)"
+                        + " values(?, ?, ?, '999998', CURRENT_DATE)",
+                chart,
+                into,
+                deleted);
+    }
+
+    private List<io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportMergeGroupDto>
+            groups(CdsExportSelectionDto capture) throws Exception {
+        assertThat(capture.groups()).isNotNull();
+        try (var input = store.open(capture.groups())) {
+            String text = new String(input.readAllBytes(), StandardCharsets.UTF_8);
+            ObjectMapper mapper = new ObjectMapper();
+            var groups =
+                    new ArrayList<
+                            io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                    .CdsExportMergeGroupDto>();
+            for (String line : text.split("\\n"))
+                if (!line.isEmpty())
+                    groups.add(
+                            mapper.readValue(
+                                    line,
+                                    io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                            .CdsExportMergeGroupDto.class));
+            return groups;
+        }
     }
 
     private List<CdsExportSelectionRowDto> rows(CdsExportSelectionDto capture) throws Exception {

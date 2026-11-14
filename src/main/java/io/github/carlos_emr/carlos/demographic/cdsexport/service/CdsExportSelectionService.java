@@ -49,6 +49,11 @@ import org.springframework.transaction.support.TransactionTemplate;
  * HTTP call occurs here. The caller supplies fresh authorization and a durable owner /
  * cancellation probe using an independent metadata-only connection. The returned file
  * is not a sealed job manifest until independently verified and durably published.
+ *
+ * <p>In the same snapshot the selected charts are grouped by Merge Records
+ * ({@link CdsExportMergeGroupPlanner}): a chart merged into another, or with charts merged into
+ * it, brings its head's whole group, and the group is one patient file. The selection still lists
+ * exactly the charts the job named or the roster holds.
  */
 @Service
 public class CdsExportSelectionService {
@@ -59,11 +64,32 @@ public class CdsExportSelectionService {
     private final DemographicDao demographics;
     private final CdsExportRunDao clock;
     private final TransactionTemplate read;
+    /** Groups the selection by Merge Records; null only where no grouping is installed. */
+    private final CdsExportMergeGroupPlanner groups;
 
+    /** Without Merge Records grouping: every selected chart is its own patient file. */
     public CdsExportSelectionService(
             DemographicDao demographics,
             CdsExportRunDao clock,
             PlatformTransactionManager transactions) {
+        this(demographics, clock, transactions, (CdsExportMergeGroupPlanner) null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public CdsExportSelectionService(
+            DemographicDao demographics,
+            CdsExportRunDao clock,
+            PlatformTransactionManager transactions,
+            org.springframework.beans.factory.ObjectProvider<CdsExportMergeGroupPlanner> groups) {
+        this(demographics, clock, transactions, groups.getIfAvailable());
+    }
+
+    CdsExportSelectionService(
+            DemographicDao demographics,
+            CdsExportRunDao clock,
+            PlatformTransactionManager transactions,
+            CdsExportMergeGroupPlanner groups) {
+        this.groups = groups;
         this.demographics = Objects.requireNonNull(demographics);
         this.clock = Objects.requireNonNull(clock);
         read = new TransactionTemplate(transactions);
@@ -88,8 +114,9 @@ public class CdsExportSelectionService {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new IllegalStateException("CDS_EXPORT_AMBIENT_TRANSACTION_REFUSED");
         }
+        // The selection, then its group plan: both are discarded unless the selection completes.
         io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportStagedFileDto[] owned = {
-            null
+            null, null
         };
         boolean complete = false;
         Throwable primary = null;
@@ -122,8 +149,22 @@ public class CdsExportSelectionService {
                                                     });
                                     owned[0] = file;
                                     checkpoint.run();
+                                    if (groups == null)
+                                        return new CdsExportSelectionDto(
+                                                started, clock.now(), count[0], file);
+                                    // The group plan is read in this same snapshot, so a chart
+                                    // merged or unmerged while the selection is read cannot make
+                                    // the two disagree.
+                                    var plan = groups.plan(staging, file, count[0], checkpoint);
+                                    owned[1] = plan.groups();
+                                    checkpoint.run();
                                     return new CdsExportSelectionDto(
-                                            started, clock.now(), count[0], file);
+                                            started,
+                                            clock.now(),
+                                            count[0],
+                                            file,
+                                            plan.files(),
+                                            plan.groups());
                                 } catch (IOException failure) {
                                     throw new UncheckedIOException(failure);
                                 }
@@ -137,12 +178,15 @@ public class CdsExportSelectionService {
             primary = failure;
             throw failure;
         } finally {
-            if (!complete && owned[0] != null)
-                try {
-                    staging.discardUnpublished(owned[0]);
-                } catch (IOException cleanup) {
-                    if (primary != null) primary.addSuppressed(cleanup);
-                    else throw cleanup;
+            if (!complete)
+                for (int index = owned.length - 1; index >= 0; index--) {
+                    if (owned[index] == null) continue;
+                    try {
+                        staging.discardUnpublished(owned[index]);
+                    } catch (IOException cleanup) {
+                        if (primary != null) primary.addSuppressed(cleanup);
+                        else throw cleanup;
+                    }
                 }
         }
     }

@@ -33,6 +33,7 @@ import io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportComman
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportCohortManifestDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportJobDocumentDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportLeaseDto;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportMergeGroupDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportSelectionDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportStagedFileDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl;
@@ -64,6 +65,13 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  * <p>No selection is refused for its size. The manifest binds the exact job document, whose
  * explicit patient list can be as long as the request; a long one is stored in two lines, as the
  * ledger stores the job document itself ({@link #write}).
+ *
+ * <p>A selection grouped by Merge Records (manifest protocol 2) binds its frozen group plan as
+ * well. The cursor then yields one scope per patient file in ascending order of its chart: each
+ * selected chart in no group, and each group opened on its head, whose other charts are reached
+ * through {@link Patient#member}. The plan is verified against the selection before any scope is
+ * issued: heads ascending, every chart in one group only, and every selected chart of a group
+ * present in the selection.
  */
 @Service
 public class CdsExportCohortService {
@@ -119,9 +127,14 @@ public class CdsExportCohortService {
                         lease.document().storage(),
                         control::checkpoint);
         verifySelection(store, lease.document().command(), selection, control);
+        // A selection grouped by Merge Records binds its group plan too (protocol 2).
         var manifest =
                 new CdsExportCohortManifestDto(
-                        1, lease.runId(), lease.epoch(), lease.document(), selection);
+                        selection.groups() == null ? 1 : 2,
+                        lease.runId(),
+                        lease.epoch(),
+                        lease.document(),
+                        selection);
         CdsExportStagedFileDto member = null;
         boolean complete = false;
         Throwable primary = null;
@@ -160,7 +173,9 @@ public class CdsExportCohortService {
                         sealed.lease.epoch(),
                         sealed.lease.document().storage(),
                         control::checkpoint);
-        return new Cursor(sealed, store.open(sealed.manifest.selection().inventory()), control);
+        var plan = plan(store, sealed.manifest.selection(), control::checkpoint);
+        return new Cursor(
+                sealed, store.open(sealed.manifest.selection().inventory()), plan, control);
     }
 
     /** Recovery within a live attempt loads its exact committed manifest; it never rediscovers a roster. */
@@ -183,12 +198,23 @@ public class CdsExportCohortService {
         return new Cursor(
                 new Sealed(lease, manifest, member),
                 store.open(manifest.selection().inventory()),
+                plan(store, manifest.selection(), control::checkpoint),
                 control);
     }
 
     @FunctionalInterface
     public interface RetainedPatients {
         void accept(CdsExportSelectionRowDto patient) throws IOException;
+    }
+
+    /**
+     * One patient file of a retained selection: its chart (the head, for charts linked by Merge
+     * Records), and the other charts of its group, ascending (none for a chart in no group).
+     */
+    @FunctionalInterface
+    public interface RetainedFiles {
+        void accept(CdsExportSelectionRowDto patient, java.util.List<Integer> members)
+                throws IOException;
     }
 
     /**
@@ -206,6 +232,34 @@ public class CdsExportCohortService {
             Runnable checkpoint,
             RetainedPatients patients)
             throws IOException {
+        Objects.requireNonNull(patients);
+        return readRetained(
+                store,
+                runId,
+                epoch,
+                intent,
+                file,
+                expectedPatients,
+                checkpoint,
+                (patient, members) -> patients.accept(patient));
+    }
+
+    /**
+     * {@link #readRetained(CdsExportStagingService, String, long, CdsExportJobDocumentDto,
+     * CdsExportStagedFileDto, long, Runnable, RetainedPatients)} by patient file: a group of
+     * charts linked by Merge Records is one file, named by its head, with its other charts.
+     * {@code expectedPatients} is the number of patient files.
+     */
+    public long readRetained(
+            CdsExportStagingService store,
+            String runId,
+            long epoch,
+            CdsExportJobDocumentDto intent,
+            CdsExportStagedFileDto file,
+            long expectedPatients,
+            Runnable checkpoint,
+            RetainedFiles patients)
+            throws IOException {
         outside();
         Objects.requireNonNull(store);
         Objects.requireNonNull(intent);
@@ -217,17 +271,28 @@ public class CdsExportCohortService {
         if (!manifest.runId().equals(runId)
                 || manifest.epoch() != epoch
                 || !manifest.intent().equals(intent)
-                || manifest.selection().patients() != expectedPatients) invalid();
+                || manifest.selection().patientFiles() != expectedPatients) invalid();
+        var plan = plan(store, manifest.selection(), checkpoint);
         long count = 0;
         try (var input = store.open(manifest.selection().inventory())) {
-            var rows = new Rows(input, intent.command(), expectedPatients, checkpoint);
-            CdsExportSelectionRowDto row;
-            while ((row = rows.next()) != null) {
+            var files =
+                    new Files(
+                            new Rows(
+                                    input,
+                                    intent.command(),
+                                    manifest.selection().patients(),
+                                    checkpoint),
+                            plan,
+                            expectedPatients);
+            Files.Entry entry;
+            while ((entry = files.next()) != null) {
                 checkpoint.run();
-                patients.accept(row);
+                patients.accept(
+                        entry.row(),
+                        entry.group() == null ? java.util.List.of() : entry.group().members());
                 count++;
             }
-            if (!rows.eof || count != expectedPatients) invalid();
+            if (count != expectedPatients) invalid();
         }
         checkpoint.run();
         return count;
@@ -436,11 +501,169 @@ public class CdsExportCohortService {
             CdsExportSelectionDto selection,
             CdsExportRunControl control)
             throws IOException {
+        var plan = plan(store, selection, control::checkpoint);
         try (var input = store.open(selection.inventory())) {
-            var rows = new Rows(input, command, selection.patients(), control);
-            while (rows.next() != null) {
+            var files =
+                    new Files(
+                            new Rows(input, command, selection.patients(), control),
+                            plan,
+                            selection.patientFiles());
+            while (files.next() != null) {
                 /* Full authenticated EOF before any patient scope is issued. */
             }
+        }
+    }
+
+    /**
+     * The frozen group plan of a selection ({@link CdsExportMergeGroupPlanner}), read strictly:
+     * heads ascending, every chart in one group only, and each group's selected charts among its
+     * charts. A selection without a plan has no groups.
+     */
+    private static Plan plan(
+            CdsExportStagingService store, CdsExportSelectionDto selection, Runnable checkpoint)
+            throws IOException {
+        if (selection.groups() == null) return Plan.NONE;
+        var groups = new java.util.ArrayList<CdsExportMergeGroupDto>();
+        var byChart = new java.util.HashMap<Integer, CdsExportMergeGroupDto>();
+        long selected = 0;
+        // Read as a stream of JSON objects, so no group is refused for its length.
+        try (var input = store.open(selection.groups());
+                var parser = JSON.getFactory().createParser(input)) {
+            int previous = 0;
+            com.fasterxml.jackson.core.JsonToken token;
+            while ((token = parser.nextToken()) != null) {
+                checkpoint.run();
+                if (token != com.fasterxml.jackson.core.JsonToken.START_OBJECT) invalid();
+                CdsExportMergeGroupDto group;
+                try {
+                    group = group(JSON.readTree(parser));
+                } catch (IllegalArgumentException malformed) {
+                    throw new IOException("CDS_EXPORT_COHORT_INVENTORY_INVALID");
+                }
+                if (group.head() <= previous) invalid();
+                for (int chart : group.charts()) if (byChart.put(chart, group) != null) invalid();
+                groups.add(group);
+                selected += group.selected().size();
+                previous = group.head();
+            }
+        } catch (com.fasterxml.jackson.core.JsonProcessingException malformed) {
+            invalid();
+        }
+        long files = selection.patientFiles();
+        // Every selected chart of a group is a selected chart: never more of them than the
+        // selection lists, and the files are the lone charts plus the groups.
+        if (selected > selection.patients()
+                || files != selection.patients() - selected + groups.size()) invalid();
+        return new Plan(groups, byChart);
+    }
+
+    /** One group line, exactly the members the planner writes, in its order. */
+    private static CdsExportMergeGroupDto group(com.fasterxml.jackson.databind.JsonNode node)
+            throws IOException {
+        if (!(node instanceof com.fasterxml.jackson.databind.node.ObjectNode)) invalid();
+        var object = (com.fasterxml.jackson.databind.node.ObjectNode) node;
+        var names = new java.util.ArrayList<String>();
+        object.fieldNames().forEachRemaining(names::add);
+        if (!names.equals(
+                        java.util.List.of(
+                                "head", "physicianNo", "members", "selected", "links", "shape"))
+                || !object.path("head").isInt()
+                || !(object.path("physicianNo").isNull() || object.path("physicianNo").isTextual()))
+            invalid();
+        return new CdsExportMergeGroupDto(
+                object.path("head").intValue(),
+                object.path("physicianNo").isNull() ? null : object.path("physicianNo").textValue(),
+                integers(object.path("members")),
+                integers(object.path("selected")),
+                integers(object.path("links")),
+                texts(object.path("shape")));
+    }
+
+    private static java.util.List<Integer> integers(com.fasterxml.jackson.databind.JsonNode node)
+            throws IOException {
+        if (!node.isArray()) invalid();
+        var values = new java.util.ArrayList<Integer>(node.size());
+        for (var value : node) {
+            if (!value.isInt()) invalid();
+            values.add(value.intValue());
+        }
+        return values;
+    }
+
+    private static java.util.List<String> texts(com.fasterxml.jackson.databind.JsonNode node)
+            throws IOException {
+        if (!node.isArray()) invalid();
+        var values = new java.util.ArrayList<String>(node.size());
+        for (var value : node) {
+            if (!value.isTextual()) invalid();
+            values.add(value.textValue());
+        }
+        return values;
+    }
+
+    /** A verified group plan: its groups by head, and the group of each of their charts. */
+    private record Plan(
+            java.util.List<CdsExportMergeGroupDto> groups,
+            java.util.Map<Integer, CdsExportMergeGroupDto> byChart) {
+        static final Plan NONE = new Plan(java.util.List.of(), java.util.Map.of());
+    }
+
+    /**
+     * The patient files of a selection in ascending order of their chart: each selected chart in
+     * no group, and each group by its head. A selected chart of a group is read past in the
+     * selection and must be one of its group's selected charts; every one of them must be there.
+     */
+    private static final class Files {
+        record Entry(CdsExportSelectionRowDto row, CdsExportMergeGroupDto group) {}
+
+        private final Rows rows;
+        private final Plan plan;
+        private final long expected;
+        private int next;
+        private CdsExportSelectionRowDto pending;
+        private long covered, coveredExpected, count;
+        private boolean eof;
+
+        Files(Rows rows, Plan plan, long expected) {
+            this.rows = rows;
+            this.plan = plan;
+            this.expected = expected;
+            for (var group : plan.groups()) coveredExpected += group.selected().size();
+        }
+
+        Entry next() throws IOException {
+            if (eof) return null;
+            if (pending == null) pending = lone();
+            var group = next < plan.groups().size() ? plan.groups().get(next) : null;
+            if (pending == null && group == null) {
+                if (covered != coveredExpected || count != expected) invalid();
+                eof = true;
+                return null;
+            }
+            Entry entry;
+            if (group != null && (pending == null || group.head() < pending.demographicNo())) {
+                next++;
+                entry = new Entry(new CdsExportSelectionRowDto(group.head(), group.physicianNo()), group);
+            } else {
+                if (group != null && group.head() == pending.demographicNo()) invalid();
+                entry = new Entry(pending, null);
+                pending = null;
+            }
+            if (++count > expected) invalid();
+            return entry;
+        }
+
+        /** The next selected chart in no group. */
+        private CdsExportSelectionRowDto lone() throws IOException {
+            CdsExportSelectionRowDto row;
+            while ((row = rows.next()) != null) {
+                var group = plan.byChart().get(row.demographicNo());
+                if (group == null) return row;
+                if (java.util.Collections.binarySearch(group.selected(), row.demographicNo()) < 0)
+                    invalid();
+                covered++;
+            }
+            return null;
         }
     }
 
@@ -467,8 +690,9 @@ public class CdsExportCohortService {
             return member;
         }
 
+        /** The number of patient files: charts linked by Merge Records are one file. */
         public long patients() {
-            return manifest.selection().patients();
+            return manifest.selection().patientFiles();
         }
 
         public Instant readCompletedAt() {
@@ -481,15 +705,29 @@ public class CdsExportCohortService {
         }
     }
 
+    /**
+     * The scope of one chart of the current patient file. A file of charts linked by Merge
+     * Records ({@link CdsExportMergeGroupPlanner}) is opened on its head; {@link #member} gives a
+     * scope for each other chart of the group, which expires with the head's.
+     */
     public static final class Patient {
         private final Cursor cursor;
         private final long generation;
         private final CdsExportSelectionRowDto row;
+        private final CdsExportMergeGroupDto group;
+        private final int chart;
 
-        private Patient(Cursor cursor, long generation, CdsExportSelectionRowDto row) {
+        private Patient(
+                Cursor cursor,
+                long generation,
+                CdsExportSelectionRowDto row,
+                CdsExportMergeGroupDto group,
+                int chart) {
             this.cursor = cursor;
             this.generation = generation;
             this.row = row;
+            this.group = group;
+            this.chart = chart;
         }
 
         void require(CdsExportLeaseDto lease) {
@@ -501,12 +739,46 @@ public class CdsExportCohortService {
                 throw new IllegalStateException("CDS_EXPORT_PATIENT_SCOPE_EXPIRED");
         }
 
+        /** The chart this scope reads. */
         public int patient() {
+            return chart;
+        }
+
+        /**
+         * The selection row of the patient file: the head and its physician when the job was
+         * selected. A merged chart's scope has its own number and no physician.
+         */
+        public CdsExportSelectionRowDto selection() {
+            return chart == row.demographicNo() ? row : new CdsExportSelectionRowDto(chart, null);
+        }
+
+        /** The chart of the patient file this scope belongs to. */
+        public int head() {
             return row.demographicNo();
         }
 
-        public CdsExportSelectionRowDto selection() {
-            return row;
+        /** The group of the patient file, or null for a chart in no group. */
+        public CdsExportMergeGroupDto group() {
+            return group;
+        }
+
+        /** The patient file's other charts, ascending; none outside a group. */
+        public java.util.List<Integer> members() {
+            return group == null ? java.util.List.of() : group.members();
+        }
+
+        /**
+         * A scope for one chart of this patient file, with the same lease, thread and cursor
+         * position checks as this one.
+         *
+         * @throws IllegalArgumentException when the chart is not one of the file's
+         */
+        public Patient member(int other) {
+            if (other == chart) return this;
+            if (other == row.demographicNo()) return new Patient(cursor, generation, row, group, other);
+            if (group == null || !group.contains(other))
+                throw new IllegalArgumentException("CDS_EXPORT_PATIENT_SCOPE_INVALID");
+            return new Patient(cursor, generation, row, group, other);
         }
 
         public String cohortSha256() {
@@ -522,25 +794,41 @@ public class CdsExportCohortService {
     public static final class Cursor implements AutoCloseable {
         private final Sealed sealed;
         private final InputStream input;
-        private final Rows rows;
+        private final Files files;
         private volatile boolean closed, failed;
         private final java.util.concurrent.atomic.AtomicLong generation =
                 new java.util.concurrent.atomic.AtomicLong();
         private final Thread owner = Thread.currentThread();
 
-        private Cursor(Sealed sealed, InputStream input, CdsExportRunControl control) {
+        private Cursor(Sealed sealed, InputStream input, Plan plan, CdsExportRunControl control) {
             this.sealed = sealed;
             this.input = input;
-            rows = new Rows(input, sealed.lease.document().command(), sealed.patients(), control);
+            files =
+                    new Files(
+                            new Rows(
+                                    input,
+                                    sealed.lease.document().command(),
+                                    sealed.manifest.selection().patients(),
+                                    control),
+                            plan,
+                            sealed.patients());
         }
 
+        /** The next patient file, opened on its chart (the head of a group), or null. */
         public Patient next() throws IOException {
             try {
                 if (closed || failed || Thread.currentThread() != owner)
                     throw new IOException("CDS_EXPORT_COHORT_CURSOR_CLOSED");
                 long current = generation.incrementAndGet();
-                var row = rows.next();
-                return row == null ? null : new Patient(this, current, row);
+                var entry = files.next();
+                return entry == null
+                        ? null
+                        : new Patient(
+                                this,
+                                current,
+                                entry.row(),
+                                entry.group(),
+                                entry.row().demographicNo());
             } catch (IOException | RuntimeException | Error failure) {
                 failed = true;
                 throw failure;
@@ -548,7 +836,7 @@ public class CdsExportCohortService {
         }
 
         public boolean complete() {
-            return !failed && rows.eof;
+            return !failed && files.eof && files.rows.eof;
         }
 
         @Override

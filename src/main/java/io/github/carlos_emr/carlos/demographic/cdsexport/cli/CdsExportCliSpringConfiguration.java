@@ -206,6 +206,8 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
     CdsExportStagingFactory.class,
     CdsExportSelectionFileService.class,
     CdsExportSelectionService.class,
+    // Groups the selection by Merge Records (charts linked by it are one patient file).
+    io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportMergeGroupPlanner.class,
     CdsExportNativeCaptureService.class,
     CdsExportDemographicSourceReader.class,
     CdsExportCohortService.class,
