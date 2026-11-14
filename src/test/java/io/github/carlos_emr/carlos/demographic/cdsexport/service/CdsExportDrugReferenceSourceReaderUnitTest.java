@@ -142,7 +142,10 @@ class CdsExportDrugReferenceSourceReaderUnitTest {
     }
 
     @Test
-    void shouldRefuseAMismatchedProduct_beforeReadingPayload() throws Exception {
+    void shouldRefuseAReferenceForAnotherDin_asABrokenInvariantBeforeReadingPayload()
+            throws Exception {
+        // The lookup answers another DIN's product with no reference; a reference for another
+        // DIN reaching the reader is a broken invariant of its own input, never chart data.
         var drugs = mock(DrugDao.class);
         var projection = mock(CdsExportDrugReferenceProjectionService.class);
         var lookup = mock(CdsExportDrugReferenceLookupService.class);
@@ -159,7 +162,7 @@ class CdsExportDrugReferenceSourceReaderUnitTest {
                         () ->
                                 new CdsExportDrugReferenceSourceReader(drugs, projection, lookup)
                                         .forCapture(27, mock(CdsExportRunControl.class)))
-                .hasMessage("CDS_EXPORT_DRUG_REFERENCE_REQUIRES_REVIEW");
+                .hasMessage("CDS_EXPORT_DRUG_REFERENCE_SCOPE_INVALID");
         verifyNoInteractions(drugs);
     }
     @Test

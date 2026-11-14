@@ -187,11 +187,15 @@ public final class CdsExportNativeMedicationMapper {
         values.putAll(candidate.values());
         var fields = new LinkedHashMap<>(candidate.assessments());
         var source = row.fields();
-        // These are import provenance markers, not ordinary native authoring fields. Without
-        // a matching applied retained unit they cannot be converted into native authority.
-        if (populated(source.get("cds_dose_text"))
-                || populated(source.get("cds_currentness"))
-                || "1".equals(source.get("cds_projection_incomplete"))) review();
+        // A native row can hold the import's provenance columns: the Rx page's long-term toggle
+        // (RxWriteScript2Action.updateLongTermStatus) saves a copy of an imported prescription
+        // with them (Prescription.syncDrug) and archives the imported row. The copy is a
+        // prescription of this chart like any other, so it is exported by the native rules and
+        // never held (it held the patient as CDS_EXPORT_NATIVE_MEDICATION_REQUIRES_REVIEW):
+        // cds_dose_text is the dose the Rx page shows (Prescription.getDosageDisplay) and is
+        // Dosage; a cds_currentness that agrees with the status is its witness; any other
+        // value, and a cds_projection_incomplete flag of 1, travels exactly in the residual
+        // (UNMAPPED_NATIVE_VALUE is a carried rule) with the rest of the row.
         boolean archived = flag(source.get("archived"));
         String custom = source.get("customName"), brand = source.get("BN");
         // RxPrescriptionData.isCustom/getDrugName gives an authored custom name precedence.
