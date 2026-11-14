@@ -44,17 +44,29 @@ public class CdsExportRetentionService {
     private final CdsExportLedgerService ledger;
     private final CdsExportStagingFactory stores;
     private final CdsExportConfigurationService configuration;
+    /** The monotonic clock each cleanup's window is measured with; a test supplies its own. */
+    private final java.util.function.LongSupplier clock;
     private ScheduledExecutorService worker;
     private boolean closed;
     private volatile String after;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public CdsExportRetentionService(
             CdsExportLedgerService ledger,
             CdsExportStagingFactory stores,
             CdsExportConfigurationService configuration) {
+        this(ledger, stores, configuration, System::nanoTime);
+    }
+
+    CdsExportRetentionService(
+            CdsExportLedgerService ledger,
+            CdsExportStagingFactory stores,
+            CdsExportConfigurationService configuration,
+            java.util.function.LongSupplier clock) {
         this.ledger = Objects.requireNonNull(ledger);
         this.stores = Objects.requireNonNull(stores);
         this.configuration = Objects.requireNonNull(configuration);
+        this.clock = Objects.requireNonNull(clock);
     }
 
     @EventListener
@@ -261,15 +273,21 @@ public class CdsExportRetentionService {
         }
     }
 
-    /** A cleanup checkpoint: a 15-minute bound, and the lease renewed at most once a second. */
-    private static Runnable leaseCheckpoint(Runnable renew) {
-        long started = System.nanoTime();
+    /**
+     * A cleanup checkpoint: the lease renewed at most once a second, and a 15-minute window after
+     * which this sweep stops the cleanup ({@code CDS_EXPORT_CLEANUP_STOPPED}) and leaves the rest
+     * to the next sweep. The window decides how a cleanup is spread over sweeps, never whether it
+     * finishes: what one sweep erased stays erased ({@link CdsExportStagingFactory#purgeAttempt}).
+     */
+    private Runnable leaseCheckpoint(Runnable renew) {
+        long started = clock.getAsLong();
         var last = new java.util.concurrent.atomic.AtomicLong(started - 1_000_000_000L);
         return () -> {
+            long now = clock.getAsLong();
             if (Thread.currentThread().isInterrupted()
-                    || System.nanoTime() - started > TimeUnit.MINUTES.toNanos(15))
+                    || now - started > TimeUnit.MINUTES.toNanos(15))
                 throw new CancellationException("CDS_EXPORT_CLEANUP_STOPPED");
-            long now = System.nanoTime(), prior = last.get();
+            long prior = last.get();
             if (now - prior >= 1_000_000_000L && last.compareAndSet(prior, now)) renew.run();
         };
     }
@@ -292,23 +310,25 @@ public class CdsExportRetentionService {
         boolean complete = false;
         Throwable primary = null;
         try {
-            long started = System.nanoTime();
-            var last = new java.util.concurrent.atomic.AtomicLong(started - 1_000_000_000L);
-            Runnable checkpoint =
-                    () -> {
-                        if (Thread.currentThread().isInterrupted()
-                                || System.nanoTime() - started > TimeUnit.MINUTES.toNanos(15))
-                            throw new CancellationException("CDS_EXPORT_CLEANUP_STOPPED");
-                        long now = System.nanoTime(), prior = last.get();
-                        if (now - prior >= 1_000_000_000L && last.compareAndSet(prior, now))
-                            ledger.cleanupCheckpoint(claim);
-                    };
+            Runnable checkpoint = leaseCheckpoint(() -> ledger.cleanupCheckpoint(claim));
             // Version one could not create a bound artifact store; there is no directory to
             // erase.
             if (claim.document().protocol() == 2)
                 stores.purgeAttempt(run, epoch, claim.document().storage(), checkpoint);
             ledger.cleanupCheckpoint(claim);
             complete = true;
+        } catch (CancellationException stopped) {
+            primary = stopped;
+            // The window ended this sweep's share of a large cleanup: what it erased stays erased
+            // and the next sweep continues. Not a failure, so no trace.
+            if (!Thread.currentThread().isInterrupted()
+                    && "CDS_EXPORT_CLEANUP_STOPPED".equals(stopped.getMessage()))
+                LOG.info("CDS_EXPORT_CLEANUP_CONTINUES run={} epoch={}", run, epoch);
+            else
+                LOG.error(
+                        "CDS export retention did not finish for {}: CDS_EXPORT_CLEANUP_INCOMPLETE {}",
+                        run,
+                        io.github.carlos_emr.carlos.utility.LogSafe.exceptionTrace(stopped));
         } catch (IOException | RuntimeException failed) {
             primary = failed;
             LOG.error(

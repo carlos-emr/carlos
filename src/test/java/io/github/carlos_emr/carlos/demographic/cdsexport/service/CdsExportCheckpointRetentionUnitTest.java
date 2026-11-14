@@ -254,6 +254,39 @@ class CdsExportCheckpointRetentionUnitTest {
     }
 
     @Test
+    void shouldEraseALargeAttempt_overTwoSweepsWhenOneSweepsWindowEnds() throws Exception {
+        // A purge once checked every member before erasing any, so a directory too large to
+        // check in one sweep's 15 minutes was never erased. Each sweep now erases members until
+        // its window ends, and the next one continues.
+        for (int member = 0; member < 24; member++) staged("PATIENT_XML", member);
+        int before = members().size();
+        var claim = new CdsExportLedgerService.Cleanup(run, 1, UUID.randomUUID().toString(), document);
+        when(ledger.expiredArtifacts(16)).thenReturn(List.of(run));
+        when(ledger.artifactEpochs(run, 0, 64)).thenReturn(List.of(1L));
+        when(ledger.beginCleanup(run, 1)).thenReturn(claim);
+        // Each reading of the clock is a minute later, so a sweep's window holds 15 checks.
+        var now = new java.util.concurrent.atomic.AtomicLong();
+        var sweeping =
+                new CdsExportRetentionService(
+                        ledger,
+                        stores,
+                        configuration,
+                        () -> now.addAndGet(java.util.concurrent.TimeUnit.MINUTES.toNanos(1)));
+        var directory = base.resolve("store").resolve(run).resolve("1");
+
+        sweeping.sweep();
+
+        assertThat(directory).isDirectory();
+        assertThat(members()).isNotEmpty().hasSizeLessThan(before);
+        verify(ledger).finishCleanup(claim, false);
+
+        sweeping.sweep();
+
+        assertThat(directory).doesNotExist();
+        verify(ledger).finishCleanup(claim, true);
+    }
+
+    @Test
     void shouldAcceptAFreeSpaceReserve_largerThanTheFormer1TiB() throws Exception {
         // The reserve was capped at 1 TiB. A larger one is accepted and applied as configured:
         // larger than this disk, it refuses the first staged member.
