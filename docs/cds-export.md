@@ -2212,7 +2212,13 @@ provider. Metadata ownership never substitutes for those clinical checks.
 
 Saved jobs are listed newest first, with a stable creation-time/identifier cursor
 restricted to the same operator. Browser controls fence pending polls before
-starting a fresh status chain. Known missing jobs return HTTP 404 and invalid state
+starting a fresh status chain. The page gives up on a request only after 30 seconds in
+which no part of its answer arrived (the headers, or any piece of the reply), never for
+its total time, as the import page does (`cds-export.js`, `SILENCE_MILLIS`); a busy server
+or a long selection is waited for. A submission given up this way is reported as
+unconfirmed, naming the saved key to check before submitting again
+(`CDS_EXPORT_RESPONSE_UNCONFIRMED`). Until this change every request was given up after
+15 seconds in all. Known missing jobs return HTTP 404 and invalid state
 transitions return 409; unexpected failures are logged without exception messages,
 patient values or physical paths. A committed download never enters Struts error
 rendering. Fully written ciphertext with a failed final confirmation is audited as

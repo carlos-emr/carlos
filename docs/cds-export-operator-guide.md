@@ -117,7 +117,10 @@ patient status; it is independent of enrolment.
 Keep the generated submission key. Submit once. HTTP 202 confirms an immutable
 durable request; processing continues online after the response. Reload or reopen
 the saved job ID, or use **Check submission** with the original key after a lost
-acknowledgement. Reusing that key cannot create another job with different intent.
+acknowledgement. Reusing that key cannot create another job with different intent. The
+page waits as long as the server keeps answering; it gives up only after 30 seconds with
+no answer at all, and then says the submission could not be confirmed and names the key
+to check.
 
 While a worker runs a job, the page shows its stage and how many patients it is exporting,
 with a moving progress bar. A patient is counted as processed only when the package is
