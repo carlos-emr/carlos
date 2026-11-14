@@ -27,7 +27,6 @@ import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFieldAssessmentDto.Outcome;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFieldAssessmentDto.Presence;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 /**
@@ -44,6 +43,7 @@ public final class CdsExportDemographicPhonesMapper {
             CdsExportDemographicMappingDto base,
             CdsExportDemographicRowDto current,
             List<CdsExportCapturedTextRowDto> properties,
+            // Not limits any more: no row count or size is refused. Callers still pass them.
             int maximumRows,
             long maximumBytes,
             Runnable checkpoint)
@@ -55,29 +55,17 @@ public final class CdsExportDemographicPhonesMapper {
                 || base.patient() != current.demographicNo()
                 || !base.phones().equals(new CdsExportDemographicMapper().map(current).phones()))
             scope();
-        if (properties == null
-                || maximumRows < 1
-                || maximumRows > 8192
-                || maximumBytes < 1
-                || maximumBytes > (64L << 20))
+        if (properties == null)
             throw new IllegalArgumentException("CDS_EXPORT_DEMOGRAPHIC_PHONE_LIMITS_INVALID");
-        if (properties.size() > maximumRows) limit();
         var fields = new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
         var seen = new HashSet<String>();
         var known = new HashMap<String, CdsExportCapturedTextRowDto>();
         var duplicate = new HashSet<String>();
-        long bytes = 0;
         for (var row : properties) {
             checkpoint.run();
             requireRow(current.demographicNo(), row);
             if (!seen.add(row.recordKey())) scope();
-            bytes = Math.addExact(bytes, 2048L);
             for (var entry : row.fields().entrySet()) {
-                if (entry.getValue() != null)
-                    bytes =
-                            Math.addExact(
-                                    bytes,
-                                    entry.getValue().getBytes(StandardCharsets.UTF_8).length + 32L);
                 fields.put(
                         new CdsExportNativeFieldKeyDto(
                                 row.table(), row.recordKey(), entry.getKey()),
@@ -89,7 +77,6 @@ public final class CdsExportDemographicPhonesMapper {
                                 "",
                                 "UNMAPPED_NATIVE_DEMOGRAPHIC_PROPERTY"));
             }
-            if (bytes > maximumBytes) limit();
             for (String column :
                     List.of(
                             "id",
@@ -353,9 +340,5 @@ public final class CdsExportDemographicPhonesMapper {
 
     private static void scope() throws IOException {
         throw new IOException("CDS_EXPORT_DEMOGRAPHIC_PHONE_SCOPE_INVALID");
-    }
-
-    private static void limit() throws IOException {
-        throw new IOException("CDS_EXPORT_DEMOGRAPHIC_PHONE_RESOURCE_LIMIT");
     }
 }

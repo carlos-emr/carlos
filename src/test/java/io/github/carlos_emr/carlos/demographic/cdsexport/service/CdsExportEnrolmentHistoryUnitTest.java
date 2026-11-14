@@ -457,14 +457,14 @@ class CdsExportEnrolmentHistoryUnitTest {
     }
 
     @Test
-    void shouldVerifyCountByteAndCancellationLimitsLeaveNoUsableHistory_forEnrolmentHistoryContract() throws Exception {
-        var limited = new CdsExportEnrolmentHistory(27, 1, 1L << 20, () -> {});
-        limited.accept(archive(1, null, null, null, null, null), null);
-        assertThatThrownBy(() -> limited.accept(current(null, null, null, null, null), null))
-                .hasMessage("CDS_EXPORT_ENROLMENT_HISTORY_SCOPE_INVALID");
-        var bytes = new CdsExportEnrolmentHistory(27, 3, 64, () -> {});
-        assertThatThrownBy(() -> bytes.accept(current(null, null, null, null, null), null))
-                .hasMessage("CDS_EXPORT_ENROLMENT_HISTORY_RESOURCE_LIMIT");
+    void shouldAcceptEveryRow_whenTheFormerRowAndByteBoundsArePassed() throws Exception {
+        // Before: a second row past maximumRows, or 64 bytes of decisions, stopped the job
+        // (CDS_EXPORT_ENROLMENT_HISTORY_RESOURCE_LIMIT). Neither number is a limit any more.
+        var history = new CdsExportEnrolmentHistory(27, 1, 64, () -> {});
+        history.accept(archive(1, null, null, null, null, null), null);
+        history.accept(archive(2, null, null, null, null, null), null);
+        history.accept(current(null, null, null, null, null), null);
+        assertThat(history.finish(2).sourceRows()).isEqualTo(3);
         var cancelled =
                 new CdsExportEnrolmentHistory(
                         27,

@@ -64,8 +64,6 @@ public final class CdsExportEnrolmentHistory {
     private static final String SUPERSEDED_PROVIDER = "SUPERSEDED_ROSTER_PROVIDER_IN_APPROVED_AUDIT";
 
     private final int patient;
-    private final int maximumRows;
-    private final long maximumBytes;
     private final Runnable checkpoint;
     private final List<Mapped> rows = new ArrayList<>();
     private final Set<String> identities = new HashSet<>();
@@ -73,19 +71,12 @@ public final class CdsExportEnrolmentHistory {
     private boolean current;
     private boolean failed;
     private boolean finished;
-    private long bytes;
 
     public CdsExportEnrolmentHistory(
             int patient, int maximumRows, long maximumBytes, Runnable checkpoint) {
-        if (patient < 1
-                || maximumRows < 1
-                || maximumRows > 65_536
-                || maximumBytes < 1
-                || maximumBytes > (64L << 20))
+        if (patient < 1)
             throw new IllegalArgumentException("CDS_EXPORT_ENROLMENT_HISTORY_LIMITS_INVALID");
         this.patient = patient;
-        this.maximumRows = maximumRows;
-        this.maximumBytes = maximumBytes;
         this.checkpoint = Objects.requireNonNull(checkpoint);
     }
 
@@ -96,8 +87,7 @@ public final class CdsExportEnrolmentHistory {
             active();
             checkpoint.run();
             CdsExportEnrolmentMapper.requireRow(patient, row);
-            if (identities.size() >= maximumRows
-                    || !identities.add(row.table() + "/" + row.recordKey())) invalid();
+            if (!identities.add(row.table() + "/" + row.recordKey())) invalid();
             if (row.table().equals("demographicArchive")) {
                 if (current || archiveKey != null && row.recordKey().compareTo(archiveKey) <= 0)
                     invalid();
@@ -114,16 +104,6 @@ public final class CdsExportEnrolmentHistory {
                         .CdsExportMappingReviewException(
                         "CDS_EXPORT_ENROLMENT_HISTORY_REQUIRES_REVIEW");
             rows.add(new Mapped(row, provider, result));
-            for (var entry : result.fields().entrySet())
-                bytes =
-                        Math.addExact(
-                                bytes,
-                                512L
-                                        + entry.getKey().recordKey().length() * 2L
-                                        + entry.getValue().destination().length() * 2L
-                                        + entry.getValue().rule().length() * 2L);
-            bytes = Math.addExact(bytes, 1024L);
-            if (bytes > maximumBytes) limit();
             checkpoint.run();
         } catch (IOException | RuntimeException failure) {
             failed = true;
@@ -221,14 +201,6 @@ public final class CdsExportEnrolmentHistory {
                     }
                 }
             fields.putAll(providerFields);
-            for (var entry : fields.entrySet()) {
-                var key = entry.getKey();
-                bytes =
-                        Math.addExact(
-                                bytes,
-                                256L + key.recordKey().length() * 2L + entry.getValue().rule().length() * 2L);
-            }
-            if (bytes > maximumBytes) limit();
             finished = true;
             return new Result(List.copyOf(emitted), identities.size(), fields);
         } catch (IOException | RuntimeException failure) {
@@ -247,9 +219,5 @@ public final class CdsExportEnrolmentHistory {
 
     private static void invalid() throws IOException {
         throw new IOException("CDS_EXPORT_ENROLMENT_HISTORY_SCOPE_INVALID");
-    }
-
-    private static void limit() throws IOException {
-        throw new IOException("CDS_EXPORT_ENROLMENT_HISTORY_RESOURCE_LIMIT");
     }
 }

@@ -28,7 +28,6 @@ import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFieldAssessmentDto.*;
 import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.*;
 
@@ -161,6 +160,7 @@ public final class CdsExportRetainedEnrolmentReconciler {
             List<CdsExportCapturedTextRowDto> archives,
             List<CdsExportNativeRowReceiptDto> archiveWitnesses,
             CdsExportPublicProviderLookupsDto lookups,
+            // Not limits any more: no row count or size is refused. Callers still pass them.
             int maximumRows,
             long maximumBytes,
             CdsExportRetainedSectionWriter.Values values,
@@ -172,13 +172,7 @@ public final class CdsExportRetainedEnrolmentReconciler {
         values.requireActive();
         lookups.requireGeneration(index.sourceManifestSha256());
         var providers = lookups.providers();
-        if (maximumRows < 1
-                || maximumRows > 8192
-                || maximumBytes < 1
-                || maximumBytes > 64L << 20
-                || archives.size() + 1 > maximumRows
-                || archives.size() != archiveWitnesses.size()
-                || providers.size() > 65536) scope();
+        if (archives.size() != archiveWitnesses.size()) scope();
         var evidence =
                 new CdsExportDemographicProjectionEvidence()
                         .verify(
@@ -218,7 +212,6 @@ public final class CdsExportRetainedEnrolmentReconciler {
         var blockers = new LinkedHashSet<String>();
         if (!projection.preparedProjectionProven())
             blockers.add("PREPARED_ENROLMENT_PROJECTION_NOT_PROVEN");
-        long used = 0;
         var uniqueOhip = new HashMap<String, String>();
         for (var entry : providers.entrySet()) {
             checkpoint.run();
@@ -228,7 +221,6 @@ public final class CdsExportRetainedEnrolmentReconciler {
                     || !entry.getKey().equals(provider.fields().get("provider_no"))
                     || !CdsExportPublicProviderSourceReader.key(entry.getKey())
                             .equals(provider.recordKey())) scope();
-            used = Math.addExact(used, weight(provider));
             String ohip = provider.fields().get("ohip_no");
             if (ohip != null && !ohip.isEmpty() && ohip.codePointCount(0, ohip.length()) <= 6)
                 uniqueOhip.merge(ohip, entry.getKey(), (a, b) -> a.equals(b) ? a : "AMBIGUOUS");
@@ -282,9 +274,6 @@ public final class CdsExportRetainedEnrolmentReconciler {
                         CdsExportDemographicAncillaryReconciler.assessArchive(
                                 patient, row, checkpoint));
             } else if (row != current) scope();
-            used = Math.addExact(used, weight(row));
-            if (used > maximumBytes)
-                throw new IOException("CDS_EXPORT_ENROLMENT_RECONCILIATION_RESOURCE_LIMIT");
             Fact fact = null;
             CdsExportEnrolmentMapper.Result mapped = null;
             CdsExportCapturedTextRowDto provider = null;
@@ -663,22 +652,6 @@ public final class CdsExportRetainedEnrolmentReconciler {
 
     private static boolean present(String value) {
         return value != null && !value.isEmpty();
-    }
-
-    private static long weight(CdsExportCapturedTextRowDto row) {
-        long bytes = 512;
-        for (var entry : row.fields().entrySet())
-            bytes =
-                    Math.addExact(
-                            bytes,
-                            64L
-                                    + entry.getKey().length() * 2L
-                                    + (entry.getValue() == null
-                                            ? 0
-                                            : entry.getValue()
-                                                    .getBytes(StandardCharsets.UTF_8)
-                                                    .length));
-        return bytes;
     }
 
     private static void merge(

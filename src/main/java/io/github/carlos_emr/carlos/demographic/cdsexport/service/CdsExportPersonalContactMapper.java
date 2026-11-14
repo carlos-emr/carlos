@@ -27,7 +27,6 @@ import io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFieldAssessmentDto.Outcome;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 /**
@@ -67,8 +66,6 @@ public final class CdsExportPersonalContactMapper {
             if (patient < 1
                     || associationRows < 0
                     || contactRows < 0
-                    || associationRows > 8192
-                    || contactRows > 8192
                     || contacts.size() > contactRows
                     || contacts.stream()
                                     .map(CdsExportPersonalContactDto::sourceRecordKey)
@@ -132,6 +129,7 @@ public final class CdsExportPersonalContactMapper {
             int patient,
             List<CdsExportCapturedTextRowDto> associations,
             List<CdsExportCapturedTextRowDto> contacts,
+            // Not limits any more: no row count or size is refused. Callers still pass them.
             int maximumRows,
             long maximumBytes,
             Runnable checkpoint)
@@ -140,13 +138,8 @@ public final class CdsExportPersonalContactMapper {
         checkpoint.run();
         if (patient < 1
                 || associations == null
-                || contacts == null
-                || maximumRows < 1
-                || maximumRows > 8192
-                || maximumBytes < 1
-                || maximumBytes > (64L << 20))
+                || contacts == null)
             throw new IllegalArgumentException("CDS_EXPORT_CONTACT_LIMITS_INVALID");
-        if ((long) associations.size() + contacts.size() > maximumRows) limit();
         var fields = new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
         var all = new ArrayList<CdsExportCapturedTextRowDto>();
         var lookup = new TreeMap<String, CdsExportCapturedTextRowDto>();
@@ -168,16 +161,8 @@ public final class CdsExportPersonalContactMapper {
         }
         if (!references.containsAll(lookup.keySet())) scope();
         var states = new HashMap<CdsExportCapturedTextRowDto, CdsExportNativeFieldAssessments>();
-        long bytes = 0;
         for (var row : all) {
             checkpoint.run();
-            bytes = Math.addExact(bytes, 2048L);
-            for (String value : row.fields().values())
-                if (value != null)
-                    bytes =
-                            Math.addExact(
-                                    bytes, value.getBytes(StandardCharsets.UTF_8).length + 32L);
-            if (bytes > maximumBytes) limit();
             var state = new CdsExportNativeFieldAssessments(row, fields);
             states.put(row, state);
             for (String column :
@@ -480,9 +465,5 @@ public final class CdsExportPersonalContactMapper {
 
     private static void scope() throws IOException {
         throw new IOException("CDS_EXPORT_CONTACT_SOURCE_SCOPE_INVALID");
-    }
-
-    private static void limit() throws IOException {
-        throw new IOException("CDS_EXPORT_CONTACT_RESOURCE_LIMIT");
     }
 }

@@ -328,35 +328,20 @@ class CdsExportDemographicRetainedPhonesReconcilerUnitTest {
     }
 
     @Test
-    void shouldVerifyUnknownRowsStillCount_againstResourceBoundsAndEveryWitnessIsRequired() throws Exception {
+    void shouldReconcileEveryRow_pastTheFormerRowBoundAndStillRequireEveryWitness() throws Exception {
+        // Before: three property rows against a bound of two stopped the job
+        // (CDS_EXPORT_DEMOGRAPHIC_RETAINED_PHONE_RESOURCE_LIMIT).
         current.add(property(3, "otherProperty", "Retained elsewhere"));
         var graph = graph();
         var base = graph.base();
-        assertThatThrownBy(
-                        () ->
-                                new CdsExportDemographicRetainedPhonesReconciler()
-                                        .reconcile(
-                                                27,
-                                                graph.address(),
-                                                base.index(),
-                                                base.checked(),
-                                                base.fields(),
-                                                base.current(),
-                                                base.witness(),
-                                                current,
-                                                graph.witnesses(),
-                                                2,
-                                                1L << 20,
-                                                values(),
-                                                () -> {}))
-                .hasMessage("CDS_EXPORT_DEMOGRAPHIC_RETAINED_PHONE_RESOURCE_LIMIT");
+        assertThat(new CdsExportDemographicRetainedPhonesReconciler() .reconcile( 27, graph.address(), base.index(), base.checked(), base.fields(), base.current(), base.witness(), current, graph.witnesses(), 2, 1L << 20, values(), () -> {})).isNotNull();
         assertThatThrownBy(
                         () ->
                                 invoke(
                                         graph,
                                         current,
                                         graph.witnesses().subList(1, graph.witnesses().size())))
-                .hasMessage("CDS_EXPORT_DEMOGRAPHIC_RETAINED_PHONE_RESOURCE_LIMIT");
+                .hasMessage("CDS_EXPORT_DEMOGRAPHIC_RETAINED_PHONE_SCOPE_INVALID");
     }
 
     @Test

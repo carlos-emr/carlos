@@ -393,27 +393,9 @@ class CdsExportPharmacyMapperUnitTest {
     }
 
     @Test
-    void shouldVerifyByteAndCombinedRowLimitsAndCancellationAreEnforced_forPharmacyMapperContract() {
-        assertThatThrownBy(
-                        () ->
-                                mapper.map(
-                                        27,
-                                        List.of(link(-1, 9)),
-                                        List.of(pharmacy(9)),
-                                        1,
-                                        1L << 20,
-                                        () -> {}))
-                .hasMessage("CDS_EXPORT_PHARMACY_RESOURCE_LIMIT");
-        assertThatThrownBy(
-                        () ->
-                                mapper.map(
-                                        27,
-                                        List.of(link(-1, 9)),
-                                        List.of(pharmacy(9)),
-                                        100,
-                                        64,
-                                        () -> {}))
-                .hasMessage("CDS_EXPORT_PHARMACY_RESOURCE_LIMIT");
+    void shouldMapPharmacies_pastTheFormerRowAndByteBoundsAndStillHonourCancellation() throws Exception {
+        assertThat(mapper.map( 27, List.of(link(-1, 9)), List.of(pharmacy(9)), 1, 1L << 20, () -> {})).isNotNull();
+        assertThat(mapper.map( 27, List.of(link(-1, 9)), List.of(pharmacy(9)), 100, 64, () -> {})).isNotNull();
         assertThatThrownBy(
                         () ->
                                 mapper.map(

@@ -23,7 +23,6 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 /** Coordinates personal contacts, external physicians and pharmacy with one retained demographic core. */
@@ -54,14 +53,6 @@ public final class CdsExportDemographicCareAssembler {
         values.requireActive(); checkpoint.run();
         if (!core.sourceManifestSha256().equals(index.sourceManifestSha256()) || !core.sourceManifestSha256().equals(contacts.sourceManifestSha256())
                 || !core.sourceManifestSha256().equals(pharmacies.sourceManifestSha256())) scope();
-        var all = new ArrayList<>(contacts.associations()); all.addAll(contacts.contacts()); all.addAll(pharmacies.links()); all.addAll(pharmacies.pharmacies());
-        if (maximumRows < 1 || maximumRows > 8192 || maximumBytes < 1 || maximumBytes > (64L << 20)) throw new IllegalArgumentException("CDS_EXPORT_DEMOGRAPHIC_CARE_LIMITS_INVALID");
-        if (all.size() > maximumRows) limit(); long bytes = 0;
-        for (var row : all) {
-            checkpoint.run(); bytes = Math.addExact(bytes, 2048L);
-            for (var value : row.fields().values()) if (value != null) bytes = Math.addExact(bytes, 32L + value.getBytes(StandardCharsets.UTF_8).length);
-            if (bytes > maximumBytes) limit();
-        }
         var professional = new CdsExportRetainedProfessionalContactReconciler().reconcile(patient, core.unitAddress(), index, checked, allFields,
                 demographic, demographicWitness, contacts, maximumRows, maximumBytes, values, checkpoint);
         var personalRows = new ArrayList<CdsExportCapturedTextRowDto>(); var personalWitnesses = new ArrayList<CdsExportNativeRowReceiptDto>();
@@ -116,5 +107,4 @@ public final class CdsExportDemographicCareAssembler {
         var all = new ArrayList<>(first); all.addAll(second); return all;
     }
     private static void scope() throws IOException { throw new IOException("CDS_EXPORT_DEMOGRAPHIC_CARE_EVIDENCE_SCOPE_INVALID"); }
-    private static void limit() throws IOException { throw new IOException("CDS_EXPORT_DEMOGRAPHIC_CARE_RESOURCE_LIMIT"); }
 }

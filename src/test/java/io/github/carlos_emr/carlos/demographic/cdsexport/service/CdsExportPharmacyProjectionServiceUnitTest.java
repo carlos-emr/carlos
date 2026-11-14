@@ -161,13 +161,13 @@ class CdsExportPharmacyProjectionServiceUnitTest {
     }
 
     @Test
-    void shouldVerifyActualRowsAndBytesAreBounded_forPharmacyProjectionServiceContract() {
+    void shouldProjectPharmacies_pastTheFormerRowAndByteBounds() throws Exception {
         bounds =
                 new CdsExportClinicalOccurrenceService.Bounds(
                         10000, 1L << 20, 1000, 1L << 20, 1, 100);
-        assertThatThrownBy(this::project).hasMessage("CDS_EXPORT_PHARMACY_RESOURCE_LIMIT");
+        assertThat(project()).isNotNull();
         bounds = new CdsExportClinicalOccurrenceService.Bounds(10000, 1L << 20, 1000, 64, 100, 100);
-        assertThatThrownBy(this::project).hasMessage("CDS_EXPORT_PHARMACY_RESOURCE_LIMIT");
+        assertThat(project()).isNotNull();
     }
 
     @Test

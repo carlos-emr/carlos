@@ -72,7 +72,7 @@ public final class CdsExportRetainedPharmacyBinding {
         var evidence = new CdsExportDemographicProjectionEvidence().verify(patient, address, index, checked, demographic, witness, checkpoint);
         var parent = new CdsExportRetainedOccurrenceFields().fieldsFor(patient, CdsCategory.DEMOGRAPHICS, address, index, checked, allFields, checkpoint);
         var source = new LinkedHashMap<String, String>(); var ids = new HashSet<String>(); var fieldIds = new LinkedHashMap<String, String>();
-        var groups = new LinkedHashMap<String, Set<String>>(); long sourceBytes = 0;
+        var groups = new LinkedHashMap<String, Set<String>>();
         for (var field : parent) {
             checkpoint.run(); if (!field.sourcePath().startsWith(PREFIX + "PreferredPharmacy[")) continue;
             String path = field.sourcePath().substring(PREFIX.length());
@@ -80,8 +80,6 @@ public final class CdsExportRetainedPharmacyBinding {
             verifyType(path, field);
             String relative = path.equals(ROOT) ? "" : path.substring(ROOT.length() + 1);
             if (!ids.add(field.id()) || source.putIfAbsent(relative, read(values, field, checkpoint)) != null) invalid();
-            sourceBytes = Math.addExact(sourceBytes, 256L + relative.length() * 2L + source.get(relative).length() * 2L);
-            if (sourceBytes > 1L << 20 || ids.size() > 128) throw new IOException("CDS_EXPORT_RETAINED_PHARMACY_RESOURCE_LIMIT");
             fieldIds.put(relative, field.id());
             String group = relative.isEmpty() ? "" : relative.split("/", 2)[0];
             groups.computeIfAbsent(group, ignored -> new HashSet<>()).add(field.id());

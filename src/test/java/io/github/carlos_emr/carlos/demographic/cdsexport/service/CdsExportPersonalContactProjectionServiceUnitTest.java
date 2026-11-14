@@ -155,13 +155,13 @@ class CdsExportPersonalContactProjectionServiceUnitTest {
     }
 
     @Test
-    void shouldVerifyActualRowsAndBytesAreBounded_forPersonalContactProjectionServiceContract() {
+    void shouldProjectContacts_pastTheFormerRowAndByteBounds() throws Exception {
         bounds =
                 new CdsExportClinicalOccurrenceService.Bounds(
                         10000, 1L << 20, 1000, 1L << 20, 1, 100);
-        assertThatThrownBy(this::project).hasMessage("CDS_EXPORT_CONTACT_RESOURCE_LIMIT");
+        assertThat(project()).isNotNull();
         bounds = new CdsExportClinicalOccurrenceService.Bounds(10000, 1L << 20, 1000, 64, 100, 100);
-        assertThatThrownBy(this::project).hasMessage("CDS_EXPORT_CONTACT_RESOURCE_LIMIT");
+        assertThat(project()).isNotNull();
     }
 
     @Test

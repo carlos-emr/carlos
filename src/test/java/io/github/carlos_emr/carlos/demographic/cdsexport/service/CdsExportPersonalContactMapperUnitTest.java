@@ -537,28 +537,10 @@ class CdsExportPersonalContactMapperUnitTest {
 
     @Test
     void
-            shouldVerifyResourcesCancellationAndEqualCountDifferentFieldIdentitiesCannotSucceed_forPersonalContactMapperContract()
+            shouldMapContacts_pastTheFormerBoundsButNeverWithSwappedFieldIdentities()
                     throws Exception {
-        assertThatThrownBy(
-                        () ->
-                                mapper.map(
-                                        27,
-                                        List.of(association(-1, 9)),
-                                        List.of(contact(9)),
-                                        1,
-                                        1L << 20,
-                                        () -> {}))
-                .hasMessage("CDS_EXPORT_CONTACT_RESOURCE_LIMIT");
-        assertThatThrownBy(
-                        () ->
-                                mapper.map(
-                                        27,
-                                        List.of(association(-1, 9)),
-                                        List.of(contact(9)),
-                                        100,
-                                        64,
-                                        () -> {}))
-                .hasMessage("CDS_EXPORT_CONTACT_RESOURCE_LIMIT");
+        assertThat(mapper.map( 27, List.of(association(-1, 9)), List.of(contact(9)), 1, 1L << 20, () -> {})).isNotNull();
+        assertThat(mapper.map( 27, List.of(association(-1, 9)), List.of(contact(9)), 100, 64, () -> {})).isNotNull();
         assertThatThrownBy(
                         () ->
                                 mapper.map(

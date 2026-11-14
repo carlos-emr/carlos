@@ -185,13 +185,13 @@ class CdsExportDemographicPhoneProjectionServiceUnitTest {
     }
 
     @Test
-    void shouldVerifyDeclaredAndActualResourceLimitsAreBothEnforced_forDemographicPhoneProjectionServiceContract() throws Exception {
+    void shouldProjectPhones_pastTheFormerRowAndByteBounds() throws Exception {
         bounds =
                 new CdsExportClinicalOccurrenceService.Bounds(
                         10000, 1L << 20, 1000, 1L << 20, 1, 100);
-        assertThatThrownBy(this::project).hasMessage("CDS_EXPORT_DEMOGRAPHIC_PHONE_RESOURCE_LIMIT");
+        assertThat(project()).isNotNull();
         bounds = new CdsExportClinicalOccurrenceService.Bounds(10000, 1L << 20, 1000, 64, 100, 100);
-        assertThatThrownBy(this::project).hasMessage("CDS_EXPORT_DEMOGRAPHIC_PHONE_RESOURCE_LIMIT");
+        assertThat(project()).isNotNull();
     }
 
     @Test

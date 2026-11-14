@@ -107,7 +107,6 @@ public final class CdsExportRetainedEnrolmentSource {
         var seen = new HashSet<String>();
         var ids = new HashSet<String>();
         var changes = new ArrayList<CdsExportRetainedSectionWriter.Change>();
-        long bytes = 0;
         for (var field : supplied) {
             checkpoint.run();
             if (!field.sourcePath().startsWith(ROOT + "Enrolment[")) continue;
@@ -126,7 +125,6 @@ public final class CdsExportRetainedEnrolmentSource {
             } catch (NumberFormatException invalid) {
                 throw new IOException("CDS_EXPORT_ENROLMENT_SOURCE_INVALID");
             }
-            if (ordinal > 8192 || ids.size() > 65536) limit();
             var group = groups.computeIfAbsent(ordinal, ignored -> new TreeMap<>());
             String leaf = match.group(2);
             if (leaf == null) {
@@ -142,8 +140,6 @@ public final class CdsExportRetainedEnrolmentSource {
                             .collect(java.util.stream.Collectors.joining("/")))) invalid();
             verifyType(relative, field);
             String text = text(values, field, checkpoint);
-            bytes = Math.addExact(bytes, text.length() * 2L + 256);
-            if (bytes > 16L << 20) limit();
             String canonical = text;
             if (plain.equals("EnrollmentDate") || plain.equals("EnrollmentTerminationDate")) {
                 try {
@@ -275,7 +271,7 @@ public final class CdsExportRetainedEnrolmentSource {
         try (Reader input = values.text(field)) {
             for (int count; (count = input.read(block)) != -1; ) {
                 checkpoint.run();
-                if (count == 0 || text.length() + count > 65536) limit();
+                if (count == 0) invalid();
                 text.append(block, 0, count);
             }
         } finally {
@@ -286,9 +282,5 @@ public final class CdsExportRetainedEnrolmentSource {
 
     private static void invalid() throws IOException {
         throw new IOException("CDS_EXPORT_ENROLMENT_SOURCE_INVALID");
-    }
-
-    private static void limit() throws IOException {
-        throw new IOException("CDS_EXPORT_ENROLMENT_SOURCE_RESOURCE_LIMIT");
     }
 }

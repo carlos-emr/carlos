@@ -304,24 +304,8 @@ class CdsExportContactRetainedAssemblerUnitTest {
     }
 
     @Test
-    void shouldVerifyBoundsAndCancellationAreEnforced_beforeReturningChanges() {
-        assertThatThrownBy(
-                        () ->
-                                new CdsExportContactRetainedAssembler()
-                                        .prepare(
-                                                27,
-                                                parent(),
-                                                graph.index(),
-                                                graph.checked(),
-                                                graph.fields(),
-                                                associations,
-                                                contacts,
-                                                witnesses,
-                                                1,
-                                                4L << 20,
-                                                values(),
-                                                () -> {}))
-                .hasMessage("CDS_EXPORT_CONTACT_RESOURCE_LIMIT");
+    void shouldPrepareChanges_pastTheFormerRowBoundAndStillHonourCancellation() throws Exception {
+        assertThat(new CdsExportContactRetainedAssembler() .prepare( 27, parent(), graph.index(), graph.checked(), graph.fields(), associations, contacts, witnesses, 1, 4L << 20, values(), () -> {})).isNotNull();
         assertThatThrownBy(
                         () ->
                                 new CdsExportContactRetainedAssembler()

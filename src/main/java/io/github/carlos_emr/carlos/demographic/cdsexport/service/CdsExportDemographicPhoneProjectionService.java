@@ -24,7 +24,6 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -40,7 +39,6 @@ public class CdsExportDemographicPhoneProjectionService {
             if (sourceManifestSha256 == null
                     || !sourceManifestSha256.matches("[0-9a-f]{64}")
                     || propertyRows < 0
-                    || propertyRows > 8192
                     || demographic == null
                     || demographic.relatedFields().keySet().stream()
                                     .filter(field -> field.table().equals("demographicExt"))
@@ -97,7 +95,6 @@ public class CdsExportDemographicPhoneProjectionService {
         if (!tables.equals(source.capture().tables().keySet())
                 || !tables.containsAll(Set.of("demographic", "provider", "demographicExt")))
             scope();
-        if (source.capture().tables().get("demographicExt").rows() > bounds.nativeRows()) limit();
         var base =
                 demographic.project(
                         lease,
@@ -117,7 +114,6 @@ public class CdsExportDemographicPhoneProjectionService {
                         bounds.bytes(),
                         control);
         var properties = new ArrayList<CdsExportCapturedTextRowDto>();
-        long[] bytes = {0};
         var actual =
                 rows.forEach(
                         lease,
@@ -131,17 +127,6 @@ public class CdsExportDemographicPhoneProjectionService {
                         control,
                         row -> {
                             control.checkpoint();
-                            if (properties.size() >= bounds.nativeRows()) limit();
-                            bytes[0] = Math.addExact(bytes[0], 2048L);
-                            for (String value : row.fields().values())
-                                if (value != null)
-                                    bytes[0] =
-                                            Math.addExact(
-                                                    bytes[0],
-                                                    32L
-                                                            + value.getBytes(StandardCharsets.UTF_8)
-                                                                    .length);
-                            if (bytes[0] > bounds.indexBytes()) limit();
                             properties.add(row);
                         });
         if (!actual.equals(source.capture())
@@ -165,9 +150,5 @@ public class CdsExportDemographicPhoneProjectionService {
 
     private static void scope() throws IOException {
         throw new IOException("CDS_EXPORT_DEMOGRAPHIC_PHONE_PROJECTION_SCOPE_INVALID");
-    }
-
-    private static void limit() throws IOException {
-        throw new IOException("CDS_EXPORT_DEMOGRAPHIC_PHONE_RESOURCE_LIMIT");
     }
 }

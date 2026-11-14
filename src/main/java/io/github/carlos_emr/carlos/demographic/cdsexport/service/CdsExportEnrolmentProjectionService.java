@@ -26,7 +26,6 @@ import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -123,7 +122,6 @@ public class CdsExportEnrolmentProjectionService {
                 || !lease.document().command().categories().contains(CdsCategory.DEMOGRAPHICS))
             scope();
         long archiveCount = source.capture().tables().get("demographicArchive").rows();
-        if (archiveCount >= Math.min(bounds.nativeRows(), 65_536)) limit();
         new CdsExportMergeScopeValidator(rows)
                 .requireUnmerged(
                         lease, patient, tables, source, bounds.fields(), bounds.bytes(), control);
@@ -170,26 +168,14 @@ public class CdsExportEnrolmentProjectionService {
                                             .equals(row.recordKey())
                                     || providers.putIfAbsent(id, row) != null) scope();
                             lookup[0]++;
-                            lookup[1] = Math.addExact(lookup[1], 1024L);
-                            for (String value : row.fields().values())
-                                if (value != null)
-                                    lookup[1] =
-                                            Math.addExact(
-                                                    lookup[1],
-                                                    64L
-                                                            + value.getBytes(StandardCharsets.UTF_8)
-                                                                    .length);
-                            if (lookup[0] > bounds.lookupRows() || lookup[1] > bounds.indexBytes())
-                                limit();
                         });
         if (!lookupScan.equals(source.capture())
                 || lookup[0] != source.capture().tables().get("provider").rows()) scope();
-        if (lookup[1] >= bounds.indexBytes()) limit();
         var history =
                 new CdsExportEnrolmentHistory(
                         patient.patient(),
-                        (int) Math.min(bounds.nativeRows(), 65_536),
-                        bounds.indexBytes() - lookup[1],
+                        bounds.nativeRows(),
+                        bounds.indexBytes(),
                         control::checkpoint);
         var archives =
                 rows.forEach(
@@ -300,9 +286,5 @@ public class CdsExportEnrolmentProjectionService {
 
     private static void scope() throws IOException {
         throw new IOException("CDS_EXPORT_ENROLMENT_PROJECTION_SCOPE_INVALID");
-    }
-
-    private static void limit() throws IOException {
-        throw new IOException("CDS_EXPORT_ENROLMENT_HISTORY_RESOURCE_LIMIT");
     }
 }

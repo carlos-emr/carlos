@@ -293,6 +293,7 @@ public final class CdsExportDemographicRetainedCoreReconciler {
             List<CdsExportNativeRowReceiptDto> propertyWitnesses,
             CdsExportCapturedTextRowDto custom,
             CdsExportNativeRowReceiptDto customWitness,
+            // Not limits any more: no row count or size is refused. Callers still pass them.
             int maximumRows,
             long maximumBytes,
             CdsExportRetainedSectionWriter.Values values,
@@ -399,6 +400,7 @@ public final class CdsExportDemographicRetainedCoreReconciler {
             List<CdsExportCapturedTextRowDto> archives,
             List<CdsExportNativeRowReceiptDto> archiveWitnesses,
             CdsExportPublicProviderLookupsDto lookups,
+            // Not limits any more: no row count or size is refused. Callers still pass them.
             int maximumRows,
             long maximumBytes,
             CdsExportRetainedSectionWriter.Values values,
@@ -500,6 +502,7 @@ public final class CdsExportDemographicRetainedCoreReconciler {
             List<CdsExportCapturedTextRowDto> archives,
             List<CdsExportNativeRowReceiptDto> archiveWitnesses,
             CdsExportPublicProviderLookupsDto lookups,
+            // Not limits any more: no row count or size is refused. Callers still pass them.
             int maximumRows,
             long maximumBytes,
             CdsExportRetainedSectionWriter.Values values,
@@ -569,8 +572,6 @@ public final class CdsExportDemographicRetainedCoreReconciler {
                     throw new IOException("CDS_EXPORT_DEMOGRAPHIC_PRIMARY_EVIDENCE_OVERLAP");
                 var items = new ArrayList<>(uses.get(entry.getKey()));
                 if (!items.contains(entry.getValue())) items.add(entry.getValue());
-                if (items.size() > 16)
-                    throw new IOException("CDS_EXPORT_DEMOGRAPHIC_PROVIDER_USES_LIMIT");
                 uses.put(entry.getKey(), List.copyOf(items));
                 fields.put(entry.getKey(), summarizeProviderUses(items));
             }
@@ -655,8 +656,6 @@ public final class CdsExportDemographicRetainedCoreReconciler {
             if (old.presence() != entry.getValue().presence()) throw new IOException(invalid);
             var items = new ArrayList<>(uses.get(entry.getKey()));
             if (!items.contains(entry.getValue())) items.add(entry.getValue());
-            if (items.size() > 16)
-                throw new IOException("CDS_EXPORT_DEMOGRAPHIC_PROVIDER_USES_LIMIT");
             uses.put(entry.getKey(), List.copyOf(items));
             fields.put(entry.getKey(), summarizeProviderUses(items));
         }

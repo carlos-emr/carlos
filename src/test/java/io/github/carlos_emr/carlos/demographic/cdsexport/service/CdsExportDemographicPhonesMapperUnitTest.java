@@ -313,15 +313,27 @@ class CdsExportDemographicPhonesMapperUnitTest {
     }
 
     @Test
-    void shouldVerifyResourceLimitsAndCancellationRefuse_beforeReturningAnUpdatedBase()
-            throws Exception {
+    void shouldMapEveryProperty_whenAChartHasMoreThan8192OfThem() throws Exception {
+        // Before: the 8,193rd demographicExt row stopped the whole job
+        // (CDS_EXPORT_DEMOGRAPHIC_PHONE_RESOURCE_LIMIT).
+        var current = raw();
+        var base = new CdsExportDemographicMapper().map(current);
+        var rows = new java.util.ArrayList<CdsExportCapturedTextRowDto>();
+        rows.add(property(1, "hPhoneExt", "12"));
+        for (int id = 2; id <= 8193; id++) rows.add(property(id, "clinicNote" + id, "value " + id));
+        var mapped = mapper.map(base, current, rows, 8192, 64L << 20, () -> {});
+        assertThat(mapped.phones()).anySatisfy(phone -> assertThat(phone.extension()).isEqualTo("12"));
+        assertThat(mapped.relatedFields().keySet().stream().map(key -> key.recordKey()).distinct())
+                .hasSize(8193);
+    }
+
+    @Test
+    void shouldMapPhones_pastTheFormerRowAndByteBoundsAndStillHonourCancellation() throws Exception {
         var current = raw();
         var base = new CdsExportDemographicMapper().map(current);
         var rows = List.of(property(1, "hPhoneExt", "12"), property(2, "wPhoneExt", "5"));
-        assertThatThrownBy(() -> mapper.map(base, current, rows, 1, 1L << 20, () -> {}))
-                .hasMessage("CDS_EXPORT_DEMOGRAPHIC_PHONE_RESOURCE_LIMIT");
-        assertThatThrownBy(() -> mapper.map(base, current, rows, 100, 32, () -> {}))
-                .hasMessage("CDS_EXPORT_DEMOGRAPHIC_PHONE_RESOURCE_LIMIT");
+        assertThat(mapper.map(base, current, rows, 1, 1L << 20, () -> {})).isNotNull();
+        assertThat(mapper.map(base, current, rows, 100, 32, () -> {})).isNotNull();
         assertThatThrownBy(
                         () ->
                                 mapper.map(

@@ -24,7 +24,6 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -77,7 +76,6 @@ public class CdsExportPersonalContactProjectionService {
         long expected = 0;
         for (String table : List.of("DemographicContact", "Contact")) {
             long count = source.capture().tables().get(table).rows();
-            if (count > bounds.nativeRows() - expected) limit();
             expected += count;
         }
         var sources = new HashMap<String, List<CdsExportCapturedTextRowDto>>();
@@ -98,17 +96,7 @@ public class CdsExportPersonalContactProjectionService {
                             control,
                             row -> {
                                 control.checkpoint();
-                                if (++resource[0] > bounds.nativeRows()) limit();
-                                resource[1] = Math.addExact(resource[1], 2048L);
-                                for (String value : row.fields().values())
-                                    if (value != null)
-                                        resource[1] =
-                                                Math.addExact(
-                                                        resource[1],
-                                                        value.getBytes(StandardCharsets.UTF_8)
-                                                                        .length
-                                                                + 32L);
-                                if (resource[1] > bounds.indexBytes()) limit();
+                                resource[0]++;
                                 values.add(row);
                             });
             if (!actual.equals(source.capture())
@@ -133,9 +121,5 @@ public class CdsExportPersonalContactProjectionService {
 
     private static void scope() throws IOException {
         throw new IOException("CDS_EXPORT_CONTACT_PROJECTION_SCOPE_INVALID");
-    }
-
-    private static void limit() throws IOException {
-        throw new IOException("CDS_EXPORT_CONTACT_RESOURCE_LIMIT");
     }
 }

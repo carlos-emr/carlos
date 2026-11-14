@@ -33,9 +33,8 @@ public final class CdsExportEnrolmentXmlWriter {
         java.util.Objects.requireNonNull(xml)
                 .content(
                         guarded -> {
-                            if (supplied == null || supplied.size() > 65_536)
-                                throw new IOException(
-                                        "CDS_EXPORT_ENROLMENT_HISTORY_RESOURCE_LIMIT");
+                            if (supplied == null)
+                                throw new IOException("CDS_EXPORT_ENROLMENT_HISTORY_INVALID");
                             var events = List.copyOf(supplied);
                             if (events.isEmpty()) return;
                             guarded.start("cds", "Enrolment");

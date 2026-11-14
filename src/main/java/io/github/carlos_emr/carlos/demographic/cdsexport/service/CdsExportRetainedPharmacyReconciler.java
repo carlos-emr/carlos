@@ -33,7 +33,6 @@ public final class CdsExportRetainedPharmacyReconciler {
         public NativeRows {
             if (sourceManifestSha256 == null || !sourceManifestSha256.matches("[0-9a-f]{64}")) throw new IllegalArgumentException("CDS_EXPORT_PHARMACY_NATIVE_GENERATION_INVALID");
             links = List.copyOf(links); pharmacies = List.copyOf(pharmacies); witnesses = List.copyOf(witnesses);
-            if ((long) links.size() + pharmacies.size() > 8192 || witnesses.size() > 8192) throw new IllegalArgumentException("CDS_EXPORT_PHARMACY_NATIVE_ROWS_INVALID");
         }
         @Override public String toString() { return "CdsExportRetainedPharmacyReconciler.NativeRows[protected]"; }
     }

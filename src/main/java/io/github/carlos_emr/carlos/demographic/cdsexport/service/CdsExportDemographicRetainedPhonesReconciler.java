@@ -30,7 +30,6 @@ import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFieldAsses
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportRetainedReceiptVerificationDto.Reason;
 import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.regex.Pattern;
 
@@ -95,6 +94,7 @@ public final class CdsExportDemographicRetainedPhonesReconciler {
             CdsExportNativeRowReceiptDto witness,
             List<CdsExportCapturedTextRowDto> propertyRows,
             List<CdsExportNativeRowReceiptDto> witnesses,
+            // Not limits any more: no row count or size is refused. Callers still pass them.
             int maximumRows,
             long maximumBytes,
             CdsExportRetainedSectionWriter.Values values,
@@ -417,19 +417,14 @@ public final class CdsExportDemographicRetainedPhonesReconciler {
             int patient,
             List<CdsExportCapturedTextRowDto> propertyRows,
             List<CdsExportNativeRowReceiptDto> witnesses,
+            // Not limits any more: no row count or size is refused. Callers still pass them.
             int maximumRows,
             long maximumBytes,
             Runnable checkpoint)
             throws IOException {
         if (propertyRows == null
                 || witnesses == null
-                || maximumRows < 1
-                || maximumRows > 8192
-                || maximumBytes < 1
-                || maximumBytes > (64L << 20)
-                || propertyRows.size() > maximumRows
-                || witnesses.size() != propertyRows.size())
-            throw new IOException("CDS_EXPORT_DEMOGRAPHIC_RETAINED_PHONE_RESOURCE_LIMIT");
+                || witnesses.size() != propertyRows.size()) scope();
         var proofs = new HashMap<String, CdsExportNativeRowReceiptDto>();
         for (var proof : witnesses) {
             checkpoint.run();
@@ -439,7 +434,6 @@ public final class CdsExportDemographicRetainedPhonesReconciler {
         }
         var rows = new HashMap<String, CdsExportCapturedTextRowDto>();
         var known = new ArrayList<CdsExportCapturedTextRowDto>();
-        long bytes = 0;
         for (var row : propertyRows) {
             checkpoint.run();
             if (row == null
@@ -459,14 +453,6 @@ public final class CdsExportDemographicRetainedPhonesReconciler {
             }
             if (rows.putIfAbsent(id, row) != null) scope();
             requirePropertyWitness(row, proofs.get(id), checkpoint);
-            bytes = Math.addExact(bytes, 2048);
-            for (String value : row.fields().values())
-                if (value != null)
-                    bytes =
-                            Math.addExact(
-                                    bytes, 32L + value.getBytes(StandardCharsets.UTF_8).length);
-            if (bytes > maximumBytes)
-                throw new IOException("CDS_EXPORT_DEMOGRAPHIC_RETAINED_PHONE_RESOURCE_LIMIT");
             if (KEYS.containsValue(row.fields().get("key_val"))) known.add(row);
         }
         if (!rows.keySet().equals(proofs.keySet())) scope();

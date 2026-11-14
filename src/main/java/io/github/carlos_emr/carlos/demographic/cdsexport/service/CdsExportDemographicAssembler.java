@@ -57,9 +57,7 @@ public final class CdsExportDemographicAssembler {
             Objects.requireNonNull(lookups);
             Objects.requireNonNull(contacts);
             Objects.requireNonNull(pharmacies);
-            if (properties.size() > 8192
-                    || archives.size() > 8192
-                    || properties.size() != propertyWitnesses.size()
+            if (properties.size() != propertyWitnesses.size()
                     || archives.size() != archiveWitnesses.size()) {
                 throw new IllegalArgumentException(
                         "CDS_EXPORT_DEMOGRAPHIC_ASSEMBLY_ROW_SCOPE_INVALID");
@@ -93,6 +91,7 @@ public final class CdsExportDemographicAssembler {
             CdsExportRetainedReceiptVerificationDto checked,
             List<CdsExportRetainedFieldDto> allFields,
             NativeRows rows,
+            // Not limits any more: no row count or size is refused. Callers still pass them.
             int maximumRows,
             long maximumBytes,
             CdsExportRetainedSectionWriter.Values values,
@@ -101,11 +100,7 @@ public final class CdsExportDemographicAssembler {
         Objects.requireNonNull(rows);
         Objects.requireNonNull(values);
         Objects.requireNonNull(checkpoint);
-        if (maximumRows < 1
-                || maximumRows > 8192
-                || maximumBytes < 1
-                || maximumBytes > (64L << 20)
-                || selected == null
+        if (selected == null
                 || !selected.contains(CdsCategory.DEMOGRAPHICS)) {
             throw new IllegalArgumentException("CDS_EXPORT_DEMOGRAPHIC_ASSEMBLY_SCOPE_INVALID");
         }

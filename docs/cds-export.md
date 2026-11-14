@@ -1281,6 +1281,62 @@ through `openExisting`, and for each cohort patient with a record, capture, comp
 Until the four points above are settled, a stopped export starts again from its first chart,
 which is why the first protection of a long export remains not stopping it.
 
+**Limits inside the mappers.** A mapper keeps a number only when something outside CARLOS
+imposes it: a facet of the CDS 5.2 schema (counted as the migration guide counts `text1K`,
+`text32K` and `text64K`: 1,000, 32,000 and 64,000 characters, which `CdsExportXmlValidator`
+enforces on the finished document), the capacity of a database column, or an integrity check.
+Such a limit does not hold a patient where the record has somewhere else to put the value: the
+element is left out or written in its schema-valid form, and the exact stored value travels in
+the record's CARLOS residual. These numbers were CARLOS's own and are gone:
+
+| Former limit | Where | What it stopped | Now |
+| --- | --- | --- | --- |
+| 8,192 rows and 64 MiB per call | `CdsExportDemographicPhonesMapper`, `CdsExportPersonalContactMapper`, `CdsExportPharmacyMapper`, `CdsExportProfessionalContactMapper`, their retained reconcilers and assemblers (`CdsExportDemographicAssembler`, `CdsExportNativeDemographicAssembler`, `CdsExportDemographicCareAssembler`, `CdsExportContactRetainedAssembler` 4,096 changes), and the four demographic projection services | the whole job (`..._RESOURCE_LIMIT`) | every row is mapped; the methods still take `maximumRows` and `maximumBytes` from their callers and ignore them |
+| 65,536 archive rows, 65,536 providers and 64 MiB | `CdsExportEnrolmentHistory`, `CdsExportRetainedEnrolmentReconciler`, `CdsExportEnrolmentProjectionService`, `CdsExportEnrolmentXmlWriter` | the whole job | every archived roster state is read |
+| 8,192 enrolment entries, 65,536 fields, 16 MiB; 131,072 units; 128 fields and 1 MiB | `CdsExportRetainedEnrolmentSource`, `CdsExportRetainedContactBinding`, `CdsExportRetainedPharmacyBinding` (the retained source of an imported chart) | the whole job | read whole |
+| 16 uses of one provider row | `CdsExportDemographicRetainedCoreReconciler` | the whole job (`CDS_EXPORT_DEMOGRAPHIC_PROVIDER_USES_LIMIT`) | every use is recorded |
+| 8,192 revisions of a note, 8,192 note rows, chains or reviews per chart | `CdsExportNativeHistoryMapper`, `CdsExportNoteRevisionPlanner` | the job | removed here; the history occurrence service's own window still applies |
+| 4,096 import runs naming one chart | `CdsExportImportOptionsSourceReader` | the whole job (`CDS_EXPORT_IMPORT_OPTIONS_RUN_LIMIT`) | every run is read |
+| 10,000 prevention rows | `CdsExportPreventionScopePlanner` | the whole job | every row is planned |
+| 1,024 characters per care value, as a hold | `CdsExportNativeCareMapper` | the patient | the schema's 1,024 only decides whether the observation gets a standard element |
+
+What these mappers hold in memory is one chart's rows of the tables they map (its
+`demographicExt` properties, contacts, pharmacies, `demographicArchive` roster states, note
+revision numbers, prevention rows), each about 2 KB plus its values; nothing is shared between
+charts. The row windows of the occurrence services (`cds.export.maxNativeRows`,
+`maxIndexBytes`, `maxLookupRows`) are a separate matter and still apply to the rows they hand
+to these mappers.
+
+Limits that remain in these families, and why:
+
+- **Reports/Notes, 32,000 characters.** Notes is the only free text of a Reports record and
+  Reports has no `ResidualInfo`. A native document, an embedded laboratory document or an HRM
+  report whose reviews and comments exceed it still holds the patient. Lifting it needs a
+  second Reports record for the overflow (as imported reports already get for their reviews),
+  expected by `CdsExportPatientInventoryService`.
+- **NoteAboutPatient, 64,000 characters.** `demographiccust.content` is a TEXT column, so a
+  master-record note of 64,001 to 65,535 characters holds the patient
+  (`PATIENT_NOTE_DICTIONARY_LENGTH_REQUIRES_REVIEW`). The carrier exists
+  (`CARLOS.Demographic.v1`); using it needs `CdsExportPatientNoteMappingDto` to allow a carried
+  note, the record to gain the value and `CdsExportDemographicRetainedNoteReconciler` to treat
+  a carried note as present.
+- **An imported history item edited in CARLOS** whose imported Notes and current narrative
+  together pass the Notes limit (`CDS_EXPORT_HISTORY_COMBINED_NARRATIVE_CAPACITY`), and an
+  imported Notes text of 64,001 to 65,536 characters read during reconciliation
+  (`CDS_EXPORT_HISTORY_SOURCE_NARRATIVE_CAPACITY`).
+- **Data summaries.** 100,000 rows and 400,000 fields per table and chart
+  (`CDS_EXPORT_DATA_SUMMARY_ROW_LIMIT`), 64 MiB of text and 32 MiB of retained values per record
+  (`CDS_EXPORT_DATA_SUMMARY_SIZE_LIMIT`) and three quarters of `maxIndexBytes` of audit
+  (`CDS_EXPORT_DATA_SUMMARY_AUDIT_LIMIT`) hold one chart. They bound what is held while one
+  summary is planned and rendered; removing them means planning and rendering a record's rows
+  as a stream.
+- **The 16,777,216-character residual bound** (`CdsExportDemographicSupportingMapper`,
+  `CdsExportNativeHistoryMapper`, `CdsExportHistoryFieldReconciler`,
+  `CdsExportNativeLaboratoryMapper`), shared with the importer's `CdsSourceContextParser`.
+- **Schema facets of retained import source** read back during reconciliation (a name part of
+  50 characters, a phone extension of 5): the import validated them, so they are integrity
+  checks.
+
 This change targets `release/2026.08`, integrating through
 `9ba62cab4b5538dcbfaa9377a3090dc79cc4a562` (#6167), including the release lab and package/test qualification fixes.
 Its released migration bytes are identical to the pinned upgrade SQL baseline, that same commit

@@ -269,12 +269,14 @@ class CdsExportEnrolmentProjectionServiceUnitTest {
     }
 
     @Test
-    void shouldVerifyLookupAndHistoryShareTheMetadataByteBudget_forEnrolmentProjectionServiceContract() throws Exception {
+    void shouldProjectEnrolment_pastTheFormerLookupByteBudget() throws Exception {
         bounds =
                 new CdsExportClinicalOccurrenceService.Bounds(
                         100000, 8L << 20, 1000, 1024, 100, 100);
-        assertThatThrownBy(this::project).hasMessage("CDS_EXPORT_ENROLMENT_HISTORY_RESOURCE_LIMIT");
-        verifyNoInteractions(notes);
+        // Before: provider lookups past 1,024 bytes stopped the job
+        // (CDS_EXPORT_ENROLMENT_HISTORY_RESOURCE_LIMIT) before the note was read.
+        assertThat(project()).isNotNull();
+        verify(notes).read(any(), any(), anySet(), any(), anyLong(), anyLong(), any());
     }
 
     @Test

@@ -30,7 +30,7 @@ import java.util.*;
 public final class CdsExportRetainedProfessionalContactReconciler {
     public record NativeRows(String sourceManifestSha256, List<CdsExportCapturedTextRowDto> associations,
             List<CdsExportCapturedTextRowDto> contacts, List<CdsExportNativeRowReceiptDto> witnesses) {
-        public NativeRows{if (sourceManifestSha256==null||!sourceManifestSha256.matches("[0-9a-f]{64}"))throw new IllegalArgumentException("CDS_EXPORT_PROFESSIONAL_NATIVE_GENERATION_INVALID"); associations=List.copyOf(associations); contacts=List.copyOf(contacts); witnesses=List.copyOf(witnesses); if ((long) associations.size()+contacts.size()>8192||witnesses.size()>8192)throw new IllegalArgumentException("CDS_EXPORT_PROFESSIONAL_NATIVE_ROWS_INVALID"); }
+        public NativeRows{if (sourceManifestSha256==null||!sourceManifestSha256.matches("[0-9a-f]{64}"))throw new IllegalArgumentException("CDS_EXPORT_PROFESSIONAL_NATIVE_GENERATION_INVALID"); associations=List.copyOf(associations); contacts=List.copyOf(contacts); witnesses=List.copyOf(witnesses); }
         @Override public String toString(){return "CdsExportRetainedProfessionalContactReconciler.NativeRows[protected]"; }
     }
     public record Result(String sourceManifestSha256, String parentUnitAddress, Set<String> sourceFields,
@@ -47,10 +47,9 @@ public final class CdsExportRetainedProfessionalContactReconciler {
             List<CdsExportRetainedFieldDto> allFields, CdsExportCapturedTextRowDto demographic, CdsExportNativeRowReceiptDto demographicWitness,
             NativeRows current, int maximumRows, long maximumBytes, CdsExportRetainedSectionWriter.Values values, Runnable checkpoint)throws IOException {
         Objects.requireNonNull(values); Objects.requireNonNull(checkpoint); values.requireActive(); checkpoint.run(); if (!index.sourceManifestSha256().equals(current.sourceManifestSha256()))throw new IOException("CDS_EXPORT_PROFESSIONAL_NATIVE_GENERATION_INVALID");
-        if (maximumRows<1||maximumRows>8192||maximumBytes<1||maximumBytes>(64L<<20))throw new IllegalArgumentException("CDS_EXPORT_PROFESSIONAL_CONTACT_LIMITS_INVALID"); if ((long) current.associations().size()+current.contacts().size()>maximumRows)throw new IOException("CDS_EXPORT_PROFESSIONAL_CONTACT_RESOURCE_LIMIT");
         var witnesses=new HashMap<String, CdsExportNativeRowReceiptDto>(); for (var witness:current.witnesses()){checkpoint.run(); if (!Set.of("Contact", "DemographicContact").contains(witness.table())||witnesses.putIfAbsent(witness.table()+"/"+witness.recordKey(), witness)!=null)scope(); }
-        var all=new ArrayList<>(current.associations()); all.addAll(current.contacts()); var rows=new HashMap<String, CdsExportCapturedTextRowDto>(); var associations=new HashMap<String, CdsExportCapturedTextRowDto>(); long bytes=0;
-        for (var row:all){checkpoint.run(); String key=row.table()+"/"+row.recordKey(); if (rows.putIfAbsent(key, row)!=null)scope(); CdsExportCapturedTextWitness.require(row, witnesses.remove(key), checkpoint); for (var value:row.fields().values())if (value!=null)bytes=Math.addExact(bytes, 64L+value.getBytes(java.nio.charset.StandardCharsets.UTF_8).length); if (bytes>maximumBytes)throw new IOException("CDS_EXPORT_PROFESSIONAL_CONTACT_RESOURCE_LIMIT"); }
+        var all=new ArrayList<>(current.associations()); all.addAll(current.contacts()); var rows=new HashMap<String, CdsExportCapturedTextRowDto>(); var associations=new HashMap<String, CdsExportCapturedTextRowDto>();
+        for (var row:all){checkpoint.run(); String key=row.table()+"/"+row.recordKey(); if (rows.putIfAbsent(key, row)!=null)scope(); CdsExportCapturedTextWitness.require(row, witnesses.remove(key), checkpoint); }
         if (!witnesses.isEmpty())scope();
         for (var row:current.associations()){if (!row.table().equals("DemographicContact")||!Integer.toString(patient).equals(row.fields().get("demographicNo"))||associations.putIfAbsent(row.fields().get("id"), row)!=null)scope(); }
         for (var row:current.contacts())if (!row.table().equals("Contact"))scope();

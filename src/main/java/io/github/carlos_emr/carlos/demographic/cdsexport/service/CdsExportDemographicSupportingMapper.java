@@ -456,8 +456,8 @@ public final class CdsExportDemographicSupportingMapper {
                                     base,
                                     row,
                                     rows.properties(),
-                                    8192,
-                                    64L << 20,
+                                    Integer.MAX_VALUE,
+                                    Long.MAX_VALUE,
                                     checkpoint);
             for (var property :
                     rows.properties().stream()
@@ -488,7 +488,7 @@ public final class CdsExportDemographicSupportingMapper {
         var relatedRows = new ArrayList<Map<String, Object>>();
         var mapped =
                 CdsExportNativeDemographicAssembler.related(
-                        rows.patient(), rows.related(), 8192, 64L << 20, checkpoint);
+                        rows.patient(), rows.related(), Integer.MAX_VALUE, Long.MAX_VALUE, checkpoint);
         var decisions = new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
         decisions.putAll(mapped.pharmacy().fields());
         decisions.putAll(mapped.contacts().fields());

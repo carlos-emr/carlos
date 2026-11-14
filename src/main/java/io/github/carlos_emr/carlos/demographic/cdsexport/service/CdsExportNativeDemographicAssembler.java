@@ -52,6 +52,7 @@ public final class CdsExportNativeDemographicAssembler {
             Set<CdsCategory> selected,
             String captureDigest,
             Map<String, List<CdsExportCapturedTextRowDto>> rows,
+            // Not limits any more: no row count or size is refused. Callers still pass them.
             int maximumRows,
             long maximumBytes,
             Runnable checkpoint)
@@ -62,10 +63,6 @@ public final class CdsExportNativeDemographicAssembler {
                 || !selected.contains(CdsCategory.DEMOGRAPHICS)
                 || captureDigest == null
                 || !captureDigest.matches("[0-9a-f]{64}")
-                || maximumRows < 1
-                || maximumRows > 8192
-                || maximumBytes < 1
-                || maximumBytes > (64L << 20)
                 || !rows.keySet()
                         .equals(
                                 Set.of(
@@ -263,6 +260,7 @@ public final class CdsExportNativeDemographicAssembler {
     static Related related(
             int patient,
             Map<String, List<CdsExportCapturedTextRowDto>> rows,
+            // Not limits any more: no row count or size is refused. Callers still pass them.
             int maximumRows,
             long maximumBytes,
             Runnable checkpoint)

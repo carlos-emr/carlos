@@ -72,8 +72,6 @@ public final class CdsExportRetainedContactBinding {
                 || !index.appliedUnits().contains(address)) scope();
         String run = address.substring(0, 36), key = address.substring(37);
         var units = index.tables().getOrDefault("cds_import_unit", Map.of());
-        if (units.size() > 131_072 || supplied.size() > 1_000_000)
-            throw new IOException("CDS_EXPORT_CONTACT_BINDING_RESOURCE_LIMIT");
         var child = units.get(CdsImportKeys.hash(run, key));
         requireUnit(child, run, key, "Demographics_CONTACT");
         long ordinal = positive(child.fields().get("ordinal"));

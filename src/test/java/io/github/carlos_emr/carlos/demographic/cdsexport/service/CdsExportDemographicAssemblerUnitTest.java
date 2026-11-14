@@ -85,15 +85,15 @@ class CdsExportDemographicAssemblerUnitTest {
     }
 
     @Test
-    void shouldRefuseOversizedCarriers_beforeCopyingTheirContents() {
-        assertThatThrownBy(
-                        () ->
-                                rows(
-                                        Collections.nCopies(8193, row),
-                                        Collections.nCopies(8193, witness),
-                                        null,
-                                        null))
-                .hasMessage("CDS_EXPORT_DEMOGRAPHIC_ASSEMBLY_ROW_SCOPE_INVALID");
+    void shouldAcceptCarriers_pastTheFormerRowBound() {
+        // Before: more than 8,192 property or archive rows was refused as a scope fault.
+        var accepted =
+                rows(
+                        Collections.nCopies(8193, row),
+                        Collections.nCopies(8193, witness),
+                        null,
+                        null);
+        assertThat(accepted.properties()).hasSize(8193);
     }
 
     @Test
@@ -124,30 +124,6 @@ class CdsExportDemographicAssemblerUnitTest {
                                                 () -> {}))
                 .hasMessage("CDS_EXPORT_DEMOGRAPHIC_ASSEMBLY_SCOPE_INVALID");
         org.mockito.Mockito.verifyNoInteractions(values);
-    }
-
-    @Test
-    void shouldRefuseInvalidResourceBounds_beforeAnyCaptureEvidenceIsUsed() {
-        for (long bytes : new long[] {0, (64L << 20) + 1}) {
-            assertThatThrownBy(
-                            () ->
-                                    new CdsExportDemographicAssembler()
-                                            .assemble(
-                                                    27,
-                                                    Set.of(CdsCategory.DEMOGRAPHICS),
-                                                    "parent",
-                                                    null,
-                                                    null,
-                                                    List.of(),
-                                                    rows(List.of(), List.of(), null, null),
-                                                    100,
-                                                    bytes,
-                                                    mock(
-                                                            CdsExportRetainedSectionWriter.Values
-                                                                    .class),
-                                                    () -> {}))
-                    .hasMessage("CDS_EXPORT_DEMOGRAPHIC_ASSEMBLY_SCOPE_INVALID");
-        }
     }
 
     @Test

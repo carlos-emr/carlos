@@ -73,6 +73,7 @@ public final class CdsExportContactRetainedAssembler {
             List<CdsExportCapturedTextRowDto> associations,
             List<CdsExportCapturedTextRowDto> contacts,
             List<CdsExportNativeRowReceiptDto> witnesses,
+            // Not limits any more: no row count or size is refused. Callers still pass them.
             int maximumRows,
             long maximumBytes,
             CdsExportRetainedSectionWriter.Values values,
@@ -338,7 +339,6 @@ public final class CdsExportContactRetainedAssembler {
                             Set.of(),
                             xml -> CdsExportPersonalContactXmlWriter.content(contact, xml)));
         }
-        if (changes.size() > 4096) throw new IOException("CDS_EXPORT_CONTACT_RESOURCE_LIMIT");
         new CdsExportNativeFieldAssessmentValidator()
                 .validate(concat(associations, contacts), fields, 1_000_000, checkpoint);
         // Every contact row is claimed once: by its imported unit, or by the current associations

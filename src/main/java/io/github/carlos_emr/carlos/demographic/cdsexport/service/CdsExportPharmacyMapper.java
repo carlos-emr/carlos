@@ -28,7 +28,6 @@ import io.github.carlos_emr.carlos.demographic.cds.contract.CdsHealthCardAuthori
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFieldAssessmentDto.Outcome;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 /**
@@ -82,8 +81,6 @@ public final class CdsExportPharmacyMapper {
             if (patient < 1
                     || linkRows < 0
                     || pharmacyRows < 0
-                    || linkRows > 8192
-                    || pharmacyRows > 8192
                     || fields.size()
                             != linkRows
                                             * CdsExportPatientTableReadSupport.Plan.PHARMACY_LINK
@@ -153,6 +150,7 @@ public final class CdsExportPharmacyMapper {
             int patient,
             List<CdsExportCapturedTextRowDto> links,
             List<CdsExportCapturedTextRowDto> pharmacies,
+            // Not limits any more: no row count or size is refused. Callers still pass them.
             int maximumRows,
             long maximumBytes,
             Runnable checkpoint)
@@ -161,20 +159,14 @@ public final class CdsExportPharmacyMapper {
         checkpoint.run();
         if (patient < 1
                 || links == null
-                || pharmacies == null
-                || maximumRows < 1
-                || maximumRows > 8192
-                || maximumBytes < 1
-                || maximumBytes > (64L << 20))
+                || pharmacies == null)
             throw new IllegalArgumentException("CDS_EXPORT_PHARMACY_LIMITS_INVALID");
-        if ((long) links.size() + pharmacies.size() > maximumRows) limit();
         var fields = new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
         var lookup = new HashMap<String, CdsExportCapturedTextRowDto>();
         var all = new ArrayList<CdsExportCapturedTextRowDto>();
         var states = new HashMap<CdsExportCapturedTextRowDto, CdsExportNativeFieldAssessments>();
         var referenced = new HashSet<String>();
         var keys = new HashSet<String>();
-        long bytes = 0;
         for (var row : pharmacies) {
             checkpoint.run();
             requireRow(row, CdsExportPatientTableReadSupport.Plan.PHARMACY, "recordID");
@@ -201,13 +193,6 @@ public final class CdsExportPharmacyMapper {
         if (!referenced.containsAll(lookup.keySet())) scope();
         for (var row : all) {
             checkpoint.run();
-            bytes = Math.addExact(bytes, 2048L);
-            for (String value : row.fields().values())
-                if (value != null)
-                    bytes =
-                            Math.addExact(
-                                    bytes, value.getBytes(StandardCharsets.UTF_8).length + 32L);
-            if (bytes > maximumBytes) limit();
             var state = new CdsExportNativeFieldAssessments(row, fields);
             states.put(row, state);
             for (String column :
@@ -441,9 +426,5 @@ public final class CdsExportPharmacyMapper {
 
     private static void scope() throws IOException {
         throw new IOException("CDS_EXPORT_PHARMACY_SCOPE_INVALID");
-    }
-
-    private static void limit() throws IOException {
-        throw new IOException("CDS_EXPORT_PHARMACY_RESOURCE_LIMIT");
     }
 }
