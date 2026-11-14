@@ -568,8 +568,27 @@ public class CdsExportLedgerService {
             CdsExportLeaseDto lease,
             io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportChartCheckpointDto pointer,
             long adopted) {
+        recordCheckpoint(lease, pointer, adopted, java.util.Set.of(), false);
+    }
+
+    /**
+     * Records the newest sealed member of this attempt's checkpoint, and releases the earlier
+     * attempts whose kept charts this attempt has decided again ({@code superseded}): each is
+     * made due for the retention sweep, which erases it, and audited as {@code
+     * CHECKPOINT_SUPERSEDED}. {@code complete} at the end of the roster: when this attempt adopted
+     * any chart, the count is audited as {@code CHARTS_ADOPTED}.
+     */
+    public void recordCheckpoint(
+            CdsExportLeaseDto lease,
+            io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportChartCheckpointDto pointer,
+            long adopted,
+            java.util.Set<Long> superseded,
+            boolean complete) {
         Objects.requireNonNull(pointer);
-        if (adopted < 0 || adopted > pointer.charts())
+        var released = new java.util.TreeSet<>(superseded);
+        if (adopted < 0
+                || adopted > pointer.charts()
+                || released.stream().anyMatch(epoch -> epoch < 1 || epoch >= lease.epoch()))
             throw new IllegalArgumentException("CDS_EXPORT_CHART_CHECKPOINT_INVALID");
         transaction(
                 write,
@@ -589,8 +608,103 @@ public class CdsExportLedgerService {
                     attempt.setCheckpointCharts(pointer.charts());
                     attempt.setAdoptedCharts(adopted);
                     attempt.setUpdatedAt(now);
+                    for (long epoch : released) {
+                        var prior = attempts.lock(run.getId(), epoch);
+                        if (prior == null
+                                || !(KEEPING.equals(prior.getState())
+                                        || KEPT.equals(prior.getState()))
+                                || !prior.getExpiresAt().isAfter(now)) continue;
+                        prior.setExpiresAt(now);
+                        prior.setUpdatedAt(now);
+                        event(
+                                run,
+                                "CHECKPOINT_SUPERSEDED",
+                                lease.document().actor().operatorKey(),
+                                null,
+                                now,
+                                epoch);
+                    }
+                    if (complete && adopted > 0)
+                        event(
+                                run,
+                                "CHARTS_ADOPTED",
+                                lease.document().actor().operatorKey(),
+                                "CDS_EXPORT_CHARTS_ADOPTED_" + adopted,
+                                now);
                     // The heartbeat refreshes the run row; it changes nothing recorded above.
                     runs.renewLease(run, now, now.plusSeconds(LEASE_SECONDS));
+                    return null;
+                });
+    }
+
+    /** One earlier attempt's kept finished charts: its epoch and its recorded checkpoint. */
+    public record KeptCheckpoint(
+            long epoch,
+            io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportChartCheckpointDto
+                    pointer) {
+        @Override
+        public String toString() {
+            return "CdsExportKeptCheckpoint[protected]";
+        }
+    }
+
+    /**
+     * The kept checkpoints of the job's earlier attempts this live attempt may adopt from, newest
+     * first: stopped attempts kept for a resume and not yet due for erasure.
+     */
+    public List<KeptCheckpoint> keptCheckpoints(CdsExportLeaseDto lease) {
+        return transaction(
+                write,
+                () -> {
+                    var run = owned(lease);
+                    if (run.isCancelRequested())
+                        throw new CancellationException("CDS_EXPORT_CANCELLED");
+                    var result = new java.util.ArrayList<KeptCheckpoint>();
+                    for (var kept : attempts.kept(run.getId(), runs.now())) {
+                        if (kept.getEpoch() >= lease.epoch()
+                                || kept.getCheckpointDigest() == null
+                                || kept.getCheckpointBytes() == null
+                                || kept.getCheckpointCharts() == null) continue;
+                        result.add(
+                                new KeptCheckpoint(
+                                        kept.getEpoch(),
+                                        new io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                                .CdsExportChartCheckpointDto(
+                                                kept.getCheckpointMember(),
+                                                kept.getCheckpointDigest(),
+                                                kept.getCheckpointBytes(),
+                                                kept.getCheckpointCharts())));
+                    }
+                    return List.copyOf(result);
+                });
+    }
+
+    /**
+     * Releases an earlier attempt whose kept checkpoint this live attempt found untrustworthy (its
+     * chain does not match its recorded pointer, a member it pins is missing or altered, the key
+     * is gone): it is made due for the retention sweep and audited as {@code CHECKPOINT_REJECTED}.
+     */
+    public void rejectCheckpoint(CdsExportLeaseDto lease, long epoch) {
+        if (epoch < 1 || epoch >= lease.epoch())
+            throw new IllegalArgumentException("CDS_EXPORT_EPOCH_INVALID");
+        transaction(
+                write,
+                () -> {
+                    var run = owned(lease);
+                    var now = runs.now();
+                    var prior = attempts.lock(run.getId(), epoch);
+                    if (prior == null
+                            || !(KEEPING.equals(prior.getState()) || KEPT.equals(prior.getState()))
+                            || !prior.getExpiresAt().isAfter(now)) return null;
+                    prior.setExpiresAt(now);
+                    prior.setUpdatedAt(now);
+                    event(
+                            run,
+                            "CHECKPOINT_REJECTED",
+                            lease.document().actor().operatorKey(),
+                            "CDS_EXPORT_CHART_CHECKPOINT_INVALID",
+                            now,
+                            epoch);
                     return null;
                 });
     }

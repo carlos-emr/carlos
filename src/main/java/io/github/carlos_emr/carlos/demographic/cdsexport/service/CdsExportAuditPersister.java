@@ -81,6 +81,52 @@ public class CdsExportAuditPersister {
         logs.flush();
     }
 
+    /**
+     * The charts the export read again and adopted from an earlier attempt of the same job instead
+     * of building them: their new capture was exactly the one the adopted chart was built from.
+     * One read row per patient, bound to the run, this generation and the generation adopted from;
+     * a packaged chart still gets its {@link #prepared} row as well.
+     */
+    @Transactional(
+            propagation = Propagation.REQUIRES_NEW,
+            rollbackFor = Exception.class,
+            timeout = 15)
+    public void adopted(CdsExportLeaseDto lease, List<Integer> patients, long sourceEpoch) {
+        Objects.requireNonNull(lease);
+        var batch = List.copyOf(patients);
+        if (batch.isEmpty()
+                || batch.size() > 100
+                || new HashSet<>(batch).size() != batch.size()
+                || batch.stream().anyMatch(patient -> patient < 1)
+                || sourceEpoch < 1
+                || sourceEpoch >= lease.epoch())
+            throw new IllegalArgumentException("CDS_EXPORT_AUDIT_PATIENT_SCOPE_INVALID");
+        var actor = lease.document().actor();
+        String data =
+                "CDS_EXPORT_CHART_ADOPTED run="
+                        + lease.runId()
+                        + " epoch="
+                        + lease.epoch()
+                        + " sourceEpoch="
+                        + sourceEpoch
+                        + " operator="
+                        + actor.operatorKey()
+                        + "; outcomes=cds_export_event";
+        for (int patient : batch) {
+            var entry = new OscarLog();
+            entry.setProviderNo(actor.providerNo());
+            entry.setSecurityId(actor.securityNo());
+            // The chart was read again, as the chart's own read audit records a read.
+            entry.setAction(io.github.carlos_emr.carlos.log.LogConst.READ);
+            entry.setContent("demographic");
+            entry.setContentId(Integer.toString(patient));
+            entry.setDemographicId(patient);
+            entry.setData(data);
+            logs.persist(entry);
+        }
+        logs.flush();
+    }
+
     /** Why a chart the export read is not in a prepared package. */
     public enum ReadOutcome {
         /** Held back from an otherwise prepared package; named in its ReadMe. */

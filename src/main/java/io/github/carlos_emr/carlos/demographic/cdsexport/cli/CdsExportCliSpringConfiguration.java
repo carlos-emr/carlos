@@ -252,6 +252,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
     CdsExportPatientDocumentService.class,
     CdsExportPackageInventoryService.class,
     CdsExportPatientFileBindingService.class,
+    CdsExportChartAdoptionService.class,
     CdsExportClinicalPackageService.class,
     CdsExportDisclosureScopeService.class,
     CdsExportDeliveryService.class,

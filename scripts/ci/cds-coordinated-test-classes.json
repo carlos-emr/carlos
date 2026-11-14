@@ -107,6 +107,7 @@
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportCareRetainedSourceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportCaseManagementProjectionEvidenceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportCategoryOccurrenceRegistryUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportChartAdoptionUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportChartCheckpointUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportCheckpointRetentionUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportClinicalJobServiceUnitTest",
