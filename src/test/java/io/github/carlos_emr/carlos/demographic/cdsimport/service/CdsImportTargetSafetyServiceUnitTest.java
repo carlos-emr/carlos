@@ -118,6 +118,129 @@ class CdsImportTargetSafetyServiceUnitTest {
         verify(owner).rollback();
     }
 
+    @Test
+    void shouldAcceptEveryApprovedTrigger_whenTargetsCarryMoreThan1024Triggers() throws Exception {
+        // 1,025 triggers on a target table, each approved: earlier builds refused past 1,024.
+        var definitions = new java.util.ArrayList<String[]>();
+        var approved = new java.util.HashMap<String, String>();
+        for (int n = 0; n < 1025; n++) {
+            String[] trigger = trigger("clinic_audit_" + n, "SET NEW.lastUpdateDate = NOW()");
+            definitions.add(trigger);
+            approved.put("carlos." + trigger[1], CdsImportTargetSafetyService.triggerDigest(single(trigger)));
+        }
+        when(triggers.executeQuery()).thenAnswer(call -> rows(definitions));
+        when(firstPin.executeQuery(anyString())).thenAnswer(call -> rows(List.of()));
+        when(owner.createStatement()).thenReturn(firstPin, account, firstPin, account);
+        var approving =
+                new CdsImportTargetSafetyService(
+                        new CdsImportConfigurationService(new Properties()), Set.of("demographic")) {
+                    @Override
+                    java.util.Map<String, String> approvals() {
+                        return approved;
+                    }
+                };
+        approving.verifyAndPin(owner);
+        verify(owner, never()).rollback();
+        // One trigger that is not approved still refuses the import.
+        approved.remove("carlos.clinic_audit_1024");
+        assertThatThrownBy(() -> approving.verifyAndPin(owner))
+                .isInstanceOf(CdsImportException.class)
+                .hasMessage("IMPORT_TARGET_TRIGGER_APPROVAL_REQUIRED");
+    }
+
+    @Test
+    void shouldDigestATrigger_whenItsDefinitionIsLongerThan1MiB() throws Exception {
+        String body = "BEGIN " + "SET @clinic_audit = 1; ".repeat(60_000) + "END";
+        org.assertj.core.api.Assertions.assertThat(body.length()).isGreaterThan(1 << 20);
+        org.assertj.core.api.Assertions.assertThat(
+                        CdsImportTargetSafetyService.triggerDigest(single(trigger("long", body))))
+                .matches("[0-9a-f]{64}");
+    }
+
+    @Test
+    void shouldReadAnApprovalManifest_whenItIsLargerThan1MiB() throws Exception {
+        var manifest = new StringBuilder("{\"format\":1,\"approvedTriggers\":{");
+        for (int n = 0; n < 12_000; n++) {
+            if (n > 0) manifest.append(',');
+            manifest.append("\"carlos.clinic_audit_")
+                    .append(n)
+                    .append("\":\"")
+                    .append(String.format("%064x", n))
+                    .append('"');
+        }
+        // A name longer than the 256 characters earlier builds allowed is read too; it simply
+        // approves no trigger that does not have it.
+        manifest.append(",\"carlos.").append("x".repeat(300)).append("\":\"").append("f".repeat(64));
+        manifest.append("\"}}");
+        byte[] bytes = manifest.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        org.assertj.core.api.Assertions.assertThat(bytes.length).isGreaterThan(1 << 20);
+        var approved =
+                CdsImportTargetSafetyService.approvedTriggers(
+                        new java.io.ByteArrayInputStream(bytes));
+        org.assertj.core.api.Assertions.assertThat(approved)
+                .hasSize(12_001)
+                .containsEntry("carlos.clinic_audit_11999", String.format("%064x", 11_999));
+        assertThatThrownBy(
+                        () ->
+                                CdsImportTargetSafetyService.approvedTriggers(
+                                        new java.io.ByteArrayInputStream(
+                                                "{\"format\":1,\"approvedTriggers\":{\"a\":\"b\"}}"
+                                                        .getBytes(
+                                                                java.nio.charset.StandardCharsets
+                                                                        .UTF_8))))
+                .isInstanceOf(CdsImportException.class)
+                .hasMessage("IMPORT_TRIGGER_MANIFEST_INVALID");
+    }
+
+    @Test
+    void shouldPinAndVerifyEveryTarget_whenTheCatalogueHasMoreThan256Tables() throws Exception {
+        var names = new java.util.TreeSet<String>();
+        for (int n = 0; n < 300; n++) names.add(String.format("clinic_table_%03d", n));
+        var catalogue = new java.util.ArrayList<String[]>();
+        for (String name : names) catalogue.add(new String[] {name, "InnoDB"});
+        when(tables.executeQuery()).thenAnswer(call -> rows(catalogue));
+        var pins = new java.util.ArrayList<Statement>();
+        when(owner.createStatement())
+                .thenAnswer(
+                        call -> {
+                            Statement pin = mock(Statement.class);
+                            when(pin.executeQuery(anyString()))
+                                    .thenAnswer(
+                                            query -> {
+                                                String sql = query.getArgument(0);
+                                                return sql.equals("SELECT CURRENT_USER()")
+                                                        ? rows(
+                                                                List.<String[]>of(
+                                                                        new String[] {
+                                                                            "carlos@localhost"
+                                                                        }))
+                                                        : rows(List.of());
+                                            });
+                            pins.add(pin);
+                            return pin;
+                        });
+        new CdsImportTargetSafetyService(new CdsImportConfigurationService(new Properties()), names)
+                .verifyAndPin(owner);
+        // 300 tables in pin statements of 16, then the account read.
+        org.assertj.core.api.Assertions.assertThat(pins).hasSize(19 + 1);
+        verify(owner, never()).rollback();
+    }
+
+    /** One TRIGGERS row on the target table: schema, name, table, then its definition. */
+    private static String[] trigger(String name, String statement) {
+        return new String[] {
+            "carlos", name, "demographic", "UPDATE", "BEFORE", statement, "STRICT_ALL_TABLES",
+            "root@localhost", "utf8mb4", "utf8mb4_general_ci", "utf8mb4_general_ci", "1"
+        };
+    }
+
+    /** A result positioned on its only row, as triggerDigest reads it. */
+    private static ResultSet single(String[] row) throws SQLException {
+        ResultSet rows = rows(List.<String[]>of(row));
+        rows.next();
+        return rows;
+    }
+
     /** A forward-only result whose columns are read as strings. */
     private static ResultSet rows(List<String[]> values) throws SQLException {
         ResultSet rows = mock(ResultSet.class);
