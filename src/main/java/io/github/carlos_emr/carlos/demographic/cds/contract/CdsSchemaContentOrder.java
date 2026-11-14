@@ -48,7 +48,9 @@ public final class CdsSchemaContentOrder {
 
     public List<Occurrence> order(CdsSchemaModel.Type type, List<Occurrence> supplied)
             throws IOException {
-        if (type == null || supplied == null || supplied.size() > 131_072) invalid();
+        // No count of children is refused: an imported record can repeat an unbounded element
+        // (ResultReviewer, NoteReviewer and others) any number of times.
+        if (type == null || supplied == null) invalid();
         var values = List.copyOf(supplied);
         var unique = new HashSet<Occurrence>();
         var byName = new HashMap<ExpandedName, List<Occurrence>>();
