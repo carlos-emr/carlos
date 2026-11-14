@@ -2552,7 +2552,7 @@ public class CdsImportLedgerService {
                             runId,
                             null,
                             null,
-                            "IMPORT_REPORT_GENERATION_TIMEOUT".equals(code) ? "WARNING" : "ERROR",
+                            CdsImportStallWindow.REPORT_STALLED.equals(code) ? "WARNING" : "ERROR",
                             code,
                             "REPORTING",
                             null,

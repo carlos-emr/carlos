@@ -32,7 +32,7 @@ final class CdsImportReportControl implements AutoCloseable {
     private final long epoch;
     private final CdsImportCoordinatorService.Owner coordinator;
     private final LongSupplier nanoTime;
-    private final Runnable generationBudget;
+    private final Runnable generationCheckpoint;
     private final Thread owner = Thread.currentThread();
     private final CdsControlPollBackoff polls = new CdsControlPollBackoff();
     private boolean closed;
@@ -42,14 +42,14 @@ final class CdsImportReportControl implements AutoCloseable {
             long epoch,
             CdsImportCoordinatorService.Owner coordinator,
             LongSupplier nanoTime,
-            Runnable generationBudget) {
+            Runnable generationCheckpoint) {
         this.run = Objects.requireNonNull(run);
         if (run.isBlank() || epoch < 0)
             throw new IllegalArgumentException("Invalid import report control binding");
         this.epoch = epoch;
         this.coordinator = Objects.requireNonNull(coordinator);
         this.nanoTime = Objects.requireNonNull(nanoTime);
-        this.generationBudget = Objects.requireNonNull(generationBudget);
+        this.generationCheckpoint = Objects.requireNonNull(generationCheckpoint);
         check(true);
     }
 
@@ -59,16 +59,16 @@ final class CdsImportReportControl implements AutoCloseable {
             throw new IllegalArgumentException("Import report control binding differs");
     }
 
-    void checkBudget() {
+    void checkpoint() {
         requireOpen();
         if (Thread.currentThread().isInterrupted())
             throw new CdsImportException("REPORT_CANCELLED");
-        generationBudget.run();
+        generationCheckpoint.run();
     }
 
     void check(boolean force) {
         CdsImportLedgerService.requireNoTransaction();
-        checkBudget();
+        checkpoint();
         long now = nanoTime.getAsLong();
         if (polls.due(force, now)) {
             polls.expire();
@@ -79,7 +79,7 @@ final class CdsImportReportControl implements AutoCloseable {
                 throw new CdsImportException("OWNER_FENCED");
             // Cancellation and released clinical admission must not prevent required failure
             // receipts.
-            checkBudget();
+            checkpoint();
             polls.succeeded(now);
         }
     }

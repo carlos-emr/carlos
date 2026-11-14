@@ -333,7 +333,7 @@ class CdsHistoricalSnapshotUnitTest {
     }
 
     @Test
-    void shouldBoundHistoricalVerification_byCurrentPolicyDeadline() throws Exception {
+    void shouldStopHistoricalVerification_whenSilentForTheCurrentStallWindow() throws Exception {
         acceptWeb();
         cancelPrior();
         var v = configuration.limits();
@@ -360,7 +360,7 @@ class CdsHistoricalSnapshotUnitTest {
                                                     5_000_000L);
                                             return false;
                                         }));
-        assertEquals("CDS_INPUT_DEADLINE", error.getCode());
+        assertEquals("IMPORT_WORKER_STALLED", error.getCode());
     }
 
     private void acceptWeb() throws Exception {

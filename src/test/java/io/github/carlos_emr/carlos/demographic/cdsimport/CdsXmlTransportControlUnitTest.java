@@ -106,24 +106,24 @@ class CdsXmlTransportControlUnitTest {
     }
 
     @Test
-    void shouldStopBeforeEof_whenDeadlineExpiresInsideManyBoundedCommentsOrInstructions()
+    void shouldStopBeforeEof_whenOneReadIsSilentInsideManyBoundedCommentsOrInstructions()
             throws Exception {
         for (String kind : new String[] {"comment", "pi"}) {
             var input = new ControlledSource(kind, "deadline");
             CdsInputException failure =
                     assertThrows(
                             CdsInputException.class, () -> input.parse(limits(500), () -> false));
-            assertEquals("CDS_INPUT_DEADLINE", failure.code());
+            assertEquals("IMPORT_WORKER_STALLED", failure.code());
             input.assertStoppedInSuffix();
         }
     }
 
     @Test
-    void shouldEnforceTransportDeadline_evenWithAnExistingParkPermit() throws Exception {
+    void shouldEnforceTransportStallWindow_evenWithAnExistingParkPermit() throws Exception {
         var input = new ControlledSource("comment", "deadline-permit");
         CdsInputException failure =
                 assertThrows(CdsInputException.class, () -> input.parse(limits(500), () -> false));
-        assertEquals("CDS_INPUT_DEADLINE", failure.code());
+        assertEquals("IMPORT_WORKER_STALLED", failure.code());
         input.assertStoppedInSuffix();
     }
 

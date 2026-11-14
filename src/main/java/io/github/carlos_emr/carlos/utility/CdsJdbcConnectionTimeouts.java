@@ -40,7 +40,13 @@ public final class CdsJdbcConnectionTimeouts {
     private CdsJdbcConnectionTimeouts() {}
 
     /**
-     * A private advisory owner must survive its run budget plus a bounded network-unwind interval.
+     * Sets the session idle timeout of a private advisory owner: the import's stall window plus a
+     * bounded network-unwind interval. A worker that keeps making progress uses its owner
+     * sessions at least every few seconds outside its clinical unit transactions, so its session
+     * never idles that long; one that stalls leaves it silent, and the server then closes it and
+     * releases its advisory lock exactly as for a dead worker, so a successor can resume the run.
+     *
+     * @param maximumMillis the stall window ({@code cds.import.maxDurationMillis})
      */
     public static void retainOwnerForDuration(java.sql.Connection connection, long maximumMillis)
             throws SQLException {

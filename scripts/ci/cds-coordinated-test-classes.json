@@ -349,6 +349,7 @@
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportReportControlUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportRetiredLimitsUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportReviewServiceUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportStallWindowUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportStreamOwnershipUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportSubmissionServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportSupervisionServiceUnitTest",

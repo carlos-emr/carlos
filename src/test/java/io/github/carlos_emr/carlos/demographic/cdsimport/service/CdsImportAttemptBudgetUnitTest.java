@@ -38,18 +38,46 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-/** Actual execution entry points; the fixture models only durable unit acknowledgements, not clinical conformance. */
+/**
+ * Actual execution entry points; the fixture models only durable unit acknowledgements, not
+ * clinical conformance. The attempt's time setting is its stall window: an attempt that keeps
+ * reaching checkpoints runs to its end, and one silent for the whole window stops, resumably.
+ */
 @Tag("unit")
 class CdsImportAttemptBudgetUnitTest {
     @Test
-    void shouldStopAttemptOnCombinedUnitTime_withSameAcceptedResumeNotReplayingCommittedUnits()
+    void shouldCompleteSlowButMovingAttempt_pastTheOldAttemptDuration() throws Exception {
+        Fixture f = new Fixture();
+        try (var keys = f.keys()) {
+            // Three units of 40ms: 120ms in all, past the 100ms window, never 100ms silent.
+            f.engine.execute("run");
+        }
+        assertEquals(3, f.committed());
+        assertEquals("COMPLETE", f.state.get());
+        assertFalse(f.codes.contains("IMPORT_WORKER_STALLED"));
+        assertTrue(f.clock.get() > TimeUnit.MILLISECONDS.toNanos(100));
+        verify(f.window, times(1)).allowReopen();
+    }
+
+    @Test
+    void shouldEndStalledAttempt_withSameAcceptedResumeNotReplayingCommittedUnits()
             throws Exception {
         Fixture f = new Fixture();
+        var writes = new java.util.concurrent.atomic.AtomicInteger();
+        when(f.records.write(anyString(), anyLong(), any(), any(), any(), any(), any(), any()))
+                .thenAnswer(
+                        call -> {
+                            // The third unit's write is silent for longer than the window.
+                            f.clock.addAndGet(
+                                    TimeUnit.MILLISECONDS.toNanos(
+                                            writes.incrementAndGet() == 3 ? 150 : 40));
+                            return new CdsImportReceiptDto("{}", "digest");
+                        });
         try (var keys = f.keys()) {
             f.engine.execute("run");
             assertEquals(2, f.committed());
             assertEquals("INCOMPLETE", f.state.get());
-            assertTrue(f.codes.contains("IMPORT_ATTEMPT_TIMEOUT"));
+            assertTrue(f.codes.contains("IMPORT_WORKER_STALLED"));
             verify(f.window, never()).allowReopen();
             assertEquals("EXPECTED", f.units.get(2).state());
             // A long stopped/review interval is not charged to the next explicit active attempt.
@@ -79,7 +107,7 @@ class CdsImportAttemptBudgetUnitTest {
         Fixture f = new Fixture();
         doAnswer(
                         call -> {
-                            f.clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(100));
+                            f.clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(150));
                             f.fields.checkpoint();
                             return null;
                         })
@@ -89,53 +117,68 @@ class CdsImportAttemptBudgetUnitTest {
             f.engine.execute("run");
         }
         assertEquals(0, f.committed());
-        assertTrue(f.codes.contains("IMPORT_ATTEMPT_TIMEOUT"));
+        assertTrue(f.codes.contains("IMPORT_WORKER_STALLED"));
         verify(f.records, never())
                 .write(anyString(), anyLong(), any(), any(), any(), any(), any(), any());
         verify(f.window, never()).allowReopen();
     }
 
     @Test
-    void shouldShareOneAttemptBudget_acrossSnapshotAndPlanning() throws Exception {
-        Fixture f = new Fixture();
-        when(f.ledger.isSealed("run")).thenReturn(false);
-        when(f.jobs.snapshot(
-                        eq("run"), eq(1L), eq(f.document), any(CdsImportExecutionControl.class)))
-                .thenAnswer(
-                        call -> {
-                            f.clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(60));
-                            call.<CdsImportExecutionControl>getArgument(3).check(false);
-                            return mock(CdsSnapshotDto.class);
-                        });
-        doAnswer(
-                        call -> {
-                            f.clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(50));
-                            call.<CdsImportExecutionControl>getArgument(4).check(false);
-                            return null;
-                        })
-                .when(f.planning)
-                .plan(
-                        eq("run"),
-                        eq(1L),
-                        eq(f.document),
-                        any(),
-                        any(CdsImportExecutionControl.class));
-        try (var keys = f.keys()) {
-            f.engine.execute("run");
+    void shouldShareOneStallWindow_acrossSnapshotAndPlanning() throws Exception {
+        for (boolean silent : new boolean[] {false, true}) {
+            Fixture f = new Fixture();
+            when(f.ledger.isSealed("run")).thenReturn(false);
+            when(f.jobs.snapshot(
+                            eq("run"),
+                            eq(1L),
+                            eq(f.document),
+                            any(CdsImportExecutionControl.class)))
+                    .thenAnswer(
+                            call -> {
+                                f.clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(60));
+                                call.<CdsImportExecutionControl>getArgument(3).check(false);
+                                return mock(CdsSnapshotDto.class);
+                            });
+            // 60ms then 50ms outlasts the 100ms window but is never silent for it; a planning
+            // scope that starts silent for 120ms cannot hide behind a fresh clock of its own.
+            long planning = silent ? 120 : 50;
+            doAnswer(
+                            call -> {
+                                f.clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(planning));
+                                call.<CdsImportExecutionControl>getArgument(4).check(false);
+                                return null;
+                            })
+                    .when(f.planning)
+                    .plan(
+                            eq("run"),
+                            eq(1L),
+                            eq(f.document),
+                            any(),
+                            any(CdsImportExecutionControl.class));
+            try (var keys = f.keys()) {
+                f.engine.execute("run");
+            }
+            if (silent) {
+                verify(f.ledger)
+                        .endPreflight(
+                                eq("run"),
+                                eq(1L),
+                                eq("FAILED_BEFORE_WRITE"),
+                                eq("IMPORT_WORKER_STALLED"),
+                                any());
+                assertEquals(0, f.committed());
+                verify(f.window, never()).allowReopen();
+            } else {
+                verify(f.ledger, never())
+                        .endPreflight(anyString(), anyLong(), anyString(), anyString(), any());
+                assertEquals(3, f.committed());
+                assertEquals("COMPLETE", f.state.get());
+            }
         }
-        verify(f.ledger)
-                .endPreflight(
-                        eq("run"),
-                        eq(1L),
-                        eq("FAILED_BEFORE_WRITE"),
-                        eq("IMPORT_ATTEMPT_TIMEOUT"),
-                        any());
-        assertEquals(0, f.committed());
-        verify(f.window, never()).allowReopen();
     }
 
     @Test
-    void shouldNeverReclassifyUnknownCommitAsTimeout_whenClockExpires() throws Exception {
+    void shouldNeverReclassifyUnknownCommitAsStall_whenTheWorkerWasSilent() throws Exception {
         Fixture f = new Fixture();
         when(f.records.write(anyString(), anyLong(), any(), any(), any(), any(), any(), any()))
                 .thenAnswer(
@@ -147,7 +190,7 @@ class CdsImportAttemptBudgetUnitTest {
             f.engine.execute("run");
         }
         assertTrue(f.codes.contains("UNIT_COMMIT_OUTCOME_UNKNOWN"));
-        assertFalse(f.codes.contains("IMPORT_ATTEMPT_TIMEOUT"));
+        assertFalse(f.codes.contains("IMPORT_WORKER_STALLED"));
         verify(f.ledger).markIncomplete("run", 1L, "patient", true, false, true);
         verify(f.window, never()).allowReopen();
     }
@@ -378,7 +421,7 @@ class CdsImportAttemptBudgetUnitTest {
             var configuration = mock(CdsImportConfigurationService.class);
             var limits = mock(CdsInputLimitsDto.class);
             when(configuration.limits()).thenReturn(limits);
-            when(limits.maxDurationMillis()).thenReturn(100L);
+            when(limits.stallWindowMillis()).thenReturn(100L);
             var job = mock(CdsImportJobDto.class);
             when(ledger.status("run")).thenReturn(job);
             when(job.state()).thenAnswer(call -> state.get());

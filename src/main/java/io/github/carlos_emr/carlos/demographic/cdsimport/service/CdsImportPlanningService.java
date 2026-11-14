@@ -1260,7 +1260,7 @@ public class CdsImportPlanningService {
         MessageDigest digest = CdsPaths.sha256();
         long bytes = 0;
         var polls = new CdsControlPollBackoff();
-        long started = System.nanoTime(), deadline = configuration.limits().maxDurationMillis();
+        var window = new CdsImportStallWindow(configuration.limits().stallWindowMillis());
         try (InputStream input = Files.newInputStream(location, LinkOption.NOFOLLOW_LINKS)) {
             byte[] buffer = new byte[65536];
             int n;
@@ -1269,8 +1269,8 @@ public class CdsImportPlanningService {
                 if (Thread.currentThread().isInterrupted())
                     throw new CdsImportException("IMPORT_CANCELLED");
                 long now = System.nanoTime();
-                if ((now - started) / 1_000_000 > deadline)
-                    throw new CdsImportException("CDS_INPUT_DEADLINE");
+                if (window.stalled())
+                    throw new CdsImportException(CdsImportStallWindow.WORKER_STALLED);
                 if (shared != null) shared.check(false);
                 else if (polls.due(false, now)) {
                     polls.expire();
@@ -1473,7 +1473,7 @@ public class CdsImportPlanningService {
                 || code.endsWith("_CHILD_NAME_LIMIT")
                 || Set.of(
                                 "CDS_INPUT_CANCELLED",
-                                "CDS_INPUT_DEADLINE",
+                                CdsImportStallWindow.WORKER_STALLED,
                                 "CDS_INPUT_DISK_RESERVE",
                                 // The plan's own storage reached its reserve: an operational
                                 // stop under its own code, never a review of one source XML.
@@ -1485,7 +1485,6 @@ public class CdsImportPlanningService {
                                 "CDS_XML_READ_FAILED",
                                 "OWNER_FENCED",
                                 "IMPORT_CANCELLED",
-                                "IMPORT_ATTEMPT_TIMEOUT",
                                 "IMPORT_COORDINATOR_LOST",
                                 "IMPORT_CONTROL_UNAVAILABLE")
                         .contains(code);
@@ -1573,7 +1572,9 @@ public class CdsImportPlanningService {
         long reviewVersion;
         long nextDiskCheck;
         Path currentParseFolder;
-        final long started = System.nanoTime();
+        // The plan's stall window: every record, unit and parse probe is a checkpoint of it.
+        final CdsImportStallWindow window =
+                new CdsImportStallWindow(configuration.limits().stallWindowMillis());
         final Runnable attemptProbe;
         final CdsImportExecutionControl shared;
         final CdsControlPollBackoff cancellationPolls = new CdsControlPollBackoff();
@@ -1617,9 +1618,9 @@ public class CdsImportPlanningService {
 
         boolean cancellationRequested() {
             attemptProbe.run();
+            if (window.stalled())
+                throw new CdsImportException(CdsImportStallWindow.WORKER_STALLED);
             long now = System.nanoTime();
-            if ((now - started) / 1_000_000 > configuration.limits().maxDurationMillis())
-                throw new CdsImportException("CDS_INPUT_DEADLINE");
             if (shared != null)
                 return false; // The bound attemptProbe already checked cancellation and fencing.
             if (!cancellationPolls.due(false, now)) return false;

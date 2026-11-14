@@ -363,16 +363,15 @@ public class CdsImportJobService {
         CdsImportLedgerService.requireNoTransaction();
         if (reviewRunId.equals(historicalRunId))
             throw new CdsImportException("HISTORICAL_PROVENANCE_RUN_INVALID");
-        long started = System.nanoTime();
         var polls = new CdsControlPollBackoff();
-        long duration = configuration.limits().maxDurationMillis();
+        var window = new CdsImportStallWindow(configuration.limits().stallWindowMillis());
         java.util.function.BooleanSupplier control =
                 () -> {
                     if (Thread.currentThread().isInterrupted() || reviewCancelled.getAsBoolean())
                         return true;
+                    if (window.stalled())
+                        throw new CdsImportException(CdsImportStallWindow.WORKER_STALLED);
                     long now = System.nanoTime();
-                    if ((now - started) / 1_000_000 > duration)
-                        throw new CdsImportException("CDS_INPUT_DEADLINE");
                     if (polls.due(false, now)) {
                         polls.expire();
                         var current = ledger.status(reviewRunId);
@@ -466,14 +465,14 @@ public class CdsImportJobService {
         if (shared != null && current.ownerEpoch() != epoch)
             throw new CdsImportException("OWNER_FENCED");
         Runnable checkpoint = shared == null ? () -> {} : attemptProbe;
-        long started = System.nanoTime();
+        var window = new CdsImportStallWindow(configuration.limits().stallWindowMillis());
         var polls = new CdsControlPollBackoff();
         java.util.function.BooleanSupplier cancelled =
                 () -> {
                     attemptProbe.run();
+                    if (window.stalled())
+                        throw new CdsImportException(CdsImportStallWindow.WORKER_STALLED);
                     long now = System.nanoTime();
-                    if ((now - started) / 1_000_000 > configuration.limits().maxDurationMillis())
-                        throw new CdsImportException("CDS_INPUT_DEADLINE");
                     if (shared != null)
                         return false; // attemptProbe already checked the same physical owner and
                                       // epoch.

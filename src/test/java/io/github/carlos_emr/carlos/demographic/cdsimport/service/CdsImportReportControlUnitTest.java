@@ -57,7 +57,7 @@ class CdsImportReportControlUnitTest {
         var budgets = new AtomicInteger();
         try (var control = control(owner, clock, budgets::incrementAndGet)) {
             for (int i = 0; i < 100; i++) {
-                control.checkBudget();
+                control.checkpoint();
                 control.check(false);
             }
             verify(owner, times(1)).control("run");
@@ -103,7 +103,7 @@ class CdsImportReportControlUnitTest {
     }
 
     @Test
-    void shouldStopOnLocalGenerationDeadline_beforeNextSqlPoll() {
+    void shouldStopOnLocalGenerationStall_beforeNextSqlPoll() {
         var owner = owner();
         var clock = new AtomicLong();
         try (var control =
@@ -112,11 +112,11 @@ class CdsImportReportControlUnitTest {
                         clock,
                         () -> {
                             if (clock.get() >= 100_000_000L)
-                                throw new CdsImportException("IMPORT_REPORT_GENERATION_TIMEOUT");
+                                throw new CdsImportException("IMPORT_REPORT_GENERATION_STALLED");
                         })) {
             clock.set(100_000_000L);
             assertThatThrownBy(() -> control.check(false))
-                    .hasMessage("IMPORT_REPORT_GENERATION_TIMEOUT");
+                    .hasMessage("IMPORT_REPORT_GENERATION_STALLED");
             verify(owner, times(1)).control("run");
         }
     }
@@ -332,18 +332,18 @@ class CdsImportReportControlUnitTest {
     }
 
     @Test
-    void shouldRecheckReportBudget_afterSlowPhysicalControlObservation(@TempDir Path temp)
+    void shouldRecheckReportStallWindow_afterSlowPhysicalControlObservation(@TempDir Path temp)
             throws Exception {
         var f = fixture(temp);
         var owner = owner(f.run);
         when(owner.control(f.run))
                 .thenAnswer(
                         call -> {
-                            f.clock.addAndGet(100_000_000L);
+                            f.clock.addAndGet(150_000_000L);
                             return RELEASED_CANCELLED;
                         });
         assertThatThrownBy(() -> f.results.generate(f.run, 1, owner))
-                .hasMessage("IMPORT_REPORT_GENERATION_TIMEOUT");
+                .hasMessage("IMPORT_REPORT_GENERATION_STALLED");
         assertThat(f.reportState.get()).isEqualTo("FAILED");
         verify(f.selection, never())
                 .select(anyString(), anyLong(), anyLong(), anyString(), anyString(), anyString());
@@ -501,7 +501,7 @@ class CdsImportReportControlUnitTest {
                 .thenAnswer(
                         call -> {
                             call.<Runnable>getArgument(3).run();
-                            call.<CdsImportReportControl>getArgument(4).checkBudget();
+                            call.<CdsImportReportControl>getArgument(4).checkpoint();
                             return fixture.clean;
                         });
         return fixture;

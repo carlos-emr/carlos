@@ -40,7 +40,8 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.dto;
  * @param maxBoundedScalarCharacters characters of one schema-constrained value or markup
  *     construct held for validation; unconstrained text, numbers and binary values stream
  * @param minimumFreeDiskBytes free space every writer leaves on its store
- * @param maxDurationMillis {@code cds.import.maxDurationMillis}, the attempt time setting
+ * @param stallWindowMillis {@code cds.import.maxDurationMillis}: how long the import worker may
+ *     reach no checkpoint before it is treated as dead; not a limit on how long an import runs
  * @param maxPathCharacters one archive member path or record-relative XML path
  * @param maxNamespaceAliases distinct namespace prefixes and URIs of one document
  * @param maxUniqueXmlNames distinct qualified names of one document
@@ -51,7 +52,7 @@ public record CdsInputLimitsDto(
         int maxXmlDepth,
         int maxBoundedScalarCharacters,
         long minimumFreeDiskBytes,
-        long maxDurationMillis,
+        long stallWindowMillis,
         int maxPathCharacters,
         int maxNamespaceAliases,
         int maxUniqueXmlNames,
@@ -61,7 +62,7 @@ public record CdsInputLimitsDto(
         if (maxXmlDepth < 4
                 || maxBoundedScalarCharacters < 65536
                 || minimumFreeDiskBytes < 0
-                || maxDurationMillis < 1
+                || stallWindowMillis < 1
                 || maxPathCharacters < 256
                 || maxNamespaceAliases < 1
                 || maxUniqueXmlNames < 1
@@ -71,18 +72,18 @@ public record CdsInputLimitsDto(
         }
     }
 
-    /** The default namespace and name guards with the given structure, disk and time settings. */
+    /** The default namespace and name guards with the given structure, disk and stall settings. */
     public CdsInputLimitsDto(
             int maxXmlDepth,
             int maxBoundedScalarCharacters,
             long minimumFreeDiskBytes,
-            long maxDurationMillis,
+            long stallWindowMillis,
             int maxPathCharacters) {
         this(
                 maxXmlDepth,
                 maxBoundedScalarCharacters,
                 minimumFreeDiskBytes,
-                maxDurationMillis,
+                stallWindowMillis,
                 maxPathCharacters,
                 128,
                 4096,
