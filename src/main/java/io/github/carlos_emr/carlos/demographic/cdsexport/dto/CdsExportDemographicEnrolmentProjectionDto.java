@@ -38,7 +38,6 @@ public record CdsExportDemographicEnrolmentProjectionDto(
                 || !sourceManifestSha256.matches("[0-9a-f]{64}")
                 || demographic == null
                 || sourceRows < 1
-                || sourceRows > 65_536
                 || events == null
                 || events.size() > sourceRows
                 || noteRows < 0

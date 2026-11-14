@@ -53,7 +53,7 @@ public final class CdsExportDemographicClosureValidator {
         Objects.requireNonNull(actual); Objects.requireNonNull(checkpoint); checkpoint.run();
         if (captureDigest == null || !captureDigest.matches("[0-9a-f]{64}")
                 || !captureDigest.equals(actual.sourceManifestSha256()) || expectedRows.isEmpty()
-                || expectedSourceFields.isEmpty() || expectedSourceFields.size() > 65536
+                || expectedSourceFields.isEmpty()
                 || expectedSourceFields.stream().anyMatch(id -> id == null || !id.matches("[0-9a-f]{64}"))) scope();
         if (!actual.deferredNativeFields().isEmpty() || !actual.deferredSourceFields().isEmpty()
                 || !actual.decidedSourceFields().equals(expectedSourceFields)) scope();
