@@ -218,6 +218,7 @@
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportMedicationReasonReadMariaDbIntegrationTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportMedicationRetainedAssemblerUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportMergedChartComposerUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportMergedChartMariaDbIntegrationTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNativeCaptureServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNativeCaptureUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNativeCareMapperUnitTest",

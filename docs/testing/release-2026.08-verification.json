@@ -833,7 +833,7 @@
         "scripts/ci/lifecycle_baselines.py",
         "scripts/ci/test_lifecycle_baselines.py"
       ],
-      "implementation": "Execute actual clinical JavaScript and persisted workflows for the older-main form/measurement/prevention/rule changes; promote the HDL defect regressions once the product is fixed. Require distinct pinned beta5 and current-main beta6 installs on ON/BC; beta5 exercises V1.0.59.27\u201332 and CLI 1.3.0-to-1.3.1. A source-identical current-main install alone does not cover historical migration.",
+      "implementation": "Execute actual clinical JavaScript and persisted workflows for the older-main form/measurement/prevention/rule changes; promote the HDL defect regressions once the product is fixed. Require distinct pinned beta5 and current-main beta6 installs on ON/BC; beta5 exercises V1.0.59.27–32 and CLI 1.3.0-to-1.3.1. A source-identical current-main install alone does not cover historical migration.",
       "cases": "Framingham/UKPDS HDL equal/greater than total and stale-answer clearing; renal thresholds/source selection; WHtR and waist units; valid/impossible dates and leap/DST days; missing patient/catalog/rules; age/sex/hide filters; shared/private/null flowsheet scopes; selected preventions in print; duplicate linked diagnosis/drug and intact long lab values.",
       "acceptance": "Clinical calculations use the intended inputs, invalid input clears stale results, persisted dates/values are exact, and no missing-data case logs an error per prevention type.",
       "requiredChecks": [
@@ -4767,6 +4767,23 @@
           "check": "java-cds-native",
           "cases": [
             "shouldRestoreEveryDuplicateExtensionRow_withIndependentVerifiedReceipts"
+          ]
+        },
+        "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportMergedChartMariaDbIntegrationTest": {
+          "check": "java-cds-transfer-export",
+          "cases": [
+            {
+              "name": "shouldImportEveryMergedChartsRecordsOntoOneChart_whenAMergedGroupMakesTheRoundTrip",
+              "container": ""
+            },
+            {
+              "name": "shouldHoldTheWholeGroup_whenOneOfItsChartsIsRefused",
+              "container": ""
+            },
+            {
+              "name": "shouldAdoptAKeptMergedFileOnlyWhileItsGroupIsUnchanged_whenAStoppedExportIsResumed",
+              "container": ""
+            }
           ]
         }
       },
