@@ -709,6 +709,59 @@ class CdsExportNativeHistoryMapperUnitTest {
                 .hasMessage("CDS_EXPORT_NATIVE_HISTORY_SCOPE_INVALID");
     }
 
+    @Test
+    void shouldExportANoteWithoutAUsableUuid_asTheChainCarlosKeepsItIn() throws Exception {
+        // A legacy note saved before notes had a uuid, and notes whose uuid is text a REST client
+        // sent, held the whole patient. The first is a chain of its own; the others are joined by
+        // that exact text (CdsExportNoteRevisionPlanner.lineage).
+        var legacyFields =
+                new LinkedHashMap<>(
+                        note(91, "Seen in 2004.", null, List.of()).note().value().fields());
+        legacyFields.put("uuid", null);
+        var legacy =
+                new CdsExportHistoryFieldReconciler.Current(
+                        row(Plan.CASE_NOTES, 91, legacyFields),
+                        List.of(),
+                        List.of(),
+                        Map.of(),
+                        Map.of());
+        var alone = map(CdsCategory.CLINICAL_NOTES, List.of(legacy));
+        assertThat(alone.value().text().get("MyClinicalNotesContent")).startsWith("Seen in 2004.");
+        render(alone.value());
+        var blankFields =
+                new LinkedHashMap<>(
+                        note(92, "Seen in 2005.", null, List.of()).note().value().fields());
+        blankFields.put("uuid", "");
+        var blank =
+                new CdsExportHistoryFieldReconciler.Current(
+                        row(Plan.CASE_NOTES, 92, blankFields),
+                        List.of(),
+                        List.of(),
+                        Map.of(),
+                        Map.of());
+        // Two notes without one are never one chain.
+        assertThatThrownBy(() -> map(CdsCategory.CLINICAL_NOTES, List.of(legacy, blank)))
+                .hasMessage("CDS_EXPORT_NATIVE_HISTORY_SCOPE_INVALID");
+        var revisions = new ArrayList<CdsExportHistoryFieldReconciler.Current>();
+        for (long id : List.of(93L, 94L)) {
+            var fields =
+                    new LinkedHashMap<>(
+                            note(id, "Revision " + id, null, List.of()).note().value().fields());
+            fields.put("uuid", "client-note-7");
+            revisions.add(
+                    new CdsExportHistoryFieldReconciler.Current(
+                            row(Plan.CASE_NOTES, id, fields),
+                            List.of(),
+                            List.of(),
+                            Map.of(),
+                            Map.of()));
+        }
+        var joined = map(CdsCategory.CLINICAL_NOTES, revisions);
+        assertThat(joined.value().text().get("MyClinicalNotesContent"))
+                .contains("Revision 93", "Revision 94");
+        render(joined.value());
+    }
+
     /** A patient issue as the encounter editor writes it (prepareCaseIssue): the chart's program. */
     static CdsExportHistoryFieldReconciler.Row uiIssue(long id, long issueId, String program) {
         return row(

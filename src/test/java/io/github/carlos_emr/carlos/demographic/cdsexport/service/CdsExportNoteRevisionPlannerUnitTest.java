@@ -76,14 +76,45 @@ class CdsExportNoteRevisionPlannerUnitTest {
     }
 
     @Test
-    void shouldRequireReviewForLegacyUuidValues_withoutInventingAChain() throws Exception {
-        for (String uuid :
-                new String[] {null, "", "1-1-1-1-1", "not-a-uuid", UUID_A.substring(1)}) {
-            var result = plan(List.of(row(91, uuid, "2020-01-01 01:02:03")));
-            assertThat(result.qualifiedLineages()).isFalse();
-            assertThat(result.chains()).isEmpty();
-            assertThat(result.reviews()).containsKey(91L);
-        }
+    void shouldJoinNotesWithoutAUsableUuid_asCarlosJoinsTheirRevisions() throws Exception {
+        // A legacy note saved before notes had a uuid, and a note whose uuid is text a REST
+        // client sent (NotesService.saveNote stores it), held the whole patient (MISSING_UUID,
+        // UNSUPPORTED_UUID). CARLOS treats the first as a chain of its own
+        // (CaseManagementManagerImpl.previousRevision gives it a uuid at its first edit) and
+        // joins the second's revisions by that exact text (each revision takes its previous
+        // revision's uuid).
+        String time = "2020-01-01 01:02:03";
+        var result =
+                plan(
+                        List.of(
+                                row(91, null, time),
+                                row(92, "", time),
+                                row(93, "  ", time),
+                                row(94, "not-a-uuid", time),
+                                row(95, "not-a-uuid", time),
+                                row(96, "1-1-1-1-1", time),
+                                row(97, UUID_A.substring(1), time),
+                                row(98, UUID_A, time)));
+        assertThat(result.qualifiedLineages()).isTrue();
+        assertThat(result.reviews()).isEmpty();
+        assertThat(result.chains())
+                .extracting(CdsExportNoteRevisionPlanner.Chain::revisions)
+                .containsExactlyInAnyOrder(
+                        List.of(91L),
+                        List.of(92L),
+                        List.of(93L),
+                        List.of(94L, 95L),
+                        List.of(96L),
+                        List.of(97L),
+                        List.of(98L));
+        assertThat(result.chains())
+                .filteredOn(chain -> chain.canonicalUuid() != null)
+                .extracting(CdsExportNoteRevisionPlanner.Chain::canonicalUuid)
+                .containsExactly(UUID_A);
+        assertThat(CdsExportNoteRevisionPlanner.lineage(UUID_A.toUpperCase(Locale.ROOT)))
+                .isEqualTo(UUID_A);
+        assertThat(CdsExportNoteRevisionPlanner.lineage(" ")).isNull();
+        assertThat(CdsExportNoteRevisionPlanner.lineage("not-a-uuid")).isEqualTo("not-a-uuid");
     }
 
     @Test

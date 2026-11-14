@@ -30,17 +30,22 @@ import java.util.*;
 /** Complete source-bound revision inventory; a current note is the owning chart's maximum native ID, not its latest timestamp. */
 public final class CdsExportNoteRevisionPlanner {
     public enum Review {
-        MISSING_UUID,
-        UNSUPPORTED_UUID,
         UNSUPPORTED_FLAGS
     }
 
+    /**
+     * One note's revisions in order.
+     *
+     * @param canonicalUuid the chain's UUID in canonical (lowercase) form, or null for a chain
+     *     whose notes carry none: a legacy note saved before notes had one, which is a chain of its
+     *     own, or notes that carry the same text that is not a UUID ({@link #lineage})
+     */
     public record Chain(String canonicalUuid, List<Long> revisions, long currentNoteId) {
         public Chain {
             revisions = List.copyOf(revisions);
-            if (canonicalUuid == null
-                    || !canonicalUuid.matches(
-                            "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+            if (canonicalUuid != null
+                            && !canonicalUuid.matches(
+                                    "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
                     || revisions.isEmpty()
                     || currentNoteId != revisions.getLast())
                 throw new IllegalArgumentException("CDS_EXPORT_NOTE_REVISION_CHAIN_INVALID");
@@ -77,7 +82,7 @@ public final class CdsExportNoteRevisionPlanner {
                 throw new IllegalArgumentException("CDS_EXPORT_NOTE_REVISION_INVENTORY_INVALID");
             var uuids = new HashSet<String>();
             for (var chain : chains) {
-                if (!uuids.add(chain.canonicalUuid()))
+                if (chain.canonicalUuid() != null && !uuids.add(chain.canonicalUuid()))
                     throw new IllegalArgumentException(
                             "CDS_EXPORT_NOTE_REVISION_INVENTORY_INVALID");
                 for (long id : chain.revisions())
@@ -97,6 +102,29 @@ public final class CdsExportNoteRevisionPlanner {
         public String toString() {
             return "CdsExportNoteRevisionPlanner.Result[protected]";
         }
+    }
+
+    /** A UUID's text in any letter case (the chart's collation compares it case-insensitively). */
+    private static final java.util.regex.Pattern UUID_TEXT =
+            java.util.regex.Pattern.compile(
+                    "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
+
+    /**
+     * What joins a note to its revisions, as CARLOS joins them: each revision takes its previous
+     * revision's stored uuid ({@code CaseManagementManagerImpl.saveNoteRevision}). A UUID is its
+     * canonical (lowercase) form, since the chart compares it case-insensitively. Any other text,
+     * which the REST notes service stores as a client sends it ({@code NotesService.saveNote}), is
+     * itself. A note with none (SQL NULL or blank: a legacy note saved before notes had one, which
+     * {@code CaseManagementManagerImpl.previousRevision} gives one at its first edit) gives null
+     * and is a chain of its own. Those two held the whole patient (reviews {@code MISSING_UUID} and
+     * {@code UNSUPPORTED_UUID}, {@code CDS_EXPORT_UNMAPPED_DATA}).
+     *
+     * @param uuid the stored {@code casemgmt_note.uuid}, or null
+     * @return the chain's key, or null for a note without one
+     */
+    static String lineage(String uuid) {
+        if (uuid == null || uuid.isBlank()) return null;
+        return UUID_TEXT.matcher(uuid).matches() ? UUID.fromString(uuid).toString() : uuid;
     }
 
     /** The note fields a revision's metadata is compared with its witness on, in a fixed order. */
@@ -319,23 +347,18 @@ public final class CdsExportNoteRevisionPlanner {
             if (position < 0 || row.patient() != patient || seen.get(position)) invalid();
             seen.set(position);
             verify(row, witnesses, position);
-            if (row.uuid() == null || row.uuid().isEmpty()) {
-                reviews.put(row.noteId(), Review.MISSING_UUID);
-                return;
-            }
-            if (!row.uuid()
-                    .matches(
-                            "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")) {
-                reviews.put(row.noteId(), Review.UNSUPPORTED_UUID);
-                return;
-            }
             if (row.archived() != null && !Set.of("0", "1").contains(row.archived())
                     || !Set.of("0", "1").contains(row.signed() == null ? "" : row.signed()))
                 reviews.put(row.noteId(), Review.UNSUPPORTED_FLAGS);
-            // Canonical UUIDs contain only ASCII hexadecimal and hyphens: folding case matches
-            // the chart's SQL collation without guessing how arbitrary legacy strings compare.
-            String uuid = UUID.fromString(row.uuid()).toString();
-            groups.computeIfAbsent(uuid, ignored -> new ArrayList<>()).add(row.noteId());
+            // A note with no uuid is a chain of its own, keyed by its id; a UUID is keyed by its
+            // canonical form and any other text by itself (lineage). The tags keep the three
+            // kinds of key apart.
+            String lineage = lineage(row.uuid());
+            String key =
+                    lineage == null
+                            ? "n" + row.noteId()
+                            : (UUID_TEXT.matcher(row.uuid()).matches() ? "u" : "t") + lineage;
+            groups.computeIfAbsent(key, ignored -> new ArrayList<>()).add(row.noteId());
         }
 
         /** The inventory, once every witnessed note has had its metadata row. */
@@ -348,7 +371,14 @@ public final class CdsExportNoteRevisionPlanner {
                 revisions.sort(Long::compare);
                 if (revisions.stream().anyMatch(reviews::containsKey)) {
                     for (long id : revisions) reviews.put(id, Review.UNSUPPORTED_FLAGS);
-                } else chains.add(new Chain(group.getKey(), revisions, revisions.getLast()));
+                } else
+                    chains.add(
+                            new Chain(
+                                    group.getKey().startsWith("u")
+                                            ? group.getKey().substring(1)
+                                            : null,
+                                    revisions,
+                                    revisions.getLast()));
             }
             checkpoint.run();
             return new Result(patient, manifest, chains, reviews, witnesses.size());

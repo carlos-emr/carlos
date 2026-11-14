@@ -271,14 +271,12 @@ public final class CdsExportNativeHistoryMapper {
                     || !Integer.toString(patient).equals(note.fields().get("demographic_no")))
                 invalid();
             previous = id;
-            String revisionUuid;
-            try {
-                revisionUuid = UUID.fromString(note.fields().get("uuid")).toString();
-            } catch (IllegalArgumentException | NullPointerException malformed) {
-                invalid();
-                return null;
-            }
-            if (uuid != null && !uuid.equals(revisionUuid)) invalid();
+            // The revisions the planner joined by their stored uuid (CdsExportNoteRevisionPlanner
+            // .lineage): every one carries the same, and a note without one is alone in its chain.
+            String revisionUuid = CdsExportNoteRevisionPlanner.lineage(note.fields().get("uuid"));
+            if (revisionUuid == null
+                    ? revisions.size() != 1
+                    : uuid != null && !uuid.equals(revisionUuid)) invalid();
             uuid = revisionUuid;
             add(rows, note);
             var state = new CdsExportNativeFieldAssessments(note, decisions);
