@@ -48,11 +48,13 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Service
 public class CdsNativePreparationService {
     /**
-     * What {@code cds_import_preparation.payload} admits: a MEDIUMTEXT column whose check holds a
-     * record to 1,048,576 UTF-8 bytes (V1.0.59.14). The export reads a retained record under the
-     * same bound, so a larger record needs both the column and that reader changed.
+     * What {@code cds_import_preparation.payload} admits: the capacity of its MEDIUMTEXT column,
+     * 16,777,215 UTF-8 bytes. V1.0.59.14 also gave the column a check of 1,048,576 bytes, an
+     * arbitrary number that V1.0.59.50 removed. The export reads a retained record under the same
+     * capacity ({@code CdsExportRetainedPreparationReader}), so a larger record needs both the
+     * column and that reader changed.
      */
-    static final int MAXIMUM = 1_048_576;
+    static final int MAXIMUM = 16_777_215;
     private static final ObjectMapper JSON =
             new ObjectMapper()
                     .registerModule(new JavaTimeModule())

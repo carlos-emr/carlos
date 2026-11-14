@@ -147,7 +147,7 @@ class CdsNativePreparationServiceUnitTest {
 
     @Test
     void shouldRefuseOversizedPreparation_beforeOpeningMetadataTransaction() {
-        // Larger than the payload column's check admits (1,048,576 bytes).
+        // Larger than the payload column holds: MEDIUMTEXT, 16,777,215 bytes.
         var dao = mock(CdsImportPreparationDao.class);
         var service = service(dao);
         assertThatThrownBy(
@@ -158,16 +158,26 @@ class CdsNativePreparationServiceUnitTest {
                                         "a".repeat(64),
                                         "b".repeat(64),
                                         command(),
-                                        new Source("x".repeat(1100000), Map.of())))
+                                        new Source(
+                                                "x".repeat(CdsNativePreparationService.MAXIMUM),
+                                                Map.of())))
                 .isInstanceOf(Exception.class)
                 .hasStackTraceContaining("NATIVE_PREPARATION_CAPACITY_EXCEEDED");
         verifyNoInteractions(dao);
     }
 
     @Test
-    void shouldStoreAndLoadPreparation_whenItIsNearItsColumnCheck() throws Exception {
-        // A note of about 0.9 MiB is prepared whole and read back exactly: the record's own size,
-        // not a note setting, decides whether it fits.
+    void shouldStoreTheColumnsCapacity_insteadOfTheFormerOneMebibyteCheck() {
+        // V1.0.59.14 checked the record at 1,048,576 bytes; V1.0.59.50 removed that check, and
+        // the bound is the MEDIUMTEXT column's own capacity.
+        assertThat(CdsNativePreparationService.MAXIMUM).isEqualTo((1 << 24) - 1);
+    }
+
+    @Test
+    void shouldStoreAndLoadPreparation_whenItIsLargerThanTheFormerOneMebibyteCheck()
+            throws Exception {
+        // A note of over 2 MiB is prepared whole and read back exactly: the record's own size,
+        // not a note setting or the former 1 MiB check, decides whether it fits.
         var dao = mock(CdsImportPreparationDao.class);
         Map<String, CdsImportPreparation> rows = new HashMap<>();
         when(dao.get(anyString())).thenAnswer(call -> rows.get(call.getArgument(0)));
@@ -180,7 +190,7 @@ class CdsNativePreparationServiceUnitTest {
                 .when(dao)
                 .persist(any());
         var service = service(dao);
-        String text = "Synthetic note line\n".repeat(45_000);
+        String text = "Synthetic note line \u00e9 \ud83d\ude00\n".repeat(80_000);
         service.store(
                 "run", 1, "a".repeat(64), "b".repeat(64), command(), new Source(text, Map.of()));
         byte[] payload =
@@ -190,7 +200,7 @@ class CdsNativePreparationServiceUnitTest {
                         .getPayload()
                         .getBytes(java.nio.charset.StandardCharsets.UTF_8);
         assertThat(payload)
-                .hasSizeGreaterThan(900_000)
+                .hasSizeGreaterThan(2 << 20)
                 .hasSizeLessThanOrEqualTo(CdsNativePreparationService.MAXIMUM);
         try (var active = mockStatic(CdsImportUnitService.class)) {
             assertThat(

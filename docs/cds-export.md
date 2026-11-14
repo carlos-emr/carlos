@@ -1978,7 +1978,7 @@ listed in `docs/cds-import.md`.
 | E56 | renderer breaker and queue pauses | `CdsExportEformRenderService` | A | the export waits |
 | E57 | 131,072 rows and 64 MiB in four projection services | `CdsExport{Appointment,Medication,Allergy,Immunization}ProjectionService` | removed | dead code, deleted |
 | E58 | `maximumFields` 1 to 1,000,000 | `CdsExportNativeFieldAssessmentValidator` | removed | dead parameter; a deprecated form that ignores it remains for two demographic callers |
-| E60 | the importer's stored format (192 references, receipts, preparations) | `CdsExportRetainedIndexService` and the retained readers | B | they mirror the importer's own writers |
+| E60 | the importer's stored format (192 references, receipts, preparations) | `CdsExportRetainedIndexService` and the retained readers | B | they mirror the importer's own writers; a prepared record is read up to its MEDIUMTEXT column's 16,777,215 bytes (`CdsExportRetainedPreparationReader.MAXIMUM`; the column's 1 MiB check is gone, V1.0.59.50) |
 | E61 | 1 MiB a manifest line, 1,024 listed tables, 65,536-character ReadMe lines | `CdsExportJsonLines`, `CdsExportSupportingFilesValidator` | B | lines CARLOS writes, split far below them |
 | E62 | spool batches, fan-in, sort runs, 32 GiB a message, ZIP64 | `CdsExportSpoolService`, `CdsExportDeliveryComposer`, `CdsExportPackageComposer` | A | how the package is written |
 | E63 | recipient RSA key of 2,048 bits | `CdsExportDeliveryComposer` | B | security |

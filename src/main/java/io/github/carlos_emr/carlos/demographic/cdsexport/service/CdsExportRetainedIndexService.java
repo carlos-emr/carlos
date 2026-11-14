@@ -166,11 +166,11 @@ public class CdsExportRetainedIndexService {
                 manifest,
                 maximumFields,
                 maximumBytes,
-                // One row's text. This is the import ledger's own stored format, not a
-                // limit of the export: the importer seals a witness of at most
-                // MAX_SEALED_BYTES, writes a receipt of at most 65,536 characters and inline
-                // field values of at most 98,304, and the preparation payload column is
-                // checked at 1 MiB, so no row the importer can write is larger.
+                // How a value is read, never whether: a value of up to this many bytes is
+                // collected whole, a longer one (a prepared record of up to the 16 MiB its
+                // MEDIUMTEXT column holds) is decoded as its bytes arrive. The importer seals
+                // a witness of at most MAX_SEALED_BYTES, writes a receipt of at most 65,536
+                // characters and inline field values of at most 98,304.
                 (int)
                         (2_097_152L
                                 + io.github.carlos_emr.carlos.demographic.cds.contract
@@ -430,7 +430,9 @@ public class CdsExportRetainedIndexService {
                 effectiveOptions.put(key, expectedOptions);
             }
             String payload = value(prepared, "payload");
-            if (payload.getBytes(StandardCharsets.UTF_8).length > 1_048_576
+            // What the payload's MEDIUMTEXT column holds; its former 1 MiB check is gone.
+            if (payload.getBytes(StandardCharsets.UTF_8).length
+                            > CdsExportRetainedPreparationReader.MAXIMUM
                     || !value(prepared, "source_digest").equals(value(unit, "source_digest"))
                     || !value(prepared, "options_digest").equals(expectedOptions)
                     || !value(prepared, "ruleset_digest").equals(value(origin, "ruleset_digest"))
