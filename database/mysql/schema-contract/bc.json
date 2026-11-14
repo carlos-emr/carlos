@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "c96fce7dd7f0b6c339a844c89c21ecbfdcc1723a91f65393ea95bcfd095418e6",
+ "migration_sha256": "1375965897cc17df675ffe1999294cdc983a455f58f53e6a554c81f7e97eac9a",
  "province": "bc",
  "schema": {
   "checks": [
@@ -185085,6 +185085,50 @@
     1,
     3,
     "unit_key",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_unit",
+    "idx_cds_units_patient_id",
+    1,
+    1,
+    "run_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_unit",
+    "idx_cds_units_patient_id",
+    1,
+    2,
+    "patient_key",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_unit",
+    "idx_cds_units_patient_id",
+    1,
+    3,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_import_unit",
+    "idx_cds_units_patient_id",
+    1,
+    4,
+    "category",
     "A",
     null,
     "BTREE",

@@ -728,6 +728,10 @@ Migration `V1.0.59.47` indexes `cds_laboratory_result` (laboratory results broug
 CDS import) by the local report each is bound to. Without it, exporting an imported chart
 slowed as the clinic's imported results grew, and a chart of about two thousand imported
 results failed on a statement timeout.
+Migration `V1.0.59.48` indexes `cds_import_unit` (the import's record of each imported entry) so
+that one chart's entries are read in order from the index. Without it the capture sorted every
+entry of an imported chart again for each page it read, and the time grew with the square of the
+chart. On a clinic with many imported charts the index build adds a little time to the upgrade.
 
 No setting limits how much of a chart is captured. `cds.export.maxCapturedFields` and
 `cds.export.maxCapturedBytes` are retired: remove them from `carlos.properties`. If they are

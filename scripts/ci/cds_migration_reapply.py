@@ -14,7 +14,8 @@ def verify_export_migration_reapply(repository: Path, query):
              'V1.0.59.44__index_cds_hrm_patient_scope.sql',
              'V1.0.59.45__cds_export_held_patients.sql',
              'V1.0.59.46__index_measurements_deleted_owners.sql',
-             'V1.0.59.47__index_cds_laboratory_result_native_lab.sql')
+             'V1.0.59.47__index_cds_laboratory_result_native_lab.sql',
+             'V1.0.59.48__index_cds_import_unit_patient_id.sql')
     migrations = [folder.joinpath(name).read_text() for name in names]
     def first_statement(sql):
         # Semicolons in explanatory comments are not SQL statement boundaries.
@@ -149,6 +150,38 @@ def verify_export_migration_reapply(repository: Path, query):
             refused = True
         if not refused:
             raise RuntimeError('A same-name cds_laboratory_result index of another shape was accepted')
+        # cds_import_unit index by run, patient key and id: a replay changes nothing, no unit is
+        # changed, and a same-name index of another shape is refused.
+        # The fixture's first cds_import_unit served the native-witness replay above.
+        execute('DROP TABLE cds_import_unit;'
+                'CREATE TABLE cds_import_unit (id VARCHAR(64) PRIMARY KEY, run_id VARCHAR(36) NOT NULL, '
+                'patient_key VARCHAR(64) NOT NULL, unit_key VARCHAR(64) NOT NULL, category VARCHAR(64) NOT NULL, '
+                'target_references LONGTEXT NULL, KEY idx_cds_units_patient (run_id, patient_key, unit_key));'
+                "INSERT INTO cds_import_unit VALUES ('b','r','p','u2','Demographics','x'),"
+                "('a','r','p','u1','ClinicalNotes',NULL),('c','r','q','u3','Demographics','y');")
+        unit_rows = ('SELECT id,run_id,patient_key,unit_key,category,COALESCE(HEX(target_references),\'-\') '
+                     'FROM cds_import_unit ORDER BY id')
+        units = execute(unit_rows)
+        execute(migrations[7]); execute(migrations[7])
+        unit_indexes = ("SELECT index_name,GROUP_CONCAT(column_name ORDER BY seq_in_index) "
+                        "FROM information_schema.statistics WHERE table_schema=DATABASE() "
+                        "AND table_name='cds_import_unit' AND index_name<>'PRIMARY' "
+                        "GROUP BY index_name ORDER BY index_name")
+        if execute(unit_indexes) != [
+                'idx_cds_units_patient\trun_id,patient_key,unit_key',
+                'idx_cds_units_patient_id\trun_id,patient_key,id,category']:
+            raise RuntimeError('cds_import_unit index replay did not end with exactly its indexes')
+        if execute(unit_rows) != units:
+            raise RuntimeError('cds_import_unit index replay changed an imported unit')
+        execute('ALTER TABLE cds_import_unit DROP INDEX idx_cds_units_patient_id, '
+                'ADD INDEX idx_cds_units_patient_id (run_id)')
+        try:
+            execute(migrations[7])
+            refused = False
+        except Exception:
+            refused = True
+        if not refused:
+            raise RuntimeError('A same-name cds_import_unit index of another shape was accepted')
         return {'protocol': 1, 'status': 'PARTIAL_DDL_REPLAY_PASSED',
                 'nativeWitnessPreserved': True, 'existingAttemptPreserved': True,
                 'missingAttemptBackfilledOnce': True, 'explicitDenialPreserved': True,
@@ -156,6 +189,7 @@ def verify_export_migration_reapply(repository: Path, query):
                 'hrmLegacyInsertCompatible': True, 'heldPatientsPreserved': True,
                 'measurementsDeletedIndexesRecovered': True,
                 'laboratoryResultIndexReplayed': True,
+                'importUnitIndexReplayed': True,
                 'migrations': {name: hashlib.sha256(folder.joinpath(name).read_bytes()).hexdigest() for name in names}}
     finally:
         query('DROP DATABASE ' + database)

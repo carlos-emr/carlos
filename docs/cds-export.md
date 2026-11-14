@@ -1502,7 +1502,7 @@ importer, MariaDB Connector/J 3.5.11 and DAO/API fixes. It excludes develop-only
 portal, SMS and email features. Historical WAR hashes and workflow results below
 describe their recorded checkpoints; they do not qualify this release integration.
 
-The new, unpublished migrations are `V1.0.59.40` through `V1.0.59.47`, following
+The new, unpublished migrations are `V1.0.59.40` through `V1.0.59.48`, following
 the release's common `V1.0.59.39`. All 89 released SQL files remain unchanged.
 The billing filename audit already shipped at common `V1.0.59.33` is reused. Fresh
 ON/BC installations and upgrades from the pinned release are checked separately.
@@ -1549,6 +1549,7 @@ carlos-ctl 1.3.3; no maintainer script uses the export or abandon commands.
 | `V1.0.59.45` | Protected record of patients held back from an export package (chart number and safe code only) | — |
 | `V1.0.59.46` | `measurementsDeleted` indexed by patient and by original measurement id; no row changes (#6200) | — |
 | `V1.0.59.47` | `cds_laboratory_result` indexed by local report and patient, for the laboratory ownership check of imported charts; no row changes | — |
+| `V1.0.59.48` | `cds_import_unit` indexed by run, patient key and id (with the category), so the capture reads one imported chart's units in id order from the index; no row changes | — |
 
 The earlier `V1.0.86` consent forward-merge repair does not apply to the retained
 release history and is excluded. The release catalogue contains 510 rulings for
