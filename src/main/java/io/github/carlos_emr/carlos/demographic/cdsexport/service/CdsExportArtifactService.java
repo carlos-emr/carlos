@@ -44,6 +44,17 @@ public class CdsExportArtifactService {
     private final CdsExportDisclosurePolicyService disclosure;
     private final CdsExportAccessService access;
     private final java.util.Properties settings = new java.util.Properties();
+    /** The monotonic clock a download measures its silence with; a test supplies its own. */
+    private final java.util.function.LongSupplier clock;
+
+    /**
+     * Once the first byte is sent, a cohort re-verification pass writes the next block of the
+     * package whenever this long has passed without one, so the transfer is never silent for a
+     * whole pass: a reverse proxy (nginx's {@code proxy_read_timeout}, 300 s as packaged) or a
+     * browser would otherwise cut a download whose pass outlasts its timeout. Bytes are sent only
+     * after the pass that runs before the first byte has authorized the whole cohort.
+     */
+    static final long KEEP_ALIVE_NANOS = TimeUnit.SECONDS.toNanos(10);
 
     @org.springframework.beans.factory.annotation.Autowired
     public CdsExportArtifactService(
@@ -54,8 +65,7 @@ public class CdsExportArtifactService {
             CdsExportAccessService access,
             @org.springframework.beans.factory.annotation.Qualifier("cdsExportProperties")
                     java.util.Properties settings) {
-        this(ledger, stores, scopes, disclosure, access);
-        this.settings.putAll(Objects.requireNonNull(settings));
+        this(ledger, stores, scopes, disclosure, access, settings, System::nanoTime);
     }
 
     public CdsExportArtifactService(
@@ -64,11 +74,24 @@ public class CdsExportArtifactService {
             CdsExportDisclosureScopeService scopes,
             CdsExportDisclosurePolicyService disclosure,
             CdsExportAccessService access) {
+        this(ledger, stores, scopes, disclosure, access, new java.util.Properties(), System::nanoTime);
+    }
+
+    CdsExportArtifactService(
+            CdsExportLedgerService ledger,
+            CdsExportStagingFactory stores,
+            CdsExportDisclosureScopeService scopes,
+            CdsExportDisclosurePolicyService disclosure,
+            CdsExportAccessService access,
+            java.util.Properties settings,
+            java.util.function.LongSupplier clock) {
         this.ledger = Objects.requireNonNull(ledger);
         this.stores = Objects.requireNonNull(stores);
         this.scopes = Objects.requireNonNull(scopes);
         this.disclosure = Objects.requireNonNull(disclosure);
         this.access = Objects.requireNonNull(access);
+        this.settings.putAll(Objects.requireNonNull(settings));
+        this.clock = Objects.requireNonNull(clock);
     }
 
     /** Caller has reconstructed the current observer in the original provider/facility scope. */
@@ -125,7 +148,7 @@ public class CdsExportArtifactService {
     public final class Download implements AutoCloseable {
         private final CdsExportActorDto actor;
         private final CdsExportLedgerService.Download lease;
-        private final long started = System.nanoTime();
+        private final long started = clock.getAsLong();
         private final long timeoutNanos;
 
         /**
@@ -142,6 +165,8 @@ public class CdsExportArtifactService {
         private final AtomicReference<RuntimeException> heartbeatFailure = new AtomicReference<>();
         private final ScheduledExecutorService heartbeat;
         private CdsExportStagingService store;
+        /** The transfer once its first block may be sent, until its last; null otherwise. */
+        private Stream stream;
         private boolean used, written, outputWritten, closed, completed;
         /**
          * The patient whose re-authorization pass is open, or null. A download reads no patient
@@ -339,7 +364,7 @@ public class CdsExportArtifactService {
 
         private void local() {
             if (Thread.currentThread().isInterrupted()
-                    || System.nanoTime() - progress.get()
+                    || clock.getAsLong() - progress.get()
                             > timeoutNanos + verificationAllowanceNanos)
                 throw new CancellationException("CDS_EXPORT_DOWNLOAD_STOPPED");
             var failed = heartbeatFailure.get();
@@ -352,19 +377,42 @@ public class CdsExportArtifactService {
 
         private void probe() {
             // Only the download thread probes: reaching here is its proof of progress.
-            progress.set(System.nanoTime());
+            progress.set(clock.getAsLong());
             local();
-            long now = System.nanoTime();
+            long now = clock.getAsLong();
             if (now - lastProbe >= 1_000_000_000L) {
                 authority();
                 ledger.downloadCheckpoint(lease);
                 lastProbe = now;
             }
+            // A pass during the transfer keeps bytes flowing: every authorization step that comes
+            // KEEP_ALIVE_NANOS after the last block sends the next one. Its output failure is the
+            // transfer's (see fullScope).
+            var transfer = stream;
+            if (transfer != null && transfer.verifying && now - transfer.lastWrite >= KEEP_ALIVE_NANOS) {
+                try {
+                    transfer.next();
+                } catch (IOException failed) {
+                    throw new KeepAliveFailure(failed);
+                }
+            }
         }
 
         private void fullScope() throws IOException {
+            var transfer = stream;
+            if (transfer != null) transfer.verifying = true;
+            try {
+                verifyScope();
+            } catch (KeepAliveFailure failed) {
+                throw failed.getCause();
+            } finally {
+                if (transfer != null) transfer.verifying = false;
+            }
+        }
+
+        private void verifyScope() throws IOException {
             probe();
-            long began = System.nanoTime();
+            long began = clock.getAsLong();
             var c = lease.context();
             var verified =
                     scopes.verifyRetained(
@@ -381,7 +429,7 @@ public class CdsExportArtifactService {
                     || !c.cohort().plaintextSha256().equals(verified.cohortSha256())
                     || !c.authorization().plaintextSha256().equals(verified.authorizationSha256()))
                 throw new IOException("CDS_EXPORT_DOWNLOAD_SCOPE_INVALID");
-            lastScope = System.nanoTime();
+            lastScope = clock.getAsLong();
             lastScopeNanos = Math.max(0, lastScope - began);
         }
 
@@ -398,19 +446,16 @@ public class CdsExportArtifactService {
             if (closed || used) throw new IllegalStateException("CDS_EXPORT_DOWNLOAD_ALREADY_USED");
             used = true;
             try (var input = store.open(lease.context().ciphertext())) {
-                byte[] buffer = new byte[64 * 1024];
-                long count = 0;
+                var transfer = new Stream(input, output);
+                stream = transfer;
                 try {
-                    for (int n; (n = input.read(buffer)) != -1; ) {
+                    do {
                         probe();
-                        if (scopeDue(System.nanoTime())) fullScope();
-                        count = Math.addExact(count, n);
-                        if (count > bytes())
-                            throw new IOException("CDS_EXPORT_DOWNLOAD_LENGTH_CHANGED");
-                        output.write(buffer, 0, n);
-                    }
-                    if (count != bytes())
+                        if (scopeDue(clock.getAsLong())) fullScope();
+                    } while (transfer.next());
+                    if (transfer.count != bytes())
                         throw new IOException("CDS_EXPORT_DOWNLOAD_LENGTH_CHANGED");
+                    stream = null;
                     output.flush();
                     // The recipient may have all ciphertext even if final authority or
                     // audit confirmation subsequently fails. Do not call that no delivery.
@@ -419,10 +464,55 @@ public class CdsExportArtifactService {
                     authority();
                     ledger.downloadCheckpoint(lease);
                 } finally {
-                    java.util.Arrays.fill(buffer, (byte) 0);
+                    stream = null;
+                    transfer.erase();
                 }
             }
             written = true;
+        }
+
+        /**
+         * The ciphertext being sent: the main loop and a re-verification pass inside it write its
+         * blocks in order, one thread only, each checked against the length the ledger pinned.
+         */
+        private final class Stream {
+            private final InputStream input;
+            private final OutputStream output;
+            private final byte[] buffer = new byte[64 * 1024];
+            private long count;
+            private long lastWrite = clock.getAsLong();
+            private boolean ended, verifying;
+
+            Stream(InputStream input, OutputStream output) {
+                this.input = input;
+                this.output = output;
+            }
+
+            /** Sends the next block; false once the ciphertext has ended. */
+            boolean next() throws IOException {
+                if (ended) return false;
+                int n = input.read(buffer);
+                if (n == -1) {
+                    ended = true;
+                    return false;
+                }
+                count = Math.addExact(count, n);
+                if (count > bytes()) throw new IOException("CDS_EXPORT_DOWNLOAD_LENGTH_CHANGED");
+                output.write(buffer, 0, n);
+                lastWrite = clock.getAsLong();
+                return true;
+            }
+
+            void erase() {
+                java.util.Arrays.fill(buffer, (byte) 0);
+            }
+        }
+
+        /** An output failure of a block sent during a pass, carried out of the pass unchecked. */
+        private static final class KeepAliveFailure extends UncheckedIOException {
+            KeepAliveFailure(IOException cause) {
+                super(cause);
+            }
         }
 
         /** Called after the adapter has successfully flushed/committed its own output. */

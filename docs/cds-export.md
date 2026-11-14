@@ -1148,6 +1148,20 @@ verification step), plus three times the measured opening pass, and only the lea
 can find the thread silent (`CdsExportArtifactService.Download`). A download that keeps moving
 is never ended for how long a package takes to send. While streaming, a new verification pass
 starts no sooner than 30 seconds, or the previous pass's own duration, after the last one.
+
+**A download is never silent for a whole pass.** A pass during the transfer keeps the package
+moving: every authorization step that comes 10 seconds after the last block sends the next one
+(`CdsExportArtifactService.KEEP_ALIVE_NANOS`), on the download's own thread and in order, so a
+pass of any length never leaves the connection silent for longer than that and a step. Until
+this change a pass wrote nothing until it ended, and a large roster's pass could outlast nginx's
+300-second `proxy_read_timeout`, which cut the download. The pass before the first byte cannot
+do this: no byte of the package may be sent before every patient in it has been checked. For
+that pass alone the packaged nginx gives the download route
+(`location = /carlos/form/cdsExportDownload`, nested in `location /` so it keeps every proxy
+setting) a `proxy_read_timeout` of 24 hours, the longest silence the application allows a
+download (`cds.export.downloadTimeoutSeconds`, at most 86,400 s); every other route keeps 300 s.
+A browser or another proxy in front of nginx may still give up on a response that has not
+started; the command line's `--download` has no proxy at all.
 **No deadline on a capture.** A chart's capture runs in one read-only repeatable-read
 transaction with no timeout (`CdsExportNativeCaptureService`). The snapshot blocks no writer, a
 capture that keeps reaching checkpoints finishes however long its chart takes, and a worker that

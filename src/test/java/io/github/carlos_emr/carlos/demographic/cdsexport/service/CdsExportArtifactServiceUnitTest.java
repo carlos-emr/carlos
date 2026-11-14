@@ -272,6 +272,108 @@ class CdsExportArtifactServiceUnitTest {
     }
 
     @Test
+    void shouldKeepSendingDuringAReverificationPass_longerThanTheProxyTimeout() throws Exception {
+        // A pass during the transfer once sent nothing until it ended, and nginx cuts a connection
+        // silent for its proxy_read_timeout (300 s as packaged). Here the pass lasts 600 s on the
+        // test's clock, and the network takes a second for each block.
+        var now = new java.util.concurrent.atomic.AtomicLong();
+        byte[] large = new byte[100 * 65_536 + 7];
+        new Random(23).nextBytes(large);
+        var cipher = store.stage("DELIVERY_CMS", output -> output.write(large));
+        var c = lease.context();
+        var context =
+                new CdsExportArtifactContextDto(
+                        c.protocol(),
+                        c.runId(),
+                        c.epoch(),
+                        c.patients(),
+                        c.compatibilityDigest(),
+                        c.recipientFingerprint(),
+                        c.auditPlanDigest(),
+                        c.cohort(),
+                        c.authorization(),
+                        c.ownership(),
+                        c.readMe(),
+                        c.eventLog(),
+                        c.archive(),
+                        cipher,
+                        new CdsExportDeliveryDto(
+                                c.delivery().encryptionProfile(),
+                                c.delivery().recipientFingerprint(),
+                                c.delivery().zipSha256(),
+                                c.delivery().zipBytes(),
+                                cipher.plaintextSha256(),
+                                cipher.plaintextBytes()));
+        when(ledger.beginDownload(lease.runId(), actor.operatorKey()))
+                .thenReturn(
+                        new CdsExportLedgerService.Download(
+                                lease.runId(),
+                                1,
+                                UUID.randomUUID().toString(),
+                                actor.operatorKey(),
+                                lease.document(),
+                                context));
+        var passes = new java.util.concurrent.atomic.AtomicInteger();
+        when(scopes.verifyRetained(any(), anyLong(), any(), any(), any(), anyLong(), any()))
+                .thenAnswer(
+                        call -> {
+                            io.github.carlos_emr.carlos.demographic.cdsexport.engine
+                                            .CdsExportRunControl
+                                    control = call.getArgument(6);
+                            // Each patient checked takes a second: 600 for the pass during the
+                            // transfer (the second), one for the others.
+                            int seconds = passes.incrementAndGet() == 2 ? 600 : 1;
+                            for (int patient = 0; patient < seconds; patient++) {
+                                now.addAndGet(java.util.concurrent.TimeUnit.SECONDS.toNanos(1));
+                                control.authorizePatient(27);
+                            }
+                            return verified;
+                        });
+        service =
+                new CdsExportArtifactService(
+                        ledger, stores, scopes, disclosure, access, new Properties(), now::get);
+        var sent = new ArrayList<Long>();
+        var received = new ByteArrayOutputStream();
+        var network =
+                new OutputStream() {
+                    @Override
+                    public void write(int value) {
+                        write(new byte[] {(byte) value}, 0, 1);
+                    }
+
+                    @Override
+                    public void write(byte[] bytes, int offset, int length) {
+                        sent.add(now.get());
+                        now.addAndGet(java.util.concurrent.TimeUnit.SECONDS.toNanos(1));
+                        received.write(bytes, offset, length);
+                    }
+                };
+        long first;
+        try (var download = service.open(actor, lease.runId(), "package")) {
+            first = now.get();
+            download.writeTo(network);
+            download.complete();
+        }
+        assertThat(received.toByteArray()).isEqualTo(large);
+        verify(ledger).finishDownload(any(), eq(true));
+        // Open, the pass during the transfer, after the last byte, and at completion.
+        assertThat(passes).hasValue(4);
+        long longest = sent.getFirst() - first;
+        for (int index = 1; index < sent.size(); index++)
+            longest = Math.max(longest, sent.get(index) - sent.get(index - 1) - 1_000_000_000L);
+        // The 600-second pass ran between the first block and the last, yet no silence between
+        // two blocks reached the keep-alive interval plus one checked patient: a twentieth of
+        // the proxy's 300 s.
+        assertThat(sent.getLast() - sent.getFirst())
+                .isGreaterThan(java.util.concurrent.TimeUnit.SECONDS.toNanos(600));
+        assertThat(longest)
+                .isLessThanOrEqualTo(
+                        CdsExportArtifactService.KEEP_ALIVE_NANOS
+                                + java.util.concurrent.TimeUnit.SECONDS.toNanos(1))
+                .isLessThan(java.util.concurrent.TimeUnit.SECONDS.toNanos(300) / 20);
+    }
+
+    @Test
     void shouldServeADeliveryInParts_asTheTarArchiveItsProfileNames() throws Exception {
         var c = lease.context();
         var parted =
