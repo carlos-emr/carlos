@@ -712,6 +712,318 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
                         "YYYY"));
     }
 
+    private static CdsExportCapturedTextRowDto allergy(int id) {
+        var fields = new LinkedHashMap<String, String>();
+        CdsExportPatientTableReadSupport.Plan.ALLERGIES
+                .columns()
+                .forEach(column -> fields.put(column, null));
+        fields.putAll(
+                Map.of(
+                        "allergyid",
+                        Integer.toString(id),
+                        "demographic_no",
+                        "27",
+                        "DESCRIPTION",
+                        "Synthetic agent " + id,
+                        "TYPECODE",
+                        "0",
+                        "severity_of_reaction",
+                        Integer.toString(1 + id % 3),
+                        "archived",
+                        "0",
+                        "position",
+                        "0"));
+        return new CdsExportCapturedTextRowDto(
+                "allergies", CdsExportPatientTableSourceReader.key(id), fields);
+    }
+
+    private static CdsExportCapturedTextRowDto allergyPrecision(int id, int parent, String format) {
+        return new CdsExportCapturedTextRowDto(
+                "partial_date",
+                CdsExportPatientTableSourceReader.key(id),
+                Map.of(
+                        "id",
+                        Integer.toString(id),
+                        "table_name",
+                        "1",
+                        "table_id",
+                        Integer.toString(parent),
+                        "field_name",
+                        "1",
+                        "format",
+                        format));
+    }
+
+    /** A chart of {@code count} native allergies; every third one has a precision row. */
+    private Fixture allergies(int count) throws Exception {
+        var rows = new ArrayList<CdsExportCapturedTextRowDto>();
+        var witnesses = new ArrayList<CdsExportNativeRowReceiptDto>();
+        var lookups = new ArrayList<CdsExportCapturedTextRowDto>();
+        for (int id = 1001; id <= 1000 + count; id++) {
+            var row = allergy(id);
+            rows.add(row);
+            witnesses.add(
+                    new CdsExportNativeRowReceiptDto(
+                            "allergies", Integer.toString(id), row.recordKey(), "c".repeat(64)));
+            if (id % 3 == 0) lookups.add(allergyPrecision(500_000 + id, id, "YYYY"));
+        }
+        var index =
+                new CdsExportRetainedIndexDto(
+                        SOURCE,
+                        0,
+                        0,
+                        Map.of("cds_import_unit", Map.of(), "cds_import_field", Map.of()),
+                        Set.of(),
+                        Map.of(),
+                        Map.of());
+        var f =
+                fixture(
+                        ALLERGY,
+                        index,
+                        new CdsExportRetainedReceiptVerificationDto(
+                                SOURCE, Map.of(), Set.of(), Set.of()),
+                        List.of(),
+                        rows,
+                        witnesses);
+        f.lookupRows = lookups;
+        return f;
+    }
+
+    @Test
+    void shouldEmitTheSameBytesAndReceipts_whenAChartIsReadInSmallWindows() throws Exception {
+        var whole = allergies(11);
+        byte[] expected = compose(whole, false);
+        verify(whole.witnesses, times(1))
+                .scan(any(), any(), any(), any(), anyLong(), anyLong(), any(), any());
+        for (int window : new int[] {1, 2, 5, 10}) {
+            var windowed = allergies(11);
+            windowed.bounds = windowed.bounds.withWindow(window, 8L << 20);
+            assertThat(compose(windowed, false)).isEqualTo(expected);
+            assertThat(windowed.receipts).isEqualTo(whole.receipts);
+            assertThat(windowed.result).isEqualTo(whole.result);
+            // One witness pass for the whole chart that did not fit, then one for each window.
+            verify(windowed.witnesses, times(1 + (11 + window - 1) / window))
+                    .scan(any(), any(), any(), any(), anyLong(), anyLong(), any(), any());
+        }
+        // A byte limit smaller than the chart's witnesses (1,024 bytes each) windows it too.
+        var byBytes = allergies(11);
+        byBytes.bounds = byBytes.bounds.withWindow(8192, 3 * 1024L);
+        assertThat(compose(byBytes, false)).isEqualTo(expected);
+        assertThat(byBytes.receipts).isEqualTo(whole.receipts);
+        assertThat(parse(expected, ALLERGY, "windows")).hasSize(12);
+    }
+
+    @Test
+    void shouldEmitTheSameMedications_whenTheirReasonsAndPrecisionAreReadByWindow()
+            throws Exception {
+        java.util.function.Function<Integer, Fixture> chart =
+                window -> {
+                    try {
+                        var rows = new ArrayList<CdsExportCapturedTextRowDto>();
+                        var witnesses = new ArrayList<CdsExportNativeRowReceiptDto>();
+                        var lookups = new ArrayList<CdsExportCapturedTextRowDto>();
+                        for (int id = 51; id <= 57; id++) {
+                            var fields =
+                                    new LinkedHashMap<>(
+                                            CdsExportNativeMedicationMapperUnitTest.source());
+                            fields.put("drugid", Integer.toString(id));
+                            var row =
+                                    new CdsExportCapturedTextRowDto(
+                                            "drugs",
+                                            CdsExportPatientTableSourceReader.key(id),
+                                            fields);
+                            rows.add(row);
+                            witnesses.add(
+                                    new CdsExportNativeRowReceiptDto(
+                                            "drugs",
+                                            Integer.toString(id),
+                                            row.recordKey(),
+                                            "c".repeat(64)));
+                            var reason =
+                                    CdsExportMedicationReasonMapperUnitTest.reason(
+                                            300 + id, "icd9", "250", "0");
+                            reason.put("drugId", Integer.toString(id));
+                            if (id % 2 == 1)
+                                lookups.add(CdsExportMedicationReasonMapperUnitTest.row(reason));
+                        }
+                        var index =
+                                new CdsExportRetainedIndexDto(
+                                        SOURCE,
+                                        0,
+                                        0,
+                                        Map.of(
+                                                "cds_import_unit",
+                                                Map.of(),
+                                                "cds_import_field",
+                                                Map.of()),
+                                        Set.of(),
+                                        Map.of(),
+                                        Map.of());
+                        var f =
+                                fixture(
+                                        MEDICATION,
+                                        index,
+                                        new CdsExportRetainedReceiptVerificationDto(
+                                                SOURCE, Map.of(), Set.of(), Set.of()),
+                                        List.of(),
+                                        rows,
+                                        witnesses);
+                        f.lookupRows = lookups;
+                        if (window != null) f.bounds = f.bounds.withWindow(window, 8L << 20);
+                        return f;
+                    } catch (Exception failed) {
+                        throw new IllegalStateException(failed);
+                    }
+                };
+        var whole = chart.apply(null);
+        byte[] expected = compose(whole, false);
+        assertThat(whole.receipts).hasSize(7);
+        for (int window : new int[] {1, 3}) {
+            var windowed = chart.apply(window);
+            assertThat(compose(windowed, false)).isEqualTo(expected);
+            assertThat(windowed.receipts).isEqualTo(whole.receipts);
+        }
+        // A reason whose prescription is in no window is refused, as it was when read whole.
+        var orphan = chart.apply(2);
+        var foreign = CdsExportMedicationReasonMapperUnitTest.reason(999, "icd9", "250", "1");
+        foreign.put("drugId", "99");
+        var rows = new ArrayList<>(orphan.lookupRows);
+        rows.add(CdsExportMedicationReasonMapperUnitTest.row(foreign));
+        orphan.lookupRows = rows;
+        assertThatThrownBy(() -> compose(orphan, false))
+                .hasMessage("CDS_EXPORT_OCCURRENCE_ASSEMBLY_SCOPE_INVALID");
+    }
+
+    @Test
+    void shouldRefuseMissingDuplicateOrOrphanRows_whenTheChartIsReadByWindow() throws Exception {
+        var duplicate = allergies(6);
+        duplicate.bounds = duplicate.bounds.withWindow(2, 8L << 20);
+        var rows = new ArrayList<>(duplicate.nativeRows);
+        rows.set(4, rows.get(1));
+        duplicate.nativeRows = rows;
+        assertThatThrownBy(() -> compose(duplicate, false))
+                .hasMessage("CDS_EXPORT_OCCURRENCE_ASSEMBLY_SCOPE_INVALID");
+        var orphan = allergies(6);
+        orphan.bounds = orphan.bounds.withWindow(2, 8L << 20);
+        var lookups = new ArrayList<>(orphan.lookupRows);
+        lookups.add(allergyPrecision(777_777, 99, "YYYY"));
+        orphan.lookupRows = lookups;
+        assertThatThrownBy(() -> compose(orphan, false))
+                .hasMessage("CDS_EXPORT_OCCURRENCE_ASSEMBLY_SCOPE_INVALID");
+    }
+
+    @Test
+    void shouldExportTheChart_pastTheFormerRowAndLookupBounds() throws Exception {
+        // 8,193 allergies: one more than the former cds.export.maxNativeRows, under the
+        // installed window. Each has 16 precision rows: 131,088 lookups, more than the former
+        // cds.export.maxLookupRows (131,072).
+        var f = allergies(8193);
+        var lookups = new ArrayList<CdsExportCapturedTextRowDto>();
+        int next = 2_000_000;
+        for (var row : f.nativeRows)
+            for (int repeat = 0; repeat < 16; repeat++)
+                lookups.add(
+                        allergyPrecision(
+                                next++, Integer.parseInt(row.fields().get("allergyid")), "YYYY"));
+        f.lookupRows = lookups;
+        f.bounds =
+                new CdsExportClinicalOccurrenceService.Bounds(
+                        CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
+                        CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
+                        1_000_000,
+                        64L << 20,
+                        8192,
+                        131_072);
+        compose(f, false);
+        assertThat(f.receipts).hasSize(8193);
+        assertThat(f.result.nativeRows()).isEqualTo(8193);
+        assertThat(f.receipts.stream().map(receipt -> receipt.nativeId()).distinct()).hasSize(8193);
+        assertThat(f.receipts.getFirst().nativeId()).isEqualTo("1001");
+        assertThat(f.receipts.getLast().nativeId()).isEqualTo("9193");
+    }
+
+    @Test
+    void shouldExportTheChart_pastTheFormerIndexBytes() throws Exception {
+        // The former cds.export.maxIndexBytes was 64 MiB of witnesses at 1,024 bytes and 256 for
+        // each column. A witness of 70 columns counts 18,944 bytes, so 3,543 rows pass it.
+        var f = allergies(3543);
+        var columns = new ArrayList<CdsNativeRowDigest.Column>();
+        var cells = new ArrayList<CdsNativeRowState.Cell>();
+        for (int column = 0; column < 70; column++) {
+            columns.add(new CdsNativeRowDigest.Column("c" + column, "VARCHAR"));
+            cells.add(new CdsNativeRowState.Cell(true, 0, null));
+        }
+        var wide = new ArrayList<CdsExportNativeRowReceiptDto>();
+        for (var row : f.nativeRows) {
+            String id = row.fields().get("allergyid");
+            var state = new CdsNativeRowState("allergies", id, columns, cells);
+            wide.add(
+                    new CdsExportNativeRowReceiptDto(
+                            "allergies", id, row.recordKey(), state.digest(), state));
+        }
+        when(f.witnesses.scan(any(), any(), any(), any(), anyLong(), anyLong(), any(), any()))
+                .thenAnswer(
+                        call -> {
+                            for (var witness : wide)
+                                ((CdsExportNativeRowReceiptReader.Receipts) call.getArgument(7))
+                                        .accept(witness);
+                            return new CdsExportNativeRowReceiptsDto(
+                                    SOURCE, Map.of("allergies", (long) wide.size()), wide.size(), 0,
+                                    Set.of());
+                        });
+        f.bounds =
+                new CdsExportClinicalOccurrenceService.Bounds(
+                        CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
+                        CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
+                        1_000_000,
+                        64L << 20,
+                        8192,
+                        131_072);
+        compose(f, false);
+        assertThat(f.receipts).hasSize(3543);
+        // The whole chart did not fit 64 MiB, so it was read in two windows after that attempt.
+        verify(f.witnesses, times(3))
+                .scan(any(), any(), any(), any(), anyLong(), anyLong(), any(), any());
+    }
+
+    @Test
+    void shouldHoldOneWindowOfLookups_whileAChartOfManyRowsIsEmitted() throws Exception {
+        // A regression to loading the whole chart would keep every lookup row reachable while
+        // rows are emitted. Each lookup pass hands out fresh rows; while a window's rows are
+        // emitted, only that window's lookups may still be reachable.
+        int count = 600, window = 30;
+        var f = allergies(count);
+        f.bounds = f.bounds.withWindow(window, 8L << 20);
+        var handed = new ArrayList<java.lang.ref.WeakReference<CdsExportCapturedTextRowDto>>();
+        f.lookupSource =
+                () -> {
+                    handed.clear();
+                    var fresh = new ArrayList<CdsExportCapturedTextRowDto>();
+                    for (int id = 1001; id <= 1000 + count; id++) {
+                        var row = allergyPrecision(500_000 + id, id, "YYYY");
+                        fresh.add(row);
+                        handed.add(new java.lang.ref.WeakReference<>(row));
+                    }
+                    return fresh;
+                };
+        long[] most = {0};
+        int[] rows = {0};
+        f.beforeRow =
+                () -> {
+                    // Sampled inside a pass over the main table, when the lookup pass's own
+                    // list is gone: once per emitting pass is enough.
+                    if (handed.isEmpty() || rows[0]++ % count != count / 2) return;
+                    System.gc();
+                    most[0] =
+                            Math.max(
+                                    most[0],
+                                    handed.stream().filter(row -> row.get() != null).count());
+                };
+        compose(f, false);
+        assertThat(f.receipts).hasSize(count);
+        assertThat(most[0]).isPositive().isLessThanOrEqualTo(window);
+    }
+
     private static final class Fixture {
         final CdsExportRetainedValuesService values = mock(CdsExportRetainedValuesService.class);
         final CdsExportRetainedReceiptVerificationService verification =
@@ -730,6 +1042,12 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
         List<CdsExportCapturedTextRowDto> nativeRows, lookupRows = List.of(), mergeRows = List.of();
         boolean changedGeneration, finalSourceFailure, receiptFailure, mergeReadFailure;
         CdsExportClinicalOccurrenceService.Result result;
+        CdsExportClinicalOccurrenceService.Bounds bounds =
+                new CdsExportClinicalOccurrenceService.Bounds(
+                        100000, 8L << 20, 1000, 8L << 20, 100, 1000);
+        // Each lookup scan may hand out fresh rows, so a test can see which ones stay reachable.
+        java.util.function.Supplier<List<CdsExportCapturedTextRowDto>> lookupSource;
+        Runnable beforeRow = () -> {};
     }
 
     private Fixture fixture(
@@ -874,7 +1192,8 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
                         any()))
                 .thenAnswer(
                         call -> {
-                            for (var row : f.lookupRows)
+                            for (var row :
+                                    f.lookupSource == null ? f.lookupRows : f.lookupSource.get())
                                 ((CdsExportCapturedTextRowsReader.Rows) call.getArgument(9))
                                         .accept(row);
                             return f.changedGeneration
@@ -895,9 +1214,11 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
                 .thenAnswer(
                         call -> {
                             boolean merge = "demographic_merged".equals(call.getArgument(3));
-                            for (var row : merge ? f.mergeRows : f.nativeRows)
+                            for (var row : merge ? f.mergeRows : f.nativeRows) {
+                                if (!merge) f.beforeRow.run();
                                 ((CdsExportCapturedTextRowsReader.Rows) call.getArgument(9))
                                         .accept(row);
+                            }
                             if (merge && f.mergeReadFailure)
                                 throw new IOException("MERGE_SOURCE_EOF_REJECTED");
                             return capture;
@@ -962,9 +1283,7 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
                                                         "RETAINED_MANIFEST",
                                                         SOURCE,
                                                         1),
-                                                new CdsExportClinicalOccurrenceService.Bounds(
-                                                        100000, 8L << 20, 1000, 8L << 20, 100,
-                                                        1000),
+                                                f.bounds,
                                                 f.control,
                                                 emitter,
                                                 receipt -> {

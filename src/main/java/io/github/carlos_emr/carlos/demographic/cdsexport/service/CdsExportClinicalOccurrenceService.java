@@ -45,7 +45,20 @@ public class CdsExportClinicalOccurrenceService {
             int indexRows,
             long indexBytes,
             int nativeRows,
-            int lookupRows) {
+            int lookupRows,
+            int windowRows,
+            long windowBytes) {
+        /**
+         * The window of a section that reads its rows window by window
+         * ({@link CdsExportSectionWindowPlanner}): {@value #WINDOW_ROWS} owners and 64 MiB of
+         * loaded state. These are the two sizes that used to refuse a chart, so every chart that
+         * was exported before is still read whole, in one window, with the same output; a larger
+         * chart is read in several windows instead of being refused.
+         */
+        public static final int WINDOW_ROWS = 8192;
+
+        public static final long WINDOW_BYTES = 64L << 20;
+
         public Bounds {
             if (fields < 1
                     || bytes < 1
@@ -56,8 +69,34 @@ public class CdsExportClinicalOccurrenceService {
                     || nativeRows < 1
                     || nativeRows > 8192
                     || lookupRows < 1
-                    || lookupRows > 131_072)
+                    || lookupRows > 131_072
+                    || windowRows < 1
+                    || windowBytes < 1)
                 throw new IllegalArgumentException("CDS_EXPORT_OCCURRENCE_BOUNDS_INVALID");
+        }
+
+        /** The installed window; the four middle components belong to sections not yet windowed. */
+        public Bounds(
+                long fields, long bytes, int indexRows, long indexBytes, int nativeRows, int lookupRows) {
+            this(
+                    fields,
+                    bytes,
+                    indexRows,
+                    indexBytes,
+                    nativeRows,
+                    lookupRows,
+                    WINDOW_ROWS,
+                    WINDOW_BYTES);
+        }
+
+        /** The same bounds with another window size; a test states a small one. */
+        public Bounds withWindow(int rows, long windowBytes) {
+            return new Bounds(
+                    fields, bytes, indexRows, indexBytes, nativeRows, lookupRows, rows, windowBytes);
+        }
+
+        CdsExportSectionWindowPlanner.Limits window() {
+            return new CdsExportSectionWindowPlanner.Limits(windowRows, windowBytes);
         }
 
         /**
@@ -443,7 +482,7 @@ public class CdsExportClinicalOccurrenceService {
                         && !tables.containsAll(
                                 Set.of("provider", CdsExportMedicationReasonMapper.TABLE)))
             scope();
-        if (source.capture().tables().get(table).rows() > bounds.nativeRows()) limit();
+        long tableRows = source.capture().tables().get(table).rows();
         new CdsExportMergeScopeValidator(rows)
                 .requireUnmerged(
                         lease, patient, tables, source, bounds.fields(), bounds.bytes(), control);
@@ -490,16 +529,50 @@ public class CdsExportClinicalOccurrenceService {
                             if (imported.putIfAbsent(refs.getFirst().id(), address) != null)
                                 ambiguous();
                         }
+                    var usedFields = new HashSet<String>();
+                    // [0] child rows (precision, reasons, drug references) taken by the window of
+                    // their owner, over every window; [1] the child rows the capture holds.
+                    long[] taken = new long[2];
+                    // The chart is read whole when it fits one window, as it always was, and
+                    // window by window otherwise (CdsExportSectionWindowPlanner): witnesses,
+                    // lookups and rows of one window are held at a time.
+                    CdsExportSectionWindowPlanner.forEachWindow(
+                            tableRows,
+                            bounds.window(),
+                            owners -> {
+                                var listed =
+                                        rows.forEach(
+                                                lease,
+                                                patient,
+                                                tables,
+                                                table,
+                                                source.manifest(),
+                                                bounds.fields(),
+                                                bounds.bytes(),
+                                                67_108_864,
+                                                control,
+                                                row -> owners.add(row.fields().get(idColumn)));
+                                if (!listed.equals(source.capture())) scope();
+                            },
+                            (window, budget) -> {
                     var exact =
-                            scanWitnesses(lease, patient, tables, source, bounds, control, table);
+                            scanWitnesses(
+                                    lease, patient, tables, source, bounds, control, table, window,
+                                    budget);
+                    if (exact == null) return false;
                     var lookups =
-                            readLookups(lease, patient, tables, source, bounds, control, table);
+                            readLookups(
+                                    lease, patient, tables, source, bounds, control, table, window,
+                                    budget);
+                    if (lookups == null) return false;
                     var precision = lookups.precision();
                     var providers = lookups.providers();
                     var references = lookups.references();
                     var referenceRows = Map.copyOf(references);
                     var reasons = lookups.reasons();
-                    var usedFields = new HashSet<String>();
+                    taken[0] = Math.addExact(taken[0], lookups.taken());
+                    taken[1] = lookups.children();
+                    long[] emitted = {0};
                     var finished =
                             rows.forEach(
                                     lease,
@@ -515,6 +588,11 @@ public class CdsExportClinicalOccurrenceService {
                                         streams.requireActive();
                                         patient.require(lease);
                                         String id = row.fields().get(idColumn);
+                                        if (!window.contains(id)) {
+                                            // A row with no id belongs to no window: refused.
+                                            if (id == null) scope();
+                                            return;
+                                        }
                                         var witness = exact.remove(id);
                                         if (witness == null) scope();
                                         String importedUnit = imported.remove(id);
@@ -673,6 +751,7 @@ public class CdsExportClinicalOccurrenceService {
                                                         fields,
                                                         kept,
                                                         replaced));
+                                        emitted[0]++;
                                         counts[0]++;
                                         counts[importedUnit == null ? 2 : 1]++;
                                         counts[3] =
@@ -680,12 +759,19 @@ public class CdsExportClinicalOccurrenceService {
                                                         counts[3],
                                                         kept.size() + (long) replaced.size());
                                     });
+                    // Every witness and child row this window loaded was used by one of its rows.
                     if (!finished.equals(source.capture())
                             || !precision.isEmpty()
                             || !exact.isEmpty()
                             || !references.isEmpty()
                             || !reasons.isEmpty()
-                            || counts[0] != source.capture().tables().get(table).rows()) scope();
+                            || emitted[0] != window.size()) scope();
+                    return true;
+                            });
+                    // Every row of the table was emitted by one window, and every child row was
+                    // taken by the window of its owner: a child whose owner is in no window (an
+                    // orphan) is taken by none and makes the count fall short.
+                    if (counts[0] != tableRows || taken[0] != taken[1]) scope();
                     if (!imported.isEmpty()) review();
                     var expectedFields = new HashSet<String>();
                     for (var field : retained)
@@ -709,7 +795,9 @@ public class CdsExportClinicalOccurrenceService {
             Map<String, List<CdsExportCapturedTextRowDto>> precision,
             Map<String, CdsExportCapturedTextRowDto> providers,
             Map<String, CdsExportCapturedTextRowDto> references,
-            Map<String, List<CdsExportCapturedTextRowDto>> reasons) {
+            Map<String, List<CdsExportCapturedTextRowDto>> reasons,
+            long taken,
+            long children) {
         @Override
         public String toString() {
             return "Lookups[protected]";
@@ -723,12 +811,15 @@ public class CdsExportClinicalOccurrenceService {
             CdsExportPatientCaptureDto source,
             Bounds bounds,
             CdsExportRunControl control,
-            String table)
+            String table,
+            CdsExportSectionWindowPlanner.Window window,
+            CdsExportSectionWindowPlanner.Budget budget)
             throws IOException {
         var precision = new HashMap<String, List<CdsExportCapturedTextRowDto>>();
         var providers = new HashMap<String, CdsExportCapturedTextRowDto>();
         var references = new HashMap<String, CdsExportCapturedTextRowDto>();
         var reasons = new HashMap<String, List<CdsExportCapturedTextRowDto>>();
+        // [0] child rows taken by this window, [1] child rows of this category in the capture
         long[] lookup = new long[2];
         var lookupTables = new HashSet<String>();
         lookupTables.add("partial_date");
@@ -749,18 +840,16 @@ public class CdsExportClinicalOccurrenceService {
                         262_144,
                         control,
                         row -> {
-                            if (++lookup[0] > bounds.lookupRows()) limit();
-                            for (var value : row.fields().values())
-                                if (value != null)
-                                    lookup[1] =
-                                            Math.addExact(
-                                                    lookup[1],
-                                                    value.getBytes(StandardCharsets.UTF_8).length
-                                                            + 64L);
-                            if (lookup[1] > bounds.indexBytes()) limit();
+                            // A window found too large keeps nothing more; it is read again
+                            // with fewer owners.
+                            if (budget.exceeded()) return;
                             if (row.table().equals("medication_reference")) {
                                 String id = row.fields().get("drugid");
-                                if (id == null || references.putIfAbsent(id, row) != null) scope();
+                                if (id == null) scope();
+                                lookup[1]++;
+                                if (!window.contains(id) || !held(budget, row)) return;
+                                if (references.putIfAbsent(id, row) != null) scope();
+                                lookup[0]++;
                                 return;
                             }
                             // Grouped by their prescription; one with no exported prescription
@@ -768,11 +857,17 @@ public class CdsExportClinicalOccurrenceService {
                             if (row.table().equals(CdsExportMedicationReasonMapper.TABLE)) {
                                 String drug = row.fields().get("drugId");
                                 if (drug == null) scope();
+                                lookup[1]++;
+                                if (!window.contains(drug) || !held(budget, row)) return;
                                 reasons.computeIfAbsent(drug, ignored -> new ArrayList<>())
                                         .add(row);
+                                lookup[0]++;
                                 return;
                             }
                             if (row.table().equals("provider")) {
+                                // Providers are the clinic's, not the chart's rows: every
+                                // window holds the ones this chart names.
+                                if (!held(budget, row)) return;
                                 String id = row.fields().get("provider_no");
                                 if (id == null
                                         || !row.fields()
@@ -802,12 +897,25 @@ public class CdsExportClinicalOccurrenceService {
                             }
                             String parent = row.fields().get("table_id");
                             if (parent == null) scope();
+                            lookup[1]++;
+                            if (!window.contains(parent) || !held(budget, row)) return;
                             precision
                                     .computeIfAbsent(parent, ignored -> new ArrayList<>())
                                     .add(row);
+                            lookup[0]++;
                         });
+        if (budget.exceeded()) return null;
         if (!first.equals(source.capture())) scope();
-        return new Lookups(precision, providers, references, reasons);
+        return new Lookups(precision, providers, references, reasons, lookup[0], lookup[1]);
+    }
+
+    /** Counts one lookup row a window keeps: its values and 64 bytes for each. */
+    private static boolean held(
+            CdsExportSectionWindowPlanner.Budget budget, CdsExportCapturedTextRowDto row) {
+        long size = 0;
+        for (var value : row.fields().values())
+            if (value != null) size += value.getBytes(StandardCharsets.UTF_8).length + 64L;
+        return budget.add(1, size);
     }
 
     private Map<String, CdsExportNativeRowReceiptDto> scanWitnesses(
@@ -817,10 +925,11 @@ public class CdsExportClinicalOccurrenceService {
             CdsExportPatientCaptureDto source,
             Bounds bounds,
             CdsExportRunControl control,
-            String table)
+            String table,
+            CdsExportSectionWindowPlanner.Window window,
+            CdsExportSectionWindowPlanner.Budget budget)
             throws IOException {
         var exact = new HashMap<String, CdsExportNativeRowReceiptDto>();
-        long[] witnessBytes = {0};
         var witnessScan =
                 witnesses.scan(
                         lease,
@@ -831,30 +940,24 @@ public class CdsExportClinicalOccurrenceService {
                         bounds.bytes(),
                         control,
                         witness -> {
-                            if (!witness.table().equals(table)) return;
-                            if (exact.size() >= bounds.nativeRows()) limit();
-                            witnessBytes[0] =
-                                    Math.addExact(
-                                            witnessBytes[0],
+                            if (!witness.table().equals(table)
+                                    || !window.contains(witness.id())
+                                    || !budget.owner(
                                             1024L
                                                     + (witness.state() == null
                                                             ? 0
                                                             : witness.state().columns().size()
-                                                                    * 256L));
-                            if (witnessBytes[0] > bounds.indexBytes()) limit();
+                                                                    * 256L))) return;
                             if (exact.putIfAbsent(witness.id(), witness) != null) scope();
                         });
+        if (budget.exceeded()) return null;
         if (!witnessScan.sourceManifestSha256().equals(source.manifest().plaintextSha256())
-                || exact.size() != source.capture().tables().get(table).rows()) scope();
+                || exact.size() != window.size()) scope();
         return exact;
     }
 
     private static void scope() throws IOException {
         throw new IOException("CDS_EXPORT_OCCURRENCE_ASSEMBLY_SCOPE_INVALID");
-    }
-
-    private static void limit() {
-        throw new CdsExportReviewException(CdsExportReviewException.Reason.RESOURCE_LIMIT);
     }
 
     private static void review() {
