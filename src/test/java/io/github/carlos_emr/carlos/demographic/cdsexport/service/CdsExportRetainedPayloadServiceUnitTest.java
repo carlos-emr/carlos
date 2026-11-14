@@ -438,8 +438,6 @@ class CdsExportRetainedPayloadServiceUnitTest {
                 frozen.manifest(),
                 1000,
                 4L << 20,
-                1000,
-                1L << 20,
                 control,
                 (index, fields, access) -> {
                     retained[0] = access;
@@ -472,8 +470,6 @@ class CdsExportRetainedPayloadServiceUnitTest {
                         frozen.manifest(),
                         1000,
                         4L << 20,
-                        1000,
-                        1L << 20,
                         control,
                         (index, fields, access) -> {
                             for (var field : fields)
@@ -503,8 +499,6 @@ class CdsExportRetainedPayloadServiceUnitTest {
                                                 frozen.manifest(),
                                                 1000,
                                                 4L << 20,
-                                                1000,
-                                                1L << 20,
                                                 control,
                                                 (index, fields, access) -> {
                                                     Path valueFile =
@@ -558,8 +552,6 @@ class CdsExportRetainedPayloadServiceUnitTest {
                                                 frozen.manifest(),
                                                 1000,
                                                 4L << 20,
-                                                1000,
-                                                1L << 20,
                                                 control,
                                                 (index, fields, access) -> {
                                                     try (var input =
@@ -587,8 +579,6 @@ class CdsExportRetainedPayloadServiceUnitTest {
                                                 frozen.manifest(),
                                                 1000,
                                                 4L << 20,
-                                                1000,
-                                                1L << 20,
                                                 control,
                                                 (index, fields, access) ->
                                                         access.text(fields.getFirst())))
@@ -604,8 +594,6 @@ class CdsExportRetainedPayloadServiceUnitTest {
                                                 frozen.manifest(),
                                                 1000,
                                                 4L << 20,
-                                                1000,
-                                                1L << 20,
                                                 control,
                                                 (index, fields, access) -> {
                                                     var field = fields.getFirst();
@@ -647,8 +635,6 @@ class CdsExportRetainedPayloadServiceUnitTest {
                                         frozen.manifest(),
                                         1000,
                                         4L << 20,
-                                        1000,
-                                        1L << 20,
                                         control,
                                         (index, fields, access) -> {
                                             for (var field : fields)
@@ -678,8 +664,6 @@ class CdsExportRetainedPayloadServiceUnitTest {
                         frozen.manifest(),
                         1000,
                         4L << 20,
-                        1000,
-                        1L << 20,
                         control,
                         (index, fields, access) -> {
                             access.requireActive();
@@ -705,8 +689,6 @@ class CdsExportRetainedPayloadServiceUnitTest {
                                                 frozen.manifest(),
                                                 1000,
                                                 4L << 20,
-                                                1000,
-                                                1L << 20,
                                                 control,
                                                 (index, fields, access) -> {
                                                     doThrow(new SecurityException("ACCESS_REVOKED"))
@@ -761,8 +743,6 @@ class CdsExportRetainedPayloadServiceUnitTest {
                                                 frozen.manifest(),
                                                 1000,
                                                 4L << 20,
-                                                1000,
-                                                1L << 20,
                                                 control,
                                                 (index, fields, access) -> {
                                                     for (var field : fields)
@@ -791,8 +771,6 @@ class CdsExportRetainedPayloadServiceUnitTest {
                                                 frozen.manifest(),
                                                 1000,
                                                 4L << 20,
-                                                1000,
-                                                1L << 20,
                                                 control,
                                                 (index, fields, access) -> {
                                                     for (var field : fields)
@@ -833,8 +811,6 @@ class CdsExportRetainedPayloadServiceUnitTest {
                         eq(TABLES),
                         eq(sourceManifest),
                         anyLong(),
-                        anyLong(),
-                        anyInt(),
                         anyLong(),
                         eq(control)))
                 .thenReturn(index);

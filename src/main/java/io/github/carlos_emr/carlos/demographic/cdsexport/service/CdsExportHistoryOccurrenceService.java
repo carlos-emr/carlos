@@ -261,7 +261,6 @@ public class CdsExportHistoryOccurrenceService {
                                     source,
                                     bounds.fields(),
                                     bounds.bytes(),
-                                    bounds.indexBytes(),
                                     control);
                     var context =
                             CdsExportHistoryCurrentContext.read(
@@ -275,8 +274,6 @@ public class CdsExportHistoryOccurrenceService {
                             payloadManifest,
                             bounds.fields(),
                             bounds.bytes(),
-                            bounds.indexRows(),
-                            bounds.indexBytes(),
                             control,
                             (index, retained, streams) -> {
                                 if (!index.sourceManifestSha256()

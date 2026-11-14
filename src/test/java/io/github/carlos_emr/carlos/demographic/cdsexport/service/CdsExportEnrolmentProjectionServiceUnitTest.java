@@ -115,8 +115,7 @@ class CdsExportEnrolmentProjectionServiceUnitTest {
         when(index.tables()).thenReturn(Map.of("cds_import_unit", Map.of()));
         when(index.appliedUnits()).thenReturn(Set.of());
         when(retained.index(
-                        any(), any(), anySet(), any(), anyLong(), anyLong(), anyInt(), anyLong(),
-                        any()))
+                        any(), any(), anySet(), any(), anyLong(), anyLong(), any()))
                 .thenReturn(index);
         archiveRows.add(
                 CdsExportEnrolmentHistoryUnitTest.archive(1, "RO", "2020-01-01", null, null, "A"));

@@ -133,8 +133,6 @@ public class CdsExportEnrolmentProjectionService {
                         source.manifest(),
                         bounds.fields(),
                         bounds.bytes(),
-                        bounds.indexRows(),
-                        bounds.indexBytes(),
                         control);
         if (!index.sourceManifestSha256().equals(source.manifest().plaintextSha256())) scope();
         for (var unit : index.tables().get("cds_import_unit").values()) {

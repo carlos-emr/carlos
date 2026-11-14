@@ -614,7 +614,7 @@ class CdsExportNativeReportAssemblyUnitTest {
                                 encrypted[encrypted.length - 20] ^= 1;
                                 Files.write(member, encrypted);
                             }
-                            ((CdsExportRetainedValuesService.Work) call.getArgument(10))
+                            ((CdsExportRetainedValuesService.Work) call.getArgument(8))
                                     .use(
                                             index,
                                             List.of(),
@@ -632,8 +632,7 @@ class CdsExportNativeReportAssemblyUnitTest {
                         })
                 .when(values)
                 .withValues(
-                        any(), any(), anySet(), any(), any(), anyLong(), anyLong(), anyInt(),
-                        anyLong(), any(), any());
+                        any(), any(), anySet(), any(), any(), anyLong(), anyLong(), any(), any());
         var occurrences =
                 new CdsExportReportOccurrenceService(
                         values, verification, witnesses, captures, stores);

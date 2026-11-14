@@ -79,7 +79,7 @@ class CdsExportHistoryOccurrenceServiceUnitTest {
                         captures, receipts, revisions, values, verification);
         prepareCapture(Map.of());
         when(revisions.inventory(
-                        any(), any(), anySet(), any(), anyLong(), anyLong(), anyLong(), any()))
+                        any(), any(), anySet(), any(), anyLong(), anyLong(), any()))
                 .thenReturn(
                         new CdsExportNoteRevisionPlanner.Result(27, HASH, List.of(), Map.of(), 0));
         var index =
@@ -99,14 +99,13 @@ class CdsExportHistoryOccurrenceServiceUnitTest {
                                 HASH, Map.of(), Set.of(), Set.of()));
         doAnswer(
                         call -> {
-                            call.<CdsExportRetainedValuesService.Work>getArgument(10)
+                            call.<CdsExportRetainedValuesService.Work>getArgument(8)
                                     .use(index, List.of(), streams);
                             return null;
                         })
                 .when(values)
                 .withValues(
-                        any(), any(), anySet(), any(), any(), anyLong(), anyLong(), anyInt(),
-                        anyLong(), any(), any());
+                        any(), any(), anySet(), any(), any(), anyLong(), anyLong(), any(), any());
     }
 
     /** An empty capture of the history tables plus any extra (empty) captured tables. */
@@ -246,11 +245,10 @@ class CdsExportHistoryOccurrenceServiceUnitTest {
         var result = compose(CdsExportHistoryOccurrenceServiceUnitTest::all, false);
         assertThat(result.occurrences().get(CdsCategory.DEMOGRAPHICS)).isEqualTo(1);
         verify(revisions, times(1))
-                .inventory(any(), any(), anySet(), any(), anyLong(), anyLong(), anyLong(), any());
+                .inventory(any(), any(), anySet(), any(), anyLong(), anyLong(), any());
         verify(values, times(1))
                 .withValues(
-                        any(), any(), anySet(), any(), any(), anyLong(), anyLong(), anyInt(),
-                        anyLong(), any(), any());
+                        any(), any(), anySet(), any(), any(), anyLong(), anyLong(), any(), any());
         verify(captures, times(2))
                 .scan(any(), any(), anySet(), any(), anyLong(), anyLong(), any(), any());
     }

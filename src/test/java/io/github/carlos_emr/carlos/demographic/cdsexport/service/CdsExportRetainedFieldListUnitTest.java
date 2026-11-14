@@ -241,8 +241,7 @@ class CdsExportRetainedFieldListUnitTest {
         when(patient.patient()).thenReturn(PATIENT);
         when(stores.openExisting(any(), anyLong(), any(), any())).thenReturn(store);
         when(indices.index(
-                        any(), any(), anySet(), any(), anyLong(), anyLong(), anyInt(), anyLong(),
-                        any()))
+                        any(), any(), anySet(), any(), anyLong(), anyLong(), any()))
                 .thenReturn(index);
         long count = index.tables().get("cds_import_field").size();
         doAnswer(
@@ -301,8 +300,6 @@ class CdsExportRetainedFieldListUnitTest {
                         new CdsExportStagedFileDto("4".repeat(64), "RETAINED_MANIFEST", HASH, 1),
                         Long.MAX_VALUE,
                         Long.MAX_VALUE,
-                        1,
-                        1,
                         control,
                         (same, retained, streams) -> {
                             assertThat(same).isSameAs(index);
