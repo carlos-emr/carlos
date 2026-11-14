@@ -30,6 +30,8 @@ import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunCont
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -39,10 +41,15 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Streams one selected captured table into bounded immutable rows. Every source table/value
- * in the independent recipe is still verified, including both EOFs and current authorization.
+ * Streams one selected captured table into immutable rows. Every source table/value in the
+ * independent recipe is still verified, including both EOFs and current authorization.
  * Consumers must keep derived outputs private until the entire call succeeds. A row callback
  * is not whole-capture or clinical-completeness proof. No mutable clinical rows are queried.
+ *
+ * <p>No row is refused for its size (#58). One row is held at a time, as the consumer receives
+ * it; a value longer than the caller's buffering threshold is decoded as its bytes arrive rather
+ * than collected whole first, so its bytes and its text are never both held whole. A row is
+ * bounded by the capacity of its source columns.
  */
 public final class CdsExportCapturedTextRowsReader {
     @FunctionalInterface
@@ -64,7 +71,7 @@ public final class CdsExportCapturedTextRowsReader {
             CdsExportStagedFileDto manifest,
             long maximumFields,
             long maximumBytes,
-            int maximumRowBytes,
+            int bufferedValueBytes,
             CdsExportRunControl control,
             Rows rows)
             throws IOException {
@@ -78,12 +85,19 @@ public final class CdsExportCapturedTextRowsReader {
                 manifest,
                 maximumFields,
                 maximumBytes,
-                maximumRowBytes,
+                bufferedValueBytes,
                 control,
                 rows);
     }
 
-    /** One authenticated pass for related metadata tables; equal keys in different tables remain separate rows. */
+    /**
+     * One authenticated pass for related metadata tables; equal keys in different tables remain
+     * separate rows.
+     *
+     * @param bufferedValueBytes a text value of up to this many bytes is collected whole before it
+     *     is decoded, a longer one is decoded as it arrives; it decides how a value is read, never
+     *     whether a row is read
+     */
     public CdsExportNativeCaptureDto forEachTable(
             CdsExportLeaseDto lease,
             CdsExportCohortService.Patient patient,
@@ -92,19 +106,18 @@ public final class CdsExportCapturedTextRowsReader {
             CdsExportStagedFileDto manifest,
             long maximumFields,
             long maximumBytes,
-            int maximumRowBytes,
+            int bufferedValueBytes,
             CdsExportRunControl control,
             Rows rows)
             throws IOException {
         if (tables == null
                 || tables.isEmpty()
                 || !requiredTables.containsAll(tables)
-                || maximumRowBytes < 1
-                || maximumRowBytes > 67_108_864) {
+                || bufferedValueBytes < 1) {
             throw new IllegalArgumentException("CDS_EXPORT_NATIVE_ROW_SCOPE_INVALID");
         }
         var selected = Set.copyOf(tables);
-        try (var fields = new Fields(selected, maximumRowBytes, rows)) {
+        try (var fields = new Fields(selected, bufferedValueBytes, rows)) {
             var capture =
                     captures.scan(
                             lease,
@@ -133,7 +146,7 @@ public final class CdsExportCapturedTextRowsReader {
     private static final class Fields
             implements CdsExportNativeCaptureReader.Fields, AutoCloseable {
         private final Set<String> tables;
-        private final int maximum;
+        private final int buffered;
         private final Rows consumer;
         private final Map<String, String> values = new HashMap<>();
         private final Map<
@@ -141,15 +154,13 @@ public final class CdsExportCapturedTextRowsReader {
                         io.github.carlos_emr.carlos.demographic.cds.contract.CdsExactNumeric>
                 numeric = new HashMap<>();
         private String table, key;
-        private long total;
         private final Map<String, Long> rows = new HashMap<>();
         private CdsExportCapturedFieldDto field;
-        private byte[] pending;
-        private int position;
+        private Text pending;
 
-        private Fields(Set<String> tables, int maximum, Rows consumer) {
+        private Fields(Set<String> tables, int buffered, Rows consumer) {
             this.tables = tables;
-            this.maximum = maximum;
+            this.buffered = buffered;
             this.consumer = Objects.requireNonNull(consumer);
         }
 
@@ -163,51 +174,27 @@ public final class CdsExportCapturedTextRowsReader {
                 key = next.recordKey();
             }
             if (next.kind() == CdsExportCapturedFieldDto.Kind.BINARY
-                    || next.bytes() > maximum - total
                     || values.containsKey(next.column())) invalid();
             field = next;
-            total += next.bytes();
-            pending = new byte[(int) next.bytes()];
-            position = 0;
-            return new OutputStream() {
-                @Override
-                public void write(int value) throws IOException {
-                    if (field != next || pending == null || position == pending.length) invalid();
-                    pending[position++] = (byte) value;
-                }
-
-                @Override
-                public void write(byte[] bytes, int offset, int length) throws IOException {
-                    Objects.checkFromIndexSize(offset, length, bytes.length);
-                    if (field != next || pending == null || length > pending.length - position)
-                        invalid();
-                    System.arraycopy(bytes, offset, pending, position, length);
-                    position += length;
-                }
-            };
+            pending = new Text(next.bytes(), buffered);
+            return pending;
         }
 
         @Override
         public void verified(CdsExportCapturedFieldDto next) throws IOException {
             if (!tables.contains(next.table())) return;
-            if (field != next || pending == null || position != pending.length) invalid();
+            if (field != next || pending == null || !pending.complete()) invalid();
             try {
                 String text =
                         next.kind() == CdsExportCapturedFieldDto.Kind.SQL_NULL
                                 ? null
-                                : StandardCharsets.UTF_8
-                                        .newDecoder()
-                                        .onMalformedInput(CodingErrorAction.REPORT)
-                                        .onUnmappableCharacter(CodingErrorAction.REPORT)
-                                        .decode(ByteBuffer.wrap(pending))
-                                        .toString();
+                                : pending.text();
                 values.put(next.column(), text);
                 if (next.exactNumeric() != null) numeric.put(next.column(), next.exactNumeric());
             } finally {
-                Arrays.fill(pending, (byte) 0);
+                pending.clear();
                 pending = null;
                 field = null;
-                position = 0;
             }
         }
 
@@ -218,21 +205,118 @@ public final class CdsExportCapturedTextRowsReader {
             rows.merge(table, 1L, Math::addExact);
             key = null;
             table = null;
-            total = 0;
             values.clear();
             numeric.clear();
         }
 
         @Override
         public void close() {
-            if (pending != null) Arrays.fill(pending, (byte) 0);
+            if (pending != null) pending.clear();
             pending = null;
             values.clear();
             numeric.clear();
         }
+    }
 
-        private static void invalid() throws IOException {
-            throw new IOException("CDS_EXPORT_NATIVE_ROW_INVALID");
+    /**
+     * One captured text value as its verified bytes arrive. A value of up to the buffering
+     * threshold is collected whole and decoded at once; a longer one is decoded chunk by chunk as
+     * it arrives, so its raw bytes are never held whole beside its text. Either way malformed
+     * UTF-8 is refused, and a value is never cut or refused for its length.
+     */
+    private static final class Text extends OutputStream {
+        private static final int CHUNK = 8192;
+        private final long expected;
+        private long received;
+        private boolean cleared;
+        private byte[] whole;
+        private CharsetDecoder decoder;
+        private ByteBuffer input;
+        private CharBuffer output;
+        private StringBuilder decoded;
+
+        Text(long expected, int buffered) throws IOException {
+            if (expected < 0) invalid();
+            this.expected = expected;
+            if (expected <= buffered) whole = new byte[(int) expected];
+            else {
+                decoder = utf8();
+                input = ByteBuffer.allocate(CHUNK);
+                output = CharBuffer.allocate(CHUNK);
+                decoded = new StringBuilder();
+            }
         }
+
+        @Override
+        public void write(int value) throws IOException {
+            write(new byte[] {(byte) value}, 0, 1);
+        }
+
+        @Override
+        public void write(byte[] bytes, int offset, int length) throws IOException {
+            Objects.checkFromIndexSize(offset, length, bytes.length);
+            if (cleared || length > expected - received) invalid();
+            if (whole != null) System.arraycopy(bytes, offset, whole, (int) received, length);
+            else
+                for (int at = offset, end = offset + length; at < end; ) {
+                    int count = Math.min(end - at, input.remaining());
+                    input.put(bytes, at, count);
+                    at += count;
+                    decode(false);
+                }
+            received += length;
+        }
+
+        boolean complete() {
+            return !cleared && received == expected;
+        }
+
+        String text() throws IOException {
+            if (!complete()) invalid();
+            if (whole != null) return utf8().decode(ByteBuffer.wrap(whole)).toString();
+            decode(true);
+            var flushed = decoder.flush(output);
+            if (flushed.isError()) flushed.throwException();
+            drain();
+            return decoded.toString();
+        }
+
+        /** Decodes what has arrived; an incomplete character waits for the next bytes. */
+        private void decode(boolean end) throws IOException {
+            input.flip();
+            while (true) {
+                var result = decoder.decode(input, output, end);
+                if (result.isError()) result.throwException();
+                drain();
+                if (result.isUnderflow()) break;
+            }
+            input.compact();
+        }
+
+        private void drain() {
+            output.flip();
+            decoded.append(output);
+            output.clear();
+        }
+
+        void clear() {
+            cleared = true;
+            if (whole != null) Arrays.fill(whole, (byte) 0);
+            if (input != null) Arrays.fill(input.array(), (byte) 0);
+            if (output != null) Arrays.fill(output.array(), '\0');
+            whole = null;
+            decoded = null;
+        }
+
+        private static CharsetDecoder utf8() {
+            return StandardCharsets.UTF_8
+                    .newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT);
+        }
+    }
+
+    private static void invalid() throws IOException {
+        throw new IOException("CDS_EXPORT_NATIVE_ROW_INVALID");
     }
 }
