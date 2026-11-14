@@ -673,12 +673,23 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
         }
     }
 
+    /**
+     * Sets or restores an import write's session SQL mode. It is part of the import run, so it
+     * waits for the database (sent again with a longer deadline each time the server ends it at
+     * one; the same value set twice is harmless) instead of failing the unit on a busy server.
+     */
     private void setSqlMode(String value) throws SQLException {
-        try (PreparedStatement statement = raw.prepareStatement("SET SESSION sql_mode=?")) {
-            statement.setQueryTimeout(3);
-            statement.setString(1, value);
-            statement.executeUpdate();
-        }
+        CdsImportStatementWaits.awaitOwned(
+                raw,
+                seconds -> {
+                    try (PreparedStatement statement =
+                            raw.prepareStatement("SET SESSION sql_mode=?")) {
+                        statement.setQueryTimeout(seconds);
+                        statement.setString(1, value);
+                        statement.executeUpdate();
+                    }
+                    return null;
+                });
     }
 
     private void restoreImportSession(boolean commitMayHaveCompleted) throws SQLException {

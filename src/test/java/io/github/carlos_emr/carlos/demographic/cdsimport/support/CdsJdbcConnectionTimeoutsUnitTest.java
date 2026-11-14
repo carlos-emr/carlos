@@ -69,7 +69,7 @@ class CdsJdbcConnectionTimeoutsUnitTest {
         org.mockito.Mockito.when(query.executeQuery()).thenReturn(rows);
         org.mockito.Mockito.when(rows.next()).thenReturn(true, false);
         org.mockito.Mockito.when(rows.getLong(1)).thenReturn(3600L);
-        CdsJdbcConnectionTimeouts.retainOwnerForDuration(connection, 3_000_001);
+        CdsJdbcConnectionTimeouts.retainOwnerForDuration(connection, 3_000_001, CdsImportStatementWaits.OWNED);
         org.mockito.Mockito.verify(change).setLong(1, 3301L);
         org.mockito.Mockito.verify(change).execute();
         org.mockito.Mockito.when(rows.next()).thenReturn(true);
@@ -77,7 +77,7 @@ class CdsJdbcConnectionTimeoutsUnitTest {
         assertThatThrownBy(
                         () ->
                                 CdsJdbcConnectionTimeouts.retainOwnerForDuration(
-                                        connection, 3_000_001))
+                                        connection, 3_000_001, CdsImportStatementWaits.OWNED))
                 .isInstanceOf(SQLException.class)
                 .hasMessage("CDS_JDBC_TIMEOUT_CONFIGURATION_INVALID");
     }
@@ -89,7 +89,7 @@ class CdsJdbcConnectionTimeoutsUnitTest {
         assertThatThrownBy(
                         () ->
                                 CdsJdbcConnectionTimeouts.retainOwnerForDuration(
-                                        connection, duration))
+                                        connection, duration, CdsImportStatementWaits.OWNED))
                 .isInstanceOf(SQLException.class);
         org.mockito.Mockito.verifyNoInteractions(connection);
     }

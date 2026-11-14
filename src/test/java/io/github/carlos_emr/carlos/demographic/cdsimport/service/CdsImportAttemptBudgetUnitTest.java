@@ -207,7 +207,7 @@ class CdsImportAttemptBudgetUnitTest {
             var dao = mock(io.github.carlos_emr.carlos.commn.dao.CdsImportCoordinatorDao.class);
             var lease =
                     mock(io.github.carlos_emr.carlos.commn.dao.CdsImportCoordinatorDao.Lease.class);
-            when(dao.acquire()).thenReturn(lease);
+            when(dao.acquire(org.mockito.ArgumentMatchers.any())).thenReturn(lease);
             var secondary = new java.sql.SQLException("another-private-detail", "HYT00", 72);
             if (ambiguous) when(lease.physicalOwned()).thenReturn(true).thenThrow(secondary);
             else when(lease.physicalOwned()).thenReturn(true);

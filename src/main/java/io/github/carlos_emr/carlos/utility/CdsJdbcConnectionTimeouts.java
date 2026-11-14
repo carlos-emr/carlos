@@ -47,25 +47,43 @@ public final class CdsJdbcConnectionTimeouts {
      * releases its advisory lock exactly as for a dead worker, so a successor can resume the run.
      *
      * @param maximumMillis the stall window ({@code cds.import.maxDurationMillis})
+     * @param waits how the two statements wait for the database (the import's own waits): a slow
+     *     but working server never fails them
      */
-    public static void retainOwnerForDuration(java.sql.Connection connection, long maximumMillis)
+    public static void retainOwnerForDuration(
+            java.sql.Connection connection, long maximumMillis, CdsOwnedStatementWaits waits)
             throws SQLException {
         if (maximumMillis < 1) throw invalid();
         long seconds = (maximumMillis - 1) / 1000 + 1 + MAX_SOCKET_MILLIS / 1000;
         if (seconds > 31536000)
             throw invalid(); // MariaDB's maximum supported session idle interval.
-        try (var change = connection.prepareStatement("SET SESSION wait_timeout=?")) {
-            change.setQueryTimeout(3);
-            change.setLong(1, seconds);
-            change.execute();
-        }
-        try (var query = connection.prepareStatement("SELECT @@SESSION.wait_timeout")) {
-            query.setQueryTimeout(3);
-            try (var rows = query.executeQuery()) {
-                if (!rows.next() || rows.getLong(1) < seconds || rows.wasNull() || rows.next())
-                    throw invalid();
-            }
-        }
+        // Both wait for the database: setting the same value again is harmless.
+        waits.await(
+                connection,
+                deadline -> {
+                    try (var change = connection.prepareStatement("SET SESSION wait_timeout=?")) {
+                        change.setQueryTimeout(deadline);
+                        change.setLong(1, seconds);
+                        change.execute();
+                    }
+                    return null;
+                });
+        boolean retained =
+                waits.await(
+                        connection,
+                        deadline -> {
+                            try (var query =
+                                    connection.prepareStatement("SELECT @@SESSION.wait_timeout")) {
+                                query.setQueryTimeout(deadline);
+                                try (var rows = query.executeQuery()) {
+                                    return rows.next()
+                                            && rows.getLong(1) >= seconds
+                                            && !rows.wasNull()
+                                            && !rows.next();
+                                }
+                            }
+                        });
+        if (!retained) throw invalid();
     }
 
     /**

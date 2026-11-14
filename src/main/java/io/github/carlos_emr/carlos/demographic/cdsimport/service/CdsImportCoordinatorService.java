@@ -54,7 +54,11 @@ public class CdsImportCoordinatorService {
     public Owner acquire() {
         CdsImportLedgerService.requireNoTransaction();
         try {
-            var lease = coordinator.acquire();
+            // The coordinator's probes and control reads wait for the database the import's way.
+            var lease =
+                    coordinator.acquire(
+                            io.github.carlos_emr.carlos.demographic.cdsimport.support
+                                    .CdsImportStatementWaits.OWNED);
             if (lease == null) throw new CdsImportException("IMPORT_COORDINATOR_BUSY");
             try {
                 // Polled every few seconds while its worker reads and at every unit; silent
