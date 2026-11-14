@@ -167,6 +167,90 @@ class CdsExportImplementationIdentityServiceUnitTest {
         }
     }
 
+    /**
+     * A jar holding the fixture, {@code generated} more classes and one class whose name is
+     * longer than 4,096 characters, with the directory entries a class loader lists.
+     */
+    private Path jar(String name, int generated, String longClass) throws Exception {
+        Path jar = root.resolve(name);
+        var entries = new java.util.TreeMap<String, byte[]>();
+        entries.put(ANCHOR, "APPLICATION".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        entries.put(BASE + "commn/dao/AdditionalSource.class", "SOURCE".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        entries.put("cds-export/source-schema/demographic.json", "{}".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        entries.put("db/migration/common/V1.0.1__fixture.sql", "SELECT 1;".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        for (String resource : RESOURCES)
+            entries.put(
+                    resource,
+                    (resource.equals("carlos-build.properties")
+                                    ? "build.version=fixture\n"
+                                    : "RESOURCE " + resource)
+                            .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        for (int index = 0; index < generated; index++)
+            entries.put(
+                    BASE + "generated/G" + index + ".class",
+                    ("G" + index).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        entries.put(
+                BASE + "generated/" + "N".repeat(4_100) + ".class",
+                longClass.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        var directories = new java.util.TreeSet<String>();
+        for (String entry : entries.keySet())
+            for (int slash = entry.indexOf('/'); slash > 0; slash = entry.indexOf('/', slash + 1))
+                directories.add(entry.substring(0, slash + 1));
+        try (var output = new java.util.zip.ZipOutputStream(Files.newOutputStream(jar))) {
+            for (String directory : directories) {
+                output.putNextEntry(new java.util.zip.ZipEntry(directory));
+                output.closeEntry();
+            }
+            for (var entry : entries.entrySet()) {
+                output.putNextEntry(new java.util.zip.ZipEntry(entry.getKey()));
+                output.write(entry.getValue());
+                output.closeEntry();
+            }
+        }
+        return jar;
+    }
+
+    private String identity(Path jar) throws Exception {
+        try (var loader = new URLClassLoader(new URL[] {jar.toUri().toURL()}, null)) {
+            return new CdsExportImplementationIdentityService(loader, () -> "a".repeat(64)).current();
+        }
+    }
+
+    @Test
+    void shouldHashEveryClass_whenAnArtifactHoldsMoreThanTheFormerCounts() throws Exception {
+        // At most 32,768 resources a pattern, 65,536 hashed entries and names of 4,096
+        // characters were once hashed; CARLOS growing past them would fail every export.
+        String first = identity(jar("first.jar", 65_537, "LONG"));
+        assertThat(first).matches("[0-9a-f]{64}");
+        // The class past every former bound is hashed: changing only it changes the identity.
+        assertThat(identity(jar("second.jar", 65_537, "CHANGED"))).isNotEqualTo(first);
+    }
+
+    @Test
+    void shouldHashAResource_whenTheBytesHashedPassTheFormer512MiB() throws Exception {
+        // 512 MiB hashed in all was once the ceiling. The resource is sparse: its zeros are read,
+        // never stored.
+        fixture();
+        Path large = root.resolve(BASE + "commn/dao/Large.class");
+        try (var file = new java.io.RandomAccessFile(large.toFile(), "rw")) {
+            file.setLength((512L << 20) + 1);
+        }
+        String first;
+        try (var loader = loader()) {
+            first = new CdsExportImplementationIdentityService(loader, () -> "a".repeat(64)).current();
+        }
+        assertThat(first).matches("[0-9a-f]{64}");
+        // Its last byte is hashed too.
+        try (var file = new java.io.RandomAccessFile(large.toFile(), "rw")) {
+            file.seek(512L << 20);
+            file.write(1);
+        }
+        try (var loader = loader()) {
+            assertThat(new CdsExportImplementationIdentityService(loader, () -> "a".repeat(64)).current())
+                    .isNotEqualTo(first);
+        }
+    }
+
     @Test
     void shouldExcludeOperatorPolicyAndPrivateKeys_fromTheImplementationDigest() throws Exception {
         fixture();

@@ -31,12 +31,18 @@ import java.util.function.Supplier;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.stereotype.Service;
 
-/** Direction-specific identity of the actual application, source contracts and shared semantic runtime. No patient/configuration/key bytes are hashed. */
+/**
+ * Direction-specific identity of the actual application, source contracts and shared semantic
+ * runtime. No patient/configuration/key bytes are hashed. Every resource is hashed as a stream,
+ * so no count of CARLOS's classes, migrations or contracts and no size of a resource or of a
+ * BouncyCastle jar is refused: growth of CARLOS never makes every export fail. What is checked is
+ * where each byte came from (one origin, the anchor class, no shadowing resource, one digest per
+ * name) and the build version's form.
+ */
 @Service
 public class CdsExportImplementationIdentityService {
     private static final String BASE = "io/github/carlos_emr/carlos/";
     private static final String ANCHOR = BASE + "demographic/cdsexport/CdsExport.class";
-    private static final long MAXIMUM_BYTES = 512L << 20;
     private final ClassLoader loader;
     private final Supplier<String> shared;
     private volatile String cached, sharedIdentity;
@@ -85,11 +91,9 @@ public class CdsExportImplementationIdentityService {
             var resolver = new PathMatchingResourcePatternResolver(loader);
             var entries = new TreeMap<String, String>();
             byte[] buffer = new byte[64 * 1024];
-            long[] total = {0};
             for (String pattern :
                     List.of(BASE + "**/*.class", "cds-export/**/*.json", "db/migration/**/*.sql")) {
                 var resources = resolver.getResources("classpath*:" + pattern);
-                if (resources.length > 32_768) unavailable();
                 int included = 0;
                 for (var resource : resources) {
                     var url = resource.getURL();
@@ -98,7 +102,7 @@ public class CdsExportImplementationIdentityService {
                     String name = text.substring(origin.length());
                     URL selected = loader.getResource(name);
                     if (selected == null || !selected.toExternalForm().equals(text)) unavailable();
-                    add(entries, name, url, buffer, total);
+                    add(entries, name, url, buffer);
                     included++;
                 }
                 if (included == 0) unavailable();
@@ -116,7 +120,7 @@ public class CdsExportImplementationIdentityService {
                 if (resource == null || !resource.toExternalForm().equals(origin + name))
                     unavailable();
                 if (name.equals("carlos-build.properties")) buildVersion(entries, name, resource);
-                else add(entries, name, resource, buffer, total);
+                else add(entries, name, resource, buffer);
             }
             for (Class<?> dependency :
                     List.of(
@@ -129,9 +133,8 @@ public class CdsExportImplementationIdentityService {
                 if (!"file".equals(url.getProtocol())) unavailable();
                 var file = java.nio.file.Path.of(url.toURI());
                 if (!java.nio.file.Files.isRegularFile(
-                                file, java.nio.file.LinkOption.NOFOLLOW_LINKS)
-                        || java.nio.file.Files.size(file) > (128L << 20)) unavailable();
-                add(entries, "dependency/" + dependency.getName(), url, buffer, total);
+                        file, java.nio.file.LinkOption.NOFOLLOW_LINKS)) unavailable();
+                add(entries, "dependency/" + dependency.getName(), url, buffer);
             }
             MessageDigest digest = CdsImportKeys.digest();
             CdsImportKeys.add(digest, "CARLOS_CDS_EXPORT_IMPLEMENTATION_1");
@@ -169,16 +172,13 @@ public class CdsExportImplementationIdentityService {
 
     // FindSecBugs URLCONNECTION_SSRF_FD: Every URL is a class-path resource that resolves under the file:, jar:file: or war:file: origin of the CARLOS anchor class, or the file: code source of a named BouncyCastle class; never operator or request input.
     @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "URLCONNECTION_SSRF_FD", justification = "every URL is a class-path resource that resolves under the file:, jar:file: or war:file: origin of the CARLOS anchor class, or the file: code source of a named BouncyCastle class; never operator or request input")
-    private static void add(
-            Map<String, String> entries, String name, URL resource, byte[] buffer, long[] total)
+    private static void add(Map<String, String> entries, String name, URL resource, byte[] buffer)
             throws IOException {
-        if (entries.size() >= 65_536 || name.length() > 4096) unavailable();
         var digest = CdsImportKeys.digest();
         try (var input = resource.openStream()) {
             for (int n; (n = input.read(buffer)) != -1; ) {
+                // A stream that returns nothing would never end: a broken stream, not a size.
                 if (n == 0) throw new IOException("CDS_EXPORT_IDENTITY_READ_STALLED");
-                total[0] = Math.addExact(total[0], n);
-                if (total[0] > MAXIMUM_BYTES) unavailable();
                 digest.update(buffer, 0, n);
             }
         }
