@@ -55,6 +55,25 @@ public class CdsExportPatientInventoryService {
             Set.of("preventions", CdsExportPreventionSources.SCREENINGS);
     private static final Set<CdsCategory> RETAINED =
             Set.of(CdsCategory.REPORTS, CdsCategory.CARE_ELEMENTS, CdsCategory.NEW_CATEGORY);
+
+    private static final String NOT_SELECTED =
+            " (" + CdsExportDemographicSupportingMapper.NOT_SELECTED_RULE + ")";
+
+    /** ReadMe label: native laboratory reports whose source record was not selected. */
+    public static final String LABORATORY_NOT_EXPORTED_LABEL =
+            "Laboratory report source records" + NOT_SELECTED;
+
+    /** ReadMe label: CARLOS inbox comments on imported laboratory results, not selected. */
+    public static final String LABORATORY_COMMENTS_NOT_EXPORTED_LABEL =
+            "Inbox comments on imported laboratory results" + NOT_SELECTED;
+
+    /** ReadMe label: measurements exported as CareElements whose source record was not selected. */
+    public static final String MEASUREMENT_NOT_EXPORTED_LABEL =
+            "Measurement source records" + NOT_SELECTED;
+
+    /** ReadMe label: measurements with no CareElements element, carried only by NewCategory. */
+    public static final String MEASUREMENT_WITHOUT_ELEMENT_NOT_EXPORTED_LABEL =
+            "Measurements with no CDS element" + NOT_SELECTED;
     private final CdsExportRetainedIndexService indices;
     private final CdsExportNativeRowReceiptReader rows;
     private final CdsExportHistoryInventoryService histories;
@@ -259,8 +278,8 @@ public class CdsExportPatientInventoryService {
         boolean newCategory =
                 lease.document().command().categories().contains(CdsCategory.NEW_CATEGORY);
         // Captured records whose NewCategory record is not written because the job did not select
-        // NewCategory: counted per ReadMe label, never a reason to hold the chart.
-        var notExported = new LinkedHashMap<String, Long>();
+        // NewCategory: named per ReadMe label and source table, never a reason to hold the chart.
+        var notSelected = new LinkedHashMap<String, SortedMap<String, SortedSet<String>>>();
         // Every current appointment has one NewCategory source record
         // (CdsExportAppointmentSourceMapper), in the order of its Appointments element.
         for (String appointment : new TreeSet<>(appointments)) {
@@ -271,8 +290,11 @@ public class CdsExportPatientInventoryService {
                                 patientKey, CdsCategory.NEW_CATEGORY, "appointment", appointment),
                         budget);
             else
-                notExported.merge(
-                        CdsExportAppointmentSourceMapper.NOT_EXPORTED_LABEL, 1L, Long::sum);
+                withhold(
+                        notSelected,
+                        CdsExportAppointmentSourceMapper.NOT_EXPORTED_LABEL,
+                        "appointment",
+                        appointment);
         }
         // An imported CareElements whose every observation was deleted in CARLOS is not in the
         // chart: its retained source fields are accounted as removed by the care assembly.
@@ -365,8 +387,6 @@ public class CdsExportPatientInventoryService {
         for (var laboratory :
                 laboratories.nativeSources(
                         lease, patient, tables, source, index, bounds, control)) {
-            if (!lease.document().command().categories().contains(CdsCategory.NEW_CATEGORY))
-                review();
             // An embedded document is a Reports entry (CdsExportLaboratoryDocumentMapper);
             // excluding Reports would leave it unexported, so the selection needs review.
             if (!laboratory.parsed().documents().isEmpty()
@@ -390,25 +410,40 @@ public class CdsExportPatientInventoryService {
                                 "hl7TextMessage",
                                 laboratory.id() + ":" + observation.ordinal()),
                         budget);
-            add(
-                    expected,
-                    nativeIdentity(
-                            patientKey,
-                            CdsCategory.NEW_CATEGORY,
-                            "hl7TextMessage",
-                            laboratory.id()),
-                    budget);
+            // The report's source record (CARLOS.Laboratory.v1) is a NewCategory record: without
+            // NewCategory its results are still exported and the record is named as not exported.
+            if (newCategory)
+                add(
+                        expected,
+                        nativeIdentity(
+                                patientKey,
+                                CdsCategory.NEW_CATEGORY,
+                                "hl7TextMessage",
+                                laboratory.id()),
+                        budget);
+            else
+                withhold(
+                        notSelected,
+                        LABORATORY_NOT_EXPORTED_LABEL,
+                        "hl7TextMessage",
+                        laboratory.id());
         }
         for (var prescription :
                 prescriptions.sources(lease, patient, tables, source, bounds, control)) {
-            add(
-                    expected,
-                    nativeIdentity(
-                            patientKey,
-                            CdsCategory.NEW_CATEGORY,
-                            "prescription",
-                            prescription.prescription().fields().get("script_no")),
-                    budget);
+            String script = prescription.prescription().fields().get("script_no");
+            // A printed prescription has no element but its NewCategory record.
+            if (newCategory)
+                add(
+                        expected,
+                        nativeIdentity(
+                                patientKey, CdsCategory.NEW_CATEGORY, "prescription", script),
+                        budget);
+            else
+                withhold(
+                        notSelected,
+                        CdsExportPrescriptionOccurrenceService.NOT_EXPORTED_LABEL,
+                        "prescription",
+                        script);
         }
         // Inbox comments recorded in CARLOS on a lab result from an earlier CDS import: one
         // NewCategory record per result (CdsExportLaboratoryOccurrenceService.importedComments).
@@ -418,16 +453,21 @@ public class CdsExportPatientInventoryService {
                     CdsExportLaboratoryOccurrenceService.importedComments(
                             index,
                             laboratories.routes(lease, patient, tables, source, bounds, control))) {
-                if (!lease.document().command().categories().contains(CdsCategory.NEW_CATEGORY))
-                    review();
-                add(
-                        expected,
-                        new CdsExportIdentityDto(
-                                patientKey,
-                                CdsCategory.NEW_CATEGORY,
-                                CdsExportLaboratoryOccurrenceService.importedCommentsId(
-                                        comments.result())),
-                        budget);
+                if (newCategory)
+                    add(
+                            expected,
+                            new CdsExportIdentityDto(
+                                    patientKey,
+                                    CdsCategory.NEW_CATEGORY,
+                                    CdsExportLaboratoryOccurrenceService.importedCommentsId(
+                                            comments.result())),
+                            budget);
+                else
+                    withhold(
+                            notSelected,
+                            LABORATORY_COMMENTS_NOT_EXPORTED_LABEL,
+                            "cds_laboratory_result",
+                            comments.result());
             }
         // Reviews recorded in CARLOS on an imported report that already has its own Notes: one
         // supplementary Reports record (CdsExportReportOccurrenceService.importedReviews).
@@ -528,10 +568,6 @@ public class CdsExportPatientInventoryService {
                 observation -> {
                     // A deleted or superseded version is accounted, never an expected occurrence.
                     if (observation.deleted()) return;
-                    if (!lease.document()
-                            .command()
-                            .categories()
-                            .contains(CdsCategory.NEW_CATEGORY)) review();
                     if (observation.element() != null)
                         addCare(
                                 expected,
@@ -541,14 +577,30 @@ public class CdsExportPatientInventoryService {
                                         observation.table(),
                                         observation.id()),
                                 budget);
-                    addCare(
-                            expected,
-                            nativeIdentity(
-                                    patientKey,
-                                    CdsCategory.NEW_CATEGORY,
-                                    observation.table(),
-                                    observation.id()),
-                            budget);
+                    if (newCategory)
+                        addCare(
+                                expected,
+                                nativeIdentity(
+                                        patientKey,
+                                        CdsCategory.NEW_CATEGORY,
+                                        observation.table(),
+                                        observation.id()),
+                                budget);
+                    else {
+                        // The measurement's NewCategory record is not written. Its name is held
+                        // in the same per-patient occurrence capacity its identity would use.
+                        if (budget.full())
+                            throw new CdsExportMappingReviewException(
+                                    CdsExportCareOccurrenceService.PATIENT_LIMIT);
+                        budget.add();
+                        withhold(
+                                notSelected,
+                                observation.element() != null
+                                        ? MEASUREMENT_NOT_EXPORTED_LABEL
+                                        : MEASUREMENT_WITHOUT_ELEMENT_NOT_EXPORTED_LABEL,
+                                observation.table(),
+                                observation.id());
+                    }
                 });
         if (expected.stream()
                         .filter(identity -> identity.category() == CdsCategory.DEMOGRAPHICS)
@@ -558,7 +610,7 @@ public class CdsExportPatientInventoryService {
         patient.require(lease);
         control.checkpoint();
         return new Inventory(
-                source.manifest().plaintextSha256(), patientKey, expected, sourceFields, notExported);
+                source.manifest().plaintextSha256(), patientKey, expected, sourceFields, notSelected);
     }
 
     private static boolean applied(CdsExportRetainedIndexDto index, CdsCategory category) {
@@ -645,6 +697,20 @@ public class CdsExportPatientInventoryService {
         return List.copyOf(reviewed);
     }
 
+    /** Names one captured record whose NewCategory record the job's selection left out. */
+    private static void withhold(
+            Map<String, SortedMap<String, SortedSet<String>>> notSelected,
+            String label,
+            String table,
+            String id)
+            throws IOException {
+        if (id == null
+                || !notSelected
+                        .computeIfAbsent(label, ignored -> new TreeMap<>())
+                        .computeIfAbsent(table, ignored -> new TreeSet<>())
+                        .add(id)) invalid();
+    }
+
     private static CdsExportIdentityDto nativeIdentity(
             String patient, CdsCategory category, String table, String id) {
         return new CdsExportIdentityDto(
@@ -698,18 +764,45 @@ public class CdsExportPatientInventoryService {
         private final SortedSet<CdsExportIdentityDto> identities;
         private final Set<String> retainedFields;
         private final Map<String, Long> notExported;
+        private final Map<String, SortedMap<String, SortedSet<String>>> notSelected;
 
         private Inventory(
                 String source,
                 String patient,
                 SortedSet<CdsExportIdentityDto> identities,
                 Set<String> fields,
-                Map<String, Long> notExported) {
+                Map<String, SortedMap<String, SortedSet<String>>> notSelected) {
             sourceManifestSha256 = source;
             patientKey = patient;
             this.identities = Collections.unmodifiableSortedSet(new TreeSet<>(identities));
             retainedFields = Set.copyOf(fields);
-            this.notExported = Collections.unmodifiableMap(new LinkedHashMap<>(notExported));
+            var names = new LinkedHashMap<String, SortedMap<String, SortedSet<String>>>();
+            var counts = new LinkedHashMap<String, Long>();
+            notSelected.forEach(
+                    (label, tables) -> {
+                        var copy = new TreeMap<String, SortedSet<String>>();
+                        long count = 0;
+                        for (var table : tables.entrySet()) {
+                            copy.put(
+                                    table.getKey(),
+                                    Collections.unmodifiableSortedSet(
+                                            new TreeSet<>(table.getValue())));
+                            count += table.getValue().size();
+                        }
+                        names.put(label, Collections.unmodifiableSortedMap(copy));
+                        counts.put(label, count);
+                    });
+            this.notSelected = Collections.unmodifiableMap(names);
+            notExported = Collections.unmodifiableMap(counts);
+        }
+
+        /**
+         * The same records by name: per ReadMe label, the source table and native ids of every
+         * captured record whose NewCategory record was not written. The document service records
+         * each as an {@code OPERATIONAL} decision in the patient's reconciliation audit.
+         */
+        public Map<String, SortedMap<String, SortedSet<String>>> notSelected() {
+            return notSelected;
         }
 
         /**

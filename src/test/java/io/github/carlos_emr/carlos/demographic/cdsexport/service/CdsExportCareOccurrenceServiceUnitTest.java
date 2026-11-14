@@ -346,6 +346,69 @@ class CdsExportCareOccurrenceServiceUnitTest {
     }
 
     @Test
+    void shouldExportMeasurementsWithoutHolding_whenNewCategoryIsNotSelected() throws Exception {
+        // Was CDS_EXPORT_UNMAPPED_DATA: a chart with any measurement was held when the operator
+        // left NewCategory out. The CareElements entries are exported; each value only the
+        // measurement's source record would hold is an explicit "not selected" decision.
+        var fixture =
+                new CdsExportCareCaptureFixture(
+                        EnumSet.of(
+                                io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory
+                                        .DEMOGRAPHICS,
+                                io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory
+                                        .CARE_ELEMENTS));
+        fixture.add(CdsExportCareCaptureFixture.vocabulary(1, "WT"));
+        for (long id = 1; id <= 3; id++)
+            fixture.add(CdsExportCareCaptureFixture.measurement(id, "WT", Long.toString(60 + id)));
+        org.mockito.Mockito.doAnswer(
+                        call -> {
+                            CdsExportRetainedValuesService.Work work = call.getArgument(10);
+                            work.use(
+                                    new CdsExportRetainedIndexDto(
+                                            CdsExportCareCaptureFixture.HASH,
+                                            0,
+                                            0,
+                                            Map.of(),
+                                            Set.of(),
+                                            Map.of(),
+                                            Map.of()),
+                                    List.of(),
+                                    org.mockito.Mockito.mock(
+                                            CdsExportRetainedSectionWriter.Values.class));
+                            return null;
+                        })
+                .when(fixture.values)
+                .withValues(
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.anySet(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.anyLong(),
+                        org.mockito.ArgumentMatchers.anyLong(),
+                        org.mockito.ArgumentMatchers.anyInt(),
+                        org.mockito.ArgumentMatchers.anyLong(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any());
+        var composed = fixture.compose(fixture.service(), CdsExportCareCaptureFixture.bounds(8192));
+        assertThat(composed.result().nativeRows()).isEqualTo(3);
+        assertThat(composed.receipts()).hasSize(3);
+        for (var receipt : composed.receipts()) {
+            assertThat(receipt.fields().values())
+                    .noneMatch(decision -> decision.destination().contains("NewCategory"))
+                    .anyMatch(
+                            decision ->
+                                    decision.rule()
+                                                    .equals(
+                                                            CdsExportDemographicSupportingMapper
+                                                                    .NOT_SELECTED_RULE)
+                                            || decision.rule()
+                                                    .equals(
+                                                            "NORMALIZED_VALUE_EXACT_FORM_NEW_CATEGORY_NOT_SELECTED"));
+        }
+    }
+
+    @Test
     void shouldNameADeletedImportedObservation_insteadOfAGenericUnmappedReview() {
         // Before: deleting an imported care measurement (the only way to correct one) held the
         // patient as generic unmapped data. Its retained source would present the deleted value

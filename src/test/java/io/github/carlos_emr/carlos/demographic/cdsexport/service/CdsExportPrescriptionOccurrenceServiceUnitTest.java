@@ -163,20 +163,23 @@ class CdsExportPrescriptionOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseExcludingSupportingScriptHistory_insteadOfDroppingItsComments()
-            throws Exception {
+    void shouldReturnTheScripts_whenNewCategoryIsNotSelected() throws Exception {
+        // Was CDS_EXPORT_PRESCRIPTION_SUPPORTING_CATEGORY_REQUIRED: the operator's category
+        // choice held the chart. The scripts are now returned for the inventory to name as not
+        // exported; the NewCategory assembly, which writes their records, is simply not run.
         var f = captured(false, true);
-        assertThatThrownBy(
-                        () ->
-                                new CdsExportPrescriptionOccurrenceService(f.fixture.captures)
-                                        .sources(
-                                                f.fixture.lease,
-                                                f.fixture.patient,
-                                                f.tables,
-                                                f.source,
-                                                f.fixture.bounds,
-                                                f.fixture.control))
-                .hasMessage("CDS_EXPORT_PRESCRIPTION_SUPPORTING_CATEGORY_REQUIRED");
+        var result =
+                new CdsExportPrescriptionOccurrenceService(f.fixture.captures)
+                        .sources(
+                                f.fixture.lease,
+                                f.fixture.patient,
+                                f.tables,
+                                f.source,
+                                f.fixture.bounds,
+                                f.fixture.control);
+        assertThat(result).hasSize(1);
+        assertThat(result.getFirst().prescription().fields())
+                .containsEntry("rx_comments", "Clinical parent comment");
     }
 
     @Test

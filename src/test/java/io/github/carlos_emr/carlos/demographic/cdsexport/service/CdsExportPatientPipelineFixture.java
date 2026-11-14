@@ -46,6 +46,8 @@ final class CdsExportPatientPipelineFixture {
     final CdsExportHistoryInventoryService historyInventory =
             mock(CdsExportHistoryInventoryService.class);
     final CdsExportCareOccurrenceService careInventory = mock(CdsExportCareOccurrenceService.class);
+    final CdsExportPrescriptionOccurrenceService prescriptionInventory =
+            mock(CdsExportPrescriptionOccurrenceService.class);
     final CdsExportLaboratoryOccurrenceService laboratoryInventory =
             mock(CdsExportLaboratoryOccurrenceService.class);
     final CdsExportCohortService.Patient patient = mock(CdsExportCohortService.Patient.class);
@@ -178,7 +180,7 @@ final class CdsExportPatientPipelineFixture {
                         historyInventory,
                         careInventory,
                         laboratoryInventory,
-                        mock(CdsExportPrescriptionOccurrenceService.class));
+                        prescriptionInventory);
         when(demographics.append(
                         any(),
                         any(),

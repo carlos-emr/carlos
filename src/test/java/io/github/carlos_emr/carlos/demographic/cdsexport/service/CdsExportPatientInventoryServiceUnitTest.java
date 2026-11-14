@@ -660,13 +660,32 @@ class CdsExportPatientInventoryServiceUnitTest {
                                         CdsCategory.NEW_CATEGORY,
                                         CdsExportLaboratoryOccurrenceService.importedCommentsId(
                                                 result)));
-            // Without NewCategory the comment would have nowhere to go: the selection needs review.
-            else assertThatThrownBy(() -> capture(f)).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+            // Without NewCategory the comment's record is not written: the chart is still
+            // exported and the result is named as not exported, never held.
+            else {
+                var inventory = capture(f);
+                assertThat(inventory.identities())
+                        .noneMatch(identity -> identity.category() == CdsCategory.NEW_CATEGORY);
+                assertThat(inventory.notExported())
+                        .containsExactly(
+                                Map.entry(
+                                        CdsExportPatientInventoryService
+                                                .LABORATORY_COMMENTS_NOT_EXPORTED_LABEL,
+                                        1L));
+                assertThat(inventory.notSelected())
+                        .containsEntry(
+                                CdsExportPatientInventoryService
+                                        .LABORATORY_COMMENTS_NOT_EXPORTED_LABEL,
+                                new TreeMap<>(
+                                        Map.of("cds_laboratory_result", new TreeSet<>(Set.of(result)))));
+            }
         }
     }
 
     @Test
-    void shouldRequireTheExplicitSupportingCategory_forNativeLabSourceContext() throws Exception {
+    void shouldExportNativeLabResultsWithoutTheirSourceRecord_whenNewCategoryIsNotSelected()
+            throws Exception {
+        // Was a hold (CDS_EXPORT_UNMAPPED_DATA): the operator's category choice held the chart.
         var f = fixture(CdsCategory.LABORATORY_RESULTS);
         var source =
                 CdsExportNativeLaboratoryMapperUnitTest.source(
@@ -674,7 +693,67 @@ class CdsExportPatientInventoryServiceUnitTest {
         when(f.laboratoryInventory.nativeSources(
                         any(), any(), anySet(), any(), any(), any(), any()))
                 .thenReturn(List.of(source));
-        assertThatThrownBy(() -> capture(f)).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+        var inventory = capture(f);
+        assertThat(inventory.identities())
+                .noneMatch(identity -> identity.category() == CdsCategory.NEW_CATEGORY)
+                .filteredOn(identity -> identity.category() == CdsCategory.LABORATORY_RESULTS)
+                .hasSize(source.parsed().observations().size());
+        assertThat(inventory.notExported())
+                .containsExactly(
+                        Map.entry(
+                                "Laboratory report source records"
+                                        + " (NO_CDS_ELEMENT_NEW_CATEGORY_NOT_SELECTED)",
+                                1L));
+    }
+
+    @Test
+    void shouldCountPrintedPrescriptionsAsNotExported_whenNewCategoryIsNotSelected()
+            throws Exception {
+        // Was CDS_EXPORT_PRESCRIPTION_SUPPORTING_CATEGORY_REQUIRED.
+        for (var selected :
+                List.of(
+                        List.of(CdsCategory.MEDICATIONS_AND_TREATMENTS, CdsCategory.NEW_CATEGORY),
+                        List.of(CdsCategory.MEDICATIONS_AND_TREATMENTS))) {
+            var f = fixture(selected.toArray(CdsCategory[]::new));
+            var fields = new TreeMap<String, String>();
+            io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Plan
+                    .PRESCRIPTIONS
+                    .columns()
+                    .forEach(column -> fields.put(column, null));
+            fields.put("script_no", "501");
+            fields.put("demographic_no", "27");
+            var script =
+                    new CdsExportPrescriptionOccurrenceService.Source(
+                            new CdsExportCapturedTextRowDto(
+                                    "prescription",
+                                    CdsExportPatientTableSourceReader.key(501),
+                                    fields),
+                            null);
+            when(f.prescriptionInventory.sources(any(), any(), anySet(), any(), any(), any()))
+                    .thenReturn(List.of(script));
+            var inventory = capture(f);
+            var identity =
+                    new CdsExportIdentityDto(
+                            "c".repeat(64),
+                            CdsCategory.NEW_CATEGORY,
+                            CdsImportKeys.hash(
+                                    "carlos-native-occurrence-v1", "prescription", "501"));
+            if (selected.contains(CdsCategory.NEW_CATEGORY)) {
+                assertThat(inventory.identities()).contains(identity);
+                assertThat(inventory.notExported()).isEmpty();
+            } else {
+                assertThat(inventory.identities()).doesNotContain(identity);
+                assertThat(inventory.notExported())
+                        .containsExactly(
+                                Map.entry(
+                                        CdsExportPrescriptionOccurrenceService.NOT_EXPORTED_LABEL,
+                                        1L));
+                assertThat(inventory.notSelected())
+                        .containsEntry(
+                                CdsExportPrescriptionOccurrenceService.NOT_EXPORTED_LABEL,
+                                new TreeMap<>(Map.of("prescription", new TreeSet<>(Set.of("501")))));
+            }
+        }
     }
 
     @Test
@@ -699,15 +778,32 @@ class CdsExportPatientInventoryServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseNativeObservations_whenTheirSupportingClinicalContextIsExcluded()
+    void shouldExportMeasurementsWithoutTheirSourceRecords_whenNewCategoryIsNotSelected()
             throws Exception {
+        // Was a hold (CDS_EXPORT_UNMAPPED_DATA). A measurement with a CareElements element is
+        // still exported; one with no element is named as not exported. Neither holds the chart.
         var f = fixture(CdsCategory.CARE_ELEMENTS);
         var observation = CdsExportNativeCareMapperUnitTest.observation("WT", "70", "kg");
         careSources(
                 f,
                 new CdsExportNativeCarePlanner.Occurrence(
-                        "measurements", "91", "Weight", observation, List.of(), List.of()));
-        assertThatThrownBy(() -> capture(f)).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+                        "measurements", "91", "Weight", observation, List.of(), List.of()),
+                new CdsExportNativeCarePlanner.Occurrence(
+                        "measurements", "92", null, observation, List.of(), List.of()));
+        var inventory = capture(f);
+        assertThat(inventory.identities())
+                .noneMatch(identity -> identity.category() == CdsCategory.NEW_CATEGORY)
+                .filteredOn(identity -> identity.category() == CdsCategory.CARE_ELEMENTS)
+                .hasSize(1);
+        assertThat(inventory.notExported())
+                .containsExactly(
+                        Map.entry(
+                                CdsExportPatientInventoryService.MEASUREMENT_NOT_EXPORTED_LABEL,
+                                1L),
+                        Map.entry(
+                                CdsExportPatientInventoryService
+                                        .MEASUREMENT_WITHOUT_ELEMENT_NOT_EXPORTED_LABEL,
+                                1L));
     }
 
     @Test

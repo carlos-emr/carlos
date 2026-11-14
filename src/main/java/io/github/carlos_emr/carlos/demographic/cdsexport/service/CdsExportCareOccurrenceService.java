@@ -250,10 +250,9 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
                                     claim(key(extension.table(), id(extension)), importedOwned, claimed);
                                 continue;
                             }
-                            if (!lease.document()
-                                    .command()
-                                    .categories()
-                                    .contains(CdsCategory.NEW_CATEGORY)) review();
+                            // Without NewCategory the measurement's source record is not written:
+                            // the values only it would hold are decided OPERATIONAL (not
+                            // selected) below, and the chart is exported, never held.
                             var mapped =
                                     new CdsExportNativeCareMapper()
                                             .map(
@@ -298,7 +297,12 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
                                             nativeSource.table(),
                                             nativeSource.id(),
                                             null,
-                                            mapped.fields(),
+                                            CdsExportDemographicSupportingMapper.withSelection(
+                                                    mapped.fields(),
+                                                    lease.document()
+                                                            .command()
+                                                            .categories()
+                                                            .contains(CdsCategory.NEW_CATEGORY)),
                                             Set.of(),
                                             Set.of()));
                             control.authorizeCategory(patient.patient(), category(), false);

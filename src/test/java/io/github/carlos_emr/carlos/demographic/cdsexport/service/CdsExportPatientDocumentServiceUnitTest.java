@@ -25,6 +25,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportCapturedTextRowDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNativeRowReceiptDto;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -80,6 +81,46 @@ class CdsExportPatientDocumentServiceUnitTest {
                         eq(f.source.capture()),
                         eq(f.control));
         assertThat(result.toString()).isEqualTo("CdsExportPatientDocument[protected]");
+    }
+
+    @Test
+    void shouldRecordRecordsNotSelectedWithNewCategory_inTheAuditAndTheDocument() throws Exception {
+        // Medications without NewCategory: the printed prescription has no element. The chart
+        // is exported; the script is an OPERATIONAL decision in the audit and a ReadMe count.
+        var f = fixture(CdsCategory.MEDICATIONS_AND_TREATMENTS);
+        var fields = new java.util.TreeMap<String, String>();
+        io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Plan.PRESCRIPTIONS
+                .columns()
+                .forEach(column -> fields.put(column, null));
+        fields.put("script_no", "501");
+        fields.put("demographic_no", "27");
+        org.mockito.Mockito.when(
+                        f.prescriptionInventory.sources(
+                                any(), any(), anySet(), any(), any(), any()))
+                .thenReturn(
+                        java.util.List.of(
+                                new CdsExportPrescriptionOccurrenceService.Source(
+                                        new CdsExportCapturedTextRowDto(
+                                                "prescription",
+                                                CdsExportPatientTableSourceReader.key(501),
+                                                fields),
+                                        null)));
+        var result = f.compose();
+        assertThat(result.notExported())
+                .containsExactly(
+                        java.util.Map.entry(
+                                "Printed prescription records"
+                                        + " (NO_CDS_ELEMENT_NEW_CATEGORY_NOT_SELECTED)",
+                                1L));
+        try (var audit = f.store.open(result.reconciliation())) {
+            assertThat(new String(audit.readAllBytes(), StandardCharsets.UTF_8))
+                    .contains(
+                            "{\"label\":\"Printed prescription records"
+                                    + " (NO_CDS_ELEMENT_NEW_CATEGORY_NOT_SELECTED)\","
+                                    + "\"table\":\"prescription\",\"outcome\":\"OPERATIONAL\","
+                                    + "\"rule\":\"NO_CDS_ELEMENT_NEW_CATEGORY_NOT_SELECTED\","
+                                    + "\"records\":[\"501\"]}");
+        }
     }
 
     @Test

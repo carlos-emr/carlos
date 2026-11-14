@@ -333,7 +333,14 @@ Choose all seven history/note categories together: PersonalHistory, FamilyHistor
 PastHealth, ProblemList, RiskFactors, AlertsAndSpecialNeeds and ClinicalNotes. Select
 NewCategory when exporting native measurements/labs or printed prescription context.
 It carries generic observations, complete original lab messages and printed script
-history. Deleted measurements (a clinician's deletion or an HL7 result superseded by a
+history. If you leave NewCategory out, no chart is held for it: each chart is exported from
+its standard fields and the ReadMe lists, for each patient, how many records were not exported
+and why (`Patient records not exported: Printed prescription records
+(NO_CDS_ELEMENT_NEW_CATEGORY_NOT_SELECTED): 3`, and likewise for laboratory report source
+records, inbox comments on imported laboratory results, measurement source records,
+measurements with no CDS element, and appointment source records). A measurement with no CDS
+element and a printed prescription's text exist only in NewCategory, so they are not in such
+a package at all. Deleted measurements (a clinician's deletion or an HL7 result superseded by a
 newer version) are not exported, as with the legacy exporter. Lab results that CARLOS
 copies into the measurement flowsheets travel only with their HL7 report under
 LaboratoryResults, never as care elements: without LaboratoryResults they are not exported.
@@ -355,8 +362,8 @@ acknowledgement by a provider number with no provider record holds the patient. 
 came from an earlier CDS import is exported from its imported elements, which keep the
 reviewers the sending EMR recorded; a provider who acknowledged it in CARLOS is added after
 them as one more ResultReviewer, and an inbox comment on it travels whole in a NewCategory
-record (`CARLOS.ImportedLaboratoryReview.v1`), so NewCategory must be selected for such a
-chart.
+record (`CARLOS.ImportedLaboratoryReview.v1`); without NewCategory the result is still
+exported and the comment is listed in the ReadMe as not exported.
 
 Lab feeds are exported as CARLOS received them. A report uploaded inside an XML file (Excelleris
 ON, PATHL7) is stored with a line feed between its segments and is read the way CARLOS's lab

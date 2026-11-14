@@ -234,6 +234,35 @@ class CdsExportClinicalPackageServiceUnitTest {
     }
 
     @Test
+    void shouldPackageAChartWhoseNewCategoryRecordsWereNotSelected_andStateThemInTheReadMe()
+            throws Exception {
+        // A printed prescription without NewCategory used to hold the patient. The chart is
+        // packaged; the composed ReadMe line passes the independent supporting-files validator,
+        // which recomputes it from the same per-patient count.
+        var fields = new java.util.TreeMap<String, String>();
+        io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Plan.PRESCRIPTIONS
+                .columns()
+                .forEach(column -> fields.put(column, null));
+        fields.put("script_no", "501");
+        fields.put("demographic_no", "27");
+        when(fixture.prescriptionInventory.sources(any(), any(), anySet(), any(), any(), any()))
+                .thenReturn(
+                        java.util.List.of(
+                                new CdsExportPrescriptionOccurrenceService.Source(
+                                        new io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                                .CdsExportCapturedTextRowDto(
+                                                "prescription",
+                                                CdsExportPatientTableSourceReader.key(501),
+                                                fields),
+                                        null)));
+        assertThat(fixture.compose().notExported())
+                .containsKey(CdsExportPrescriptionOccurrenceService.NOT_EXPORTED_LABEL);
+        var prepared = compose();
+        assertThat(prepared.patients()).isEqualTo(1);
+        assertThat(prepared.metadata().heldPatients()).isEmpty();
+    }
+
+    @Test
     void shouldRefuseAnUnfinishedCohort_evenWhenEveryReturnedPatientHasValidXml() throws Exception {
         eof = false;
         assertThatThrownBy(this::compose).hasMessage("CDS_EXPORT_CLINICAL_PACKAGE_INVALID");

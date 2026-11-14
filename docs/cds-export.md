@@ -1016,8 +1016,9 @@ row keeps the instant as Unix seconds; the zero TIMESTAMP (no time recorded) req
 the imported reviewers (`CdsExportLaboratoryOccurrenceService.appendedReviewers`), every imported
 element keeping its bytes, and each commented route travels whole in a NewCategory record
 `CARLOS.ImportedLaboratoryReview.v1` (`importedComments`, identity `importedCommentsId(result)`,
-emitted by `CdsExportNewCategoryOccurrenceService` and expected by the inventory). Such a
-comment without NewCategory selected requests review. Every route is owned by exactly one
+emitted by `CdsExportNewCategoryOccurrenceService` and expected by the inventory). Without
+NewCategory selected the record is not written and the chart is still exported (see "Records
+that need NewCategory when it is not selected"). Every route is owned by exactly one
 captured report.
 
 Finite operator settings include `cds.export.captureTimeoutSeconds` (default 120,
@@ -2432,6 +2433,41 @@ ReadMe states per patient `Patient records not exported: Appointment source reco
 
 The CARLOS importer reads the record back (`docs/cds-import.md`, "CARLOS appointment source
 record").
+
+#### Records that need NewCategory when it is not selected
+
+The operator's category choice never holds a chart. Five kinds of captured record have no CDS
+element of their own, or only an inexact one, and travel in a NewCategory record. When the job
+does not select NewCategory the record is not written and:
+
+- the chart is exported from its standard elements;
+- every field decision that named the record becomes `OPERATIONAL`
+  `NO_CDS_ELEMENT_NEW_CATEGORY_NOT_SELECTED` (or `NORMALIZED_VALUE_EXACT_FORM_NEW_CATEGORY_NOT_SELECTED`
+  when the element holds the value's schema-valid form) in the receipt of the record's own
+  element (`CdsExportDemographicSupportingMapper.withSelection`);
+- `CdsExportPatientInventoryService` does not expect the record's identity and names it instead
+  (`Inventory.notSelected`: ReadMe label, source table, native ids);
+- `CdsExportPatientDocumentService` writes one `OPERATIONAL` line per label and table, with the
+  rule and the record ids, in the patient's reconciliation audit;
+- the package ReadMe states the count per patient, `Patient records not exported: <label>:
+  <count>` (`Captured.notExported`, composed and independently validated with the eForm counts).
+
+| Record | ReadMe label (each ends ` (NO_CDS_ELEMENT_NEW_CATEGORY_NOT_SELECTED)`) | Still exported |
+| --- | --- | --- |
+| `CARLOS.Appointment.Source.v1`, one per appointment | `Appointment source records` | the Appointments element |
+| `CARLOS.Prescription.v1`, one per printed script | `Printed prescription records` | the medications; the script text, comments and reprint history are not |
+| `CARLOS.Laboratory.v1`, one per native laboratory report | `Laboratory report source records` | every result of the report |
+| `CARLOS.ImportedLaboratoryReview.v1`, one per commented imported result | `Inbox comments on imported laboratory results` | the result and its reviewers; the comments are not |
+| `CARLOS.NativeObservation.v1` of a measurement that has a CareElements element | `Measurement source records` | the CareElements entry |
+| `CARLOS.NativeObservation.v1` of a measurement with no CareElements element | `Measurements with no CDS element` | nothing of that measurement |
+
+These were holds: `CDS_EXPORT_PRESCRIPTION_SUPPORTING_CATEGORY_REQUIRED`, and
+`CDS_EXPORT_UNMAPPED_DATA` from the inventory and from the care and laboratory assemblies for a
+native laboratory report, a commented imported result or a measurement. Demographic values with
+no element already followed this rule. One selection still holds a chart: a native laboratory
+report with an embedded document when Reports is not selected
+(`CdsExportPatientInventoryService`, `CdsExportLaboratoryOccurrenceService`); the document is a
+Reports entry and that assembly was not changed here.
 
 The separate owning archive DAO captures every `appointmentArchive` version, including repeated
 booking IDs, SQL NULL/empty values, large text and historical-only status/provider definitions.
@@ -4438,7 +4474,9 @@ the reasons by prescription and refuses a reason of no exported prescription;
 The owning `PrescriptionDao` also captures printed script text, comments and reprint history,
 including scripts without remaining drug rows. Independent inventory accounts for every
 parent as `CARLOS.NativePrescription.v1` supporting clinical data. Select `NewCategory` with
-medications when such parents exist; excluding it refuses publication. A drug whose
+medications to send them; without it the chart is still exported and the scripts are named as not
+exported (`CDS_EXPORT_PRESCRIPTION_SUPPORTING_CATEGORY_REQUIRED` is gone; see "Records that need
+NewCategory when it is not selected"). A drug whose
 `script_no` names no script of the patient (migrated data; no CARLOS screen removes a script) is
 exported like any other drug, the stored number exact in its `CARLOS.Medication.Source.v1`; no
 script record is invented for it. A script of another patient, or two scripts with one number,

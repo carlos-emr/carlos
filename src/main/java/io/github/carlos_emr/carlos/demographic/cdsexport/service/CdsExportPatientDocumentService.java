@@ -114,8 +114,19 @@ public class CdsExportPatientDocumentService {
                             "PATIENT_RECONCILIATION",
                             audit -> {
                                 long[] auditBytes = {0};
+                                // Each expected occurrence and each record named as not
+                                // selected adds to the audit.
+                                long named = 0;
+                                for (long count : expected.notExported().values())
+                                    named = Math.addExact(named, count);
                                 long auditMaximum =
-                                        auditLimit(bounds, expected.identities().size());
+                                        auditLimit(
+                                                bounds,
+                                                Math.toIntExact(
+                                                        Math.min(
+                                                                Integer.MAX_VALUE,
+                                                                expected.identities().size()
+                                                                        + named)));
                                 var sink =
                                         new CdsExportClinicalOccurrenceService.Receipts() {
                                             @Override
@@ -319,6 +330,24 @@ public class CdsExportPatientDocumentService {
                                     if (!receipts.contains(owner)) invalid();
                                 for (var disposition : dispositions.values())
                                     line(audit, disposition, auditBytes, auditMaximum);
+                                // Captured records with no CDS element whose NewCategory record
+                                // was not written because NewCategory was not selected: each is
+                                // an explicit OPERATIONAL decision here, not a hold and not a
+                                // silent omission. The package ReadMe states the counts.
+                                for (var withheld : expected.notSelected().entrySet())
+                                    for (var table : withheld.getValue().entrySet())
+                                        line(
+                                                audit,
+                                                new NotSelected(
+                                                        withheld.getKey(),
+                                                        table.getKey(),
+                                                        CdsExportFieldAssessmentDto.Outcome
+                                                                .OPERATIONAL,
+                                                        CdsExportDemographicSupportingMapper
+                                                                .NOT_SELECTED_RULE,
+                                                        table.getValue()),
+                                                auditBytes,
+                                                auditMaximum);
                                 var coverage =
                                         new CdsExportCoverageValidator()
                                                 .validate(
@@ -444,6 +473,17 @@ public class CdsExportPatientDocumentService {
                             sink);
             }
     }
+
+    /**
+     * Captured records of one source table that have no CDS element and whose NewCategory record
+     * was not written because the job did not select NewCategory.
+     */
+    private record NotSelected(
+            String label,
+            String table,
+            CdsExportFieldAssessmentDto.Outcome outcome,
+            String rule,
+            SortedSet<String> records) {}
 
     private record ReceiptHeader(
             CdsExportIdentityDto identity,

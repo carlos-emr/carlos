@@ -30,9 +30,23 @@ import java.io.IOException;
 import java.util.*;
 import org.springframework.stereotype.Service;
 
-/** Bounded parent-script context, with independent membership and exact patient/child ownership. */
+/**
+ * Bounded parent-script context, with independent membership and exact patient/child ownership.
+ *
+ * <p>A printed prescription has no CDS element of its own: it travels whole in a NewCategory
+ * record ({@code CARLOS.Prescription.v1}). When the job does not select NewCategory the record is
+ * not written; the chart is still exported, the scripts are decided {@code OPERATIONAL}
+ * {@link CdsExportDemographicSupportingMapper#NOT_SELECTED_RULE} in the patient's reconciliation
+ * audit and the package ReadMe counts them for the patient ({@link #NOT_EXPORTED_LABEL}).
+ */
 @Service
 public class CdsExportPrescriptionOccurrenceService {
+    /** ReadMe label counting a patient's printed prescriptions when NewCategory is not selected. */
+    public static final String NOT_EXPORTED_LABEL =
+            "Printed prescription records ("
+                    + CdsExportDemographicSupportingMapper.NOT_SELECTED_RULE
+                    + ")";
+
     private final CdsExportCapturedTextRowsReader rows;
 
     public CdsExportPrescriptionOccurrenceService(CdsExportNativeCaptureService captures) {
@@ -80,11 +94,9 @@ public class CdsExportPrescriptionOccurrenceService {
         var parents = read(lease, patient, tables, source, bounds, control, "prescription");
         var drugs = read(lease, patient, tables, source, bounds, control, "drugs");
         requireOwnership(patient.patient(), parents, drugs);
-        if (!parents.isEmpty()
-                && !lease.document().command().categories().contains(CdsCategory.NEW_CATEGORY))
-            throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
-                    .CdsExportMappingReviewException(
-                    "CDS_EXPORT_PRESCRIPTION_SUPPORTING_CATEGORY_REQUIRED");
+        // The scripts are returned whether or not NewCategory is selected: the operator's
+        // category choice never holds a chart. The inventory accounts them as not exported
+        // when their record is not written.
         if (parents.isEmpty()) return List.of();
         var providers = new HashMap<String, CdsExportCapturedTextRowDto>();
         for (var provider : read(lease, patient, tables, source, bounds, control, "provider")) {

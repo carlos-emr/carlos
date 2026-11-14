@@ -147,6 +147,8 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
         // The clinic zone places acknowledgement times; read once, when a route exists.
         ZoneId[] clinic = {null};
         long[] counts = {0, 0, 0};
+        boolean supportingRecords =
+                lease.document().command().categories().contains(CdsCategory.NEW_CATEGORY);
         values.withValues(
                 lease,
                 patient,
@@ -312,12 +314,11 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
                                     CdsExportInboxReviewMapper.laboratory()
                                             .map(importedRoutes, List.of(), providers, clinic[0]);
                         }
-                        if (!importedReviews.carried().isEmpty()
-                                && !lease.document()
-                                        .command()
-                                        .categories()
-                                        .contains(CdsCategory.NEW_CATEGORY)) review();
-                        assessments.putAll(importedReviews.fields());
+                        // A commented route travels in a NewCategory record; without NewCategory
+                        // it is decided OPERATIONAL (not selected) and the chart is not held.
+                        assessments.putAll(
+                                CdsExportDemographicSupportingMapper.withSelection(
+                                        importedReviews.fields(), supportingRecords));
                         assessedRows.addAll(importedReviews.rows());
                         new CdsExportNativeFieldAssessmentValidator()
                                 .requireRepresentable(
@@ -359,11 +360,9 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
                     }
                     var nativeSources =
                             nativeSources(patient.patient(), current, index, control::checkpoint);
-                    if (!nativeSources.isEmpty()
-                            && !lease.document()
-                                    .command()
-                                    .categories()
-                                    .contains(CdsCategory.NEW_CATEGORY)) review();
+                    // Without NewCategory a report's source record is not written: its values
+                    // with no laboratory element are decided OPERATIONAL (not selected) in each
+                    // result's receipt, and the chart is exported, never held.
                     // Embedded documents are exported as Reports entries by the Reports assembler.
                     for (var nativeSource : nativeSources)
                         if (!nativeSource.parsed().documents().isEmpty()
@@ -393,7 +392,10 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
                                 CdsExportInboxReviewMapper.laboratory()
                                         .map(nativeRoutes, List.of(), providers, zone);
                         var assessments =
-                                CdsExportNativeLaboratoryMapper.assessments(nativeSource, reviews);
+                                CdsExportDemographicSupportingMapper.withSelection(
+                                        CdsExportNativeLaboratoryMapper.assessments(
+                                                nativeSource, reviews),
+                                        supportingRecords);
                         var assessedRows = new ArrayList<>(nativeSource.rows());
                         assessedRows.addAll(reviews.rows());
                         new CdsExportNativeFieldAssessmentValidator()
