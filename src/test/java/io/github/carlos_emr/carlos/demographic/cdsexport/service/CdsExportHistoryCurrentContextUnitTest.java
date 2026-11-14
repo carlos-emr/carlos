@@ -623,10 +623,12 @@ class CdsExportHistoryCurrentContextUnitTest {
     }
 
     @Test
-    void shouldRefuseWitnessAllocation_whenTheMemoryBudgetIsExhausted() throws Exception {
+    void shouldReadTheWholeHistory_whateverIndexBytesAreConfigured() throws Exception {
         prepare();
-        assertThatThrownBy(() -> read(1)).hasMessage("CDS_EXPORT_RESOURCE_LIMIT");
-        verifyNoInteractions(captures);
+        // No configured size refuses a chart's history: the smallest setting reads the same
+        // notes as a generous one.
+        var generous = read(1L << 20).noteIds();
+        assertThat(read(1).noteIds()).isEqualTo(generous).isNotEmpty();
     }
 
     @Test

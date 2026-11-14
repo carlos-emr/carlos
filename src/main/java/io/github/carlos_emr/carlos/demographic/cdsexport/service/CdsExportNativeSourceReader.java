@@ -124,13 +124,13 @@ public interface CdsExportNativeSourceReader {
     long count(int patient);
 
     /**
-     * Refuses a patient's row count this capture cannot hold. By default an excess concerns the
-     * configured capture limits and stops the job; a reader whose tables are bounded per patient may
-     * hold only that patient instead.
+     * Checks a patient's row count before its rows are captured. The capture itself has no size
+     * limit (rows are streamed to staging), so this refuses only a count that is not a count,
+     * which is a failure of the read. {@code maximumFields} is the caller's former field bound;
+     * it is no longer applied here.
      */
     default void requireCapacity(long rows, long maximumFields) throws IOException {
-        if (rows < 0 || rows > maximumFields / columns().size())
-            throw new IOException("CDS_EXPORT_CAPTURE_FIELD_LIMIT");
+        if (rows < 0) throw new IOException("CDS_EXPORT_CAPTURE_COUNT_INVALID");
     }
 
     /** Bounded pre-capture discovery uses the same cancellation/ownership control as value streaming. */

@@ -515,18 +515,33 @@ class CdsExportRetainedIndexServiceUnitTest {
     }
 
     @Test
-    void shouldEnforceExplicitResourceBounds_andReturnNoIndexAfterFinalAuthorityIsRevoked()
-            throws Exception {
-        assertThatThrownBy(
-                        () ->
-                                service.index(
-                                        lease, patient, TABLES, manifest, 10000, 8L << 20, 1,
-                                        4L << 20, control))
-                .hasMessage("CDS_EXPORT_RETAINED_INDEX_RESOURCE_LIMIT");
+    void shouldIndexTheChart_whateverRowAndByteBoundsTheCallerStates() throws Exception {
+        // No configured count or size refuses an index: the smallest bounds a caller can state
+        // index the same chart.
+        var bounded =
+                service.index(lease, patient, TABLES, manifest, 10000, 8L << 20, 1, 1, control);
+        assertThat(bounded.tables().get("cds_import_unit")).hasSameSizeAs(index().tables().get("cds_import_unit"));
+        assertThat(bounded.metadataRows()).isEqualTo(index().metadataRows());
+    }
+
+    @Test
+    void shouldReturnNoIndex_afterFinalAuthorityIsRevoked() throws Exception {
         doThrow(new SecurityException("ACCESS_REVOKED"))
                 .when(captures)
                 .authorizeSources(lease, patient, TABLES, control);
         assertThatThrownBy(this::index).hasMessage("ACCESS_REVOKED");
+    }
+
+    @Test
+    void shouldKeepEveryIndexedRowReadable_asTheCapturedRow() throws Exception {
+        var result = index();
+
+        // The index holds its rows packed; each reads exactly as the captured row it came from.
+        for (var captured : data.values()) {
+            var kept = result.tables().get(captured.table()).get(captured.recordKey());
+            assertThat(kept).isEqualTo(captured);
+            assertThat(new TreeMap<>(kept.fields())).isEqualTo(new TreeMap<>(captured.fields()));
+        }
     }
 
     private CdsExportCapturedTextRowDto unit(

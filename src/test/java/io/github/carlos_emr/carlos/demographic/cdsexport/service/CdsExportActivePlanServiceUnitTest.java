@@ -47,9 +47,27 @@ class CdsExportActivePlanServiceUnitTest {
     @Test
     void shouldDeferActiveConfigurationParsing_untilClinicalWorkActuallyRequiresIt() {
         var settings = settings();
-        settings.setProperty("cds.export.maxCapturedBytes", "invalid");
+        settings.setProperty("cds.export.maxIndexBytes", "invalid");
         var service = new CdsExportActivePlanService(settings, () -> "2026.09.0-test");
         assertThatThrownBy(service::resolve).hasMessage("CDS_EXPORT_CONFIGURATION_INVALID");
+    }
+
+    @Test
+    void shouldCaptureAChartOfAnySize_whateverTheRetiredCaptureBoundsSay() throws Exception {
+        // No setting limits a capture; the two retired keys are accepted and ignored.
+        var plan = new CdsExportActivePlanService(settings(), () -> "2026.09.0-test").resolve();
+        assertThat(plan.source().fields()).isEqualTo(Long.MAX_VALUE);
+        assertThat(plan.source().bytes()).isEqualTo(Long.MAX_VALUE);
+        for (String value : new String[] {"1", "1000000", "0", "invalid", "999999999999999999999"}) {
+            var settings = settings();
+            settings.setProperty("cds.export.maxCapturedFields", value);
+            settings.setProperty("cds.export.maxCapturedBytes", value);
+            var set = new CdsExportActivePlanService(settings, () -> "2026.09.0-test").resolve();
+            assertThat(set.source().fields()).isEqualTo(Long.MAX_VALUE);
+            assertThat(set.source().bytes()).isEqualTo(Long.MAX_VALUE);
+        }
+        assertThat(CdsExportActivePlanService.RETIRED)
+                .contains("maxCapturedFields", "maxCapturedBytes");
     }
 
     @Test
@@ -91,7 +109,9 @@ class CdsExportActivePlanServiceUnitTest {
                                         + " cds.export.maxMetadataBytes,"
                                         + " cds.export.maxZipBytes,"
                                         + " cds.export.maxCiphertextBytes,"
-                                        + " cds.export.maxStagedFileBytes]");
+                                        + " cds.export.maxStagedFileBytes,"
+                                        + " cds.export.maxCapturedFields,"
+                                        + " cds.export.maxCapturedBytes]");
             }
         }
     }

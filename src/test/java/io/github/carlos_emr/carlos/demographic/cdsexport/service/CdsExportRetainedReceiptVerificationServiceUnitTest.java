@@ -135,16 +135,19 @@ class CdsExportRetainedReceiptVerificationServiceUnitTest {
     }
 
     @Test
-    void shouldBoundAllReferences_includingDuplicatesWithoutProducingPartialVerification() {
+    void shouldVerifyEveryReference_whateverCountTheCallerStates() throws Exception {
         var expected =
                 index(
                         SOURCE,
                         Map.of(
                                 "unit",
                                 List.of(ref("allergies", "51", OLD), ref("allergies", "51", OLD))));
-        assertThatThrownBy(() -> verify(expected, 1))
-                .hasMessage("CDS_EXPORT_RETAINED_RECEIPT_RESOURCE_LIMIT");
-        verifyNoInteractions(rows, captures);
+        // No count refuses a chart: a caller's bound of one still verifies both references.
+        var result = verify(expected, 1);
+        assertThat(result.units().get("unit"))
+                .hasSize(2)
+                .allMatch(ref -> ref.reason() == Reason.UNCHANGED_ROW);
+        assertThat(result.unchangedUnits()).containsExactly("unit");
     }
 
     @Test

@@ -553,7 +553,17 @@ public class CdsExportExecutionService {
         private void closeVerified() {
             var current = verified;
             verified = null;
-            if (current != null) current.close();
+            if (current == null) return;
+            try {
+                current.close();
+            } catch (java.io.UncheckedIOException uncleared) {
+                // A stored replay member could not be erased. Sessions close inside finally
+                // blocks, so the failure is raised at the worker's next checkpoint, where it
+                // stops the job, and never in place of the failure that ended the patient.
+                heartbeatFailure.compareAndSet(
+                        null, new IllegalStateException("CDS_EXPORT_SESSION_CLEANUP_FAILED"));
+                LOG.warn("CDS_EXPORT_SESSION_CLEANUP_FAILED run={}", lease.runId());
+            }
         }
 
         /** Table names only; kept for this attempt and dropped with it. */

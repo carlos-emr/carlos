@@ -115,6 +115,21 @@ class CdsExportCapturedNoteScopeValidatorUnitTest {
     }
 
     @Test
+    void shouldBindEveryNote_whenTheChartHasMoreThan8192() throws Exception {
+        var scopes = new ArrayList<CdsExportNoteAccessDto>();
+        for (int note = 1; note <= 8_193; note++)
+            scopes.add(new CdsExportNoteAccessDto(note, 27, "10", "3"));
+        // 8,192 scopes was the most a capture could be read with; any number is bound now.
+        try (var validator =
+                new CdsExportCapturedNoteScopeValidator(
+                        27, scopes, field -> OutputStream.nullOutputStream())) {
+            // None of the notes has been read yet, so the read is not complete.
+            assertThatThrownBy(validator::finish)
+                    .hasMessage("CDS_EXPORT_CAPTURE_NOTE_SCOPE_INVALID");
+        }
+    }
+
+    @Test
     void shouldRefuseOversizedMetadata_beforeOpeningAConsumerStream() throws Exception {
         try (var validator =
                 new CdsExportCapturedNoteScopeValidator(

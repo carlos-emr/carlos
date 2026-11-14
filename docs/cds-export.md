@@ -687,9 +687,8 @@ held the chart much earlier, at 8,192 observations). The patient's reconciliatio
 streamed to an encrypted staged file, is bounded by `maxIndexBytes` plus 16 KiB for each
 expected occurrence (`CdsExportPatientDocumentService.auditLimit`): a native measurement's two
 receipts and dispositions take about 6 KiB, so `maxIndexBytes` alone would have stopped the job
-at about 11,000 measurements. The per-patient capture bounds (`cds.export.maxCapturedFields`, default 1,000,000
-and up to 100,000,000; `cds.export.maxCapturedBytes`) and every per-job limit still apply; a
-measurement is ten captured fields.
+at about 11,000 measurements. A chart's capture has no size limit (see "No limit on the
+capture" below); every per-job limit still applies. A measurement is ten captured fields.
 
 `measurementsDeleted` is read by patient (every capture count and page, and the extension scope,
 which also follows `originalId`) and by original measurement id (the check that no measurement
@@ -3344,11 +3343,53 @@ checked table plan, the retained import index (with its unsealed native-baseline
 comparison of the captured rows with those witnesses are likewise derived once per session from
 the same checked members. Everything a read does around the transport still runs on every read:
 the manifest and scope checks, the authorization checks before and after, the note-scope binding
-and each consumer's own receipts. The record is the session's alone, is zeroed when the patient
-ends however it ends, and holds at most 32 MiB and 200,000 fields; a larger capture is read from
-its members every time, as before. Each read's own working buffers are reused across values and
-zeroed after each value, the export-enabled setting is read once, and the accepted schema digests
-of each reader's contract are derived once per application.
+and each consumer's own receipts. The record is the session's alone and is zeroed when the patient
+ends however it ends. It is a cache, not a bound on the chart: it holds at most a sixteenth of
+the engine's heap (32 MiB under the default 512 MiB), each verified field value with its digest
+(164 bytes, its table, key and column strings shared) beside its value bytes, which is a chart
+of about 250 imported records or 1,000 native ones; a replay from it validates, formats and
+parses nothing. It is kept small on purpose: the sections that reconcile a long chart need the
+heap more than its replay does. A larger capture is not held. Its
+first complete read also writes each verified field (row, column, kind, length, SHA-256 and
+exact numeric evidence, about 46 bytes) to a second encrypted staged member
+(`CdsExportCaptureReplay`, purpose `SOURCE_REPLAY`); each later read streams that member beside
+the capture's value member, delivers the same fields in the same order, hashes every value again
+and refuses one whose SHA-256 is not the verified one, and reads both members to their
+authenticated end. Such a read holds one field and one 64 KiB chunk whatever the chart's size,
+and skips only the JSON parsing of the index and the UTF-8 check of bytes whose digest already
+proves them. The session erases the replay member when the patient ends; an erasure that fails
+stops the job at its next checkpoint (`CDS_EXPORT_SESSION_CLEANUP_FAILED`), and the member, still
+encrypted under the job's key, is purged with the job's staging. Each read's own working buffers
+are reused across values and zeroed after each value, the export-enabled setting is read once, and
+the accepted schema digests of each reader's contract are derived once per application.
+
+**No limit on the capture.** A chart of any size is captured: every value is streamed to the
+encrypted staged members and read back from them, so a capture costs staging disk (measured 430
+MiB for a chart of 4,096 imported records, about 105 KiB each: 18 KiB of values, the index lines
+and 46 bytes a field of replay member) and no memory that grows with the chart. The former per-patient capture bounds are gone:
+`cds.export.maxCapturedFields` and `cds.export.maxCapturedBytes` are no longer read (an
+installation that still sets them starts as before; the keys are named once in the log as
+`CDS_EXPORT_RETIRED_SETTING_IGNORED`), `CdsExportNativeCaptureComposer` refuses no field or value
+count, a reader's `requireCapacity` refuses only a count that is not a count, and the 100,000,000
+field ceiling of the capture and payload manifests is removed. The installed plan passes
+`Bounds.UNLIMITED` wherever a read still takes the two former bounds as arguments. What can stop a
+capture is storage: a full disk or a failed write is an I/O failure of the job. An imported chart
+also has a retained import index, the one structure of it that `CdsExportRetainedIndexService`
+still holds in memory for the patient's session. It keeps each row packed (its column names
+shared, its values one UTF-8 byte array) and each unit's native-baseline witness sealed, opening
+it on each read, and `CdsExportRetainedReceiptVerificationService` decodes a unit's witness when
+its rows are compared instead of holding every unit's decoded rows at once. Nothing refuses the
+index, the receipt comparison or the history section's rows for their size: `maxIndexRows` and
+`maxIndexBytes` are not applied to them, the comparison's reference count is not bounded, and
+no heap budget stands in their place.
+
+What is left is the heap itself. The index and the sections that reconcile an imported chart
+(the retained field values, the history and laboratory contexts) still hold the chart as Java
+objects, so a long imported chart needs more heap than the default: see "Imported 2048-note
+chart" under the installed export scaling lane. No threshold of ours stops such a job. With too
+small a heap the Java runtime spends its time collecting an old generation that stays full, and
+the export does not finish; the remedy is a larger `cds.export.cliHeapMiB` and a new export.
+That lasts until those structures are spilled to staging as the capture and its replay are.
 
 The trusted server setting `FILTER_ON_FACILITY` defaults to true, as in the chart. A positive note program then requires the command’s verified facility to match the program; disabling the setting does not remove program-domain, membership, chart or category checks. Invalid settings refuse the operation. Locked notes, unknown lock flags and malformed or changed dependencies also refuse disclosure. The unused `filterNotesByAccess` helper’s legacy `ROLEnotes` and admission-interval rules are not used. Earlier component evidence used that helper; the current active-policy checks below supersede those authorization claims. History issue/revision reconciliation and complete clinical output remain separate work.
 
@@ -4003,7 +4044,7 @@ check costs 7,088 and 2,956 per chart. The per-note privilege budget, 1.0, is th
 detector for the census slowdown fixed by the per-patient authorization session (see "One
 authorization session per patient" above): with the session the authorization tables are read
 per patient, not per note, so any return to per-read checks exceeds it whatever the total
-statement budget absorbs: the measured growth is 0.02 (native) and 0.29 (imported) per note.
+statement budget absorbs: the measured growth is 0.02 (native) and 0.13 (imported) per note.
 The other budgets are about twice the measurements below; RSS cannot take that headroom inside the
 1536 MiB runtime, so its budget (1280 MiB, about 1.5 times the largest chart) bounds growth beyond
 the 512 MiB heap. Each budget and its derivation is documented beside `BUDGETS` in the harness.
@@ -4018,9 +4059,9 @@ the patients rows follows the table:
 | patients-1 | 25 s / 7,952 / 3,213 / 538 MiB | 23 s / 7,899 / 3,167 / 535 MiB |
 | patients-8 | 56 s / 57,582 / 23,907 / 585 MiB | 55 s / 57,147 / 23,539 / 575 MiB |
 | patients-32 | 150 s / 227,495 / 94,851 / 578 MiB | 162 s / 225,979 / 93,387 / 603 MiB |
-| chart-128 | 30 s / 9,377 / 3,213 / 562 MiB | 41 s / 9,622 / 3,175 / 612 MiB |
-| chart-512 | 39 s / 13,664 / 3,221 / 783 MiB | 253 s / 17,131 / 3,287 / 855 MiB |
-| chart-2048 | 100 s / 30,971 / 3,253 / 831 MiB | fails (below) |
+| chart-128 | 30 s / 9,377 / 3,213 / 562 MiB | 37 to 45 s / 9,648 / 3,175 / 744 MiB |
+| chart-512 | 39 s / 13,664 / 3,221 / 783 MiB | 114 to 138 s / 15,578 / 3,223 / 781 MiB |
+| chart-2048 | 87 to 100 s / 30,971 / 3,253 / 831 MiB | fails (below) |
 
 The `carlos-ctl` adapter peaked at 24 MiB. In these runs each extra chart cost about 7,050
 statements, 2,930 privilege statements and 4 to 4.5 s; each extra note and result costs 11.2
@@ -4052,6 +4093,14 @@ the capture itself: one count and one read for each of about 200 source tables, 
 not reading a table whose count in the same snapshot was zero, is the next reduction and is not
 done here.
 
+**Imported charts with the stored replay.** An imported chart's capture no longer has a size
+limit, and a capture too large for the in-memory replay is replayed from a staged member (below).
+With it each extra imported note and result costs 15.4 statements, 0.13 privilege statements and
+0.20 to 0.24 s (chart-128 to chart-512); the imported time budget is 0.45 s a note. Before it,
+chart-512 took 253 s on the reference host and 244 s in CI (17,080 statements, 864 MiB) and
+chart-128 41 s and 40.5 s (9,637 statements). The reference host is shared, and one run under
+heavier load measured every case, native and patient series included, about 1.6 times slower.
+
 **Imported 2048-note chart: the defect this lane found.** Measured before the fix, its export
 ended `FAILED` with `CDS_EXPORT_EXECUTION_FAILED` after about 144 s: a statement timeout (SQL
 state 70100) in `CdsExportPatientTableReadSupport.requireLocalLaboratoryAssociations`, called
@@ -4067,8 +4116,42 @@ other chart routes one of the patient's reports now starts from the patient's ow
 imported results instead of scanning every other chart's routes. On a synthetic clinic of
 300,000 lab routes and 50,000 imported results, for a patient with 2,048 of each, one check
 fell from 14.9 s to 13 ms for the bound-report test and from 127 ms to 9 ms for the shared-route
-test (MariaDB 11.8.8). The imported figures in the table above predate this fix, and the
-imported chart-2048 budget is still the one extrapolated from chart-128 and chart-512.
+test (MariaDB 11.8.8). The imported chart-2048 budget is still the one extrapolated from
+chart-128 and chart-512.
+
+**Imported 2048-note chart: no size refuses it, and what still stops it at the defaults.** The
+chart is 1,091,901 captured fields and 72.5 MiB of values: 191 fields for an imported note and
+342 for an imported laboratory result (102 and 238 of them the 17 columns of its
+`cds_import_field` rows, 28 its two `cds_import_unit` rows). `cds_import_field` is 61 percent of
+the fields and the sealed witnesses of `cds_import_unit` 64 percent of the bytes. After the
+association fix it ended `FAILED` with `CDS_EXPORT_IO_FAILED` at the capture's 1,000,000-field
+bound (116.6 s in CI), and the 512-note chart, at 273,213 fields past the 200,000-field replay
+bound, read its whole capture from the encrypted members for each of its 133 readers: 170 s of
+a 215 s export. Both bounds are gone (see "No limit on the capture"): the capture refuses no
+count, a capture too large for the session's memory replays from its stored replay member, and
+the retained index, the receipt comparison and the history rows are refused by no count. The
+512-note chart now takes 114 to 138 s. Two things still stop the 2048-note case under the lane's
+default settings, so the lane keeps reporting it:
+
+- Capture time. The capture runs in one read-only snapshot under
+  `cds.export.captureTimeoutSeconds` (default 120). This chart's capture takes about 125 s, so
+  the job ends `FAILED` with `CDS_EXPORT_EXECUTION_FAILED` (a transaction timeout) at about
+  160 s. About 58 s of it is the page reads of `cds_import_unit`: each 32-row page is selected
+  through the patient's `(run_id, patient_key)` index and sorted by id, which reads every
+  remaining unit row with its 6 KiB witness (4,131 rows examined a page, 257 pages, 228 ms each),
+  so that part grows with the square of the chart; `cds_import_dependency` pages cost 8 s the
+  same way. A linear read needs an index that orders one patient's units by id and a page query
+  that takes the ids from it before it reads the rows.
+- Heap. With the capture timeout raised to 600 s the default 512 MiB heap is exhausted in the
+  laboratory section: the old generation stays at its 341 MiB with two to three full
+  collections a second and the export does not finish (it was stopped by hand after three
+  minutes of that). The
+  retained field values and the section contexts are held as Java objects; the index itself is
+  now 62 MiB packed. With `cds.export.cliHeapMiB=1024` and the 600 s capture timeout the same
+  export is READY and complete in 472 s (the old generation peaked at 649 MiB of 682 with six
+  full collections, the engine's RSS at 1,390 MiB, past the lane's 1280 MiB RSS budget); it is a
+  measurement, not a lane case, and its package was not opened to count its records. From 128
+  to 512 to 2,048 notes that is 37, 114 and 472 s: 0.20 and 0.23 s a note, about linear.
 
 The same lane on the revision before the per-patient authorization session (the five classes
 that commit changed, compiled from its parent and overlaid on an earlier packaged WAR of this

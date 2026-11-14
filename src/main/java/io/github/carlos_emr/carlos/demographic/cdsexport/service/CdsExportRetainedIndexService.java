@@ -157,9 +157,14 @@ public class CdsExportRetainedIndexService {
             control.checkpoint();
             return known;
         }
+        // Nothing refuses an index for its size: maximumRows and maximumIndexBytes are the
+        // caller's former bounds and are not applied. The rows and bytes are still counted, for
+        // the index's own record of what it holds.
         var tables = new TreeMap<String, Map<String, CdsExportCapturedTextRowDto>>();
         plans.keySet().forEach(table -> tables.put(table, new TreeMap<>()));
         long[] count = new long[2];
+        // One packed row of each table, so that every row of the table shares its column names.
+        var layouts = new HashMap<String, CdsExportCapturedTextRowDto>();
         rows.forEachTable(
                 lease,
                 patient,
@@ -168,12 +173,11 @@ public class CdsExportRetainedIndexService {
                 manifest,
                 maximumFields,
                 maximumBytes,
+                // One row's text: its sealed witness and the rest of its columns.
                 (int)
-                        Math.min(
-                                maximumIndexBytes,
-                                2_097_152L
-                                        + io.github.carlos_emr.carlos.demographic.cds.contract
-                                                .CdsNativeBaselineCodec.MAX_SEALED_BYTES),
+                        (2_097_152L
+                                + io.github.carlos_emr.carlos.demographic.cds.contract
+                                        .CdsNativeBaselineCodec.MAX_SEALED_BYTES),
                 control,
                 row -> {
                     Plan plan = plans.get(row.table());
@@ -196,10 +200,10 @@ public class CdsExportRetainedIndexService {
                                                     .getBytes(StandardCharsets.UTF_8)
                                                     .length);
                     }
-                    if (count[0] > maximumRows || count[1] > maximumIndexBytes)
-                        throw new IOException("CDS_EXPORT_RETAINED_INDEX_RESOURCE_LIMIT");
-                    if (tables.get(row.table()).putIfAbsent(row.recordKey(), unsealed(row))
-                            != null) invalid();
+                    var kept = unsealed(row, layouts.get(row.table()));
+                    layouts.putIfAbsent(row.table(), kept);
+                    if (tables.get(row.table()).putIfAbsent(row.recordKey(), kept) != null)
+                        invalid();
                 });
         if (requiredTables.contains("retained_import_options")) {
             var optionRows = new TreeMap<String, CdsExportCapturedTextRowDto>();
@@ -212,7 +216,7 @@ public class CdsExportRetainedIndexService {
                     manifest,
                     maximumFields,
                     maximumBytes,
-                    (int) Math.min(maximumIndexBytes, 2_097_152L),
+                    2_097_152,
                     control,
                     row -> {
                         if (!"retained_import_options".equals(row.table())
@@ -230,8 +234,6 @@ public class CdsExportRetainedIndexService {
                                                         ? 0
                                                         : encoded.getBytes(StandardCharsets.UTF_8)
                                                                 .length));
-                        if (count[0] > maximumRows || count[1] > maximumIndexBytes)
-                            throw new IOException("CDS_EXPORT_RETAINED_INDEX_RESOURCE_LIMIT");
                         if (encoded != null)
                             verified.put(
                                     row.recordKey(),
@@ -570,24 +572,28 @@ public class CdsExportRetainedIndexService {
     }
 
     /**
-     * A stored native-baseline witness is sealed under an installation key (IMP-1). The index is
-     * in memory only, so it carries the verified plaintext document that the reconcilers read;
-     * the captured staging copy keeps the sealed form. A missing key refuses the job with
-     * {@code CDS_NATIVE_BASELINE_KEY_UNAVAILABLE} rather than silently dropping the evidence.
+     * The row as the index keeps it: packed ({@link CdsExportCapturedTextRowDto#packed}), and for
+     * a unit with a stored native-baseline witness, with that witness unsealed on each read.
+     *
+     * <p>A stored witness is sealed under an installation key (IMP-1). The index verifies each
+     * seal as it is built and gives the reconcilers the verified plaintext document, but it keeps
+     * the sealed text: the plaintext is about four times larger, and held for every unit of a
+     * long imported chart it alone would fill the worker's heap. Each read of the column unseals
+     * the same stored text again with the same key. The captured staging copy keeps the sealed
+     * form. A missing key refuses the job with {@code CDS_NATIVE_BASELINE_KEY_UNAVAILABLE} rather
+     * than silently dropping the evidence.
      */
-    private CdsExportCapturedTextRowDto unsealed(CdsExportCapturedTextRowDto row)
+    private CdsExportCapturedTextRowDto unsealed(
+            CdsExportCapturedTextRowDto row, CdsExportCapturedTextRowDto layout)
             throws IOException {
         if (!"cds_import_unit".equals(row.table()) || row.fields().get("native_baseline") == null)
-            return row;
-        String text;
+            return row.packed(layout);
+        String references = row.fields().get("target_references");
+        String digest = row.fields().get("target_digest");
         try {
-            text =
-                    io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeBaselineCodec
-                            .unsealedText(
-                                    row.fields().get("native_baseline"),
-                                    row.fields().get("target_references"),
-                                    row.fields().get("target_digest"),
-                                    baselineKeys);
+            io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeBaselineCodec
+                    .unsealedText(
+                            row.fields().get("native_baseline"), references, digest, baselineKeys);
         } catch (IllegalArgumentException invalid) {
             throw new IOException("CDS_EXPORT_RETAINED_INDEX_REQUIRES_REVIEW");
         } catch (IOException unavailable) {
@@ -595,9 +601,19 @@ public class CdsExportRetainedIndexService {
                 throw new IOException("CDS_EXPORT_NATIVE_BASELINE_KEY_UNAVAILABLE");
             throw new IOException("CDS_EXPORT_RETAINED_INDEX_REQUIRES_REVIEW");
         }
-        var fields = new java.util.LinkedHashMap<>(row.fields());
-        fields.put("native_baseline", text);
-        return new CdsExportCapturedTextRowDto(
-                row.table(), row.recordKey(), fields, row.exactNumbers());
+        return row.withDerived(
+                "native_baseline",
+                stored -> {
+                    try {
+                        return io.github.carlos_emr.carlos.demographic.cds.contract
+                                .CdsNativeBaselineCodec.unsealedText(
+                                        stored, references, digest, baselineKeys);
+                    } catch (IOException | IllegalArgumentException changed) {
+                        // The same text unsealed when the index was built; only a key withdrawn
+                        // since can refuse it now.
+                        throw new IllegalStateException("CDS_EXPORT_RETAINED_INDEX_REQUIRES_REVIEW");
+                    }
+                },
+                layout);
     }
 }

@@ -335,12 +335,7 @@ class CdsExportRetainedPayloadServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseResourceExhaustionAndMissingAuxiliaryInputs_beforeProducingAReceipt() {
-        assertThatThrownBy(
-                        () ->
-                                service.freeze(
-                                        lease, patient, TABLES, sourceManifest, 1000, 10, control))
-                .hasMessage("CDS_EXPORT_RETAINED_RESOURCE_LIMIT");
+    void shouldRefuseMissingAuxiliaryInputs_beforeProducingAReceipt() {
         assertThatThrownBy(
                         () ->
                                 service.freeze(

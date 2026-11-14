@@ -143,24 +143,28 @@ MARGINAL = {
 #                              3,213 / 3,221 / 3,253 privilege statements; engine RSS <= 831 MiB
 #   imported patients-1/8/32   23 / 55 / 162 s      7,899 / 57,147 / 225,979 statements
 #                              3,167 / 23,539 / 93,387 privilege statements
-#            chart-128/512     41 / 253 s           9,622 / 17,131 statements
-#                              3,175 / 3,287 privilege statements; engine RSS <= 855 MiB
+#            chart-128/512     37-45 / 114-138 s    9,648 / 15,578 statements
+#                              3,175 / 3,223 privilege statements; engine RSS <= 781 MiB
+#                              (before the stored replay: 41 / 253 s, 9,622 / 17,131 statements;
+#                              CI at that revision 40.5 / 244.4 s, 9,637 / 17,080, 864 MiB)
 #   carlos-ctl adapter RSS 24 MiB
 # Growth: ~7,050 statements, ~2,930 privilege statements and ~4-4.5 s per extra chart; per extra
-# note 11.2 statements and 0.02 privilege statements native (chart-128 to chart-2048), 19.6 and
-# 0.29 imported (chart-128 to chart-512). When these were measured the imported chart-2048 export
-# did not complete: a laboratory association check timed out (docs/cds-export.md; fixed by
-# migration V1.0.59.47 and the query that starts from the patient's rows), so its budget is the
-# one extrapolated from the smaller imported charts.
+# note 11.2 statements and 0.02 privilege statements native (chart-128 to chart-2048), 15.4 and
+# 0.13 imported (chart-128 to chart-512), and 0.20 to 0.24 s imported. The imported chart-2048
+# export does not complete under this lane's default settings (docs/cds-export.md, "Imported
+# 2048-note chart"): its capture takes about 125 s against the default 120 s
+# cds.export.captureTimeoutSeconds, and with that raised it exhausts the 512 MiB heap. With a
+# 1024 MiB heap and a 600 s capture timeout it is READY in 472 s (measured, not a lane case),
+# so its budget stays the one extrapolated from the smaller imported charts.
 #
 # The per-note privilege budget is the regression detector for the census slowdown: before the
 # per-patient authorization session (CdsExportPatientAuthorization, CdsExportAccessService
 # .PatientGrants) every capture, mapping and emission step re-ran the chart, category and note
 # program/role privilege queries for each note, thousands of authorization reads per note (the
 # measured pre-session revision is in docs/cds-export.md). With the session authorization tables
-# are read per patient, not per note; the measured 0.02 (native) and 0.29 (imported) per note are
+# are read per patient, not per note; the measured 0.02 (native) and 0.13 (imported) per note are
 # batched re-checks. Its budget, 1.0, is the point at which every note again costs an
-# authorization read, about 3.4 times the imported measurement: any per-read regression exceeds
+# authorization read, about 8 times the imported measurement: any per-read regression exceeds
 # it, however much the total statement budget absorbs.
 #
 # Native per-patient budgets after the authorization passes and the capture schema pass
@@ -185,8 +189,9 @@ MARGINAL = {
 #
 # Service RSS cannot take 2x headroom inside the 1536 MiB runtime: the CLI heap is capped at
 # 512 MiB, so the budget (1280 MiB, about 1.5x) bounds growth beyond the heap and stays under the
-# cgroup. Time budgets are about twice the measured cases, except the small imported chart cases,
-# whose per-note time is set from chart-512.
+# cgroup. Time budgets are about twice the measured cases; the imported per-note time (0.45 s) is
+# twice the 0.20 to 0.24 s between chart-128 and chart-512. It was 1.1 s while a chart of that
+# size re-read its whole capture for every reader (253 s at chart-512).
 BUDGETS = {
     "native": {
         "fixedStatements": 3000,
@@ -218,7 +223,7 @@ BUDGETS = {
         "marginalPrivilegeStatementsPerPatient": 6000,
         "fixedSeconds": 40,
         "secondsPerPatient": 9,
-        "secondsPerNote": 1.1,
+        "secondsPerNote": 0.45,
         "serviceRssMiB": 1280,
         "cliRssMiB": 48,
     },

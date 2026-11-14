@@ -94,8 +94,9 @@ public class CdsExportActivePlanService {
             throw new IOException("CDS_EXPORT_BUILD_VERSION_UNAVAILABLE");
         var bounds =
                 new CdsExportClinicalOccurrenceService.Bounds(
-                        number("maxCapturedFields", 1_000_000, 1, 100_000_000),
-                        number("maxCapturedBytes", 2L << 30, 1, 128L << 30),
+                        // A chart's capture is streamed to staging and has no size limit.
+                        CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
+                        CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
                         (int) number("maxIndexRows", 1_000_000, 1, 1_000_000),
                         number("maxIndexBytes", 64L << 20, 1, 64L << 20),
                         (int) number("maxNativeRows", 8192, 1, 8192),
@@ -130,7 +131,10 @@ public class CdsExportActivePlanService {
                     "maxMetadataBytes",
                     "maxZipBytes",
                     "maxCiphertextBytes",
-                    "maxStagedFileBytes");
+                    "maxStagedFileBytes",
+                    // The per-chart capture bounds: a chart of any size is captured.
+                    "maxCapturedFields",
+                    "maxCapturedBytes");
 
     private final java.util.concurrent.atomic.AtomicBoolean retiredReported =
             new java.util.concurrent.atomic.AtomicBoolean();

@@ -281,7 +281,6 @@ public class CdsExportNativeCaptureService {
                 || tables.size() > 256
                 || !readers.keySet().containsAll(tables)
                 || maximumFields < 1
-                || maximumFields > 100_000_000
                 || maximumValueBytes < 1) {
             throw new IllegalArgumentException("CDS_EXPORT_CAPTURE_SCOPE_INVALID");
         }
@@ -411,13 +410,13 @@ public class CdsExportNativeCaptureService {
                                                                             reader.schema(),
                                                                             columns);
                                                     long count = reader.count(patient, probe);
+                                                    // A count that is not a count is a failure
+                                                    // of the read. No count is too large: the
+                                                    // capture streams to staging.
                                                     if (count < 0)
                                                         throw new IOException(
-                                                                "CDS_EXPORT_CAPTURE_FIELD_LIMIT");
+                                                                "CDS_EXPORT_CAPTURE_COUNT_INVALID");
                                                     reader.requireCapacity(count, maximumFields);
-                                                    if (count > maximumFields / columns.size())
-                                                        throw new IOException(
-                                                                "CDS_EXPORT_CAPTURE_FIELD_LIMIT");
                                                     if (reader.table().equals("demographic")
                                                             && count != 1)
                                                         throw new IOException(
@@ -455,8 +454,6 @@ public class CdsExportNativeCaptureService {
                                                                                                                 valueOutput,
                                                                                                                 indexOutput,
                                                                                                                 tables,
-                                                                                                                maximumFields,
-                                                                                                                maximumValueBytes,
                                                                                                                 control
                                                                                                                         ::captureCheckpoint,
                                                                                                                 writer -> {
@@ -619,7 +616,6 @@ public class CdsExportNativeCaptureService {
                 || tables.size() > 256
                 || !readers.keySet().containsAll(tables)
                 || maximumFields < 1
-                || maximumFields > 100_000_000
                 || maximumValueBytes < 1) {
             throw new IllegalArgumentException("CDS_EXPORT_CAPTURE_SCOPE_INVALID");
         }
@@ -727,8 +723,11 @@ public class CdsExportNativeCaptureService {
     /**
      * One complete read of a capture's members into {@code fields}. Within the patient's session
      * a read of members this worker already read back and checked replays that read
-     * ({@link CdsExportVerifiedCaptures}); otherwise the members are opened, decrypted and checked
-     * in full, and a read that passes every check is kept for the patient's later reads.
+     * ({@link CdsExportVerifiedCaptures}): from memory when the capture fits the session's heap
+     * budget, otherwise from the stored replay member the first complete read wrote ({@link
+     * CdsExportCaptureReplay}). Otherwise the members are opened, decrypted and checked in full,
+     * and a read that passes every check is kept, in one of those two forms, for the patient's
+     * later reads.
      */
     private static CdsExportNativeCaptureReader.Result read(
             CdsExportStagingService store,
@@ -751,11 +750,32 @@ public class CdsExportNativeCaptureService {
                             control::checkpoint,
                             fields);
             if (replayed != null) return replayed;
+            var stored = verified.stored(captured.values(), captured.index(), plan);
+            if (stored != null)
+                try (var replay =
+                                new java.io.BufferedInputStream(
+                                        store.open(stored.member()), REPLAY_BUFFER);
+                        var values = store.open(captured.values())) {
+                    return CdsExportCaptureReplay.read(
+                            replay,
+                            values,
+                            stored.result(),
+                            maximumFields,
+                            maximumValueBytes,
+                            control::checkpoint,
+                            fields);
+                }
         }
         var recording =
                 verified == null
                         ? null
                         : verified.record(captured.values(), captured.index(), plan);
+        if (recording == null
+                && verified != null
+                && verified.storable(captured.values(), captured.index()))
+            return readAndStore(
+                    store, captured, plan, maximumFields, maximumValueBytes, control, fields,
+                    verified);
         try (var values = store.open(captured.values());
                 var index = store.open(captured.index())) {
             var result =
@@ -777,6 +797,61 @@ public class CdsExportNativeCaptureService {
             // A read that failed keeps nothing.
             if (recording != null) recording.discard();
         }
+    }
+
+    private static final int REPLAY_BUFFER = 65_536;
+
+    /**
+     * The complete read of a capture too large to replay from memory: it runs every check of any
+     * complete read and, as it goes, writes the verified fields to a staged replay member. The
+     * member is kept for the patient's later reads only when the read passed every check; a read
+     * that fails leaves none behind.
+     */
+    private static CdsExportNativeCaptureReader.Result readAndStore(
+            CdsExportStagingService store,
+            CdsExportNativeCaptureDto captured,
+            Map<String, CdsExportNativeCaptureReader.Table> plan,
+            long maximumFields,
+            long maximumValueBytes,
+            CdsExportRunControl control,
+            CdsExportNativeCaptureReader.Fields fields,
+            CdsExportVerifiedCaptures verified)
+            throws IOException {
+        var result = new CdsExportNativeCaptureReader.Result[1];
+        boolean[] complete = new boolean[1];
+        // Staging removes the member itself when the read inside it throws.
+        var member =
+                store.stage(
+                        CdsExportCaptureReplay.PURPOSE,
+                        output -> {
+                            var writer =
+                                    new CdsExportCaptureReplay.Writer(
+                                            new java.io.BufferedOutputStream(
+                                                    output, REPLAY_BUFFER));
+                            try (var values = store.open(captured.values());
+                                    var index = store.open(captured.index())) {
+                                result[0] =
+                                        new CdsExportNativeCaptureReader()
+                                                .scan(
+                                                        values,
+                                                        index,
+                                                        plan,
+                                                        maximumFields,
+                                                        maximumValueBytes,
+                                                        control::checkpoint,
+                                                        writer.tee(fields));
+                            }
+                            complete[0] = writer.finish(result[0]);
+                        });
+        if (!complete[0]
+                || !verified.store(
+                        captured.values(),
+                        captured.index(),
+                        plan,
+                        member,
+                        result[0],
+                        () -> store.discardUnpublished(member))) store.discardUnpublished(member);
+        return result[0];
     }
 
     /** The existing receipt's SELECT * omits this specific reviewed virtual/invisible derived key. */

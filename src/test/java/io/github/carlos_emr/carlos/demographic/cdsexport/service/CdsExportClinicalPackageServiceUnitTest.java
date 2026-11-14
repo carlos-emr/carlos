@@ -681,6 +681,15 @@ class CdsExportClinicalPackageServiceUnitTest {
     }
 
     @Test
+    void shouldFailTheWholeJob_whenACaptureFailsWithAnIoError() throws Exception {
+        var second = secondPatient();
+        when(fixture.captures.capture(any(), eq(second), anySet(), anyLong(), anyLong(), any()))
+                .thenThrow(new IOException("DISK_FAILED"));
+        assertThatThrownBy(this::compose).isInstanceOf(IOException.class).hasMessage("DISK_FAILED");
+        assertThat(fixture.members()).hasSize(1);
+    }
+
+    @Test
     void shouldStillStopTheWholeJob_whenARefusalConcernsEveryPatient() throws Exception {
         var second = secondPatient();
         when(fixture.captures.capture(any(), eq(second), anySet(), anyLong(), anyLong(), any()))

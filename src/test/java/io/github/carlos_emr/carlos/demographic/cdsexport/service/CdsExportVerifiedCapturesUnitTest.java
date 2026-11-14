@@ -313,6 +313,266 @@ class CdsExportVerifiedCapturesUnitTest {
         assertThat(verified.plan(manifest, Set.of("demographic", "empty_table"))).isNull();
     }
 
+    /** Rows of two tables that share a record key, one field carrying exact numeric evidence. */
+    private static final Map<String, CdsExportNativeCaptureReader.Table> MIXED_PLAN =
+            Map.of(
+                    "drugs",
+                    new CdsExportNativeCaptureReader.Table(Set.of("id", "takemin"), 2),
+                    "prescription",
+                    new CdsExportNativeCaptureReader.Table(Set.of("id"), 1));
+
+    private static Capture mixedCapture() throws IOException {
+        var number =
+                new io.github.carlos_emr.carlos.demographic.cds.contract.CdsExactNumeric(
+                        io.github.carlos_emr.carlos.demographic.cds.contract.CdsExactNumeric.Codec
+                                .IEEE754_BINARY32_V1,
+                        "3dcccccd");
+        var values = new ByteArrayOutputStream();
+        var index = new ByteArrayOutputStream();
+        new CdsExportNativeCaptureComposer()
+                .compose(
+                        values,
+                        index,
+                        Set.of("drugs", "prescription"),
+                        100,
+                        LIMIT,
+                        () -> {},
+                        writer -> {
+                            writer.beginTable("drugs", Set.of("id", "takemin"), 2);
+                            for (String key : List.of("0000000001", "0000000002"))
+                                writer.row(
+                                        key,
+                                        row -> {
+                                            row.text("id", key);
+                                            row.numeric("takemin", "0.1", number);
+                                        });
+                            writer.endTable();
+                            writer.beginTable("prescription", Set.of("id"), 1);
+                            // The same key as the last row of the table before it.
+                            writer.row("0000000002", Map.of("id", "2"));
+                            writer.endTable();
+                        });
+        return new Capture(values.toByteArray(), index.toByteArray());
+    }
+
+    private static List<Delivered> scan(
+            CdsExportVerifiedCaptures verified,
+            Capture capture,
+            CdsExportStagedFileDto values,
+            CdsExportStagedFileDto index)
+            throws IOException {
+        var sink = new Sink();
+        var recording = verified.record(values, index, MIXED_PLAN);
+        var result =
+                new CdsExportNativeCaptureReader()
+                        .scan(
+                                new ByteArrayInputStream(capture.values()),
+                                new ByteArrayInputStream(capture.index()),
+                                MIXED_PLAN,
+                                100,
+                                LIMIT,
+                                () -> {},
+                                recording == null ? sink : recording.tee(sink));
+        if (recording != null) verified.keep(recording, result);
+        return sink.delivered;
+    }
+
+    @Test
+    void shouldRebuildEveryFieldComponent_forSharedKeysAndExactNumerics() throws Exception {
+        var capture = mixedCapture();
+        var values = member("SOURCE_VALUES", capture.values(), 'c');
+        var index = member("SOURCE_INDEX", capture.index(), 'd');
+        try (var verified = new CdsExportVerifiedCaptures(27)) {
+            var read = scan(verified, capture, values, index);
+            var replayed = new Sink();
+            assertThat(verified.replay(values, index, MIXED_PLAN, 100, LIMIT, () -> {}, replayed))
+                    .isNotNull();
+
+            assertThat(read).hasSize(5);
+            // Table, key, column, kind, offset, length, digest and numeric evidence all equal.
+            assertThat(replayed.delivered).usingRecursiveComparison().isEqualTo(read);
+            assertThat(replayed.delivered)
+                    .extracting(delivered -> delivered.field().table())
+                    .containsExactly("drugs", "drugs", "drugs", "drugs", "prescription");
+            assertThat(replayed.delivered)
+                    .filteredOn(delivered -> delivered.field().exactNumeric() != null)
+                    .hasSize(2)
+                    .allSatisfy(
+                            delivered ->
+                                    assertThat(delivered.field().exactNumeric().bits())
+                                            .isEqualTo("3dcccccd"));
+        }
+    }
+
+    @Test
+    void shouldNotHoldARecord_whenItWouldPassItsHeapBudget() throws Exception {
+        var capture = mixedCapture();
+        var values = member("SOURCE_VALUES", capture.values(), 'c');
+        var index = member("SOURCE_INDEX", capture.index(), 'd');
+        long fixed = CdsExportVerifiedCaptures.cost(capture.values().length, 5, 3);
+        // One byte short of the fixed cost: nothing is recorded at all.
+        try (var verified = new CdsExportVerifiedCaptures(27, fixed - 1)) {
+            assertThat(verified.record(values, index, MIXED_PLAN)).isNull();
+        }
+        // The fixed cost fits but the row keys do not: the recording is abandoned, the read
+        // still delivers every field, and later reads are full reads again.
+        try (var verified = new CdsExportVerifiedCaptures(27, fixed + 10)) {
+            assertThat(scan(verified, capture, values, index)).hasSize(5);
+            assertThat(verified.replay(values, index, MIXED_PLAN, 100, LIMIT, () -> {}, new Sink()))
+                    .isNull();
+            // It is not tried in memory again: the next complete read may store its replay
+            // member, so the capture is not read in full for the rest of the session.
+            assertThat(verified.record(values, index, MIXED_PLAN)).isNull();
+            assertThat(verified.storable(values, index)).isTrue();
+        }
+        // With room for the three ten-character keys and the two exact numeric witnesses (eight
+        // characters of bits each) the same read is kept and replayed.
+        try (var verified =
+                new CdsExportVerifiedCaptures(27, fixed + 3 * 2 * 10 + 2 * (64 + 2 * 8))) {
+            var read = scan(verified, capture, values, index);
+            var replayed = new Sink();
+            assertThat(verified.replay(values, index, MIXED_PLAN, 100, LIMIT, () -> {}, replayed))
+                    .isNotNull();
+            assertThat(replayed.delivered).usingRecursiveComparison().isEqualTo(read);
+            // The session budget is spent: a second capture of the same size no longer fits.
+            assertThat(
+                            verified.record(
+                                    member("SOURCE_VALUES", capture.values(), 'e'),
+                                    member("SOURCE_INDEX", capture.index(), 'f'),
+                                    MIXED_PLAN))
+                    .isNull();
+        }
+    }
+
+    @Test
+    void shouldHoldAShortImportedChart_underTheDefaultCommandHeap() {
+        // Measured on the installed export lane. An imported chart of 128 notes and 128
+        // laboratory results captures 68,541 fields in about 5,200 rows and 4.5 MiB of values,
+        // with 64-character row keys: it replays from memory under the default 512 MiB heap.
+        // The 512-record chart (273,213 fields, 18.1 MiB) and longer ones do not, and replay
+        // from their stored replay member instead.
+        long budget = CdsExportVerifiedCaptures.budget(512L << 20);
+        long small = CdsExportVerifiedCaptures.cost(4_750_000L, 68_541, 5_200) + 5_200L * 2 * 64;
+        long mid = CdsExportVerifiedCaptures.cost(18_980_000L, 273_213, 20_500) + 20_500L * 2 * 64;
+        assertThat(budget).isEqualTo(32L << 20);
+        assertThat(small).isLessThan(budget);
+        assertThat(mid).isGreaterThan(budget);
+        // The budget follows the heap between a floor and a ceiling.
+        assertThat(CdsExportVerifiedCaptures.budget(64L << 20)).isEqualTo(32L << 20);
+        assertThat(CdsExportVerifiedCaptures.budget(1024L << 20)).isEqualTo(64L << 20);
+        assertThat(CdsExportVerifiedCaptures.budget(4L << 30)).isEqualTo(256L << 20);
+        assertThat(CdsExportVerifiedCaptures.budget(Long.MAX_VALUE)).isEqualTo(256L << 20);
+        assertThat(CdsExportVerifiedCaptures.MAXIMUM_BYTES)
+                .isEqualTo(CdsExportVerifiedCaptures.budget(Runtime.getRuntime().maxMemory()));
+    }
+
+    @Test
+    void shouldKeepAStoredReplayMember_forTheSameMembersAndPlanOnly() throws Exception {
+        var capture = mixedCapture();
+        var values = member("SOURCE_VALUES", capture.values(), 'c');
+        var index = member("SOURCE_INDEX", capture.index(), 'd');
+        var replay = member("SOURCE_REPLAY", new byte[] {1}, 'e');
+        var result = new CdsExportNativeCaptureReader.Result(Map.of(), 5, capture.values().length);
+        var erased = new AtomicInteger();
+        var verified = new CdsExportVerifiedCaptures(27);
+
+        assertThat(verified.storable(values, index)).isTrue();
+        assertThat(verified.stored(values, index, MIXED_PLAN)).isNull();
+        assertThat(verified.store(values, index, MIXED_PLAN, replay, result, erased::incrementAndGet))
+                .isTrue();
+
+        var stored = verified.stored(values, index, Map.copyOf(MIXED_PLAN));
+        assertThat(stored.member()).isEqualTo(replay);
+        assertThat(stored.result()).isEqualTo(result);
+        // Another plan, or other members, have no stored replay; the same members take no second.
+        assertThat(verified.stored(values, index, PLAN)).isNull();
+        assertThat(verified.stored(index, values, MIXED_PLAN)).isNull();
+        assertThat(verified.storable(values, index)).isFalse();
+        assertThat(verified.store(values, index, MIXED_PLAN, replay, result, erased::incrementAndGet))
+                .isFalse();
+        assertThat(erased).hasValue(0);
+
+        verified.close();
+
+        // The session erased its member exactly once and answers nothing afterwards.
+        assertThat(erased).hasValue(1);
+        assertThat(verified.stored(values, index, MIXED_PLAN)).isNull();
+        assertThat(verified.storable(values, index)).isFalse();
+        verified.close();
+        assertThat(erased).hasValue(1);
+    }
+
+    @Test
+    void shouldNotStoreAReplayMember_whenTheReadIsAlreadyHeldInMemory() throws Exception {
+        var capture = mixedCapture();
+        var values = member("SOURCE_VALUES", capture.values(), 'c');
+        var index = member("SOURCE_INDEX", capture.index(), 'd');
+        try (var verified = new CdsExportVerifiedCaptures(27)) {
+            scan(verified, capture, values, index);
+
+            assertThat(verified.storable(values, index)).isFalse();
+        }
+    }
+
+    @Test
+    void shouldEraseEveryStoredMember_whenOneErasureFails() throws Exception {
+        var capture = mixedCapture();
+        var result = new CdsExportNativeCaptureReader.Result(Map.of(), 5, capture.values().length);
+        var erased = new AtomicInteger();
+        var verified = new CdsExportVerifiedCaptures(27);
+        for (char id : new char[] {'1', '2', '3'})
+            assertThat(
+                            verified.store(
+                                    member("SOURCE_VALUES", capture.values(), id),
+                                    member("SOURCE_INDEX", capture.index(), id),
+                                    MIXED_PLAN,
+                                    member("SOURCE_REPLAY", new byte[] {1}, id),
+                                    result,
+                                    () -> {
+                                        erased.incrementAndGet();
+                                        if (id == '2') throw new IOException("CDS_EXPORT_STAGED_TRUNCATED");
+                                    }))
+                    .isTrue();
+
+        // Every member is attempted and everything else is dropped before the failure is reported.
+        assertThatThrownBy(verified::close)
+                .isInstanceOf(java.io.UncheckedIOException.class)
+                .hasRootCauseMessage("CDS_EXPORT_STAGED_TRUNCATED");
+        assertThat(erased).hasValue(3);
+        assertThat(verified.usable()).isFalse();
+        verified.close();
+        assertThat(erased).hasValue(3);
+    }
+
+    @Test
+    void shouldNotRecord_whenTheFieldMetadataAlonePassesTheBudget() throws Exception {
+        try (var verified = new CdsExportVerifiedCaptures(27, 32L << 20)) {
+            var values = new CdsExportStagedFileDto("a".repeat(64), "SOURCE_VALUES", "0".repeat(64), 1);
+            var index = new CdsExportStagedFileDto("b".repeat(64), "SOURCE_INDEX", "0".repeat(64), 1);
+            long rows = (32L << 20) / CdsExportVerifiedCaptures.FIELD_BYTES + 1;
+            assertThat(
+                            verified.record(
+                                    values,
+                                    index,
+                                    Map.of(
+                                            "source",
+                                            new CdsExportNativeCaptureReader.Table(
+                                                    Set.of("value"), rows))))
+                    .isNull();
+            assertThat(
+                            verified.record(
+                                    values,
+                                    index,
+                                    Map.of(
+                                            "source",
+                                            new CdsExportNativeCaptureReader.Table(
+                                                    Set.of("value"), Long.MAX_VALUE))))
+                    .isNull();
+        }
+        assertThatThrownBy(() -> new CdsExportVerifiedCaptures(27, 0))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
     @Test
     void shouldNotRecord_whenTheCaptureExceedsThePatientBudget() throws Exception {
         try (var verified = new CdsExportVerifiedCaptures(27)) {

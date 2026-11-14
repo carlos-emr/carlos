@@ -56,7 +56,7 @@ public final class CdsExportCapturedNoteScopeValidator
             throws IOException {
         this.delegate = Objects.requireNonNull(delegate);
         Objects.requireNonNull(scopes);
-        if (patient < 1 || scopes.size() > 8192) invalid();
+        if (patient < 1) invalid();
         var expected = new HashMap<String, CdsExportNoteAccessDto>();
         for (var scope : scopes)
             if (scope.patient() != patient

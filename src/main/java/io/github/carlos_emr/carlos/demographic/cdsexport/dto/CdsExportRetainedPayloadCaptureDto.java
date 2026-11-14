@@ -32,7 +32,7 @@ public record CdsExportRetainedPayloadCaptureDto(int protocol, String runId, lon
                 || cohortSha256 == null || !cohortSha256.matches("[0-9a-f]{64}")
                 || sourceManifestSha256 == null || !sourceManifestSha256.matches("[0-9a-f]{64}")
                 || fieldsSha256 == null || !fieldsSha256.matches("[0-9a-f]{64}")
-                || fields < 0 || fields > 100_000_000 || payloads < 0 || payloads > fields || payloadBytes < 0
+                || fields < 0 || payloads < 0 || payloads > fields || payloadBytes < 0
                 || values == null || index == null || !values.purpose().equals("RETAINED_VALUES") || !index.purpose().equals("RETAINED_INDEX")
                 || values.memberId().equals(index.memberId()) || values.plaintextBytes() != payloadBytes) {
             throw new IllegalArgumentException("CDS_EXPORT_RETAINED_PAYLOAD_CAPTURE_INVALID");

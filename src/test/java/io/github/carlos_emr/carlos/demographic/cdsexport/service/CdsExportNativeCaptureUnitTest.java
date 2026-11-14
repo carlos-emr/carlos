@@ -441,37 +441,79 @@ class CdsExportNativeCaptureUnitTest {
     }
 
     @Test
-    void shouldEnforceActualValueAndFieldLimits_forNativeCaptureContract() {
+    void shouldCaptureEveryField_whateverSizeTheChartIs() throws Exception {
+        // A capture has no size limit. The two former bounds of a caller written against the
+        // bounded composer are accepted and not applied: one field and one byte admit this
+        // two-field, four-byte row.
+        var bounded =
+                composer.compose(
+                        new ByteArrayOutputStream(),
+                        new ByteArrayOutputStream(),
+                        Set.of("source"),
+                        1,
+                        1,
+                        () -> {},
+                        w -> {
+                            w.beginTable("source", Set.of("a", "b"), 1);
+                            w.row("01", Map.of("a", "😀", "b", ""));
+                            w.endTable();
+                        });
+        assertThat(bounded.fields()).isEqualTo(2);
+        assertThat(bounded.valueBytes()).isEqualTo(4);
+        var values = new ByteArrayOutputStream();
+        var free =
+                composer.compose(
+                        values,
+                        new ByteArrayOutputStream(),
+                        Set.of("source"),
+                        () -> {},
+                        w -> {
+                            w.beginTable("source", Set.of("a", "b"), 3000);
+                            for (int row = 0; row < 3000; row++)
+                                w.row(String.format("%04d", row), Map.of("a", "😀", "b", "text"));
+                            w.endTable();
+                        });
+        assertThat(free.fields()).isEqualTo(6000);
+        assertThat(free.valueBytes()).isEqualTo(24_000).isEqualTo(values.size());
+        // A bound that is not a bound is still a caller's mistake.
         assertThatThrownBy(
                         () ->
                                 composer.compose(
                                         new ByteArrayOutputStream(),
                                         new ByteArrayOutputStream(),
                                         Set.of("source"),
+                                        0,
                                         1,
-                                        3,
                                         () -> {},
-                                        w -> {
-                                            w.beginTable("source", Set.of("value"), 1);
-                                            w.row("01", Map.of("value", "😀"));
-                                            w.endTable();
-                                        }))
-                .hasMessage("CDS_EXPORT_CAPTURE_VALUE_LIMIT");
+                                        w -> {}))
+                .hasMessage("CDS_EXPORT_NATIVE_CAPTURE_INVALID");
+    }
+
+    @Test
+    void shouldKeepAStorageFailureAnIoFailure_whenTheValueOutputCannotBeWritten() {
+        var broken =
+                new java.io.OutputStream() {
+                    @Override
+                    public void write(int value) throws IOException {
+                        throw new IOException("DISK_FAILED");
+                    }
+                };
         assertThatThrownBy(
                         () ->
                                 composer.compose(
-                                        new ByteArrayOutputStream(),
+                                        broken,
                                         new ByteArrayOutputStream(),
                                         Set.of("source"),
-                                        1,
+                                        10,
                                         LIMIT,
                                         () -> {},
                                         w -> {
-                                            w.beginTable("source", Set.of("a", "b"), 1);
-                                            w.row("01", Map.of("a", "", "b", ""));
+                                            w.beginTable("source", Set.of("value"), 1);
+                                            w.row("01", Map.of("value", "exact"));
                                             w.endTable();
                                         }))
-                .hasMessage("CDS_EXPORT_CAPTURE_FIELD_LIMIT");
+                .isInstanceOf(IOException.class)
+                .hasMessage("DISK_FAILED");
     }
 
     @Test

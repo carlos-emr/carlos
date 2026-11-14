@@ -372,8 +372,6 @@ public class CdsExportRetainedPayloadService {
                                 counts[1] = Math.addExact(counts[1], 1);
                                 counts[2] = Math.addExact(counts[2], payload.bytes());
                             }
-                            if (counts[0] > maximumFields || counts[2] > maximumBytes)
-                                throw new IOException("CDS_EXPORT_RETAINED_RESOURCE_LIMIT");
                             add(
                                     digest,
                                     field.id(),

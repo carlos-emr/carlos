@@ -51,8 +51,9 @@ public record CdsExportCapturedTableDto(
         columns = Set.copyOf(columns);
         receiptColumns = receiptColumns == null ? List.of() : List.copyOf(receiptColumns);
         noteAccess = noteAccess == null ? List.of() : List.copyOf(noteAccess);
-        if (noteAccess.size() > 8192
-                || !noteAccess.isEmpty()
+        // Any number of notes: a chart is not refused for how many it has. The scopes must be
+        // exactly the table's rows, one for each note.
+        if (!noteAccess.isEmpty()
                         && (noteAccess.size() != rows
                                 || !columns.containsAll(
                                         Set.of(

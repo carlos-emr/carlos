@@ -957,6 +957,48 @@ class CdsExportNativeCaptureServiceUnitTest {
     }
 
     @Test
+    void shouldCaptureAndReadAChart_underTheInstalledUnlimitedBounds() throws Exception {
+        // The installed plan states no field or byte bound (CdsExportActivePlanService).
+        long unlimited = CdsExportClinicalOccurrenceService.Bounds.UNLIMITED;
+        var service = service();
+        var captured =
+                service.capture(
+                        lease, patientScope, Set.of("demographic"), unlimited, unlimited,
+                        new Control());
+        var delivery = new Delivery();
+        var read =
+                service.scan(
+                        lease,
+                        patientScope,
+                        Set.of("demographic"),
+                        captured.manifest(),
+                        unlimited,
+                        unlimited,
+                        new Control(),
+                        delivery);
+        assertThat(read).isEqualTo(captured.capture());
+        assertThat(delivery.delivered).hasSize(60);
+    }
+
+    @Test
+    void shouldFailTheRead_whenAReaderReportsACountThatIsNotACount() {
+        source.count = -1;
+        assertThatThrownBy(
+                        () ->
+                                service()
+                                        .capture(
+                                                lease,
+                                                patientScope,
+                                                Set.of("demographic"),
+                                                1000,
+                                                8L << 20,
+                                                new Control()))
+                .isInstanceOf(IOException.class)
+                .hasMessage("CDS_EXPORT_CAPTURE_COUNT_INVALID");
+        assertNoPatientMembers();
+    }
+
+    @Test
     void shouldRefuseAMissingPatientOrUnmappedSchema_beforePayloadCapture() {
         source.count = 0;
         assertThatThrownBy(
@@ -1775,6 +1817,202 @@ class CdsExportNativeCaptureServiceUnitTest {
 
     private CdsExportNativeCaptureService service() {
         return new CdsExportNativeCaptureService(List.of(source), factory, clock, transactions);
+    }
+
+    /** A run control whose patient has an open session with the given replay heap budget. */
+    private static final class SessionControl extends Control {
+        final CdsExportVerifiedCaptures session;
+
+        SessionControl(long heapBudget) {
+            session = new CdsExportVerifiedCaptures(PATIENT, heapBudget);
+        }
+
+        @Override
+        public CdsExportVerifiedCaptures verifiedCaptures(int patient) {
+            return patient == PATIENT && session.usable() ? session : null;
+        }
+    }
+
+    /** Every callback of one read: each field with the bytes written for it. */
+    private static class Delivery implements CdsExportNativeCaptureReader.Fields {
+        final List<String> delivered = new ArrayList<>();
+        private java.io.ByteArrayOutputStream current;
+
+        @Override
+        public java.io.OutputStream output(
+                io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportCapturedFieldDto
+                        field) {
+            current = new java.io.ByteArrayOutputStream();
+            return current;
+        }
+
+        @Override
+        public void verified(
+                io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportCapturedFieldDto
+                        field) {
+            delivered.add(
+                    String.join(
+                            "|",
+                            field.table(),
+                            field.recordKey(),
+                            field.column(),
+                            field.kind().name(),
+                            Long.toString(field.offset()),
+                            Long.toString(field.bytes()),
+                            field.sha256(),
+                            String.valueOf(field.exactNumeric()),
+                            java.util.HexFormat.of().formatHex(current.toByteArray())));
+        }
+    }
+
+    /** The staged members beside the cohort's own. */
+    private long staged() throws Exception {
+        try (var files = Files.list(root)) {
+            return files.filter(file -> !cohortMembers.contains(file)).count();
+        }
+    }
+
+    @Test
+    void shouldReplayFromAStoredMember_whenTheCaptureDoesNotFitTheSessionsHeap() throws Exception {
+        var service = service();
+        var tables = Set.of("demographic");
+        // Without a session: the three capture members, and every read is a complete read.
+        var plain = service.capture(lease, patientScope, tables, 1000, 8L << 20, new Control());
+        var expected = new Delivery();
+        service.scan(
+                lease, patientScope, tables, plain.manifest(), 1000, 8L << 20, new Control(),
+                expected);
+        assertThat(staged()).isEqualTo(3);
+
+        // A session whose heap budget holds nothing: the read-back after capture writes the
+        // replay member, and later reads stream it beside the value member.
+        var control = new SessionControl(1);
+        var captured = service.capture(lease, patientScope, tables, 1000, 8L << 20, control);
+        assertThat(staged()).isEqualTo(3 + 3 + 1);
+        var stored =
+                control.session.stored(
+                        captured.capture().values(),
+                        captured.capture().index(),
+                        Map.of(
+                                "demographic",
+                                new CdsExportNativeCaptureReader.Table(
+                                        captured.capture().tables().get("demographic").columns(),
+                                        captured.capture().tables().get("demographic").rows())));
+        assertThat(stored).isNotNull();
+        assertThat(stored.member().purpose()).isEqualTo("SOURCE_REPLAY");
+        assertThat(stored.result().fields()).isEqualTo(60);
+        int authorizations = control.authorizations.get();
+        for (int read = 0; read < 3; read++) {
+            var replayed = new Delivery();
+            var result =
+                    service.scan(
+                            lease,
+                            patientScope,
+                            tables,
+                            captured.manifest(),
+                            1000,
+                            8L << 20,
+                            control,
+                            replayed);
+            assertThat(result).isEqualTo(captured.capture());
+            // The same fields, in the same order, with the same bytes as a complete read.
+            assertThat(replayed.delivered).hasSize(60).isEqualTo(expected.delivered);
+        }
+        // Every read still ran its authorization checks, and wrote no further member.
+        assertThat(control.authorizations.get()).isGreaterThan(authorizations + 3);
+        assertThat(staged()).isEqualTo(3 + 3 + 1);
+        // The clinical source was read by the two captures only.
+        assertThat(source.captureTransactions).isEqualTo(6);
+
+        control.session.close();
+
+        // The patient's session erased its replay member; the capture members remain.
+        assertThat(staged()).isEqualTo(3 + 3);
+        var after = new Delivery();
+        service.scan(
+                lease, patientScope, tables, captured.manifest(), 1000, 8L << 20, control, after);
+        assertThat(after.delivered).isEqualTo(expected.delivered);
+        assertThat(staged()).isEqualTo(3 + 3);
+    }
+
+    @Test
+    void shouldRefuseAStoredReplay_whenTheValueMemberIsNoLongerTheCheckedOne() throws Exception {
+        var service = service();
+        var tables = Set.of("demographic");
+        var control = new SessionControl(1);
+        var captured = service.capture(lease, patientScope, tables, 1000, 8L << 20, control);
+        Path values = root.resolve(captured.capture().values().memberId() + ".stage");
+        byte[] bytes = Files.readAllBytes(values);
+        bytes[bytes.length - 40] ^= 1;
+        Files.write(values, bytes);
+
+        var delivery = new Delivery();
+        assertThatThrownBy(
+                        () ->
+                                service.scan(
+                                        lease,
+                                        patientScope,
+                                        tables,
+                                        captured.manifest(),
+                                        1000,
+                                        8L << 20,
+                                        control,
+                                        delivery))
+                .isInstanceOf(java.io.IOException.class);
+        // Staging authenticates a chunk before any of it is read: no field of it was verified.
+        assertThat(delivery.delivered.size()).isLessThan(60);
+        control.session.close();
+    }
+
+    @Test
+    void shouldLeaveNoReplayMember_whenTheReadThatWouldWriteItFails() throws Exception {
+        var service = service();
+        var tables = Set.of("demographic");
+        var captured = service.capture(lease, patientScope, tables, 1000, 8L << 20, new Control());
+        assertThat(staged()).isEqualTo(3);
+        var control = new SessionControl(1);
+
+        assertThatThrownBy(
+                        () ->
+                                service.scan(
+                                        lease,
+                                        patientScope,
+                                        tables,
+                                        captured.manifest(),
+                                        1000,
+                                        8L << 20,
+                                        control,
+                                        new Delivery() {
+                                            @Override
+                                            public void verified(
+                                                    io.github.carlos_emr.carlos.demographic
+                                                                    .cdsexport.dto
+                                                                    .CdsExportCapturedFieldDto
+                                                            field) {
+                                                if (delivered.size() == 7)
+                                                    throw new IllegalStateException("CONSUMER");
+                                                super.verified(field);
+                                            }
+                                        }))
+                .hasMessage("CONSUMER");
+
+        // Nothing was kept from the failed read, on disk or in the session.
+        assertThat(staged()).isEqualTo(3);
+        assertThat(
+                        control.session.storable(
+                                captured.capture().values(), captured.capture().index()))
+                .isTrue();
+        // The next complete read writes the member and the one after replays it.
+        var first = new Delivery();
+        service.scan(
+                lease, patientScope, tables, captured.manifest(), 1000, 8L << 20, control, first);
+        assertThat(staged()).isEqualTo(4);
+        var second = new Delivery();
+        service.scan(
+                lease, patientScope, tables, captured.manifest(), 1000, 8L << 20, control, second);
+        assertThat(second.delivered).hasSize(60).isEqualTo(first.delivered);
+        control.session.close();
+        assertThat(staged()).isEqualTo(3);
     }
 
     @Test

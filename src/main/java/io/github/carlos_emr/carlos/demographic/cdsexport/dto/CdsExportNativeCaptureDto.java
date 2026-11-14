@@ -37,7 +37,7 @@ public record CdsExportNativeCaptureDto(int protocol, String runId, long epoch, 
                 || cohortSha256 == null || !SHA256.matcher(cohortSha256).matches()
                 || readStartedAt == null || readCompletedAt == null || readCompletedAt.isBefore(readStartedAt)
                 || tables.isEmpty() || tables.size() > 256 || tables.keySet().stream().anyMatch(table -> !TABLE.matcher(table).matches())
-                || fieldCount < 1 || fieldCount > 100_000_000 || valueBytes < 0 || values == null || index == null
+                || fieldCount < 1 || valueBytes < 0 || values == null || index == null
                 || !values.purpose().equals("SOURCE_VALUES") || !index.purpose().equals("SOURCE_INDEX")
                 || values.memberId().equals(index.memberId()) || values.plaintextBytes() != valueBytes) {
             throw new IllegalArgumentException("CDS_EXPORT_NATIVE_CAPTURE_RECEIPT_INVALID");

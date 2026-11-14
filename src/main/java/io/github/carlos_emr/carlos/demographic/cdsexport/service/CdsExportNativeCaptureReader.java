@@ -130,7 +130,6 @@ public final class CdsExportNativeCaptureReader {
         if (plan.isEmpty()
                 || plan.size() > 256
                 || maximumFields < 1
-                || maximumFields > 100_000_000
                 || maximumBytes < 1
                 || plan.keySet().stream().anyMatch(table -> !TABLE.matcher(table).matches()))
             invalid();

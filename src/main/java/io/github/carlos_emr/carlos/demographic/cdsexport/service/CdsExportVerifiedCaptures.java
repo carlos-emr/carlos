@@ -25,10 +25,8 @@ import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportCapturedFi
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportStagedFileDto;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -53,20 +51,55 @@ import java.util.Set;
  * authorization session ({@link io.github.carlos_emr.carlos.demographic.cdsexport.engine
  * .CdsExportRunControl#verifiedCaptures}). It is never shared with another patient or job, and
  * {@link #close()} zeroes every byte it holds when the patient ends, however it ends. It holds at
- * most {@link #MAXIMUM_BYTES} bytes and {@link #MAXIMUM_FIELDS} fields; a capture that does not fit
- * is simply read from its members every time, as before.
+ * most {@link #MAXIMUM_BYTES} bytes of heap, counting the value bytes and the metadata of every
+ * field and row. A capture that does not fit is not held: its first complete read also writes the
+ * verified fields to a staged replay member ({@link CdsExportCaptureReplay}), and later reads
+ * stream that member beside the value member, so a chart's size is bounded by staging disk and
+ * not by this heap budget. The session remembers the member and erases it when the patient ends.
+ *
+ * <p>A recording keeps each verified field with its digest ({@link #FIELD_BYTES} bytes) and
+ * shares one table, key and column string among the fields that name the same one, so a replay
+ * hands each consumer the same field value again and validates, formats and parses nothing. An
+ * imported chart carries about 270 captured fields for each imported record (its retained source
+ * fields and unit receipts): a patient with 128 imported notes and 128 imported laboratory
+ * results is about 68,500 fields and 4.5 MiB of values, about 16 MiB kept this way.
  *
  * @since 2026-11-13
  */
 public final class CdsExportVerifiedCaptures implements AutoCloseable {
     /**
-     * The most value bytes kept for one patient (the members stay encrypted on disk). A larger
-     * chart is read from its members every time, as before, so the worker's memory stays bounded.
+     * Heap bytes a recording holds for each field, beside the field's value bytes: its slot, the
+     * field value and the 64 characters of its SHA-256.
      */
-    static final long MAXIMUM_BYTES = 32L << 20;
+    static final int FIELD_BYTES = 4 + 56 + 104;
 
-    /** The most fields kept for one patient (each costs a few hundred bytes of metadata). */
-    static final long MAXIMUM_FIELDS = 200_000;
+    /** Heap bytes charged for each row beside its key: the key's object and list slot. */
+    static final int ROW_BYTES = 64;
+
+    /**
+     * The most heap kept for one patient: value bytes plus {@link #FIELD_BYTES} for each field and
+     * {@link #ROW_BYTES} and the key's characters for each row (the members stay encrypted on
+     * disk). A sixteenth of the worker's heap, at least 32 MiB and at most 256 MiB: 32 MiB under
+     * the default 512 MiB command-line heap, which holds a chart of about 250 imported records
+     * or 1,000 native ones. One worker handles one patient at a time, so this is the whole of
+     * it. It is deliberately small: the sections that reconcile a long chart need the heap more
+     * than its replay does, and a larger capture replays from its stored replay member at a
+     * cost of staging disk instead.
+     */
+    static final long MAXIMUM_BYTES = budget(Runtime.getRuntime().maxMemory());
+
+    /** The session budget for a worker whose largest heap is {@code heap} bytes. */
+    static long budget(long heap) {
+        return Math.max(32L << 20, Math.min(256L << 20, heap / 16));
+    }
+
+    /**
+     * The heap a recording of {@code valueBytes} value bytes, {@code fields} fields and {@code
+     * rows} rows holds before its row keys, which are charged two bytes a character as they arrive.
+     */
+    static long cost(long valueBytes, long fields, long rows) {
+        return valueBytes + fields * FIELD_BYTES + rows * ROW_BYTES;
+    }
 
     /** How many replayed fields may pass between two run-control checkpoints. */
     private static final int CHECKPOINT_FIELDS = 256;
@@ -75,18 +108,29 @@ public final class CdsExportVerifiedCaptures implements AutoCloseable {
     private static final int CHUNK = 65_536;
 
     private final int patient;
+    private final long maximumBytes;
     private final Thread owner = Thread.currentThread();
     private final Map<Key, Recording> recordings = new HashMap<>();
     private final Map<CdsExportStagedFileDto, Object> manifests = new HashMap<>();
     private final Map<PlanKey, Map<String, CdsExportNativeCaptureReader.Table>> plans =
             new HashMap<>();
     private final Map<Object, Object> derived = new HashMap<>();
-    private long bytes, fields;
+    private final Map<Key, Stored> stored = new HashMap<>();
+    /** Members whose recording outgrew the budget while it was read: never recorded again. */
+    private final java.util.Set<Key> unrecordable = new java.util.HashSet<>();
+    private long bytes;
     private boolean closed;
 
     public CdsExportVerifiedCaptures(int patient) {
-        if (patient < 1) throw new IllegalArgumentException("CDS_EXPORT_SESSION_PATIENT_INVALID");
+        this(patient, MAXIMUM_BYTES);
+    }
+
+    /** A session with an explicit heap budget (the worker's is {@link #MAXIMUM_BYTES}). */
+    CdsExportVerifiedCaptures(int patient, long maximumBytes) {
+        if (patient < 1 || maximumBytes < 1 || maximumBytes > 256L << 20)
+            throw new IllegalArgumentException("CDS_EXPORT_SESSION_PATIENT_INVALID");
         this.patient = patient;
+        this.maximumBytes = maximumBytes;
     }
 
     /** The patient whose captures these are. */
@@ -125,23 +169,24 @@ public final class CdsExportVerifiedCaptures implements AutoCloseable {
         }
         var result = recording.result;
         if (maximumFields < 1
-                || maximumFields > 100_000_000
                 || maximumBytes < 1
                 || result.fields() > maximumFields
                 || result.valueBytes() > maximumBytes)
             throw new IOException("CDS_EXPORT_CAPTURE_READBACK_INVALID");
         checkpoint.run();
         int sinceCheckpoint = 0;
-        for (var field : recording.fields) {
+        for (int ordinal = 0; ordinal < recording.count; ordinal++) {
             if (closed) throw new IOException("CDS_EXPORT_CAPTURE_READBACK_INVALID");
             if (++sinceCheckpoint == CHECKPOINT_FIELDS) {
                 checkpoint.run();
                 sinceCheckpoint = 0;
             }
+            // The very field the full read delivered and verified.
+            var field = recording.fields[ordinal];
             var target =
                     Objects.requireNonNull(output.output(field), "CDS_EXPORT_FIELD_SINK_REQUIRED");
-            int offset = Math.toIntExact(field.offset());
-            int remaining = Math.toIntExact(field.bytes());
+            int offset = (int) field.offset();
+            int remaining = (int) field.bytes();
             while (remaining > 0) {
                 int count = Math.min(CHUNK, remaining);
                 if (count == CHUNK) checkpoint.run();
@@ -166,13 +211,35 @@ public final class CdsExportVerifiedCaptures implements AutoCloseable {
             Map<String, CdsExportNativeCaptureReader.Table> plan) {
         if (!usable()) return null;
         var key = new Key(values, index);
-        if (recordings.containsKey(key)) return null;
-        long planned = 0;
-        for (var table : plan.values())
-            planned = Math.addExact(planned, Math.multiplyExact(table.rows(), table.columns().size()));
-        if (values.plaintextBytes() > MAXIMUM_BYTES - bytes || planned > MAXIMUM_FIELDS - fields)
+        if (recordings.containsKey(key) || unrecordable.contains(key)) return null;
+        long plannedFields = 0;
+        long plannedRows = 0;
+        for (var table : plan.values()) {
+            // Past these counts nothing fits the budget anyway; refusing here also keeps the sums
+            // below from overflowing for an absurd plan.
+            if (table.rows() > maximumBytes / FIELD_BYTES) return null;
+            plannedRows += table.rows();
+            plannedFields += table.rows() * table.columns().size();
+            if (plannedFields > maximumBytes / FIELD_BYTES) return null;
+        }
+        // Everything but the row keys is known before the read; the keys are charged as they
+        // arrive, and a recording that would pass the budget then is abandoned and zeroed.
+        if (values.plaintextBytes() < 0 || values.plaintextBytes() > maximumBytes) return null;
+        long fixed = cost(values.plaintextBytes(), plannedFields, plannedRows);
+        if (fixed > maximumBytes - bytes) return null;
+        try {
+            return new Recording(
+                    key,
+                    Map.copyOf(plan),
+                    (int) values.plaintextBytes(),
+                    (int) plannedFields,
+                    (int) plannedRows,
+                    maximumBytes - bytes - fixed);
+        } catch (OutOfMemoryError tight) {
+            // The heap cannot spare the record just now: nothing was kept, and the read goes on
+            // from its members exactly as it does for a capture past the budget.
             return null;
-        return new Recording(key, Map.copyOf(plan), (int) values.plaintextBytes(), (int) planned);
+        }
     }
 
     /** Keeps a recording whose read finished every check and returned {@code result}. */
@@ -183,14 +250,18 @@ public final class CdsExportVerifiedCaptures implements AutoCloseable {
                 || recording.abandoned
                 || recordings.containsKey(recording.key)
                 || result.valueBytes() != recording.values.length
-                || result.fields() != recording.fields.size()) {
+                || result.fields() != recording.count
+                || recording.count != recording.fields.length) {
+            // A read that outgrew the budget on its row keys is not tried in memory again: the
+            // next complete read writes the stored replay member instead.
+            if (usable() && recording.abandoned && unrecordable.size() < 64)
+                unrecordable.add(recording.key);
             recording.clear();
             return;
         }
         recording.result = result;
         recordings.put(recording.key, recording);
-        bytes += recording.values.length;
-        fields += recording.fields.size();
+        bytes += recording.held();
     }
 
     /**
@@ -250,7 +321,74 @@ public final class CdsExportVerifiedCaptures implements AutoCloseable {
         derived.putIfAbsent(Objects.requireNonNull(key), Objects.requireNonNull(result));
     }
 
-    /** Zeroes and drops everything held; later calls record and replay nothing. */
+    /** The most stored replay members one session keeps (a patient has two captures). */
+    private static final int MAXIMUM_STORED = 8;
+
+    /** Erases one stored replay member from staging. */
+    interface Erasure {
+        void erase() throws IOException;
+    }
+
+    /** One checked read kept as a staged replay member, with the result that read returned. */
+    record Stored(
+            Map<String, CdsExportNativeCaptureReader.Table> plan,
+            CdsExportStagedFileDto member,
+            CdsExportNativeCaptureReader.Result result,
+            Erasure erasure) {
+        @Override
+        public String toString() {
+            return "CdsExportVerifiedCaptures.Stored[protected]";
+        }
+    }
+
+    /**
+     * The stored replay of a checked read of exactly these members and plan, or null when there
+     * is none (the caller then reads the members in full).
+     */
+    Stored stored(
+            CdsExportStagedFileDto values,
+            CdsExportStagedFileDto index,
+            Map<String, CdsExportNativeCaptureReader.Table> plan) {
+        if (!usable()) return null;
+        var known = stored.get(new Key(values, index));
+        return known != null && known.plan.equals(plan) ? known : null;
+    }
+
+    /** True when a complete read of these members may be kept as a stored replay member. */
+    boolean storable(CdsExportStagedFileDto values, CdsExportStagedFileDto index) {
+        var key = new Key(values, index);
+        return usable()
+                && !recordings.containsKey(key)
+                && !stored.containsKey(key)
+                && stored.size() < MAXIMUM_STORED;
+    }
+
+    /**
+     * Remembers the replay member a complete read wrote after it passed every check and returned
+     * {@code result}. False when the session does not take it; the caller then erases the member.
+     * A member the session takes is erased by {@link #close()}.
+     */
+    boolean store(
+            CdsExportStagedFileDto values,
+            CdsExportStagedFileDto index,
+            Map<String, CdsExportNativeCaptureReader.Table> plan,
+            CdsExportStagedFileDto member,
+            CdsExportNativeCaptureReader.Result result,
+            Erasure erasure) {
+        Objects.requireNonNull(member);
+        Objects.requireNonNull(result);
+        Objects.requireNonNull(erasure);
+        if (!storable(values, index)) return false;
+        stored.put(new Key(values, index), new Stored(Map.copyOf(plan), member, result, erasure));
+        return true;
+    }
+
+    /**
+     * Zeroes and drops everything held and erases every stored replay member; later calls record
+     * and replay nothing. Everything is dropped and every erasure attempted before a failed
+     * erasure is reported, as an {@link java.io.UncheckedIOException}: the member it could not
+     * erase is still encrypted under the job's key in the job's staging, which is purged with it.
+     */
     @Override
     public void close() {
         closed = true;
@@ -259,8 +397,18 @@ public final class CdsExportVerifiedCaptures implements AutoCloseable {
         manifests.clear();
         plans.clear();
         derived.clear();
+        unrecordable.clear();
         bytes = 0;
-        fields = 0;
+        IOException failed = null;
+        for (var replay : stored.values())
+            try {
+                replay.erasure.erase();
+            } catch (IOException failure) {
+                if (failed == null) failed = failure;
+                else failed.addSuppressed(failure);
+            }
+        stored.clear();
+        if (failed != null) throw new java.io.UncheckedIOException(failed);
     }
 
     @Override
@@ -282,15 +430,26 @@ public final class CdsExportVerifiedCaptures implements AutoCloseable {
         }
     }
 
+
     /**
      * One read being recorded: wraps the reader's sink, copying each value's bytes as the reader
-     * passes them on and each field once the reader has verified it.
+     * passes them on and keeping each field once the reader has verified it. Only a gapless read
+     * is kept: every field's value follows the one before it in the value member.
      */
     final class Recording {
         private final Key key;
         private Map<String, CdsExportNativeCaptureReader.Table> plan;
         private final byte[] values;
-        private final List<CdsExportCapturedFieldDto> fields;
+        private final CdsExportCapturedFieldDto[] fields;
+        private final int plannedRows;
+        private final Map<String, String> names = new HashMap<>();
+        private String table;
+        private String recordKey;
+        private int rows;
+        private int count;
+        private long next;
+        private final long keyBudget;
+        private long keyBytes;
         private CdsExportNativeCaptureReader.Result result;
         private boolean abandoned;
 
@@ -298,11 +457,23 @@ public final class CdsExportVerifiedCaptures implements AutoCloseable {
                 Key key,
                 Map<String, CdsExportNativeCaptureReader.Table> plan,
                 int valueBytes,
-                int plannedFields) {
+                int plannedFields,
+                int plannedRows,
+                long keyBudget) {
             this.key = key;
             this.plan = plan;
             this.values = new byte[valueBytes];
-            this.fields = new ArrayList<>(Math.min(plannedFields, 65_536));
+            this.fields = new CdsExportCapturedFieldDto[plannedFields];
+            this.plannedRows = plannedRows;
+            this.keyBudget = keyBudget;
+        }
+
+        /** The heap this recording holds, as charged against the session budget. */
+        private long held() {
+            return values.length
+                    + (long) fields.length * FIELD_BYTES
+                    + (long) plannedRows * ROW_BYTES
+                    + keyBytes;
         }
 
         /** The sink the reader writes to: every call reaches {@code output} unchanged. */
@@ -349,15 +520,52 @@ public final class CdsExportVerifiedCaptures implements AutoCloseable {
 
                 @Override
                 public void verified(CdsExportCapturedFieldDto field) throws IOException {
-                    if (!abandoned) {
-                        var last = fields.isEmpty() ? null : fields.getLast();
-                        long next = last == null ? 0 : last.offset() + last.bytes();
-                        if (field.offset() != next) abandoned = true;
-                        else fields.add(field);
-                    }
+                    if (!abandoned) add(field);
                     output.verified(field);
                 }
             };
+        }
+
+        /** Keeps one verified field, or abandons the recording when it no longer fits or follows. */
+        private void add(CdsExportCapturedFieldDto field) {
+            if (field.offset() != next || count == fields.length) {
+                abandoned = true;
+                return;
+            }
+            if (!field.table().equals(table) || !field.recordKey().equals(recordKey)) {
+                // Two bytes a character covers a key stored as UTF-16; an exact numeric witness,
+                // which few fields carry, is charged with the row below.
+                long cost = 2L * field.recordKey().length();
+                if (rows == plannedRows || cost > keyBudget - keyBytes) {
+                    abandoned = true;
+                    return;
+                }
+                rows++;
+                keyBytes += cost;
+                table = names.computeIfAbsent(field.table(), name -> name);
+                recordKey = field.recordKey();
+            }
+            if (field.exactNumeric() != null) {
+                long cost = 64L + 2L * field.exactNumeric().bits().length();
+                if (cost > keyBudget - keyBytes) {
+                    abandoned = true;
+                    return;
+                }
+                keyBytes += cost;
+            }
+            // The same field, sharing the row's table and key and the table's column name with
+            // the other fields that name them, so each string is held once.
+            fields[count++] =
+                    new CdsExportCapturedFieldDto(
+                            table,
+                            recordKey,
+                            names.computeIfAbsent(field.column(), name -> name),
+                            field.kind(),
+                            field.offset(),
+                            field.bytes(),
+                            field.sha256(),
+                            field.exactNumeric());
+            next += field.bytes();
         }
 
         /** Zeroes what a read that did not finish had copied; it is never kept. */
@@ -368,7 +576,11 @@ public final class CdsExportVerifiedCaptures implements AutoCloseable {
         private void clear() {
             abandoned = true;
             Arrays.fill(values, (byte) 0);
-            fields.clear();
+            Arrays.fill(fields, null);
+            names.clear();
+            table = null;
+            recordKey = null;
+            count = 0;
         }
 
         @Override

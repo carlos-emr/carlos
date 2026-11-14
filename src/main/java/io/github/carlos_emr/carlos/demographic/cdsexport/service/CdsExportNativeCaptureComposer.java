@@ -67,12 +67,32 @@ public final class CdsExportNativeCaptureComposer {
         }
     }
 
+    /**
+     * The same capture for a caller written against the bounded composer: the two former bounds
+     * are accepted and not applied. A capture has no size limit.
+     */
     public Result compose(
             OutputStream values,
             OutputStream index,
             Set<String> expectedTables,
             long maximumFields,
             long maximumValueBytes,
+            Runnable checkpoint,
+            Content content)
+            throws IOException {
+        if (maximumFields < 1 || maximumValueBytes < 1) invalid();
+        return compose(values, index, expectedTables, checkpoint, content);
+    }
+
+    /**
+     * Writes one patient's capture: each value streamed to {@code values} and one line for each
+     * event to {@code index}. Nothing of the chart is held here, so a chart of any size is
+     * captured; only the output streams, which stage to disk, can refuse it.
+     */
+    public Result compose(
+            OutputStream values,
+            OutputStream index,
+            Set<String> expectedTables,
             Runnable checkpoint,
             Content content)
             throws IOException {
@@ -83,12 +103,9 @@ public final class CdsExportNativeCaptureComposer {
         var tables = Set.copyOf(expectedTables);
         if (tables.isEmpty()
                 || tables.size() > 256
-                || tables.stream().anyMatch(table -> !table.matches("[A-Za-z0-9_]{1,64}"))
-                || maximumFields < 1
-                || maximumFields > 100_000_000
-                || maximumValueBytes < 1) invalid();
-        var writer =
-                new Writer(values, index, tables, maximumFields, maximumValueBytes, checkpoint);
+                || tables.stream().anyMatch(table -> !table.matches("[A-Za-z0-9_]{1,64}")))
+            invalid();
+        var writer = new Writer(values, index, tables, checkpoint);
         try {
             writer.event(Map.of("kind", "header", "protocol", 2));
             content.capture(writer);
@@ -116,7 +133,6 @@ public final class CdsExportNativeCaptureComposer {
     public static final class Writer {
         private final OutputStream values, index;
         private final Set<String> expected;
-        private final long maximumFields, maximumBytes;
         private final Runnable checkpoint;
         private final Thread owner = Thread.currentThread();
         private final Map<String, Long> rows = new TreeMap<>();
@@ -131,8 +147,6 @@ public final class CdsExportNativeCaptureComposer {
                 OutputStream values,
                 OutputStream index,
                 Set<String> expected,
-                long maximumFields,
-                long maximumBytes,
                 Runnable checkpoint) {
             this.values = values;
             this.index =
@@ -148,8 +162,6 @@ public final class CdsExportNativeCaptureComposer {
                         }
                     };
             this.expected = expected;
-            this.maximumFields = maximumFields;
-            this.maximumBytes = maximumBytes;
             this.checkpoint = checkpoint;
         }
 
@@ -281,8 +293,6 @@ public final class CdsExportNativeCaptureComposer {
         private void append(byte[] data, int offset, int count, MessageDigest digest)
                 throws IOException {
             check();
-            if (count > maximumBytes - bytes)
-                throw new IOException("CDS_EXPORT_CAPTURE_VALUE_LIMIT");
             values.write(data, offset, count);
             digest.update(data, offset, count);
             bytes += count;
@@ -363,8 +373,6 @@ public final class CdsExportNativeCaptureComposer {
                 throws IOException {
             if (!active || !writer.rowOpen || !writer.columns.contains(column) || !seen.add(column))
                 invalid();
-            if (writer.fields == writer.maximumFields)
-                throw new IOException("CDS_EXPORT_CAPTURE_FIELD_LIMIT");
             long offset = writer.bytes;
             var digest = sha256();
             if (text != null) encode(text, writer, digest);

@@ -24,7 +24,6 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 /** Closed complete patient case-management context. Only authenticated complete scans can create this evidence. */
@@ -111,7 +110,9 @@ public final class CdsExportHistoryCurrentContext {
         var states = new HashMap<String, CdsExportNativeRowReceiptDto>();
         var records = new HashMap<String, Map<String, CdsExportHistoryFieldReconciler.Row>>();
         var links = new ArrayList<CdsExportCapturedTextRowDto>();
-        long[] memory = {0};
+        // The rows are held with their witnesses while the section reconciles them. Nothing
+        // refuses them for their size: a count against maxIndexBytes stopped the whole job at
+        // about 1,700 imported notes.
         for (String table : tables) {
             long rows = source.capture().tables().get(table).rows();
             if (rows > (table.equals("issue") ? bounds.lookupRows() : bounds.nativeRows())) limit();
@@ -133,10 +134,6 @@ public final class CdsExportHistoryCurrentContext {
                                     || row.digest() == null
                                     || states.putIfAbsent(key(row.table(), row.id()), row) != null)
                                 invalid();
-                            memory[0] =
-                                    Math.addExact(
-                                            memory[0], 2048L + row.state().columns().size() * 384L);
-                            if (memory[0] > bounds.indexBytes()) limit();
                         });
         if (!closed.sourceManifestSha256().equals(source.manifest().plaintextSha256())) invalid();
         for (String table : tables)
@@ -154,23 +151,11 @@ public final class CdsExportHistoryCurrentContext {
                                 source.manifest(),
                                 bounds.fields(),
                                 bounds.bytes(),
-                                (int) Math.min(67_108_864L, bounds.indexBytes()),
+                                // One row's text, not the chart's.
+                                67_108_864,
                                 control,
                                 row -> {
                                     control.checkpoint();
-                                    memory[0] =
-                                            Math.addExact(
-                                                    memory[0], 1024L + row.fields().size() * 256L);
-                                    for (String value : row.fields().values())
-                                        if (value != null)
-                                            memory[0] =
-                                                    Math.addExact(
-                                                            memory[0],
-                                                            value.getBytes(StandardCharsets.UTF_8)
-                                                                                    .length
-                                                                            * 3L
-                                                                    + 64L);
-                                    if (memory[0] > bounds.indexBytes()) limit();
                                     count.merge(row.table(), 1L, Math::addExact);
                                     if (row.table().equals("casemgmt_issue_notes")) links.add(row);
                                     String primary =

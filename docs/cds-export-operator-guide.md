@@ -691,6 +691,26 @@ CDS import) by the local report each is bound to. Without it, exporting an impor
 slowed as the clinic's imported results grew, and a chart of about two thousand imported
 results failed on a statement timeout.
 
+No setting limits how much of a chart is captured. `cds.export.maxCapturedFields` and
+`cds.export.maxCapturedBytes` are retired: remove them from `carlos.properties`. If they are
+still set the export starts as before, ignores them and names them once in the log
+(`CDS_EXPORT_RETIRED_SETTING_IGNORED`). A captured chart is written to the encrypted staging
+area and read back from it, so a long chart needs staging disk, about 105 KiB for each
+record of a chart that came from an earlier CDS import (430 MiB for 4,096 records), and a full
+disk stops the job as a storage failure.
+
+A long chart that came from an earlier CDS import still needs memory and time, because the
+export checks every imported record against its import receipts and several of those steps
+hold the whole chart. Measured on the reference host: a chart of 512 imported notes and 512
+imported laboratory results exports under the defaults; one of 2,048 and 2,048 needs
+`cds.export.cliHeapMiB=1024` (the default is 512; its old generation peaked at 649 MiB) and
+`cds.export.captureTimeoutSeconds` above its default 120 (its capture takes about 125 s), and
+then exports in about 8 minutes. With the default capture timeout the job fails with
+`CDS_EXPORT_EXECUTION_FAILED` when the capture passes 120 s. With too small a heap nothing
+refuses the chart, but the export slows to a crawl in garbage collection and does not finish:
+cancel it, raise `cds.export.cliHeapMiB` (up to 16384; the timeout up to 7200) and start a new
+export. Ordinary charts entered through the screens need neither.
+
 An appointment that came from an earlier CDS import and was later deleted, or cut to be
 pasted elsewhere, is not exported, as the day sheet no longer shows it; CARLOS's archive copy of
 the booking is what proves the removal, and a booking that disappeared without one still holds

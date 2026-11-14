@@ -48,7 +48,6 @@ public class CdsExportClinicalOccurrenceService {
             int lookupRows) {
         public Bounds {
             if (fields < 1
-                    || fields > 100_000_000
                     || bytes < 1
                     || indexRows < 1
                     || indexRows > 1_000_000
@@ -60,6 +59,13 @@ public class CdsExportClinicalOccurrenceService {
                     || lookupRows > 131_072)
                 throw new IllegalArgumentException("CDS_EXPORT_OCCURRENCE_BOUNDS_INVALID");
         }
+
+        /**
+         * The value of {@link #fields} and {@link #bytes} in the installed plan: a chart's
+         * capture has no size limit. The two components remain because every read of a capture
+         * states what its caller will accept, and tests state small values.
+         */
+        public static final long UNLIMITED = Long.MAX_VALUE;
     }
 
     public record Receipt(
