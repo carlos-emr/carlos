@@ -65,6 +65,16 @@ native table at the column and cell bounds) at nesting depth 1, and the decrypte
 the six nesting levels and 128-character strings its row, column and cell records can contain.
 Anything larger or deeper is still refused.
 
+A receipt names at most 192 rows (`CdsTargetReceiptService.MAXIMUM_REFERENCES`), and no source
+file reaches that. A unit is one CDS element or one page of at most 32 source fields, and each
+kind writes a fixed set of rows (a demographic record at most 12, a vaccine at most 16, a report
+at most two representations of four rows each). Elements the schema lets repeat without limit (a
+result's ResultReviewer, a report's ReportReviewed, a note's NoteReviewer and
+ParticipatingProviders, a contact's ContactPurpose) add source-field pages, never rows to one
+unit. The largest unit, a field page whose every field carries an audited correction, names 100
+rows. The bound checks the importer's own records, and the exporter reads receipts back under the
+same one (`CdsExportRetainedReceiptVerificationDto`).
+
 The checkpoint is an acknowledgement of a known atomic unit. An exception after an owning
 commit can mean `UNIT_COMMIT_OUTCOME_UNKNOWN`; it does not mean that the unit rolled back.
 A successor verifies the durable checkpoint and exact native receipt before continuing. It
