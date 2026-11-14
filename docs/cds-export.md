@@ -675,20 +675,29 @@ window: every current measurement and extension row is claimed exactly once, by 
 or by a native occurrence of its own window; every row an imported value claimed falls in exactly
 one window; and every captured vocabulary row is claimed by some observation.
 
-What stays bounded per patient is the occurrence index all categories share: the identity,
-disposition and receipt of every occurrence are held until the patient's document is proven, at
-most `cds.export.maxIndexRows` and `maxIndexBytes` / 512 of them (131,072 at the installed
-maximum). A current measurement is one or two occurrences (its NewCategory record, and its
-CareElements value when it has an exact standard form), and native measurements are counted
-last, so only a chart whose measurements take it past that capacity, about 65,000 standard
-measurements in a chart with little else or nine a day for twenty years, is held with
-`CDS_EXPORT_NATIVE_CARE_PATIENT_LIMIT_EXCEEDED`; the job continues. That is a ceiling of
-memory, not of the care capture, and far above a chart entered through the screens; before,
-the inventory would have stopped the whole job with `RESOURCE_LIMIT` there (the care capture
-held the chart much earlier, at 8,192 observations). The patient's reconciliation audit is
-streamed to an encrypted staged file and has no size limit (a native measurement's two receipts
-and dispositions take about 6 KiB; the former bound, `maxIndexBytes` plus 16 KiB for each
-expected occurrence, was a job stop and is removed). A chart's capture has no size limit (see "No limit on the
+No count of occurrences holds a patient or stops a job. The occurrence index all categories
+share (every occurrence the document must hold and every retained field it must account for,
+with what the document did with each, kept until the patient's document is proven) is packed
+(`CdsExportOccurrenceIndex`): the category and the 32 bytes of an occurrence's key, one state
+byte and the 32 bytes of its output digest are 66 bytes an occurrence, and a retained field is
+the 32 bytes of its id and one state byte, 33 bytes. Both are sorted once, when the inventory is
+complete, and looked up by binary search; identities and dispositions are rebuilt when they are
+read, in the order they always had. A current measurement is one or two occurrences (its
+NewCategory record, and its CareElements value when it has an exact standard form), so a
+million measurements take about 130 MiB. Before, each occurrence was held as an identity, a
+disposition and a receipt entry (about 530 bytes) and each retained field as two strings in two
+sets (about 350), the inventory stopped the job with `RESOURCE_LIMIT` at `cds.export.maxIndexRows`
+or `maxIndexBytes` / 512 of them together (131,072 at the installed maximum, which an imported
+chart of about 6,500 records reached through its retained fields alone), and a chart whose
+measurements passed that number was held with `CDS_EXPORT_NATIVE_CARE_PATIENT_LIMIT_EXCEEDED`.
+That code no longer exists. The patient's reconciliation audit is streamed to an encrypted
+staged file and has no size limit (`CdsExportPatientDocumentService`); its former bound,
+`maxIndexBytes` plus 16 KiB for each expected occurrence, is gone with `auditLimit`, and the
+coverage comparison, the dispositions, the attachments and the report references of one patient
+are no longer counted against `maxIndexRows`. What the inventory holds while it is taken and
+drops when it returns is a string for each captured note, document and appointment number (about
+100 bytes each) and, when the job left NewCategory out, the name of each record whose
+NewCategory record is not written. A chart's capture has no size limit (see "No limit on the
 capture" below); every per-job limit still applies. A measurement is ten captured fields.
 
 `measurementsDeleted` is read by patient (every capture count and page, and the extension scope,
@@ -1178,33 +1187,59 @@ the same table together. A section therefore reads its rows in windows
 | Screenings (`CdsExportScreeningOccurrenceService`) | windowed | witnesses, extensions and precision rows of the window's screenings |
 | Disease Registry and episodes (`CdsExportProblemRegistryOccurrenceService`) | windowed | witnesses and precision rows of the window's entries; every diagnosis code row the chart names |
 | CareElements measurements (`CdsExportCapturedCareRowsReader`) | windowed (its own planner, by owner id) | see the measurements paragraph above; it now takes the same two sizes |
-| Laboratory results | not windowed | the rows and witnesses of all four laboratory tables, with each HL7 message, and every parsed report |
+| Laboratory results (`CdsExportLaboratoryOccurrenceService`; through `forEachNativeSource` and `forEachImportedComments` the inventory, the NewCategory source records and the Reports entries of embedded documents) | windowed | the rows of the window's reports (structured result, message, metadata, patient routing), their witnesses, their inbox routes and the window's native reports parsed; every public provider row the chart names. Held for the chart: the result id and report number of each imported result (a reference to an id the retained index holds, about 80 bytes a result) and, for a chart read in windows, the number of each native report |
+| Printed prescriptions (`CdsExportPrescriptionOccurrenceService.forEachSource`) | streamed | one script at a time; the public provider rows. Every drug row is checked in a pass that keeps none |
 | Reports, hospital reports | not windowed | every document row, link and witness |
-| History and notes, printed prescriptions, demographic properties and contacts | not windowed | the section's rows with their witnesses |
+| History and notes, demographic properties and contacts | not windowed | the section's rows with their witnesses |
+
+**Laboratory results.** A report is its message, its metadata row, its patient routing row, the
+structured result of an imported result that mirrors it, and its inbox routes; all are joined by
+the report number. The owners of the section are the applied imported results, in the order of
+their import units, then the native reports (those no applied import unit names), in the order
+of their numbers as text: the order of the occurrences. A window is a run of consecutive
+owners. It reads, in one pass over the four report tables, the rows its import units name and
+every row of the reports they name, with every row of its native reports; then their witnesses;
+then their inbox routes. A chart whose four tables hold at most 8,192 rows and whose routes are
+at most 8,192 is tried whole first, by the passes that always read it. A chart read in windows
+costs one pass that lists the native reports and three passes for each window. Parsed reports
+are counted at twice their message against the window's 64 MiB, before anything of the window
+is emitted, so a window of long reports is read again smaller.
+
+Every row is owned by exactly one occurrence. In every pass every row of the four tables is
+checked for its shape and for its owner (the routing row and the structured result name this
+patient), whether or not the window keeps it. Each window proves that every row and every route
+it loaded is owned by one of its occurrences and that its rows are whole reports
+(`requireOwnership`, the check a chart read whole has always had). Over the chart, a result or
+report owned by two import units is refused when the second is met, and the rows the windows
+took are counted against the capture for each table: a metadata, routing or result row whose
+report is in no window is taken by none, and the chart is held for review as it is when read
+whole; a route left over names no report of the chart and refuses it. The inventory, the
+NewCategory records and the Reports entries of embedded documents visit the native reports
+window by window with the same checks for the reports of each window; the ownership of the
+imported results' rows is proved by the LaboratoryResults assembly, which every such job runs.
+
+A planner detail the laboratory windows needed (`CdsExportSectionWindowPlanner.forEachWindowOf`):
+a window that was read again smaller no longer keeps every later window small. A window that
+completes with at most half the byte limit used doubles the next one, up to 8,192 owners, so
+one very large report costs the few small windows around it. A chart whose owners are alike
+never grows a window that way and reads no window twice.
+
+What the laboratory windows do not change is what an imported chart holds for all its sections:
+the retained import index (`CdsExportRetainedIndexService`, for the patient's session), and in
+each section that reconciles imported records the retained fields of the chart
+(`CdsExportRetainedValuesService.withValues`) and the receipt comparison. An imported chart of
+2,048 results is 8,192 report rows, one window: it is read as it was.
 
 The sections that are not windowed still read `cds.export.maxNativeRows` (8,192),
 `maxIndexBytes` (64 MiB) and `maxLookupRows` (131,072) from the plan and still stop the job with
-`RESOURCE_LIMIT` (or, for printed prescriptions, hold the patient) when a
-chart passes them: lifting those numbers without a window would hold the whole chart on the heap.
-What each needs:
+`RESOURCE_LIMIT` when a chart passes them: lifting those numbers without a window would hold the
+whole chart on the heap. What each needs:
 
-- **Laboratory.** Its rows are joined by report number (a result, its message, its information
-  and routing rows and its inbox routes), and three other assemblies read the same reports: the
-  inventory, the NewCategory source records and the Reports entries of embedded documents
-  (`nativeSources`, `routes`). A window must be a set of report numbers, read for imported results
-  in the order of their import units and for native reports in id order, with the set of report
-  numbers already owned kept across windows; the three other assemblies must receive the reports
-  window by window instead of as one list. Counted across its four tables, the present bound is
-  reached at about 4,096 native reports or 2,730 imported results.
 - **Reports and hospital reports.** The same shape: a window of documents with their links,
   routes and attachments, and the inventory fed by window.
 - **History.** The note readers (`CdsExportNoteSourceReader`, `CdsExportNoteRevisionInventoryService`)
   stop at 8,192 notes of a chart and the section holds its rows with their witnesses.
-- **The occurrence index.** The inventory keeps the identity of every expected occurrence of the
-  patient until the document is proven (`CdsExportPatientInventoryService`, about 200 bytes an
-  occurrence), limited to `maxIndexRows` and `maxIndexBytes` / 512 occurrences. It is the
-  structure to spill to a sorted spool (`CdsExportSpoolService`): the expected identities sorted
-  once, the emitted ones sorted once, compared in one merge.
+
 
 #### What can still stop a large export
 
@@ -1482,7 +1517,9 @@ What these mappers hold in memory is one chart's rows of the tables they map (it
 revision numbers, prevention rows), each about 2 KB plus its values; nothing is shared between
 charts. The occurrence services that hand rows to these mappers are a separate matter: see
 "Section windows" for the ones that read a chart window by window and the ones that still stop
-at `cds.export.maxNativeRows`, `maxIndexBytes` and `maxLookupRows`.
+at `cds.export.maxNativeRows`, `maxIndexBytes` and `maxLookupRows`. The imported NewCategory
+records of a chart are no longer counted against `maxNativeRows`
+(`CdsExportNewCategoryOccurrenceService.parents`).
 
 Required limits that no longer hold a patient (second pass):
 

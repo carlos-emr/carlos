@@ -207,4 +207,58 @@ class CdsExportSectionWindowPlannerUnitTest {
         for (int id = 1; id <= 1_000_000; id++) owners.add(Integer.toString(10_000_000 + id));
         assertThat(owners.size()).isEqualTo(1_000_000);
     }
+
+    @Test
+    void shouldGrowTheWindowAgain_afterOneLargeOwnerMadeItSmall() throws Exception {
+        // Sixty-four owners of ten bytes, and one of ten thousand in their middle.
+        var ids = ids(64);
+        var sizes = new ArrayList<Long>();
+        var visited = new ArrayList<String>();
+        CdsExportSectionWindowPlanner.forEachWindow(
+                64,
+                new Limits(16, 200),
+                owners -> {
+                    for (String id : ids) owners.add(id);
+                },
+                (window, budget) -> {
+                    var held = new ArrayList<String>();
+                    for (int i = 0; i < ids.size(); i++)
+                        if (window.contains(ids.get(i)) && budget.owner(i == 20 ? 10_000 : 10))
+                            held.add(ids.get(i));
+                    if (budget.exceeded()) return false;
+                    sizes.add(window.size());
+                    visited.addAll(held);
+                    return true;
+                });
+        assertThat(visited).isEqualTo(ids);
+        // The large owner is read alone; the windows after it double back to sixteen owners
+        // instead of staying at one owner for the rest of the chart.
+        assertThat(sizes).containsExactly(16L, 4L, 1L, 1L, 2L, 4L, 8L, 16L, 12L);
+    }
+
+    @Test
+    void shouldRunOnlyTheWindows_whenTheSectionMadeItsOwnWholeAttempt() throws Exception {
+        var budget = CdsExportSectionWindowPlanner.wholeBudget(3, new Limits(8, 100));
+        assertThat(budget.enforced()).isTrue();
+        assertThat(budget.add(1, 101)).isFalse();
+        assertThat(CdsExportSectionWindowPlanner.wholeBudget(1, new Limits(8, 100)).enforced())
+                .isFalse();
+        var whole = CdsExportSectionWindowPlanner.whole(3);
+        assertThat(whole.whole()).isTrue();
+        assertThat(whole.size()).isEqualTo(3);
+        var sizes = new ArrayList<Long>();
+        long windows =
+                CdsExportSectionWindowPlanner.forEachWindowOf(
+                        new Limits(8, 100),
+                        2,
+                        owners -> {
+                            for (String id : ids(5)) owners.add(id);
+                        },
+                        (window, used) -> {
+                            assertThat(window.whole()).isFalse();
+                            return used.add(1, 60) && sizes.add(window.size());
+                        });
+        assertThat(windows).isEqualTo(3);
+        assertThat(sizes).containsExactly(2L, 2L, 1L);
+    }
 }

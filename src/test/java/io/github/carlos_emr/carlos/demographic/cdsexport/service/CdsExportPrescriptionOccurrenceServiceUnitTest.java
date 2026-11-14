@@ -42,6 +42,13 @@ class CdsExportPrescriptionOccurrenceServiceUnitTest {
             java.util.Set<String> tables) {}
 
     private Captured captured(boolean includeSupporting, boolean includeAuthor) throws Exception {
+        return captured(includeSupporting, includeAuthor, List.of(71));
+    }
+
+    /** @param scripts the script numbers, in the order the capture hands their rows out */
+    private Captured captured(
+            boolean includeSupporting, boolean includeAuthor, List<Integer> scripts)
+            throws Exception {
         var categories =
                 java.util.EnumSet.of(
                         CdsCategory.DEMOGRAPHICS, CdsCategory.MEDICATIONS_AND_TREATMENTS);
@@ -72,7 +79,14 @@ class CdsExportPrescriptionOccurrenceServiceUnitTest {
                                 "",
                                 "practitionerNoType",
                                 ""));
-        var input = new java.util.ArrayList<CdsExportCapturedTextRowDto>(List.of(drug, parent));
+        var input = new java.util.ArrayList<CdsExportCapturedTextRowDto>(List.of(drug));
+        for (int script : scripts) {
+            var fields = new java.util.LinkedHashMap<>(parentFields);
+            fields.put("script_no", Integer.toString(script));
+            input.add(
+                    new CdsExportCapturedTextRowDto(
+                            "prescription", CdsExportPatientTableSourceReader.key(script), fields));
+        }
         if (includeAuthor) input.add(author);
         var scopes = new java.util.TreeMap<String, CdsExportCapturedTableDto>();
         for (var row : List.of(drug, parent, author))
@@ -80,7 +94,9 @@ class CdsExportPrescriptionOccurrenceServiceUnitTest {
                     row.table(),
                     new CdsExportCapturedTableDto(
                             row.fields().keySet(),
-                            row.table().equals("provider") && !includeAuthor ? 0 : 1,
+                            row.table().equals("provider") && !includeAuthor
+                                    ? 0
+                                    : row.table().equals("prescription") ? scripts.size() : 1,
                             CdsExportPatientPipelineFixture.HASH));
         long count = scopes.values().stream().mapToLong(t -> t.rows() * t.columns().size()).sum();
         var bytes = new java.io.ByteArrayOutputStream();
@@ -146,7 +162,8 @@ class CdsExportPrescriptionOccurrenceServiceUnitTest {
         var f = captured(true, true);
         var service = new CdsExportPrescriptionOccurrenceService(f.fixture.captures);
         var result =
-                service.sources(
+                sources(
+                        service,
                         f.fixture.lease,
                         f.fixture.patient,
                         f.tables,
@@ -169,8 +186,8 @@ class CdsExportPrescriptionOccurrenceServiceUnitTest {
         // exported; the NewCategory assembly, which writes their records, is simply not run.
         var f = captured(false, true);
         var result =
-                new CdsExportPrescriptionOccurrenceService(f.fixture.captures)
-                        .sources(
+                sources(
+                                new CdsExportPrescriptionOccurrenceService(f.fixture.captures),
                                 f.fixture.lease,
                                 f.fixture.patient,
                                 f.tables,
@@ -189,8 +206,8 @@ class CdsExportPrescriptionOccurrenceServiceUnitTest {
         // the script is exported with no public author, its stored number in its own fields.
         var f = captured(true, false);
         var sources =
-                new CdsExportPrescriptionOccurrenceService(f.fixture.captures)
-                        .sources(
+                sources(
+                                new CdsExportPrescriptionOccurrenceService(f.fixture.captures),
                                 f.fixture.lease,
                                 f.fixture.patient,
                                 f.tables,
@@ -210,8 +227,8 @@ class CdsExportPrescriptionOccurrenceServiceUnitTest {
                 .authorizeCategory(27, CdsCategory.MEDICATIONS_AND_TREATMENTS, false);
         assertThatThrownBy(
                         () ->
-                                new CdsExportPrescriptionOccurrenceService(f.fixture.captures)
-                                        .sources(
+                                sources(
+                                new CdsExportPrescriptionOccurrenceService(f.fixture.captures),
                                                 f.fixture.lease,
                                                 f.fixture.patient,
                                                 f.tables,
@@ -228,8 +245,8 @@ class CdsExportPrescriptionOccurrenceServiceUnitTest {
         var f = captured(true, true);
         assertThatThrownBy(
                         () ->
-                                new CdsExportPrescriptionOccurrenceService(f.fixture.captures)
-                                        .sources(
+                                sources(
+                                new CdsExportPrescriptionOccurrenceService(f.fixture.captures),
                                                 f.fixture.lease,
                                                 f.fixture.patient,
                                                 Set.of("prescription"),
@@ -239,6 +256,49 @@ class CdsExportPrescriptionOccurrenceServiceUnitTest {
                 .hasMessage("CDS_EXPORT_PRESCRIPTION_OWNERSHIP_REQUIRES_REVIEW");
         verify(f.fixture.captures, never())
                 .scan(any(), any(), anySet(), any(), anyLong(), anyLong(), any(), any());
+    }
+
+    @Test
+    void shouldVisitEveryScript_ofAChartPastTheFormerRowBound() throws Exception {
+        // 8,193 printed prescriptions: one more than the count that used to hold the patient
+        // with CDS_EXPORT_PRESCRIPTION_OWNERSHIP_REQUIRES_REVIEW. One script is held at a time.
+        var numbers = new java.util.ArrayList<Integer>();
+        for (int script = 71; script < 71 + 8_193; script++) numbers.add(script);
+        var f = captured(true, true, numbers);
+        var visited = new java.util.ArrayList<String>();
+        long count =
+                new CdsExportPrescriptionOccurrenceService(f.fixture.captures)
+                        .forEachSource(
+                                f.fixture.lease,
+                                f.fixture.patient,
+                                f.tables,
+                                f.source,
+                                f.fixture.bounds,
+                                f.fixture.control,
+                                script -> {
+                                    assertThat(script.author()).isNotNull();
+                                    visited.add(script.prescription().fields().get("script_no"));
+                                });
+        assertThat(count).isEqualTo(8_193);
+        assertThat(visited).isEqualTo(numbers.stream().map(String::valueOf).toList());
+    }
+
+    @Test
+    void shouldRefuseScriptsOutOfKeyOrder_insteadOfKeepingEveryNumberToCompare() throws Exception {
+        // The capture's row keys rise; that is what proves no script repeats.
+        var f = captured(true, true, List.of(72, 71));
+        assertThatThrownBy(
+                        () ->
+                                sources(
+                                        new CdsExportPrescriptionOccurrenceService(
+                                                f.fixture.captures),
+                                        f.fixture.lease,
+                                        f.fixture.patient,
+                                        f.tables,
+                                        f.source,
+                                        f.fixture.bounds,
+                                        f.fixture.control))
+                .hasMessage("CDS_EXPORT_PRESCRIPTION_OWNERSHIP_REQUIRES_REVIEW");
     }
 
     static CdsExportCapturedTextRowDto parent(int patient) {
@@ -348,5 +408,21 @@ class CdsExportPrescriptionOccurrenceServiceUnitTest {
                                 CdsExportPrescriptionOccurrenceService.requireOwnership(
                                         27, List.of(spoofed), List.of(drug)))
                 .isInstanceOf(java.io.IOException.class);
+    }
+
+    /** Every printed prescription the assembly visits, in order. */
+    private static List<CdsExportPrescriptionOccurrenceService.Source> sources(
+            CdsExportPrescriptionOccurrenceService service,
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> tables,
+            CdsExportPatientCaptureDto source,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl control)
+            throws java.io.IOException {
+        var visited = new java.util.ArrayList<CdsExportPrescriptionOccurrenceService.Source>();
+        long count = service.forEachSource(lease, patient, tables, source, bounds, control, visited::add);
+        assertThat(count).isEqualTo(visited.size());
+        return visited;
     }
 }

@@ -100,9 +100,10 @@ public class CdsExportPatientDocumentService {
         boolean complete = false;
         var attachments = new TreeMap<String, CdsExportPackageMemberDto>();
         var attachmentOwners = new HashMap<String, CdsExportIdentityDto>();
-        var dispositions = new TreeMap<CdsExportIdentityDto, CdsExportDispositionDto>();
-        var receipts = new TreeSet<CdsExportIdentityDto>();
-        var retainedFields = new HashSet<String>();
+        // What the document did with each expected occurrence and retained field is recorded
+        // in the patient's packed occurrence index (CdsExportOccurrenceIndex), not in maps of
+        // identities, dispositions and field ids: 66 bytes an occurrence, 33 a field.
+        var index = expected.index();
         var failed = new AtomicBoolean();
         var active = new AtomicBoolean(true);
         Thread ownerThread = Thread.currentThread();
@@ -125,15 +126,14 @@ public class CdsExportPatientDocumentService {
                                                             || Thread.currentThread()
                                                                     != ownerThread) invalid();
                                                     control.checkpoint();
+                                                    // The occurrence is expected, the composer
+                                                    // has disposed of it and this is its only
+                                                    // receipt.
                                                     if (!expected.sourceManifestSha256()
                                                                     .equals(
                                                                             receipt
                                                                                     .sourceManifestSha256())
-                                                            || !expected.identities()
-                                                                    .contains(receipt.identity())
-                                                            || !dispositions.containsKey(
-                                                                    receipt.identity())
-                                                            || !receipts.add(receipt.identity()))
+                                                            || !index.receive(receipt.identity()))
                                                         invalid();
                                                     var all =
                                                             new HashSet<>(receipt.retainedFields());
@@ -142,9 +142,7 @@ public class CdsExportPatientDocumentService {
                                                         invalid();
                                                     all.addAll(receipt.replacedFields());
                                                     for (String id : all)
-                                                        if (!expected.retainedFields().contains(id)
-                                                                || !retainedFields.add(id))
-                                                            invalid();
+                                                        if (!index.claimField(id)) invalid();
                                                     line(
                                                             audit,
                                                             new ReceiptHeader(
@@ -163,9 +161,7 @@ public class CdsExportPatientDocumentService {
                                                                     receipt.identity(),
                                                                     receipt.fields(),
                                                                     control)) {
-                                                        line(
-                                                                audit,
-                                                                decisions);
+                                                        line(audit, decisions);
                                                     }
                                                 } catch (IOException
                                                         | RuntimeException
@@ -186,7 +182,7 @@ public class CdsExportPatientDocumentService {
                                                                     != ownerThread) invalid();
                                                     control.checkpoint();
                                                     Objects.requireNonNull(member);
-                                                    if (!expected.identities().contains(report)
+                                                    if (!index.expects(report)
                                                             || report.category()
                                                                     != CdsCategory.REPORTS
                                                             || !"REPORT_ATTACHMENT"
@@ -196,8 +192,7 @@ public class CdsExportPatientDocumentService {
                                                         invalid();
                                                     CdsExportXmlValidator.relativeReference(
                                                             member.relativePath());
-                                                    if (attachments.size() >= bounds.indexRows()
-                                                            || attachments.putIfAbsent(
+                                                    if (attachments.putIfAbsent(
                                                                             member.relativePath(),
                                                                             member)
                                                                     != null
@@ -283,20 +278,18 @@ public class CdsExportPatientDocumentService {
                                                                                 disposition -> {
                                                                                     control
                                                                                             .checkpoint();
-                                                                                    if (dispositions
-                                                                                                            .size()
-                                                                                                    >= bounds
-                                                                                                            .indexRows()
-                                                                                            || !expected.identities()
-                                                                                                    .contains(
-                                                                                                            disposition
-                                                                                                                    .identity())
-                                                                                            || dispositions
-                                                                                                            .putIfAbsent(
-                                                                                                                    disposition
-                                                                                                                            .identity(),
-                                                                                                                    disposition)
-                                                                                                    != null)
+                                                                                    // Every disposition names
+                                                                                    // this capture and an expected
+                                                                                    // occurrence, once.
+                                                                                    if (!expected
+                                                                                            .sourceManifestSha256()
+                                                                                            .equals(
+                                                                                                    disposition
+                                                                                                            .captureDigest()))
+                                                                                        throw new IllegalArgumentException(
+                                                                                                "CDS_EXPORT_CAPTURE_MISMATCH");
+                                                                                    if (!index.dispose(
+                                                                                            disposition))
                                                                                         invalid();
                                                                                 },
                                                                                 limits.maxBytes(),
@@ -304,14 +297,14 @@ public class CdsExportPatientDocumentService {
                                                                                         ::checkpoint));
                                 owned.add(xml[0]);
                                 active.set(false);
-                                if (failed.get()
-                                        || !receipts.equals(dispositions.keySet())
-                                        || !retainedFields.equals(expected.retainedFields()))
-                                    invalid();
+                                // Every disposed occurrence has its receipt and every expected
+                                // retained field was claimed by one.
+                                if (failed.get() || !index.reconciled()) invalid();
                                 for (var owner : attachmentOwners.values())
-                                    if (!receipts.contains(owner)) invalid();
-                                for (var disposition : dispositions.values())
-                                    line(audit, disposition);
+                                    if (!index.received(owner)) invalid();
+                                for (var dispositions =
+                                                index.dispositions(expected.sourceManifestSha256());
+                                        dispositions.hasNext(); ) line(audit, dispositions.next());
                                 // Captured records with no CDS element whose NewCategory record
                                 // was not written because NewCategory was not selected: each is
                                 // an explicit OPERATIONAL decision here, not a hold and not a
@@ -333,8 +326,9 @@ public class CdsExportPatientDocumentService {
                                                 .validate(
                                                         expected.sourceManifestSha256(),
                                                         expected.identities().iterator(),
-                                                        dispositions.values().iterator(),
-                                                        bounds.indexRows(),
+                                                        index.dispositions(
+                                                                expected.sourceManifestSha256()),
+                                                        Long.MAX_VALUE,
                                                         control::checkpoint);
                                 if (!coverage.sourceCoverageComplete()) invalid();
                                 line(audit, coverage);
@@ -356,10 +350,7 @@ public class CdsExportPatientDocumentService {
                                         applicationVersion,
                                         lease.document().command().profile(),
                                         limits,
-                                        reference -> {
-                                            if (references.size() >= bounds.indexRows()) limit();
-                                            references.add(reference);
-                                        },
+                                        references::add,
                                         control::checkpoint);
             }
             if (!checked.xmlSha256().equals(xml[0].plaintextSha256())
@@ -527,9 +518,9 @@ public class CdsExportPatientDocumentService {
     }
 
     /**
-     * One line of the patient's reconciliation audit. The audit is streamed to an encrypted staged
-     * file, never held in memory, and has no size limit: it grows with what the chart holds, and
-     * no chart is refused for that.
+     * One line of the patient's reconciliation audit. The audit is streamed to an encrypted
+     * staged file, never held in memory, and grows with the patient's occurrences: no size
+     * refuses it.
      */
     private static void line(OutputStream out, Object value) throws IOException {
         out.write(JSON.writeValueAsBytes(value));
@@ -621,7 +612,4 @@ public class CdsExportPatientDocumentService {
         throw new CdsExportReviewException(CdsExportReviewException.Reason.UNMAPPED_DATA);
     }
 
-    private static void limit() {
-        throw new CdsExportReviewException(CdsExportReviewException.Reason.RESOURCE_LIMIT);
-    }
 }

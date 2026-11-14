@@ -413,9 +413,7 @@ class CdsExportPatientInventoryServiceUnitTest {
         var source =
                 CdsExportNativeLaboratoryMapperUnitTest.source(
                         CdsExportNativeLaboratoryMapperUnitTest.message());
-        when(f.laboratoryInventory.nativeSources(
-                        any(), any(), anySet(), any(), any(), any(), any()))
-                .thenReturn(List.of(source));
+        nativeLaboratories(f, source);
         var result = capture(f);
         assertThat(result.identities()).hasSize(6);
         assertThat(
@@ -439,9 +437,7 @@ class CdsExportPatientInventoryServiceUnitTest {
                 CdsExportNativeLaboratoryMapperUnitTest.source(
                         CdsExportNativeLaboratoryMapperUnitTest.message()
                                 .replace("|NM|2345-7^Glucose^LN||5.4|", "|ED|PDF^Report^L||JVBERi0xLjQK|"));
-        when(f.laboratoryInventory.nativeSources(
-                        any(), any(), anySet(), any(), any(), any(), any()))
-                .thenReturn(List.of(source));
+        nativeLaboratories(f, source);
         var result = capture(f);
         assertThat(
                         result.identities().stream()
@@ -457,9 +453,7 @@ class CdsExportPatientInventoryServiceUnitTest {
         // Before: a job that left Reports out held the chart (CDS_EXPORT_UNMAPPED_DATA). The
         // chart is exported and the document is named as not exported.
         var withoutReports = fixture(CdsCategory.LABORATORY_RESULTS, CdsCategory.NEW_CATEGORY);
-        when(withoutReports.laboratoryInventory.nativeSources(
-                        any(), any(), anySet(), any(), any(), any(), any()))
-                .thenReturn(List.of(source));
+        nativeLaboratories(withoutReports, source);
         var unselected = capture(withoutReports);
         assertThat(unselected.identities().stream().filter(i -> i.category() == CdsCategory.REPORTS))
                 .isEmpty();
@@ -664,8 +658,19 @@ class CdsExportPatientInventoryServiceUnitTest {
                                     "cds_laboratory_result", result, "f".repeat(64)),
                             new CdsExportRetainedIndexDto.Reference(
                                     "hl7TextMessage", "91", "f".repeat(64))));
-            when(f.laboratoryInventory.routes(any(), any(), anySet(), any(), any(), any()))
-                    .thenReturn(Map.of("91", List.of(commented)));
+            doAnswer(
+                            call -> {
+                                call.<CdsExportLaboratoryOccurrenceService.CommentedResults>
+                                                getArgument(7)
+                                        .accept(
+                                                new CdsExportLaboratoryOccurrenceService
+                                                        .ImportedComments(
+                                                        result, "91", List.of(commented)));
+                                return null;
+                            })
+                    .when(f.laboratoryInventory)
+                    .forEachImportedComments(
+                            any(), any(), anySet(), any(), any(), any(), any(), any());
             if (selected.contains(CdsCategory.NEW_CATEGORY))
                 assertThat(capture(f).identities())
                         .contains(
@@ -704,9 +709,7 @@ class CdsExportPatientInventoryServiceUnitTest {
         var source =
                 CdsExportNativeLaboratoryMapperUnitTest.source(
                         CdsExportNativeLaboratoryMapperUnitTest.message());
-        when(f.laboratoryInventory.nativeSources(
-                        any(), any(), anySet(), any(), any(), any(), any()))
-                .thenReturn(List.of(source));
+        nativeLaboratories(f, source);
         var inventory = capture(f);
         assertThat(inventory.identities())
                 .noneMatch(identity -> identity.category() == CdsCategory.NEW_CATEGORY)
@@ -743,8 +746,8 @@ class CdsExportPatientInventoryServiceUnitTest {
                                     CdsExportPatientTableSourceReader.key(501),
                                     fields),
                             null);
-            when(f.prescriptionInventory.sources(any(), any(), anySet(), any(), any(), any()))
-                    .thenReturn(List.of(script));
+            CdsExportPatientPipelineFixture.prescriptions(
+                f.prescriptionInventory,List.of(script));
             var inventory = capture(f);
             var identity =
                     new CdsExportIdentityDto(
@@ -821,14 +824,14 @@ class CdsExportPatientInventoryServiceUnitTest {
     }
 
     @Test
-    void shouldHoldOnlyThatChart_whenItsMeasurementsPassThePatientOccurrenceCapacity()
-            throws Exception {
-        // The fixture's occurrence capacity is 1,000 (maxIndexRows); every weight is a
-        // CareElements and a NewCategory occurrence. Before, the inventory stopped the whole
-        // job with RESOURCE_LIMIT; the care capture had held the chart much earlier, at 8,192.
+    void shouldExpectEveryMeasurement_ofAChartPastTheFormerOccurrenceCapacity() throws Exception {
+        // The fixture's former occurrence capacity was 1,000 (maxIndexRows); every weight is a
+        // CareElements and a NewCategory occurrence. The 500th weight used to hold the chart
+        // with CDS_EXPORT_NATIVE_CARE_PATIENT_LIMIT_EXCEEDED, and before that the inventory
+        // stopped the whole job with RESOURCE_LIMIT. No count of occurrences refuses a chart.
         var f = fixture(CdsCategory.CARE_ELEMENTS, CdsCategory.NEW_CATEGORY);
         var weights = new ArrayList<CdsExportNativeCarePlanner.Occurrence>();
-        for (int id = 1; id <= 499; id++)
+        for (int id = 1; id <= 3_000; id++)
             weights.add(
                     new CdsExportNativeCarePlanner.Occurrence(
                             "measurements",
@@ -838,21 +841,12 @@ class CdsExportPatientInventoryServiceUnitTest {
                             List.of(),
                             List.of()));
         careSources(f, weights.toArray(CdsExportNativeCarePlanner.Occurrence[]::new));
-        assertThat(capture(f).identities()).hasSize(999);
-        weights.add(
-                new CdsExportNativeCarePlanner.Occurrence(
-                        "measurements",
-                        "500",
-                        "Weight",
-                        CdsExportNativeCareMapperUnitTest.observation("WT", "70", "kg"),
-                        List.of(),
-                        List.of()));
-        careSources(f, weights.toArray(CdsExportNativeCarePlanner.Occurrence[]::new));
-        assertThatThrownBy(() -> capture(f))
-                .isInstanceOf(
-                        io.github.carlos_emr.carlos.demographic.cdsexport.support
-                                .CdsExportMappingReviewException.class)
-                .hasMessage("CDS_EXPORT_NATIVE_CARE_PATIENT_LIMIT_EXCEEDED");
+        var identities = capture(f).identities();
+        assertThat(identities).hasSize(6_001);
+        // The view reads in identity order and finds each identity it holds.
+        var read = new ArrayList<>(identities);
+        assertThat(read).isSorted().doesNotHaveDuplicates();
+        assertThat(identities).contains(read.getFirst(), read.get(3_000), read.getLast());
     }
 
     /** The care service streams its occurrences to the inventory, window by window. */
@@ -965,5 +959,22 @@ class CdsExportPatientInventoryServiceUnitTest {
                         Integer.parseInt(id.substring(id.indexOf('_') + 1))),
                 state.digest(),
                 state);
+    }
+
+    /** The laboratory assembly hands the inventory these native reports, with no inbox routes. */
+    private static void nativeLaboratories(
+            CdsExportPatientPipelineFixture f,
+            CdsExportLaboratoryOccurrenceService.NativeSource... sources)
+            throws Exception {
+        doAnswer(
+                        call -> {
+                            var visitor =
+                                    call.<CdsExportLaboratoryOccurrenceService.NativeSources>
+                                            getArgument(7);
+                            for (var report : sources) visitor.accept(report, List.of());
+                            return (long) sources.length;
+                        })
+                .when(f.laboratoryInventory)
+                .forEachNativeSource(any(), any(), anySet(), any(), any(), any(), any(), any());
     }
 }

@@ -676,34 +676,55 @@ class CdsExportNativeReportAssemblyUnitTest {
                     && !"D".equals(doc.document().get("status"))
                     && !"D".equals(doc.link().get("status"))) nativeDocuments.add(id);
         }
-        var embedded =
-                laboratory == null
-                        ? List.<CdsExportLaboratoryOccurrenceService.NativeSource>of()
-                        : laboratories
-                                .nativeSources(
-                                        lease,
-                                        patient,
-                                        lastScopes.keySet(),
-                                        lastSource,
-                                        lastIndex,
-                                        lastBounds,
-                                        control)
-                                .stream()
-                                .filter(source -> !source.parsed().documents().isEmpty())
-                                .toList();
-        return new CdsExportReportContextPlanner(captures, laboratories)
-                .identities(
-                        lease,
-                        patient,
-                        PATIENT_KEY,
-                        lastScopes.keySet(),
-                        lastSource,
-                        lastIndex,
-                        lastBounds,
-                        control,
-                        nativeDocuments,
-                        digests,
-                        embedded);
+        var planner = new CdsExportReportContextPlanner(captures);
+        var result =
+                new ArrayList<>(
+                        planner.identities(
+                                lease,
+                                patient,
+                                PATIENT_KEY,
+                                lastScopes.keySet(),
+                                lastSource,
+                                lastIndex,
+                                lastBounds,
+                                control,
+                                nativeDocuments,
+                                digests));
+        if (laboratory != null)
+            laboratories.forEachNativeSource(
+                    lease,
+                    patient,
+                    lastScopes.keySet(),
+                    lastSource,
+                    lastIndex,
+                    lastBounds,
+                    control,
+                    new CdsExportLaboratoryOccurrenceService.NativeSources() {
+                        @Override
+                        public boolean routed(
+                                CdsExportLaboratoryOccurrenceService.NativeSource report) {
+                            return !report.parsed().documents().isEmpty();
+                        }
+
+                        @Override
+                        public void accept(
+                                CdsExportLaboratoryOccurrenceService.NativeSource report,
+                                List<CdsExportCapturedTextRowDto> routes)
+                                throws IOException {
+                            result.addAll(
+                                    planner.laboratoryCompanions(
+                                            lease,
+                                            patient,
+                                            PATIENT_KEY,
+                                            lastScopes.keySet(),
+                                            lastSource,
+                                            lastBounds,
+                                            control,
+                                            report,
+                                            routes));
+                        }
+                    });
+        return result;
     }
 
     private static CdsExportXmlComposer.Section demographics() throws IOException {

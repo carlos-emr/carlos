@@ -187,12 +187,7 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                                     control);
                     var consumed = new HashSet<String>();
                     for (String address :
-                            parents(
-                                    patient.patient(),
-                                    index,
-                                    checked,
-                                    bounds.nativeRows(),
-                                    control::checkpoint)) {
+                            parents(patient.patient(), index, checked, control::checkpoint)) {
                         control.authorizeCategory(patient.patient(), category(), false);
                         streams.requireActive();
                         var fields =
@@ -335,36 +330,19 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                                 counts[0]++;
                                 counts[2]++;
                             });
-                    var laboratorySources =
-                            laboratories.nativeSources(
-                                    lease, patient, tables, source, index, bounds, control);
-                    boolean importedLaboratories =
-                            lease.document()
-                                            .command()
-                                            .categories()
-                                            .contains(CdsCategory.LABORATORY_RESULTS)
-                                    && index.tables()
-                                            .getOrDefault("cds_import_unit", Map.of())
-                                            .values()
-                                            .stream()
-                                            .anyMatch(
-                                                    unit ->
-                                                            CdsCategory.LABORATORY_RESULTS
-                                                                    .wireName()
-                                                                    .equals(
-                                                                            unit.fields()
-                                                                                    .get(
-                                                                                            "category")));
-                    // A commented inbox route travels whole in its report's supporting record.
-                    var laboratoryRoutes =
-                            laboratorySources.isEmpty() && !importedLaboratories
-                                    ? Map.<String, List<CdsExportCapturedTextRowDto>>of()
-                                    : laboratories.routes(
-                                            lease, patient, tables, source, bounds, control);
-                    for (var nativeSource : laboratorySources) {
-                        var carried =
-                                CdsExportInboxReviewMapper.carried(
-                                        laboratoryRoutes.getOrDefault(nativeSource.id(), List.of()));
+                    // Each native report with its commented inbox routes, window by window
+                    // (CdsExportLaboratoryOccurrenceService.forEachNativeSource): a commented
+                    // route travels whole in its report's supporting record.
+                    laboratories.forEachNativeSource(
+                            lease,
+                            patient,
+                            tables,
+                            source,
+                            index,
+                            bounds,
+                            control,
+                            (nativeSource, nativeRoutes) -> {
+                        var carried = CdsExportInboxReviewMapper.carried(nativeRoutes);
                         var assessments =
                                 new LinkedHashMap<
                                         CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>(
@@ -414,12 +392,36 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                         control.authorizeCategory(patient.patient(), category(), false);
                         counts[0]++;
                         counts[2]++;
-                    }
+                            });
+                    boolean importedLaboratories =
+                            lease.document()
+                                            .command()
+                                            .categories()
+                                            .contains(CdsCategory.LABORATORY_RESULTS)
+                                    && index.tables()
+                                            .getOrDefault("cds_import_unit", Map.of())
+                                            .values()
+                                            .stream()
+                                            .anyMatch(
+                                                    unit ->
+                                                            CdsCategory.LABORATORY_RESULTS
+                                                                    .wireName()
+                                                                    .equals(
+                                                                            unit.fields()
+                                                                                    .get(
+                                                                                            "category")));
                     // Inbox comments recorded in CARLOS on a result from an earlier CDS import:
                     // the result is exported from its imported elements, the comments here.
-                    for (var comments :
-                            CdsExportLaboratoryOccurrenceService.importedComments(
-                                    index, laboratoryRoutes)) {
+                    if (importedLaboratories)
+                        laboratories.forEachImportedComments(
+                                lease,
+                                patient,
+                                tables,
+                                source,
+                                index,
+                                bounds,
+                                control,
+                                comments -> {
                         var assessments =
                                 CdsExportInboxReviewMapper.carriedFields(
                                         comments.routes(), "NewCategory/ResidualInfo");
@@ -460,10 +462,17 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                         control.authorizeCategory(patient.patient(), category(), false);
                         counts[0]++;
                         counts[2]++;
-                    }
-                    for (var prescription :
-                            prescriptions.sources(
-                                    lease, patient, tables, source, bounds, control)) {
+                                });
+                    // The printed prescriptions, one at a time
+                    // (CdsExportPrescriptionOccurrenceService.forEachSource).
+                    prescriptions.forEachSource(
+                            lease,
+                            patient,
+                            tables,
+                            source,
+                            bounds,
+                            control,
+                            prescription -> {
                         var assessments =
                                 CdsExportPrescriptionOccurrenceService.assessments(prescription);
                         new CdsExportNativeFieldAssessmentValidator()
@@ -508,7 +517,7 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                         control.authorizeCategory(patient.patient(), category(), false);
                         counts[0]++;
                         counts[2]++;
-                    }
+                            });
                     var expected = new HashSet<String>();
                     for (var field : retained)
                         if (field.category() == category()) expected.add(field.id());
@@ -592,18 +601,19 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                 counts[1]);
     }
 
-    /** NewCategory has no separate native clinical projection: its demographic receipt proves association, not field precedence. */
+    /**
+     * NewCategory has no separate native clinical projection: its demographic receipt proves
+     * association, not field precedence. Every applied NewCategory unit of the chart is
+     * returned, however many: an address for each unit the retained index already holds.
+     */
     static List<String> parents(
             int patient,
             CdsExportRetainedIndexDto index,
             CdsExportRetainedReceiptVerificationDto checked,
-            int maximum,
             Runnable checkpoint)
             throws IOException {
         checkpoint.run();
         if (patient < 1
-                || maximum < 1
-                || maximum > 8192
                 || !index.sourceManifestSha256().equals(checked.sourceManifestSha256())
                 || !index.appliedUnits().equals(checked.units().keySet())) invalid();
         var selected = new ArrayList<String>();
@@ -639,8 +649,6 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                                                     != CdsExportRetainedReceiptVerificationDto
                                                             .Reason.CHANGED_ROW))
                 throw new CdsExportReviewException(CdsExportReviewException.Reason.UNMAPPED_DATA);
-            if (selected.size() >= maximum)
-                throw new CdsExportReviewException(CdsExportReviewException.Reason.RESOURCE_LIMIT);
             selected.add(address);
         }
         selected.sort(String::compareTo);

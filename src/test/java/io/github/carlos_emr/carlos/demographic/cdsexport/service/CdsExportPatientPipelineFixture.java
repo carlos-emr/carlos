@@ -406,4 +406,24 @@ final class CdsExportPatientPipelineFixture {
         writer.element("cds", "PersonStatusAsEnum", "A");
         writer.end();
     }
+
+    /** The prescription assembly hands its visitor these printed prescriptions, in order. */
+    static void prescriptions(
+            CdsExportPrescriptionOccurrenceService assembly,
+            List<CdsExportPrescriptionOccurrenceService.Source> sources) {
+        try {
+            doAnswer(
+                            call -> {
+                                var visitor =
+                                        call.<CdsExportPrescriptionOccurrenceService.Sources>
+                                                getArgument(6);
+                                for (var script : sources) visitor.accept(script);
+                                return (long) sources.size();
+                            })
+                    .when(assembly)
+                    .forEachSource(any(), any(), anySet(), any(), any(), any(), any());
+        } catch (IOException impossible) {
+            throw new java.io.UncheckedIOException(impossible);
+        }
+    }
 }

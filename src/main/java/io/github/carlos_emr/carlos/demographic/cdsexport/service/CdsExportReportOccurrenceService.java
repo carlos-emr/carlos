@@ -1371,26 +1371,95 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                 || !tables.contains("hl7TextMessage")) return 0;
         var laboratories =
                 new CdsExportLaboratoryOccurrenceService(values, verification, witnesses, captures);
-        var sources =
-                laboratories.nativeSources(lease, patient, tables, source, index, bounds, control)
-                        .stream()
-                        .filter(laboratory -> !laboratory.parsed().documents().isEmpty())
-                        .toList();
-        if (sources.isEmpty()) return 0;
-        var routes = laboratories.routes(lease, patient, tables, source, bounds, control);
-        var providers =
-                new CdsExportPublicProviderReader(captures)
-                        .read(lease, patient, tables, source, bounds, control);
-        var zone =
-                new CdsExportClinicalZoneService(captures)
-                        .read(lease, patient, tables, source, bounds.fields(), bounds.bytes(), control)
-                        .zone();
+        // Each native report with embedded documents, window by window
+        // (CdsExportLaboratoryOccurrenceService.forEachNativeSource): one report's documents
+        // are held at a time. The providers and the clinic zone are read when the first such
+        // report is met.
         var mapper = new CdsExportLaboratoryDocumentMapper();
+        long[] count = {0};
+        var lookups = new Object[2];
+        laboratories.forEachNativeSource(
+                lease,
+                patient,
+                tables,
+                source,
+                index,
+                bounds,
+                control,
+                new CdsExportLaboratoryOccurrenceService.NativeSources() {
+                    @Override
+                    public boolean routed(CdsExportLaboratoryOccurrenceService.NativeSource report) {
+                        return !report.parsed().documents().isEmpty();
+                    }
+
+                    @Override
+                    public void accept(
+                            CdsExportLaboratoryOccurrenceService.NativeSource laboratory,
+                            List<CdsExportCapturedTextRowDto> laboratoryRoutes)
+                            throws IOException {
+                        if (laboratory.parsed().documents().isEmpty()) return;
+                        if (lookups[0] == null) {
+                            lookups[0] =
+                                    new CdsExportPublicProviderReader(captures)
+                                            .read(lease, patient, tables, source, bounds, control);
+                            lookups[1] =
+                                    new CdsExportClinicalZoneService(captures)
+                                            .read(
+                                                    lease,
+                                                    patient,
+                                                    tables,
+                                                    source,
+                                                    bounds.fields(),
+                                                    bounds.bytes(),
+                                                    control)
+                                            .zone();
+                        }
+                        @SuppressWarnings("unchecked")
+                        var providers = (Map<String, CdsExportCapturedTextRowDto>) lookups[0];
+                        var zone = (java.time.ZoneId) lookups[1];
+                        count[0] +=
+                                laboratoryDocuments(
+                                        lease,
+                                        patient,
+                                        patientKey,
+                                        index,
+                                        control,
+                                        store,
+                                        attachments,
+                                        xml,
+                                        output,
+                                        mapper,
+                                        laboratory,
+                                        laboratoryRoutes,
+                                        providers,
+                                        zone);
+                    }
+                });
+        return count[0];
+    }
+
+    /** The Reports entries of one native laboratory report's embedded documents. */
+    private long laboratoryDocuments(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            String patientKey,
+            CdsExportRetainedIndexDto index,
+            CdsExportRunControl control,
+            CdsExportStagingService store,
+            List<CdsExportStagedFileDto> attachments,
+            CdsExportXmlComposer.SectionEmitter xml,
+            CdsExportClinicalOccurrenceService.Receipts output,
+            CdsExportLaboratoryDocumentMapper mapper,
+            CdsExportLaboratoryOccurrenceService.NativeSource laboratory,
+            List<CdsExportCapturedTextRowDto> laboratoryRoutes,
+            Map<String, CdsExportCapturedTextRowDto> providers,
+            java.time.ZoneId zone)
+            throws IOException {
         long emitted = 0;
-        for (var laboratory : sources) {
+        {
             var reviews =
                     CdsExportInboxReviewMapper.report()
-                            .map(routes.getOrDefault(laboratory.id(), List.of()), List.of(), providers, zone);
+                            .map(laboratoryRoutes, List.of(), providers, zone);
             var assessments = CdsExportNativeLaboratoryMapper.assessments(laboratory, reviews);
             var rows = new ArrayList<>(laboratory.rows());
             rows.addAll(reviews.rows());

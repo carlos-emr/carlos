@@ -105,26 +105,25 @@ class CdsExportNewCategoryOccurrenceServiceUnitTest {
                 Map.of());
     }
 
-    private List<String> parents(int maximum, Runnable checkpoint) throws Exception {
+    private List<String> parents(Runnable checkpoint) throws Exception {
         return CdsExportNewCategoryOccurrenceService.parents(
                 27,
                 index(HASH),
                 new CdsExportRetainedReceiptVerificationDto(HASH, checked, unchanged, review),
-                maximum,
                 checkpoint);
     }
 
     @Test
     void shouldBindTheExactCurrentPatientAssociation_withoutASeparateNativeClinicalProjection()
             throws Exception {
-        assertThat(parents(10, () -> {})).containsExactly(ADDRESS);
+        assertThat(parents(() -> {})).containsExactly(ADDRESS);
     }
 
     @Test
     void shouldKeepSourceOnlySupplementalValues_whenUnrelatedDemographicFieldsChanged()
             throws Exception {
         add(UNIT, "demographic", "27", CdsExportRetainedReceiptVerificationDto.Reason.CHANGED_ROW);
-        assertThat(parents(10, () -> {})).containsExactly(ADDRESS);
+        assertThat(parents(() -> {})).containsExactly(ADDRESS);
     }
 
     @Test
@@ -134,14 +133,14 @@ class CdsExportNewCategoryOccurrenceServiceUnitTest {
                 "demographic",
                 "28",
                 CdsExportRetainedReceiptVerificationDto.Reason.UNCHANGED_ROW);
-        assertThatThrownBy(() -> parents(10, () -> {}))
+        assertThatThrownBy(() -> parents(() -> {}))
                 .hasMessage("CDS_EXPORT_NEW_CATEGORY_OCCURRENCE_INVALID");
     }
 
     @Test
     void shouldRefuseAnUnexpectedNativeTarget_insteadOfTreatingItAsUnprojectedData() {
         add(UNIT, "drugs", "27", CdsExportRetainedReceiptVerificationDto.Reason.UNCHANGED_ROW);
-        assertThatThrownBy(() -> parents(10, () -> {}))
+        assertThatThrownBy(() -> parents(() -> {}))
                 .hasMessage("CDS_EXPORT_NEW_CATEGORY_OCCURRENCE_INVALID");
     }
 
@@ -152,7 +151,7 @@ class CdsExportNewCategoryOccurrenceServiceUnitTest {
                 "demographic",
                 "27",
                 CdsExportRetainedReceiptVerificationDto.Reason.ROW_NOT_IN_CAPTURE);
-        assertThatThrownBy(() -> parents(10, () -> {})).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+        assertThatThrownBy(() -> parents(() -> {})).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
     }
 
     @Test
@@ -162,7 +161,7 @@ class CdsExportNewCategoryOccurrenceServiceUnitTest {
                 "demographic",
                 "27",
                 CdsExportRetainedReceiptVerificationDto.Reason.RECEIPT_METADATA_UNAVAILABLE);
-        assertThatThrownBy(() -> parents(10, () -> {})).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+        assertThatThrownBy(() -> parents(() -> {})).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
     }
 
     @Test
@@ -173,7 +172,7 @@ class CdsExportNewCategoryOccurrenceServiceUnitTest {
         assertThatThrownBy(
                         () ->
                                 CdsExportNewCategoryOccurrenceService.parents(
-                                        27, index(HASH), result, 10, () -> {}))
+                                        27, index(HASH), result, () -> {}))
                 .hasMessage("CDS_EXPORT_NEW_CATEGORY_OCCURRENCE_INVALID");
     }
 
@@ -183,7 +182,7 @@ class CdsExportNewCategoryOccurrenceServiceUnitTest {
         assertThatThrownBy(
                         () ->
                                 CdsExportNewCategoryOccurrenceService.parents(
-                                        27, index(HASH), proof, 10, () -> {}))
+                                        27, index(HASH), proof, () -> {}))
                 .hasMessage("CDS_EXPORT_NEW_CATEGORY_OCCURRENCE_INVALID");
     }
 
@@ -194,23 +193,27 @@ class CdsExportNewCategoryOccurrenceServiceUnitTest {
                 "demographic",
                 "27",
                 CdsExportRetainedReceiptVerificationDto.Reason.UNCHANGED_ROW);
-        assertThat(parents(10, () -> {})).containsExactly(ADDRESS, RUN + ":" + "c".repeat(64));
+        assertThat(parents(() -> {})).containsExactly(ADDRESS, RUN + ":" + "c".repeat(64));
     }
 
     @Test
-    void shouldRefuseBounds_withoutACompleteParentSet() {
-        add(
-                "c".repeat(64),
-                "demographic",
-                "27",
-                CdsExportRetainedReceiptVerificationDto.Reason.UNCHANGED_ROW);
-        assertThatThrownBy(() -> parents(1, () -> {})).hasMessage("CDS_EXPORT_RESOURCE_LIMIT");
+    void shouldReturnEveryParent_ofAChartPastTheFormerRowBound() throws Exception {
+        // 8,193 imported NewCategory records: one more than the bound that used to stop the job
+        // with CDS_EXPORT_RESOURCE_LIMIT.
+        for (int record = 1; record <= 8_192; record++)
+            add(
+                    String.format(java.util.Locale.ROOT, "%064x", 0x1000_0000L + record),
+                    "demographic",
+                    "27",
+                    CdsExportRetainedReceiptVerificationDto.Reason.UNCHANGED_ROW);
+        var parents = parents(() -> {});
+        assertThat(parents).hasSize(8_193).isSorted().doesNotHaveDuplicates();
     }
 
     @Test
     void shouldRefuseDuplicateMetadata_forOneOriginalParent() {
         units.put("d".repeat(64), units.values().iterator().next());
-        assertThatThrownBy(() -> parents(10, () -> {}))
+        assertThatThrownBy(() -> parents(() -> {}))
                 .hasMessage("CDS_EXPORT_NEW_CATEGORY_OCCURRENCE_INVALID");
     }
 
@@ -220,7 +223,7 @@ class CdsExportNewCategoryOccurrenceServiceUnitTest {
         checked.clear();
         unchanged.clear();
         review.clear();
-        assertThat(parents(10, () -> {})).isEmpty();
+        assertThat(parents(() -> {})).isEmpty();
     }
 
     @Test
@@ -228,7 +231,6 @@ class CdsExportNewCategoryOccurrenceServiceUnitTest {
         assertThatThrownBy(
                         () ->
                                 parents(
-                                        10,
                                         () -> {
                                             throw new java.util.concurrent.CancellationException(
                                                     "CANCELLED");

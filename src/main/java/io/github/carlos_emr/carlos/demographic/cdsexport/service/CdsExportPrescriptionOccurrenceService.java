@@ -76,64 +76,105 @@ public class CdsExportPrescriptionOccurrenceService {
         }
     }
 
-    public List<Source> sources(
-            CdsExportLeaseDto lease,
-            CdsExportCohortService.Patient patient,
-            Set<String> tables,
-            CdsExportPatientCaptureDto source,
-            CdsExportClinicalOccurrenceService.Bounds bounds,
-            CdsExportRunControl control)
-            throws IOException {
-        if (!tables.contains("prescription")) return List.of();
-        patient.require(lease);
-        if (!tables.equals(source.capture().tables().keySet())
-                || !lease.runId().equals(source.capture().runId())
-                || lease.epoch() != source.capture().epoch()
-                || patient.patient() != source.capture().patient()) invalid();
-        control.authorizeCategory(patient.patient(), CdsCategory.MEDICATIONS_AND_TREATMENTS, false);
-        var parents = read(lease, patient, tables, source, bounds, control, "prescription");
-        var drugs = read(lease, patient, tables, source, bounds, control, "drugs");
-        requireOwnership(patient.patient(), parents, drugs);
-        // The scripts are returned whether or not NewCategory is selected: the operator's
-        // category choice never holds a chart. The inventory accounts them as not exported
-        // when their record is not written.
-        if (parents.isEmpty()) return List.of();
-        var providers = new HashMap<String, CdsExportCapturedTextRowDto>();
-        for (var provider : read(lease, patient, tables, source, bounds, control, "provider")) {
-            String id = provider.fields().get("provider_no");
-            if (!provider.fields()
-                            .keySet()
-                            .equals(
-                                    io.github.carlos_emr.carlos.commn.dto.CdsExportProviderRowDto
-                                            .COLUMNS)
-                    || id == null
-                    || !CdsExportPublicProviderSourceReader.key(id).equals(provider.recordKey())
-                    || providers.putIfAbsent(id, provider) != null) invalid();
-        }
-        var contexts = new ArrayList<Source>();
-        for (var parent : parents) {
-            String id = parent.fields().get("provider_no");
-            // A script whose provider number has no provider record (migrated data) is exported
-            // without public author values; the stored number is in the record's own fields.
-            var author = id == null || id.isEmpty() ? null : providers.get(id);
-            contexts.add(new Source(parent, author));
-        }
-        return List.copyOf(contexts);
+    /** Receives each printed prescription of a chart, in the order of the script numbers. */
+    @FunctionalInterface
+    public interface Sources {
+        void accept(Source source) throws IOException;
     }
 
-    private List<CdsExportCapturedTextRowDto> read(
+    /**
+     * Feeds {@code visitor} every printed prescription of the chart with its public author, one
+     * at a time in the order the capture holds them. No number of scripts or drugs holds a
+     * chart: one script is held at a time, each checked as it is read (it is this patient's,
+     * its number is its row key, and the keys rise, so no script repeats), and every drug row
+     * is checked to be this patient's in a pass that keeps none. The providers are the clinic's
+     * rows, held together because any script may name any of them.
+     *
+     * @return the number of scripts visited
+     */
+    public long forEachSource(
             CdsExportLeaseDto lease,
             CdsExportCohortService.Patient patient,
             Set<String> tables,
             CdsExportPatientCaptureDto source,
             CdsExportClinicalOccurrenceService.Bounds bounds,
             CdsExportRunControl control,
-            String table)
+            Sources visitor)
             throws IOException {
-        int maximum = table.equals("provider") ? bounds.lookupRows() : bounds.nativeRows();
-        if (!tables.contains(table) || source.capture().tables().get(table).rows() > maximum)
-            invalid();
-        var found = new ArrayList<CdsExportCapturedTextRowDto>();
+        Objects.requireNonNull(visitor);
+        if (!tables.contains("prescription")) return 0;
+        patient.require(lease);
+        if (!tables.equals(source.capture().tables().keySet())
+                || !lease.runId().equals(source.capture().runId())
+                || lease.epoch() != source.capture().epoch()
+                || patient.patient() != source.capture().patient()) invalid();
+        control.authorizeCategory(patient.patient(), CdsCategory.MEDICATIONS_AND_TREATMENTS, false);
+        if (patient.patient() < 1 || !tables.contains("drugs")) invalid();
+        String owner = Integer.toString(patient.patient());
+        // The scripts are visited whether or not NewCategory is selected: the operator's
+        // category choice never holds a chart. The inventory accounts them as not exported
+        // when their record is not written.
+        var providers = new HashMap<String, CdsExportCapturedTextRowDto>();
+        if (source.capture().tables().get("prescription").rows() > 0)
+            read(
+                    lease,
+                    patient,
+                    tables,
+                    source,
+                    bounds,
+                    control,
+                    "provider",
+                    provider -> {
+                        String id = provider.fields().get("provider_no");
+                        if (!provider.fields()
+                                        .keySet()
+                                        .equals(
+                                                io.github.carlos_emr.carlos.commn.dto
+                                                        .CdsExportProviderRowDto.COLUMNS)
+                                || id == null
+                                || !CdsExportPublicProviderSourceReader.key(id)
+                                        .equals(provider.recordKey())
+                                || providers.putIfAbsent(id, provider) != null) invalid();
+                    });
+        read(lease, patient, tables, source, bounds, control, "drugs", row -> requireDrug(owner, row));
+        var columns = Set.copyOf(CdsExportPatientTableReadSupport.Plan.PRESCRIPTIONS.columns());
+        String[] previous = {null};
+        return read(
+                lease,
+                patient,
+                tables,
+                source,
+                bounds,
+                control,
+                "prescription",
+                parent -> {
+                    requireScript(owner, columns, parent);
+                    // The capture's row keys rise: a script that repeats is refused.
+                    if (previous[0] != null && previous[0].compareTo(parent.recordKey()) >= 0)
+                        invalid();
+                    previous[0] = parent.recordKey();
+                    String id = parent.fields().get("provider_no");
+                    // A script whose provider number has no provider record (migrated data) is
+                    // exported without public author values; the stored number is in the
+                    // record's own fields.
+                    var author = id == null || id.isEmpty() ? null : providers.get(id);
+                    visitor.accept(new Source(parent, author));
+                });
+    }
+
+    /** One pass over one captured table; every row the capture states is handed to {@code use}. */
+    private long read(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> tables,
+            CdsExportPatientCaptureDto source,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control,
+            String table,
+            CdsExportCapturedTextRowsReader.Rows use)
+            throws IOException {
+        if (!tables.contains(table)) invalid();
+        long[] found = {0};
         var captured =
                 rows.forEach(
                         lease,
@@ -146,12 +187,30 @@ public class CdsExportPrescriptionOccurrenceService {
                         67_108_864,
                         control,
                         row -> {
-                            if (found.size() >= maximum) invalid();
-                            found.add(row);
+                            found[0]++;
+                            use.accept(row);
                         });
         if (!captured.equals(source.capture())
-                || found.size() != source.capture().tables().get(table).rows()) invalid();
-        return found;
+                || found[0] != source.capture().tables().get(table).rows()) invalid();
+        return found[0];
+    }
+
+    private static void requireScript(
+            String owner, Set<String> columns, CdsExportCapturedTextRowDto row) throws IOException {
+        if (!row.table().equals("prescription")
+                || !row.fields().keySet().equals(columns)
+                || !owner.equals(row.fields().get("demographic_no"))) invalid();
+        long id = id(row.fields().get("script_no"));
+        if (!CdsExportPatientTableSourceReader.key(id).equals(row.recordKey())) invalid();
+    }
+
+    private static void requireDrug(String owner, CdsExportCapturedTextRowDto row)
+            throws IOException {
+        // A drug whose script_no names no script of this patient (migrated data) is not
+        // held: the stored number travels exactly with the drug's own row in
+        // CARLOS.Medication.Source.v1, and no script record is invented for it.
+        if (!row.table().equals("drugs") || !owner.equals(row.fields().get("demographic_no")))
+            invalid();
     }
 
     /** Called independently of the mapper and its receipts. No absent/cross-patient parent is accepted. */
@@ -161,28 +220,14 @@ public class CdsExportPrescriptionOccurrenceService {
             List<CdsExportCapturedTextRowDto> drugs)
             throws IOException {
         if (patient < 1) invalid();
+        String owner = Integer.toString(patient);
+        var columns = Set.copyOf(CdsExportPatientTableReadSupport.Plan.PRESCRIPTIONS.columns());
         var ids = new HashSet<String>();
         for (var row : parents) {
-            if (!row.table().equals("prescription")
-                    || !row.fields()
-                            .keySet()
-                            .equals(
-                                    Set.copyOf(
-                                            CdsExportPatientTableReadSupport.Plan.PRESCRIPTIONS
-                                                    .columns()))
-                    || !Integer.toString(patient).equals(row.fields().get("demographic_no"))
-                    || !ids.add(row.fields().get("script_no"))) invalid();
-            long id = id(row.fields().get("script_no"));
-            if (!CdsExportPatientTableSourceReader.key(id).equals(row.recordKey())) invalid();
+            requireScript(owner, columns, row);
+            if (!ids.add(row.fields().get("script_no"))) invalid();
         }
-        for (var row : drugs) {
-            if (!row.table().equals("drugs")
-                    || !Integer.toString(patient).equals(row.fields().get("demographic_no")))
-                invalid();
-            // A drug whose script_no names no script of this patient (migrated data) is not
-            // held: the stored number travels exactly with the drug's own row in
-            // CARLOS.Medication.Source.v1, and no script record is invented for it.
-        }
+        for (var row : drugs) requireDrug(owner, row);
     }
 
     public static Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> assessments(

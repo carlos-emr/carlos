@@ -39,12 +39,6 @@ import org.springframework.stereotype.Service;
 public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurrenceAssembler {
     private static final Set<String> TABLES = CdsExportCapturedCareRowsReader.TABLES;
 
-    /**
-     * Holds a chart whose current measurements would take its occurrence index past its
-     * per-patient capacity (CdsExportPatientInventoryService): about 65,000 measurements at the
-     * installed maximum, not a chart entered through the screens.
-     */
-    static final String PATIENT_LIMIT = "CDS_EXPORT_NATIVE_CARE_PATIENT_LIMIT_EXCEEDED";
     private static final Pattern CHILD =
             Pattern.compile("^([A-Za-z]+)\\[([1-9][0-9]{0,17})\\](?=/|$)");
     private final CdsExportRetainedValuesService values;

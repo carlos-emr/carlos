@@ -4577,6 +4577,16 @@
             }
           ]
         },
+        "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportLaboratoryWindowMariaDbIntegrationTest": {
+          "check": "java-cds-transfer-export",
+          "cases": [
+            {
+              "name": "shouldEmitTheSameLaboratoryResults_whenAStoredChartIsReadInSeveralWindows",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            }
+          ]
+        },
         "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportMeasurementWindowMariaDbIntegrationTest": {
           "check": "java-cds-transfer-export",
           "cases": [

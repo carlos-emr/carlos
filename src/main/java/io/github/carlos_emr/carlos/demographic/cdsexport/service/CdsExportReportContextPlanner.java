@@ -59,21 +59,19 @@ final class CdsExportReportContextPlanner {
             Pattern.compile(".*/Reports\\[[1-9][0-9]{0,17}\\]/Notes\\[1\\]");
 
     private final CdsExportNativeCaptureService captures;
-    private final CdsExportLaboratoryOccurrenceService laboratories;
+    private Map<String, CdsExportCapturedTextRowDto> providers;
+    private java.time.ZoneId zone;
 
-    CdsExportReportContextPlanner(
-            CdsExportNativeCaptureService captures,
-            CdsExportLaboratoryOccurrenceService laboratories) {
+    CdsExportReportContextPlanner(CdsExportNativeCaptureService captures) {
         this.captures = Objects.requireNonNull(captures);
-        this.laboratories = Objects.requireNonNull(laboratories);
     }
 
     /**
      * @param nativeDocuments numbers of the captured documents the chart shows that no applied
      *     import accounts for
      * @param documentDigests current witness digest of every captured document row, by number
-     * @param laboratoryDocuments the native laboratory reports that hold embedded documents
-     * @return the identity of every companion or supplementary Reports record to expect
+     * @return the identity of every companion or supplementary Reports record to expect, except
+     *     those of documents embedded in laboratory reports ({@link #laboratoryCompanions})
      */
     // FindSecBugs UNSAFE_HASH_EQUALS: SHA-256 of a document row as it is now, compared with the digest the import receipt recorded, to find reports edited since import; not a secret.
     @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "UNSAFE_HASH_EQUALS", justification = "SHA-256 of a document row as it is now, compared with the digest the import receipt recorded, to find reports edited since import; not a secret")
@@ -87,13 +85,9 @@ final class CdsExportReportContextPlanner {
             CdsExportClinicalOccurrenceService.Bounds bounds,
             CdsExportRunControl control,
             Set<String> nativeDocuments,
-            Map<String, String> documentDigests,
-            List<CdsExportLaboratoryOccurrenceService.NativeSource> laboratoryDocuments)
+            Map<String, String> documentDigests)
             throws IOException {
-        if (!lease.document().command().categories().contains(CdsCategory.REPORTS)
-                || !tables.contains("document")
-                || !tables.contains("ctl_document")
-                || !tables.containsAll(REVIEWERS.keySet())) return List.of();
+        if (!planned(lease, tables)) return List.of();
         var result = new ArrayList<CdsExportIdentityDto>();
         // Imported reports without Notes of their own: an edited one always has a supplementary
         // record; an unedited one is decided below from its review rows.
@@ -124,8 +118,7 @@ final class CdsExportReportContextPlanner {
                             CdsCategory.REPORTS,
                             CdsExportReportOccurrenceService.importedReviewsId(address)));
         importedDocuments.values().removeAll(edited);
-        if (nativeDocuments.isEmpty() && importedDocuments.isEmpty() && laboratoryDocuments.isEmpty())
-            return List.copyOf(result);
+        if (nativeDocuments.isEmpty() && importedDocuments.isEmpty()) return List.copyOf(result);
         var documents = new HashMap<String, CdsExportCapturedTextRowDto>();
         var links = new HashMap<String, CdsExportCapturedTextRowDto>();
         var reviewers = new TreeMap<String, List<CdsExportCapturedTextRowDto>>();
@@ -168,20 +161,8 @@ final class CdsExportReportContextPlanner {
                                     });
             if (!read.equals(source.capture())) invalid();
         }
-        var providers =
-                new CdsExportPublicProviderReader(captures)
-                        .read(lease, patient, tables, source, bounds, control);
-        var zone =
-                new CdsExportClinicalZoneService(captures)
-                        .read(
-                                lease,
-                                patient,
-                                tables,
-                                source,
-                                bounds.fields(),
-                                bounds.bytes(),
-                                control)
-                        .zone();
+        var providers = providers(lease, patient, tables, source, bounds, control);
+        var zone = zone(lease, patient, tables, source, bounds, control);
         for (String id : new TreeSet<>(nativeDocuments)) {
             control.checkpoint();
             var document = documents.get(id);
@@ -244,47 +225,109 @@ final class CdsExportReportContextPlanner {
                 // The occurrence service holds the patient for this report.
             }
         }
-        if (!laboratoryDocuments.isEmpty()) {
-            var routes = laboratories.routes(lease, patient, tables, source, bounds, control);
-            var mapper = new CdsExportLaboratoryDocumentMapper();
-            for (var laboratory : laboratoryDocuments) {
-                control.checkpoint();
-                try {
-                    var reviews =
-                            CdsExportInboxReviewMapper.report()
-                                    .map(
-                                            routes.getOrDefault(laboratory.id(), List.of()),
-                                            List.of(),
-                                            providers,
-                                            zone);
-                    for (int i = 0; i < laboratory.parsed().documents().size(); i++)
-                        if (mapper.notes(
-                                                laboratory,
-                                                i,
-                                                CdsExportLaboratoryDocumentMapper.described(
-                                                        laboratory, i),
-                                                reviews)
-                                        .companion()
-                                != null)
-                            result.add(
-                                    new CdsExportIdentityDto(
-                                            patientKey,
-                                            CdsCategory.REPORTS,
-                                            CdsExportReportContext.id(
-                                                    "hl7TextMessage",
-                                                    laboratory.id()
-                                                            + ":"
-                                                            + laboratory
-                                                                    .parsed()
-                                                                    .documents()
-                                                                    .get(i)
-                                                                    .ordinal())));
-                } catch (CdsExportMappingReviewException held) {
-                    // The occurrence service holds the patient for this report.
-                }
-            }
+        return List.copyOf(result);
+    }
+
+    /** Whether the job writes Reports records whose context this planner predicts. */
+    boolean planned(CdsExportLeaseDto lease, Set<String> tables) {
+        return lease.document().command().categories().contains(CdsCategory.REPORTS)
+                && tables.contains("document")
+                && tables.contains("ctl_document")
+                && tables.containsAll(REVIEWERS.keySet());
+    }
+
+    /**
+     * The companion Reports records of one native laboratory report's embedded documents: one
+     * for each document whose notes and reviews are longer than Reports/Notes. The inventory
+     * asks report by report, as the reports are read window by window, so no report is held for
+     * this. A report a mapper would hold yields none: the occurrence service holds the patient.
+     *
+     * @param routes the report's inbox routes
+     */
+    List<CdsExportIdentityDto> laboratoryCompanions(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            String patientKey,
+            Set<String> tables,
+            CdsExportPatientCaptureDto source,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control,
+            CdsExportLaboratoryOccurrenceService.NativeSource laboratory,
+            List<CdsExportCapturedTextRowDto> routes)
+            throws IOException {
+        if (!planned(lease, tables) || laboratory.parsed().documents().isEmpty()) return List.of();
+        var providers = providers(lease, patient, tables, source, bounds, control);
+        var zone = zone(lease, patient, tables, source, bounds, control);
+        var result = new ArrayList<CdsExportIdentityDto>();
+        var mapper = new CdsExportLaboratoryDocumentMapper();
+        control.checkpoint();
+        try {
+            var reviews = CdsExportInboxReviewMapper.report().map(routes, List.of(), providers, zone);
+            for (int i = 0; i < laboratory.parsed().documents().size(); i++)
+                if (mapper.notes(
+                                        laboratory,
+                                        i,
+                                        CdsExportLaboratoryDocumentMapper.described(laboratory, i),
+                                        reviews)
+                                .companion()
+                        != null)
+                    result.add(
+                            new CdsExportIdentityDto(
+                                    patientKey,
+                                    CdsCategory.REPORTS,
+                                    CdsExportReportContext.id(
+                                            "hl7TextMessage",
+                                            laboratory.id()
+                                                    + ":"
+                                                    + laboratory
+                                                            .parsed()
+                                                            .documents()
+                                                            .get(i)
+                                                            .ordinal())));
+        } catch (CdsExportMappingReviewException held) {
+            // The occurrence service holds the patient for this report.
         }
         return List.copyOf(result);
+    }
+
+    /** The public providers the chart names, read once for this planner. */
+    private Map<String, CdsExportCapturedTextRowDto> providers(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> tables,
+            CdsExportPatientCaptureDto source,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control)
+            throws IOException {
+        if (providers == null)
+            providers =
+                    new CdsExportPublicProviderReader(captures)
+                            .read(lease, patient, tables, source, bounds, control);
+        return providers;
+    }
+
+    /** The clinic zone, read once for this planner. */
+    private java.time.ZoneId zone(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> tables,
+            CdsExportPatientCaptureDto source,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control)
+            throws IOException {
+        if (zone == null)
+            zone =
+                    new CdsExportClinicalZoneService(captures)
+                            .read(
+                                    lease,
+                                    patient,
+                                    tables,
+                                    source,
+                                    bounds.fields(),
+                                    bounds.bytes(),
+                                    control)
+                            .zone();
+        return zone;
     }
 
     private static CdsExportInboxReviewMapper.Reviews reviews(

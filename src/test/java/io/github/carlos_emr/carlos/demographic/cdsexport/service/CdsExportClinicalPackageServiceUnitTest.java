@@ -245,8 +245,8 @@ class CdsExportClinicalPackageServiceUnitTest {
                 .forEach(column -> fields.put(column, null));
         fields.put("script_no", "501");
         fields.put("demographic_no", "27");
-        when(fixture.prescriptionInventory.sources(any(), any(), anySet(), any(), any(), any()))
-                .thenReturn(
+        CdsExportPatientPipelineFixture.prescriptions(
+                fixture.prescriptionInventory,
                         java.util.List.of(
                                 new CdsExportPrescriptionOccurrenceService.Source(
                                         new io.github.carlos_emr.carlos.demographic.cdsexport.dto

@@ -82,10 +82,8 @@ class CdsExportPatientDocumentServiceUnitTest {
                 .forEach(column -> fields.put(column, null));
         fields.put("script_no", "501");
         fields.put("demographic_no", "27");
-        org.mockito.Mockito.when(
-                        f.prescriptionInventory.sources(
-                                any(), any(), anySet(), any(), any(), any()))
-                .thenReturn(
+        CdsExportPatientPipelineFixture.prescriptions(
+                f.prescriptionInventory,
                         java.util.List.of(
                                 new CdsExportPrescriptionOccurrenceService.Source(
                                         new CdsExportCapturedTextRowDto(

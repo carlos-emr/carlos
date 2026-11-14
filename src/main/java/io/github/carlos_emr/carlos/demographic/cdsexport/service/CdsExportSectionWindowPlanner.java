@@ -105,6 +105,12 @@ final class CdsExportSectionWindowPlanner {
         boolean enforced() {
             return enforced;
         }
+
+        /** True when every kind of state the window loaded took at most half the byte limit. */
+        private boolean halfEmpty() {
+            for (long used : bytes) if (used > limits.bytes() / 2) return false;
+            return true;
+        }
     }
 
     /** The owners one window holds. */
@@ -224,6 +230,46 @@ final class CdsExportSectionWindowPlanner {
             if (!budget.exceeded()) throw new IOException("CDS_EXPORT_SECTION_WINDOW_INVALID");
             size = smaller((int) rows, budget);
         }
+        return forEachWindowOf(limits, size, scan, work);
+    }
+
+    /**
+     * The budget of a section's own attempt to read the whole chart as one window, for a section
+     * that must make that attempt outside {@link #forEachWindow} (its whole read precedes work
+     * that the windows share). The section then continues with {@link #forEachWindowOf} when the
+     * budget reports that the chart did not fit.
+     *
+     * @param rows the rows the whole read holds; one row is never abandoned
+     */
+    static Budget wholeBudget(long rows, Limits limits) {
+        return new Budget(Objects.requireNonNull(limits), rows > 1);
+    }
+
+    /** The single window that holds every owner of a chart of {@code rows} rows. */
+    static Window whole(long rows) {
+        return new Window(null, rows);
+    }
+
+    /**
+     * Runs {@code work} window by window over the owners {@code scan} reports, without first
+     * attempting the whole chart: at most {@code first} owners in the first window.
+     *
+     * <p>A window that was too large is read again with fewer owners. The size is not kept small
+     * for the rest of the chart: a window that completes with at most half the byte limit used
+     * doubles the next one, up to {@link Limits#rows}, so one very large owner costs the few
+     * small windows around it and not a window for every owner after it. A chart whose owners are
+     * all alike never grows a window that way (the size that fitted uses more than half), so it
+     * reads no window twice.
+     *
+     * @return the number of windows that completed
+     */
+    static long forEachWindowOf(Limits limits, int first, OwnerScan scan, WindowWork work)
+            throws IOException {
+        Objects.requireNonNull(limits);
+        Objects.requireNonNull(scan);
+        Objects.requireNonNull(work);
+        if (first < 1) throw new IOException("CDS_EXPORT_SECTION_WINDOW_INVALID");
+        int size = Math.min(first, limits.rows());
         // The pass reports the owners the capture delivers. The section proves afterwards that
         // its windows emitted as many rows as the capture states, under its own code.
         var owners = new Owners();
@@ -238,6 +284,8 @@ final class CdsExportSectionWindowPlanner {
             if (work.run(window, budget)) {
                 from += length;
                 windows++;
+                if (length == size && budget.halfEmpty())
+                    size = (int) Math.min(limits.rows(), length * 2L);
                 continue;
             }
             if (!budget.exceeded() || length == 1)
