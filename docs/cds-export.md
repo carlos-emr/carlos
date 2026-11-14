@@ -1989,7 +1989,7 @@ listed in `docs/cds-import.md`.
 | E68 | cause depth 16 in logs; 64 KiB bootstrap | `CdsExportCli`, `CdsExportSpringRuntime` | A / B | logging; integrity |
 | S1 | 4,096 classes a pattern, 256 nested, 8,192 classes, 16 MiB a resource | `CdsRulesetFingerprint` | removed | hashing streams |
 | S2 | 128 MiB jar, 512 MiB `lib/modules`, JVM properties, zones and zone rules | `CdsRuntimeIdentity` | removed | hashing streams; a changing file is still refused |
-| S3 | CLI heap at most 16,384 MiB | `CdsProcessConfiguration`, `scripts/ci/run-cds-container-engine.py` | removed (128 MiB minimum and 1 MiB file: B) | a long chart may need more heap; `carlos-ctl` 1.3.5 still checks the old maximum |
+| S3 | CLI heap at most 16,384 MiB | `CdsProcessConfiguration`, `scripts/ci/run-cds-container-engine.py` | removed (128 MiB minimum and 1 MiB file: B) | a long chart may need more heap; `carlos-ctl` 1.3.5 dropped its copy of the maximum too |
 | S4 | delegation token of 64 KiB, 300 s old | `CdsProcessDelegationVerifier` | B | security |
 | S5 | 10 s validation query | `CdsProcessPersistence` | A | the connection is replaced |
 | S6 | SQL of 65,536 characters; 66,560 parameters | `CdsBinaryReads`, `CdsMariaDbBinaryRead` | removed (SQL); B (parameters) | `max_allowed_packet` bounds the text; MariaDB's 65,535 parameters |
@@ -2365,9 +2365,9 @@ text-result refusal, statement ownership and bypass attempts.
 
 The package lifecycle gate keeps its published beta6/CLI 1.3.1 and beta5/CLI 1.3.0
 predecessors intact. Its unpublished 1.3.5 candidate is separately bound to the exact
-companion fallback commit and actual CI-built Debian bytes (370,142 bytes,
-SHA-256 `b93e250a54d56483dad44125e7443cec3e69d69647df2d756d40038741906db4`,
-workflow 43509827095, artifact 14078855233). Two local `dpkg-buildpackage` runs of that
+companion fallback commit and actual CI-built Debian bytes (370,472 bytes,
+SHA-256 `c9c951f86dc33cdf7b32bf82d2dee328fdf5f01b68e0014a56b14c2bb6eefa7f`,
+workflow 43642982526, artifact 14133465305). Two local `dpkg-buildpackage` runs of that
 commit in the digest-pinned `ubuntu:26.04` image reproduce the package byte for byte, and
 package smoke rebuilds and checks it in CI.
 Source-built mode asserts no published tag or release-download URL. Lifecycle
@@ -2376,8 +2376,9 @@ cannot substitute for it.
 
 The companion CLI PR also targets `release/2026.08`, starting at its compatible
 `84adfc5c237d4a536300a9d7e74e19599df23dcc` baseline. Its pinned runtime is
-`b759f117a165526e01a57295e22cc9e35f2a9697` (unpublished 1.3.5, adding the export
-command's run-id, exit-status and ticket-sweep fixes and `cds-import --abandon`). After
+`0ce67721e199547d468bafd33b3690f3977b3fc7` (unpublished 1.3.5, adding the export
+command's run-id, exit-status and ticket-sweep fixes, `cds-import --abandon`, and no heap
+maximum of its own). After
 `release/2026.08` took main's OSCAR 19 beta8 line (#6167, carlos-ctl 1.3.3 at
 `09b97f95356d3c12f9972d96d10355e597cc7540`), the companion merged that line too, so the
 pair now uses schema manifest format 3 and ETL contract 6. The `carlos-emr` floor stays at

@@ -29,7 +29,7 @@ again in the same transaction ([statement deadlines are waits](cds-import-jdbc-t
 | `cds.import.stagingRoot` | none | Absolute private engine staging/report/evidence root, also used for CLI diagnostics. |
 | `cds.import.uploadRoot` | none | Absolute private browser upload root. |
 | `cds.import.drainTimeoutSeconds` | `30` | How long entering maintenance waits, in seconds, for clinical transactions already admitted to finish while new clinical work is refused. It bounds how long the clinic is held out, not how slow the database may be: when it passes, the attempt ends with `MAINTENANCE_ACQUISITION_FAILED` before any unit and the run is resumed later. |
-| `cds.import.cliHeapMiB` | `512` | CLI heap policy, integer MiB of at least `128` (no upper limit in CARLOS; `carlos-ctl` 1.3.5 still refuses more than `16384`); launcher and engine must agree. |
+| `cds.import.cliHeapMiB` | `512` | CLI heap policy, integer MiB of at least `128` (no upper limit in CARLOS or `carlos-ctl`; the engine reads it as a Java int); launcher and engine must agree. |
 | `cds.import.worker.enabled` | `true` | Web durable-work dispatcher; forced off in the CLI. |
 | `cds.import.preacceptRetentionMillis` | `86400000` | Abandoned preaccept staging retention, milliseconds; live accepted work is preserved. |
 | `cds.import.approvedTriggerManifest` | empty | Approved trigger manifest for target safety checks. Empty does not approve arbitrary triggers. |

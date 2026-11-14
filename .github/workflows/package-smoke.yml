@@ -101,7 +101,7 @@ jobs:
           repository: carlos-emr/carlos-ctl
           # Manual/default-branch jobs must not execute a runtime-selected external ref.
           # The package verifier independently requires this reviewed commit and its exact bytes.
-          ref: b759f117a165526e01a57295e22cc9e35f2a9697
+          ref: 0ce67721e199547d468bafd33b3690f3977b3fc7
           path: target/companion-cli/source
           persist-credentials: false
       - name: Build and verify the unpublished companion package
