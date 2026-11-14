@@ -2117,10 +2117,260 @@ public final class CdsExportPatientTableReadSupport {
         return pageBound(em, plan, patient, after, limit, new Bindings(categories, null));
     }
 
+    /**
+     * The most keys one read-ahead window holds (about 7 MiB of 64-character keys). It changes
+     * how a table is read, never whether: a table with more rows is read in further windows.
+     */
+    static final int KEY_WINDOW = 65_536;
+
+    /** Transaction resource key for the read-ahead key windows of this snapshot. */
+    private static final Object KEY_WINDOWS = new Object();
+
+    private record WindowScope(Plan plan, int patient, Bindings bindings) {}
+
+    /**
+     * The keys a snapshot read ahead for one plan and patient: {@code position} is the key the
+     * next page follows, {@code keys} the keys after it in order, and {@code last} is true when
+     * no key follows the window.
+     */
+    private static final class KeyWindow {
+        private final java.util.ArrayDeque<Object> keys = new java.util.ArrayDeque<>();
+        private Object position;
+        private boolean last;
+    }
+
+    /**
+     * One page: the keys first, then exactly those rows by key.
+     *
+     * <p>The keys of a page used to be found by the page's own statement, which ordered every
+     * remaining row of the patient to return thirty-two, so a table of N rows cost N squared
+     * (#5706: an imported chart of 2,048 notes and results spent about a minute of its capture
+     * ordering {@code cds_import_unit} 257 times). Keys are now read ahead {@link #KEY_WINDOW}
+     * at a time and the rows of a page are fetched by primary key. Inside the capture's
+     * read-only snapshot a window read earlier is exactly what a later statement would return,
+     * so reading ahead is invisible to the caller; any other transaction reads only the keys of
+     * the page it asked for. Every row is still read under the plan's own patient predicate,
+     * and a row the window named that the predicate no longer returns fails the read.</p>
+     */
     private static List<CdsExportRawKeyRowDto> pageBound(
             EntityManager em, Plan plan, int patient, Object after, int limit, Bindings bindings) {
         patient(patient);
         if (limit < 1 || limit > 32) invalid();
+        var keys = nextKeys(em, plan, patient, after, limit, bindings);
+        if (keys.isEmpty()) return List.of();
+        return rowsByKey(em, plan, patient, after, keys, bindings);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<Object> nextKeys(
+            EntityManager em, Plan plan, int patient, Object after, int limit, Bindings bindings) {
+        if (!snapshotTransaction() || !TransactionSynchronizationManager.isSynchronizationActive())
+            return keysAfter(em, plan, patient, after, limit, bindings);
+        var windows =
+                (java.util.Map<WindowScope, KeyWindow>)
+                        TransactionSynchronizationManager.getResource(KEY_WINDOWS);
+        if (windows == null) {
+            windows = new java.util.HashMap<>();
+            TransactionSynchronizationManager.bindResource(KEY_WINDOWS, windows);
+            TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override
+                        public void afterCompletion(int status) {
+                            TransactionSynchronizationManager.unbindResourceIfPossible(KEY_WINDOWS);
+                        }
+                    });
+        }
+        var scope = new WindowScope(plan, patient, bindings);
+        var window = windows.get(scope);
+        if (window == null
+                || !java.util.Objects.equals(window.position, after)
+                || window.keys.size() < limit && !window.last) {
+            window = new KeyWindow();
+            window.position = after;
+            var read = keysAfter(em, plan, patient, after, KEY_WINDOW, bindings);
+            window.keys.addAll(read);
+            window.last = read.size() < KEY_WINDOW;
+            windows.put(scope, window);
+        }
+        var page = new ArrayList<Object>(limit);
+        while (page.size() < limit && !window.keys.isEmpty()) page.add(window.keys.removeFirst());
+        if (!page.isEmpty()) window.position = page.getLast();
+        return page;
+    }
+
+    /**
+     * The next keys of the plan's rows for the patient after {@code after}, ascending, at most
+     * {@code limit}. The import ledger's tables are read from the patient's side (their own
+     * predicates start at the row and made the server walk the table, or every row of the
+     * patient, for each page); every other plan uses its own predicate.
+     */
+    private static List<Object> keysAfter(
+            EntityManager em, Plan plan, int patient, Object after, int limit, Bindings bindings) {
+        boolean text = plan.retained() || plan == Plan.LABORATORY_RESULTS;
+        var found = new ArrayList<Object>();
+        switch (plan) {
+            case IMPORT_UNITS -> {
+                // One patient's units of one run are ordered by id in
+                // idx_cds_units_patient_id (run_id, patient_key, id, category), so each run is a
+                // range read of that index; runs are merged here.
+                var merged = new java.util.TreeSet<String>();
+                for (Object[] run :
+                        rows(
+                                query(
+                                                em,
+                                                "select p.`run_id`,p.`patient_key` from"
+                                                    + " `cds_import_patient` p where"
+                                                    + " p.`target_demographic_no`=:patient order by"
+                                                    + " p.`run_id`,p.`patient_key`")
+                                        .setParameter("patient", patient))) {
+                    var query =
+                            query(
+                                            em,
+                                            "select d.`id`,1 from `cds_import_unit` d where"
+                                                + " d.`run_id`=:run and d.`patient_key`=:key and"
+                                                + " d.`category` in (:categories)"
+                                                    + (after == null ? "" : " and d.`id`>:after")
+                                                    + " order by d.`id`")
+                                    .setParameter("run", run[0])
+                                    .setParameter("key", run[1])
+                                    .setParameter("categories", categories(plan, bindings))
+                                    .setMaxResults(limit);
+                    if (after != null) query.setParameter("after", after);
+                    for (Object[] row : rows(query)) merged.add(textKey(plan, row[0]));
+                    while (merged.size() > limit) merged.pollLast();
+                }
+                found.addAll(merged);
+            }
+            case IMPORT_FIELDS -> {
+                // idx_cds_field_category (demographic_no, category, id) orders one category's
+                // fields by id; the selected categories are merged here.
+                var merged = new java.util.TreeSet<String>();
+                for (String category : categories(plan, bindings)) {
+                    var query =
+                            query(
+                                            em,
+                                            "select d.`id`,1 from `cds_import_field` d where"
+                                                + " d.`demographic_no`=:patient and"
+                                                + " d.`category`=:category"
+                                                    + (after == null ? "" : " and d.`id`>:after")
+                                                    + " order by d.`id`")
+                                    .setParameter("patient", patient)
+                                    .setParameter("category", category)
+                                    .setMaxResults(limit);
+                    if (after != null) query.setParameter("after", after);
+                    for (Object[] row : rows(query)) merged.add(textKey(plan, row[0]));
+                    while (merged.size() > limit) merged.pollLast();
+                }
+                found.addAll(merged);
+            }
+            case IMPORT_DEPENDENCIES, IMPORT_FILE_REFERENCES, IMPORT_PREPARATIONS, IMPORT_FILES -> {
+                // From the patient to the patient's units to their rows. (run_id, patient_key)
+                // and (run_id, unit_key) are unique, so no row is returned twice; a file is
+                // named once however many of the patient's units reference it.
+                // cds_import_preparation keys are ASCII columns: the unit's keys are converted
+                // for the index lookup and compared again unconverted, so a key that is not
+                // ASCII matches nothing.
+                String source =
+                        plan == Plan.IMPORT_FILES ? "cds_import_file_reference" : plan.table;
+                String unit =
+                        plan == Plan.IMPORT_PREPARATIONS
+                                ? "d.`run_id`=CONVERT(u.`run_id` USING ascii) and"
+                                        + " d.`unit_key`=CONVERT(u.`unit_key` USING ascii) and"
+                                        + " d.`run_id`=u.`run_id` and d.`unit_key`=u.`unit_key`"
+                                : "d.`run_id`=u.`run_id` and d.`unit_key`=u.`unit_key`";
+                String key = plan == Plan.IMPORT_FILES ? "f.`id`" : "d.`id`";
+                var query =
+                        query(
+                                        em,
+                                        "select "
+                                                + (plan == Plan.IMPORT_FILES ? "distinct " : "")
+                                                + key
+                                                + ",1 from `cds_import_patient` p join"
+                                                + " `cds_import_unit` u on u.`run_id`=p.`run_id` and"
+                                                + " u.`patient_key`=p.`patient_key` join `"
+                                                + source
+                                                + "` d on "
+                                                + unit
+                                                + (plan == Plan.IMPORT_FILES
+                                                        ? " join `cds_import_file` f on"
+                                                                + " f.`id`=d.`file_id`"
+                                                        : "")
+                                                + " where p.`target_demographic_no`=:patient and"
+                                                + " u.`category` in (:categories)"
+                                                + (after == null ? "" : " and " + key + ">:after")
+                                                + " order by "
+                                                + key)
+                                .setParameter("patient", patient)
+                                .setParameter("categories", categories(plan, bindings))
+                                .setMaxResults(limit);
+                if (after != null) query.setParameter("after", after);
+                for (Object[] row : rows(query)) found.add(textKey(plan, row[0]));
+            }
+            default -> {
+                var query =
+                        query(
+                                        em,
+                                        "select d.`"
+                                                + plan.key
+                                                + "`,1 from `"
+                                                + plan.table
+                                                + "` d where "
+                                                + plan.patientPredicate()
+                                                + (after == null
+                                                        ? ""
+                                                        : " and d.`" + plan.key + "`>:after")
+                                                + " order by d.`"
+                                                + plan.key
+                                                + '`')
+                                .setParameter("patient", patient)
+                                .setMaxResults(limit);
+                if (after != null) query.setParameter("after", after);
+                for (Object[] row : rows(query, plan, bindings))
+                    found.add(text ? textKey(plan, row[0]) : (Object) number(row[0]));
+            }
+        }
+        // Strictly ascending and after the caller's position, whichever statement read them.
+        Object previous = after;
+        for (Object key : found) {
+            if (previous != null
+                    && (text
+                            ? ((String) key).compareTo((String) previous) <= 0
+                            : (Long) key <= (Long) previous)) invalid();
+            previous = key;
+        }
+        if (found.size() > limit) invalid();
+        return found;
+    }
+
+    private static String textKey(Plan plan, Object value) {
+        if (!(value instanceof String id))
+            throw new IllegalStateException("CDS_EXPORT_NATIVE_SOURCE_INVALID");
+        if (plan == Plan.LABORATORY_RESULTS) {
+            if (!id.matches("[0-9a-f]{64}")) invalid();
+        } else retainedKey(plan, id);
+        return id;
+    }
+
+    /** The category names a retained plan's rows may carry for the selected categories. */
+    private static List<String> categories(Plan plan, Bindings bindings) {
+        var selected = new java.util.TreeSet<>(bindings.categories());
+        if (plan != Plan.IMPORT_FIELDS)
+            for (String category : bindings.categories()) {
+                selected.add(category + "_FIELDS");
+                selected.add(category + "_CONTACT");
+                selected.add(category + "_CARE");
+            }
+        return List.copyOf(selected);
+    }
+
+    /** Exactly the rows of {@code keys}, in key order, under the plan's own patient predicate. */
+    private static List<CdsExportRawKeyRowDto> rowsByKey(
+            EntityManager em,
+            Plan plan,
+            int patient,
+            Object after,
+            List<Object> keys,
+            Bindings bindings) {
         int inline = Math.min(16_384, 1_048_576 / plan.columns.size());
         var projection = new StringBuilder("select d.`" + plan.key + "`");
         for (String column : plan.columns) {
@@ -2142,15 +2392,18 @@ public final class CdsExportPatientTableReadSupport {
                 .append(" from `")
                 .append(plan.table)
                 .append("` d where ")
-                .append(plan.patientPredicate());
-        if (after != null) projection.append(" and d.`").append(plan.key).append("`>:after");
-        projection.append(" order by d.`").append(plan.key).append('`');
+                .append(plan.patientPredicate())
+                .append(" and d.`")
+                .append(plan.key)
+                .append("` in (:keys) order by d.`")
+                .append(plan.key)
+                .append('`');
         var query =
                 query(em, projection.toString())
                         .setParameter("patient", patient)
                         .setParameter("inline", inline)
-                        .setMaxResults(limit);
-        if (after != null) query.setParameter("after", after);
+                        .setParameter("keys", keys)
+                        .setMaxResults(keys.size() + 1);
         var result = new ArrayList<CdsExportRawKeyRowDto>();
         Object previous = after;
         for (var row : rows(query, plan, bindings)) {
@@ -2164,10 +2417,15 @@ public final class CdsExportPatientTableReadSupport {
                 } else retainedKey(plan, id);
                 if (previous != null && id.compareTo((String) previous) <= 0) invalid();
                 previous = id;
+                // The row the key read named, and no other.
+                if (result.size() >= keys.size() || !id.equals(keys.get(result.size())))
+                    invalid();
             } else {
                 long number = number(row[0]);
                 if (previous != null && number <= (Long) previous) invalid();
                 previous = number;
+                if (result.size() >= keys.size()
+                        || number != (Long) keys.get(result.size())) invalid();
                 id = Long.toString(number);
             }
             var values = new TreeMap<String, CdsExportRawCellDto>();
@@ -2185,6 +2443,8 @@ public final class CdsExportPatientTableReadSupport {
             }
             result.add(new CdsExportRawKeyRowDto(id, values));
         }
+        // A key the read-ahead named and this statement did not return is a changed source.
+        if (result.size() != keys.size()) invalid();
         return List.copyOf(result);
     }
 
@@ -2312,22 +2572,13 @@ public final class CdsExportPatientTableReadSupport {
     }
 
     private static List<Object[]> rows(Query query, Plan plan, Bindings bindings) {
-        var categories = bindings.categories();
         if (selectedPreventions(plan)) {
             if (bindings.preventionIds() == null || bindings.preventionIds().isEmpty()) invalid();
             query.setParameter(
                     "preventionIds", bindings.preventionIds().stream().sorted().toList());
         }
-        if (plan.retained() && plan != Plan.IMPORT_PATIENTS && plan != Plan.IMPORT_RUNS) {
-            var selected = new java.util.TreeSet<>(categories);
-            if (plan != Plan.IMPORT_FIELDS)
-                for (String category : categories) {
-                    selected.add(category + "_FIELDS");
-                    selected.add(category + "_CONTACT");
-                    selected.add(category + "_CARE");
-                }
-            query.setParameter("categories", List.copyOf(selected));
-        }
+        if (plan.retained() && plan != Plan.IMPORT_PATIENTS && plan != Plan.IMPORT_RUNS)
+            query.setParameter("categories", categories(plan, bindings));
         return rows(query);
     }
 

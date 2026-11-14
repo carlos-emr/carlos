@@ -557,6 +557,143 @@ class CdsExportRetainedCaptureMariaDbIntegrationTest {
                 .isInstanceOf(IllegalStateException.class);
     }
 
+    /**
+     * A chart imported twice into one run keeps two (run, patient key) owners, and its fields
+     * span categories: the keys of a page are merged from each owner and each category. Every
+     * row must come back exactly once, in key order, whatever the page size, both when the
+     * snapshot reads keys ahead and when another transaction reads one page of keys at a time.
+     */
+    @Test
+    void shouldPageEveryRetainedRowOnce_acrossOwnersAndCategories() {
+        var second =
+                new LinkedHashMap<String, Object>(
+                        Map.of(
+                                "id", key(9002),
+                                "run_id", run,
+                                "patient_key", key(8002),
+                                "source_patient_id", "SYNTHETIC-2",
+                                "copy_key", key(8102),
+                                "lineage_key", key(8202),
+                                "source_digest", key(8302),
+                                "target_demographic_no", patient,
+                                "state", "COMPLETE",
+                                "held", 0));
+        second.put("expected_units", 20);
+        insert("cds_import_patient", second);
+        for (int n = 0; n < 20; n++) {
+            // Ids on both sides of the first owner's units (7000 to 7005).
+            int id = n < 10 ? 6990 + n : 7000 + n;
+            insert(
+                    "cds_import_unit",
+                    new LinkedHashMap<String, Object>(
+                            Map.of(
+                                    "id", key(id),
+                                    "run_id", run,
+                                    "patient_key", key(8002),
+                                    "unit_key", key(6100 + n),
+                                    "lineage_key", key(8202),
+                                    "category",
+                                            n % 2 == 0
+                                                    ? "Demographics"
+                                                    : "AllergiesAndAdverseReactions_FIELDS",
+                                    "ordinal", 1,
+                                    "source_digest", key(8302),
+                                    "spool_location", "/synthetic/" + run + "/second-" + n,
+                                    "state", "COMMITTED")));
+            insert(
+                    "cds_import_dependency",
+                    Map.of(
+                            "id", key(2100 + (n * 7) % 20),
+                            "run_id", run,
+                            "unit_key", key(6100 + n),
+                            "depends_on_unit_key", key(6100)));
+            if (n % 3 == 0)
+                insert(
+                        "cds_import_preparation",
+                        Map.of(
+                                "id", key(4100 + (n * 3) % 20),
+                                "run_id", run,
+                                "unit_key", key(6100 + n),
+                                "source_digest", key(8302),
+                                "options_digest", key(901),
+                                "ruleset_digest", key(902),
+                                "payload_type", "synthetic",
+                                "payload", "{}",
+                                "digest", key(4200 + n)));
+            insert(
+                    "cds_import_file_reference",
+                    Map.of(
+                            "id", key(12100 + (n * 11) % 20),
+                            "run_id", run,
+                            "unit_key", key(6100 + n),
+                            "file_id", fileKey(11000 + n % 5)));
+            // The two categories alternate in key order.
+            field(
+                    10_000 + n,
+                    patient,
+                    n % 2 == 0 ? "Demographics" : "AllergiesAndAdverseReactions",
+                    6100 + n,
+                    "second");
+        }
+        var categories = Set.of("Demographics", "AllergiesAndAdverseReactions");
+        String units =
+                "select u.id from cds_import_unit u join cds_import_patient p on p.run_id=u.run_id"
+                        + " and p.patient_key=u.patient_key where p.target_demographic_no=? and"
+                        + " u.run_id=?";
+        Map<Class<?>, String> expected = new LinkedHashMap<>();
+        expected.put(CdsImportUnitDao.class, units + " order by u.id");
+        expected.put(
+                CdsImportFieldDao.class,
+                "select f.id from cds_import_field f where f.demographic_no=? and f.run_id=?"
+                        + " order by f.id");
+        expected.put(
+                CdsImportDependencyDao.class,
+                "select d.id from cds_import_dependency d where d.unit_key in ("
+                        + units.replace("u.id", "u.unit_key")
+                        + ") order by d.id");
+        expected.put(
+                CdsImportPreparationDao.class,
+                "select d.id from cds_import_preparation d where d.unit_key in ("
+                        + units.replace("u.id", "u.unit_key")
+                        + ") order by d.id");
+        expected.put(
+                CdsImportFileReferenceDao.class,
+                "select d.id from cds_import_file_reference d where d.unit_key in ("
+                        + units.replace("u.id", "u.unit_key")
+                        + ") order by d.id");
+        expected.put(
+                CdsImportFileDao.class,
+                "select distinct d.file_id from cds_import_file_reference d where d.unit_key in ("
+                        + units.replace("u.id", "u.unit_key")
+                        + ") order by d.file_id");
+        var committed = new TransactionTemplate(read.getTransactionManager());
+        committed.setReadOnly(true);
+        committed.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
+        for (var transaction : List.of(read, committed))
+            for (int limit : new int[] {1, 3, 32})
+                for (var entry : expected.entrySet()) {
+                    var wanted = sql.queryForList(entry.getValue(), String.class, patient, run);
+                    assertThat(wanted).hasSizeGreaterThan(4);
+                    var dao = (CdsExportRetainedTableReadDao) context.getBean(entry.getKey());
+                    var found = new ArrayList<String>();
+                    transaction.executeWithoutResult(
+                            status -> {
+                                assertThat(dao.countCdsExportRetainedRows(patient, categories))
+                                        .isEqualTo(wanted.size());
+                                String after = null;
+                                while (true) {
+                                    var page =
+                                            dao.findCdsExportRetainedRowsAfter(
+                                                    patient, categories, after, limit);
+                                    for (var row : page) found.add(row.id());
+                                    if (page.size() < limit) break;
+                                    after = page.getLast().id();
+                                }
+                            });
+                    assertThat(found).as(entry.getKey().getSimpleName()).isEqualTo(wanted);
+                }
+    }
+
     private void seed() {
         var row = new LinkedHashMap<String, Object>();
         row.putAll(
