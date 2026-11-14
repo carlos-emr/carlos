@@ -530,13 +530,126 @@ class CdsExportImmunizationOccurrenceServiceUnitTest {
         assertThat(f.result).isNull();
     }
 
+    /** {@code count} more native vaccines after the fixture's own, some with an extension. */
+    private void grow(Fixture f, int count) throws Exception {
+        var template = fixture(false, null).parents.getFirst();
+        var parents = new ArrayList<>(f.parents);
+        var auxiliary = new ArrayList<>(f.auxiliary);
+        var witnesses = new ArrayList<>(f.witnesses);
+        var selection = new HashSet<>(f.selection);
+        for (int id = 1001; id <= 1000 + count; id++) {
+            var fields = new TreeMap<>(template.fields());
+            fields.put("id", Integer.toString(id));
+            fields.put("deleted", id % 7 == 0 ? "1" : "0");
+            var parent = row("preventions", fields);
+            parents.add(parent);
+            witnesses.add(witness(parent));
+            selection.add(id);
+            if (id % 3 == 0) {
+                var child = new TreeMap<String, String>();
+                child.put("id", Integer.toString(100_000 + id));
+                child.put("prevention_id", Integer.toString(id));
+                child.put("keyval", "lot");
+                child.put("val", "LOT-" + id);
+                var extension = row("preventionsExt", child);
+                auxiliary.add(extension);
+                witnesses.add(witness(extension));
+            }
+        }
+        f.parents = parents;
+        f.auxiliary = auxiliary;
+        f.witnesses = witnesses;
+        f.selection = Set.copyOf(selection);
+        f.scopes.put("preventions", table("preventions", parents.size()));
+        f.scopes.put(
+                "preventionsExt",
+                table(
+                        "preventionsExt",
+                        auxiliary.stream()
+                                .filter(row -> row.table().equals("preventionsExt"))
+                                .count()));
+    }
+
     @Test
-    void shouldVerifyNativeAndAuxiliaryBoundsFailClosed_withoutPartialClinicalSuccess()
+    void shouldEmitTheSameBytesAndReceipts_whenAChartIsReadInSmallWindows() throws Exception {
+        var whole = fixture(false, null);
+        grow(whole, 12);
+        byte[] expected = compose(whole, false);
+        // Two of the twelve added rows are superseded versions: accounted, not exported.
+        assertThat(whole.receipts).hasSize(11);
+        for (int window : new int[] {1, 2, 5, 12}) {
+            var windowed = fixture(false, null);
+            grow(windowed, 12);
+            windowed.bounds = windowed.bounds.withWindow(window, 8L << 20);
+            assertThat(compose(windowed, false)).isEqualTo(expected);
+            assertThat(windowed.receipts).isEqualTo(whole.receipts);
+            assertThat(windowed.result).isEqualTo(whole.result);
+            verify(windowed.receiptReader, times((13 + window - 1) / window))
+                    .scan(any(), any(), anySet(), any(), anyLong(), anyLong(), any(), any());
+        }
+        var byBytes = fixture(false, null);
+        grow(byBytes, 12);
+        byBytes.bounds = byBytes.bounds.withWindow(8192, 30_000);
+        assertThat(compose(byBytes, false)).isEqualTo(expected);
+        assertThat(byBytes.receipts).isEqualTo(whole.receipts);
+    }
+
+    @Test
+    void shouldFollowTheEditChainsOfImportedVaccines_whenTheChartIsReadByWindow()
             throws Exception {
+        for (boolean edited : new boolean[] {true, false}) {
+            var whole = fixture(true, "Current note");
+            editImported(whole, edited);
+            grow(whole, 4);
+            byte[] expected = compose(whole, false);
+            for (int window : new int[] {1, 3}) {
+                var windowed = fixture(true, "Current note");
+                editImported(windowed, edited);
+                grow(windowed, 4);
+                windowed.bounds = windowed.bounds.withWindow(window, 8L << 20);
+                assertThat(compose(windowed, false)).isEqualTo(expected);
+                assertThat(windowed.receipts).isEqualTo(whole.receipts);
+                assertThat(windowed.result).isEqualTo(whole.result);
+            }
+        }
+    }
+
+    @Test
+    void shouldRefuseAnOrphanOrUnwitnessedRow_whenTheChartIsReadByWindow() throws Exception {
+        var unwitnessed = fixture(false, null);
+        grow(unwitnessed, 6);
+        unwitnessed.bounds = unwitnessed.bounds.withWindow(2, 8L << 20);
+        var fewer = new ArrayList<>(unwitnessed.witnesses);
+        fewer.remove(fewer.size() - 1);
+        unwitnessed.witnesses = fewer;
+        assertThatThrownBy(() -> compose(unwitnessed, false))
+                .hasMessage("CDS_EXPORT_IMMUNIZATION_OCCURRENCE_SCOPE_INVALID");
+        var missing = fixture(false, null);
+        grow(missing, 6);
+        missing.bounds = missing.bounds.withWindow(2, 8L << 20);
+        missing.parents = new ArrayList<>(missing.parents.subList(0, 6));
+        assertThatThrownBy(() -> compose(missing, false))
+                .hasMessage("CDS_EXPORT_IMMUNIZATION_OCCURRENCE_SCOPE_INVALID");
+    }
+
+    @Test
+    void shouldExportTheChart_pastTheFormerRowBound() throws Exception {
+        // 8,193 vaccine rows: one more than the former cds.export.maxNativeRows.
         var f = fixture(false, null);
-        f.scopes.put("preventions", table("preventions", 101));
-        assertThatThrownBy(() -> compose(f, false)).hasMessage("CDS_EXPORT_RESOURCE_LIMIT");
-        verifyNoInteractions(f.values, f.closure);
+        grow(f, 8192);
+        f.bounds =
+                new CdsExportClinicalOccurrenceService.Bounds(
+                        CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
+                        CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
+                        1_000_000,
+                        64L << 20,
+                        8192,
+                        131_072);
+        compose(f, false);
+        // Every seventh added row is a superseded version: accounted, not exported.
+        assertThat(f.receipts).hasSize(8193 - 1171);
+        assertThat(f.receipts.getFirst().nativeId()).isEqualTo("17");
+        assertThat(f.receipts.getLast().nativeId()).isEqualTo("9192");
     }
 
     @Test
@@ -618,6 +731,9 @@ class CdsExportImmunizationOccurrenceServiceUnitTest {
                 revokeAtReceipt,
                 legacy;
         CdsExportClinicalOccurrenceService.Result result;
+        CdsExportClinicalOccurrenceService.Bounds bounds =
+                new CdsExportClinicalOccurrenceService.Bounds(
+                        100000, 8L << 20, 1000, 8L << 20, 100, 1000);
     }
 
     private Fixture fixture(boolean imported, String notes) throws Exception {
@@ -918,9 +1034,7 @@ class CdsExportImmunizationOccurrenceServiceUnitTest {
                                                 f.tables,
                                                 f.source,
                                                 file("4", "RETAINED_MANIFEST"),
-                                                new CdsExportClinicalOccurrenceService.Bounds(
-                                                        100000, 8L << 20, 1000, 8L << 20, 100,
-                                                        1000),
+                                                f.bounds,
                                                 f.control,
                                                 emitter,
                                                 receipt -> {

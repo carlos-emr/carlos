@@ -183,7 +183,7 @@ public class CdsExportImmunizationOccurrenceService
                 || !patientKey.matches("[0-9a-f]{64}")
                 || !tables.equals(source.capture().tables().keySet())
                 || !tables.containsAll(CdsExportImmunizationCaptureValidator.REQUIRED)) scope();
-        if (source.capture().tables().get("preventions").rows() > bounds.nativeRows()) limit();
+        long parentRows = source.capture().tables().get("preventions").rows();
         var zone =
                 tables.contains("clinical_timezone")
                         ? zones.read(
@@ -257,132 +257,16 @@ public class CdsExportImmunizationOccurrenceService
                             if (imported.putIfAbsent(refs.getFirst().id(), address) != null)
                                 ambiguous();
                         }
-                    var extensions = new HashMap<String, List<CdsExportCapturedTextRowDto>>();
-                    var precision = new HashMap<String, List<CdsExportCapturedTextRowDto>>();
-                    var auxiliaryKeys = new HashSet<String>();
-                    long[] lookup = new long[4];
-                    var auxiliary =
-                            rows.forEachTable(
-                                    lease,
-                                    patient,
-                                    tables,
-                                    Set.of("preventionsExt", "prevention_precision"),
-                                    source.manifest(),
-                                    bounds.fields(),
-                                    bounds.bytes(),
-                                    67_108_864,
-                                    control,
-                                    row -> {
-                                        if (++lookup[0] > bounds.lookupRows()) limit();
-                                        for (var value : row.fields().values())
-                                            if (value != null)
-                                                lookup[1] =
-                                                        Math.addExact(
-                                                                lookup[1],
-                                                                value.getBytes(
-                                                                                        StandardCharsets
-                                                                                                .UTF_8)
-                                                                                .length
-                                                                        + 64L);
-                                        if (lookup[1] > bounds.indexBytes()
-                                                || !auxiliaryKeys.add(
-                                                        key(
-                                                                physical(row.table()),
-                                                                row.fields().get("id")))) limit();
-                                        boolean extension = row.table().equals("preventionsExt");
-                                        if (!extension
-                                                && !row.table().equals("prevention_precision"))
-                                            scope();
-                                        String owner =
-                                                row.fields()
-                                                        .get(
-                                                                extension
-                                                                        ? "prevention_id"
-                                                                        : "table_id");
-                                        if (!selection.immunizations().contains(integer(owner)))
-                                            scope();
-                                        (extension ? extensions : precision)
-                                                .computeIfAbsent(
-                                                        owner, ignored -> new ArrayList<>())
-                                                .add(row);
-                                        lookup[extension ? 2 : 3]++;
-                                    });
-                    if (!auxiliary.equals(source.capture())
-                            || lookup[2] != auxiliary.tables().get("preventionsExt").rows()
-                            || lookup[3] != auxiliary.tables().get("prevention_precision").rows())
-                        scope();
-                    var exact = new HashMap<String, CdsExportNativeRowReceiptDto>();
-                    long[] witnessBytes = {lookup[1]};
-                    var scan =
-                            witnesses.scan(
-                                    lease,
-                                    patient,
-                                    tables,
-                                    source,
-                                    bounds.fields(),
-                                    bounds.bytes(),
-                                    control,
-                                    witness -> {
-                                        String key = key(witness.table(), witness.id());
-                                        if (!witness.table().equals("preventions")
-                                                && !auxiliaryKeys.contains(key)) return;
-                                        if (exact.size()
-                                                >= bounds.nativeRows() + (long) bounds.lookupRows())
-                                            limit();
-                                        witnessBytes[0] =
-                                                Math.addExact(
-                                                        witnessBytes[0],
-                                                        1024L
-                                                                + (witness.state() == null
-                                                                        ? 0
-                                                                        : witness.state()
-                                                                                        .columns()
-                                                                                        .size()
-                                                                                * 256L));
-                                        if (witnessBytes[0] > bounds.indexBytes()
-                                                || exact.putIfAbsent(key, witness) != null) limit();
-                                    });
-                    if (!scan.sourceManifestSha256().equals(source.manifest().plaintextSha256())
-                            || exact.size()
-                                    != source.capture().tables().get("preventions").rows()
-                                            + auxiliaryKeys.size()) scope();
-                    // CARLOS never edits a vaccine in place (CdsExportPreventionVersions): an
-                    // imported vaccine edited in CARLOS is a superseded row and a current native
-                    // version that records it as previousId; one removed in CARLOS is a
-                    // superseded row with no current version. The current version is exported
-                    // natively and its receipt lists the imported source fields as replaced; a
-                    // removed one is not exported and its source fields are accounted as removed
-                    // (the inventory leaves them out the same way).
-                    var versions =
-                            CdsExportPreventionVersions.currentVersions(
-                                    imported.keySet(),
-                                    exact.values(),
-                                    "preventions",
-                                    "preventionsExt");
                     var inherited = new HashMap<String, String>();
-                    var removedUnits = new HashSet<String>();
-                    for (var version : versions.entrySet()) {
-                        String unit = imported.get(version.getKey());
-                        if (version.getValue() == null) removedUnits.add(unit);
-                        else if (imported.containsKey(version.getValue())
-                                || inherited.putIfAbsent(version.getValue(), unit) != null)
-                            ambiguous();
-                    }
                     var removedFields = new HashSet<String>();
-                    for (String unit : removedUnits)
-                        for (var field :
-                                new CdsExportRetainedOccurrenceFields()
-                                        .fieldsFor(
-                                                patient.patient(),
-                                                category,
-                                                unit,
-                                                index,
-                                                checked,
-                                                retained,
-                                                control::checkpoint))
-                            if (!removedFields.add(field.id())) scope();
+                    // The edit chains of the imported vaccines, decided once for the chart
+                    // before any occurrence is emitted.
+                    var chains = new ArrayList<Map<String, String>>(1);
                     var usedFields = new HashSet<String>();
                     var seen = new HashSet<Integer>();
+                    // Extension and precision rows the capture holds [0, 1] and those taken by
+                    // the window of their vaccine, over every window [2, 3].
+                    long[] children = new long[4];
                     // A vaccine shown only inside a program is written when a fresh check says
                     // every exporting identity works in it; a program nobody exporting works in
                     // holds the patient, and each program so granted is checked again after the
@@ -396,6 +280,171 @@ public class CdsExportImmunizationOccurrenceService
                                 granted.add(program);
                                 return true;
                             };
+                    // The chart is read whole when it fits one window, as it always was, and
+                    // window by window otherwise (CdsExportSectionWindowPlanner): the child
+                    // rows, witnesses and rows of one window are held at a time.
+                    CdsExportSectionWindowPlanner.forEachWindow(
+                            parentRows,
+                            bounds.window(),
+                            owners -> {
+                                var listed =
+                                        rows.forEach(
+                                                lease,
+                                                patient,
+                                                tables,
+                                                "preventions",
+                                                source.manifest(),
+                                                bounds.fields(),
+                                                bounds.bytes(),
+                                                4096,
+                                                control,
+                                                row -> owners.add(row.fields().get("id")));
+                                if (!listed.equals(source.capture())) scope();
+                            },
+                            (window, budget) -> {
+                    var extensions = new HashMap<String, List<CdsExportCapturedTextRowDto>>();
+                    var precision = new HashMap<String, List<CdsExportCapturedTextRowDto>>();
+                    var auxiliaryKeys = new HashSet<String>();
+                    // 2 extension rows and 3 precision rows the capture holds; 4, 5 those taken
+                    long[] lookup = new long[6];
+                    var auxiliary =
+                            rows.forEachTable(
+                                    lease,
+                                    patient,
+                                    tables,
+                                    Set.of("preventionsExt", "prevention_precision"),
+                                    source.manifest(),
+                                    bounds.fields(),
+                                    bounds.bytes(),
+                                    67_108_864,
+                                    control,
+                                    row -> {
+                                        // A window found too large keeps nothing more; it is
+                                        // read again with fewer vaccines.
+                                        if (budget.exceeded()) return;
+                                        boolean extension = row.table().equals("preventionsExt");
+                                        if (!extension
+                                                && !row.table().equals("prevention_precision"))
+                                            scope();
+                                        String owner =
+                                                row.fields()
+                                                        .get(
+                                                                extension
+                                                                        ? "prevention_id"
+                                                                        : "table_id");
+                                        if (!selection.immunizations().contains(integer(owner)))
+                                            scope();
+                                        lookup[extension ? 2 : 3]++;
+                                        if (!window.contains(owner)) return;
+                                        long size = 0;
+                                        for (var value : row.fields().values())
+                                            if (value != null)
+                                                size +=
+                                                        value.getBytes(StandardCharsets.UTF_8)
+                                                                        .length
+                                                                + 64L;
+                                        if (!budget.add(0, size)) return;
+                                        // A repeated child row id is refused, whichever window
+                                        // meets it.
+                                        if (!auxiliaryKeys.add(
+                                                key(
+                                                        physical(row.table()),
+                                                        row.fields().get("id")))) scope();
+                                        (extension ? extensions : precision)
+                                                .computeIfAbsent(
+                                                        owner, ignored -> new ArrayList<>())
+                                                .add(row);
+                                        lookup[extension ? 4 : 5]++;
+                                    });
+                    if (budget.exceeded()) return false;
+                    if (!auxiliary.equals(source.capture())
+                            || lookup[2] != auxiliary.tables().get("preventionsExt").rows()
+                            || lookup[3] != auxiliary.tables().get("prevention_precision").rows())
+                        scope();
+                    var exact = new HashMap<String, CdsExportNativeRowReceiptDto>();
+                    var scan =
+                            witnesses.scan(
+                                    lease,
+                                    patient,
+                                    tables,
+                                    source,
+                                    bounds.fields(),
+                                    bounds.bytes(),
+                                    control,
+                                    witness -> {
+                                        String key = key(witness.table(), witness.id());
+                                        boolean parent = witness.table().equals("preventions");
+                                        // The witness of a vaccine of this window, or of a
+                                        // child row this window took.
+                                        if (parent
+                                                ? !window.contains(witness.id())
+                                                : !auxiliaryKeys.contains(key)) return;
+                                        long size =
+                                                1024L
+                                                        + (witness.state() == null
+                                                                ? 0
+                                                                : witness.state().columns().size()
+                                                                        * 256L);
+                                        if (parent ? !budget.owner(size) : !budget.add(0, size))
+                                            return;
+                                        if (exact.putIfAbsent(key, witness) != null) scope();
+                                    });
+                    if (budget.exceeded()) return false;
+                    if (!scan.sourceManifestSha256().equals(source.manifest().plaintextSha256())
+                            || exact.size() != window.size() + auxiliaryKeys.size()) scope();
+                    children[0] = lookup[2];
+                    children[1] = lookup[3];
+                    children[2] = Math.addExact(children[2], lookup[4]);
+                    children[3] = Math.addExact(children[3], lookup[5]);
+                    if (chains.isEmpty()) {
+                    // CARLOS never edits a vaccine in place (CdsExportPreventionVersions): an
+                    // imported vaccine edited in CARLOS is a superseded row and a current native
+                    // version that records it as previousId; one removed in CARLOS is a
+                    // superseded row with no current version. The current version is exported
+                    // natively and its receipt lists the imported source fields as replaced; a
+                    // removed one is not exported and its source fields are accounted as removed
+                    // (the inventory leaves them out the same way).
+                    // A chart read whole decides them from the witnesses it holds; a chart read
+                    // by window from two passes that keep only the links (chartVersions).
+                    var decided =
+                            window.whole()
+                                    ? CdsExportPreventionVersions.currentVersions(
+                                            imported.keySet(),
+                                            exact.values(),
+                                            "preventions",
+                                            "preventionsExt")
+                                    : chartVersions(
+                                            lease,
+                                            patient,
+                                            tables,
+                                            source,
+                                            bounds,
+                                            control,
+                                            Set.copyOf(imported.keySet()));
+                    var removedUnits = new HashSet<String>();
+                    for (var version : decided.entrySet()) {
+                        String unit = imported.get(version.getKey());
+                        if (version.getValue() == null) removedUnits.add(unit);
+                        else if (imported.containsKey(version.getValue())
+                                || inherited.putIfAbsent(version.getValue(), unit) != null)
+                            ambiguous();
+                    }
+                    for (String unit : removedUnits)
+                        for (var field :
+                                new CdsExportRetainedOccurrenceFields()
+                                        .fieldsFor(
+                                                patient.patient(),
+                                                category,
+                                                unit,
+                                                index,
+                                                checked,
+                                                retained,
+                                                control::checkpoint))
+                            if (!removedFields.add(field.id())) scope();
+                    chains.add(decided);
+                    }
+                    var versions = chains.getFirst();
+                    long[] emitted = {0};
                     var finished =
                             rows.forEach(
                                     lease,
@@ -412,6 +461,12 @@ public class CdsExportImmunizationOccurrenceService
                                         patient.require(lease);
                                         control.checkpoint();
                                         String id = row.fields().get("id");
+                                        if (!window.contains(id)) {
+                                            // A row with no id belongs to no window: refused.
+                                            if (id == null) scope();
+                                            return;
+                                        }
+                                        emitted[0]++;
                                         if (!seen.add(integer(id))
                                                 || !selection.immunizations().contains(integer(id)))
                                             scope();
@@ -579,19 +634,27 @@ public class CdsExportImmunizationOccurrenceService
                                                         counts[3],
                                                         kept.size() + (long) replaced.size());
                                     });
+                    // Every witness and child row this window loaded was used by one of its
+                    // vaccines.
+                    if (!finished.equals(source.capture())
+                            || !extensions.isEmpty()
+                            || !precision.isEmpty()
+                            || !exact.isEmpty()
+                            || emitted[0] != window.size()) scope();
+                    return true;
+                            });
+                    // Every child row was taken by the window of its vaccine: one whose vaccine
+                    // is in no window is taken by none and makes the count fall short.
                     long expected =
                             Math.addExact(
                                     Math.multiplyExact(Math.addExact(counts[0], counts[5]), 16),
                                     Math.addExact(
-                                            Math.multiplyExact(lookup[2], 4),
-                                            Math.multiplyExact(lookup[3], 5)));
-                    if (!finished.equals(source.capture())
-                            || !seen.equals(selection.immunizations())
-                            || !extensions.isEmpty()
-                            || !precision.isEmpty()
-                            || !exact.isEmpty()
-                            || Math.addExact(counts[0], counts[5])
-                                    != source.capture().tables().get("preventions").rows()
+                                            Math.multiplyExact(children[0], 4),
+                                            Math.multiplyExact(children[1], 5)));
+                    if (!seen.equals(selection.immunizations())
+                            || children[2] != children[0]
+                            || children[3] != children[1]
+                            || Math.addExact(counts[0], counts[5]) != parentRows
                             || counts[4] != expected) scope();
                     if (!imported.isEmpty() || !inherited.isEmpty()) review();
                     var expectedFields = new HashSet<String>();
@@ -641,8 +704,54 @@ public class CdsExportImmunizationOccurrenceService
         throw new IOException("CDS_EXPORT_IMMUNIZATION_OCCURRENCE_SCOPE_INVALID");
     }
 
-    private static void limit() {
-        throw new CdsExportReviewException(CdsExportReviewException.Reason.RESOURCE_LIMIT);
+    /**
+     * The edit chains of the imported vaccines of a chart read by window. One pass over the
+     * witnesses keeps the links the extensions record (two digests for each edit) and a second
+     * keeps a flag for each row those links or the imported vaccines name: the same answer as
+     * {@link CdsExportPreventionVersions#currentVersions} over every witness, without holding
+     * the witnesses.
+     */
+    private Map<String, String> chartVersions(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> tables,
+            CdsExportPatientCaptureDto source,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control,
+            Set<String> starts)
+            throws IOException {
+        if (starts.isEmpty()) return Map.of();
+        var chain = new CdsExportPreventionVersions.Chain();
+        var links =
+                witnesses.scan(
+                        lease,
+                        patient,
+                        tables,
+                        source,
+                        bounds.fields(),
+                        bounds.bytes(),
+                        control,
+                        witness -> {
+                            if (witness.table().equals("preventionsExt")) chain.link(witness);
+                        });
+        var named =
+                witnesses.scan(
+                        lease,
+                        patient,
+                        tables,
+                        source,
+                        bounds.fields(),
+                        bounds.bytes(),
+                        control,
+                        witness -> {
+                            if (witness.table().equals("preventions")
+                                    && (starts.contains(witness.id())
+                                            || chain.names(witness.id()))) chain.row(witness);
+                        });
+        if (!links.sourceManifestSha256().equals(source.manifest().plaintextSha256())
+                || !named.sourceManifestSha256().equals(source.manifest().plaintextSha256()))
+            scope();
+        return chain.current(starts);
     }
 
     private static void review() {

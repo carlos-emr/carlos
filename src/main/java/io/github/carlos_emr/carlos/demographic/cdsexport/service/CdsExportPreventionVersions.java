@@ -80,47 +80,117 @@ final class CdsExportPreventionVersions {
             String table,
             String extensions)
             throws IOException {
-        var rows = new HashMap<String, CdsExportNativeRowReceiptDto>();
-        var ids = new HashMap<String, String>();
+        var chain = new Chain();
         for (var witness : witnesses)
-            if (witness.table().equals(table)) {
-                if (rows.putIfAbsent(witness.id(), witness) != null)
+            if (witness.table().equals(table)) chain.row(witness);
+            else if (witness.table().equals(extensions)) chain.link(witness);
+        return chain.current(starts);
+    }
+
+    /**
+     * The edit chains of a chart's prevention rows, kept without their witnesses: whether each
+     * row is superseded, and for each recorded edit the digests of the two row ids it joins.
+     * Rows and edits may arrive in any order and from several passes. A section that reads its
+     * rows window by window fills one from the links first and then only from the rows those
+     * links or its starting rows name ({@link #names}), so it holds two digests for each edit
+     * and a flag for each edited row instead of every row's witness.
+     */
+    static final class Chain {
+        /** 0 current, 1 superseded, 2 a witness that cannot say: refused when a chain reaches it. */
+        private final Map<String, Byte> states = new HashMap<>();
+
+        /** Why a row's witness cannot say, kept for the rare row it concerns. */
+        private final Map<String, IOException> refused = new HashMap<>();
+        private final Map<String, String> ids = new HashMap<>();
+        private final List<String[]> links = new ArrayList<>();
+        private final Set<String> named = new HashSet<>();
+
+        /** The first row or link that cannot be used: refused when the chains are asked for. */
+        private IOException failure;
+
+        /** Records one prevention row; a row recorded twice is refused by {@link #current}. */
+        void row(CdsExportNativeRowReceiptDto witness) {
+            byte state;
+            try {
+                state = (byte) (CdsExportPreventionVersions.superseded(witness) ? 1 : 0);
+            } catch (IOException unreadable) {
+                // Decided only when a chain reaches the row, as it was when the witness was kept.
+                state = 2;
+                refused.putIfAbsent(witness.id(), unreadable);
+            }
+            if (states.putIfAbsent(witness.id(), state) != null && failure == null)
+                failure = new IOException("CDS_EXPORT_PREVENTION_VERSION_WITNESS_REQUIRED");
+            ids.put(text(witness.id()), witness.id());
+        }
+
+        /**
+         * Records one extension row when it names the version its prevention replaced. A row
+         * whose witness cannot say is refused by {@link #current}, not here: a caller that
+         * follows no chain never asked.
+         */
+        void link(CdsExportNativeRowReceiptDto witness) {
+            try {
+                if (witness.state() == null)
                     throw new IOException("CDS_EXPORT_PREVENTION_VERSION_WITNESS_REQUIRED");
-                ids.put(text(witness.id()), witness.id());
+                if (!CdsExportCapturedTextWitness.matches(
+                        witness.state(), "keyval", "previousId")) return;
+                String owner = cell(witness, "prevention_id"), previous = cell(witness, "val");
+                links.add(new String[] {owner, previous});
+                if (owner != null) named.add(owner);
+                if (previous != null) named.add(previous);
+            } catch (IOException unusable) {
+                if (failure == null) failure = unusable;
             }
-        var replacedBy = new HashMap<String, List<String>>();
-        for (var witness : witnesses) {
-            if (!witness.table().equals(extensions)) continue;
-            if (witness.state() == null)
-                throw new IOException("CDS_EXPORT_PREVENTION_VERSION_WITNESS_REQUIRED");
-            if (!CdsExportCapturedTextWitness.matches(witness.state(), "keyval", "previousId"))
-                continue;
-            String owner = ids.get(cell(witness, "prevention_id")),
-                    previous = ids.get(cell(witness, "val"));
-            if (owner == null || previous == null || owner.equals(previous)) continue;
-            replacedBy.computeIfAbsent(previous, ignored -> new ArrayList<>()).add(owner);
         }
-        var result = new HashMap<String, String>();
-        for (String start : starts) {
-            var witness = rows.get(start);
-            if (witness == null || !superseded(witness)) continue;
-            String at = start, found = null;
-            var seen = new HashSet<String>();
-            while (seen.add(at)) {
-                var next = replacedBy.getOrDefault(at, List.of());
-                if (next.isEmpty()) break;
-                if (next.size() > 1)
-                    throw new CdsExportReviewException(
-                            CdsExportReviewException.Reason.AMBIGUOUS_SOURCE);
-                at = next.getFirst();
-                if (!superseded(rows.get(at))) {
-                    found = at;
-                    break;
+
+        /** Whether a recorded link names the prevention row with this id. */
+        boolean names(String id) {
+            return named.contains(text(id));
+        }
+
+        /** The answer of {@link CdsExportPreventionVersions#currentVersions} for these rows. */
+        Map<String, String> current(Set<String> starts) throws IOException {
+            if (failure != null) throw failure;
+            var replacedBy = new HashMap<String, List<String>>();
+            for (var link : links) {
+                String owner = ids.get(link[0]), previous = ids.get(link[1]);
+                if (owner == null || previous == null || owner.equals(previous)) continue;
+                replacedBy.computeIfAbsent(previous, ignored -> new ArrayList<>()).add(owner);
+            }
+            var result = new HashMap<String, String>();
+            for (String start : starts) {
+                if (!states.containsKey(start) || !superseded(start)) continue;
+                String at = start, found = null;
+                var seen = new HashSet<String>();
+                while (seen.add(at)) {
+                    var next = replacedBy.getOrDefault(at, List.of());
+                    if (next.isEmpty()) break;
+                    if (next.size() > 1)
+                        throw new CdsExportReviewException(
+                                CdsExportReviewException.Reason.AMBIGUOUS_SOURCE);
+                    at = next.getFirst();
+                    if (!superseded(at)) {
+                        found = at;
+                        break;
+                    }
                 }
+                result.put(start, found);
             }
-            result.put(start, found);
+            return result;
         }
-        return result;
+
+        private boolean superseded(String id) throws IOException {
+            Byte state = states.get(id);
+            if (state == null)
+                throw new IOException("CDS_EXPORT_PREVENTION_VERSION_WITNESS_REQUIRED");
+            if (state == 2) throw refused.get(id);
+            return state == 1;
+        }
+
+        @Override
+        public String toString() {
+            return "CdsExportPreventionVersions.Chain[protected]";
+        }
     }
 
     private static String cell(CdsExportNativeRowReceiptDto witness, String column)

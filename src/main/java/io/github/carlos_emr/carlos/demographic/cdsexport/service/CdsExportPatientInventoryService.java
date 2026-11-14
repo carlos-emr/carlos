@@ -208,7 +208,8 @@ public class CdsExportPatientInventoryService {
         var appointments = new HashSet<String>();
         // Vaccine rows and their extensions: an imported vaccine removed in CARLOS is found by
         // its edit chain (CdsExportPreventionVersions.currentVersions).
-        var vaccineWitnesses = new ArrayList<CdsExportNativeRowReceiptDto>();
+        // Kept as the chain's links and a flag for each row, not as the rows' witnesses.
+        var vaccineChain = new CdsExportPreventionVersions.Chain();
         var documentDigests = new HashMap<String, String>();
         var budget = new Budget(bounds.indexRows(), bounds.indexBytes());
         var actual =
@@ -222,9 +223,8 @@ public class CdsExportPatientInventoryService {
                         control,
                         row -> {
                             control.checkpoint();
-                            if (row.table().equals("preventions")
-                                    || row.table().equals("preventionsExt"))
-                                vaccineWitnesses.add(row);
+                            if (row.table().equals("preventions")) vaccineChain.row(row);
+                            else if (row.table().equals("preventionsExt")) vaccineChain.link(row);
                             var category = NATIVE.get(row.table());
                             if (category != null) {
                                 if (!lease.document().command().categories().contains(category))
@@ -565,8 +565,8 @@ public class CdsExportPatientInventoryService {
         }
         var removedVaccines = new HashSet<String>();
         if (!vaccineUnits.isEmpty())
-            CdsExportPreventionVersions.currentVersions(
-                            vaccineUnits.keySet(), vaccineWitnesses, "preventions", "preventionsExt")
+            vaccineChain
+                    .current(vaccineUnits.keySet())
                     .forEach(
                             (row, current) -> {
                                 if (current == null) removedVaccines.add(vaccineUnits.get(row));
