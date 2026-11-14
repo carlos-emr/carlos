@@ -124,7 +124,9 @@ with a moving progress bar. A patient is counted as processed only when the pack
 published, so the exported and held counts appear when the job ends (`processedPatients` in
 the command line's status stays 0 until then). A long capture is not a stalled job. A job no
 worker owns (waiting, or stopped by a restart) shows its plain count and no moving bar, and
-needs a resume.
+needs a resume. A stopped job that keeps finished charts for a resume says how many and until
+when; after a resume, the page says how many charts were adopted unchanged and how many were
+built again (see "Resuming a stopped export").
 
 Only **Transfer package ready** with complete patient counts and an available
 artifact permits package download. The POST download rechecks current clinical
@@ -665,10 +667,8 @@ package larger than 32 GiB).
   the application logs `CDS_EXPORT_RETIRED_SETTINGS_IGNORED` once with the setting names and
   carries on; remove them when convenient.
 
-An export still cannot be continued from where it stopped. If a job stops before it is READY
-(a cancellation, a restart of the application or the command, a failure, a review code),
-`--resume` runs the whole export again from the first chart. Leave a large export running; do
-not stop it to "continue later".
+A job that stops before it is READY keeps the charts it finished for a resume, which adopts
+each one whose records are unchanged; see "Resuming a stopped export" below.
 
 The only thing that ends a large export for its size is a real storage failure. It ends the job
 as `FAILED` (not for review) with one of these codes, publishes nothing and truncates nothing;
@@ -690,6 +690,39 @@ limit described elsewhere in this guide.
 
 A download of a finished package re-checks every chart's current authorization several times.
 That check now costs one short pass per chart, so it no longer dominates a large download.
+
+### Resuming a stopped export
+
+A job that stops before it is READY (a failure, a review code, a restart of the application or
+the command, an interrupted wait, a worker found stalled) keeps the charts it finished,
+encrypted in its protected export store, for seven days from when it stopped. Everything else
+the stopped attempt staged is erased by the retention sweep as before. The job's status says how
+many finished charts are kept and until when: the browser page shows "This stopped job keeps N
+finished chart(s), encrypted, until ...", and the command line reports `keptCharts` and
+`keptUntil` in its JSON and prints `CDS_EXPORT_CHARTS_KEPT: N finished chart(s) are kept,
+encrypted, until ...` when a foreground `--export` or `--resume` stops.
+
+Fix the cause, then resume (`--resume RUN_ID`, or **Resume export**). The resumed attempt goes
+through the whole roster again: every chart is read, authorized and audited exactly as before,
+and a kept chart is adopted only when the patient's records, rows and stored document files
+alike, are exactly the ones it was built from. A chart whose records changed, a patient who was
+held, and a chart printed from live reference data (a consultation letter or a Rourke chart) are
+built again; a patient no longer selected is not exported. Adopted charts are copied into the
+new attempt, recorded in the chart audit and counted: the status reports `adoptedCharts` and
+`builtCharts`, and the page "N chart(s) adopted unchanged from a stopped attempt; M built from
+current records". A resumed attempt still reads every chart to compare it, so it is faster than
+the first run but not free: leave a large export running rather than stopping it to continue
+later. After seven days the kept charts are erased, and a resume then builds every chart again.
+
+Cancelling a stopped job that keeps charts erases them at once: **Cancel export** asks first,
+and `--cancel` prints `CDS_EXPORT_CHARTS_ERASED: the N finished chart(s) the stopped job kept
+were erased`. The job's recorded outcome and code stay as they were, and a later resume builds
+every chart again. A cancellation of a running job, and a READY package, behave as before.
+
+Kept charts occupy the export store until they are adopted, cancelled or seven days have passed:
+about their share of the finished package. A job stopped for `CDS_EXPORT_DISK_RESERVE` or
+`CDS_EXPORT_DISK_FULL` keeps what it finished too; add space and resume, or cancel the job to
+free that space at the next retention sweep.
 
 ### Held patients
 
@@ -841,7 +874,12 @@ row for each patient of a prepared package, and a `read` row marked
 for a job that stopped after reading the chart. The job outcome itself stays in
 the export ledger. A failed, refused or cancelled job's staged files are released
 to the retention sweep at once (within about a minute while the online worker
-runs), not kept for the attempt's seven-day ceiling.
+runs), except the finished charts of a stopped job, which are kept, encrypted,
+for a resume for seven days from the stop (see "Resuming a stopped export").
+Cancelling the job erases them at once. A chart a resumed attempt adopts is
+recorded as a `read` row marked `CDS_EXPORT_CHART_ADOPTED` with the attempt it
+came from, and gets its `EXPORT` row when the package is prepared, like every
+chart.
 
 A source the export cannot close for any patient (a changed pinned table, or a
 populated must-be-empty table with no patient link) stops the whole job with
