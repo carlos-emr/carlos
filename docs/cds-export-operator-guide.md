@@ -707,11 +707,16 @@ them sent. Only a provider name with a control character no CARLOS screen can en
 the patients that name it.
 
 A chart with many measurements (years of INR, glucose or blood pressure flowsheet
-entries) is exported whole. The export reads its measurements in windows of
-`cds.export.maxNativeRows` measurements (default and maximum 8,192) and about
-`cds.export.maxIndexBytes` of rows (default and maximum 64 MiB), so a larger chart
-takes longer but never holds more than one window of measurement rows in memory; these
-settings no longer hold a patient. Only a
+entries) is exported whole. The export reads its measurements in windows of 8,192
+measurements and about 64 MiB of rows, so a larger chart takes longer but never holds more
+than one window of measurement rows in memory. A chart's prescriptions, allergies,
+appointments, vaccines, screenings and Disease Registry entries are read the same way: no
+count of them stops an export or holds a patient, and `cds.export.maxNativeRows`,
+`maxIndexBytes` and `maxLookupRows` do not apply to them. Those three settings still stop a
+job (`CDS_EXPORT_RESOURCE_LIMIT`) for a chart with more than 8,192 rows of one kind among its
+laboratory reports (counted across four tables: about 4,096 HL7 reports), documents, hospital
+reports, notes or demographic properties; that is a limit of this release, not a setting to
+raise (8,192 is also its maximum). Only a
 chart whose measurements take it past the per-patient occurrence capacity (about
 65,000 measurements at the default and maximum `cds.export.maxIndexBytes`, far beyond
 a chart entered through the screens) is held with

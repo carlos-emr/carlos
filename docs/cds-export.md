@@ -656,9 +656,9 @@ extension, vocabulary and demographic row and keeps only a compact index, a few 
 the counts, unique ids, the extension owner rules and each owner's weight. Rows are grouped by
 owner (a current measurement's id, a deleted version's `originalId`, an extension's
 `measurement_id`), in the decimal order of the owner ids that the exported occurrences follow,
-into windows of at most `cds.export.maxNativeRows` measurement rows (current and deleted;
-default and maximum 8,192) and about `cds.export.maxIndexBytes` of rows (default and maximum
-64 MiB). One owner's rows are never split. Each window is read again from the capture, every
+into windows of at most 8,192 measurement rows (current and deleted) and about 64 MiB of rows
+(the section window, see "Section windows" below; no setting changes it). One owner's rows are
+never split. Each window is read again from the capture, every
 one of its rows is checked against its native-row witness before use, and only then is it
 planned, mapped, emitted and claimed; the vocabulary and the demographic row are held with every
 window. A chart that fits in one window (every chart the former per-chart bound admitted) is
@@ -1080,6 +1080,82 @@ seconds at the maximum setting.
 Native clinical clocks use the same explicit `cds.export.clinicalZone` as the accepted
 plan; a configured import zone must agree. No JVM default zone is inferred.
 
+#### Section windows: how a long chart's rows are read
+
+Each clinical section of one patient's document is built from that patient's sealed capture. To
+decide and to prove one occurrence a section needs three things together: the row, the rows that
+belong to it (its precision rows, extensions, reasons) and the native-row witness of each. To emit
+the section it needs the occurrences once, in a stable order. It never needs two occurrences of
+the same table together. A section therefore reads its rows in windows
+(`CdsExportSectionWindowPlanner`):
+
+- **Windowed.** The rows of the section's main table are its owners, in the order the capture
+  holds them, which is the order of the exported occurrences. A window is a run of consecutive
+  owners. For one window the section reads the witnesses of its owners, the child rows that name
+  one of its owners and the owners' rows, emits their occurrences and receipts, and drops all of
+  it before the next window. Each of those reads is a pass over the authenticated capture, read
+  like every staged member (the session's checked replay, or the staged replay member of a
+  capture too large for it).
+- **First attempt: the whole chart.** A chart of at most 8,192 owners whose witnesses and child
+  rows count at most 64 MiB (`Bounds.WINDOW_ROWS`, `Bounds.WINDOW_BYTES`, the two sizes that used
+  to refuse a chart) is one window. It is read by the same passes as before, in the same order,
+  with no extra pass, and its output is byte-identical. A larger chart costs one pass that lists
+  the owners and then the same passes once for each window; a window whose load passes 64 MiB is
+  abandoned before anything of it is emitted and read again with as many owners as fitted. A
+  window of one owner is never abandoned. Nothing is refused: the two sizes decide how a chart is
+  read, never whether.
+- **Held for the whole section, with its cost for each row.** The id of each owner, only for a
+  chart read in several windows (its digits and four bytes: 12 bytes for an eight-digit id); the
+  set of owner ids already emitted where a section proves each row is emitted once (about 60
+  bytes an id); the retained fields the windows used (a reference to a field the retained
+  source already holds, about 40 bytes); the clinic's own vocabulary that the chart names
+  (providers, appointment statuses and reason codes, diagnosis code descriptions, the measurement
+  types): these are not rows of the chart and every window holds them.
+- **Completeness.** Every check of the whole-chart read is kept. Per window: every witness and
+  child row the window loaded is used by one of its owners, and it emits as many rows as it
+  holds owners. Over the chart: the windows emitted as many rows as the capture states, and they
+  took as many child rows as the capture holds, so a child row whose owner is in no window (an
+  orphan) is taken by none and the chart is refused, as it was when read whole.
+- **Spilled.** Nothing of a windowed section is written to staging: a window is read again from
+  the capture instead. The structures that would have to be spilled are the ones no window
+  bounds, listed below.
+
+| Section | State | What a window holds |
+| --- | --- | --- |
+| Medications, Allergies (`CdsExportClinicalOccurrenceService`) | windowed | witnesses of the window's prescriptions or allergies; their precision rows, reasons and drug references; every public provider row the chart names |
+| Appointments (`CdsExportAppointmentOccurrenceService`, and through its visitor each appointment's NewCategory source record) | windowed | witnesses of the window's appointments; the providers, status definitions, reason-list items, the demographic row and earlier display names for every window; every current and archived appointment number (a string each) |
+| Immunizations (`CdsExportImmunizationOccurrenceService`) | windowed | witnesses, extensions and precision rows of the window's vaccines. The edit chains of imported vaccines are decided once for the chart from two witness passes that keep two digests for each recorded edit and a flag for each row an edit names (`CdsExportPreventionVersions.Chain`) |
+| Screenings (`CdsExportScreeningOccurrenceService`) | windowed | witnesses, extensions and precision rows of the window's screenings |
+| Disease Registry and episodes (`CdsExportProblemRegistryOccurrenceService`) | windowed | witnesses and precision rows of the window's entries; every diagnosis code row the chart names |
+| CareElements measurements (`CdsExportCapturedCareRowsReader`) | windowed (its own planner, by owner id) | see the measurements paragraph above; it now takes the same two sizes |
+| Laboratory results | not windowed | the rows and witnesses of all four laboratory tables, with each HL7 message, and every parsed report |
+| Reports, hospital reports | not windowed | every document row, link and witness |
+| History and notes, printed prescriptions, demographic properties and contacts | not windowed | the section's rows with their witnesses |
+
+The sections that are not windowed still read `cds.export.maxNativeRows` (8,192),
+`maxIndexBytes` (64 MiB) and `maxLookupRows` (131,072) from the plan and still stop the job with
+`RESOURCE_LIMIT` (or, for printed prescriptions and the drug reference, hold the patient) when a
+chart passes them: lifting those numbers without a window would hold the whole chart on the heap.
+What each needs:
+
+- **Laboratory.** Its rows are joined by report number (a result, its message, its information
+  and routing rows and its inbox routes), and three other assemblies read the same reports: the
+  inventory, the NewCategory source records and the Reports entries of embedded documents
+  (`nativeSources`, `routes`). A window must be a set of report numbers, read for imported results
+  in the order of their import units and for native reports in id order, with the set of report
+  numbers already owned kept across windows; the three other assemblies must receive the reports
+  window by window instead of as one list. Counted across its four tables, the present bound is
+  reached at about 4,096 native reports or 2,730 imported results.
+- **Reports and hospital reports.** The same shape: a window of documents with their links,
+  routes and attachments, and the inventory fed by window.
+- **History.** The note readers (`CdsExportNoteSourceReader`, `CdsExportNoteRevisionInventoryService`)
+  stop at 8,192 notes of a chart and the section holds its rows with their witnesses.
+- **The occurrence index.** The inventory keeps the identity of every expected occurrence of the
+  patient until the document is proven (`CdsExportPatientInventoryService`, about 200 bytes an
+  occurrence), limited to `maxIndexRows` and `maxIndexBytes` / 512 occurrences. It is the
+  structure to spill to a sorted spool (`CdsExportSpoolService`): the expected identities sorted
+  once, the emitted ones sorted once, compared in one merge.
+
 #### What can still stop a large export
 
 No count, size or time setting refuses, holds or fails a whole export. Memory is bounded by
@@ -1346,9 +1422,9 @@ the record's CARLOS residual. These numbers were CARLOS's own and are gone:
 What these mappers hold in memory is one chart's rows of the tables they map (its
 `demographicExt` properties, contacts, pharmacies, `demographicArchive` roster states, note
 revision numbers, prevention rows), each about 2 KB plus its values; nothing is shared between
-charts. The row windows of the occurrence services (`cds.export.maxNativeRows`,
-`maxIndexBytes`, `maxLookupRows`) are a separate matter and still apply to the rows they hand
-to these mappers.
+charts. The occurrence services that hand rows to these mappers are a separate matter: see
+"Section windows" for the ones that read a chart window by window and the ones that still stop
+at `cds.export.maxNativeRows`, `maxIndexBytes` and `maxLookupRows`.
 
 Required limits that no longer hold a patient (second pass):
 
