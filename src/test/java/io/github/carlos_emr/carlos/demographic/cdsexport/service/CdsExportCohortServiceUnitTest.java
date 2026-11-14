@@ -293,6 +293,135 @@ class CdsExportCohortServiceUnitTest {
                 .hasMessage("CDS_EXPORT_SELECTION_RECEIPT_INVALID");
     }
 
+    @Test
+    void shouldIssueOneScopePerPatientFile_withAMergedGroupOpenedOnItsHead() throws Exception {
+        lease =
+                lease(
+                        CdsExportCommand.Selection.SELECTED_PATIENTS,
+                        List.of(),
+                        List.of(5, 34, 40, 56));
+        // 34 and 56 are merged into 12, which the job did not name; 5 and 40 are alone.
+        var selected =
+                grouped(
+                        row(5, "100") + row(34, null) + row(40, "100") + row(56, "200"),
+                        4,
+                        group(12, "300", List.of(34, 56), List.of(34, 56), List.of(7, 9)),
+                        3);
+        var sealed = cohorts.prepare(lease, selected, control);
+        assertThat(sealed.patients()).isEqualTo(3);
+        when(ledger.cohort(lease)).thenReturn(sealed.member());
+        try (var cursor = cohorts.open(sealed, control)) {
+            var first = cursor.next();
+            assertThat(first.patient()).isEqualTo(5);
+            assertThat(first.group()).isNull();
+            assertThat(first.members()).isEmpty();
+            var head = cursor.next();
+            head.require(lease);
+            assertThat(head.patient()).isEqualTo(12);
+            assertThat(head.head()).isEqualTo(12);
+            assertThat(head.selection().physicianNo()).isEqualTo("300");
+            assertThat(head.members()).containsExactly(34, 56);
+            assertThat(head.group().selected()).containsExactly(34, 56);
+            assertThat(head.group().links()).containsExactly(7, 9);
+            var merged = head.member(56);
+            merged.require(lease);
+            assertThat(merged.patient()).isEqualTo(56);
+            assertThat(merged.head()).isEqualTo(12);
+            assertThat(merged.selection().physicianNo()).isNull();
+            assertThat(merged.cohortSha256()).isEqualTo(sealed.member().plaintextSha256());
+            assertThatThrownBy(() -> head.member(40))
+                    .hasMessage("CDS_EXPORT_PATIENT_SCOPE_INVALID");
+            var last = cursor.next();
+            assertThat(last.patient()).isEqualTo(40);
+            // A merged chart's scope expires with its head's.
+            assertThatThrownBy(() -> merged.require(lease))
+                    .hasMessage("CDS_EXPORT_PATIENT_SCOPE_EXPIRED");
+            assertThat(cursor.next()).isNull();
+            assertThat(cursor.complete()).isTrue();
+        }
+        var heads = new java.util.ArrayList<Integer>();
+        var members = new java.util.ArrayList<List<Integer>>();
+        assertThat(
+                        cohorts.readRetained(
+                                store,
+                                run,
+                                1,
+                                lease.document(),
+                                sealed.member(),
+                                3,
+                                () -> {},
+                                (CdsExportCohortService.RetainedFiles)
+                                        (patient, others) -> {
+                                            heads.add(patient.demographicNo());
+                                            members.add(others);
+                                        }))
+                .isEqualTo(3);
+        assertThat(heads).containsExactly(5, 12, 40);
+        assertThat(members).containsExactly(List.of(), List.of(34, 56), List.of());
+    }
+
+    @Test
+    void shouldRefuseAGroupPlanThatDisagreesWithItsSelection_beforeIssuingAnyScope()
+            throws Exception {
+        lease = lease(CdsExportCommand.Selection.SELECTED_PATIENTS, List.of(), List.of(5, 34));
+        String rows = row(5, null) + row(34, null);
+        for (var plan :
+                List.of(
+                        // A selected chart of the group the selection does not hold.
+                        List.of(group(12, null, List.of(33), List.of(33), List.of(1))),
+                        // A chart in two groups.
+                        List.of(
+                                group(5, null, List.of(34), List.of(5), List.of(1)),
+                                group(12, null, List.of(34), List.of(34), List.of(2))),
+                        // A selected chart of the group the plan does not name as selected.
+                        List.of(group(5, null, List.of(34), List.of(34), List.of(1))))) {
+            var selected = grouped(rows, 2, String.join("", plan), plan.size());
+            long before = files();
+            assertThatThrownBy(() -> cohorts.prepare(lease, selected, control))
+                    .isInstanceOf(IOException.class);
+            assertThat(files()).isEqualTo(before);
+        }
+        // Heads out of order.
+        var unordered =
+                grouped(
+                        rows,
+                        2,
+                        group(34, null, List.of(), List.of(34), List.of(2))
+                                + group(5, null, List.of(), List.of(5), List.of(1)),
+                        2);
+        assertThatThrownBy(() -> cohorts.prepare(lease, unordered, control))
+                .hasMessage("CDS_EXPORT_COHORT_INVENTORY_INVALID");
+    }
+
+    private CdsExportSelectionDto grouped(String body, long count, String groups, long files)
+            throws IOException {
+        var file =
+                store.stage(
+                        "PATIENT_SELECTION",
+                        output -> output.write(body.getBytes(StandardCharsets.UTF_8)));
+        var plan =
+                store.stage(
+                        "COHORT_GROUPS",
+                        output -> output.write(groups.getBytes(StandardCharsets.UTF_8)));
+        var now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        return new CdsExportSelectionDto(now, now, count, file, files, plan);
+    }
+
+    private static String group(
+            int head, String physician, List<Integer> members, List<Integer> selected, List<Integer> links) {
+        return "{\"head\":"
+                + head
+                + ",\"physicianNo\":"
+                + (physician == null ? "null" : "\"" + physician + "\"")
+                + ",\"members\":"
+                + members
+                + ",\"selected\":"
+                + selected
+                + ",\"links\":"
+                + links
+                + ",\"shape\":[]}\n";
+    }
+
     private CdsExportSelectionDto selection(String body, long count) throws IOException {
         var file =
                 store.stage(

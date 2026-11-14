@@ -21,17 +21,46 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsexport.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.Instant;
 
-/** One completed consistent-read selection, ready for separate durable manifest publication. */
+/**
+ * One completed consistent-read selection, ready for separate durable manifest publication.
+ *
+ * <p>{@code patients} is the number of charts selected. A selection grouped by Merge Records also
+ * names its frozen group plan ({@code groups}, a {@code COHORT_GROUPS} member) and the number of
+ * patient files it makes ({@code files}): charts linked by Merge Records are one file. A selection
+ * without a plan (both null, and absent from its JSON, as every selection was before) makes one
+ * file per selected chart.
+ */
 public record CdsExportSelectionDto(Instant readStartedAt, Instant readCompletedAt, long patients,
-        CdsExportStagedFileDto inventory) {
+        CdsExportStagedFileDto inventory,
+        @JsonInclude(JsonInclude.Include.NON_NULL) Long files,
+        @JsonInclude(JsonInclude.Include.NON_NULL) CdsExportStagedFileDto groups) {
     public CdsExportSelectionDto {
         if (readStartedAt == null || readCompletedAt == null || readCompletedAt.isBefore(readStartedAt)
                 || readStartedAt.getNano() % 1000 != 0 || readCompletedAt.getNano() % 1000 != 0
-                || patients < 0 || inventory == null || !inventory.purpose().equals("PATIENT_SELECTION")) {
+                || patients < 0 || inventory == null || !inventory.purpose().equals("PATIENT_SELECTION")
+                || (files == null) != (groups == null)
+                || groups != null && (!groups.purpose().equals("COHORT_GROUPS") || files < 0
+                        || files > patients
+                        || patients > 0 && files < 1)) {
             throw new IllegalArgumentException("CDS_EXPORT_SELECTION_RECEIPT_INVALID");
         }
     }
+
+    /** A selection without a group plan: one patient file per selected chart. */
+    public CdsExportSelectionDto(Instant readStartedAt, Instant readCompletedAt, long patients,
+            CdsExportStagedFileDto inventory) {
+        this(readStartedAt, readCompletedAt, patients, inventory, null, null);
+    }
+
+    /** The number of patient files the selection makes. */
+    @JsonIgnore
+    public long patientFiles() {
+        return files == null ? patients : files;
+    }
+
     @Override public String toString() { return "CdsExportSelectionDto[protected]"; }
 }

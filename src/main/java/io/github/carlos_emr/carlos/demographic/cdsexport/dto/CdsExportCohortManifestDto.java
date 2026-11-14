@@ -27,8 +27,11 @@ import java.util.UUID;
 public record CdsExportCohortManifestDto(int protocol, String runId, long epoch,
         CdsExportJobDocumentDto intent, CdsExportSelectionDto selection) {
     public CdsExportCohortManifestDto {
-        if (protocol != 1 || runId == null || !UUID.fromString(runId).toString().equals(runId) || epoch < 1
-                || intent == null || intent.protocol() != 2 || intent.storage() == null || selection == null || selection.patients() < 1) {
+        // Protocol 2 binds the selection's group plan as well (CdsExportMergeGroupPlanner);
+        // protocol 1, a selection without one, is still read.
+        if (protocol != 1 && protocol != 2 || runId == null || !UUID.fromString(runId).toString().equals(runId) || epoch < 1
+                || intent == null || intent.protocol() != 2 || intent.storage() == null || selection == null || selection.patients() < 1
+                || (protocol == 2) != (selection.groups() != null)) {
             throw new IllegalArgumentException("CDS_EXPORT_COHORT_MANIFEST_INVALID");
         }
     }
