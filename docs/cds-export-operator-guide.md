@@ -751,8 +751,9 @@ A long chart that came from an earlier CDS import still needs memory and time, b
 export checks every imported record against its import receipts and several of those steps
 hold the whole chart. Measured on the reference host: a chart of 512 imported notes and 512
 imported laboratory results exports under the defaults; one of 2,048 and 2,048 needed
-`cds.export.cliHeapMiB=1024` (the default is 512; its old generation peaked at 649 MiB) and
-then exported in about 8 minutes. Reading the chart no longer has a time limit (before, the
+`cds.export.cliHeapMiB=1024` on that host (the default is 512; its old generation peaked at
+649 MiB) and then exported in about 8 minutes, while on a faster host it exported at the
+default heap in under 11 minutes. Reading the chart no longer has a time limit (before, the
 job failed with `CDS_EXPORT_EXECUTION_FAILED` when one chart took more than 120 s to read),
 and a chart with more than 8,192 notes is no longer held. With too small a heap nothing
 refuses the chart, but the export slows to a crawl in garbage collection and does not finish:

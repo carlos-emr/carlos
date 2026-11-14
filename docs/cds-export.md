@@ -4529,7 +4529,10 @@ a 215 s export. Both bounds are gone (see "No limit on the capture"): the captur
 count, a capture too large for the session's memory replays from its stored replay member, and
 the retained index, the receipt comparison and the history rows are refused by no count. The
 512-note chart now takes 114 to 138 s. Two things stopped the 2048-note case under the lane's
-default settings. The first is fixed; the lane has not been rerun end to end since, so its
+default settings on the local reference host. On the CI runner the same case passed at the
+default 512 MiB heap in 638.7 s before this change (chart-512 in 105.8 s, chart-128 in 34.6 s),
+so there the capture finished inside the 120 s it then had; time still grew faster than the
+chart. The first of the two is fixed; the lane has not been rerun end to end since, so its
 budget for this case is unchanged and its capture time after the fix is not yet measured:
 
 - Capture time (fixed). The capture ran in one read-only snapshot under
