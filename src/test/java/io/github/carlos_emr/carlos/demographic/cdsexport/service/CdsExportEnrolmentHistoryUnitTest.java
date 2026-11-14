@@ -76,13 +76,18 @@ class CdsExportEnrolmentHistoryUnitTest {
             assertThat(result.fields().get(key("roster_status")).presence().name())
                     .isEqualTo(status == null ? "SQL_NULL" : status.isEmpty() ? "EMPTY" : "VALUE");
         }
-        // An NR flag with a leftover roster date: the flag is operational, the date carried.
+        // The current row's NR is what the chart stores: it travels in the native demographic
+        // record, alone or with a leftover roster date, and a CARLOS import restores both. It
+        // was OPERATIONAL and left out, and the receiving chart had no roster status.
+        assertCarried(
+                new CdsExportEnrolmentMapper()
+                        .map(27, current("NR", null, null, null, null), null),
+                "roster_status");
         var leftover =
                 new CdsExportEnrolmentMapper()
                         .map(27, current("NR", "2020-01-01", null, null, null), null);
         assertCarried(leftover, "roster_date");
-        assertThat(leftover.fields().get(key("roster_status")).outcome().name())
-                .isEqualTo("OPERATIONAL");
+        assertCarried(leftover, "roster_status");
     }
 
     @Test

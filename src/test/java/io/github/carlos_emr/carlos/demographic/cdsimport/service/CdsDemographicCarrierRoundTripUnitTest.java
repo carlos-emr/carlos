@@ -60,6 +60,10 @@ class CdsDemographicCarrierRoundTripUnitTest extends CarlosUnitTestBase {
     private CdsNativePreparationService preparation;
     private DemographicDao demographicDao;
     private DemographicExtDao extensionsDao;
+    private DemographicCustDao customDao;
+    private PharmacyInfoDao pharmacyDao;
+    private DemographicPharmacyDao preferenceDao;
+    private CdsProviderResolver providers;
     private CdsDemographicPersister persister;
     private CdsImportCommand command;
 
@@ -68,7 +72,10 @@ class CdsDemographicCarrierRoundTripUnitTest extends CarlosUnitTestBase {
         preparation = mock(CdsNativePreparationService.class);
         demographicDao = mock(DemographicDao.class);
         extensionsDao = mock(DemographicExtDao.class);
-        var providers = mock(CdsProviderResolver.class);
+        customDao = mock(DemographicCustDao.class);
+        pharmacyDao = mock(PharmacyInfoDao.class);
+        preferenceDao = mock(DemographicPharmacyDao.class);
+        providers = mock(CdsProviderResolver.class);
         when(providers.resolve(any(), any(), any(), any(), anyBoolean()))
                 .thenReturn(
                         new CdsProviderMatchDto(
@@ -94,10 +101,10 @@ class CdsDemographicCarrierRoundTripUnitTest extends CarlosUnitTestBase {
                                 fields,
                                 mock(ProfessionalContactDao.class),
                                 mock(DemographicContactDao.class),
-                                mock(PharmacyInfoDao.class),
-                                mock(DemographicPharmacyDao.class)),
+                                pharmacyDao,
+                                preferenceDao),
                         demographicDao,
-                        mock(DemographicCustDao.class),
+                        customDao,
                         extensionsDao,
                         mock(AdmissionDao.class));
         command =
@@ -131,7 +138,7 @@ class CdsDemographicCarrierRoundTripUnitTest extends CarlosUnitTestBase {
 
     private Imported transfer(byte[] document) throws Exception {
         var record = demographics(document);
-        org.mockito.Mockito.clearInvocations(preparation, demographicDao, extensionsDao);
+        org.mockito.Mockito.clearInvocations(preparation, demographicDao, extensionsDao, customDao);
         var stored = new AtomicReference<CdsDemographicNativeDto>();
         doAnswer(
                         call -> {
@@ -457,5 +464,278 @@ class CdsDemographicCarrierRoundTripUnitTest extends CarlosUnitTestBase {
                 .doesNotContain(
                         CdsDemographicCarriedValuesResolver.RESTORED,
                         CdsDemographicCarriedValuesResolver.NOT_RESTORED);
+    }
+
+    @Test
+    void shouldRestoreTheFormDefaults_whenNoAddressOrHealthCardHoldsThem() throws Exception {
+        // The demographic forms preselect the clinic's province for both addresses and the
+        // health card issuer, newsletter "Unknown" and country of origin "-1", write the empty
+        // referral-doctor wrapper, and save a warning level of "0". No element holds them: they
+        // were left out, and the receiving chart had none of them.
+        var row = CdsExportDemographicDocumentFixture.row();
+        row.put("province", "ON");
+        row.put("residentialProvince", "OT");
+        row.put("hc_type", "ON");
+        row.put("hin", "");
+        row.put("newsletter", "Unknown");
+        row.put("country_of_origin", "-1");
+        row.put("family_doctor", "<rdohip></rdohip><rd></rd>");
+        var level =
+                CdsExportDemographicDocumentFixture.property(1, "rxInteractionWarningLevel", "0");
+        var imported = transfer(row, List.of(level));
+        var patient = imported.patient();
+        assertThat(patient.getProvince()).isEqualTo("ON");
+        assertThat(patient.getResidentialProvince()).isEqualTo("OT");
+        assertThat(patient.getAddress()).isNull();
+        assertThat(patient.getHcType()).isEqualTo("ON");
+        assertThat(patient.getHin()).isEmpty();
+        assertThat(patient.getNewsletter()).isEqualTo("Unknown");
+        assertThat(patient.getCountryOfOrigin()).isEqualTo("-1");
+        assertThat(patient.getFamilyDoctor()).isEqualTo("<rdohip></rdohip><rd></rd>");
+        assertThat(imported.properties())
+                .extracting(DemographicExt::getKey, DemographicExt::getValue)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple("rxInteractionWarningLevel", "0"));
+        assertThat(imported.notices())
+                .extracting(CdsClinicalDiagnosticDto::code)
+                .doesNotContain(CdsDemographicCarriedValuesResolver.NOT_RESTORED);
+    }
+
+    @Test
+    void shouldRestoreTheColumnsNoElementStates_withTheSendersDateJoined() throws Exception {
+        // Name Used (alias and preferred name), pronoun, gender identity, the health card's
+        // effective date, the end date and the other columns the screens write travel in the
+        // native demographic record. The receiving chart used to get the import's own date as
+        // Date Joined; it now gets the sender's (owner decision).
+        var row = CdsExportDemographicDocumentFixture.row();
+        var stored = new java.util.LinkedHashMap<String, String>();
+        stored.put("alias", "Robbie-Lee \u00e9 the second of his name, called Bob by friends");
+        stored.put("pref_name", "Robbie-Lee \u00e9 the second of");
+        stored.put("pronoun", "they/them");
+        stored.put("gender", "Two-Spirit");
+        stored.put("date_joined", "2009-04-01");
+        stored.put("eff_date", "2024-01-15");
+        stored.put("end_date", "2031-12-31");
+        stored.put("anonymous", "one-time");
+        stored.put("children", "Two");
+        stored.put("citizenship", "Canadian");
+        stored.put("consentToUseEmailForCare", "1");
+        stored.put("pcn_indicator", "PCN-7");
+        stored.put("previousAddress", "1 Old Road");
+        stored.put("sourceOfIncome", "Pension");
+        stored.put("newsletter", "Electronic");
+        stored.put("country_of_origin", "FR");
+        stored.put("family_doctor", "<rdohip>123456</rdohip><rd>Synthetic, Referrer</rd>");
+        row.putAll(stored);
+        var imported = transfer(row, List.of());
+        var patient = imported.patient();
+        assertThat(patient.getAlias()).isEqualTo(stored.get("alias"));
+        // The stored column; the getter shows the alias first.
+        assertThat(org.springframework.test.util.ReflectionTestUtils.getField(patient, "prefName"))
+                .isEqualTo(stored.get("pref_name"));
+        assertThat(patient.getPronoun()).isEqualTo("they/them");
+        assertThat(patient.getGender()).isEqualTo("Two-Spirit");
+        assertThat(patient.getDateJoined()).hasToString("2009-04-01");
+        assertThat(patient.getEffDate()).hasToString("2024-01-15");
+        assertThat(patient.getEndDate()).hasToString("2031-12-31");
+        assertThat(patient.getAnonymous()).isEqualTo("one-time");
+        assertThat(patient.getChildren()).isEqualTo("Two");
+        assertThat(patient.getCitizenship()).isEqualTo("Canadian");
+        assertThat(patient.getConsentToUseEmailForCare()).isTrue();
+        assertThat(patient.getPcnIndicator()).isEqualTo("PCN-7");
+        assertThat(patient.getPreviousAddress()).isEqualTo("1 Old Road");
+        assertThat(patient.getSourceOfIncome()).isEqualTo("Pension");
+        assertThat(patient.getNewsletter()).isEqualTo("Electronic");
+        assertThat(patient.getCountryOfOrigin()).isEqualTo("FR");
+        assertThat(patient.getFamilyDoctor()).isEqualTo(stored.get("family_doctor"));
+        assertThat(imported.prepared().carried()).containsAllEntriesOf(stored);
+        assertThat(imported.notices())
+                .extracting(CdsClinicalDiagnosticDto::code)
+                .contains(CdsDemographicCarriedValuesResolver.RESTORED)
+                .doesNotContain(CdsDemographicCarriedValuesResolver.NOT_RESTORED);
+    }
+
+    @Test
+    void shouldReportAColumnNoElementStates_whenTheReceivingColumnCannotHoldIt() throws Exception {
+        // A value the receiving column cannot store exactly is not cut: it stays in the
+        // import's retained record and the report names it.
+        var row = CdsExportDemographicDocumentFixture.row();
+        row.put("consentToUseEmailForCare", "2");
+        row.put("pronoun", "they/them");
+        var imported = transfer(row, List.of());
+        assertThat(imported.patient().getConsentToUseEmailForCare()).isNull();
+        assertThat(imported.patient().getPronoun()).isEqualTo("they/them");
+        assertThat(imported.notices())
+                .filteredOn(
+                        notice ->
+                                notice.code().equals(CdsDemographicCarriedValuesResolver.NOT_RESTORED))
+                .extracting(CdsClinicalDiagnosticDto::field)
+                .containsExactly("NewCategory");
+    }
+
+    @Test
+    void shouldRestoreTheSendersRosterState_whenItIsNotAnEnrolmentEvent() throws Exception {
+        // Fee for service, not rostered and a clinic-defined status are no CDS enrolment event,
+        // nor is RO without a roster date: no EnrolmentHistory holds them, and the receiving
+        // chart had no roster status.
+        for (var state :
+                List.of(
+                        new String[] {"FS", null, null, null},
+                        new String[] {"NR", null, null, null},
+                        new String[] {"Clinic", "2020-01-01", null, null},
+                        new String[] {"RO", null, null, null},
+                        new String[] {"TE", "2020-01-01", null, "12"})) {
+            var row = CdsExportDemographicDocumentFixture.row();
+            row.put("roster_status", state[0]);
+            row.put("roster_date", state[1]);
+            row.put("roster_termination_date", state[2]);
+            row.put("roster_termination_reason", state[3]);
+            var patient = transfer(row, List.of()).patient();
+            assertThat(patient.getRosterStatus()).as(state[0]).isEqualTo(state[0]);
+            assertThat(patient.getRosterDate() == null ? null : patient.getRosterDate().toString())
+                    .as(state[0])
+                    .isEqualTo(state[1]);
+            assertThat(patient.getRosterTerminationDate()).as(state[0]).isNull();
+            assertThat(patient.getRosterTerminationReason()).as(state[0]).isEqualTo(state[3]);
+            assertThat(patient.getRosterEnrolledTo()).as(state[0]).isNull();
+        }
+    }
+
+    @Test
+    void shouldMatchTheEnrolledAndCareTeamProviders_fromThePublicColumnsTheSenderCarries()
+            throws Exception {
+        // A provider number belongs to the sending installation and is never stored. The nurse,
+        // the resident and a fee-for-service enrolled physician are matched from the public
+        // columns the record carries with each, as a physician element is; the midwife's number
+        // names no provider record there, so it is reported and stays in the retained record.
+        when(providers.resolve(eq("123456"), any(), any(), any(), anyBoolean()))
+                .thenReturn(
+                        new CdsProviderMatchDto(
+                                "77", CdsProviderMatchDto.Outcome.MATCHED_IDENTIFIERS));
+        when(providers.resolve(any(), eq("98765"), any(), any(), anyBoolean()))
+                .thenReturn(
+                        new CdsProviderMatchDto(
+                                "78", CdsProviderMatchDto.Outcome.MATCHED_IDENTIFIERS));
+        var row = CdsExportDemographicDocumentFixture.row();
+        row.put("roster_status", "FS");
+        row.put("roster_enrolled_to", "501");
+        var custom = new java.util.HashMap<String, String>();
+        custom.put("cust1", "501");
+        custom.put("cust2", "502");
+        custom.put("cust4", "503");
+        var document =
+                CdsExportDemographicDocumentFixture.document(
+                        row,
+                        List.of(),
+                        custom,
+                        List.of(
+                                CdsExportDemographicDocumentFixture.provider(
+                                        "501", "Nora", "Nurse", "123456", "", ""),
+                                CdsExportDemographicDocumentFixture.provider(
+                                        "502", "Rex", "Resident", "", "98765", "CPSO")));
+        var imported = transfer(document);
+        assertThat(imported.patient().getRosterStatus()).isEqualTo("FS");
+        assertThat(imported.patient().getRosterEnrolledTo()).isEqualTo("77");
+        assertThat(imported.prepared().careTeam())
+                .containsExactlyInAnyOrderEntriesOf(Map.of("cust1", "77", "cust2", "78"));
+        var saved =
+                ArgumentCaptor.forClass(io.github.carlos_emr.carlos.commn.model.DemographicCust.class);
+        verify(customDao).persist(saved.capture());
+        assertThat(saved.getValue().getNurse()).isEqualTo("77");
+        assertThat(saved.getValue().getResident()).isEqualTo("78");
+        assertThat(saved.getValue().getMidwife()).isNull();
+        assertThat(imported.notices())
+                .filteredOn(
+                        notice ->
+                                notice.code().equals(CdsDemographicCarriedValuesResolver.NOT_RESTORED))
+                .extracting(CdsClinicalDiagnosticDto::field)
+                .containsExactly("NewCategory");
+    }
+
+    /** The pharmacy row and link the importer writes for the document's PreferredPharmacy. */
+    private io.github.carlos_emr.carlos.commn.model.PharmacyInfo importPharmacy(byte[] document)
+            throws Exception {
+        doAnswer(
+                        call -> {
+                            ((io.github.carlos_emr.carlos.commn.model.PharmacyInfo)
+                                            call.getArgument(0))
+                                    .setId(31);
+                            return null;
+                        })
+                .when(pharmacyDao)
+                .persist(any());
+        doAnswer(
+                        call -> {
+                            ((io.github.carlos_emr.carlos.commn.model.DemographicPharmacy)
+                                            call.getArgument(0))
+                                    .setId(32);
+                            return null;
+                        })
+                .when(preferenceDao)
+                .persist(any());
+        try (var unit = org.mockito.Mockito.mockStatic(CdsImportUnitService.class)) {
+            unit.when(CdsImportUnitService::isActiveForMaintenance).thenReturn(true);
+            lastNotices = transfer(document).notices();
+        }
+        var saved = ArgumentCaptor.forClass(io.github.carlos_emr.carlos.commn.model.PharmacyInfo.class);
+        verify(pharmacyDao).persist(saved.capture());
+        return saved.getValue();
+    }
+
+    private List<CdsClinicalDiagnosticDto> lastNotices = List.of();
+
+    @Test
+    void shouldRestoreThePreferredPharmacysStoredValues_thatPreferredPharmacyCannotHold()
+            throws Exception {
+        // PreferredPharmacy has no element for Phone 2, Notes or the service location, and
+        // writes K1A 0B1 without its display space. They travel in the native demographic
+        // record; the receiving pharmacy row holds them as the sender stored them (it held
+        // K1A0B1 and none of the others).
+        var pharmacy =
+                CdsExportDemographicDocumentFixture.pharmacy(
+                        5,
+                        Map.of(
+                                "phone2", "613-555-0199",
+                                "notes", "Delivers on Fridays\nAsk for Sam",
+                                "serviceLocationIdentifier", "SL-7"));
+        assertThat(pharmacy.fields()).containsEntry("postalCode", "K1A 0B1");
+        var document =
+                CdsExportDemographicDocumentFixture.documentWithPharmacy(
+                        CdsExportDemographicDocumentFixture.row(),
+                        List.of(CdsExportDemographicDocumentFixture.link(9, 5)),
+                        List.of(pharmacy));
+        assertThat(new String(document, java.nio.charset.StandardCharsets.UTF_8))
+                .contains(">K1A0B1<");
+        var stored = importPharmacy(document);
+        assertThat(stored.getPostalCode()).isEqualTo("K1A 0B1");
+        assertThat(stored.getPhone2()).isEqualTo("613-555-0199");
+        assertThat(stored.getNotes()).isEqualTo("Delivers on Fridays\nAsk for Sam");
+        assertThat(stored.getServiceLocationIdentifier()).isEqualTo("SL-7");
+        assertThat(stored.getName()).isEqualTo(pharmacy.fields().get("name"));
+        assertThat(stored.getProvince()).isEqualTo("ON");
+        assertThat(lastNotices)
+                .extracting(CdsClinicalDiagnosticDto::code)
+                .contains(CdsDemographicRelationsService.PHARMACY_RESTORED)
+                .doesNotContain(CdsDemographicRelationsService.PHARMACY_NOT_RESTORED);
+    }
+
+    @Test
+    void shouldKeepAPharmacyPostalCodeChangedAfterTheExport_andReportTheCarriedValue()
+            throws Exception {
+        var document =
+                new String(
+                        CdsExportDemographicDocumentFixture.documentWithPharmacy(
+                                CdsExportDemographicDocumentFixture.row(),
+                                List.of(CdsExportDemographicDocumentFixture.link(9, 5)),
+                                List.of(CdsExportDemographicDocumentFixture.pharmacy(5, Map.of()))),
+                        java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(document).containsOnlyOnce(">K1A0B1<");
+        var stored =
+                importPharmacy(
+                        document.replace(">K1A0B1<", ">K2B0B2<")
+                                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        assertThat(stored.getPostalCode()).isEqualTo("K2B0B2");
+        assertThat(lastNotices)
+                .extracting(CdsClinicalDiagnosticDto::code)
+                .contains(CdsDemographicRelationsService.PHARMACY_NOT_RESTORED);
     }
 }

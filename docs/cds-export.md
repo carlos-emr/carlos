@@ -65,9 +65,12 @@ native supporting context, so the record goes there; Names/OtherNames is not use
 must be typed FAMC or GIV, and the CARLOS importer keeps OtherNames source-only. The importer
 keeps the record as protected source fields and restores the values `docs/cds-import.md` lists
 ("CARLOS demographic values"). An ancillary value is in the record only when populated; SQL
-NULL and empty values stay ABSENT with their presence, and the form placeholders (newsletter
-"Unknown", country of origin "-1", the empty referral-doctor wrapper, interaction warning level
-"0") are accounted for as operational. When the job does not select NewCategory these values are
+NULL and empty values stay ABSENT with their presence. The values the forms write when nobody
+chooses anything (newsletter "Unknown", country of origin "-1", the empty referral-doctor wrapper,
+interaction warning level "0", a province or health card issuer with no address or card) are what
+the chart stores, so they are carried too, and a CARLOS import restores them; they were
+accounted for as operational and left out, and the receiving chart lost them. When the job does
+not select NewCategory these values are
 decided `NO_CDS_ELEMENT_NEW_CATEGORY_NOT_SELECTED`, no record is written, the ReadMe says so, and
 the patient is not held. The record and the alert are predicted by the patient inventory from
 the same captured rows (the inventory reads them through `CdsExportDemographicSupportingReader`),
@@ -81,9 +84,11 @@ elements are unchanged.
 The same rule covers the rest of the Demographics path. Roster states that are not CDS
 enrolment events (FS fee for service, a clinic-defined status, RO without a roster date, TE
 without a termination date, RO still holding a termination, a termination reason outside CT-010,
-NR with leftover roster values) are carried with the current row in the record's `roster`
-object; an archived snapshot of such a state stays in the approved audit arrangement with the
-archive's other superseded columns. `CdsExportEnrolmentHistory` exports the latest version of
+NR, alone or with leftover roster values) are carried with the current row in the record's
+`roster` object, the enrolled provider's public columns beside its number, and a CARLOS import
+restores the state (`docs/cds-import.md`, "CARLOS demographic values"); an archived snapshot of
+such a state stays in the approved audit arrangement with the archive's other superseded
+columns. `CdsExportEnrolmentHistory` exports the latest version of
 each episode (start date and physician); earlier versions of the same episode, and an archived
 episode the current state contradicts (left open while the patient was re-rostered, cleared or
 moved to FS, or dated after the current state), are superseded snapshots
@@ -95,7 +100,10 @@ an enrolled provider whose public values no CDS name can hold remains, as a pati
 and the PreferredPharmacy values without an element (Phone 2, Notes, the service location, a
 free-text province, a postal code without a pinned jurisdiction, an over-long line or name, the
 status of a pharmacy deleted in Manage Pharmacy but still preferred) travel in the record's
-`related` list; a removed link (status 0) and a pharmacy only it names are not in the chart and
+`related` list, and so does a postal code stored with its display space (K1A 0B1), which
+PostalCode holds without it (`CANADIAN_POSTAL_DISPLAY_SEPARATOR`, the demographic postal code's
+rule; it was left out of the record and imported back as K1A0B1). A CARLOS import restores the
+preferred pharmacy's values (`docs/cds-import.md`, "CARLOS demographic values"); a removed link (status 0) and a pharmacy only it names are not in the chart and
 are not exported (`REMOVED_PHARMACY_ASSOCIATION_NOT_IN_CURRENT_CHART`), whether or not that
 pharmacy's row still exists. The links' `consentToContact` of 1 is the model default
 (`DEFAULT_CONTACT_CONSENT_HAS_NO_CDS_CARRIER`) and never holds a chart. No pharmacy value holds
@@ -177,6 +185,10 @@ restore the stored value (`docs/cds-import.md`, "CARLOS demographic values").
 | A `demographicExt` row with its `hidden` flag set (only the REST service writes it; nothing in CARLOS reads it) | Not a phone value; the row is carried whole with `hidden` | `HIDDEN_PROPERTY_CARRIED_WITH_ITS_FLAG` | `HIDDEN_OR_UNKNOWN_PROPERTY_HISTORY_REQUIRES_REVIEW` |
 | A `demographicExt` value without a key (the REST service saves one) | Carried with `key` `null` | `NO_CDS_ELEMENT_CARRIED_IN_NATIVE_DEMOGRAPHIC_RECORD` | `UNMAPPED_NATIVE_DEMOGRAPHIC_PROPERTY` |
 | Two visible rows of one phone key (a table adopted without the one-row-per-key index of V1.0.54) | The row the chart shows, the latest `date_time` and then the highest id as `DemographicExtDao.getLatestDemographicExt` orders them, gives the element; the other row is carried | `NO_CDS_ELEMENT_CARRIED_IN_NATIVE_DEMOGRAPHIC_RECORD` | `DUPLICATE_NATIVE_PHONE_PROPERTY_REQUIRES_REVIEW` |
+| A province with no street, city or postal code (the forms preselect the clinic's province for both addresses) | No `Address` of that type; the province is carried | `PROVINCE_WITHOUT_AN_ADDRESS_CARRIED` | Operational and left out: imported back as no province |
+| A health card issuer with no number, version or expiry (the forms always submit one) | No `HealthCard`; the issuer is carried | `HEALTH_CARD_ISSUER_WITHOUT_A_CARD_CARRIED` | Operational and left out: imported back as no issuer |
+| Newsletter `Unknown`, country of origin `-1`, the empty referral-doctor wrapper, warning level `0` (what the forms write when nobody chooses) | No element; carried | `NO_CDS_ELEMENT_CARRIED_IN_NATIVE_DEMOGRAPHIC_RECORD` | Operational and left out |
+| A current roster status NR (not rostered), alone or with leftover roster values | No `EnrolmentHistory`; carried in `roster` | `NO_CDS_ELEMENT_CARRIED_IN_NATIVE_DEMOGRAPHIC_RECORD` | Operational and left out: imported back as no roster status |
 
 Without NewCategory these values are decided `NO_CDS_ELEMENT_NEW_CATEGORY_NOT_SELECTED` (an
 element holding a rule's value: `NORMALIZED_VALUE_EXACT_FORM_NEW_CATEGORY_NOT_SELECTED`), and the
@@ -5172,19 +5184,25 @@ tables carry the same ruling in the source catalogue (`OPERATIONAL`), so an edit
 is no longer held because these rows exist. Earlier values stay available only through the
 approved audit arrangement in operator-guide step 6; the package does not carry them.
 
-Values that CARLOS's own forms write when nobody chooses anything are not patient facts and do
-not hold a chart. Each keeps an explicit `OPERATIONAL` disposition, and its source value stays in
-the protected capture: newsletter `Unknown` and country of origin `-1` ("Not set")
-(`UI_PLACEHOLDER_NOT_A_PATIENT_FACT`); the empty `demographicExt` row that a Master Record save
-writes for every blank listed key (`PROPERTY_KEY_OF_AN_EMPTY_EXTENSION`), on both the native and
-the imported-chart path; `rxInteractionWarningLevel` `0` ("Not specified"); and consent to contact
-`1` on contact and pharmacy links, which is the model and form default
-(`DEFAULT_CONTACT_CONSENT_HAS_NO_CDS_CARRIER`). A value that someone chose and that has no CDS 5.2
-home travels exactly in the native demographic NewCategory record (`CARLOS.NativeDemographic.v1`)
-instead of holding the chart: another newsletter choice or country, a populated unsupported
-extension, a warning level, and consent `0` ("No Consent", an instruction not to contact that
-person or pharmacy; `CONTACT_CONSENT_REFUSAL_CARRIED_IN_NATIVE_DEMOGRAPHIC_RECORD`), on native and
-imported charts alike. Only a consent spelling no screen writes still requires review.
+Values that CARLOS's own forms write when nobody chooses anything do not hold a chart. Those the
+chart stores as a value travel exactly in the native demographic NewCategory record
+(`CARLOS.NativeDemographic.v1`), as a chosen value does, and a CARLOS import restores them:
+newsletter `Unknown` and country of origin `-1` ("Not set"), the empty referral-doctor wrapper,
+`rxInteractionWarningLevel` `0` ("Not specified"), a province with no address
+(`PROVINCE_WITHOUT_AN_ADDRESS_CARRIED`) and a health card issuer with no card
+(`HEALTH_CARD_ISSUER_WITHOUT_A_CARD_CARRIED`). They were `OPERATIONAL`
+(`UI_PLACEHOLDER_NOT_A_PATIENT_FACT`, `NATIVE_EMPTY_REFERRING_PHYSICIAN_WRAPPER`,
+`PROVINCE_WITHOUT_AN_ADDRESS_IS_A_FORM_DEFAULT`, `HEALTH_CARD_ISSUER_WITHOUT_A_CARD`) and left
+out, so a receiving CARLOS lost them. Two keep an explicit `OPERATIONAL` disposition, their
+source value in the protected capture: the empty `demographicExt` row that a Master Record save
+writes for every blank listed key (`PROPERTY_KEY_OF_AN_EMPTY_EXTENSION`; it states nothing), on
+both the native and the imported-chart path, and consent to contact `1` on contact and pharmacy
+links, which is the model and form default (`DEFAULT_CONTACT_CONSENT_HAS_NO_CDS_CARRIER`). A
+value that someone chose and that has no CDS 5.2 home travels the same way instead of holding
+the chart: another newsletter choice or country, a populated unsupported extension, a warning
+level, and consent `0` ("No Consent", an instruction not to contact that person or pharmacy;
+`CONTACT_CONSENT_REFUSAL_CARRIED_IN_NATIVE_DEMOGRAPHIC_RECORD`), on native and imported charts
+alike. Only a consent spelling no screen writes still requires review.
 
 Two user-entered demographic dates are practice-administrative and have no CDS 5.2
 Demographics element: "Date Joined" (`date_joined`) and the health card "EFF Date"

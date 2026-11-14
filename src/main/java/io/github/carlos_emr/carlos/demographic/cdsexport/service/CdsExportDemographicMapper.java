@@ -95,6 +95,19 @@ public final class CdsExportDemographicMapper {
     static final String STATUS_SPELLED_AS_A_LABEL =
             "STATUS_SPELLED_AS_A_CARLOS_LABEL_EXACT_VALUE_CARRIED";
 
+    /**
+     * Rule of a province stored without a street, city or postal code: the demographic forms
+     * preselect the clinic's province for both addresses, so every patient they save has one. It
+     * states no address, so no Address is written; the stored province is carried.
+     */
+    static final String PROVINCE_WITHOUT_AN_ADDRESS = "PROVINCE_WITHOUT_AN_ADDRESS_CARRIED";
+
+    /**
+     * Rule of a health card issuer stored without a number, version or expiry: the forms always
+     * submit one. It describes no card, so no HealthCard is written; the stored issuer is carried.
+     */
+    static final String ISSUER_WITHOUT_A_CARD = "HEALTH_CARD_ISSUER_WITHOUT_A_CARD_CARRIED";
+
     public CdsExportDemographicMappingDto map(CdsExportDemographicRowDto row) {
         var state = new State(row.fields());
         String first = name(state, "first_name", "Names/LegalName/FirstName/Part");
@@ -422,9 +435,9 @@ public final class CdsExportDemographicMapper {
             // The add and edit forms always submit an issuer: add-form-personal.jsp:865-866
             // preselects the clinic's default province, or "OT" (Other). Without a number,
             // version or expiry there is no health card to describe, and HealthCard is optional,
-            // so the issuer alone states no patient fact and must not hold the chart.
-            if (state.present("hc_type"))
-                state.operational("hc_type", "HEALTH_CARD_ISSUER_WITHOUT_A_CARD");
+            // so no element is written. The stored issuer travels in the native demographic
+            // record, and a CARLOS import restores it.
+            if (state.present("hc_type")) state.carry("hc_type", ISSUER_WITHOUT_A_CARD);
             return null;
         }
         String province = CdsHealthCardAuthority.wire(state.value("hc_type"));
@@ -468,8 +481,9 @@ public final class CdsExportDemographicMapper {
             // add-form-personal.jsp:325-327 and 603-608 preselect the clinic's default province
             // (or "OT") for both the mailing and the residential address, so every saved patient
             // has a province even when no address was entered. A province alone is that form
-            // default, not a recorded address; emitting it would assert a residence.
-            state.operational(provinceColumn, "PROVINCE_WITHOUT_AN_ADDRESS_IS_A_FORM_DEFAULT");
+            // default, not a recorded address; emitting it would assert a residence. The stored
+            // province travels in the native demographic record, and a CARLOS import restores it.
+            state.carry(provinceColumn, PROVINCE_WITHOUT_AN_ADDRESS);
             return;
         }
         String path = "Address[" + type + "]/Structured/";
@@ -623,13 +637,19 @@ public final class CdsExportDemographicMapper {
         /** The value has no element that can hold it: it travels in the native record. */
         private void carry(String column) {
             var decision = CdsExportDemographicSupportingMapper.carried(value(column));
+            carry(column, decision.rule());
+        }
+
+        /** As {@link #carry(String)}, under the rule that says why no element holds it. */
+        private void carry(String column, String rule) {
+            var decision = CdsExportDemographicSupportingMapper.carried(value(column));
             assessments.put(
                     column,
                     new Assessment(
                             presence(value(column)),
                             Outcome.valueOf(decision.outcome().name()),
                             decision.destination(),
-                            decision.rule()));
+                            rule));
         }
 
         /**

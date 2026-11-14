@@ -179,6 +179,232 @@ final class CdsDemographicResidualReader {
                 true);
     }
 
+    /** The public provider columns a carried roster or care-team reference names. */
+    static final List<String> PUBLIC_PROVIDER =
+            List.of(
+                    "provider_no",
+                    "first_name",
+                    "last_name",
+                    "ohip_no",
+                    "practitionerNo",
+                    "practitionerNoType");
+
+    /** The current roster columns the record may carry, in its order. */
+    static final List<String> ROSTER =
+            List.of(
+                    "roster_status",
+                    "roster_date",
+                    "roster_termination_date",
+                    "roster_termination_reason",
+                    "roster_enrolled_to");
+
+    /**
+     * The sending chart's current roster state the record carries ({@code roster}): a state that
+     * is not a CDS enrolment event (fee for service, a clinic-defined status, NR, RO without a
+     * roster date...), whose columns no EnrolmentHistory states.
+     *
+     * @param columns by column, each roster column the record carries (a null value is SQL NULL);
+     *     a column the record does not carry is absent
+     * @param provider the enrolled provider's public columns, or null when the record names none
+     * @param readable false when the record exists but its roster is not a readable version 1 member
+     */
+    record Roster(Map<String, String> columns, Map<String, String> provider, boolean readable) {
+        static final Roster NONE = new Roster(Map.of(), null, true);
+
+        @Override
+        public String toString() {
+            return "CdsDemographicResidualReader.Roster[protected]";
+        }
+    }
+
+    /**
+     * One carried care-team reference ({@code careTeam}): the demographiccust column, the stored
+     * provider number (local to the sender) and, when the sender's captured provider row matched
+     * it exactly, that row's public columns.
+     */
+    record CareTeamMember(String column, String providerNo, Map<String, String> provider) {
+        @Override
+        public String toString() {
+            return "CdsDemographicResidualReader.CareTeamMember[protected]";
+        }
+    }
+
+    /**
+     * Reads the current roster state of the last native demographic record of this Demographics
+     * record's patient file.
+     *
+     * @return {@link Roster#NONE} when the file has no such record or it carries no roster value
+     */
+    Roster roster(CdsRecordDto demographics) throws IOException {
+        CdsRecordDto record = last(demographics);
+        if (record == null) return Roster.NONE;
+        try {
+            CdsFieldDto content = content(record);
+            if (content == null) return new Roster(Map.of(), null, false);
+            var wanted = new java.util.HashSet<String>();
+            for (String column : ROSTER) wanted.add("roster/" + column);
+            wanted.add("roster/enrolledToPublicProvider");
+            for (String column : PUBLIC_PROVIDER)
+                wanted.add("roster/enrolledToPublicProvider/" + column);
+            JsonNode root;
+            try (var token = fields.openToken(record, content)) {
+                root = CdsSourceContextParser.read(token, wanted);
+            }
+            JsonNode roster = root.get("roster");
+            if (roster == null) return Roster.NONE;
+            if (!roster.isObject()) return new Roster(Map.of(), null, false);
+            Map<String, String> columns = new java.util.TreeMap<>();
+            for (String column : ROSTER) {
+                JsonNode value = roster.get(column);
+                if (value == null) continue;
+                if (!value.isTextual() && !value.isNull()) return new Roster(Map.of(), null, false);
+                columns.put(column, value.isNull() ? null : value.textValue());
+            }
+            JsonNode named = roster.get("enrolledToPublicProvider");
+            Map<String, String> provider = null;
+            if (named != null && !named.isNull()) {
+                if (!named.isObject()) return new Roster(Map.of(), null, false);
+                provider = publicProvider(named);
+            }
+            return new Roster(
+                    java.util.Collections.unmodifiableMap(columns),
+                    provider == null ? null : java.util.Collections.unmodifiableMap(provider),
+                    true);
+        } catch (IllegalArgumentException malformed) {
+            return new Roster(Map.of(), null, false);
+        }
+    }
+
+    /**
+     * Reads the care-team references (nurse, resident, midwife) of the last native demographic
+     * record of this Demographics record's patient file.
+     *
+     * @return the references in record order, empty when there is none, or null when the record
+     *     exists but its care team is not a readable version 1 list
+     */
+    List<CareTeamMember> careTeam(CdsRecordDto demographics) throws IOException {
+        CdsRecordDto record = last(demographics);
+        if (record == null) return List.of();
+        try {
+            CdsFieldDto content = content(record);
+            if (content == null) return null;
+            var members = new java.util.HashSet<String>(Set.of("column", "providerNo", "publicProvider"));
+            for (String column : PUBLIC_PROVIDER) members.add("publicProvider/" + column);
+            List<CareTeamMember> result = new java.util.ArrayList<>();
+            try (var token = fields.openToken(record, content)) {
+                CdsSourceContextParser.read(
+                        token,
+                        Set.of(),
+                        Map.of("careTeam", members),
+                        (array, element) -> {
+                            JsonNode column = element.get("column"), number = element.get("providerNo");
+                            JsonNode named = element.get("publicProvider");
+                            if (column == null
+                                    || !column.isTextual()
+                                    || number == null
+                                    || !number.isTextual()
+                                    || named != null && !named.isNull() && !named.isObject())
+                                throw new IllegalArgumentException("CDS_SOURCE_CONTEXT_MALFORMED");
+                            result.add(
+                                    new CareTeamMember(
+                                            column.textValue(),
+                                            number.textValue(),
+                                            named == null || named.isNull()
+                                                    ? null
+                                                    : java.util.Collections.unmodifiableMap(
+                                                            publicProvider(named))));
+                        });
+            }
+            return List.copyOf(result);
+        } catch (IllegalArgumentException malformed) {
+            return null;
+        }
+    }
+
+    /**
+     * One row of the record's {@code related} list: the table, the sender's own row id (local to
+     * the sender, used only to pair a link with its pharmacy), and the carried columns asked for.
+     */
+    record RelatedRow(String table, String id, Map<String, String> fields) {
+        @Override
+        public String toString() {
+            return "CdsDemographicResidualReader.RelatedRow[protected]";
+        }
+    }
+
+    /**
+     * Reads the pharmacy rows ({@code demographicPharmacy} and {@code pharmacyInfo}) of the
+     * {@code related} list of the last native demographic record of this Demographics record's
+     * patient file, each with the carried columns named in {@code columns} (a link's
+     * {@code pharmacyID} is always read).
+     *
+     * @return the rows in record order, empty when there is none, or null when the record exists
+     *     but its related list is not a readable version 1 list
+     */
+    List<RelatedRow> relatedPharmacies(CdsRecordDto demographics, Set<String> columns)
+            throws IOException {
+        CdsRecordDto record = last(demographics);
+        if (record == null) return List.of();
+        try {
+            CdsFieldDto content = content(record);
+            if (content == null) return null;
+            var members = new java.util.HashSet<String>(Set.of("table", "id", "fields"));
+            for (String column : columns) members.add("fields/" + column);
+            members.add("fields/pharmacyID");
+            List<RelatedRow> result = new java.util.ArrayList<>();
+            try (var token = fields.openToken(record, content)) {
+                CdsSourceContextParser.read(
+                        token,
+                        Set.of(),
+                        Map.of("related", members),
+                        (array, element) -> {
+                            JsonNode table = element.get("table"), id = element.get("id");
+                            JsonNode values = element.get("fields");
+                            if (table == null
+                                    || !table.isTextual()
+                                    || id != null && !id.isTextual() && !id.isNull()
+                                    || values != null && !values.isObject())
+                                throw new IllegalArgumentException("CDS_SOURCE_CONTEXT_MALFORMED");
+                            if (!Set.of("demographicPharmacy", "pharmacyInfo")
+                                    .contains(table.textValue())) return;
+                            Map<String, String> carried = new java.util.TreeMap<>();
+                            if (values != null)
+                                for (var it = values.fields(); it.hasNext(); ) {
+                                    var entry = it.next();
+                                    if (!entry.getValue().isTextual() && !entry.getValue().isNull())
+                                        throw new IllegalArgumentException(
+                                                "CDS_SOURCE_CONTEXT_MALFORMED");
+                                    carried.put(
+                                            entry.getKey(),
+                                            entry.getValue().isNull()
+                                                    ? null
+                                                    : entry.getValue().textValue());
+                                }
+                            result.add(
+                                    new RelatedRow(
+                                            table.textValue(),
+                                            id == null || id.isNull() ? null : id.textValue(),
+                                            java.util.Collections.unmodifiableMap(carried)));
+                        });
+            }
+            return List.copyOf(result);
+        } catch (IllegalArgumentException malformed) {
+            return null;
+        }
+    }
+
+    private static Map<String, String> publicProvider(JsonNode named) {
+        Map<String, String> provider = new java.util.TreeMap<>();
+        for (String column : PUBLIC_PROVIDER) {
+            JsonNode value = named.get(column);
+            if (value == null) continue;
+            if (!value.isTextual() && !value.isNull())
+                throw new IllegalArgumentException("CDS_SOURCE_CONTEXT_MALFORMED");
+            provider.put(column, value.isNull() ? null : value.textValue());
+        }
+        return provider;
+    }
+
     /**
      * @return the carried note of this Demographics record's patient file, or null when the
      *     file's native demographic record (if any) carries no note

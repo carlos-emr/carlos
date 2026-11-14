@@ -39,9 +39,10 @@ import static io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFie
  * Closes the explicitly reviewed ancillary base-row field identities after demographic
  * reconcilers. Absent values remain absent; a populated value that CDS 5.2 Demographics has no
  * element for is carried in the native demographic NewCategory record
- * ({@link CdsExportDemographicSupportingMapper}) and never holds the chart. Form placeholders
- * and operational identity metadata are never presented as clinical history. This boundary does
- * not claim associated-row or retained-source completeness.
+ * ({@link CdsExportDemographicSupportingMapper}) and never holds the chart, the values the forms
+ * write when nobody chooses anything included. Operational identity metadata is never presented
+ * as clinical history. This boundary does not claim associated-row or retained-source
+ * completeness.
  */
 public final class CdsExportDemographicAncillaryReconciler {
     private static final Set<String> OPERATIONAL =
@@ -164,28 +165,15 @@ public final class CdsExportDemographicAncillaryReconciler {
                                 "CAPTURED_OPERATIONAL_OR_DERIVED_IDENTITY"));
                 continue;
             }
-            // Form placeholders, not patient facts: add-form-personal.jsp:738-739 preselects
-            // newsletter "Unknown" and edit-form-personal.jsp:994-999 re-posts it for an empty
-            // value; both forms offer country of origin "-1" ("Not set") as the first option
-            // (add-form-personal.jsp:969-970, edit-form-personal.jsp:1426). Each save writes
-            // them through DemographicAddRecord2Action/DemographicUpdate2Action, and
-            // DemographicManagerImpl writes the referral-doctor wrapper with nothing inside. The
-            // value stays in the protected capture with this explicit disposition.
-            if (CdsExportDemographicSupportingMapper.placeholder(column, value)) {
-                fields.put(
-                        key,
-                        new CdsExportFieldAssessmentDto(
-                                presence,
-                                Outcome.OPERATIONAL,
-                                "",
-                                column.equals("family_doctor")
-                                        ? "NATIVE_EMPTY_REFERRING_PHYSICIAN_WRAPPER"
-                                        : "UI_PLACEHOLDER_NOT_A_PATIENT_FACT"));
-                continue;
-            }
-            // Any other populated value has no CDS 5.2 Demographics element and travels in the
-            // native demographic NewCategory record (CdsExportDemographicSupportingMapper); it
-            // never holds the chart.
+            // A populated value has no CDS 5.2 Demographics element and travels in the native
+            // demographic NewCategory record (CdsExportDemographicSupportingMapper); it never
+            // holds the chart. That includes the values the forms write when nobody chooses
+            // anything: add-form-personal.jsp:738-739 preselects newsletter "Unknown" and
+            // edit-form-personal.jsp:994-999 re-posts it for an empty value; both forms offer
+            // country of origin "-1" ("Not set") as the first option (add-form-personal.jsp:
+            // 969-970, edit-form-personal.jsp:1426); DemographicManagerImpl and the forms write
+            // the referral-doctor wrapper with nothing inside. They are what the chart stores,
+            // and a CARLOS import restores them.
             fields.put(
                     key,
                     presence == Presence.VALUE

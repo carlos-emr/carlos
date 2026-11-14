@@ -30,9 +30,13 @@ import java.util.Map;
  *
  * <p>{@code carried} and {@code properties} are what a CARLOS sender's native demographic record
  * restores: the exact stored value of each base-row column whose element the sender could not
- * write exactly (by column; a null value is SQL NULL), and the {@code demographicExt} rows it
- * carries. The writer stores them over the element projection; the exporter's projection evidence
- * reads them back. A preparation sealed before they existed decodes them empty
+ * write exactly or that no element states (by column; a null value is SQL NULL), the sender's
+ * current roster state when it is not a CDS enrolment event, and the {@code demographicExt} rows
+ * it carries. {@code careTeam} names, by {@code demographiccust} column (cust1 nurse, cust2
+ * resident, cust4 midwife), the local provider matched from the public columns the record
+ * carries for the sender's care-team provider (the sender's own provider number is never
+ * stored). The writer stores them over the element projection; the exporter's projection
+ * evidence reads them back. A preparation sealed before they existed decodes them empty
  * ({@code CdsPreparedDemographicDefaults}).
  */
 public record CdsDemographicNativeDto(
@@ -55,8 +59,12 @@ public record CdsDemographicNativeDto(
         CdsDemographicRelationsDto relations,
         List<CdsClinicalDiagnosticDto> diagnostics,
         Map<String, String> carried,
-        List<Property> properties) {
+        List<Property> properties,
+        Map<String, String> careTeam) {
     public static final String MIDDLE_NAMES_SCALAR = "Names/LegalName/OtherName/GIV";
+
+    /** The care-team columns of {@code demographiccust} a restored provider can fill. */
+    public static final java.util.Set<String> CARE_TEAM = java.util.Set.of("cust1", "cust2", "cust4");
 
     public CdsDemographicNativeDto {
         scalars = Map.copyOf(scalars);
@@ -68,6 +76,13 @@ public record CdsDemographicNativeDto(
                 java.util.Collections.unmodifiableMap(
                         new java.util.TreeMap<>(carried == null ? Map.of() : carried));
         properties = properties == null ? List.of() : List.copyOf(properties);
+        careTeam =
+                java.util.Collections.unmodifiableMap(
+                        new java.util.TreeMap<>(careTeam == null ? Map.of() : careTeam));
+        for (var member : careTeam.entrySet())
+            if (!CARE_TEAM.contains(member.getKey()) || member.getValue() == null)
+                throw new IllegalArgumentException("DEMOGRAPHIC_PREPARED_CARE_TEAM_INVALID");
+            else bounded(member.getValue(), 6);
         if (firstName == null || lastName == null || birthDate == null || gender == null)
             throw new IllegalArgumentException("DEMOGRAPHIC_PREPARED_REQUIRED_VALUE_MISSING");
         bounded(firstName, 50);
@@ -81,6 +96,52 @@ public record CdsDemographicNativeDto(
         var birth = java.time.LocalDate.parse(birthDate);
         if (birth.getYear() < 1 || birth.getYear() > 9999)
             throw new IllegalArgumentException("DEMOGRAPHIC_PREPARED_DATE_INVALID");
+    }
+
+    /** A projection with no care-team provider restored. */
+    public CdsDemographicNativeDto(
+            String sourceId,
+            String firstName,
+            String lastName,
+            String birthDate,
+            String healthNumber,
+            String issuer,
+            String gender,
+            String status,
+            Map<String, String> scalars,
+            Address mailing,
+            Address residential,
+            Phone home,
+            Phone work,
+            Phone cell,
+            String primaryProvider,
+            CdsDemographicDetailsDto details,
+            CdsDemographicRelationsDto relations,
+            List<CdsClinicalDiagnosticDto> diagnostics,
+            Map<String, String> carried,
+            List<Property> properties) {
+        this(
+                sourceId,
+                firstName,
+                lastName,
+                birthDate,
+                healthNumber,
+                issuer,
+                gender,
+                status,
+                scalars,
+                mailing,
+                residential,
+                home,
+                work,
+                cell,
+                primaryProvider,
+                details,
+                relations,
+                diagnostics,
+                carried,
+                properties,
+                Map.of());
     }
 
     /** A projection with nothing restored from a CARLOS sender's native demographic record. */

@@ -23,16 +23,68 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.dto;
 
 import java.util.List;
 
-/** Bounded external source relations; these identities never resolve or create a local provider. */
+/**
+ * Bounded external source relations; these identities never resolve or create a local provider.
+ *
+ * <p>{@code pharmacyCarried} holds, by {@code pharmacyInfo} column, the exact stored values of the
+ * preferred pharmacy a CARLOS sender carries in its native demographic record because
+ * PreferredPharmacy could not hold them exactly (a postal code's display space, Phone 2, Notes,
+ * the service location, a free-text province...), each proven against the element the sender
+ * wrote. The writer stores them over the element projection. A preparation sealed before they
+ * were read back decodes them empty ({@code CdsPreparedDemographicDefaults}).
+ */
 public record CdsDemographicRelationsDto(
         Person familyPhysician,
         Person referringPhysician,
         Pharmacy preferredPharmacy,
         int facilityId,
-        List<CdsClinicalDiagnosticDto> diagnostics) {
+        List<CdsClinicalDiagnosticDto> diagnostics,
+        java.util.Map<String, String> pharmacyCarried) {
+    /** The {@code pharmacyInfo} columns a carried value can be restored to, with their capacity. */
+    public static final java.util.Map<String, Integer> PHARMACY_COLUMNS =
+            java.util.Map.ofEntries(
+                    java.util.Map.entry("name", 255),
+                    java.util.Map.entry("address", 16_777_215),
+                    java.util.Map.entry("city", 255),
+                    java.util.Map.entry("province", 255),
+                    java.util.Map.entry("postalCode", 20),
+                    java.util.Map.entry("phone1", 20),
+                    java.util.Map.entry("phone2", 20),
+                    java.util.Map.entry("fax", 20),
+                    java.util.Map.entry("email", 100),
+                    java.util.Map.entry("notes", 16_777_215),
+                    java.util.Map.entry("status", 1),
+                    java.util.Map.entry("serviceLocationIdentifier", 255));
+
     public CdsDemographicRelationsDto {
         diagnostics = List.copyOf(diagnostics);
-        if (facilityId < 0) throw new IllegalArgumentException("DEMOGRAPHIC_RELATIONS_INVALID");
+        // A restored value can be SQL NULL, which Map.copyOf refuses.
+        pharmacyCarried =
+                java.util.Collections.unmodifiableMap(
+                        new java.util.TreeMap<>(
+                                pharmacyCarried == null ? java.util.Map.of() : pharmacyCarried));
+        if (facilityId < 0
+                || !pharmacyCarried.isEmpty() && preferredPharmacy == null
+                || !PHARMACY_COLUMNS.keySet().containsAll(pharmacyCarried.keySet()))
+            throw new IllegalArgumentException("DEMOGRAPHIC_RELATIONS_INVALID");
+        for (var value : pharmacyCarried.entrySet())
+            bounded(value.getValue(), PHARMACY_COLUMNS.get(value.getKey()));
+    }
+
+    /** Relations with nothing restored from a CARLOS sender's native demographic record. */
+    public CdsDemographicRelationsDto(
+            Person familyPhysician,
+            Person referringPhysician,
+            Pharmacy preferredPharmacy,
+            int facilityId,
+            List<CdsClinicalDiagnosticDto> diagnostics) {
+        this(
+                familyPhysician,
+                referringPhysician,
+                preferredPharmacy,
+                facilityId,
+                diagnostics,
+                java.util.Map.of());
     }
 
     public static CdsDemographicRelationsDto empty() {

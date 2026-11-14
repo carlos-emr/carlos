@@ -154,12 +154,136 @@ public class CdsDemographicRelationsService {
                             values.get(scope + "/EmailAddress"));
             notice(notices, "CDS_PHARMACY_CONSENT_NOT_ASSERTED", scope);
         } else if (name != null) notice(notices, "CDS_CONTEXT_PHARMACY_SOURCE_ONLY", scope);
+        Map<String, String> carried =
+                pharmacy == null ? Map.of() : carriedPharmacy(record, projection, notices);
         return new CdsDemographicRelationsDto(
                 family,
                 referring,
                 pharmacy,
                 command.facilityId() == null ? 0 : command.facilityId(),
-                List.copyOf(notices.values()));
+                List.copyOf(notices.values()),
+                carried);
+    }
+
+    /** Reported once when a carried preferred-pharmacy value was restored. */
+    static final String PHARMACY_RESTORED = "CDS_PHARMACY_CARRIED_VALUES_RESTORED";
+
+    /** Reported for a carried preferred-pharmacy value that does not prove itself or fit. */
+    static final String PHARMACY_NOT_RESTORED = "CDS_PHARMACY_CARRIED_VALUE_NOT_RESTORED";
+
+    /**
+     * The exact stored values of the preferred pharmacy a CARLOS sender carries in its native
+     * demographic record because PreferredPharmacy could not hold them exactly, each proven
+     * against the element the sender wrote ({@code CdsExportPharmacyMapper}): a column with no
+     * element (Phone 2, Notes, the service location, the status of a pharmacy deleted in Manage
+     * Pharmacy) is restored as carried; one the sender left out (a free-text province, a line
+     * longer than Line1) only when the element is absent; one written in another form only when
+     * the element is that form of the carried value (a postal code without its display space,
+     * the {@code xs:token} form of a line, city, phone or e-mail, a name with U+FFFD). The
+     * preferred pharmacy's row is the related {@code pharmacyInfo} row that no carried link
+     * names: the sender carries every other pharmacy with its link. Anything else is reported
+     * and stays in the import's retained record.
+     */
+    private Map<String, String> carriedPharmacy(
+            CdsRecordDto record,
+            Projection projection,
+            Map<String, CdsClinicalDiagnosticDto> notices)
+            throws IOException {
+        var rows =
+                new CdsDemographicResidualReader(fields)
+                        .relatedPharmacies(
+                                record, CdsDemographicRelationsDto.PHARMACY_COLUMNS.keySet());
+        String scope = "PreferredPharmacy";
+        if (rows == null) {
+            notice(notices, PHARMACY_NOT_RESTORED, scope);
+            return Map.of();
+        }
+        var linked = new HashSet<String>();
+        for (var row : rows)
+            if (row.table().equals("demographicPharmacy")) linked.add(row.fields().get("pharmacyID"));
+        CdsDemographicResidualReader.RelatedRow preferred = null;
+        for (var row : rows) {
+            if (!row.table().equals("pharmacyInfo") || linked.contains(row.id())) continue;
+            if (preferred != null) {
+                // Two pharmacies no carried link names: neither can be told for the element's.
+                notice(notices, PHARMACY_NOT_RESTORED, scope);
+                return Map.of();
+            }
+            preferred = row;
+        }
+        if (preferred == null) return Map.of();
+        var values = projection.values();
+        Map<String, String> restored = new java.util.TreeMap<>();
+        for (var entry : preferred.fields().entrySet()) {
+            String column = entry.getKey(), value = entry.getValue();
+            if (!CdsDemographicRelationsDto.PHARMACY_COLUMNS.containsKey(column)) continue;
+            boolean proven =
+                    switch (column) {
+                        case "name" ->
+                                value != null
+                                        && io.github.carlos_emr.carlos.demographic.cds.contract
+                                                .CdsNativeExtensionContract.xmlElementText(value)
+                                                .equals(values.get(scope + "/Name"));
+                        case "address" ->
+                                values.get(scope + "/Address/Formatted") == null
+                                        && values.get(scope + "/Address/Structured/Line2") == null
+                                        && values.get(scope + "/Address/Structured/Line3") == null
+                                        && written(
+                                                values.get(scope + "/Address/Structured/Line1"),
+                                                value);
+                        case "city" -> written(values.get(scope + "/Address/Structured/City"), value);
+                        case "province" ->
+                                values.get(scope + "/Address/Structured/CountrySubdivisionCode")
+                                        == null;
+                        case "postalCode" -> {
+                            String element =
+                                    values.get(scope + "/Address/Structured/PostalZipCode/PostalCode");
+                            if (element == null)
+                                element =
+                                        values.get(
+                                                scope + "/Address/Structured/PostalZipCode/ZipCode");
+                            yield element == null
+                                    || value != null && element.equals(postalElement(value));
+                        }
+                        case "phone1" -> written(values.get(scope + "/PhoneNumber/phoneNumber"), value);
+                        case "fax" -> written(values.get(scope + "/FaxNumber/phoneNumber"), value);
+                        case "email" -> written(values.get(scope + "/EmailAddress"), value);
+                        // No PreferredPharmacy element holds these.
+                        case "phone2", "notes", "serviceLocationIdentifier", "status" -> true;
+                        default -> false;
+                    };
+            boolean storable =
+                    value == null
+                            ? !column.equals("status")
+                            : io.github.carlos_emr.carlos.demographic.cds.contract
+                                            .CdsNativeExtensionContract.storable(value)
+                                    && value.codePointCount(0, value.length())
+                                            <= CdsDemographicRelationsDto.PHARMACY_COLUMNS.get(column)
+                                    && !(column.equals("status") && value.isEmpty());
+            if (proven && storable) restored.put(column, value);
+            else notice(notices, PHARMACY_NOT_RESTORED, scope);
+        }
+        if (!restored.isEmpty()) notice(notices, PHARMACY_RESTORED, scope);
+        return restored;
+    }
+
+    /** An element the exporter left out, or wrote as the value's xs:token form. */
+    private static boolean written(String element, String value) {
+        return element == null
+                || value != null
+                        && element.equals(
+                                io.github.carlos_emr.carlos.demographic.cds.contract
+                                        .CdsDemographicCarrierContract.token(value));
+    }
+
+    /** A postal code as PostalCode holds it: a Canadian code without its display space. */
+    private static String postalElement(String value) {
+        String token =
+                io.github.carlos_emr.carlos.demographic.cds.contract.CdsDemographicCarrierContract
+                        .token(value);
+        return token.matches("[A-Za-z][0-9][A-Za-z] [0-9][A-Za-z][0-9]")
+                ? token.substring(0, 3) + token.substring(4)
+                : token;
     }
 
     private Person person(
@@ -281,6 +405,9 @@ public class CdsDemographicRelationsService {
             row.setEmail(p.email());
             row.setStatus(PharmacyInfo.ACTIVE);
             row.setAddDate(new Date());
+            // The exact values a CARLOS sender carries for its preferred pharmacy, proven when
+            // the relations were prepared (carriedPharmacy).
+            value.pharmacyCarried().forEach((column, carried) -> restore(row, column, carried));
             pharmacies.persist(row);
             pharmacies.flush();
             int pharmacyId = requiredId(row.getId());
@@ -298,6 +425,25 @@ public class CdsDemographicRelationsService {
                     "demographicPharmacy", Integer.toString(requiredId(association.getId())));
         }
         return Map.copyOf(references);
+    }
+
+    /** Stores one carried preferred-pharmacy column exactly. */
+    static void restore(PharmacyInfo row, String column, String value) {
+        switch (column) {
+            case "name" -> row.setName(value);
+            case "address" -> row.setAddress(value);
+            case "city" -> row.setCity(value);
+            case "province" -> row.setProvince(value);
+            case "postalCode" -> row.setPostalCode(value);
+            case "phone1" -> row.setPhone1(value);
+            case "phone2" -> row.setPhone2(value);
+            case "fax" -> row.setFax(value);
+            case "email" -> row.setEmail(value);
+            case "notes" -> row.setNotes(value);
+            case "serviceLocationIdentifier" -> row.setServiceLocationIdentifier(value);
+            case "status" -> row.setStatus(value.charAt(0));
+            default -> throw new CdsImportException("DEMOGRAPHIC_PHARMACY_CARRIED_COLUMN_INVALID");
+        }
     }
 
     private void physician(

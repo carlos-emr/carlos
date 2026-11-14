@@ -106,10 +106,15 @@ public final class CdsExportRetainedPharmacyBinding {
         if (links.isEmpty() && pharmacies.isEmpty()) return result(index, address, ids, groups, fieldIds, source, preparation, null, null, values, checkpoint);
         if (links.size() != 1 || pharmacies.size() != 1 || preparation == null || ids.isEmpty()) baseline();
         var link = links.getFirst(); var pharmacy = pharmacies.getFirst();
+        // The values a CARLOS sender carried for its preferred pharmacy were stored over the
+        // element projection (CdsDemographicRelationsService.carriedPharmacy).
+        var carried = evidence.preparation().relations().pharmacyCarried();
         if (!matches(link, "demographic_no", Integer.toString(patient)) || !matches(link, "pharmacyID", pharmacy.id())
                 || !matches(link, "status", "1") || !matches(link, "preferredOrder", "1") || !matches(link, "consentToContact", null)
-                || !matches(pharmacy, "status", "1")) baseline();
-        for (var entry : prepared(preparation).entrySet()) if (!matches(pharmacy, entry.getKey(), entry.getValue())) baseline();
+                || !matches(pharmacy, "status", carried.getOrDefault("status", "1"))) baseline();
+        var expected = prepared(preparation);
+        for (var entry : carried.entrySet()) if (!entry.getKey().equals("status")) expected.put(entry.getKey(), entry.getValue());
+        for (var entry : expected.entrySet()) if (!matches(pharmacy, entry.getKey(), entry.getValue())) baseline();
         return result(index, address, ids, groups, fieldIds, source, preparation, link, pharmacy, values, checkpoint);
     }
     static Map<String, String> prepared(CdsDemographicRelationsDto.Pharmacy value) {

@@ -28,8 +28,10 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
  * Transient demographic defaults, applied only after the original payload seal is verified.
  *
  * <p>Preparations sealed before a CARLOS sender's native demographic record was read back omit
- * {@code carried} and {@code properties}; they mean "nothing restored" (an empty object and an
- * empty list) there. The stored bytes and seal are never rewritten; only the decoded tree is
+ * {@code carried} and {@code properties}, those sealed before its care team was restored omit
+ * {@code careTeam}, and those sealed before its preferred pharmacy's carried columns were read
+ * back omit {@code relations.pharmacyCarried}; they mean "nothing restored" (an empty object and
+ * an empty list) there. The stored bytes and seal are never rewritten; only the decoded tree is
  * translated. A present value of another shape is refused rather than guessed.
  */
 public final class CdsPreparedDemographicDefaults {
@@ -45,6 +47,15 @@ public final class CdsPreparedDemographicDefaults {
         if (!result.has("properties")) result.putArray("properties");
         else if (!result.get("properties").isArray())
             throw new IllegalArgumentException("CDS_PREPARED_DEMOGRAPHIC_DEFAULTS_INVALID");
+        if (!result.has("careTeam")) result.putObject("careTeam");
+        else if (!result.get("careTeam").isObject())
+            throw new IllegalArgumentException("CDS_PREPARED_DEMOGRAPHIC_DEFAULTS_INVALID");
+        // The preferred pharmacy's carried columns, read back since the relations were sealed.
+        if (result.get("relations") instanceof ObjectNode relations) {
+            if (!relations.has("pharmacyCarried")) relations.putObject("pharmacyCarried");
+            else if (!relations.get("pharmacyCarried").isObject())
+                throw new IllegalArgumentException("CDS_PREPARED_DEMOGRAPHIC_DEFAULTS_INVALID");
+        }
         return result;
     }
 }

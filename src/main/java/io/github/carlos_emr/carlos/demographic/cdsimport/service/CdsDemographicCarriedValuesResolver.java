@@ -61,11 +61,23 @@ import java.util.function.Consumer;
  * stored, except a key the patient already has a row for (CARLOS keeps one row per key) and a
  * flag CARLOS does not write.
  *
+ * <p>The record also carries the base-row columns no Demographics element states (alias,
+ * preferred name, pronoun, gender identity, Date Joined, the health card's effective date, the
+ * form defaults such as newsletter "Unknown"...). No element can contradict them, so each is
+ * restored when the receiving column can store it ({@link #NATIVE_ONLY}). A current roster state
+ * that is not a CDS enrolment event (fee for service, NR, a clinic-defined status, RO without a
+ * roster date...) is restored whole ({@link #rosterRestored}), unless the document states an open
+ * enrolment the sender could not have written beside it.
+ *
  * <p>The record used is the last one in the patient file: a CARLOS export writes the sending
  * chart's own record after any retained copy of an earlier sender's, and always writes one when it
  * re-exports such a copy, so an earlier sender's values are never taken for this chart's. A
  * provider number is never restored: it is local to the sender, and the physician is matched from
- * the PrimaryPhysician element.
+ * the PrimaryPhysician element (an enrolled or care-team provider from the public columns the
+ * record carries with it). The gender and pronoun list ids ({@code genderId}, {@code pronounId})
+ * and the MyOSCAR user name stay source only: they name entries of lists and an account of the
+ * sending installation that CARLOS has no table or screen for, and the patient record does not
+ * map them.
  */
 final class CdsDemographicCarriedValuesResolver {
     /** Reported once when a carried value was restored into the new chart. */
@@ -89,6 +101,39 @@ final class CdsDemographicCarriedValuesResolver {
     /** Address columns by their element part, mailing (type M) and residential (type R). */
     private static final Map<String, String> ADDRESS = address();
 
+    /**
+     * The base-row columns no Demographics element states, which a CARLOS sender carries whenever
+     * they hold a value (the form defaults among them), and the importer restores as stored.
+     */
+    static final Set<String> NATIVE_ONLY =
+            Set.of(
+                    "alias",
+                    "anonymous",
+                    "children",
+                    "citizenship",
+                    "consentToUseEmailForCare",
+                    "country_of_origin",
+                    "date_joined",
+                    "eff_date",
+                    "end_date",
+                    "family_doctor",
+                    "gender",
+                    "newsletter",
+                    "pcn_indicator",
+                    "pref_name",
+                    "previousAddress",
+                    "pronoun",
+                    "sourceOfIncome");
+
+    /** The current roster columns restored together when the sender carries its roster state. */
+    static final List<String> ROSTER =
+            List.of(
+                    "roster_status",
+                    "roster_date",
+                    "roster_termination_date",
+                    "roster_termination_reason",
+                    "roster_enrolled_to");
+
     /** The base-row columns whose exact value the importer restores, with their element. */
     static final Map<String, String> COLUMNS = columns();
 
@@ -111,13 +156,26 @@ final class CdsDemographicCarriedValuesResolver {
         this.fields = Objects.requireNonNull(fields);
     }
 
-    /** What the importer restores over the element projection of one new chart. */
-    record Restored(Map<String, String> columns, List<CdsDemographicNativeDto.Property> properties) {
-        static final Restored NONE = new Restored(Map.of(), List.of());
+    /**
+     * What the importer restores over the element projection of one new chart.
+     *
+     * @param enrolledProvider the public columns of the enrolled provider of a restored roster
+     *     state, which the caller matches to a local provider, or null
+     */
+    record Restored(
+            Map<String, String> columns,
+            List<CdsDemographicNativeDto.Property> properties,
+            Map<String, String> enrolledProvider) {
+        static final Restored NONE = new Restored(Map.of(), List.of(), null);
 
         Restored {
             columns = java.util.Collections.unmodifiableMap(new TreeMap<>(columns));
             properties = List.copyOf(properties);
+        }
+
+        /** Whether the sender's current roster state is restored (its columns are in columns). */
+        boolean rosterRestored() {
+            return columns.containsKey("roster_status");
         }
 
         @Override
@@ -146,25 +204,42 @@ final class CdsDemographicCarriedValuesResolver {
      * @param middleNames the middle names the importer projects from the OtherName parts, or
      *     null when it projects none
      * @param phoneKeys the {@code demographicExt} keys the importer writes from the elements
+     * @param openEnrolment whether the latest EnrolmentHistory the importer reads is an open
+     *     enrolment (status 1); a sender that carries its roster state writes none for it
      */
     Restored resolve(
             CdsRecordDto record,
             String middleNames,
             Set<String> phoneKeys,
+            boolean openEnrolment,
             Consumer<CdsClinicalDiagnosticDto> notice)
             throws IOException {
-        var carried =
-                new CdsDemographicResidualReader(fields).carried(record, COLUMNS.keySet());
+        var reader = new CdsDemographicResidualReader(fields);
+        var carried = reader.carried(record, COLUMNS.keySet());
         if (!carried.readable()) {
             notice.accept(new CdsClinicalDiagnosticDto(NOT_APPLIED, "NewCategory"));
             return Restored.NONE;
         }
+        var roster = reader.roster(record);
         if (carried.columns().isEmpty()
                 && carried.properties() != null
-                && carried.properties().isEmpty()) return Restored.NONE;
+                && carried.properties().isEmpty()
+                && roster.readable()
+                && roster.columns().isEmpty()) return Restored.NONE;
         var elements = elements(record);
         var columns = new TreeMap<String, String>();
         decide(carried.columns(), elements, middleNames, columns, notice);
+        Map<String, String> enrolledProvider = null;
+        if (!roster.readable())
+            notice.accept(new CdsClinicalDiagnosticDto(NOT_RESTORED, "NewCategory"));
+        else if (rosterState(roster.columns()))
+            if (rosterRestored(roster.columns(), openEnrolment, columns)) {
+                // The enrolled provider's number is the sender's own: the caller matches the
+                // public columns carried with it to a local provider, or stores none.
+                if (roster.columns().get("roster_enrolled_to") != null)
+                    enrolledProvider =
+                            roster.provider() == null ? Map.of() : roster.provider();
+            } else notice.accept(new CdsClinicalDiagnosticDto(NOT_RESTORED, "Enrolment"));
         var properties = new ArrayList<CdsDemographicNativeDto.Property>();
         if (carried.properties() == null)
             notice.accept(new CdsClinicalDiagnosticDto(NOT_RESTORED, "NewCategory"));
@@ -193,7 +268,46 @@ final class CdsDemographicCarriedValuesResolver {
         }
         if (!columns.isEmpty() || !properties.isEmpty())
             notice.accept(new CdsClinicalDiagnosticDto(RESTORED, "Demographics"));
-        return new Restored(columns, properties);
+        return new Restored(columns, properties, enrolledProvider);
+    }
+
+    /**
+     * Whether the carried roster columns describe the sender's current roster state. A sender
+     * carries the roster columns of a state that is not a CDS enrolment event; when the state is
+     * an event it carries at most the enrolled provider's number (a number with no provider
+     * record), which is local to the sender and restores nothing.
+     */
+    private static boolean rosterState(Map<String, String> carried) {
+        for (String column : ROSTER)
+            if (!column.equals("roster_enrolled_to") && carried.containsKey(column)) return true;
+        return false;
+    }
+
+    /**
+     * Restores the sender's current roster state whole: each roster column it carries as stored,
+     * each one it does not carry empty (the sender's column held nothing), over the projection of
+     * the EnrolmentHistory elements, which hold only the episodes before it. The enrolled
+     * provider is decided by the caller. A document whose latest EnrolmentHistory is an open
+     * enrolment states a current enrolment the sender could not have written beside a carried
+     * state: nothing is restored.
+     *
+     * @return false when the state cannot be restored
+     */
+    private static boolean rosterRestored(
+            Map<String, String> carried, boolean openEnrolment, Map<String, String> result) {
+        if (openEnrolment) return false;
+        var state = new TreeMap<String, String>();
+        for (String column : ROSTER) {
+            if (column.equals("roster_enrolled_to")) continue;
+            String value = carried.get(column);
+            if (value != null && !storable(column, value)) return false;
+            // The patient record stores no roster status as empty text.
+            state.put(column, value == null && column.equals("roster_status") ? "" : value);
+        }
+        result.putAll(state);
+        // The provider is the caller's to match; until then the chart names none.
+        result.put("roster_enrolled_to", null);
+        return true;
     }
 
     /** The element values the proofs compare, read from the Demographics record. */
@@ -421,7 +535,9 @@ final class CdsDemographicCarriedValuesResolver {
                             yield element == null
                                     || value != null && element.equals(postalElement(value));
                         }
-                        default -> false;
+                        // No Demographics element states these: the sending chart's own record
+                        // is the only source, and nothing can contradict it.
+                        default -> NATIVE_ONLY.contains(column);
                     };
             if (proven && storable(column, value)) result.put(column, value);
             else notice.accept(new CdsClinicalDiagnosticDto(NOT_RESTORED, COLUMNS.get(column)));
@@ -491,11 +607,22 @@ final class CdsDemographicCarriedValuesResolver {
     @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "compares a carried province with the trimmed upper-case form the patient record itself stores, to decide whether the column can hold it exactly; a value kept or reported as not restored either way, not a trust decision")
     static boolean storable(String column, String value) {
         if (value == null)
-            // first_name, last_name and sex are NOT NULL, and the patient record writes a NULL
-            // status or phone as empty text; the other restored columns keep SQL NULL.
+            // first_name, last_name, sex and pref_name are NOT NULL, and the patient record
+            // writes a NULL status, phone, alias, pronoun, gender or referral-doctor wrapper as
+            // empty text; the other restored columns keep SQL NULL.
             return !Set.of(
-                            "first_name", "last_name", "sex", "patient_status", "phone", "phone2",
-                            "chart_no")
+                            "first_name",
+                            "last_name",
+                            "sex",
+                            "patient_status",
+                            "phone",
+                            "phone2",
+                            "chart_no",
+                            "pref_name",
+                            "alias",
+                            "pronoun",
+                            "gender",
+                            "family_doctor")
                     .contains(column);
         if (!CdsNativeExtensionContract.storable(value)) return false;
         // The patient record trims the birth columns, so only a trimmed value is kept exactly.
@@ -538,7 +665,32 @@ final class CdsDemographicCarriedValuesResolver {
             case "residentialProvince" -> length <= Demographic.RESIDENTIAL_PROVINCE_MAX_LENGTH;
             // DATE columns: only a calendar date can be stored through the patient record (a
             // zero date cannot be written back).
-            case "hc_renew_date", "patient_status_date" -> date(value);
+            case "hc_renew_date",
+                    "patient_status_date",
+                    "date_joined",
+                    "eff_date",
+                    "end_date",
+                    "roster_date",
+                    "roster_termination_date" -> date(value);
+            // The columns no element states, at their V1 baseline capacities.
+            case "alias" -> length <= Demographic.ALIAS_MAX_LENGTH;
+            case "pref_name" -> length <= Demographic.PREF_NAME_MAX_LENGTH;
+            case "pronoun" -> length <= Demographic.PRONOUN_MAX_LENGTH;
+            case "gender" -> length <= Demographic.GENDER_MAX_LENGTH;
+            case "anonymous", "newsletter" -> length <= 32;
+            case "children" -> length <= Demographic.CHILDREN_MAX_LENGTH;
+            case "citizenship" -> length <= Demographic.CITIZENSHIP_MAX_LENGTH;
+            // char(4): MariaDB drops a CHAR value's trailing spaces when it is read.
+            case "country_of_origin" -> length <= 4 && !value.endsWith(" ");
+            case "family_doctor" -> length <= Demographic.FAMILY_DOCTOR_MAX_LENGTH;
+            case "pcn_indicator" -> length <= Demographic.PCN_INDICATOR_MAX_LENGTH;
+            case "previousAddress" -> length <= Demographic.PREVIOUS_ADDRESS_MAX_LENGTH;
+            case "sourceOfIncome" -> length <= Demographic.SOURCE_OF_INCOME_MAX_LENGTH;
+            // tinyint(1), mapped to a Boolean by the patient record.
+            case "consentToUseEmailForCare" -> value.equals("0") || value.equals("1");
+            case "roster_status" -> length <= Demographic.ROSTER_STATUS_MAX_LENGTH;
+            case "roster_termination_reason" ->
+                    length <= Demographic.ROSTER_TERMINATION_REASON_MAX_LENGTH;
             default -> false;
         };
     }
@@ -593,6 +745,8 @@ final class CdsDemographicCarriedValuesResolver {
         result.put("official_lang", "PreferredOfficialLanguage");
         result.put("spoken_lang", "PreferredSpokenLanguage");
         for (String column : ADDRESS.keySet()) result.put(column, "Address");
+        // No element states these; a value that cannot be stored is reported with the record.
+        for (String column : new java.util.TreeSet<>(NATIVE_ONLY)) result.put(column, "NewCategory");
         return java.util.Collections.unmodifiableMap(result);
     }
 }

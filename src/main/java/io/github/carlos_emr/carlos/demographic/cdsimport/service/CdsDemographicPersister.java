@@ -240,27 +240,101 @@ public class CdsDemographicPersister {
                         record,
                         scalars.get(CdsDemographicNativeDto.MIDDLE_NAMES_SCALAR),
                         phoneKeys,
+                        detail.roster() != null && "RO".equals(detail.roster().status()),
                         notice);
+        var columns = new java.util.TreeMap<>(restored.columns());
+        // The enrolled provider of a restored roster state: the sender's number is its own, so
+        // the provider is matched from the public columns carried with it, as EnrolledToPhysician
+        // is, or none is stored.
+        if (restored.enrolledProvider() != null) {
+            String local = local(restored.enrolledProvider(), command);
+            if (local != null) columns.put("roster_enrolled_to", local);
+            else
+                notice.accept(
+                        new CdsClinicalDiagnosticDto(
+                                CdsDemographicCarriedValuesResolver.NOT_RESTORED, "Enrolment"));
+        }
+        var careTeam = careTeam(record, command, notice);
         var dto =
                 prepared(
                         source, scalars, mailing, residential, home, work, cell, provider, detail,
-                        related, warnings, restored.columns(), restored.properties());
+                        related, warnings, columns, restored.properties(), careTeam);
         try {
             preparation.store(run, epoch, unit, record.effectiveSha256(), command, dto);
         } catch (CdsImportException capacity) {
             if (!"NATIVE_PREPARATION_CAPACITY_EXCEEDED".equals(capacity.getCode())
                     || restored.properties().isEmpty()) throw capacity;
-            // The sealed preparation holds at most 1 MiB: rows that do not fit with the chart
-            // stay in the import's retained source record, reported.
+            // The sealed preparation holds what its MEDIUMTEXT column admits: rows that do not fit
+            // with the chart stay in the import's retained source record, reported.
             notice.accept(
                     new CdsClinicalDiagnosticDto(
                             CdsDemographicCarriedValuesResolver.NOT_RESTORED, "NewCategory"));
             dto =
                     prepared(
                             source, scalars, mailing, residential, home, work, cell, provider,
-                            detail, related, warnings, restored.columns(), List.of());
+                            detail, related, warnings, columns, List.of(), careTeam);
             preparation.store(run, epoch, unit, record.effectiveSha256(), command, dto);
         }
+    }
+
+    /**
+     * The local provider the public columns of a sender's provider name, matched as the
+     * importer matches a provider element (its OHIP number, its CPSO number, or with the run's
+     * consent its exact name), or null when none is matched uniquely. The sender's own provider
+     * number is never used: it is local to the sending installation.
+     */
+    private String local(Map<String, String> provider, CdsImportCommand command) {
+        if (provider.isEmpty()) return null;
+        String cpso =
+                "CPSO".equals(provider.get("practitionerNoType"))
+                        ? provider.get("practitionerNo")
+                        : null;
+        var match =
+                providers.resolve(
+                        provider.get("ohip_no"),
+                        cpso,
+                        provider.get("first_name"),
+                        provider.get("last_name"),
+                        command.matchProviderNames());
+        String local = match.localProviderNo();
+        return match.matched() && local.length() <= 6 ? local : null;
+    }
+
+    /**
+     * The care team (nurse, resident, midwife) the sender's native demographic record names, by
+     * {@code demographiccust} column, each matched to a local provider from the public columns
+     * carried with it ({@link #local}). A member that is not matched, or a record whose care team
+     * cannot be read, is reported and stays in the import's retained record.
+     */
+    private Map<String, String> careTeam(
+            CdsRecordDto record, CdsImportCommand command, Consumer<CdsClinicalDiagnosticDto> notice)
+            throws IOException {
+        var members = new CdsDemographicResidualReader(fields).careTeam(record);
+        if (members == null) {
+            notice.accept(
+                    new CdsClinicalDiagnosticDto(
+                            CdsDemographicCarriedValuesResolver.NOT_RESTORED, "NewCategory"));
+            return Map.of();
+        }
+        var result = new java.util.TreeMap<String, String>();
+        for (var member : members) {
+            String local =
+                    member.provider() == null
+                                    || !CdsDemographicNativeDto.CARE_TEAM.contains(member.column())
+                                    || result.containsKey(member.column())
+                            ? null
+                            : local(member.provider(), command);
+            if (local == null)
+                notice.accept(
+                        new CdsClinicalDiagnosticDto(
+                                CdsDemographicCarriedValuesResolver.NOT_RESTORED, "NewCategory"));
+            else result.put(member.column(), local);
+        }
+        if (!result.isEmpty())
+            notice.accept(
+                    new CdsClinicalDiagnosticDto(
+                            CdsDemographicCarriedValuesResolver.RESTORED, "Demographics"));
+        return result;
     }
 
     private static CdsDemographicNativeDto prepared(
@@ -276,7 +350,8 @@ public class CdsDemographicPersister {
             io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsDemographicRelationsDto related,
             Map<String, CdsClinicalDiagnosticDto> warnings,
             Map<String, String> carried,
-            List<CdsDemographicNativeDto.Property> properties) {
+            List<CdsDemographicNativeDto.Property> properties,
+            Map<String, String> careTeam) {
         return new CdsDemographicNativeDto(
                 source.sourceId(),
                 // An empty name Part a CARLOS sender carries; the exact name is restored on write.
@@ -302,7 +377,8 @@ public class CdsDemographicPersister {
                 related,
                 List.copyOf(warnings.values()),
                 carried,
-                properties);
+                properties,
+                careTeam);
     }
 
     private static boolean present(String value) {
@@ -395,10 +471,16 @@ public class CdsDemographicPersister {
         demographics.persistImportedDemographic(patient);
         Map<String, String> result = new LinkedHashMap<>();
         result.put("demographic", patient.getDemographicNo().toString());
-        if (dto.details().patientNote() != null) {
+        if (dto.details().patientNote() != null || !dto.careTeam().isEmpty()) {
             var patientCustom = new DemographicCust();
             patientCustom.setId(patient.getDemographicNo());
-            patientCustom.setNotes(DemographicCust.wrapPatientNotes(dto.details().patientNote()));
+            if (dto.details().patientNote() != null)
+                patientCustom.setNotes(
+                        DemographicCust.wrapPatientNotes(dto.details().patientNote()));
+            // The care team a CARLOS sender carries, matched to local providers when prepared.
+            patientCustom.setNurse(dto.careTeam().get("cust1"));
+            patientCustom.setResident(dto.careTeam().get("cust2"));
+            patientCustom.setMidwife(dto.careTeam().get("cust4"));
             custom.persist(patientCustom);
             custom.flush();
             result.put("demographiccust", patient.getDemographicNo().toString());
@@ -481,6 +563,33 @@ public class CdsDemographicPersister {
             case "residentialCity" -> patient.setResidentialCity(value);
             case "residentialProvince" -> patient.setResidentialProvince(value);
             case "residentialPostal" -> patient.setResidentialPostal(value);
+            // Columns no Demographics element states (CdsDemographicCarriedValuesResolver
+            // .NATIVE_ONLY): Date Joined is the sender's date (owner decision), not the import's.
+            case "alias" -> patient.setAlias(value);
+            case "pref_name" -> patient.setPrefName(value);
+            case "pronoun" -> patient.setPronoun(value);
+            case "gender" -> patient.setGender(value);
+            case "anonymous" -> patient.setAnonymous(value);
+            case "children" -> patient.setChildren(value);
+            case "citizenship" -> patient.setCitizenship(value);
+            case "consentToUseEmailForCare" ->
+                    patient.setConsentToUseEmailForCare(value == null ? null : "1".equals(value));
+            case "country_of_origin" -> patient.setCountryOfOrigin(value);
+            case "date_joined" -> patient.setDateJoined(nativeDate(value));
+            case "eff_date" -> patient.setEffDate(nativeDate(value));
+            case "end_date" -> patient.setEndDate(nativeDate(value));
+            case "family_doctor" -> patient.setFamilyDoctor(value);
+            case "newsletter" -> patient.setNewsletter(value);
+            case "pcn_indicator" -> patient.setPcnIndicator(value);
+            case "previousAddress" -> patient.setPreviousAddress(value);
+            case "sourceOfIncome" -> patient.setSourceOfIncome(value);
+            // The sender's current roster state, restored whole over the EnrolmentHistory
+            // projection; the enrolled provider is the local one matched when prepared.
+            case "roster_status" -> patient.setRosterStatus(value);
+            case "roster_date" -> patient.setRosterDate(nativeDate(value));
+            case "roster_termination_date" -> patient.setRosterTerminationDate(nativeDate(value));
+            case "roster_termination_reason" -> patient.setRosterTerminationReason(value);
+            case "roster_enrolled_to" -> patient.setRosterEnrolledTo(value);
             default -> throw new CdsImportException("DEMOGRAPHIC_CARRIED_COLUMN_INVALID");
         }
     }

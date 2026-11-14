@@ -1954,6 +1954,10 @@
             {
               "name": "shouldPersistAbsentPreferredNameAsEmpty_underActualStrictMariaDbFieldMapping",
               "container": ""
+            },
+            {
+              "name": "shouldStoreEveryDemographicValue_ofAChartSentFromAnotherCarlos",
+              "container": ""
             }
           ]
         },

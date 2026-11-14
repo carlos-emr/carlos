@@ -278,13 +278,15 @@ class CdsExportDemographicSupportingMapperUnitTest {
                 .fields()
                 .forEachRemaining(entry -> demographic.put(entry.getKey(), entry.getValue().textValue()));
         // The practice-administrative dates travel here too (they used to be not exported), and
-        // so do the form's title code MS, written in the schema's spelling (Ms), and the postal
-        // code K1A 0B1, written without its display space.
+        // so do the form's title code MS, written in the schema's spelling (Ms), the postal
+        // code K1A 0B1, written without its display space, and the residential province the
+        // form preselects, stored with no residential address.
         var expectedDemographic = new LinkedHashMap<String, String>();
         var base = rows.get("demographic").getFirst().fields();
         for (String column : CdsExportDemographicRowDto.COLUMNS)
             if (ANCILLARY.containsKey(column)
-                    || Set.of("date_joined", "eff_date", "title", "postal").contains(column))
+                    || Set.of("date_joined", "eff_date", "title", "postal", "residentialProvince")
+                            .contains(column))
                 expectedDemographic.put(column, base.get(column));
         assertThat(demographic).containsExactlyEntriesOf(expectedDemographic);
         assertThat(demographic).containsEntry("date_joined", "2009-04-01");
@@ -340,7 +342,7 @@ class CdsExportDemographicSupportingMapperUnitTest {
     }
 
     @Test
-    void shouldKeepNullAndEmptyDistinct_andNeverCarryAFormPlaceholder() throws Exception {
+    void shouldKeepNullAndEmptyDistinct_andCarryTheFormDefaults() throws Exception {
         set("alias", null);
         set("pref_name", "");
         set("newsletter", "Unknown");
@@ -353,26 +355,35 @@ class CdsExportDemographicSupportingMapperUnitTest {
         assertThat(result.fields().get(key("demographic", "0000000027", "pref_name")))
                 .extracting(CdsExportFieldAssessmentDto::presence, CdsExportFieldAssessmentDto::outcome)
                 .containsExactly(Presence.EMPTY, Outcome.ABSENT);
+        // What the forms write when nobody chooses anything is what the chart stores: it was
+        // OPERATIONAL and left out, and the receiving CARLOS lost it.
         for (String column : List.of("newsletter", "country_of_origin", "family_doctor"))
-            assertThat(result.fields().get(key("demographic", "0000000027", column)).outcome())
-                    .isEqualTo(Outcome.OPERATIONAL);
+            assertThat(result.fields().get(key("demographic", "0000000027", column)))
+                    .isEqualTo(
+                            new CdsExportFieldAssessmentDto(
+                                    Presence.VALUE,
+                                    Outcome.MAPPED,
+                                    CdsExportDemographicSupportingMapper.DESTINATION,
+                                    CdsExportDemographicSupportingMapper.CARRIED_RULE));
         var json =
                 JsonMapper.builder()
                         .build()
                         .readTree(CdsExportDemographicSupportingMapper.map(supportingRows(), () -> {}).json());
         assertThat(json.get("demographic").has("alias")).isFalse();
         assertThat(json.get("demographic").has("pref_name")).isFalse();
-        assertThat(json.get("demographic").has("newsletter")).isFalse();
+        assertThat(json.get("demographic").get("newsletter").textValue()).isEqualTo("Unknown");
+        assertThat(json.get("demographic").get("country_of_origin").textValue()).isEqualTo("-1");
+        assertThat(json.get("demographic").get("family_doctor").textValue())
+                .isEqualTo("<rdohip></rdohip><rd></rd>");
     }
 
     @Test
-    void shouldWriteNoRecord_forAPatientWithOnlyFormDefaults() throws Exception {
+    void shouldCarryTheFormDefaults_forAPatientWithNothingElseToCarry() throws Exception {
         for (String column : ANCILLARY.keySet()) set(column, null);
         // A title already in the schema's spelling, and a postal code without a display space, are
         // written as stored, not carried.
         set("title", "Ms");
         set("postal", "K1A0B1");
-        // A practice-administrative date the user entered is carried, so none is set here.
         set("date_joined", null);
         set("eff_date", null);
         set("newsletter", "Unknown");
@@ -384,6 +395,26 @@ class CdsExportDemographicSupportingMapperUnitTest {
         custom(null, "", null, null, true);
         // No care-team column names a provider, so none is in the demographic provider slice.
         rows.put("provider", new ArrayList<>());
+        // The forms' defaults (newsletter "Unknown", country of origin "-1", the residential
+        // province preselected without an address, the warning level "0") are what the chart
+        // stores, so they travel; an empty extension row states nothing and does not.
+        var record = CdsExportDemographicSupportingMapper.map(supportingRows(), () -> {});
+        assertThat(record).isNotNull();
+        var json = JsonMapper.builder().build().readTree(record.json());
+        assertThat(json.get("demographic").get("newsletter").textValue()).isEqualTo("Unknown");
+        assertThat(json.get("demographic").get("country_of_origin").textValue()).isEqualTo("-1");
+        assertThat(json.get("demographic").get("residentialProvince").textValue()).isEqualTo("ON");
+        assertThat(json.get("properties")).hasSize(1);
+        assertThat(json.get("properties").get(0).get("key").textValue())
+                .isEqualTo("rxInteractionWarningLevel");
+        assertThat(json.get("properties").get(0).get("value").textValue()).isEqualTo("0");
+        assertThat(assemble(ALL).fields().values())
+                .noneMatch(field -> field.outcome() == Outcome.REQUIRES_REVIEW);
+        // Without them nothing is carried and no record is written.
+        set("newsletter", null);
+        set("country_of_origin", null);
+        set("residentialProvince", null);
+        rows.get("demographicExt").removeFirst();
         assertThat(CdsExportDemographicSupportingMapper.map(supportingRows(), () -> {})).isNull();
         assertThat(assemble(ALL).fields().values())
                 .noneMatch(field -> field.outcome() == Outcome.REQUIRES_REVIEW)
