@@ -375,6 +375,98 @@ class CdsExportHistoryFieldReconcilerUnitTest {
                 .hasMessage("CDS_EXPORT_HISTORY_ISSUE_EDIT_REQUIRES_RECONCILIATION");
     }
 
+    /**
+     * The rows the CARLOS importer writes for an item its sender also filed under {@code code}:
+     * that section's patient issue (42, catalogue entry 52) and the note's link to it, each named
+     * in the unit's receipt with its baseline. The prepared item names the section only when
+     * {@code linked}: when the import linked it.
+     */
+    private void alsoFiledUnder(String code, boolean linked) {
+        var issue = new LinkedHashMap<>(patientIssues.get("41").value().fields());
+        issue.put("id", "42");
+        issue.put("issue_id", "52");
+        var issueRow = row(Plan.CASE_ISSUES, "42", issue);
+        patientIssues.put("42", issueRow);
+        keep(issueRow);
+        var definition = new LinkedHashMap<>(definitions.get("51").value().fields());
+        definition.put("issue_id", "52");
+        definition.put("code", code);
+        definitions.put("52", row(Plan.ISSUE_CATALOGUE, "52", definition));
+        var association =
+                row(Plan.CASE_NOTE_ISSUE_LINK, "91_42", Map.of("id", "42", "note_id", "91"));
+        keep(association);
+        links.add(association.value());
+        if (linked)
+            prepared =
+                    new CdsHistoryNativeDto(
+                            prepared.content(),
+                            prepared.issueCode(),
+                            prepared.observationMillis(),
+                            null,
+                            null,
+                            prepared.observationDate(),
+                            prepared.observationField(),
+                            List.of(),
+                            false,
+                            List.of(code));
+    }
+
+    @Test
+    void shouldKeepAnImportedItemFiledUnderTwoSections_andAccountForBothTags() throws Exception {
+        // CARLOS to CARLOS: the importer filed the item under the sender's other section too
+        // (CdsHistoryPersister.otherSections). It held as a second link
+        // (CDS_EXPORT_HISTORY_ISSUE_ASSOCIATION_REQUIRES_REVIEW).
+        fixture(CdsCategory.FAMILY_HISTORY);
+        alsoFiledUnder("MedHistory", true);
+        var result = choose();
+        assertThat(result.representable()).isTrue();
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(rows(), result.fields(), () -> {});
+        // Both links, column by column, are the unchanged imported association.
+        assertThat(result.fields().entrySet())
+                .filteredOn(entry -> entry.getKey().table().equals("casemgmt_issue_notes"))
+                .extracting(entry -> entry.getValue().rule())
+                .hasSize(4)
+                .containsOnly("EXACT_UNCHANGED_PREPARED_HISTORY_CATEGORY_ASSOCIATION");
+    }
+
+    @Test
+    void shouldRejectASecondSectionTheImportDidNotLink_outsideNativeContext() {
+        // A receipt naming a section the prepared item does not: a damaged ledger.
+        fixture(CdsCategory.FAMILY_HISTORY);
+        alsoFiledUnder("MedHistory", false);
+        assertThatThrownBy(this::choose)
+                .hasMessage("CDS_EXPORT_HISTORY_ISSUE_ASSOCIATION_REQUIRES_REVIEW");
+        // A prepared section whose rows the receipt does not name: likewise.
+        fixture(CdsCategory.FAMILY_HISTORY);
+        prepared =
+                new CdsHistoryNativeDto(
+                        prepared.content(),
+                        prepared.issueCode(),
+                        prepared.observationMillis(),
+                        null,
+                        null,
+                        prepared.observationDate(),
+                        prepared.observationField(),
+                        List.of(),
+                        false,
+                        List.of("MedHistory"));
+        assertThatThrownBy(this::choose)
+                .hasMessage("CDS_EXPORT_HISTORY_ISSUE_ASSOCIATION_REQUIRES_REVIEW");
+    }
+
+    @Test
+    void shouldRejectASecondSectionRepointedInTheChart_asAChangedAssociation() {
+        // The imported row of the other section now names the item's own section: one tag twice.
+        fixture(CdsCategory.FAMILY_HISTORY);
+        alsoFiledUnder("MedHistory", true);
+        var fields = new LinkedHashMap<>(definitions.get("52").value().fields());
+        fields.put("code", "FamHistory");
+        definitions.put("52", row(Plan.ISSUE_CATALOGUE, "52", fields));
+        assertThatThrownBy(this::choose)
+                .hasMessage("CDS_EXPORT_HISTORY_ISSUE_EDIT_REQUIRES_RECONCILIATION");
+    }
+
     @Test
     void shouldRejectUnexpectedIssueLinks_insteadOfDroppingTheirMeaning() {
         links.add(

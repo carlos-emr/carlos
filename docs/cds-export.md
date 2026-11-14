@@ -4988,12 +4988,18 @@ database, or the owner's decision:
   ledger holds one. Likewise every `*_SCOPE_INVALID`, `*_CONTEXT_INVALID`, `*_SOURCE_INVALID` and
   `*_PREPARATION_MISMATCH` of these classes fails the job only for a capture or ledger that
   disagrees with its own witnesses or seals.
-- An import unit's references that do not name the one note, tag issue and link the importer
-  writes for a CPP item (`..._ISSUE_ASSOCIATION_REQUIRES_REVIEW`, and in the occurrence plan a
-  unit naming no note or two notes, a note two units name, or two imported notes in one chain,
+- An import unit's references that do not name the one note, and the one tag issue and link per
+  section, that the importer writes for a CPP item: its own section's, and each other section a
+  CARLOS sender filed it under, which the prepared item names (`additionalIssueCodes`)
+  (`..._ISSUE_ASSOCIATION_REQUIRES_REVIEW`, and in the occurrence plan a unit naming no note or
+  two notes, a note two units name, or two imported notes in one chain,
   `CDS_EXPORT_UNMAPPED_DATA`, `CDS_EXPORT_AMBIGUOUS_SOURCE`): `CdsHistoryPersister` writes one
-  note with a fresh uuid per unit, and no API gives an existing note another uuid. An abandoned
-  or unfinished unit is never an applied unit, and a resumed one keeps its own receipt.
+  note with a fresh uuid per unit, and links it to exactly those tags; no API gives an existing
+  note another uuid. An abandoned or unfinished unit is never an applied unit, and a resumed one
+  keeps its own receipt. An imported item filed under several sections is exported again as the
+  record it was imported from while its links are the imported ones (the rule that chose its
+  section depends on its tags alone, so it is the same section), and through its native context
+  once it is edited or its tags change; it held for its second link.
 - A revision identity that disagrees with the chain (`..._REVISION_IDENTITY_REQUIRES_REVIEW`,
   `..._CURRENT_REVISION_REQUIRES_REVIEW`): every revision takes its previous revision's uuid.
 - An imported row changed in place with no new revision beyond the two writes above (no screen
