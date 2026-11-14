@@ -50,6 +50,8 @@ import org.junit.jupiter.api.Test;
 /** Each data summary is a schema-valid Reports entry and every captured field is assessed. */
 @Tag("unit")
 @Tag("cds-export")
+@org.junit.jupiter.api.extension.ExtendWith(
+        io.github.carlos_emr.carlos.test.mocks.MockInvocationReleaseExtension.class)
 class CdsExportDataSummaryOccurrenceServiceUnitTest {
     private static final String KEY = "a".repeat(64);
 

@@ -33,6 +33,8 @@ import org.junit.jupiter.api.*;
 
 @Tag("unit")
 @Tag("cds-export")
+@org.junit.jupiter.api.extension.ExtendWith(
+        io.github.carlos_emr.carlos.test.mocks.MockInvocationReleaseExtension.class)
 class CdsExportPrescriptionOccurrenceServiceUnitTest {
     @org.junit.jupiter.api.io.TempDir java.nio.file.Path root;
 

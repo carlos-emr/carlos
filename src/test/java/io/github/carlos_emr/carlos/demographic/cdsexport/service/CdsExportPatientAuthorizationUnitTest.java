@@ -37,6 +37,8 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 @Tag("unit")
+@org.junit.jupiter.api.extension.ExtendWith(
+        io.github.carlos_emr.carlos.test.mocks.MockInvocationReleaseExtension.class)
 class CdsExportPatientAuthorizationUnitTest {
 
     /**

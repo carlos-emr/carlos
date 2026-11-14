@@ -45,6 +45,8 @@ import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.io.TempDir;
 
 /** Orchestration failures must never become successful XML even when a caller catches them. */
+@org.junit.jupiter.api.extension.ExtendWith(
+        io.github.carlos_emr.carlos.test.mocks.MockInvocationReleaseExtension.class)
 class CdsExportImmunizationOccurrenceServiceUnitTest {
     private static final String SOURCE = "a".repeat(64), PATIENT = "b".repeat(64);
     @TempDir Path directory;

@@ -41,6 +41,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /** Shared facade, explicit-zone, receipt/field closure and sticky-failure integration. */
+@org.junit.jupiter.api.extension.ExtendWith(
+        io.github.carlos_emr.carlos.test.mocks.MockInvocationReleaseExtension.class)
 class CdsExportAppointmentOccurrenceServiceUnitTest {
     private static final String HASH = "a".repeat(64), PATIENT = "b".repeat(64);
     @TempDir Path directory;

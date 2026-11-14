@@ -34,6 +34,8 @@ import org.junit.jupiter.api.*;
 
 @Tag("unit")
 @Tag("cds-export")
+@org.junit.jupiter.api.extension.ExtendWith(
+        io.github.carlos_emr.carlos.test.mocks.MockInvocationReleaseExtension.class)
 class CdsExportNoteRevisionInventoryServiceUnitTest {
     private static final String HASH = "a".repeat(64),
             UUID_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";

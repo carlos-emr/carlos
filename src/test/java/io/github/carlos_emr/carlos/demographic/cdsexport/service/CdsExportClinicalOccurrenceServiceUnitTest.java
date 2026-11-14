@@ -43,6 +43,8 @@ import org.junit.jupiter.api.io.TempDir;
 /** Service joins and sticky source failure proof; source encryption/physical authorization run in their owning suites. */
 @Tag("unit")
 @Tag("cds-export")
+@org.junit.jupiter.api.extension.ExtendWith(
+        io.github.carlos_emr.carlos.test.mocks.MockInvocationReleaseExtension.class)
 class CdsExportClinicalOccurrenceServiceUnitTest {
     private static final String SOURCE = "b".repeat(64), PATIENT_KEY = "a".repeat(64);
     private static final CdsCategory ALLERGY = CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS,

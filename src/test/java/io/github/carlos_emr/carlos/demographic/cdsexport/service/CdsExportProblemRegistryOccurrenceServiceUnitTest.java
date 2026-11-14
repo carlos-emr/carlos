@@ -48,6 +48,8 @@ import org.w3c.dom.Element;
  */
 @Tag("unit")
 @Tag("cds-export")
+@org.junit.jupiter.api.extension.ExtendWith(
+        io.github.carlos_emr.carlos.test.mocks.MockInvocationReleaseExtension.class)
 class CdsExportProblemRegistryOccurrenceServiceUnitTest {
     private static final String SOURCE = "a".repeat(64), PATIENT = "b".repeat(64);
     private final CdsExportNativeCaptureService captures = mock(CdsExportNativeCaptureService.class);

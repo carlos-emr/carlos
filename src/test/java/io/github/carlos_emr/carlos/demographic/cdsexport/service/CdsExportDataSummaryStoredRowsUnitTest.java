@@ -63,6 +63,8 @@ import org.junit.jupiter.api.io.TempDir;
  */
 @Tag("unit")
 @Tag("cds-export")
+@org.junit.jupiter.api.extension.ExtendWith(
+        io.github.carlos_emr.carlos.test.mocks.MockInvocationReleaseExtension.class)
 class CdsExportDataSummaryStoredRowsUnitTest {
     private static final ZoneId TORONTO = ZoneId.of("America/Toronto");
     private static final String KEY = "a".repeat(64);

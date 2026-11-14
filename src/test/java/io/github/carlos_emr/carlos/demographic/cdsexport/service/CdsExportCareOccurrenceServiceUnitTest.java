@@ -33,6 +33,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 @Tag("unit")
 @Tag("cds-export")
+@org.junit.jupiter.api.extension.ExtendWith(
+        io.github.carlos_emr.carlos.test.mocks.MockInvocationReleaseExtension.class)
 class CdsExportCareOccurrenceServiceUnitTest {
     private static final String PATH = "/OmdCds[1]/PatientRecord[1]/CareElements[1]/Weight[1]";
     private Map<String, String> observation;

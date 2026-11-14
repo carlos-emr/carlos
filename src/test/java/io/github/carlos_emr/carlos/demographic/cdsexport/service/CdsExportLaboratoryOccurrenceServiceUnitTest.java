@@ -30,6 +30,8 @@ import org.junit.jupiter.api.*;
 
 @Tag("unit")
 @Tag("cds-export")
+@org.junit.jupiter.api.extension.ExtendWith(
+        io.github.carlos_emr.carlos.test.mocks.MockInvocationReleaseExtension.class)
 class CdsExportLaboratoryOccurrenceServiceUnitTest {
     private static final String ID = "a".repeat(64);
     private final Map<String, CdsExportCapturedTextRowDto> current = new HashMap<>();

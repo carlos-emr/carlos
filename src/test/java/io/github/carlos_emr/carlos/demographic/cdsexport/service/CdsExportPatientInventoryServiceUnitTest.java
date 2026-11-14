@@ -36,6 +36,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 @Tag("unit")
 @Tag("cds-export")
+@org.junit.jupiter.api.extension.ExtendWith(
+        io.github.carlos_emr.carlos.test.mocks.MockInvocationReleaseExtension.class)
 class CdsExportPatientInventoryServiceUnitTest {
     @TempDir Path root;
 

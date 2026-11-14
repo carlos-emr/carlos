@@ -32,6 +32,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 @Tag("unit")
 @Tag("cds-export")
+@org.junit.jupiter.api.extension.ExtendWith(
+        io.github.carlos_emr.carlos.test.mocks.MockInvocationReleaseExtension.class)
 class CdsExportReportOccurrenceServiceUnitTest {
     private Map<String, String> document;
     private Map<String, String> link;

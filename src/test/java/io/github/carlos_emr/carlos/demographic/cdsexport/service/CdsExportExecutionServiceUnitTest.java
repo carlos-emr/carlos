@@ -48,6 +48,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 /** No clinical fixture is mistaken for a qualified production engine or a published result. */
 @Tag("unit")
 @Tag("cds-export")
+@org.junit.jupiter.api.extension.ExtendWith(
+        io.github.carlos_emr.carlos.test.mocks.MockInvocationReleaseExtension.class)
 class CdsExportExecutionServiceUnitTest {
     private static final String RUN = "22222222-2222-4222-8222-222222222222", HASH = "a".repeat(64);
     private CdsExportLedgerService ledger;
