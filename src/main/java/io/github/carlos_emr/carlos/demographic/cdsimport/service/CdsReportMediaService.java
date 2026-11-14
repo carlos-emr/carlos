@@ -290,6 +290,8 @@ public class CdsReportMediaService {
                 && u(bytes[2]) == 0xBF;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: Lower-cases a report's declared media type to recognise text/plain with charset utf-8; a format keyword that only decides whether the text encoding counts as declared, not a trust decision.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "lower-cases a report's declared media type to recognise text/plain with charset utf-8; a format keyword that only decides whether the text encoding counts as declared, not a trust decision")
     private static boolean explicitlyUtf8(String declaration) {
         String value = declaration == null ? "" : declaration.trim().toLowerCase(Locale.ROOT);
         return value.equals("text/plain;charset=utf-8")

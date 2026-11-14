@@ -39,7 +39,7 @@ class CdsExportNoteAccessDaoUnitTest {
     @DisplayName("should not fold a look-alike role name to the granted name")
     void shouldKeepLookAlikeNamesDistinct_forExactComparison() {
         // Dotless i (U+0131) and Cyrillic a (U+0430) are not the ASCII letters of "admin".
-        assertThat(CdsExportNoteAccessDao.folded("ADMıN")).isNotEqualTo("admin");
-        assertThat(CdsExportNoteAccessDao.folded("аdmin")).isNotEqualTo("admin");
+        assertThat(CdsExportNoteAccessDao.folded("ADM\u0131N")).isNotEqualTo("admin");
+        assertThat(CdsExportNoteAccessDao.folded("\u0430dmin")).isNotEqualTo("admin");
     }
 }

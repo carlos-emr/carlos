@@ -40,6 +40,36 @@ class CdsImportKeysUnitTest {
         // Both would encode to '?' in UTF-8; String.equals tells them apart and so must this.
         assertThat(CdsImportKeys.sameDigest("\ud800", "\ud801")).isFalse();
         assertThat(CdsImportKeys.sameDigest("\ud800", "?")).isFalse();
-        assertThat(CdsImportKeys.sameDigest("é", "é")).isFalse();
+        assertThat(CdsImportKeys.sameDigest("\u00e9", "e\u0301")).isFalse();
+    }
+
+    @Test
+    @DisplayName("should match an ASCII keyword in any letter case, whatever the default locale")
+    void shouldMatchKeywordInAnyAsciiCase_underTurkishDefaultLocale() {
+        java.util.Locale original = java.util.Locale.getDefault();
+        try {
+            java.util.Locale.setDefault(java.util.Locale.of("tr", "TR"));
+            assertThat(CdsImportKeys.asciiKeyword("active", "active")).isTrue();
+            assertThat(CdsImportKeys.asciiKeyword("active", "ACTIVE")).isTrue();
+            assertThat(CdsImportKeys.asciiKeyword("active", "Active")).isTrue();
+            assertThat(CdsImportKeys.asciiKeyword("yes", "YES")).isTrue();
+            assertThat(CdsImportKeys.asciiKeyword("active", "inactive")).isFalse();
+            assertThat(CdsImportKeys.asciiKeyword("active", " active")).isFalse();
+            assertThat(CdsImportKeys.asciiKeyword("active", null)).isFalse();
+        } finally {
+            java.util.Locale.setDefault(original);
+        }
+    }
+
+    @Test
+    @DisplayName("should not take a letter that only folds to ASCII for the ASCII letter")
+    void shouldRefuseLookAlikeLetters_forAsciiKeyword() {
+        // String.equalsIgnoreCase accepts each of these: a dotless i, a dotted capital I, a long
+        // s and the Kelvin sign fold to i, i, s and k.
+        assertThat("active".equalsIgnoreCase("act\u0131ve")).isTrue();
+        assertThat(CdsImportKeys.asciiKeyword("active", "act\u0131ve")).isFalse();
+        assertThat(CdsImportKeys.asciiKeyword("active", "ACT\u0130VE")).isFalse();
+        assertThat(CdsImportKeys.asciiKeyword("yes", "ye\u017f")).isFalse();
+        assertThat(CdsImportKeys.asciiKeyword("ok", "o\u212a")).isFalse();
     }
 }

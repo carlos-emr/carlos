@@ -116,7 +116,8 @@ public class CdsImportAccessService {
         if (command.synthetic()) courses.requireCopy(actor, command);
         if (actor.programId() != null && !command.synthetic()) {
             var program = programs.metadata(actor.programId());
-            if (program == null || !"active".equalsIgnoreCase(program.status())
+            if (program == null
+                    || !io.github.carlos_emr.carlos.utility.CdsImportKeys.asciiKeyword("active", program.status())
                     || (actor.facilityId() != null && !Objects.equals(program.facilityId(), actor.facilityId()))) deny();
             if (!programs.member(actor.providerNo(), actor.programId())) deny();
         }

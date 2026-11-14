@@ -158,7 +158,7 @@ public class CdsCourseService {
                         .setParameter("student", student)
                         .getSingleResult();
         if (enrolled == 0
-                || !"active".equalsIgnoreCase(program.status())
+                || !io.github.carlos_emr.carlos.utility.CdsImportKeys.asciiKeyword("active", program.status())
                 || (command.facilityId() != null
                         && !Objects.equals(command.facilityId(), program.facilityId()))) deny();
     }
@@ -167,13 +167,15 @@ public class CdsCourseService {
         if (!command.synthetic()
                 || command.courseId() == null
                 || command.mergeExisting()
-                || !"yes".equalsIgnoreCase(configuration.value("OSCAR_LEARNING", "no"))
+                || !io.github.carlos_emr.carlos.utility.CdsImportKeys.asciiKeyword(
+                        "yes", configuration.value("OSCAR_LEARNING", "no"))
                 || !Boolean.parseBoolean(
                         configuration.value(
                                 "cds.import.source." + command.sourceNamespace() + ".synthetic",
                                 "false"))) deny();
         var course = programs.metadata(command.courseId());
-        if (course == null || !"active".equalsIgnoreCase(course.status())) deny();
+        if (course == null
+                || !io.github.carlos_emr.carlos.utility.CdsImportKeys.asciiKeyword("active", course.status())) deny();
         String authorized =
                 configuration.value("cds.import.course." + command.courseId() + ".educators", "");
         if (authorized.length() > 8192

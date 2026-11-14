@@ -47,7 +47,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Semaphore;
@@ -123,7 +122,9 @@ public class CdsUploadService {
                             upload.setOperator(operator);
                             upload.setSourceName(name);
                             upload.setMediaKind(
-                                    name.toLowerCase(Locale.ROOT).endsWith(".zip") ? "ZIP" : "XML");
+                                    com.google.common.base.Ascii.toLowerCase(name).endsWith(".zip")
+                                            ? "ZIP"
+                                            : "XML");
                             upload.setExpectedBytes(bytes);
                             upload.setState("OPEN");
                             upload.setSubmissionKey("web-upload-" + id);
@@ -810,8 +811,8 @@ public class CdsUploadService {
                 || name.indexOf('/') >= 0
                 || name.indexOf('\\') >= 0
                 || name.chars().anyMatch(c -> c < 32 || c == 127)
-                || !(name.toLowerCase(Locale.ROOT).endsWith(".xml")
-                        || name.toLowerCase(Locale.ROOT).endsWith(".zip"))) {
+                || !(com.google.common.base.Ascii.toLowerCase(name).endsWith(".xml")
+                        || com.google.common.base.Ascii.toLowerCase(name).endsWith(".zip"))) {
             throw problem("UPLOAD_NAME_OR_TYPE_INVALID", 400);
         }
     }

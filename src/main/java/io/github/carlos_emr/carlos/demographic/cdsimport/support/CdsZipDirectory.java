@@ -220,6 +220,8 @@ public final class CdsZipDirectory {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: Builds the name-index key of a ZIP entry name (NFC, lower case, then SHA-256), used to find that entry's index marker; names that fold together collide and the archive is refused, so folding never admits an entry.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "builds the name-index key of a ZIP entry name (NFC, lower case, then SHA-256), used to find that entry's index marker; names that fold together collide and the archive is refused, so folding never admits an entry")
     private static String key(String name) {
         return CdsPaths.hex(
                 CdsPaths.sha256()

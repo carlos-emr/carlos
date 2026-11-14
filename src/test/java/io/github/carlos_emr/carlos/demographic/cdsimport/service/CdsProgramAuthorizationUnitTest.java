@@ -174,4 +174,104 @@ class CdsProgramAuthorizationUnitTest {
                 .isInstanceOf(SecurityException.class);
         verify(em, never()).find(eq(Program.class), any());
     }
+
+    // The gates below compare a stored status or a server property with an ASCII word. They
+    // accept the word in any ASCII letter case, as before, whatever the JVM default locale, and
+    // no longer accept a letter that merely folds to an ASCII one (U+0131 dotless i, U+0130
+    // dotted capital I, U+017F long s), which String.equalsIgnoreCase did.
+
+    private void underTurkishLocale(Runnable check) {
+        java.util.Locale original = java.util.Locale.getDefault();
+        try {
+            java.util.Locale.setDefault(java.util.Locale.of("tr", "TR"));
+            check.run();
+        } finally {
+            java.util.Locale.setDefault(original);
+        }
+    }
+
+    private CdsCourseService course(String learning, String courseStatus, String programStatus) {
+        var course =
+                new CdsCourseService(
+                        configuration, mock(PlatformTransactionManager.class), programs);
+        ReflectionTestUtils.setField(course, "entityManager", em);
+        when(configuration.value("OSCAR_LEARNING", "no")).thenReturn(learning);
+        when(configuration.value("cds.import.source.fixture.synthetic", "false"))
+                .thenReturn("true");
+        when(configuration.value("cds.import.course.7.educators", "")).thenReturn("77");
+        when(programs.metadata(7))
+                .thenReturn(new CdsProgramContextDto(7, "Course", courseStatus, 1));
+        when(programs.metadata(34))
+                .thenReturn(new CdsProgramContextDto(34, "programstudent77", programStatus, 1));
+        @SuppressWarnings("unchecked")
+        TypedQuery<Long> membership = mock(TypedQuery.class, RETURNS_SELF);
+        when(em.createQuery(anyString(), eq(Long.class))).thenReturn(membership);
+        when(membership.getSingleResult()).thenReturn(1L);
+        return course;
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"active", "Active", "ACTIVE"})
+    void shouldAdmitActiveProgramInAnyAsciiCase_underTurkishDefaultLocale(String status) {
+        when(programs.metadata(34)).thenReturn(new CdsProgramContextDto(34, "Clinic", status, 1));
+        when(programs.member("77", 34)).thenReturn(true);
+        underTurkishLocale(
+                () ->
+                        assertThatCode(() -> access.context(actor(null), command(null, false), null))
+                                .doesNotThrowAnyException());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(
+            strings = {"inactive", "", " active", "act\u0131ve", "ACT\u0130VE"})
+    void shouldRefuseProgram_whenStatusIsNotTheWordActive(String status) {
+        when(programs.metadata(34)).thenReturn(new CdsProgramContextDto(34, "Clinic", status, 1));
+        when(programs.member("77", 34)).thenReturn(true);
+        assertThatThrownBy(() -> access.context(actor(null), command(null, false), null))
+                .isInstanceOf(SecurityException.class);
+        when(programs.metadata(34)).thenReturn(new CdsProgramContextDto(34, "Clinic", null, 1));
+        assertThatThrownBy(() -> access.context(actor(null), command(null, false), null))
+                .isInstanceOf(SecurityException.class);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+        "yes,active,active",
+        "YES,ACTIVE,Active",
+        "Yes,Active,ACTIVE"
+    })
+    void shouldAdmitCourseCopyForRealValuesInAnyAsciiCase_underTurkishDefaultLocale(
+            String learning, String courseStatus, String programStatus) {
+        var course = course(learning, courseStatus, programStatus);
+        underTurkishLocale(
+                () ->
+                        assertThatCode(() -> course.requireCopy(actor(1), command(1, true)))
+                                .doesNotThrowAnyException());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"no", "", "true", "ye\u017f"})
+    void shouldRefuseCourseCopy_whenLearningPropertyIsNotTheWordYes(String learning) {
+        var course = course(learning, "active", "active");
+        assertThatThrownBy(() -> course.requireCopy(actor(1), command(1, true)))
+                .isInstanceOf(SecurityException.class);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(
+            strings = {"inactive", "", "act\u0131ve", "ACT\u0130VE"})
+    void shouldRefuseCourseCopy_whenCourseStatusIsNotTheWordActive(String status) {
+        var course = course("yes", status, "active");
+        assertThatThrownBy(() -> course.requireCopy(actor(1), command(1, true)))
+                .isInstanceOf(SecurityException.class);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(
+            strings = {"inactive", "", "act\u0131ve", "ACT\u0130VE"})
+    void shouldRefuseCourseCopy_whenPersonalProgramStatusIsNotTheWordActive(String status) {
+        var course = course("yes", "active", status);
+        assertThatThrownBy(() -> course.requireCopy(actor(1), command(1, true)))
+                .isInstanceOf(SecurityException.class);
+    }
 }

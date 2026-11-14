@@ -612,6 +612,8 @@ public class CdsSnapshotService {
         return name;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: Builds the index key of a member name inside the import's own snapshot, so names equal under NFC and case share one entry; a lookup and collision key that is hashed, never a path or an identity.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "builds the index key of a member name inside the import's own snapshot, so names equal under NFC and case share one entry; a lookup and collision key that is hashed, never a path or an identity")
     private static String nameKey(String name) {
         String normalized =
                 Normalizer.normalize(name, Normalizer.Form.NFC).toLowerCase(Locale.ROOT);

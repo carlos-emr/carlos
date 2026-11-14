@@ -390,6 +390,33 @@ class CdsUploadServiceUnitTest extends CarlosUnitTestBase {
                 .hasMessage("UPLOAD_NOT_FOUND");
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"CHART.ZIP", "Chart.Zip", "CHART.XML", "chart.xml"})
+    void shouldAcceptExtensionInAnyAsciiCase_underTurkishDefaultLocale(String name)
+            throws Exception {
+        // The extension decides whether a file may be uploaded and how it is read. It is folded
+        // over ASCII only, so the answer cannot follow the JVM default locale: a default-locale
+        // fold turns the I of ".ZIP" into a dotless i under tr-TR and would refuse the file.
+        java.util.Locale original = java.util.Locale.getDefault();
+        try {
+            java.util.Locale.setDefault(java.util.Locale.of("tr", "TR"));
+            var upload = service.begin(OWNER, name, 7);
+            boolean zip = name.toUpperCase(java.util.Locale.ROOT).endsWith(".ZIP");
+            assertThat(stored.get(upload.id()).getMediaKind()).isEqualTo(zip ? "ZIP" : "XML");
+        } finally {
+            java.util.Locale.setDefault(original);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"chart.z\u0131p", "chart.txt", "chart.xml.exe", "chart"})
+    void shouldRefuseOtherExtensions_includingLookAlikeLetters(String name) {
+        // U+0131 is a dotless i: not the i of ".zip", in any locale.
+        assertThatThrownBy(() -> service.begin(OWNER, name, 7))
+                .isInstanceOf(CdsUploadException.class)
+                .hasMessage("UPLOAD_NAME_OR_TYPE_INVALID");
+    }
+
     @Test
     void shouldRefuseUnsealedSourceWithoutChangingState_whenUploadIsOpen() throws Exception {
         var upload = service.begin(OWNER, "source.xml", 7);

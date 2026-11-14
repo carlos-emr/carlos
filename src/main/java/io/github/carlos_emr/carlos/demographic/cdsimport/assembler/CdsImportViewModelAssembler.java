@@ -83,7 +83,8 @@ public class CdsImportViewModelAssembler {
                         : String.valueOf(actor.getCurrentFacility().getId());
         return new CdsImportViewModel(
                 configuration.enabled(),
-                configuration.value("OSCAR_LEARNING", "no").equalsIgnoreCase("yes"),
+                io.github.carlos_emr.carlos.utility.CdsImportKeys.asciiKeyword(
+                        "yes", configuration.value("OSCAR_LEARNING", "no")),
                 "web-" + actor.getLoggedInSecurity().getId(),
                 actor.getLoggedInProviderNo(),
                 program,

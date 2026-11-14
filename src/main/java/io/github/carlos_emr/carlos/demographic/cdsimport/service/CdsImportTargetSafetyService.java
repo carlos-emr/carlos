@@ -157,6 +157,8 @@ public class CdsImportTargetSafetyService {
         return found;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: Matches the fixed native table names against the table names MariaDB's own catalogue reports, to pin and verify those tables; schema names, not user input, and a wider match only adds a table to verification.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "matches the fixed native table names against the table names MariaDB's own catalogue reports, to pin and verify those tables; schema names, not user input, and a wider match only adds a table to verification")
     private Set<String> resolveTargets(Map<String, String> catalogue) {
         Set<String> targets = new java.util.TreeSet<>();
         for (String logical : required) {

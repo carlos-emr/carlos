@@ -87,6 +87,17 @@ public final class CdsImportKeys {
         return bytes;
     }
 
+    /**
+     * Whether {@code value} is the ASCII {@code keyword} in any letter case. Unlike
+     * {@link String#equalsIgnoreCase}, only the ASCII letters fold and no locale is consulted, so
+     * a letter that merely folds to an ASCII one (a dotless i, a long s, the Kelvin sign) is not
+     * taken for it. Use for the status and configuration words that gate a decision. A null
+     * {@code value} is not the keyword.
+     */
+    public static boolean asciiKeyword(String keyword, String value) {
+        return value != null && com.google.common.base.Ascii.equalsIgnoreCase(keyword, value);
+    }
+
     public static String digestValue(String value, String name) {
         if (value == null || !value.matches("[a-f0-9]{64}")) throw new IllegalArgumentException("Invalid " + name);
         return value;
