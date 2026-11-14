@@ -137,14 +137,18 @@ class CdsExportDemographicScalarReconcilerUnitTest {
             var result = reconcile();
             assertThat(result.representable()).isTrue();
         }
-        for (var entry : List.of(Map.entry("sex", ""), Map.entry("patient_status", ""))) {
-            setup();
-            fixture.currentField(entry.getKey(), entry.getValue());
-            var result = reconcile();
-            assertThat(result.representable()).isFalse();
-            assertThatThrownBy(result::changes)
-                    .hasMessage("CDS_EXPORT_DEMOGRAPHIC_SCALARS_REQUIRES_REVIEW");
-        }
+        // A cleared sex or status (the REST service saves what it is sent) has its documented
+        // element, never the imported value: Gender U, an empty PersonStatusAsPlainText.
+        setup();
+        fixture.currentField("sex", "");
+        var sex = reconcile();
+        assertThat(sex.representable()).isTrue();
+        assertThat(text(render(sex), "Gender")).containsExactly("U");
+        setup();
+        fixture.currentField("patient_status", "");
+        var status = reconcile();
+        assertThat(status.representable()).isTrue();
+        assertThat(text(render(status), "PersonStatusAsPlainText")).containsExactly("");
     }
 
     @Test

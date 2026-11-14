@@ -39,8 +39,8 @@ public final class CdsExportPathComposer {
 
     public CdsExportPathDto compose(CdsExportPatientFileDto patient) {
         Objects.requireNonNull(patient, "patient");
-        String patientFirst = name(patient.patientFirstName());
-        String patientLast = name(patient.patientLastName());
+        String patientFirst = patientName(patient.patientFirstName());
+        String patientLast = patientName(patient.patientLastName());
         String id = patient.senderPatientId();
         if (id == null || !id.matches("[A-Za-z0-9][A-Za-z0-9-]{0,19}")) {
             throw new IllegalArgumentException("CDS_EXPORT_SENDER_PATIENT_ID_INVALID");
@@ -51,8 +51,8 @@ public final class CdsExportPathComposer {
         }
         String folder = physicianFolder(patient.physicianFirstName(), patient.physicianLastName(),
                 patient.physicianBillingNumber());
-        String file = component(patientFirst + "_" + patientLast + "_" + id + "_"
-                + DOB.format(patient.dateOfBirth()) + ".xml");
+        String file = component(visible(patientFirst + "_" + patientLast + "_" + id + "_"
+                + DOB.format(patient.dateOfBirth()) + ".xml"));
         if ((folder + "/" + file).getBytes(StandardCharsets.UTF_8).length > 65535) {
             throw new IllegalArgumentException("CDS_EXPORT_FILENAME_CAPACITY_REQUIRES_REVIEW");
         }
@@ -114,6 +114,29 @@ public final class CdsExportPathComposer {
             else portable.appendCodePoint(cp);
         }
         return portable.toString();
+    }
+
+    /**
+     * The file-name form of a patient's legal name part, as {@link #name} gives it, except that
+     * an empty name, or one of spaces only (the demographic mapper writes a missing or blank name
+     * as an empty Part), is an empty segment: the file is still named by the patient ID and birth date, and the empty name
+     * never refuses the export.
+     */
+    private static String patientName(String value) {
+        if (value != null
+                && value.codePoints()
+                        .allMatch(c -> Character.isWhitespace(c) || Character.isSpaceChar(c)))
+            return "";
+        return name(value);
+    }
+
+    /**
+     * A file name cannot start with a dot, which would make it hidden: a first name that does
+     * ({@code ".J"}, which the REST demographic service accepts) has that dot written as "_" in
+     * the file name, as a reserved character is. The XML keeps the recorded name.
+     */
+    private static String visible(String file) {
+        return file.startsWith(".") ? "_" + file.substring(1) : file;
     }
 
     private static String component(String value) {

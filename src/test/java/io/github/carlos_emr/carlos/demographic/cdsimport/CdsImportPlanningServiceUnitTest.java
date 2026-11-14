@@ -492,7 +492,9 @@ class CdsImportPlanningServiceUnitTest {
                                         "PLANNED",
                                         false,
                                         0));
-        when(fixture.identity.matchesCanonical(any(), eq(99), any())).thenReturn(true);
+        // Planning compares the chart the import wrote, with any identity values a CARLOS
+        // sender's native demographic record restored.
+        when(fixture.identity.matchesCanonical(any(), any(), eq(99), any())).thenReturn(true);
     }
 
     private Fixture fixture(boolean clinicalFailure, boolean duplicate) throws Exception {

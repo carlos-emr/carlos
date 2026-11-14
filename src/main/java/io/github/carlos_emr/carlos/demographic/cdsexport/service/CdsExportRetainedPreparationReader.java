@@ -334,8 +334,19 @@ public class CdsExportRetainedPreparationReader {
                                                                                         .get(
                                                                                                 "payload"))),
                                                         type)
-                                                : JSON.readValue(
-                                                        row.fields().get("payload"), type);
+                                                : type == CdsDemographicNativeDto.class
+                                                        ? JSON.treeToValue(
+                                                                io.github.carlos_emr.carlos
+                                                                        .demographic.cds.contract
+                                                                        .CdsPreparedDemographicDefaults
+                                                                        .apply(
+                                                                                JSON.readTree(
+                                                                                        row.fields()
+                                                                                                .get(
+                                                                                                        "payload"))),
+                                                                type)
+                                                        : JSON.readValue(
+                                                                row.fields().get("payload"), type);
         if (value == null) invalid();
         return value;
     }

@@ -154,35 +154,58 @@ class CdsExportDemographicMapperUnitTest {
     }
 
     @Test
-    void shouldBlockIncompleteInvalidAndPlaceholderBirthDates_withoutInventingADay() {
+    void shouldWriteTheNoDateBirthDate_whenTheStoredColumnsAreNotACalendarDate()
+            throws Exception {
+        // The REST demographic service accepts no birth date at all and checks the one it is
+        // sent with a lenient calendar (February 30 is saved): such a chart is exported with
+        // DateOfBirth 0001-01-01 and the three stored columns are carried exactly.
         for (String day : new String[] {null, "", "00", "30", "unknown"}) {
             var fields = baseline();
             fields.put("date_of_birth", day);
             var result = mapper.map(row(fields));
-            assertThat(result.baseRowRepresentable()).isFalse();
-            assertThat(result.birthDate()).isNull();
-            assertThat(result.fields().get("date_of_birth").outcome())
-                    .isEqualTo(Outcome.REQUIRES_REVIEW);
-            assertThatThrownBy(() -> xml(result))
-                    .hasMessage("CDS_EXPORT_DEMOGRAPHIC_MAPPING_REQUIRES_REVIEW");
+            assertThat(result.baseRowRepresentable()).isTrue();
+            assertThat(result.birthDate()).isEqualTo(java.time.LocalDate.of(1, 1, 1));
+            for (String column : List.of("year_of_birth", "month_of_birth", "date_of_birth")) {
+                assertCarried(result, column);
+                assertThat(result.fields().get(column).rule())
+                        .isEqualTo(CdsExportDemographicMapper.NO_BIRTH_DATE);
+            }
+            assertThat(text(parse(xml(result)), "cds", "DateOfBirth")).isEqualTo("0001-01-01");
         }
         var fields = baseline();
         fields.put("year_of_birth", "1900");
-        assertThat(mapper.map(row(fields)).birthDate()).isNull();
+        assertThat(mapper.map(row(fields)).birthDate()).isEqualTo(java.time.LocalDate.of(1, 1, 1));
+        // A real date stored without its leading zero is written in full; the stored month is
+        // carried so a CARLOS import keeps it.
+        var baselineDate = mapper.map(row(baseline()));
+        assertThat(baselineDate.birthDate()).isEqualTo(java.time.LocalDate.of(2000, 2, 29));
+        assertCarried(baselineDate, "month_of_birth");
+        assertThat(baselineDate.fields().get("month_of_birth").rule())
+                .isEqualTo(CdsExportDemographicMapper.BIRTH_COLUMN_IN_FULL);
+        assertThat(baselineDate.fields().get("year_of_birth").rule())
+                .isEqualTo("EXACT_NATIVE_CALENDAR_DATE");
     }
 
     @Test
-    void shouldBlockUnknownAdministrativeGender_andNeverDefaultItFromIdentityOrPronouns() {
-        for (String sex : new String[] {null, "", "T", "female"}) {
+    void shouldWriteGenderU_whenTheStoredSexIsMissingOrUnlisted() throws Exception {
+        // The REST service and the PHS/STAR feed (PID-8) store any one-character code or none:
+        // Gender is required, U is the schema's unknown gender, and the stored code is carried.
+        for (String sex : new String[] {null, "", "T", "f", "A"}) {
             var fields = baseline();
             fields.put("sex", sex);
             fields.put("gender", "Woman");
             fields.put("pronoun", "she/her");
             var result = mapper.map(row(fields));
-            assertThat(result.administrativeGender()).isNull();
-            assertThat(result.fields().get("sex").outcome()).isEqualTo(Outcome.REQUIRES_REVIEW);
+            assertThat(result.administrativeGender()).isEqualTo("U");
+            assertCarried(result, "sex");
+            assertThat(result.fields().get("sex").rule())
+                    .isEqualTo(CdsExportDemographicMapper.UNKNOWN_SEX);
+            // Gender identity and pronouns are never read into Administrative Gender.
             assertThat(result.fields().get("gender").outcome()).isEqualTo(Outcome.REQUIRES_REVIEW);
             assertThat(result.fields().get("pronoun").outcome()).isEqualTo(Outcome.REQUIRES_REVIEW);
+            fields.put("gender", null);
+            fields.put("pronoun", null);
+            assertThat(text(parse(xml(mapper.map(row(fields)))), "cds", "Gender")).isEqualTo("U");
         }
         // The add form's "X" (Intersex) is Administrative Gender O; the exact code is carried.
         var fields = baseline();
@@ -190,6 +213,10 @@ class CdsExportDemographicMapperUnitTest {
         var intersex = mapper.map(row(fields));
         assertThat(intersex.administrativeGender()).isEqualTo("O");
         assertCarried(intersex, "sex");
+        // A listed code is written as stored and not carried.
+        fields.put("sex", "U");
+        var unknown = mapper.map(row(fields));
+        assertThat(unknown.fields().get("sex").destination()).isEqualTo("Gender");
     }
 
     @Test
@@ -247,7 +274,8 @@ class CdsExportDemographicMapperUnitTest {
     }
 
     @Test
-    void shouldBlockTokenNormalizationAndCapacityChanges_insteadOfTrimmingOrSplittingNames() {
+    void shouldWriteAPlainNamePart_andCarryTheStoredNameWheneverThePartDiffers()
+            throws Exception {
         // Untrimmed or doubled whitespace: every schema reader collapses an xs:token, so the
         // collapsed name is written and the exact stored value travels in the native record.
         for (var spaced :
@@ -263,17 +291,40 @@ class CdsExportDemographicMapperUnitTest {
             assertThat(result.names().first()).isEqualTo(spaced.getValue());
             assertCarried(result, "first_name");
         }
-        for (String first : List.of("x".repeat(51), "bad\u0000name")) {
+        // A name the REST service or the PHS/STAR feed saved empty or blank is the empty Part;
+        // a character XML cannot carry is U+FFFD; nothing is appended inside a name.
+        var cases =
+                Map.of(
+                        "", "",
+                        "   ", "",
+                        "bad\u0000name", "bad\ufffdname",
+                        "x".repeat(51), "x".repeat(50));
+        for (var name : cases.entrySet()) {
             var fields = baseline();
-            fields.put("first_name", first);
+            fields.put("last_name", name.getKey());
             var result = mapper.map(row(fields));
-            assertThat(result.baseRowRepresentable()).isFalse();
-            assertThat(result.names().first()).isNull();
+            assertThat(result.baseRowRepresentable()).isTrue();
+            assertThat(result.names().last()).isEqualTo(name.getValue());
+            assertCarried(result, "last_name");
+            assertThat(part(parse(xml(result)), "LastName")).isEqualTo(name.getValue());
         }
         var fields = baseline();
+        fields.put("first_name", "");
+        assertThat(mapper.map(row(fields)).fields().get("first_name").rule())
+                .isEqualTo(CdsExportDemographicMapper.MISSING_NAME);
+        fields.put("first_name", "x".repeat(51));
+        assertThat(mapper.map(row(fields)).fields().get("first_name").rule())
+                .isEqualTo(CdsExportDemographicMapper.CUT_NAME);
+        // A single middle name longer than a name part: its first 50 characters, the stored
+        // value carried.
+        fields = baseline();
         fields.put("middleNames", "a".repeat(51));
-        assertThat(mapper.map(row(fields)).fields().get("middleNames").outcome())
-                .isEqualTo(Outcome.REQUIRES_REVIEW);
+        var middle = mapper.map(row(fields));
+        assertThat(CdsExportDemographicMapper.middleNameParts(middle.names().middle()))
+                .containsExactly("a".repeat(50));
+        assertCarried(middle, "middleNames");
+        assertThat(middle.fields().get("middleNames").rule())
+                .isEqualTo("MIDDLE_NAME_CUT_TO_THE_PART_LENGTH_EXACT_VALUE_CARRIED");
     }
 
     @Test
@@ -286,28 +337,140 @@ class CdsExportDemographicMapperUnitTest {
     }
 
     @Test
-    void shouldRequireHealthCardNumberAndIssuer_andRejectZeroDatesAndUnrepresentableEmail() {
+    void shouldLeaveOutAHealthCardWithoutANumber_andCarryItsStoredParts() throws Exception {
         var fields = baseline();
         fields.put("hin", "0123456789");
         // A number without an issuer is not guessed into a card: it travels in the record.
         assertCarried(mapper.map(row(fields)), "hin");
-        // Updated for D11: an issuer alone (the form default) is no card; a version or expiry
-        // without the number still requires review.
+        // A version code or an expiry typed without the number (the forms do not require the
+        // number): HealthCard needs a Number, so the card is left out and its parts carried.
         fields.put("hin", "");
         fields.put("hc_type", "ON");
         fields.put("ver", "AB");
-        assertThat(mapper.map(row(fields)).fields().get("hin").outcome())
-                .isEqualTo(Outcome.REQUIRES_REVIEW);
+        fields.put("hc_renew_date", "2030-01-31");
+        var withoutNumber = mapper.map(row(fields));
+        assertThat(withoutNumber.baseRowRepresentable()).isTrue();
+        assertThat(withoutNumber.healthCard()).isNull();
+        for (String column : List.of("ver", "hc_type", "hc_renew_date"))
+            assertCarried(withoutNumber, column);
+        assertThat(withoutNumber.fields().get("hin").outcome()).isEqualTo(Outcome.ABSENT);
+        // A blank number, or one with a character XML cannot carry, is no number either.
+        for (String number : List.of("   ", "0123\u0007456789")) {
+            fields.put("hin", number);
+            var unusable = mapper.map(row(fields));
+            assertThat(unusable.healthCard()).isNull();
+            assertCarried(unusable, "hin");
+        }
         fields = baseline();
         fields.put("email", "synthetic+tag@example.ca");
         fields.put("patient_status_date", "0000-00-00");
         var result = mapper.map(row(fields));
-        assertThat(result.baseRowRepresentable()).isFalse();
+        assertThat(result.baseRowRepresentable()).isTrue();
         // A "+" tag is outside the CDS e-mail pattern: left out and carried, never a hold.
         assertCarried(result, "email");
         assertThat(result.email()).isNull();
-        assertThat(result.fields().get("patient_status_date").outcome())
-                .isEqualTo(Outcome.REQUIRES_REVIEW);
+        // A zero date is no calendar date: PersonStatusDate is left out and the value carried.
+        assertThat(result.personStatusDate()).isNull();
+        assertCarried(result, "patient_status_date");
+    }
+
+    @Test
+    void shouldLeaveOutAVersionCodeLongerThanTheElement_andKeepTheCard() throws Exception {
+        // The form's version box takes three characters (ver is char(3)); Version holds two.
+        var fields = baseline();
+        fields.put("hin", "0123456789");
+        fields.put("hc_type", "ON");
+        fields.put("ver", "ABC");
+        var result = mapper.map(row(fields));
+        assertThat(result.baseRowRepresentable()).isTrue();
+        assertThat(result.healthCard().number()).isEqualTo("0123456789");
+        assertThat(result.healthCard().version()).isNull();
+        assertCarried(result, "ver");
+        var document = parse(xml(result));
+        assertThat(document.getElementsByTagNameNS("cds_dt", "Version").getLength()).isZero();
+    }
+
+    @Test
+    void shouldWriteAnEmptyPlainTextStatus_whenThePatientStatusIsMissing() throws Exception {
+        // PersonStatusCode is required; the REST update saves the status it is sent, none
+        // included. An empty plain text states no status, where any code would assert one.
+        for (String status : new String[] {null, ""}) {
+            var fields = baseline();
+            fields.put("patient_status", status);
+            var result = mapper.map(row(fields));
+            assertThat(result.baseRowRepresentable()).isTrue();
+            assertThat(result.enumeratedStatus()).isFalse();
+            assertThat(result.personStatus()).isEmpty();
+            assertCarried(result, "patient_status");
+            assertThat(result.fields().get("patient_status").rule())
+                    .isEqualTo(CdsExportDemographicMapper.MISSING_STATUS);
+            var document = parse(xml(result));
+            assertThat(document.getElementsByTagNameNS("cds", "PersonStatusAsPlainText").getLength())
+                    .isEqualTo(1);
+            assertThat(text(document, "cds", "PersonStatusAsPlainText")).isEmpty();
+        }
+        // A status with a character XML cannot carry is written with U+FFFD and carried.
+        var fields = baseline();
+        fields.put("patient_status", "Away\u0001");
+        var control = mapper.map(row(fields));
+        assertThat(control.personStatus()).isEqualTo("Away\ufffd");
+        assertCarried(control, "patient_status");
+    }
+
+    @Test
+    void shouldLeaveOutAnUnlistedTitle_andCarryAFormCodeWrittenInTheSchemasSpelling()
+            throws Exception {
+        var fields = baseline();
+        fields.put("title", "Mx");
+        var unlisted = mapper.map(row(fields));
+        assertThat(unlisted.baseRowRepresentable()).isTrue();
+        assertThat(unlisted.names().prefix()).isNull();
+        assertCarried(unlisted, "title");
+        // The add form stores DR; the element holds Dr and DR travels in the record.
+        fields.put("title", "DR");
+        var form = mapper.map(row(fields));
+        assertThat(form.names().prefix()).isEqualTo("Dr");
+        assertCarried(form, "title");
+        fields.put("title", "Dr");
+        assertThat(mapper.map(row(fields)).fields().get("title").destination())
+                .isEqualTo("Names/NamePrefix");
+    }
+
+    @Test
+    void shouldLeaveOutAPhoneNumberNoElementCanHold_andCarryIt() throws Exception {
+        for (String number : List.of("   ", "905\u0007555")) {
+            var fields = baseline();
+            fields.put("phone", number);
+            fields.put("chart_no", "C\u0000");
+            var result = mapper.map(row(fields));
+            assertThat(result.baseRowRepresentable()).isTrue();
+            assertThat(result.phones()).isEmpty();
+            assertCarried(result, "phone");
+            assertThat(result.chartNumber()).isNull();
+            assertCarried(result, "chart_no");
+        }
+    }
+
+    @Test
+    void shouldWriteASchemaValidDocument_forAChartMissingEveryRequiredValue() throws Exception {
+        // The worst chart an unvalidated API can leave: every required Demographics element still
+        // gets its documented value and the document is schema-valid.
+        var fields = baseline();
+        fields.put("first_name", "");
+        fields.put("last_name", "  ");
+        fields.put("sex", "");
+        fields.put("patient_status", null);
+        fields.put("year_of_birth", null);
+        fields.put("month_of_birth", null);
+        fields.put("date_of_birth", null);
+        var result = mapper.map(row(fields));
+        assertThat(result.baseRowRepresentable()).isTrue();
+        var document = parse(xml(result));
+        assertThat(text(document, "cds", "DateOfBirth")).isEqualTo("0001-01-01");
+        assertThat(text(document, "cds", "Gender")).isEqualTo("U");
+        assertThat(text(document, "cds", "PersonStatusAsPlainText")).isEmpty();
+        assertThat(part(document, "FirstName")).isEmpty();
+        assertThat(part(document, "LastName")).isEmpty();
     }
 
     @Test
@@ -393,9 +556,13 @@ class CdsExportDemographicMapperUnitTest {
                             .getTextContent());
         assertThat(String.join(" ", joined)).isEqualTo(middle);
         assertThat(joined).hasSize(6);
+        // A single name longer than a part is written as its first 50 characters, and the
+        // stored middle names are carried.
         fields.put("middleNames", "Short " + "b".repeat(51));
-        assertThat(mapper.map(row(fields)).fields().get("middleNames").outcome())
-                .isEqualTo(Outcome.REQUIRES_REVIEW);
+        var cut = mapper.map(row(fields));
+        assertThat(CdsExportDemographicMapper.middleNameParts(cut.names().middle()))
+                .containsExactly("Short", "b".repeat(50));
+        assertCarried(cut, "middleNames");
         fields.put("middleNames", null);
         // An unlisted name or a bare code is still not evidence of an ISO 639-2 code.
         // It is left out and the stored name travels in the native record.
@@ -546,6 +713,12 @@ class CdsExportDemographicMapperUnitTest {
         factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
         factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
         return factory.newDocumentBuilder().parse(new ByteArrayInputStream(xml));
+    }
+
+    /** The Part of the first legal name element of that name (FirstName, LastName). */
+    private static String part(Document document, String name) {
+        var element = (org.w3c.dom.Element) document.getElementsByTagNameNS("cds_dt", name).item(0);
+        return element.getElementsByTagNameNS("cds_dt", "Part").item(0).getTextContent();
     }
 
     private static String text(Document document, String namespace, String name) {

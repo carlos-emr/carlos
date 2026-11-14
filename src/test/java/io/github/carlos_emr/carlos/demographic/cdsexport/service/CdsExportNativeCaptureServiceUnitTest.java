@@ -691,8 +691,11 @@ class CdsExportNativeCaptureServiceUnitTest {
         assertThat(result.sourceManifestSha256()).isEqualTo(captured.manifest().plaintextSha256());
         assertThat(result.noteRows()).isEqualTo(1);
         assertThat(result.note().representable()).isTrue();
-        assertThat(result.representable()).isFalse();
-        assertThat(result.demographic().birthDate()).isNull();
+        // Nothing is filled in from elsewhere: the missing birth date is written as 0001-01-01,
+        // the documented value for a date the stored columns do not state, and carried.
+        assertThat(result.demographic().birthDate()).isEqualTo(java.time.LocalDate.of(1, 1, 1));
+        assertThat(result.demographic().fields().get("year_of_birth").rule())
+                .isEqualTo(CdsExportDemographicMapper.NO_BIRTH_DATE);
     }
 
     @Test
@@ -864,8 +867,8 @@ class CdsExportNativeCaptureServiceUnitTest {
                 .isEqualTo(
                         io.github.carlos_emr.carlos.demographic.cdsexport.dto
                                 .CdsExportDemographicMappingDto.Outcome.MAPPED);
-        assertThat(result.baseRowRepresentable())
-                .isFalse(); // The independently missing birth date still blocks the patient.
+        // The independently missing birth date no longer holds the patient: 0001-01-01, carried.
+        assertThat(result.baseRowRepresentable()).isTrue();
         var revoked = new Control();
         revoked.refuseAt = 4;
         assertThatThrownBy(

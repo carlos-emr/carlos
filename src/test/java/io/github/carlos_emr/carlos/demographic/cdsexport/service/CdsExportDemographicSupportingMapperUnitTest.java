@@ -277,11 +277,13 @@ class CdsExportDemographicSupportingMapperUnitTest {
         decoded.get("demographic")
                 .fields()
                 .forEachRemaining(entry -> demographic.put(entry.getKey(), entry.getValue().textValue()));
-        // The practice-administrative dates travel here too (they used to be not exported).
+        // The practice-administrative dates travel here too (they used to be not exported), and
+        // so does the form's title code MS, written in the schema's spelling (Ms).
         var expectedDemographic = new LinkedHashMap<String, String>();
         var base = rows.get("demographic").getFirst().fields();
         for (String column : CdsExportDemographicRowDto.COLUMNS)
-            if (ANCILLARY.containsKey(column) || Set.of("date_joined", "eff_date").contains(column))
+            if (ANCILLARY.containsKey(column)
+                    || Set.of("date_joined", "eff_date", "title").contains(column))
                 expectedDemographic.put(column, base.get(column));
         assertThat(demographic).containsExactlyEntriesOf(expectedDemographic);
         assertThat(demographic).containsEntry("date_joined", "2009-04-01");
@@ -365,6 +367,8 @@ class CdsExportDemographicSupportingMapperUnitTest {
     @Test
     void shouldWriteNoRecord_forAPatientWithOnlyFormDefaults() throws Exception {
         for (String column : ANCILLARY.keySet()) set(column, null);
+        // A title already in the schema's spelling is written as stored, not carried.
+        set("title", "Ms");
         // A practice-administrative date the user entered is carried, so none is set here.
         set("date_joined", null);
         set("eff_date", null);

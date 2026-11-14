@@ -230,11 +230,18 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                     }
                     // Demographic values with no Demographics element (preferred name, pronoun,
                     // care team, extension properties...): one record per patient that has any.
-                    var demographicRecord =
+                    var mappedRecord =
                             CdsExportDemographicSupportingMapper.map(
                                     new CdsExportDemographicSupportingReader(captures)
                                             .rows(lease, patient, tables, source, bounds, control),
                                     control::checkpoint);
+                    // After retained NewCategory records (a copy of an earlier CARLOS sender's
+                    // native demographic record among them) this chart's own record always
+                    // follows, even empty: a CARLOS importer restores from the last one.
+                    var demographicRecord =
+                            mappedRecord == null && counts[0] > 0
+                                    ? CdsExportDemographicSupportingMapper.nothingCarried()
+                                    : mappedRecord;
                     if (demographicRecord != null) {
                         var identity =
                                 new CdsExportIdentityDto(

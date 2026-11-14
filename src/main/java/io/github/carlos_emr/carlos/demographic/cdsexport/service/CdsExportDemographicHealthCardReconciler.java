@@ -138,6 +138,33 @@ public final class CdsExportDemographicHealthCardReconciler {
                         || evidence.preparation().details().healthCardExpiry() != null;
         if (projection.preparedProjectionProven() && absent && !source.isEmpty())
             changes.add(new CdsExportRetainedSectionWriter.Change("HealthCard[1]", ids, null));
+        // A card edited in CARLOS that no HealthCard can hold any more (its number cleared while
+        // a version or expiry stays, or an issuer outside the pinned list): the imported card no
+        // longer describes the chart, so it is removed, and the current parts travel in the
+        // native demographic record by the native decisions, as on a chart added in CARLOS.
+        if (!absent
+                && mapping.healthCard() == null
+                && projection.preparedProjectionProven()
+                && !projection.changedColumns().isEmpty()) {
+            if (!source.isEmpty())
+                changes.add(new CdsExportRetainedSectionWriter.Change("HealthCard[1]", ids, null));
+            for (String column : List.of("hin", "ver", "hc_type", "hc_renew_date")) {
+                var decision = mapping.fields().get(column);
+                fields.put(
+                        new CdsExportNativeFieldKeyDto("demographic", current.recordKey(), column),
+                        new CdsExportFieldAssessmentDto(
+                                Presence.valueOf(decision.presence().name()),
+                                Outcome.valueOf(decision.outcome().name()),
+                                decision.destination(),
+                                decision.outcome()
+                                                == CdsExportDemographicMappingDto.Outcome.MAPPED
+                                        ? "EDITED_HEALTH_CARD_WITHOUT_A_USABLE_NUMBER_CARRIED"
+                                        : decision.rule()));
+            }
+            values.requireActive();
+            checkpoint.run();
+            return new Result(index.sourceManifestSha256(), address, ids, fields, changes);
+        }
         for (var column : new TreeSet<>(COLUMNS.keySet())) {
             checkpoint.run();
             String leaf = COLUMNS.get(column), rule;

@@ -24,7 +24,17 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.dto;
 import java.util.List;
 import java.util.Map;
 
-/** Fixed-size prepared native projection; all repeated originals remain separate category-local source fields. */
+/**
+ * Fixed-size prepared native projection; all repeated originals remain separate category-local
+ * source fields.
+ *
+ * <p>{@code carried} and {@code properties} are what a CARLOS sender's native demographic record
+ * restores: the exact stored value of each base-row column whose element the sender could not
+ * write exactly (by column; a null value is SQL NULL), and the {@code demographicExt} rows it
+ * carries. The writer stores them over the element projection; the exporter's projection evidence
+ * reads them back. A preparation sealed before they existed decodes them empty
+ * ({@code CdsPreparedDemographicDefaults}).
+ */
 public record CdsDemographicNativeDto(
         String sourceId,
         String firstName,
@@ -43,7 +53,9 @@ public record CdsDemographicNativeDto(
         String primaryProvider,
         CdsDemographicDetailsDto details,
         CdsDemographicRelationsDto relations,
-        List<CdsClinicalDiagnosticDto> diagnostics) {
+        List<CdsClinicalDiagnosticDto> diagnostics,
+        Map<String, String> carried,
+        List<Property> properties) {
     public static final String MIDDLE_NAMES_SCALAR = "Names/LegalName/OtherName/GIV";
 
     public CdsDemographicNativeDto {
@@ -51,6 +63,11 @@ public record CdsDemographicNativeDto(
         diagnostics = List.copyOf(diagnostics);
         details = details == null ? CdsDemographicDetailsDto.empty() : details;
         relations = relations == null ? CdsDemographicRelationsDto.empty() : relations;
+        // A restored column can be SQL NULL, which Map.copyOf refuses.
+        carried =
+                java.util.Collections.unmodifiableMap(
+                        new java.util.TreeMap<>(carried == null ? Map.of() : carried));
+        properties = properties == null ? List.of() : List.copyOf(properties);
         if (firstName == null || lastName == null || birthDate == null || gender == null)
             throw new IllegalArgumentException("DEMOGRAPHIC_PREPARED_REQUIRED_VALUE_MISSING");
         bounded(firstName, 50);
@@ -64,6 +81,49 @@ public record CdsDemographicNativeDto(
         var birth = java.time.LocalDate.parse(birthDate);
         if (birth.getYear() < 1 || birth.getYear() > 9999)
             throw new IllegalArgumentException("DEMOGRAPHIC_PREPARED_DATE_INVALID");
+    }
+
+    /** A projection with nothing restored from a CARLOS sender's native demographic record. */
+    public CdsDemographicNativeDto(
+            String sourceId,
+            String firstName,
+            String lastName,
+            String birthDate,
+            String healthNumber,
+            String issuer,
+            String gender,
+            String status,
+            Map<String, String> scalars,
+            Address mailing,
+            Address residential,
+            Phone home,
+            Phone work,
+            Phone cell,
+            String primaryProvider,
+            CdsDemographicDetailsDto details,
+            CdsDemographicRelationsDto relations,
+            List<CdsClinicalDiagnosticDto> diagnostics) {
+        this(
+                sourceId,
+                firstName,
+                lastName,
+                birthDate,
+                healthNumber,
+                issuer,
+                gender,
+                status,
+                scalars,
+                mailing,
+                residential,
+                home,
+                work,
+                cell,
+                primaryProvider,
+                details,
+                relations,
+                diagnostics,
+                Map.of(),
+                List.of());
     }
 
     /** Explicit source-less compatibility for existing native writer fixtures; actual preparation supplies details. */
@@ -121,6 +181,17 @@ public record CdsDemographicNativeDto(
         @Override
         public String toString() {
             return "CdsNativeAddress[protected]";
+        }
+    }
+
+    /**
+     * A {@code demographicExt} row of the sender, restored as it was stored: its key (null when
+     * it had none), value and hidden flag.
+     */
+    public record Property(String key, String value, boolean hidden) {
+        @Override
+        public String toString() {
+            return "CdsNativeProperty[protected]";
         }
     }
 
