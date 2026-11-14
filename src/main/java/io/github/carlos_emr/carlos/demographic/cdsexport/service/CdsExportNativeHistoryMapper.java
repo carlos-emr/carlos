@@ -1182,6 +1182,20 @@ public final class CdsExportNativeHistoryMapper {
             review("CDS_EXPORT_NATIVE_HISTORY_EXTENSION_CONFLICT");
     }
 
+    /**
+     * A stored wall-clock time (a DATETIME column, or a lab time with no offset) as a date-time in
+     * the clinic zone, with that zone's offset at the time.
+     *
+     * <p>A local time with no single whole-minute offset in the zone is written as the wall-clock
+     * time with no UTC offset, the rule an appointment's time follows
+     * ({@code LOCAL_WALL_CLOCK_TIME_AT_DAYLIGHT_SAVING_TRANSITION}): a time inside the
+     * spring-forward gap, one inside the fall-back hour that occurs twice, and one before the
+     * zone's standard time (a local mean time offset with seconds). A note written in the repeated
+     * hour, or an observation time a clinician typed there, held the patient
+     * ({@code CDS_EXPORT_NATIVE_HISTORY_CLOCK_AMBIGUOUS}). An xs:dateTime without a zone is valid,
+     * a receiver reads it as local time, and no offset is ever invented; the stored value still
+     * travels exactly in the record's native details.
+     */
     static CdsExportDateDto clock(String value, ZoneId zone) throws IOException {
         try {
             if (value.length() == 10)
@@ -1190,9 +1204,10 @@ public final class CdsExportNativeHistoryMapper {
             var local = LocalDateTime.parse(value.replace(' ', 'T'));
             if (zone == null) review("CDS_EXPORT_NATIVE_HISTORY_ZONE_REQUIRED");
             var offsets = zone.getRules().getValidOffsets(local);
-            if (offsets.size() != 1) review("CDS_EXPORT_NATIVE_HISTORY_CLOCK_AMBIGUOUS");
-            if (offsets.getFirst().getTotalSeconds() % 60 != 0)
-                review("CDS_EXPORT_NATIVE_HISTORY_OFFSET_NOT_REPRESENTABLE");
+            if (offsets.size() != 1 || offsets.getFirst().getTotalSeconds() % 60 != 0)
+                return new CdsExportDateDto(
+                        CdsExportDateDto.Precision.DATE_TIME,
+                        java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(local));
             return new CdsExportDateDto(
                     CdsExportDateDto.Precision.DATE_TIME,
                     java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(

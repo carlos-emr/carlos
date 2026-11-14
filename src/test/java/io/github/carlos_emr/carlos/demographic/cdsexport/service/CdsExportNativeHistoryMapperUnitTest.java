@@ -359,7 +359,8 @@ class CdsExportNativeHistoryMapperUnitTest {
     }
 
     @Test
-    void shouldRefuseMissingAuthorLookup_andAnAmbiguousClock() {
+    void shouldRefuseMissingAuthorLookup_andWriteAnAmbiguousClockAsItsWallClockTime()
+            throws Exception {
         assertThatThrownBy(
                         () ->
                                 mapper.map(
@@ -369,8 +370,20 @@ class CdsExportNativeHistoryMapperUnitTest {
                                         Map.of(),
                                         ZONE))
                 .hasMessage("CDS_EXPORT_NATIVE_NOTE_PROVIDER_REQUIRED");
-        assertThatThrownBy(() -> CdsExportNativeHistoryMapper.clock("2026-11-01 01:30:00", ZONE))
-                .hasMessage("CDS_EXPORT_NATIVE_HISTORY_CLOCK_AMBIGUOUS");
+        // A note written in the hour the autumn change repeats, one timed in the spring gap, and
+        // one before standard time held the patient (CDS_EXPORT_NATIVE_HISTORY_CLOCK_AMBIGUOUS,
+        // ..._OFFSET_NOT_REPRESENTABLE). Each is its wall-clock time with no offset now, as an
+        // appointment's is; no offset is invented.
+        assertThat(CdsExportNativeHistoryMapper.clock("2026-11-01 01:30:00", ZONE))
+                .isEqualTo(
+                        new CdsExportDateDto(
+                                CdsExportDateDto.Precision.DATE_TIME, "2026-11-01T01:30:00"));
+        assertThat(CdsExportNativeHistoryMapper.clock("2026-03-08 02:30:00", ZONE).lexical())
+                .isEqualTo("2026-03-08T02:30:00");
+        assertThat(CdsExportNativeHistoryMapper.clock("1880-06-01 09:15:00", ZONE).lexical())
+                .isEqualTo("1880-06-01T09:15:00");
+        assertThat(CdsExportNativeHistoryMapper.clock("2026-11-01 03:30:00", ZONE).lexical())
+                .isEqualTo("2026-11-01T03:30:00-05:00");
     }
 
     @Test

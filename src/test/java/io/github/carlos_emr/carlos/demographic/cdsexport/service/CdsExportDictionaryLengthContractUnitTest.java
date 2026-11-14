@@ -26,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsAppointmentSourceContract;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionContract;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsSchemaModel;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsWireSchema;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDateDto;
@@ -104,8 +105,9 @@ class CdsExportDictionaryLengthContractUnitTest {
                             "text64K",
                             Map.of(
                                     "CdsExportPatientNoteMapper",
-                                    "note(): a note longer than 64,000 characters is left out"
-                                            + " whole, the exact column in CARLOS.Demographic.v1",
+                                    "note(): a note longer than 64,000 characters is cut"
+                                            + " before PATIENT_NOTE_SHORTENED_MARK, the exact"
+                                            + " column in CARLOS.Demographic.v1",
                                     "CdsExportDemographicXmlWriter",
                                     "writes the mapper's text; refuses more (integrity check)",
                                     "CdsExportDemographicRetainedNoteReconciler",
@@ -391,14 +393,11 @@ class CdsExportDictionaryLengthContractUnitTest {
 
     @Test
     void shouldKeepTheDictionaryLength_forTextCarlosWritesPastIt() throws Exception {
-        // NoteAboutPatient: shortened to the dictionary length before the CARLOS mark, the
-        // exact column carried.
+        // NoteAboutPatient: cut before the shortened mark to 64,000, the whole column carried.
         var note = CdsExportPatientNoteMapper.note("n".repeat(64_001));
-        assertThat(note.text().codePointCount(0, note.text().length()))
-                .isLessThanOrEqualTo(CdsExportPatientNoteMapper.NOTE_LENGTH);
         assertThat(note.text())
-                .startsWith("n".repeat(100))
-                .endsWith("[CARLOS: shortened to the CDS limit of 64,000 characters]");
+                .endsWith(CdsNativeExtensionContract.PATIENT_NOTE_SHORTENED_MARK)
+                .hasSize(CdsExportDictionaryLength.TEXT_64K);
         assertThat(note.carried()).isTrue();
         // AppointmentNotes: cut before the mark, complete text in the source record.
         var fitted = CdsExportAppointmentMapper.fitNotes("n".repeat(32_768));
