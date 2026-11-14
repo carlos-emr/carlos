@@ -517,35 +517,44 @@ public class CdsClinicalNormalizationService {
         return value;
     }
 
-    private static final String STRENGTH_AMOUNT = "[0-9]+(?:[.,][0-9]+)?";
+    // Possessive quantifiers throughout (#5706 ReDoS review): an amount is never followed by more
+    // of itself and whitespace is never followed by whitespace, so giving characters back can
+    // never produce a match; it only made a long run of digits or spaces cost its square.
+    private static final String STRENGTH_AMOUNT = "[0-9]++(?:[.,][0-9]++)?+";
     private static final String STRENGTH_UNIT =
             "[A-Za-z%\u00b5\u03bc][A-Za-z0-9%\u00b5\u03bc]*";
+
+    // "/5 mL" or "/capsule": the optional per-quantity. Its amount owns the whitespace after it,
+    // so no two whitespace runs are adjacent. Written as "(amount)?\\s*" after "\\s*", a run of n
+    // spaces could be divided n ways before the unit failed, and a 32,768-character
+    // Strength/UnitOfMeasure took seconds to refuse. Groups: per-quantity amount (optional),
+    // per-quantity unit.
+    private static final String STRENGTH_PER =
+            "(?:\\s*+/\\s*+(?:(" + STRENGTH_AMOUNT + ")\\s*+)?(" + STRENGTH_UNIT + "))?";
 
     // A strength is an amount and a unit, optionally per a quantity: a measured quantity
     // ("250 mg/5 mL", a concentration) or one dosage unit ("500 mg/capsule"). Groups: amount,
     // unit, per-quantity amount (optional), per-quantity unit.
-    private static final Pattern STRENGTH_TOKEN =
-            Pattern.compile(
-                    "("
-                            + STRENGTH_AMOUNT
-                            + ")\\s*("
-                            + STRENGTH_UNIT
-                            + ")(?:\\s*/\\s*("
-                            + STRENGTH_AMOUNT
-                            + ")?\\s*("
-                            + STRENGTH_UNIT
-                            + "))?");
+    private static final Pattern STRENGTH_TOKEN = strengthToken();
 
     /** The standard Strength/UnitOfMeasure, which may itself be per a quantity ("mg/5 mL"). */
-    private static final Pattern STRENGTH_UNIT_TEXT =
-            Pattern.compile(
-                    "("
-                            + STRENGTH_UNIT
-                            + ")(?:\\s*/\\s*("
-                            + STRENGTH_AMOUNT
-                            + ")?\\s*("
-                            + STRENGTH_UNIT
-                            + "))?");
+    private static final Pattern STRENGTH_UNIT_TEXT = strengthUnitText();
+
+    // The lookbehind starts a token only at the first digit of a digit run. A later digit of the
+    // same run could only repeat the attempt that just failed, which made find() quadratic in the
+    // length of the run; the tokens found are the same.
+    // FindSecBugs REDOS: linear by construction. Amounts and whitespace are possessive, the lookbehind stops a digit run being rescanned from each of its digits, and no two adjacent quantifiers can match the same character.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "REDOS", justification = "linear by construction: amounts and whitespace are possessive, the lookbehind stops a digit run being rescanned from each of its digits, and no two adjacent quantifiers can match the same character")
+    private static Pattern strengthToken() {
+        return Pattern.compile(
+                "(?<![0-9])(" + STRENGTH_AMOUNT + ")\\s*+(" + STRENGTH_UNIT + ")" + STRENGTH_PER);
+    }
+
+    // FindSecBugs REDOS: linear by construction. Matched whole from the start of the unit text; amounts and whitespace are possessive and no two adjacent quantifiers can match the same character.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "REDOS", justification = "linear by construction: matched whole from the start of the unit text; amounts and whitespace are possessive and no two adjacent quantifiers can match the same character")
+    private static Pattern strengthUnitText() {
+        return Pattern.compile("(" + STRENGTH_UNIT + ")" + STRENGTH_PER);
+    }
 
     /**
      * Words naming one dosage unit (#6197). "500 mg/capsule", "500mg / tab" or "500 mg/1 tablet"

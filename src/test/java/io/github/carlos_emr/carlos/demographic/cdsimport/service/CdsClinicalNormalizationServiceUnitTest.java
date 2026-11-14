@@ -319,6 +319,62 @@ class CdsClinicalNormalizationServiceUnitTest {
                 .isFalse();
     }
 
+    @Test
+    void shouldDecideOtherStrengthsInLinearTime_forLongRunsOfDigitsAndSpaces() {
+        // ReDoS review (#5706): before the strength patterns were made linear each of these cost
+        // the square of its length (a 32,768-character Strength/UnitOfMeasure took seconds, and
+        // these would take minutes); they now take milliseconds.
+        String digits = "1".repeat(200_000);
+        String spaces = " ".repeat(200_000);
+        org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(
+                java.time.Duration.ofSeconds(20),
+                () -> {
+                    assertThat(
+                                    CdsClinicalNormalizationService.describesOtherStrengths(
+                                            digits, "500", "mg"))
+                            .isFalse();
+                    assertThat(
+                                    CdsClinicalNormalizationService.describesOtherStrengths(
+                                            "500 mg/" + spaces + "!", "500", "mg"))
+                            .isFalse();
+                    assertThat(
+                                    CdsClinicalNormalizationService.describesOtherStrengths(
+                                            "500 mg", "500", "mg/" + spaces + "!"))
+                            .isTrue();
+                });
+    }
+
+    @Test
+    void shouldReadSameStrengthTokens_afterLinearRewrite() {
+        // A token still starts at the first digit of its run: "12 mg" is never read as "2 mg".
+        assertThat(CdsClinicalNormalizationService.describesOtherStrengths("12 mg", "2", "mg"))
+                .isTrue();
+        assertThat(CdsClinicalNormalizationService.describesOtherStrengths("12 mg", "12", "mg"))
+                .isFalse();
+        // A dotted run still yields its last amount ("1.5.2 mg" names 5.2 mg), as before.
+        assertThat(
+                        CdsClinicalNormalizationService.describesOtherStrengths(
+                                "1.5.2 mg", "5.2", "mg"))
+                .isFalse();
+        // The per-quantity amount and the whitespace around it are read as before.
+        assertThat(
+                        CdsClinicalNormalizationService.describesOtherStrengths(
+                                "250 mg / 5 mL", "250", "mg/5 mL"))
+                .isFalse();
+        assertThat(
+                        CdsClinicalNormalizationService.describesOtherStrengths(
+                                "250mg/5mL", "250", "mg /  5  mL"))
+                .isFalse();
+        assertThat(
+                        CdsClinicalNormalizationService.describesOtherStrengths(
+                                "250 mg/  capsule", "250", "mg"))
+                .isFalse();
+        assertThat(
+                        CdsClinicalNormalizationService.describesOtherStrengths(
+                                "250 mg/10 mL", "250", "mg/5 mL"))
+                .isTrue();
+    }
+
     private io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto medication(Map<String, String> extra)
             throws Exception {
         Map<String, String> values = new LinkedHashMap<>();
