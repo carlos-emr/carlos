@@ -1062,6 +1062,52 @@ class CdsExportNativeCaptureServiceUnitTest {
     }
 
     @Test
+    void shouldWriteByteIdenticalValueAndIndexMembers_whenTheSameRowsAreCapturedTwice()
+            throws Exception {
+        var service = service();
+        var first =
+                service.capture(lease, patientScope, Set.of("demographic"), 1000, 8L << 20, new Control());
+        byte[] firstValues, firstIndex;
+        try (var input = store.open(first.capture().values())) {
+            firstValues = input.readAllBytes();
+        }
+        try (var input = store.open(first.capture().index())) {
+            firstIndex = input.readAllBytes();
+        }
+        var second =
+                service.capture(lease, patientScope, Set.of("demographic"), 1000, 8L << 20, new Control());
+        byte[] secondValues, secondIndex;
+        try (var input = store.open(second.capture().values())) {
+            secondValues = input.readAllBytes();
+        }
+        try (var input = store.open(second.capture().index())) {
+            secondIndex = input.readAllBytes();
+        }
+        // Two distinct staged members each, with the same bytes and therefore the same fingerprint.
+        assertThat(second.capture().values().memberId())
+                .isNotEqualTo(first.capture().values().memberId());
+        assertThat(secondValues).isEqualTo(firstValues);
+        assertThat(secondIndex).isEqualTo(firstIndex);
+        assertThat(CdsExportChartFingerprints.capture(second.capture()))
+                .isEqualTo(CdsExportChartFingerprints.capture(first.capture()));
+        // Nothing of the attempt in either member, and every index line's members in name order,
+        // so no process's map order can move a byte.
+        String index = new String(firstIndex, java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(index).doesNotContain(run, "epoch", "readStartedAt", "readCompletedAt");
+        for (String line : index.split("\n")) {
+            var names = new ArrayList<String>();
+            JSON.readTree(line).fieldNames().forEachRemaining(names::add);
+            assertThat(names).isSorted();
+        }
+        // A changed row changes the fingerprint.
+        source.changeOneValue();
+        var changed =
+                service.capture(lease, patientScope, Set.of("demographic"), 1000, 8L << 20, new Control());
+        assertThat(CdsExportChartFingerprints.capture(changed.capture()))
+                .isNotEqualTo(CdsExportChartFingerprints.capture(first.capture()));
+    }
+
+    @Test
     void shouldFailTheRead_whenAReaderReportsACountThatIsNotACount() {
         source.count = -1;
         assertThatThrownBy(
@@ -2630,6 +2676,13 @@ class CdsExportNativeCaptureServiceUnitTest {
 
         int captureTransactions;
         int capturedPatient = PATIENT;
+        String firstName = "FAKE-CDS 😀";
+
+        /** The chart's first name changes, as an edit in CARLOS would change it. */
+        void changeOneValue() {
+            firstName = "FAKE-CDS changed";
+        }
+
         long count = 1;
         boolean fail, omit, receipts, dropReceiptEmail;
         String primaryProvider;
@@ -2704,7 +2757,7 @@ class CdsExportNativeCaptureServiceUnitTest {
             var fields = new LinkedHashMap<String, String>();
             for (String column : columns()) fields.put(column, null);
             fields.put("demographic_no", Integer.toString(capturedPatient));
-            fields.put("first_name", "FAKE-CDS 😀");
+            fields.put("first_name", firstName);
             fields.put("email", "");
             fields.put("provider_no", primaryProvider);
             writer.row("0000000027", fields);

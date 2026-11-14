@@ -47,9 +47,30 @@ import java.util.TreeMap;
  * Both caller-owned outputs must be encrypted staging streams. No clinical mapping occurs here.
  * Table/column declarations and independent row counts prevent an adapter from silently omitting
  * a declared table, row or column. Source-schema qualification remains the reader's responsibility.
+ *
+ * <p><b>Deterministic.</b> Two captures of unchanged rows write byte-identical value and index
+ * members, whichever attempt, process or time makes them: tables come in name order (the capture
+ * service sorts its readers), each table's rows in strictly increasing record-key order (refused
+ * otherwise, and every reader derives its keys from the row's own identity), each row's fields in
+ * column-name order ({@link Writer#row(String, Map)}) or in the reader's fixed order, every index
+ * line with its members in name order, and nothing of the attempt (no run, epoch, time or member
+ * identifier) in either member. A resumed export compares a fingerprint of these two members
+ * ({@link CdsExportChartFingerprints#capture}) to decide whether a finished chart can be adopted,
+ * so a capture whose bytes moved for any other reason only costs a rebuild. The one thing a reader
+ * renders at capture time is the browser rendering of an eForm, whose PDF carries its render time:
+ * such a capture differs from the last one and its chart is built again.
  */
 public final class CdsExportNativeCaptureComposer {
-    private static final ObjectMapper JSON = new ObjectMapper();
+    /**
+     * Index lines are maps; their members are written in name order, not in the per-process order
+     * of {@code Map.of}, so the same events give the same bytes in every process.
+     */
+    private static final ObjectMapper JSON =
+            com.fasterxml.jackson.databind.json.JsonMapper.builder()
+                    .enable(
+                            com.fasterxml.jackson.databind.SerializationFeature
+                                    .ORDER_MAP_ENTRIES_BY_KEYS)
+                    .build();
 
     @FunctionalInterface
     public interface Content {
