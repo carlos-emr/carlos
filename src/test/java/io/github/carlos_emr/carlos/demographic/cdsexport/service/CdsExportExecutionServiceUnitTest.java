@@ -398,6 +398,119 @@ class CdsExportExecutionServiceUnitTest {
     }
 
     @Test
+    void shouldRetryARenewalThatFailedForAMoment_withoutEndingAHealthyExport() throws Exception {
+        var beat = org.mockito.ArgumentCaptor.forClass(Runnable.class);
+        var limited = stallWindow(60_000, beat);
+        // The database does not answer the first renewal in time, then answers again.
+        doThrow(new org.springframework.dao.QueryTimeoutException("CDS_TEST_RENEWAL_TIMEOUT"))
+                .doNothing()
+                .when(ledger)
+                .checkpoint(lease);
+        doAnswer(
+                        call -> {
+                            CdsExportRunControl control = call.getArgument(1);
+                            beat.getValue().run();
+                            control.checkpoint();
+                            beat.getValue().run();
+                            // The heartbeat that renewed the lease asks for a checkpoint seal.
+                            assertThat(control.checkpointDue()).isTrue();
+                            assertThat(control.checkpointDue()).isFalse();
+                            control.checkpoint();
+                            return null;
+                        })
+                .when(engine)
+                .execute(any(), any());
+
+        limited.execute(RUN);
+
+        // The export went on: only its own return ended it.
+        verify(ledger).stop(lease, CdsExportState.FAILED, "CDS_EXPORT_ENGINE_DID_NOT_PUBLISH");
+        verify(ledger, never()).retireExpiredLease(any());
+        verify(ledger, never()).stop(any(), any(), eq("CDS_EXPORT_EXECUTION_FAILED"));
+        verify(ledger, atLeast(3)).checkpoint(lease);
+    }
+
+    @Test
+    void shouldEndTheOwner_whenTheRenewalFindsItsLeaseFenced() throws Exception {
+        var beat = org.mockito.ArgumentCaptor.forClass(Runnable.class);
+        var limited = stallWindow(60_000, beat);
+        doThrow(new CdsExportOwnerFencedException()).when(ledger).checkpoint(lease);
+        when(ledger.retireExpiredLease(lease)).thenReturn(true);
+        doAnswer(
+                        call -> {
+                            CdsExportRunControl control = call.getArgument(1);
+                            beat.getValue().run();
+                            control.checkpoint();
+                            return null;
+                        })
+                .when(engine)
+                .execute(any(), any());
+
+        limited.execute(RUN);
+
+        // Another owner, or our own expiry: ended as before, under the lease's own code.
+        verify(ledger).retireExpiredLease(lease);
+        verify(ledger, never()).stop(any(), any(), anyString());
+    }
+
+    @Test
+    void shouldEndTheOwnerAsAnExpiredLease_whenRenewalsFailForTheWholeLease() throws Exception {
+        var beat = org.mockito.ArgumentCaptor.forClass(Runnable.class);
+        var limited = stallWindow(60_000, beat);
+        // Every transient failure arrives after the lease the last renewal granted.
+        limited.renewalWindowNanos = 0;
+        doThrow(new org.springframework.dao.QueryTimeoutException("CDS_TEST_RENEWAL_TIMEOUT"))
+                .when(ledger)
+                .checkpoint(lease);
+        when(ledger.retireExpiredLease(lease)).thenReturn(true);
+        doAnswer(
+                        call -> {
+                            CdsExportRunControl control = call.getArgument(1);
+                            beat.getValue().run();
+                            control.checkpoint();
+                            return null;
+                        })
+                .when(engine)
+                .execute(any(), any());
+
+        limited.execute(RUN);
+
+        verify(ledger).retireExpiredLease(lease);
+        verify(ledger, never()).stop(any(), any(), anyString());
+    }
+
+    @Test
+    void shouldTreatOnlyPassingDatabaseFailures_asTransientRenewalFailures() {
+        assertThat(
+                        CdsExportExecutionService.transientRenewalFailure(
+                                new org.springframework.dao.CannotAcquireLockException("lock")))
+                .isTrue();
+        assertThat(
+                        CdsExportExecutionService.transientRenewalFailure(
+                                new org.springframework.transaction.CannotCreateTransactionException(
+                                        "connection")))
+                .isTrue();
+        assertThat(
+                        CdsExportExecutionService.transientRenewalFailure(
+                                new IllegalStateException(
+                                        "wrapped", new java.sql.SQLTransientConnectionException())))
+                .isTrue();
+        assertThat(
+                        CdsExportExecutionService.transientRenewalFailure(
+                                new CdsExportOwnerFencedException()))
+                .isFalse();
+        assertThat(
+                        CdsExportExecutionService.transientRenewalFailure(
+                                new java.util.concurrent.CancellationException(
+                                        "CDS_EXPORT_CANCELLED")))
+                .isFalse();
+        assertThat(
+                        CdsExportExecutionService.transientRenewalFailure(
+                                new IllegalStateException("CDS_EXPORT_LEASE_LOST")))
+                .isFalse();
+    }
+
+    @Test
     void shouldNeverStopAWorkerThatKeepsReachingCheckpoints_howeverLongTheRosterTakes()
             throws Exception {
         var beat = org.mockito.ArgumentCaptor.forClass(Runnable.class);

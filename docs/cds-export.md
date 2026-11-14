@@ -1163,7 +1163,7 @@ the exact-numeric and receipt-metadata reads, the demographic row and schema, th
 selection's pages, a run's applied import copies, the prescription inputs of the drug reference
 lookup and the legacy table's lock statements (below). Every other read of an export is listed,
 with how it waits, in "Every read of an export" below. The only things that end a
-wait are the ones that end the attempt: a cancel, a failed lease heartbeat, and the stall
+wait are the ones that end the attempt: a cancel, a lost lease, and the stall
 detector. A wait is not a checkpoint, so an attempt that only ever waits is still ended as
 `CDS_EXPORT_WORKER_STALLED` after `cds.export.maxDurationMillis` without progress, and no single
 wait is longer than that window (`CdsExportExecutionService.Control.waiting`).
@@ -1484,7 +1484,21 @@ crossed, and what is still fixed and why.
 **Time.** `cds.export.maxDurationMillis` (default 86,400,000, range 1 to 31 days) is a stall
 window, not a budget. Every checkpoint the engine thread passes is its proof of life
 (`CdsExportExecutionService.Control`); the 20-second lease heartbeat is the only thing that can
-find it silent. A worker that keeps reaching checkpoints is never stopped, however long its
+find it silent.
+
+**A renewal that fails for a moment.** The heartbeat, and the worker's own checkpoints, renew the
+attempt's 120-second lease. A renewal that fails for a transient database reason (no connection
+for a moment, a statement or lock wait that ran out, a transaction that could not be opened or
+committed: `CdsExportExecutionService.transientRenewalFailure`) does not end a healthy export:
+it is logged as `CDS_EXPORT_LEASE_RENEWAL_RETRY run=<id> epoch=<n> failure=<type>` and the next
+beat or checkpoint renews the lease again, as long as the lease the last successful renewal
+granted is still valid (its 120 seconds less one 20-second beat). Before this, one failed renewal
+ended the job. Only a lease that is actually lost ends this owner, as before and under the same
+codes: the ledger's fence (another owner, a cancellation, the lease already expired) ends it as
+an expired lease (`CDS_EXPORT_EXECUTION_LEASE_EXPIRED`), and so do renewals that keep failing for
+the whole lease (`CDS_EXPORT_LEASE_RENEWAL_EXHAUSTED` is logged first). The stall detector is
+unchanged. Recording the finished-chart checkpoint (below) follows the same rule: a transient
+failure records nothing now and the next seal records the newest member. A worker that keeps reaching checkpoints is never stopped, however long its
 roster takes. When it reaches none for the whole window the attempt is stalled, for good: the
 heartbeat logs `CDS_EXPORT_WORKER_STALLED run=<id> epoch=<n> silentMillis=<n>
 attemptMillis=<n>`, stops renewing the lease and records the attempt as `FAILED` with the code

@@ -1122,7 +1122,7 @@ public class CdsExportClinicalPackageService {
                 // Seal what this attempt finished and has not sealed yet, so that it can be kept
                 // for a resumed attempt. Best effort: the lease may be gone, or the store may be
                 // what failed; the chain then ends at the last member the ledger recorded.
-                if (checkpoints.pending())
+                if (checkpoints.pending() || !checkpoints.recorded())
                     try {
                         pinned = checkpoint(lease, checkpoints, owned, 0, pinned);
                     } catch (IOException | RuntimeException cleanup) {
@@ -1200,9 +1200,21 @@ public class CdsExportClinicalPackageService {
             long pinned)
             throws IOException {
         var member = checkpoints.seal();
-        if (member == null) return pinned;
-        own(owned, member);
-        ledger.recordCheckpoint(lease, checkpoints.latest(), adopted);
+        if (member != null) own(owned, member);
+        if (checkpoints.recorded()) return pinned;
+        try {
+            ledger.recordCheckpoint(lease, checkpoints.latest(), adopted);
+        } catch (RuntimeException failed) {
+            // A database that failed for a moment records nothing now; the next seal records the
+            // newest member, which pins everything sealed before it. Any other failure stops.
+            if (!CdsExportExecutionService.transientRenewalFailure(failed)) throw failed;
+            LOG.warn(
+                    "CDS_EXPORT_CHART_CHECKPOINT_UNRECORDED run={} failure={}",
+                    lease.runId(),
+                    failed.getClass().getSimpleName());
+            return pinned;
+        }
+        checkpoints.markRecorded();
         return owned.records();
     }
 
