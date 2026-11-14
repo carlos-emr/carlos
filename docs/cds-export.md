@@ -1989,7 +1989,7 @@ listed in `docs/cds-import.md`.
 | E68 | cause depth 16 in logs; 64 KiB bootstrap | `CdsExportCli`, `CdsExportSpringRuntime` | A / B | logging; integrity |
 | S1 | 4,096 classes a pattern, 256 nested, 8,192 classes, 16 MiB a resource | `CdsRulesetFingerprint` | removed | hashing streams |
 | S2 | 128 MiB jar, 512 MiB `lib/modules`, JVM properties, zones and zone rules | `CdsRuntimeIdentity` | removed | hashing streams; a changing file is still refused |
-| S3 | CLI heap at most 16,384 MiB | `CdsProcessConfiguration` | removed (128 MiB minimum and 1 MiB file: B) | a long chart may need more heap |
+| S3 | CLI heap at most 16,384 MiB | `CdsProcessConfiguration`, `scripts/ci/run-cds-container-engine.py` | removed (128 MiB minimum and 1 MiB file: B) | a long chart may need more heap; `carlos-ctl` 1.3.5 still checks the old maximum |
 | S4 | delegation token of 64 KiB, 300 s old | `CdsProcessDelegationVerifier` | B | security |
 | S5 | 10 s validation query | `CdsProcessPersistence` | A | the connection is replaced |
 | S6 | SQL of 65,536 characters; 66,560 parameters | `CdsBinaryReads`, `CdsMariaDbBinaryRead` | removed (SQL); B (parameters) | `max_allowed_packet` bounds the text; MariaDB's 65,535 parameters |
