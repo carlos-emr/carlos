@@ -466,15 +466,22 @@ class CdsExportImmunizationMapperUnitTest {
     }
 
     @Test
-    void
-            shouldVerifyMantouxAndAmbiguousOtherInjectionsNeverBecomeVaccinationEvents_forImmunizationMapperContract()
-                    throws Exception {
-        for (String type : List.of("Tuberculosis", "OtherA")) {
-            parent.put("prevention_type", type);
-            extra(30, "name", "Clinical name");
-            assertThat(map().value()).isNull();
-            extras.clear();
-        }
+    void shouldNeverExportAConfiguredScreening_asAVaccinationEvent() throws Exception {
+        // The Mantoux test is an injection filed under Screenings: never a vaccination event.
+        parent.put("prevention_type", "Tuberculosis");
+        extra(30, "name", "Clinical name");
+        assertThat(map().value()).isNull();
+        extras.clear();
+        // OtherA filed outside Other (no heading here) is recorded with the injection form, so
+        // it is placed as an immunization (CdsExportPreventionClassifier.place); it held the
+        // patient (CATEGORY_NOT_PROVEN).
+        parent.put("prevention_type", "OtherA");
+        extra(30, "name", "Clinical name");
+        var placed = map();
+        assertThat(placed.value().name()).isEqualTo("Clinical name");
+        assertThat(placed.value().type()).isNull();
+        assertThat(decision(placed, "preventions", "prevention_type").rule())
+                .isEqualTo(CdsExportImmunizationMapper.CONFIGURED_FORM_RULE);
     }
 
     @Test
@@ -514,6 +521,92 @@ class CdsExportImmunizationMapperUnitTest {
         assertThat(unnamed.nativeRowRepresentable()).isTrue();
         assertThat(unnamed.value().name()).isEqualTo(CdsExportImmunizationMapper.CATCH_ALL_LABEL);
         assertThat(unnamed.value().sourceContext()).contains("OtherA");
+    }
+
+    @Test
+    void shouldNameAVaccineWhoseRecordedNameIsOnlySpaces_byItsTypeInsteadOfHolding()
+            throws Exception {
+        // The prevention form saves its name box as typed (AddPrevention2Action); spaces alone
+        // held the patient (IMMUNIZATION_NAME_REQUIRED).
+        extra(30, "name", "   ");
+        var blank = map();
+        assertThat(blank.nativeRowRepresentable()).isTrue();
+        assertThat(blank.value().name()).isEqualTo("Td");
+        assertThat(blank.value().type()).isEqualTo("Td");
+        assertThat(decision(blank, "preventionsExt", "val").rule())
+                .isEqualTo(CdsExportImmunizationMapper.BLANK_NAME_IN_RESIDUAL);
+        assertThat(blank.value().sourceContext()).contains("\\u0020\\u0020\\u0020");
+        // The catch-all keeps its screen label.
+        parent.put("prevention_type", "OtherA");
+        definitions =
+                CdsExportPreventionClassifier.fromCaptured(
+                        "a".repeat(64),
+                        "<preventions><item name='OtherA' layout='injection' headingName='Other' healthCanadaType=''/></preventions>"
+                                .getBytes(StandardCharsets.UTF_8),
+                        List.of());
+        assertThat(map().value().name()).isEqualTo(CdsExportImmunizationMapper.CATCH_ALL_LABEL);
+    }
+
+    @Test
+    void shouldNameAVaccineWithNoUsableNameOrType_byAFixedLabelWithALongTypeInNotes()
+            throws Exception {
+        // No name and no type (NULL or blank), or a type longer than ImmunizationName: nothing
+        // could name the entry, and it held the patient (IMMUNIZATION_NAME_REQUIRED).
+        for (String type : Arrays.asList(null, "  ")) {
+            parent.put("prevention_type", type);
+            var result = map();
+            assertThat(result.nativeRowRepresentable()).as(String.valueOf(type)).isTrue();
+            assertThat(result.value().name()).isEqualTo(CdsExportImmunizationMapper.UNNAMED_LABEL);
+            assertThat(result.value().type()).isNull();
+        }
+        String longType = "Long clinic vaccine " + "x".repeat(110);
+        parent.put("prevention_type", longType);
+        var result = map();
+        assertThat(result.value().name()).isEqualTo(CdsExportImmunizationMapper.LONG_TYPE_LABEL);
+        assertThat(result.value().notes()).isEqualTo("Type: " + longType);
+        assertThat(decision(result, "preventions", "prevention_type").rule())
+                .isEqualTo(CdsExportImmunizationMapper.LONG_TYPE_RULE);
+        assertThat(decision(result, "preventions", "prevention_type").destination())
+                .isEqualTo("Notes;ResidualInfo");
+        CdsExportNativeHistoryMapperUnitTest.render(
+                CdsCategory.IMMUNIZATIONS,
+                body -> new CdsExportImmunizationXmlWriter().write(result.value(), body));
+    }
+
+    @Test
+    void shouldExportATypeNoItemConfigures_asAnUntypedImmunizationAndRestoreItOnACarlosImport()
+            throws Exception {
+        // OSCAR 19 data the migration left unmapped, or a vaccine the clinic's catalogue no
+        // longer lists: held as UNKNOWN_TYPE. It is placed as an immunization, named by its
+        // recorded name or its stored type, and the CARLOS importer restores the stored type from
+        // CARLOS.Prevention.Source.v1 instead of filing it under the catch-all.
+        parent.put("prevention_type", "Pertussis (O19)");
+        parent.put("prevention_date", "2019-11-03 01:30:00");
+        var result = map();
+        assertThat(result.nativeRowRepresentable()).isTrue();
+        assertThat(result.value().name()).isEqualTo("Pertussis (O19)");
+        assertThat(result.value().type()).isNull();
+        assertThat(decision(result, "preventions", "prevention_type").rule())
+                .isEqualTo(CdsExportImmunizationMapper.UNCONFIGURED_TYPE_RULE);
+        // OSCAR 19's form saved the clock it was given: inside the repeated autumn hour it is the
+        // wall-clock time with no offset, never a hold.
+        assertThat(result.value().date().lexical()).isEqualTo("2019-11-03T01:30:00");
+        var received = receive(result.value());
+        assertThat(received.nativeType()).isEqualTo("Pertussis (O19)");
+        assertThat(received.type()).isNull();
+        assertThat(received.date().offsetDateTime()).isNull();
+        // An Rh injection and a configured type outside CT-020 travel the same way.
+        parent.put("prevention_type", "RH");
+        assertThat(receive(map().value()).nativeType()).isEqualTo("RH");
+        parent.put("prevention_type", "FutureVaccine");
+        var outside = map().value();
+        assertThat(outside.type()).isNull();
+        assertThat(receive(outside).nativeType()).isEqualTo("FutureVaccine");
+        // A configured CT-020 vaccine is restored as the sender's own item too.
+        parent.put("prevention_type", "H1N1");
+        var typed = receive(map().value());
+        assertThat(typed.type()).isEqualTo("Inf");
+        assertThat(typed.nativeType()).isEqualTo("H1N1");
     }
 
     @Test
@@ -737,29 +830,52 @@ class CdsExportImmunizationMapperUnitTest {
                     throws Exception {
         parent.put("prevention_date", null);
         assertThat(map().value().date().precision()).isEqualTo(CdsExportDateDto.Precision.ABSENT);
+        // A precision marker without a date gives no date either; the row is carried, never held.
         date(30, "7", "YYYY");
-        assertThat(map().value()).isNull();
+        var marker = map();
+        assertThat(marker.value().date().precision()).isEqualTo(CdsExportDateDto.Precision.ABSENT);
+        assertThat(decision(marker, "prevention_precision", "format").rule())
+                .isEqualTo(CdsExportImmunizationMapper.DATE_IN_RESIDUAL);
     }
 
     @Test
-    void
-            shouldVerifyDuplicateOrUnsupportedEventPrecisionRemainsReview_forImmunizationMapperContract()
-                    throws Exception {
+    void shouldWriteNoDate_forPrecisionRowsThatGiveNoOneFormOrADateThatIsNotACalendarDate()
+            throws Exception {
+        // Two precision rows, a marker no screen writes, OSCAR's zero date: Date is optional, so
+        // none is written, never a guessed one, and the column and its rows are exact in the
+        // residual. They held the patient (DATE_PRECISION_REQUIRES_REVIEW).
         date(30, "7", "YYYY");
         date(31, "7", "YYYY");
-        assertThat(map().value()).isNull();
+        var duplicate = map();
+        assertThat(duplicate.value().date().precision())
+                .isEqualTo(CdsExportDateDto.Precision.ABSENT);
+        assertThat(decision(duplicate, "preventions", "prevention_date").destination())
+                .isEqualTo("ResidualInfo");
         dates.clear();
         date(30, "7", "YYYY-MM-DD");
-        assertThat(map().value()).isNull();
+        assertThat(map().value().date().precision()).isEqualTo(CdsExportDateDto.Precision.ABSENT);
+        dates.clear();
+        parent.put("prevention_date", "0000-00-00 00:00:00");
+        var zero = map();
+        assertThat(zero.value().date().precision()).isEqualTo(CdsExportDateDto.Precision.ABSENT);
+        assertThat(zero.value().sourceContext()).contains("0000-00-00\\u002000:00:00");
+        CdsExportNativeHistoryMapperUnitTest.render(
+                CdsCategory.IMMUNIZATIONS,
+                body -> new CdsExportImmunizationXmlWriter().write(zero.value(), body));
     }
 
     @Test
     void
             shouldVerifyNextDateAndUnknownPrecisionFieldsCannotBeMergedIntoEventDate_forImmunizationMapperContract()
                     throws Exception {
+        // A precision row of another field describes no element: carried, and the event date
+        // is still the stored anchor.
         for (String field : List.of("8", "999")) {
             date(30, field, "YYYY");
-            assertThat(map().value()).isNull();
+            var result = map();
+            assertThat(result.value().date().lexical()).isEqualTo("2024-02-29T12:34:56-05:00");
+            assertThat(decision(result, "prevention_precision", "field_name").rule())
+                    .isEqualTo(CdsExportImmunizationMapper.PRECISION_OF_NO_DATE_IN_RESIDUAL);
             dates.clear();
         }
     }

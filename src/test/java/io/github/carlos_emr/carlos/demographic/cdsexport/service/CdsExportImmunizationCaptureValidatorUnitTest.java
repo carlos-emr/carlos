@@ -166,7 +166,7 @@ class CdsExportImmunizationCaptureValidatorUnitTest {
                                                 ? Map.of(
                                                         1,
                                                         CdsExportPreventionScopePlanner.Review
-                                                                .UNKNOWN_TYPE)
+                                                                .PROGRAM_SCOPE)
                                                 : Map.of(),
                                         1 + screenings.size()));
         when(rows.forEach(
@@ -422,7 +422,8 @@ class CdsExportImmunizationCaptureValidatorUnitTest {
         data.get("preventions").clear();
         data.get("preventionsExt").clear();
         data.get("prevention_precision").clear();
-        assertThatThrownBy(this::verifyCapture).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+        // The one review a partition still has: a malformed program restriction.
+        assertThatThrownBy(this::verifyCapture).hasMessage("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE");
         verify(captures).authorizeSources(any(), any(), anySet(), any());
     }
 

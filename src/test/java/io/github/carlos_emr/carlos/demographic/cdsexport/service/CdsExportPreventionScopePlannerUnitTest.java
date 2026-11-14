@@ -58,13 +58,13 @@ class CdsExportPreventionScopePlannerUnitTest {
                                 row(1, "H1N1", null, null),
                                 row(2, "Smoking", "0", null),
                                 row(3, "unknown", "0", null)));
-        assertThat(result.immunizations()).containsExactlyInAnyOrder(-1, 1);
+        // A type no item configures (OSCAR 19 data the migration left unmapped) is placed as an
+        // immunization (CdsExportPreventionClassifier.place); it held the patient (UNKNOWN_TYPE).
+        assertThat(result.immunizations()).containsExactlyInAnyOrder(-1, 1, 3);
         assertThat(result.otherPreventions()).containsExactlyInAnyOrder(0, 2);
-        assertThat(result.reviews())
-                .containsExactlyEntriesOf(
-                        Map.of(3, CdsExportPreventionScopePlanner.Review.UNKNOWN_TYPE));
+        assertThat(result.reviews()).isEmpty();
         assertThat(result.rows()).isEqualTo(5);
-        assertThat(result.representable()).isFalse();
+        assertThat(result.representable()).isTrue();
     }
 
     @Test
@@ -164,20 +164,25 @@ class CdsExportPreventionScopePlannerUnitTest {
 
     @ParameterizedTest
     @NullAndEmptySource
-    void shouldVerifyMissingTypeRequiresReviewRatherThanBecomingAnExcludedScreening_forPreventionScopePlannerContract(String type)
+    void shouldPlaceAMissingTypeAsAnImmunization_neverAsAnExcludedScreening(String type)
             throws Exception {
-        assertThat(plan(List.of(row(1, type, "0", null))).reviews())
-                .containsEntry(1, CdsExportPreventionScopePlanner.Review.UNKNOWN_TYPE);
+        var result = plan(List.of(row(1, type, "0", null)));
+        assertThat(result.reviews()).isEmpty();
+        assertThat(result.immunizations()).containsExactly(1);
+        assertThat(result.otherPreventions()).isEmpty();
     }
 
     @Test
-    void shouldVerifyUnknownLayoutAndUnresolvedScreeningCodeAreExplicitReviewPartitions_forPreventionScopePlannerContract() throws Exception {
+    void shouldPlaceAnUnknownLayoutAndAScreeningWithACode_byTheirConfiguredHeadingAndForm()
+            throws Exception {
+        // Both held the patient (UNSUPPORTED_LAYOUT, UNRESOLVED_NON_IMMUNIZATION_CODE). An item of
+        // a form no layout renders, outside Screenings, is an immunization; a configured
+        // screening stays a screening, its SNOMED concept carried.
         var withCode = changed(row(2, "PAP", "0", null), "snomedId", "not-in-frozen-catalogue");
         var result = plan(List.of(row(1, "future", "0", null), withCode));
-        assertThat(result.reviews())
-                .containsEntry(1, CdsExportPreventionScopePlanner.Review.UNSUPPORTED_LAYOUT)
-                .containsEntry(
-                        2, CdsExportPreventionScopePlanner.Review.UNRESOLVED_NON_IMMUNIZATION_CODE);
+        assertThat(result.reviews()).isEmpty();
+        assertThat(result.immunizations()).containsExactly(1);
+        assertThat(result.otherPreventions()).containsExactly(2);
     }
 
     @Test
@@ -289,7 +294,10 @@ class CdsExportPreventionScopePlannerUnitTest {
                                 shipped,
                                 List.of(row(1, "OtherA", "0", null), row(2, "OtherB", "0", null)),
                                 candidates -> {
-                                    throw new AssertionError("No row needs a receipt");
+                                    // A screening may still be an imported vaccine; the
+                                    // classified catch-all is never asked about.
+                                    assertThat(candidates).containsExactly(2);
+                                    return Set.of();
                                 });
         assertThat(result.immunizations()).containsExactly(1);
         assertThat(result.otherPreventions()).containsExactly(2);
@@ -330,7 +338,10 @@ class CdsExportPreventionScopePlannerUnitTest {
     }
 
     @Test
-    void shouldHoldAnUnplacedNativeCatchAllRow_withCategoryNotProven() throws Exception {
+    void shouldPlaceAnUnprovenCatchAllRowAndAnUnknownType_asImmunizationsWithoutAReceipt()
+            throws Exception {
+        // They held the patient (CATEGORY_NOT_PROVEN, UNKNOWN_TYPE). OtherA filed outside Other
+        // is recorded with the injection form, so it is an immunization by its form.
         var result =
                 new CdsExportPreventionScopePlanner()
                         .plan(
@@ -338,18 +349,36 @@ class CdsExportPreventionScopePlannerUnitTest {
                                 withCatchAll(),
                                 List.of(row(1, "OtherA", "0", null), row(2, "unknown", "0", null)),
                                 candidates -> Set.of());
-        assertThat(result.reviews())
-                .containsExactlyInAnyOrderEntriesOf(
-                        Map.of(
-                                1, CdsExportPreventionScopePlanner.Review.CATEGORY_NOT_PROVEN,
-                                2, CdsExportPreventionScopePlanner.Review.UNKNOWN_TYPE));
-        assertThat(result.immunizations()).isEmpty();
-        assertThat(result.representable()).isFalse();
+        assertThat(result.reviews()).isEmpty();
+        assertThat(result.immunizations()).containsExactlyInAnyOrder(1, 2);
+        assertThat(result.representable()).isTrue();
     }
 
     @Test
-    void shouldNeverLetAnImportReceiptOverrideAProgramRestrictionOrAPlacedRow_forPreventionScopePlannerContract()
+    void shouldSelectAReceiptProvenImportedVaccine_whoseTypeTheConfigurationFilesAsAScreening()
             throws Exception {
+        // A clinic that files the catch-all as a screening still has the vaccines its import
+        // wrote there: the receipt makes the row an immunization, as it was imported.
+        var asked = new ArrayList<Set<Integer>>();
+        var result =
+                new CdsExportPreventionScopePlanner()
+                        .plan(
+                                27,
+                                withCatchAll(),
+                                List.of(row(2, "OtherB", "0", null), row(3, "Td", "0", null)),
+                                candidates -> {
+                                    asked.add(candidates);
+                                    return Set.of(2);
+                                });
+        assertThat(asked).containsExactly(Set.of(2));
+        assertThat(result.immunizations()).containsExactlyInAnyOrder(2, 3);
+        assertThat(result.otherPreventions()).isEmpty();
+    }
+
+    @Test
+    void shouldNeverLetAnImportReceiptOverrideAProgramRestrictionOrAPlacedImmunization_forPreventionScopePlannerContract()
+            throws Exception {
+        var asked = new ArrayList<Set<Integer>>();
         var result =
                 new CdsExportPreventionScopePlanner()
                         .plan(
@@ -360,8 +389,12 @@ class CdsExportPreventionScopePlannerUnitTest {
                                         row(2, "OtherB", "0", null),
                                         row(3, "Td", "0", null)),
                                 candidates -> {
-                                    throw new AssertionError("No row needs a receipt");
+                                    asked.add(candidates);
+                                    return Set.of();
                                 });
+        // Only the screening is a candidate: neither the malformed restriction nor the
+        // configured immunization is ever asked about.
+        assertThat(asked).containsExactly(Set.of(2));
         assertThat(result.reviews())
                 .containsExactlyEntriesOf(
                         Map.of(1, CdsExportPreventionScopePlanner.Review.PROGRAM_SCOPE));
@@ -373,7 +406,7 @@ class CdsExportPreventionScopePlannerUnitTest {
     void shouldRefuseAReceiptProofForARowThatWasNotACandidate_forPreventionScopePlannerContract()
             throws IOException {
         var classifier = withCatchAll();
-        var rows = List.of(row(1, "OtherA", "0", null), row(2, "OtherB", "0", null));
+        var rows = List.of(row(1, "OtherA", "0", null), row(2, "Td", "0", null));
         assertThatThrownBy(
                         () ->
                                 new CdsExportPreventionScopePlanner()

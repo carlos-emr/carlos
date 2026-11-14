@@ -81,6 +81,31 @@ public final class CdsExportImmunizationMapper {
      * which has no name box; its product, dosage and reason travel in the prevention residual.
      */
     static final String RH_LABEL = "Rh immune globulin";
+
+    /**
+     * ImmunizationName of an entry recorded without a name whose stored type cannot name it:
+     * none recorded, or only white space. Its rows are exact in the prevention residual.
+     */
+    static final String UNNAMED_LABEL = "Unnamed immunization";
+
+    /**
+     * ImmunizationName of an entry recorded without a name whose stored type is longer than
+     * ImmunizationName's 120 characters: the type is the first line of Notes ("Type: ..."),
+     * never clipped, and exact in the prevention residual.
+     */
+    static final String LONG_TYPE_LABEL = "Immunization (type in Notes)";
+
+    /** Rule of a recorded name of only white space: named as an entry without a name. */
+    static final String BLANK_NAME_IN_RESIDUAL = "BLANK_NATIVE_NAME_EXACT_IN_RESIDUAL";
+
+    /** Rule of a stored type longer than ImmunizationName, moved whole to Notes. */
+    static final String LONG_TYPE_RULE = "NATIVE_TYPE_LONGER_THAN_THE_NAME_MOVED_WHOLE_TO_NOTES";
+
+    /** Rule of a type no configured item or catalogue entry names (CdsExportPreventionClassifier.place). */
+    static final String UNCONFIGURED_TYPE_RULE = "UNCONFIGURED_TYPE_AS_UNTYPED_IMMUNIZATION";
+
+    /** Rule of a configured item placed by its heading and form (CdsExportPreventionClassifier.place). */
+    static final String CONFIGURED_FORM_RULE = "CONFIGURED_ITEM_PLACED_BY_ITS_HEADING_AND_FORM";
     private static final JsonMapper JSON = JsonMapper.builder().build();
 
     /**
@@ -216,7 +241,11 @@ public final class CdsExportImmunizationMapper {
             source.set("programNo", Outcome.MAPPED, RESIDUAL, PROGRAM_SCOPE_AUTHORIZED);
         } else source.review("restrictToProgram", "", "PROGRAM_SCOPE_REQUIRES_REVIEW");
         String nativeType = source.raw("prevention_type");
-        var category = classifier.classify(nativeType, source.raw("snomedId"));
+        // The category the scope planner placed the row in: a type the configuration leaves
+        // unresolved is placed by a documented rule (CdsExportPreventionClassifier.place). A row
+        // placed as a screening reaches this mapper only through an import receipt (a retained
+        // vaccine), whose reconciler proves its type from the sealed baseline.
+        var category = classifier.place(nativeType, source.raw("snomedId"));
         if (category.kind() != CdsExportPreventionClassifier.Kind.IMMUNIZATION)
             source.review(
                     "prevention_type",
@@ -236,19 +265,44 @@ public final class CdsExportImmunizationMapper {
                         moved,
                         movedFields);
         boolean nameMoved = !moved.isEmpty();
-        if ((nameMoved || !byKey.containsKey("name") && !byKey.containsKey("cdsName"))
+        // A name of only white space (typed into the form's name box, which the form saves as
+        // typed) names nothing: the entry is named as one recorded without a name, and the
+        // stored text is exact in the residual. It held the patient (IMMUNIZATION_NAME_REQUIRED).
+        boolean blankName = name != null && name.isBlank();
+        if (blankName) {
+            for (String key : List.of("name", "cdsName"))
+                for (var fields : byKey.getOrDefault(key, List.of()))
+                    fields.set("val", Outcome.MAPPED, RESIDUAL, BLANK_NAME_IN_RESIDUAL);
+            name = null;
+        }
+        boolean longType =
+                nativeType != null && nativeType.codePointCount(0, nativeType.length()) > 120;
+        String typeLine = null;
+        if ((nameMoved || blankName || !byKey.containsKey("name") && !byKey.containsKey("cdsName"))
                 && nativeType != null
+                && !nativeType.isBlank()
                 && !nativeType.equals(CATCH_ALL_TYPE)
-                && nativeType.codePointCount(0, nativeType.length()) <= 120)
+                && !longType)
             name =
                     category.rule() == CdsExportPreventionClassifier.Rule.RH_IMMUNE_GLOBULIN
                             ? RH_LABEL
                             : CdsExportXmlText.element(nativeType);
         if ((name == null || name.isBlank())
                 && category.rule() == CdsExportPreventionClassifier.Rule.CATCH_ALL_INJECTION
-                && (nameMoved || !byKey.containsKey("cdsName"))) name = CATCH_ALL_LABEL;
-        if (name == null || name.isBlank())
-            source.review("prevention_type", "ImmunizationName", "IMMUNIZATION_NAME_REQUIRED");
+                && (nameMoved || blankName || !byKey.containsKey("cdsName")))
+            name = CATCH_ALL_LABEL;
+        if (name == null || name.isBlank()) {
+            // Nothing names the entry: no name was recorded and the stored type cannot be the
+            // name (none, blank, or longer than ImmunizationName's 120 characters, a type only a
+            // clinic's own configuration or OSCAR 19 data can have). A fixed label names it, a
+            // long type is the first moved line of Notes, and the row is exact in the residual.
+            // It held the patient (IMMUNIZATION_NAME_REQUIRED).
+            if (longType) {
+                name = LONG_TYPE_LABEL;
+                typeLine = "Type: " + CdsExportXmlText.element(nativeType);
+                moved.addFirst(typeLine);
+            } else name = UNNAMED_LABEL;
+        }
         boolean typeProven = true;
         boolean typeCarried = false;
         String type = oneOf(byKey, List.of("cdsType"), "ImmunizationType", 20);
@@ -288,25 +342,36 @@ public final class CdsExportImmunizationMapper {
             for (var fields : byKey.get("cdsType"))
                 fields.review("val", "ImmunizationType", "CONFLICTING_NATIVE_IMMUNIZATION_TYPE");
         }
+        // A type that is not the name (blank, or longer than the name) or that the configuration
+        // does not declare as a CT-020 value travels in the residual; a type that leads Notes is
+        // decided with the moved values below.
+        boolean untyped = type == null && !typeCarried;
         if (category.kind() == CdsExportPreventionClassifier.Kind.IMMUNIZATION
-                && name != null
-                && !name.isBlank()
+                && nativeType != null
+                && !nativeType.isEmpty()
                 && typeProven)
             source.set(
                     "prevention_type",
                     Outcome.MAPPED,
-                    typeCarried
-                            ? "ImmunizationName;" + RESIDUAL
-                            : "ImmunizationName/ImmunizationType",
-                    category.rule() == CdsExportPreventionClassifier.Rule.CATCH_ALL_INJECTION
-                            ? "CATCH_ALL_INJECTION_AS_UNTYPED_IMMUNIZATION"
-                            : category.rule()
-                                            == CdsExportPreventionClassifier.Rule
-                                                    .RH_IMMUNE_GLOBULIN
-                                    ? "RH_IMMUNE_GLOBULIN_AS_UNTYPED_IMMUNIZATION"
+                    nativeType.isBlank()
+                            ? RESIDUAL
                             : typeCarried
-                                    ? "NATIVE_TYPE_OUTSIDE_CT020_CARRIED_IN_RESIDUAL"
-                                    : "EXACT_NATIVE_NAME_AND_CAPTURED_CONFIGURED_TYPE");
+                                            || untyped
+                                                    && category.rule()
+                                                            != CdsExportPreventionClassifier.Rule
+                                                                    .CONFIGURED_IMMUNIZATION
+                                    ? "ImmunizationName;" + RESIDUAL
+                                    : "ImmunizationName/ImmunizationType",
+                    switch (category.rule()) {
+                        case CATCH_ALL_INJECTION -> "CATCH_ALL_INJECTION_AS_UNTYPED_IMMUNIZATION";
+                        case RH_IMMUNE_GLOBULIN -> "RH_IMMUNE_GLOBULIN_AS_UNTYPED_IMMUNIZATION";
+                        case UNCONFIGURED_TYPE -> UNCONFIGURED_TYPE_RULE;
+                        case CONFIGURED_HEADING_AND_FORM -> CONFIGURED_FORM_RULE;
+                        default ->
+                                typeCarried
+                                        ? "NATIVE_TYPE_OUTSIDE_CT020_CARRIED_IN_RESIDUAL"
+                                        : "EXACT_NATIVE_NAME_AND_CAPTURED_CONFIGURED_TYPE";
+                    });
         boolean refused = false;
         String refusal = source.raw("refused"), statusNote = null;
         if ("0".equals(refusal) || "1".equals(refusal)) {
@@ -347,8 +412,11 @@ public final class CdsExportImmunizationMapper {
                 fields.operational("field_name", "EXPLICIT_IMMUNIZATION_EVENT_DATE");
                 dateRows.add(fields);
             } else {
-                fields.review("field_name", "", "UNSUPPORTED_OR_NONSTANDARD_IMMUNIZATION_DATE");
-                fields.review("format", "", "UNSUPPORTED_OR_NONSTANDARD_IMMUNIZATION_DATE");
+                // A precision row of another field: no prevention date field but 7 has one
+                // (PartialDate.PREVENTION_PREVENTIONDATE), and no CARLOS or OSCAR 19 writer stores
+                // another. It describes no element, so it travels only in the residual.
+                carry(fields, "field_name", PRECISION_OF_NO_DATE_IN_RESIDUAL);
+                carry(fields, "format", PRECISION_OF_NO_DATE_IN_RESIDUAL);
             }
         }
         CdsExportDateDto date = new CdsExportDateDto(CdsExportDateDto.Precision.ABSENT, null);
@@ -368,9 +436,14 @@ public final class CdsExportImmunizationMapper {
             for (var fields : dateRows)
                 fields.set("format", Outcome.MAPPED, "Date", "EXPLICIT_NATIVE_DATE_PRECISION");
         } catch (IOException invalidDate) {
-            source.review("prevention_date", "Date", "DATE_PRECISION_REQUIRES_REVIEW");
-            for (var fields : dateRows)
-                fields.review("format", "Date", "DATE_PRECISION_REQUIRES_REVIEW");
+            // A stored date that is not a calendar date (OSCAR's zero date, which OSCAR 19 data
+            // can hold), or precision rows that do not give one form (two rows, a marker without
+            // a date, a marker no screen writes): Date is optional, so none is written, never a
+            // guessed one, and the column and its precision rows are exact in the residual. It
+            // held the patient (DATE_PRECISION_REQUIRES_REVIEW). A CARLOS import stores no date.
+            date = new CdsExportDateDto(CdsExportDateDto.Precision.ABSENT, null);
+            carry(source, "prevention_date", DATE_IN_RESIDUAL);
+            for (var fields : dateRows) carry(fields, "format", DATE_IN_RESIDUAL);
         }
         if (byKey.containsKey("din")
                 && !byKey.containsKey("cdsCode")
@@ -449,6 +522,13 @@ public final class CdsExportImmunizationMapper {
                 notes = kept.isEmpty() ? null : String.join("\n", kept);
             }
         }
+        if (typeLine != null && typeProven)
+            // The stored type leads the moved values in Notes, or is left out with them.
+            source.set(
+                    "prevention_type",
+                    Outcome.MAPPED,
+                    notes != null && notes.contains(typeLine) ? "Notes;" + RESIDUAL : RESIDUAL,
+                    LONG_TYPE_RULE);
         var context = new LinkedHashMap<String, Object>();
         context.put("version", 1);
         context.put("prevention", row.fields());
@@ -559,6 +639,23 @@ public final class CdsExportImmunizationMapper {
                 || classifier == null) scope();
         classifier.sourceManifestSha256();
         return id;
+    }
+
+    /**
+     * Rule of a stored event date with no CDS form (not a calendar date, or precision rows that
+     * disagree): no Date element, the column and its rows exact in the residual.
+     */
+    static final String DATE_IN_RESIDUAL = "DATE_WITHOUT_A_CDS_FORM_EXACT_IN_RESIDUAL";
+
+    /** Rule of a precision row of a field other than the event date. */
+    static final String PRECISION_OF_NO_DATE_IN_RESIDUAL =
+            "PRECISION_ROW_OF_NO_PREVENTION_DATE_EXACT_IN_RESIDUAL";
+
+    /** A column with no element: in the residual when populated, absent otherwise. */
+    static void carry(CdsExportNativeFieldAssessments fields, String column, String rule) {
+        String value = fields.raw(column);
+        if (value == null || value.isEmpty()) fields.set(column, Outcome.ABSENT, "", rule);
+        else fields.set(column, Outcome.MAPPED, RESIDUAL, rule);
     }
 
     /** Every captured field is carried exactly in the residual unless a rule says otherwise. */

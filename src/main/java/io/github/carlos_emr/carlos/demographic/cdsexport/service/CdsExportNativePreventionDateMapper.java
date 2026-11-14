@@ -60,9 +60,20 @@ public final class CdsExportNativePreventionDateMapper {
                 if (parsed.toLocalTime().equals(LocalTime.MIDNIGHT))
                     return new CdsExportDateDto(
                             CdsExportDateDto.Precision.DATE, parsed.toLocalDate().toString());
-                if (zone == null) review();
-                var offsets = zone.getRules().getValidOffsets(parsed);
-                if (offsets.size() != 1) review();
+                // A stored clock time (OSCAR 19's prevention form saved one; the eForm and REST
+                // paths may) is written in the clinic zone with that zone's offset. One the zone
+                // gives no single whole-minute offset (inside the hour the autumn change repeats,
+                // inside the spring gap, or before the zone's standard time) is its wall-clock
+                // value with no offset, the rule appointments and notes follow
+                // (LOCAL_WALL_CLOCK_TIME_AT_DAYLIGHT_SAVING_TRANSITION): a receiver reads it as
+                // clinic time and no offset is invented. It held the patient. The stored value is
+                // exact in the prevention residual either way.
+                var offsets =
+                        zone == null ? java.util.List.<ZoneOffset>of() : zone.getRules().getValidOffsets(parsed);
+                if (offsets.size() != 1 || offsets.getFirst().getTotalSeconds() % 60 != 0)
+                    return new CdsExportDateDto(
+                            CdsExportDateDto.Precision.DATE_TIME,
+                            DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(parsed));
                 return new CdsExportDateDto(
                         CdsExportDateDto.Precision.DATE_TIME,
                         parsed.atOffset(offsets.getFirst())

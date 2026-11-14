@@ -28,9 +28,11 @@ import java.security.*;
 import java.util.*;
 
 /**
- * Complete bounded partition of patient prevention metadata using exact frozen classification.
- * No clinical values, program grant, omitted row, duplicate or unknown type is inferred. A
- * review partition cannot authorize clinical capture or complete export.
+ * Complete partition of patient prevention metadata using exact frozen classification. No
+ * clinical value, program grant, omitted row or duplicate is inferred; a type the classification
+ * leaves unresolved is placed by a documented rule ({@link CdsExportPreventionClassifier#place}).
+ * A review partition (a malformed program restriction) cannot authorize clinical capture or
+ * complete export.
  *
  * <p>A program restriction is not a classification fact. The source readers read the chart's
  * restrictions first, authorize each program live and prove the same restrictions inside the
@@ -41,12 +43,15 @@ import java.util.*;
  * cannot be applied to it ({@link ProgramRestriction}). It is an additional independent check of
  * the subsequently authenticated frozen metadata, not a disclosure gate.
  *
- * <p>The one exception to classification is origin proof (review finding F10): a row the
- * classification cannot place, which an authenticated CARLOS import receipt proves was written
- * from a CDS Immunizations element ({@link CdsExportImmunizationImportReceipts}), is an
- * immunization; it then travels through the retained-import path, whose field reconciler still
- * holds any native change it cannot represent. A malformed restriction is never overridden, and
- * a row the classification places is never moved.
+ * <p>Origin proof comes first (review finding F10): a row that an authenticated CARLOS import
+ * receipt proves was written from a CDS Immunizations element ({@link
+ * CdsExportImmunizationImportReceipts}) is an immunization, whatever today's configuration says
+ * about its type (a clinic that files {@code OtherA} under Screenings still exported its imported
+ * vaccines as held charts); it then travels through the retained-import path. Every other row is
+ * placed by {@link CdsExportPreventionClassifier#place}: a decision the configuration and the
+ * catalogue reach, or a documented placement for a type they leave unresolved. No category holds
+ * the patient. A malformed restriction is never overridden, and a row the classification places
+ * as an immunization is never moved.
  */
 public final class CdsExportPreventionScopePlanner {
     static final Set<String> COLUMNS =
@@ -59,10 +64,10 @@ public final class CdsExportPreventionScopePlanner {
                     "programNo");
 
     /**
-     * Origin proof for rows the classification cannot place. It receives the candidate row ids
-     * (rows classified for review whose program restriction, if any, is well formed) once, and
-     * returns the ids an authenticated import receipt proves are imported immunizations; a
-     * returned id outside the candidates is refused.
+     * Origin proof for rows the classification does not prove to be immunizations. It receives
+     * the candidate row ids (rows classified for review or as screenings whose program
+     * restriction, if any, is well formed) once, and returns the ids an authenticated import
+     * receipt proves are imported immunizations; a returned id outside the candidates is refused.
      */
     @FunctionalInterface
     interface ImportedImmunizations {
@@ -101,14 +106,12 @@ public final class CdsExportPreventionScopePlanner {
     }
 
     public enum Review {
-        /** A malformed program restriction flag: the chart's program rule cannot be applied. */
-        PROGRAM_SCOPE,
-        UNKNOWN_TYPE,
-        CATEGORY_NOT_PROVEN,
-        UNSUPPORTED_LAYOUT,
-        CONFLICTING_CATEGORY,
-        UNRESOLVED_CVC_MAPPING,
-        UNRESOLVED_NON_IMMUNIZATION_CODE
+        /**
+         * A malformed program restriction flag: the chart's program rule cannot be applied. No
+         * writer stores one (the column is a TINYINT(1) that only OSCAR 19's boolean mapping
+         * wrote; CARLOS maps neither column), so only a direct database write reaches it.
+         */
+        PROGRAM_SCOPE
     }
 
     public record Result(
@@ -270,7 +273,7 @@ public final class CdsExportPreventionScopePlanner {
             // malformed flag cannot be, and never supplies a grant.
             boolean malformed = ProgramRestriction.of(flag, program).malformed();
             var decision = classifier.classify(type, code);
-            if (!malformed && decision.kind() == CdsExportPreventionClassifier.Kind.REQUIRES_REVIEW)
+            if (!malformed && decision.kind() != CdsExportPreventionClassifier.Kind.IMMUNIZATION)
                 candidates.add(id);
             rows.add(
                     new Classified(
@@ -309,43 +312,35 @@ public final class CdsExportPreventionScopePlanner {
                     // Receipt-proven imported vaccine the classification could not place.
                     selected.add(id);
                     frame(output, "IMMUNIZATION_IMPORT_RECEIPT_" + decision.rule().name());
-                } else
-                    switch (decision.kind()) {
+                } else {
+                    // A row the classification left for review is placed by a documented rule
+                    // (CdsExportPreventionClassifier.place); a decided row keeps its decision.
+                    var placed =
+                            decision.kind() == CdsExportPreventionClassifier.Kind.REQUIRES_REVIEW
+                                    ? classifier.place(
+                                            row.fields().get("prevention_type"),
+                                            row.fields().get("snomedId"))
+                                    : decision;
+                    String placement =
+                            decision.kind() == CdsExportPreventionClassifier.Kind.REQUIRES_REVIEW
+                                    ? "PLACED_" + decision.rule().name() + "_"
+                                    : "";
+                    switch (placed.kind()) {
                         case IMMUNIZATION -> {
                             selected.add(id);
-                            frame(output, "IMMUNIZATION");
+                            frame(output, placement + "IMMUNIZATION");
                         }
                         case NON_IMMUNIZATION -> {
                             other.add(id);
-                            frame(output, "NON_IMMUNIZATION");
-                        }
-                        case REQUIRES_REVIEW -> {
-                            reviews.put(id, review(decision.rule()));
-                            frame(output, "REVIEW_" + decision.rule().name());
+                            frame(output, placement + "NON_IMMUNIZATION");
                         }
                         default -> throw new IOException("CDS_EXPORT_PREVENTION_SCOPE_INVALID");
                     }
+                }
             }
         }
         return new Selection(
                 selected, other, reviews, HexFormat.of().formatHex(digest.digest()), total);
-    }
-
-    private static Review review(CdsExportPreventionClassifier.Rule rule) throws IOException {
-        return switch (rule) {
-            case UNKNOWN_TYPE -> Review.UNKNOWN_TYPE;
-            case CATEGORY_NOT_PROVEN -> Review.CATEGORY_NOT_PROVEN;
-            case UNSUPPORTED_LAYOUT -> Review.UNSUPPORTED_LAYOUT;
-            case CONFLICTING_CATEGORY -> Review.CONFLICTING_CATEGORY;
-            case UNRESOLVED_CVC_MAPPING -> Review.UNRESOLVED_CVC_MAPPING;
-            case UNRESOLVED_NON_IMMUNIZATION_CODE -> Review.UNRESOLVED_NON_IMMUNIZATION_CODE;
-            case CONFIGURED_IMMUNIZATION,
-                    CATCH_ALL_INJECTION,
-                    RH_IMMUNE_GLOBULIN,
-                    CVC_IMMUNIZATION,
-                    CONFIGURED_NON_IMMUNIZATION ->
-                    throw new IOException("CDS_EXPORT_PREVENTION_SCOPE_INVALID");
-        };
     }
 
     private static int integer(String text) throws IOException {

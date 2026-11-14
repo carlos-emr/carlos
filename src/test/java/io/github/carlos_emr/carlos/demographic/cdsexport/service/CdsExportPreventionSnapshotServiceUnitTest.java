@@ -381,18 +381,18 @@ class CdsExportPreventionSnapshotServiceUnitTest {
     }
 
     @Test
-    void shouldVerifyUnknownTypesRemainAReviewPartitionAndCannotSupplyClinicalIds_forPreventionSnapshotServiceContract() {
+    void shouldPlaceAnUnconfiguredTypeAsAnImmunization_insteadOfHoldingBothSelections() {
+        // A type no item configures (OSCAR 19 data the migration left unmapped) held the
+        // Immunizations and the PastHealth export (CDS_EXPORT_UNMAPPED_DATA). It is placed as an
+        // immunization (CdsExportPreventionClassifier.place); the screening stays a screening.
         when(preventions.findCdsExportRowsAfter(eq(27), any(), eq(32)))
                 .thenReturn(List.of(raw(1, "UNCONFIGURED"), raw(2, "PAP")));
         transaction(
                 () -> {
                     var state = snapshots.prepare(27, () -> {});
-                    assertThat(state.selection().reviews())
-                            .containsEntry(1, CdsExportPreventionScopePlanner.Review.UNKNOWN_TYPE);
-                    assertThatThrownBy(state::clinicalIds).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
-                    // An unclassifiable row may be a screening: PastHealth is held as well.
-                    assertThatThrownBy(state::screeningIds)
-                            .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+                    assertThat(state.selection().reviews()).isEmpty();
+                    assertThat(state.clinicalIds()).containsExactly(1);
+                    assertThat(state.screeningIds()).containsExactly(2);
                     return null;
                 });
     }
@@ -493,8 +493,12 @@ class CdsExportPreventionSnapshotServiceUnitTest {
     }
 
     @Test
-    void shouldHoldACatchAllVaccine_whenImmunizationsIsNotSelectedOrItsReceiptIsForged()
+    void shouldPlaceACatchAllVaccineByItsForm_whenImmunizationsIsNotSelectedOrItsReceiptIsForged()
             throws Exception {
+        // OtherA outside the Other heading held the patient (CATEGORY_NOT_PROVEN) unless a receipt
+        // proved it. It is recorded with the injection form, so it is placed as an immunization
+        // whatever a receipt says: no receipt is consulted without Immunizations, and a forged
+        // one proves nothing.
         var units = mock(CdsImportUnitDao.class);
         var keys =
                 io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys
@@ -505,10 +509,8 @@ class CdsExportPreventionSnapshotServiceUnitTest {
         transaction(
                 () -> {
                     var state = service.prepare(27, () -> {}, false);
-                    assertThat(state.selection().reviews())
-                            .containsEntry(
-                                    1, CdsExportPreventionScopePlanner.Review.CATEGORY_NOT_PROVEN);
-                    assertThatThrownBy(state::clinicalIds).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+                    assertThat(state.selection().reviews()).isEmpty();
+                    assertThat(state.clinicalIds()).contains(1);
                     return null;
                 });
         verifyNoInteractions(units);
@@ -518,9 +520,9 @@ class CdsExportPreventionSnapshotServiceUnitTest {
                         List.of(CdsExportImmunizationImportReceiptFixture.forged(27, 9, 1, keys)));
         transaction(
                 () -> {
-                    assertThat(forged.prepare(27, () -> {}, true).selection().reviews())
-                            .containsEntry(
-                                    1, CdsExportPreventionScopePlanner.Review.CATEGORY_NOT_PROVEN);
+                    var state = forged.prepare(27, () -> {}, true);
+                    assertThat(state.selection().reviews()).isEmpty();
+                    assertThat(state.clinicalIds()).contains(1);
                     return null;
                 });
     }
