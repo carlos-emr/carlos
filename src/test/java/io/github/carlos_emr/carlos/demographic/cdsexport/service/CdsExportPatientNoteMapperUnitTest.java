@@ -95,17 +95,62 @@ class CdsExportPatientNoteMapperUnitTest {
     }
 
     @Test
-    void shouldVerifyRefusesAmbiguousFrames_insteadOfUsingTheFirstClosingTagOrDiscardingPrefixes()
-            throws Exception {
+    void shouldExportALegacyFrameAsTheChartShowsIt_andCarryTheExactColumn() throws Exception {
+        // Before: AMBIGUOUS_PATIENT_NOTE_FRAMING_REQUIRES_REVIEW held the chart. No CARLOS screen
+        // writes such a value; legacy data can hold one, and the chart shows its inner frame.
         for (String raw : List.of("prefix<unotes>note</unotes>", "<unotes>note</unotes>suffix")) {
             var mapped = mapper.map(27, DEMOGRAPHICS, row(raw));
-            assertThat(mapped.representable()).isFalse();
-            assertThat(mapped.text()).isNull();
-            assertThat(content(mapped).rule())
-                    .isEqualTo("AMBIGUOUS_PATIENT_NOTE_FRAMING_REQUIRES_REVIEW");
-            assertThatThrownBy(() -> compose(mapped))
-                    .hasMessage("CDS_EXPORT_PATIENT_NOTE_MAPPING_REQUIRES_REVIEW");
+            assertThat(mapped.representable()).isTrue();
+            assertThat(mapped.text()).isEqualTo(DemographicCust.patientNotesText(raw)).isEqualTo("note");
+            assertThat(content(mapped).destination())
+                    .isEqualTo("NoteAboutPatient," + CdsExportDemographicSupportingMapper.DESTINATION);
+            assertThat(CdsExportDemographicSupportingMapper.carries(content(mapped))).isTrue();
+            compose(mapped);
         }
+    }
+
+    @Test
+    void shouldCarryANoteLongerThanTheElementWhole_insteadOfHoldingTheChart() throws Exception {
+        // Before: PATIENT_NOTE_DICTIONARY_LENGTH_REQUIRES_REVIEW held the chart for a master
+        // record note of 64,001 to 65,535 characters (the column is a TEXT).
+        String fits = "n".repeat(CdsExportPatientNoteMapper.NOTE_LENGTH);
+        var whole = mapper.map(27, DEMOGRAPHICS, row(DemographicCust.wrapPatientNotes(fits)));
+        assertThat(whole.text()).isEqualTo(fits);
+        assertThat(content(whole).destination()).isEqualTo("NoteAboutPatient");
+        var longer =
+                mapper.map(27, DEMOGRAPHICS, row(DemographicCust.wrapPatientNotes(fits + "x")));
+        assertThat(longer.representable()).isTrue();
+        // Nothing is cut: the element is left out and the native demographic record carries it.
+        assertThat(longer.text()).isNull();
+        assertThat(content(longer))
+                .isEqualTo(
+                        new CdsExportFieldAssessmentDto(
+                                CdsExportFieldAssessmentDto.Presence.VALUE,
+                                CdsExportFieldAssessmentDto.Outcome.MAPPED,
+                                CdsExportDemographicSupportingMapper.DESTINATION,
+                                "PATIENT_NOTE_LONGER_THAN_THE_ELEMENT_CARRIED_WHOLE"));
+        assertThat(roundTrip(longer)).isNull();
+        // Without NewCategory the record is not written and the note is accounted as such.
+        assertThat(
+                        CdsExportDemographicSupportingMapper.withSelection(content(longer), false)
+                                .outcome())
+                .isEqualTo(CdsExportFieldAssessmentDto.Outcome.OPERATIONAL);
+    }
+
+    @Test
+    void shouldShowWhereACharacterXmlCannotCarryStood_andCarryTheExactColumn() throws Exception {
+        // Before: PATIENT_NOTE_WIRE_TEXT_REQUIRES_REVIEW held the chart.
+        String typed = "Prefers mornings\u0007. Interpreter\ufffe needed";
+        var mapped = mapper.map(27, DEMOGRAPHICS, row(DemographicCust.wrapPatientNotes(typed)));
+        assertThat(mapped.representable()).isTrue();
+        assertThat(mapped.text()).isEqualTo("Prefers mornings\ufffd. Interpreter\ufffd needed");
+        assertThat(content(mapped).destination())
+                .isEqualTo("NoteAboutPatient," + CdsExportDemographicSupportingMapper.DESTINATION);
+        assertThat(roundTrip(mapped)).isEqualTo(mapped.text());
+        // Without NewCategory the element still holds the normalized note.
+        var unselected = CdsExportDemographicSupportingMapper.withSelection(content(mapped), false);
+        assertThat(unselected.outcome()).isEqualTo(CdsExportFieldAssessmentDto.Outcome.MAPPED);
+        assertThat(unselected.destination()).isEqualTo("NoteAboutPatient");
     }
 
     @Test
@@ -187,26 +232,42 @@ class CdsExportPatientNoteMapperUnitTest {
     }
 
     @Test
-    void shouldVerifyKeepsExactCodePointCapacityAndRefusesOversizedOrIllegalValues_withoutTruncation()
-            throws Exception {
+    void shouldKeepExactCodePointCapacity_andNeverTruncateOrHold() throws Exception {
         var valid = mapper.map(27, DEMOGRAPHICS, row("😀".repeat(64000)));
         assertThat(roundTrip(valid)).isEqualTo(valid.text());
-        for (String text :
-                List.of(
-                        "😀".repeat(64001),
-                        "😀".repeat(65536),
-                        "😀".repeat(65537),
-                        "Invalid\u0001XML",
-                        "Invalid\ud800surrogate")) {
+        for (String text : List.of("😀".repeat(64001), "😀".repeat(65536), "😀".repeat(65537))) {
             var mapped = mapper.map(27, DEMOGRAPHICS, row(text));
-            assertThat(mapped.representable()).isFalse();
+            // Longer than the element: carried whole, never cut.
+            assertThat(mapped.representable()).isTrue();
             assertThat(mapped.text()).isNull();
+            assertThat(content(mapped).destination())
+                    .isEqualTo(CdsExportDemographicSupportingMapper.DESTINATION);
+        }
+        for (String text : List.of("Invalid\u0001XML", "Invalid\ud800surrogate")) {
+            var mapped = mapper.map(27, DEMOGRAPHICS, row(text));
+            assertThat(mapped.representable()).isTrue();
+            assertThat(mapped.text()).hasSameSizeAs(text).contains("\ufffd");
+            assertThat(CdsExportDemographicSupportingMapper.carries(content(mapped))).isTrue();
         }
     }
 
     @Test
     void shouldVerifyRejectedNoteStillPoisonsTheDocument_whenTheCallerCatchesItsError() throws Exception {
-        var mapped = mapper.map(27, DEMOGRAPHICS, row("prefix<unotes>note</unotes>"));
+        // A note the projection reader refuses (CdsExportPatientNoteProjectionReader).
+        var accepted = mapper.map(27, DEMOGRAPHICS, row("note"));
+        var decisions = new LinkedHashMap<>(accepted.fields());
+        decisions.replaceAll(
+                (key, value) ->
+                        key.column().equals("content")
+                                ? new CdsExportFieldAssessmentDto(
+                                        CdsExportFieldAssessmentDto.Presence.VALUE,
+                                        CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW,
+                                        "NoteAboutPatient",
+                                        "PATIENT_NOTE_WIRE_LENGTH_REQUIRES_REVIEW")
+                                : value);
+        var mapped =
+                new CdsExportPatientNoteMappingDto(27, null, decisions, accepted.delegatedFields());
+        assertThat(mapped.representable()).isFalse();
         var value = new CdsExportDemographicNoteProjectionDto("a".repeat(64), base(), 1, mapped);
         assertThatThrownBy(
                         () ->

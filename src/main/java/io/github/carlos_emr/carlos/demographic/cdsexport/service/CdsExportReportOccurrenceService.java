@@ -986,7 +986,14 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                                     "carlos-native-occurrence-v1",
                                                     "document",
                                                     report.id()));
-                            var assessments = new LinkedHashMap<>(section.fields());
+                            // A context longer than Notes travels in the companion record,
+                            // which accounts the fields it carries.
+                            var assessments =
+                                    new LinkedHashMap<>(
+                                            section.companion() == null
+                                                    ? section.fields()
+                                                    : CdsExportReportContext.relocated(
+                                                            section.fields()));
                             if (file != null) assessFile(file, "referenced", assessments);
                             streams.requireActive();
                             control.authorizeCategory(patient.patient(), category(), false);
@@ -1016,6 +1023,34 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                             if (file != null && !usedFiles.add(file.document())) invalid();
                             totals[0]++;
                             totals[2]++;
+                            if (section.companion() != null) {
+                                var companion =
+                                        new CdsExportIdentityDto(
+                                                patientKey,
+                                                category(),
+                                                CdsExportReportContext.id("document", report.id()));
+                                streams.requireActive();
+                                control.authorizeCategory(patient.patient(), category(), false);
+                                xml.emit(
+                                        new CdsExportXmlComposer.Section(
+                                                companion,
+                                                body ->
+                                                        CdsExportReportContext.write(
+                                                                section.companion(), body)));
+                                output.accept(
+                                        new CdsExportClinicalOccurrenceService.Receipt(
+                                                companion,
+                                                index.sourceManifestSha256(),
+                                                "document",
+                                                report.id(),
+                                                null,
+                                                CdsExportReportContext.carried(section.fields()),
+                                                Set.of(),
+                                                Set.of()));
+                                control.authorizeCategory(patient.patient(), category(), false);
+                                totals[0]++;
+                                totals[2]++;
+                            }
                         }
                         // Embedded documents of native HL7 laboratory reports, after the chart's
                         // own documents.
@@ -1224,18 +1259,8 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
             assessments.putAll(decided);
             return null;
         }
-        var details = CdsExportInboxReviewMapper.carriedContext(reviews);
-        if (!edits.contexts().isEmpty()) details.put("edits", edits.contexts());
-        String context =
-                com.fasterxml.jackson.databind.json.JsonMapper.builder()
-                        .build()
-                        .writeValueAsString(details);
-        String what = edits.contexts().isEmpty() ? "reviews" : "reviews and edits";
-        if (!importedNotes(fields)) {
-            String notes = "[CARLOS " + what + " recorded after the import]\n" + context;
-            if (!CdsExportNativeFieldAssessments.legal(notes, 32000))
-                throw new CdsExportMappingReviewException(
-                        "CDS_EXPORT_IMPORTED_REPORT_REVIEW_NOTES_CAPACITY");
+        String notes = importedReviewNotes(reviews, edits.contexts());
+        if (importedReviewsInNotes(importedNotes(fields), !edits.contexts().isEmpty(), notes)) {
             changes.add(
                     new CdsExportRetainedSectionWriter.Change(
                             "Notes[1]", Set.of(), body -> body.text(notes)));
@@ -1247,15 +1272,47 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
         assessments.putAll(relocated);
         String text =
                 "CARLOS data summary: "
-                        + what
+                        + (edits.contexts().isEmpty() ? "reviews" : "reviews and edits")
                         + " recorded in CARLOS on a report from an earlier CDS import. The report"
                         + " itself is exported from its imported elements.\n"
-                        + context;
-        if (!CdsExportNativeFieldAssessments.legal(text, Integer.MAX_VALUE))
-            throw new CdsExportMappingReviewException(
-                    "CDS_EXPORT_IMPORTED_REPORT_REVIEW_TEXT_REQUIRES_REVIEW");
+                        + notes.substring(notes.indexOf('\n') + 1);
         // Every field of every carried row and named provider, in the supplementary record.
         return new ImportedReviews(text, relocated);
+    }
+
+    /**
+     * The Notes text of the reviews and edits recorded in CARLOS on an imported report: a header
+     * line and their JSON context. A character XML cannot carry is its JSON escape there
+     * ({@link CdsExportResidualJson}), so no comment holds the patient.
+     */
+    static String importedReviewNotes(
+            CdsExportInboxReviewMapper.Reviews reviews, List<Map<String, Object>> edits)
+            throws IOException {
+        var details = CdsExportInboxReviewMapper.carriedContext(reviews);
+        if (!edits.isEmpty()) details.put("edits", edits);
+        return "[CARLOS "
+                + (edits.isEmpty() ? "reviews" : "reviews and edits")
+                + " recorded after the import]\n"
+                + CdsExportResidualJson.text(
+                        com.fasterxml.jackson.databind.json.JsonMapper.builder()
+                                .build()
+                                .writeValueAsString(details));
+    }
+
+    /**
+     * Whether the reviews recorded in CARLOS on an imported report are appended as its Notes, or
+     * travel in its supplementary record. They are appended only when all of these hold: the
+     * import wrote no Notes of its own (an imported element keeps its exact bytes); no document
+     * row of the report was edited in CARLOS (an edit context is decided from the import's
+     * sealed values, which the patient inventory does not read, so its size cannot be predicted
+     * there); and the text fits the 32,000 characters of Notes. Otherwise the supplementary
+     * record carries it whole: nothing is cut and nobody is held for its length. The patient
+     * inventory applies the same rule ({@link CdsExportReportContextPlanner}).
+     */
+    static boolean importedReviewsInNotes(boolean importedNotes, boolean edited, String notes) {
+        return !importedNotes
+                && !edited
+                && notes.codePointCount(0, notes.length()) <= CdsExportReportContext.NOTES_LENGTH;
     }
 
     /** The supplementary text report of the reviews of an imported report. */
@@ -1377,6 +1434,34 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                 control.authorizeCategory(patient.patient(), CdsCategory.LABORATORY_RESULTS, true);
                 control.authorizeCategory(patient.patient(), category(), false);
                 emitted++;
+                if (result.companion() != null) {
+                    // The laboratory's notes and the reviews are longer than Notes: they travel
+                    // complete in the document's companion record (CdsExportReportContext). The
+                    // report's rows stay accounted with the document itself.
+                    var companion =
+                            new CdsExportIdentityDto(
+                                    patientKey,
+                                    category(),
+                                    CdsExportReportContext.id("hl7TextMessage", id));
+                    xml.emit(
+                            new CdsExportXmlComposer.Section(
+                                    companion,
+                                    body -> CdsExportReportContext.write(result.companion(), body)));
+                    output.accept(
+                            new CdsExportClinicalOccurrenceService.Receipt(
+                                    companion,
+                                    index.sourceManifestSha256(),
+                                    "hl7TextMessage",
+                                    id,
+                                    null,
+                                    Map.of(),
+                                    Set.of(),
+                                    Set.of()));
+                    control.authorizeCategory(
+                            patient.patient(), CdsCategory.LABORATORY_RESULTS, true);
+                    control.authorizeCategory(patient.patient(), category(), false);
+                    emitted++;
+                }
             }
         }
         return emitted;

@@ -86,11 +86,12 @@ class CdsExportDemographicAncillaryReconcilerUnitTest {
             }
         }
     }
-    @Test void shouldHoldOnlyAnAncillaryValueNoXmlDocumentCanCarry_forAncillaryReconcilerContract() throws Exception {
+    @Test void shouldCarryAnAncillaryValueNoXmlDocumentCanCarry_forAncillaryReconcilerContract() throws Exception {
+        // Before: SUPPORTING_WIRE_TEXT_REQUIRES_REVIEW held the chart; the record now writes the character as its JSON escape.
         var result = reconcile(row("pronoun", "she\uFFFF"));
-        assertThat(result.fields().get(key("pronoun")).outcome()).isEqualTo(Outcome.REQUIRES_REVIEW);
-        assertThat(result.coreRepresentable()).isFalse(); assertThat(result.proposedChanges()).isEmpty();
-        assertThatThrownBy(result::coreChanges).hasMessage("CDS_EXPORT_DEMOGRAPHIC_CORE_REQUIRES_REVIEW");
+        assertThat(result.fields().get(key("pronoun"))).isEqualTo(new CdsExportFieldAssessmentDto(Presence.VALUE,
+                Outcome.MAPPED, CdsExportDemographicSupportingMapper.DESTINATION, CdsExportDemographicSupportingMapper.CARRIED_RULE));
+        assertThat(result.coreRepresentable()).isTrue();
     }
     @Test void shouldAccountForMasterRecordPlaceholders_whileStillHoldingAChosenValue() throws Exception {
         // D5: add-form-personal.jsp preselects newsletter "Unknown" and offers country of origin "-1" ("Not set");

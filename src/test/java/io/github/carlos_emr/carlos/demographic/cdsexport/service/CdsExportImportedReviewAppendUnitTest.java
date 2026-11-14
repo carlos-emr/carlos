@@ -189,6 +189,49 @@ class CdsExportImportedReviewAppendUnitTest {
     }
 
     @Test
+    void shouldCarryReviewsLongerThanNotes_inASupplementaryRecord() throws Exception {
+        // Before: CDS_EXPORT_IMPORTED_REPORT_REVIEW_NOTES_CAPACITY held the chart past 32,000
+        // characters, and CDS_EXPORT_IMPORTED_REPORT_REVIEW_TEXT_REQUIRES_REVIEW for a comment
+        // holding a character XML cannot carry.
+        var fields = importedReport(false);
+        var routes = new ArrayList<CdsExportCapturedTextRowDto>();
+        for (int i = 1; i <= 200; i++)
+            routes.add(documentRoute(i, "101", "A", "Seen " + i + " " + "x".repeat(200) + "\u0007"));
+        var changes = new ArrayList<CdsExportRetainedSectionWriter.Change>();
+        var assessments = new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
+        var rows = new ArrayList<CdsExportCapturedTextRowDto>();
+        var supplementary =
+                CdsExportReportOccurrenceService.importedReviews(
+                        routes, providers(), ZONE, fields, changes, assessments, rows);
+        assertThat(supplementary).isNotNull();
+        // No Notes is appended; the reviewer element still is.
+        assertThat(changes)
+                .extracting(CdsExportRetainedSectionWriter.Change::relativePath)
+                .containsExactly("ReportReviewed[2]");
+        var decoded =
+                new com.fasterxml.jackson.databind.ObjectMapper()
+                        .readTree(supplementary.text().substring(supplementary.text().indexOf('{')));
+        assertThat(decoded.get("reviews")).hasSize(200);
+        assertThat(decoded.get("reviews").get(199).get("fields").get("comment").asText())
+                .isEqualTo("Seen 200 " + "x".repeat(200) + "\u0007");
+        assertThat(supplementary.text()).doesNotContain("\u0007");
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(rows, supplementary.fields(), 100000, () -> {});
+        // The same rule the patient inventory applies to expect the record.
+        var reviews =
+                CdsExportInboxReviewMapper.report().map(routes, List.of(), providers(), ZONE);
+        String notes = CdsExportReportOccurrenceService.importedReviewNotes(reviews, List.of());
+        assertThat(CdsExportReportOccurrenceService.importedReviewsInNotes(false, false, notes))
+                .isFalse();
+        assertThat(CdsExportReportOccurrenceService.importedReviewsInNotes(false, false, "short"))
+                .isTrue();
+        assertThat(CdsExportReportOccurrenceService.importedReviewsInNotes(true, false, "short"))
+                .isFalse();
+        assertThat(CdsExportReportOccurrenceService.importedReviewsInNotes(false, true, "short"))
+                .isFalse();
+    }
+
+    @Test
     void shouldCarryTheReviewsOfAnImportedReportWithItsOwnNotes_inASupplementaryRecord()
             throws Exception {
         var fields = importedReport(true);

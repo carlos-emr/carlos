@@ -168,9 +168,41 @@ class CdsExportDemographicRetainedNoteReconcilerUnitTest {
     }
 
     @Test
-    void shouldVerifyAmbiguousNativeFramingCannotFallBack_toOriginalText() throws Exception {
+    void shouldExportAnEditedLegacyFrameAsTheChartShowsIt_neverTheOriginalText() throws Exception {
+        // Before: the chart was held. The element is what the chart shows and the exact column
+        // travels in the native demographic record.
         change("content", "prefix <unotes>ambiguous</unotes> suffix");
-        assertThat(reconcile().noteRepresentable()).isFalse();
+        var result = reconcile();
+        assertThat(result.noteRepresentable()).isTrue();
+        var content =
+                result.fields().entrySet().stream()
+                        .filter(entry -> entry.getKey().column().equals("content"))
+                        .findFirst()
+                        .orElseThrow()
+                        .getValue();
+        assertThat(content.destination())
+                .isEqualTo("NoteAboutPatient," + CdsExportDemographicSupportingMapper.DESTINATION);
+        assertThat(result.changes()).hasSize(1);
+    }
+
+    @Test
+    void shouldRemoveTheElementAndCarryTheNote_whenAnEditedNoteIsLongerThanTheElement()
+            throws Exception {
+        // Before: PATIENT_NOTE_DICTIONARY_LENGTH_REQUIRES_REVIEW held the chart.
+        change("content", "<unotes>" + "n".repeat(64001) + "</unotes>");
+        var result = reconcile();
+        assertThat(result.noteRepresentable()).isTrue();
+        var content =
+                result.fields().entrySet().stream()
+                        .filter(entry -> entry.getKey().column().equals("content"))
+                        .findFirst()
+                        .orElseThrow()
+                        .getValue();
+        assertThat(content.outcome()).isEqualTo(CdsExportFieldAssessmentDto.Outcome.MAPPED);
+        assertThat(content.destination()).isEqualTo(CdsExportDemographicSupportingMapper.DESTINATION);
+        // The imported element is removed (replaced by nothing); the record carries the note.
+        assertThat(result.changes()).hasSize(1);
+        assertThat(result.changes().getFirst().content()).isNull();
     }
 
     @Test

@@ -22,9 +22,11 @@
 package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 
 import static org.assertj.core.api.Assertions.*;
+import static io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNativeHistoryMapperUnitTest.render;
 
 import io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Plan;
 import io.github.carlos_emr.carlos.commn.dto.CdsExportProviderRowDto;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportCapturedFieldDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportCapturedTextRowDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFieldAssessmentDto.Outcome;
@@ -399,7 +401,9 @@ class CdsExportHospitalReportMapperUnitTest {
     }
 
     @Test
-    void shouldHoldThePatient_forAMessageHoldingSeveralReports() throws Exception {
+    void shouldExportEveryReport_ofAMessageHoldingSeveral() throws Exception {
+        // Before: CDS_EXPORT_HRM_REPORT_MULTIPLE_REPORTS_REQUIRES_REVIEW held the chart. The HRM
+        // schema allows several ReportsReceived and the intake stores such a message.
         String twice =
                 fixture()
                         .replaceFirst(
@@ -407,26 +411,95 @@ class CdsExportHospitalReportMapperUnitTest {
         byte[] message = twice.getBytes(StandardCharsets.UTF_8);
         var parsed = CdsExportHospitalReportMessage.parse(message);
         assertThat(parsed.reports()).hasSize(2);
+        assertThat(CdsExportHospitalReportMapper.parts(parsed)).isEqualTo(2);
         var source =
                 new CdsExportHospitalReportMapper.Source(
                         PATIENT,
                         reportRow(5, report(5)),
                         List.of(link(9, 5)),
+                        List.of(comment(3, 5, "0", "Reviewed with the patient")),
                         List.of(),
+                        List.of(route(4, 5, "101", "1", "2024-01-20 09:00:00")),
+                        file(5, CdsExportHospitalReportFileSourceReader.State.READ, message));
+        var mapper = new CdsExportHospitalReportMapper();
+        var first = mapped(source, parsed, CdsExportHospitalReportMapper.Content.text());
+        // The first report is the chart's record of the message: every row is accounted with it.
+        assertThat(first.text().get("Notes"))
+                .startsWith("The stored HRM message of this report holds 2 reports.")
+                .contains("\"reportsInMessage\":2", "Reviewed with the patient");
+        assertThat(first.reviewers()).hasSize(1);
+        assertThat(first.fields()).isNotEmpty();
+        var second =
+                mapper.map(
+                        source,
+                        parsed,
+                        1,
+                        CdsExportHospitalReportMapper.Content.text(),
+                        providers(),
+                        ZONE);
+        // The further report has its own content and message values, and no sign-off: the
+        // provider signed what the viewer showed.
+        assertThat(second.text())
+                .containsEntry("Format", "Text")
+                .containsEntry("TextContent", parsed.reports().get(1).text())
+                .containsEntry("Class", first.text().get("Class"));
+        assertThat(second.text().get("Notes"))
+                .startsWith("Report 2 of 2 of one stored HRM message.")
+                .contains("\"hrmReportId\":\"5\"", "\"reportInMessage\":2");
+        assertThat(second.reviewers()).isEmpty();
+        assertThat(second.fields()).isEmpty();
+        assertThat(second.rows()).isEmpty();
+        assertThat(render(CdsCategory.REPORTS, xml -> mapper.write(second, xml))).isNotEmpty();
+        assertThatThrownBy(
+                        () ->
+                                mapper.map(
+                                        source,
+                                        parsed,
+                                        2,
+                                        CdsExportHospitalReportMapper.Content.text(),
+                                        providers(),
+                                        ZONE))
+                .isInstanceOf(java.io.IOException.class);
+    }
+
+    @Test
+    void shouldCarryTheWholeContextInACompanionRecord_whenCommentsPassNotes() throws Exception {
+        // Before: CDS_EXPORT_HRM_REPORT_METADATA_CAPACITY held the chart. A comment typed on the
+        // HRM report screen is a TEXT column; one long comment, or many, pass Notes' 32,000.
+        String typed = "Discussed at rounds. " + "y".repeat(40_000) + " end \u0007";
+        byte[] message = fixture().getBytes(StandardCharsets.UTF_8);
+        var parsed = CdsExportHospitalReportMessage.parse(message);
+        var source =
+                new CdsExportHospitalReportMapper.Source(
+                        PATIENT,
+                        reportRow(5, report(5)),
+                        List.of(link(9, 5)),
+                        List.of(comment(3, 5, "0", typed)),
                         List.of(),
                         List.of(),
                         file(5, CdsExportHospitalReportFileSourceReader.State.READ, message));
-        assertThatThrownBy(
-                        () ->
-                                new CdsExportHospitalReportMapper()
-                                        .map(
-                                                source,
-                                                parsed,
-                                                CdsExportHospitalReportMapper.Content.text(),
-                                                providers(),
-                                                ZONE))
-                .isInstanceOf(CdsExportMappingReviewException.class)
-                .hasMessage("CDS_EXPORT_HRM_REPORT_MULTIPLE_REPORTS_REQUIRES_REVIEW");
+        var result = mapped(source, parsed, CdsExportHospitalReportMapper.Content.text());
+        String notes = result.text().get("Notes");
+        String reference = CdsExportHospitalReportMapper.companionId("5", 0);
+        assertThat(notes.codePointCount(0, notes.length()))
+                .isLessThanOrEqualTo(CdsExportReportContext.NOTES_LENGTH);
+        assertThat(notes).contains(reference);
+        assertThat(result.companion()).contains(reference).doesNotContain("\u0007");
+        var decoded =
+                new com.fasterxml.jackson.databind.ObjectMapper()
+                        .readTree(result.companion().substring(result.companion().indexOf('{')));
+        // The exact typed comment, control character included.
+        assertThat(decoded.get("comments").get(0).get("comment").asText()).isEqualTo(typed);
+        var mapper = new CdsExportHospitalReportMapper();
+        assertThat(render(CdsCategory.REPORTS, xml -> mapper.write(result, xml))).isNotEmpty();
+        assertThat(
+                        render(
+                                CdsCategory.REPORTS,
+                                xml -> CdsExportReportContext.write(result.companion(), xml)))
+                .isNotEmpty();
+        // The comment's fields are accounted in the companion's Content.
+        assertThat(CdsExportReportContext.carried(result.fields()).keySet())
+                .anyMatch(key -> key.table().equals("HRMDocumentComment"));
     }
 
     @Test

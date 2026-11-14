@@ -390,8 +390,9 @@ final class CdsExportInboxReviewMapper {
         if (comment == null || comment.isEmpty())
             state.set("comment", Outcome.ABSENT, "", "NO_INBOX_REVIEW_COMMENT");
         else {
-            if (!CdsExportNativeFieldAssessments.legal(comment, 1 << 24))
-                review("CDS_EXPORT_INBOX_REVIEW_COMMENT_REQUIRES_REVIEW");
+            // No comment is refused for its characters or length: it is a varchar(255), and both
+            // carriers are JSON, where a character XML cannot carry is its JSON escape
+            // (CdsExportResidualJson).
             state.set("comment", Outcome.MAPPED, carrier, "INBOX_REVIEW_COMMENT_IN_SOURCE_CONTEXT");
             // The route travels whole with its comment, so its workflow context is carried too.
             for (String column : ROUTING_COLUMNS) {

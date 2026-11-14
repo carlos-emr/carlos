@@ -27,6 +27,7 @@ import static io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExpor
 import static org.assertj.core.api.Assertions.*;
 
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportCapturedTextRowDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDateDto;
 import java.io.IOException;
 import java.io.InputStream;
@@ -34,6 +35,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -517,5 +519,72 @@ class CdsExportNativeLaboratoryFeedUnitTest {
                                         0)
                                 .text())
                 .isEqualTo("Line one\nLine two");
+    }
+
+    @Test
+    void shouldCarryTheWholeContextOfAnEmbeddedDocument_whenReviewsPassNotes() throws Exception {
+        // Before: CDS_EXPORT_NATIVE_LAB_DOCUMENT_NOTES_CAPACITY held the chart past 32,000
+        // characters of Notes, and CDS_EXPORT_NATIVE_LAB_DOCUMENT_TEXT_REQUIRES_REVIEW for a
+        // form feed the laboratory sent as an HL7 hex escape in a text report.
+        var source =
+                source(
+                        message()
+                                .replace(
+                                        "|NM|2345-7^Glucose^LN||5.4|",
+                                        "|ED|NOTE^Report text^L||^TEXT^^A^Page one\\X0C\\Page two|"));
+        var routes = new ArrayList<CdsExportCapturedTextRowDto>();
+        for (int i = 1; i <= 200; i++)
+            routes.add(
+                    CdsExportLaboratoryReviewerMappingUnitTest.route(
+                            i,
+                            "101",
+                            "A",
+                            "2026-07-10 09:00:00",
+                            "Inbox comment " + i + " " + "x".repeat(200) + "\u0007"));
+        var reviews =
+                CdsExportInboxReviewMapper.report()
+                        .map(
+                                routes,
+                                List.of(),
+                                Map.of(
+                                        "101",
+                                        CdsExportLaboratoryReviewerMappingUnitTest.provider(
+                                                "101", "Ada", "Reviewer", "123456")),
+                                TORONTO);
+        var payload = CdsExportLaboratoryDocumentMapper.payload(source, 0);
+        // The element shows where the character stood; the exact payload is in the message the
+        // report's NewCategory record carries.
+        assertThat(payload.text()).isEqualTo("Page one\ufffdPage two");
+        var mapper = new CdsExportLaboratoryDocumentMapper();
+        var result = mapper.map(source, 0, payload, null, null, TORONTO, reviews);
+        String notes = result.text().get("Notes");
+        String reference =
+                CdsExportReportContext.id(
+                        "hl7TextMessage",
+                        source.id() + ":" + source.parsed().documents().getFirst().ordinal());
+        assertThat(notes.codePointCount(0, notes.length()))
+                .isLessThanOrEqualTo(CdsExportReportContext.NOTES_LENGTH);
+        assertThat(notes)
+                .startsWith("[CARLOS embedded laboratory document]\nAccession number: ")
+                .contains(reference);
+        assertThat(result.companion()).contains(reference).doesNotContain("\u0007");
+        var decoded =
+                new com.fasterxml.jackson.databind.ObjectMapper()
+                        .readTree(result.companion().substring(result.companion().indexOf('{')));
+        assertThat(decoded.get("reviews")).hasSize(200);
+        assertThat(decoded.get("reviews").get(0).get("fields").get("comment").asText())
+                .isEqualTo("Inbox comment 1 " + "x".repeat(200) + "\u0007");
+        assertThat(render(CdsCategory.REPORTS, body -> mapper.write(result, body))).isNotEmpty();
+        assertThat(
+                        render(
+                                CdsCategory.REPORTS,
+                                body -> CdsExportReportContext.write(result.companion(), body)))
+                .isNotEmpty();
+        // The patient inventory decides the same Notes without decoding the payload.
+        var planned =
+                mapper.notes(
+                        source, 0, CdsExportLaboratoryDocumentMapper.described(source, 0), reviews);
+        assertThat(planned.notes()).isEqualTo(notes);
+        assertThat(planned.companion()).isEqualTo(result.companion());
     }
 }

@@ -218,14 +218,14 @@ earlier CDS import is exported from its imported elements, unchanged; a review r
 CARLOS afterwards (acknowledging it in the inbox, with or without a comment, or a review
 record) is added after the sending EMR's reviewers as one more ReportReviewed. The review rows,
 with their exact times and comments, are added to the report's Notes when the imported report
-has none; when the sending EMR already wrote Notes, which are never rewritten, they travel in a
-separate Text report, "CARLOS reviews of an imported report", beside it. A Notes text over the
-32,000 characters CDS allows holds the patient
-(`CDS_EXPORT_IMPORTED_REPORT_REVIEW_NOTES_CAPACITY`). An imported document reviewed or
+has none, was not edited in CARLOS and the text fits the 32,000 characters CDS allows;
+otherwise they travel in a separate Text report, "CARLOS reviews of an imported report",
+beside it (the sending EMR's Notes are never rewritten, and a long text is carried whole
+rather than holding the patient). An imported document reviewed or
 edited through the document's edit page is exported too: the review is one more
 ReportReviewed, an edited class, subclass, source author or facility, observation date or
 received date is exported as it now reads, and every edited value (description and type
-included) travels with the value it replaced in the same Notes or separate report. When the
+included) travels with the value it replaced in that separate report. When the
 file of an imported document was replaced on the edit page, the current file is exported as the
 report's content, and the name, type and SHA-256 fingerprint of the file the import brought
 travel with it. The imported file itself is still in CARLOS's document directory (the edit
@@ -261,10 +261,13 @@ recorded, is still exported from what CARLOS recorded about it (class, subclass,
 report number, observations), with a Notes statement that its content could not be read; a
 stored file that is not a readable HRM message is attached exactly as stored (`xml`). Only an
 unusual link holds the patient: a link whose chart or report number is spelled other than
-CARLOS writes it (`CDS_EXPORT_HRM_REPORT_LINK_REQUIRES_REVIEW`), a message holding more than one
-report (`CDS_EXPORT_HRM_REPORT_MULTIPLE_REPORTS_REQUIRES_REVIEW`), a sign-off state CARLOS never
-writes (`CDS_EXPORT_HRM_SIGN_OFF_STATUS_REQUIRES_REVIEW`), or more report details than Notes can
-carry (`CDS_EXPORT_HRM_REPORT_METADATA_CAPACITY`). HRM files are read from `DOCUMENT_DIR` under the
+CARLOS writes it (`CDS_EXPORT_HRM_REPORT_LINK_REQUIRES_REVIEW`) or a sign-off state CARLOS never
+writes (`CDS_EXPORT_HRM_SIGN_OFF_STATUS_REQUIRES_REVIEW`). A message that holds several reports
+is exported as one report for each (CARLOS shows the first; the Notes of each say which one it
+is). A report, document or embedded laboratory document whose comments and reviews are longer
+than Notes can carry (32,000 characters) is exported with a second report beside it, subclass
+"CARLOS context of a report", that holds the complete text; the first report's Notes name the
+reference that both carry. HRM files are read from `DOCUMENT_DIR` under the
 same storage rules as document files. HRM reports not yet matched to any chart are still left
 out and counted as unlinked inbox rows (see below).
 
@@ -283,7 +286,16 @@ factor, 1,000 for an alert) has no description; its complete text is in the vers
 importer restores the item's exact text, and also in Notes when Notes has room for it
 (32,000 characters for family history, 64,000 for past health, problems and risk
 factors). An alert's Notes are no longer than its description, so a long alert travels
-in the residual only. No length of a history item holds the patient. Personal history, which CDS allows only as
+in the residual only. No length of a history item holds the patient: when the Notes a sending
+EMR wrote, the current text and the item's other values (Treatment, Exposure Details and the
+like) do not fit Notes together, whole parts are left out, never cut, and each stays exact in
+the item's CARLOS residual. Text pasted with a character an XML document cannot carry (a
+control character from a word processor, for example) does not hold the patient either: the
+exported text shows the replacement character (U+FFFD) where it stood and the exact text travels
+in the record's CARLOS residual; the same rule applies to the master record note, to stored
+HTML documents and to inbox comments. A master record note longer than the 64,000 characters
+CDS allows is not cut: it travels whole in the CARLOS demographic record (NewCategory) and the
+note element is left out. Personal history, which CDS allows only as
 residual data, travels in the same carrier, so a CARLOS importer restores it exactly, line
 breaks included. That carrier is an escaped JSON string (quotes, `\u0020` for each space,
 `\n` for each line break), which another EMR shows literally, so the same text is also

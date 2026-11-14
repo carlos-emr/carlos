@@ -62,8 +62,10 @@ import org.springframework.stereotype.Service;
  * <p>Every captured HRM row is accounted with the report it belongs to; a link that names a report
  * that no longer exists shows nothing in the chart and is accounted as such. The patient is held
  * only for a link it cannot attribute exactly (a patient or report number spelled other than its
- * canonical decimal form), a sign-off state other than 0 or 1, a message with more than one
- * report, or values a Reports entry cannot carry.
+ * canonical decimal form) or a sign-off state other than 0 or 1. A message that holds several
+ * reports is exported as one Reports entry for each, and a report whose context is longer than
+ * Notes gets a companion entry ({@link CdsExportReportContext}); {@link #identities} reads and
+ * maps every report the same way to tell the inventory which entries to expect.
  *
  * @since 2026-11-13
  */
@@ -129,7 +131,141 @@ public class CdsExportHospitalReportOccurrenceService {
                                         invalid();
                                 });
         if (!read.equals(source.capture()) || ids.size() != scope.rows()) invalid();
-        return List.copyOf(ids.values());
+        // The further reports of a message that holds several, and the companion record of any
+        // entry whose context is longer than Notes: decided by reading and mapping each report
+        // exactly as append does.
+        var all = new ArrayList<>(ids.values());
+        var planned = plan(lease, patient, tables, source, bounds, control);
+        if (!planned.reports().keySet().equals(ids.keySet())) invalid();
+        var providers =
+                new CdsExportPublicProviderReader(captures)
+                        .read(lease, patient, tables, source, bounds, control);
+        var zone =
+                new CdsExportClinicalZoneService(captures)
+                        .read(
+                                lease,
+                                patient,
+                                tables,
+                                source,
+                                bounds.fields(),
+                                bounds.bytes(),
+                                control)
+                        .zone();
+        var store =
+                stores.openExisting(
+                        lease.runId(),
+                        lease.epoch(),
+                        lease.document().storage(),
+                        control::checkpoint);
+        var mapper = new CdsExportHospitalReportMapper();
+        Runnable authorize =
+                () -> control.authorizeCategory(patient.patient(), CdsCategory.REPORTS, false);
+        var captured = new CdsExportCapturedValues(store, source.capture().values());
+        Throwable primary = null;
+        try {
+            for (var entry : planned.reports().entrySet()) {
+                control.checkpoint();
+                int id = entry.getKey();
+                var message = message(entry.getValue(), captured, control, authorize);
+                for (int part = 0;
+                        part < CdsExportHospitalReportMapper.parts(message.parsed());
+                        part++) {
+                    var result =
+                            mapper.map(
+                                    entry.getValue(),
+                                    message.parsed(),
+                                    part,
+                                    content(patientKey, id, part, message),
+                                    providers,
+                                    zone);
+                    if (part > 0) all.add(identity(patientKey, id, part));
+                    if (result.companion() != null) all.add(companion(patientKey, id, part));
+                }
+            }
+        } catch (IOException | RuntimeException | Error failure) {
+            primary = failure;
+            throw failure;
+        } finally {
+            // Re-authenticates the captured values member the messages were read from.
+            try {
+                captured.close();
+            } catch (IOException | RuntimeException cleanup) {
+                if (primary != null) primary.addSuppressed(cleanup);
+                else throw cleanup;
+            }
+        }
+        return List.copyOf(all);
+    }
+
+    /** A stored report's message: parsed, or unreadable (then attached as stored), or neither. */
+    private record Message(CdsExportHospitalReportMessage.Parsed parsed, boolean unreadable) {
+        @Override
+        public String toString() {
+            return "Message[protected]";
+        }
+    }
+
+    private static Message message(
+            CdsExportHospitalReportMapper.Source report,
+            CdsExportCapturedValues captured,
+            CdsExportRunControl control,
+            Runnable authorize)
+            throws IOException {
+        var file = report.file();
+        if (file.content() == null || file.content().bytes() <= 0) return new Message(null, false);
+        // A file too large to parse in memory is not refused: it is attached exactly as stored.
+        if (file.content().bytes() > CdsExportHospitalReportMessage.MAXIMUM_BYTES)
+            return new Message(null, true);
+        byte[] bytes;
+        try (var input = captured.open(file.content(), control::checkpoint, authorize)) {
+            bytes = input.readAllBytes();
+        }
+        try {
+            if (bytes.length != file.content().bytes()) invalid();
+            return new Message(CdsExportHospitalReportMessage.parse(bytes), false);
+        } catch (CdsExportHospitalReportMessage.Unreadable notAMessage) {
+            return new Message(null, true);
+        } finally {
+            Arrays.fill(bytes, (byte) 0);
+        }
+    }
+
+    /** How one report of a stored message is exported, and where its attachment goes. */
+    private static CdsExportHospitalReportMapper.Content content(
+            String patientKey, int id, int part, Message message) {
+        if (message.unreadable())
+            return new CdsExportHospitalReportMapper.Content(
+                    CdsExportHospitalReportMapper.ContentKind.MESSAGE_FILE,
+                    attachmentPath(
+                            patientKey,
+                            "cds-export-hrm-message-file-v1",
+                            Integer.toString(id),
+                            "xml"),
+                    "xml");
+        if (message.parsed() == null || message.parsed().reports().isEmpty())
+            return CdsExportHospitalReportMapper.Content.none();
+        var report = message.parsed().reports().get(part);
+        if (report.binary() != null && report.binary().length > 0) {
+            byte[] binary = report.binary();
+            byte[] prefix =
+                    Arrays.copyOf(
+                            binary, Math.min(binary.length, CdsExportReportFileFormats.PREFIX));
+            String declared = report.extension() == null ? "" : report.extension().strip();
+            while (declared.startsWith(".")) declared = declared.substring(1);
+            String extension =
+                    CdsExportReportFileFormats.extension("report." + declared, null, prefix);
+            return new CdsExportHospitalReportMapper.Content(
+                    CdsExportHospitalReportMapper.ContentKind.BINARY,
+                    attachmentPath(
+                            patientKey,
+                            "cds-export-hrm-report-file-v1",
+                            part == 0 ? Integer.toString(id) : id + ":" + (part + 1),
+                            extension),
+                    extension);
+        }
+        return report.text() != null
+                ? CdsExportHospitalReportMapper.Content.text()
+                : CdsExportHospitalReportMapper.Content.none();
     }
 
     /**
@@ -222,111 +358,98 @@ public class CdsExportHospitalReportOccurrenceService {
                 int id = entry.getKey();
                 var report = entry.getValue();
                 var file = report.file();
-                CdsExportHospitalReportMessage.Parsed parsed = null;
-                byte[] binary = null;
-                boolean unreadable = false;
-                if (file.content() != null && file.content().bytes() > 0) {
-                    if (file.content().bytes() > CdsExportHospitalReportMessage.MAXIMUM_BYTES)
-                        unreadable = true;
-                    else {
-                        byte[] bytes;
-                        try (var input =
-                                captured.open(file.content(), control::checkpoint, authorize)) {
-                            bytes = input.readAllBytes();
-                        }
-                        try {
-                            if (bytes.length != file.content().bytes()) invalid();
-                            parsed = CdsExportHospitalReportMessage.parse(bytes);
-                        } catch (CdsExportHospitalReportMessage.Unreadable notAMessage) {
-                            unreadable = true;
-                        } finally {
-                            Arrays.fill(bytes, (byte) 0);
-                        }
+                var message = message(report, captured, control, authorize);
+                // One entry for each report the message holds; the first is the chart's record.
+                for (int part = 0;
+                        part < CdsExportHospitalReportMapper.parts(message.parsed());
+                        part++) {
+                    var content = content(patientKey, id, part, message);
+                    // Mapped before anything is staged: a report that holds the patient costs no
+                    // copy.
+                    var result =
+                            mapper.map(report, message.parsed(), part, content, providers, zone);
+                    new CdsExportNativeFieldAssessmentValidator()
+                            .requireRepresentable(
+                                    result.rows(),
+                                    result.fields(),
+                                    1_000_000,
+                                    control::checkpoint);
+                    CdsExportStagedFileDto copied = null;
+                    if (content.kind() == CdsExportHospitalReportMapper.ContentKind.BINARY) {
+                        authorize.run();
+                        byte[] decoded = message.parsed().reports().get(part).binary();
+                        copied = store.stage("REPORT_ATTACHMENT", bytes -> bytes.write(decoded));
+                        attachments.add(copied);
+                        if (copied.plaintextBytes() != decoded.length
+                                || !copied.plaintextSha256().equals(sha256(decoded))) invalid();
+                    } else if (content.kind()
+                            == CdsExportHospitalReportMapper.ContentKind.MESSAGE_FILE) {
+                        authorize.run();
+                        copied =
+                                store.stage(
+                                        "REPORT_ATTACHMENT",
+                                        bytes -> {
+                                            try (var input =
+                                                    captured.open(
+                                                            file.content(),
+                                                            control::checkpoint,
+                                                            authorize)) {
+                                                transfer(input, bytes, control::checkpoint);
+                                            }
+                                        });
+                        attachments.add(copied);
+                        if (copied.plaintextBytes() != file.content().bytes()
+                                || !copied.plaintextSha256().equals(file.content().sha256()))
+                            invalid();
+                    }
+                    var identity = part == 0 ? identity(patientKey, id) : identity(patientKey, id, part);
+                    authorize.run();
+                    if (copied != null)
+                        output.attachment(
+                                identity,
+                                new CdsExportPackageMemberDto(content.filePath(), copied));
+                    xml.emit(
+                            new CdsExportXmlComposer.Section(
+                                    identity, body -> mapper.write(result, body)));
+                    authorize.run();
+                    // A context longer than Notes travels in the companion record, which
+                    // accounts the fields it carries.
+                    output.accept(
+                            new CdsExportClinicalOccurrenceService.Receipt(
+                                    identity,
+                                    source.manifest().plaintextSha256(),
+                                    CdsExportHospitalReportSources.REPORTS,
+                                    Integer.toString(id),
+                                    null,
+                                    result.companion() == null
+                                            ? result.fields()
+                                            : CdsExportReportContext.relocated(result.fields()),
+                                    Set.of(),
+                                    Set.of()));
+                    emitted++;
+                    if (result.companion() != null) {
+                        var companion = companion(patientKey, id, part);
+                        authorize.run();
+                        xml.emit(
+                                new CdsExportXmlComposer.Section(
+                                        companion,
+                                        body ->
+                                                CdsExportReportContext.write(
+                                                        result.companion(), body)));
+                        authorize.run();
+                        output.accept(
+                                new CdsExportClinicalOccurrenceService.Receipt(
+                                        companion,
+                                        source.manifest().plaintextSha256(),
+                                        CdsExportHospitalReportSources.REPORTS,
+                                        Integer.toString(id),
+                                        null,
+                                        CdsExportReportContext.carried(result.fields()),
+                                        Set.of(),
+                                        Set.of()));
+                        emitted++;
                     }
                 }
-                CdsExportHospitalReportMapper.Content content;
-                if (unreadable)
-                    content =
-                            new CdsExportHospitalReportMapper.Content(
-                                    CdsExportHospitalReportMapper.ContentKind.MESSAGE_FILE,
-                                    attachmentPath(patientKey, "cds-export-hrm-message-file-v1", id, "xml"),
-                                    "xml");
-                else if (parsed != null && parsed.reports().size() == 1) {
-                    var message = parsed.reports().getFirst();
-                    if (message.binary() != null && message.binary().length > 0) {
-                        binary = message.binary();
-                        byte[] prefix =
-                                Arrays.copyOf(
-                                        binary,
-                                        Math.min(binary.length, CdsExportReportFileFormats.PREFIX));
-                        String declared = message.extension() == null ? "" : message.extension().strip();
-                        while (declared.startsWith(".")) declared = declared.substring(1);
-                        String extension =
-                                CdsExportReportFileFormats.extension("report." + declared, null, prefix);
-                        content =
-                                new CdsExportHospitalReportMapper.Content(
-                                        CdsExportHospitalReportMapper.ContentKind.BINARY,
-                                        attachmentPath(
-                                                patientKey,
-                                                "cds-export-hrm-report-file-v1",
-                                                id,
-                                                extension),
-                                        extension);
-                    } else if (message.text() != null)
-                        content = CdsExportHospitalReportMapper.Content.text();
-                    else content = CdsExportHospitalReportMapper.Content.none();
-                } else content = CdsExportHospitalReportMapper.Content.none();
-                // Mapped before anything is staged: a report that holds the patient costs no copy.
-                var result = mapper.map(report, parsed, content, providers, zone);
-                new CdsExportNativeFieldAssessmentValidator()
-                        .requireRepresentable(
-                                result.rows(), result.fields(), 1_000_000, control::checkpoint);
-                CdsExportStagedFileDto copied = null;
-                if (content.kind() == CdsExportHospitalReportMapper.ContentKind.BINARY) {
-                    authorize.run();
-                    byte[] decoded = binary;
-                    copied = store.stage("REPORT_ATTACHMENT", bytes -> bytes.write(decoded));
-                    attachments.add(copied);
-                    if (copied.plaintextBytes() != decoded.length
-                            || !copied.plaintextSha256().equals(sha256(decoded))) invalid();
-                } else if (content.kind()
-                        == CdsExportHospitalReportMapper.ContentKind.MESSAGE_FILE) {
-                    authorize.run();
-                    copied =
-                            store.stage(
-                                    "REPORT_ATTACHMENT",
-                                    bytes -> {
-                                        try (var input =
-                                                captured.open(
-                                                        file.content(),
-                                                        control::checkpoint,
-                                                        authorize)) {
-                                            transfer(input, bytes, control::checkpoint);
-                                        }
-                                    });
-                    attachments.add(copied);
-                    if (copied.plaintextBytes() != file.content().bytes()
-                            || !copied.plaintextSha256().equals(file.content().sha256()))
-                        invalid();
-                }
-                var identity = identity(patientKey, id);
-                authorize.run();
-                if (copied != null)
-                    output.attachment(
-                            identity, new CdsExportPackageMemberDto(content.filePath(), copied));
-                xml.emit(new CdsExportXmlComposer.Section(identity, body -> mapper.write(result, body)));
-                authorize.run();
-                output.accept(
-                        new CdsExportClinicalOccurrenceService.Receipt(
-                                identity,
-                                source.manifest().plaintextSha256(),
-                                CdsExportHospitalReportSources.REPORTS,
-                                Integer.toString(id),
-                                null,
-                                result.fields(),
-                                Set.of(),
-                                Set.of()));
-                emitted++;
             }
             // Re-authenticates the whole captured values member before any staged attachment can
             // be accepted with this patient's output.
@@ -513,11 +636,28 @@ public class CdsExportHospitalReportOccurrenceService {
                         Integer.toString(id)));
     }
 
-    private static String attachmentPath(String patientKey, String purpose, int id, String extension) {
-        return "Reports/"
-                + CdsImportKeys.hash(purpose, patientKey, Integer.toString(id))
-                + "."
-                + extension;
+    /** The identity of a further report ({@code part} 1 onward) of a message that holds several. */
+    static CdsExportIdentityDto identity(String patientKey, int id, int part) {
+        return new CdsExportIdentityDto(
+                patientKey,
+                CdsCategory.REPORTS,
+                CdsImportKeys.hash(
+                        "carlos-native-occurrence-v1",
+                        CdsExportHospitalReportSources.REPORTS,
+                        id + ":" + (part + 1)));
+    }
+
+    /** The identity of the companion record of one entry of a stored report. */
+    static CdsExportIdentityDto companion(String patientKey, int id, int part) {
+        return new CdsExportIdentityDto(
+                patientKey,
+                CdsCategory.REPORTS,
+                CdsExportHospitalReportMapper.companionId(Integer.toString(id), part));
+    }
+
+    private static String attachmentPath(
+            String patientKey, String purpose, String id, String extension) {
+        return "Reports/" + CdsImportKeys.hash(purpose, patientKey, id) + "." + extension;
     }
 
     private static String sha256(byte[] bytes) {

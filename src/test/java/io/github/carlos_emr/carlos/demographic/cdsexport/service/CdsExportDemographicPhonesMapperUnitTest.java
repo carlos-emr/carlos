@@ -278,11 +278,11 @@ class CdsExportDemographicPhonesMapperUnitTest {
                     .isEqualTo(CdsExportDemographicSupportingMapper.DESTINATION);
             assertThat(mapped.phones()).noneMatch(phone -> row.fields().get("value").equals(phone.extension()) || row.fields().get("value").equals(phone.number()));
         }
-        // Only a character no XML document can hold still requires review.
+        // A character no XML document can hold is carried too, as its JSON escape.
         assertThat(
                         map(List.of(property(1, "demo_cell", "bad\ud800surrogate")))
                                 .baseRowRepresentable())
-                .isFalse();
+                .isTrue();
     }
 
     @Test
@@ -369,7 +369,8 @@ class CdsExportDemographicPhonesMapperUnitTest {
                         1L << 20,
                         () -> {});
         assertThat(result.primaryPhysician()).isEqualTo(base.primaryPhysician());
-        assertThat(result.baseRowRepresentable()).isFalse();
+        // The property is carried in the native demographic record; it holds nothing.
+        assertThat(result.baseRowRepresentable()).isTrue();
         assertThat(result.relatedFields()).hasSize(14);
     }
 

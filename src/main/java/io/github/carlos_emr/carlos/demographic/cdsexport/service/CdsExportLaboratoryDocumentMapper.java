@@ -80,10 +80,15 @@ final class CdsExportLaboratoryDocumentMapper {
         }
     }
 
+    /**
+     * @param companion the text of the document's companion record when its Notes are longer than
+     *     the element holds ({@link CdsExportReportContext}), otherwise null
+     */
     record Result(
             Map<String, String> text,
             Map<String, CdsExportDateDto> dates,
-            List<CdsExportNativeReportMapper.Reviewed> reviewers) {
+            List<CdsExportNativeReportMapper.Reviewed> reviewers,
+            String companion) {
         Result {
             text = Map.copyOf(text);
             dates = Map.copyOf(dates);
@@ -101,14 +106,8 @@ final class CdsExportLaboratoryDocumentMapper {
     @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "matches the HL7 encoding keyword of an embedded document (Base64 or Hex) to choose a decoder; a format keyword, not an identity or authorization decision")
     static Payload payload(CdsExportLaboratoryOccurrenceService.NativeSource source, int index)
             throws IOException {
-        var document = source.parsed().documents().get(index);
         var raw = source.parsed().raw();
-        var repetitions = raw.repetitions(document.result(), 5);
-        String value =
-                document.repetition() < repetitions.size()
-                        ? repetitions.get(document.repetition())
-                        : "";
-        var components = CdsExportNativeLaboratoryParser.Raw.split(value, raw.component);
+        var components = components(source, index);
         String type = component(components, 2, raw),
                 subtype = component(components, 3, raw),
                 declared = component(components, 4, raw),
@@ -148,10 +147,44 @@ final class CdsExportLaboratoryDocumentMapper {
                             : literal(
                                     CdsExportNativeLaboratoryMapper.decode(
                                             components.get(payload - 1), raw));
-            if (!CdsExportNativeFieldAssessments.legal(text, Integer.MAX_VALUE))
-                review("CDS_EXPORT_NATIVE_LAB_DOCUMENT_TEXT_REQUIRES_REVIEW");
+            // A character XML cannot carry (a form feed between the pages of a text report)
+            // is written as U+FFFD (CdsExportXmlText). The exact payload travels in the
+            // report's NewCategory supporting record, which carries the whole message.
+            text = CdsExportXmlText.element(text);
         }
         return new Payload(bytes, text, encoding, type, subtype);
+    }
+
+    /**
+     * What Notes say about the payload (its declared type, subtype and encoding) without decoding
+     * it, so the patient inventory can decide the document's Notes without reading its bytes.
+     */
+    static Payload described(CdsExportLaboratoryOccurrenceService.NativeSource source, int index)
+            throws IOException {
+        var raw = source.parsed().raw();
+        var components = components(source, index);
+        String declared = component(components, 4, raw);
+        return new Payload(
+                null,
+                null,
+                component(components, 5, raw).isBlank() || declared.isBlank()
+                        ? null
+                        : declared.trim(),
+                component(components, 2, raw),
+                component(components, 3, raw));
+    }
+
+    private static List<String> components(
+            CdsExportLaboratoryOccurrenceService.NativeSource source, int index)
+            throws IOException {
+        var document = source.parsed().documents().get(index);
+        var raw = source.parsed().raw();
+        var repetitions = raw.repetitions(document.result(), 5);
+        String value =
+                document.repetition() < repetitions.size()
+                        ? repetitions.get(document.repetition())
+                        : "";
+        return CdsExportNativeLaboratoryParser.Raw.split(value, raw.component);
     }
 
     /**
@@ -203,6 +236,53 @@ final class CdsExportLaboratoryDocumentMapper {
             laboratory = literal(laboratory);
             if (!laboratory.isEmpty() && CdsExportNativeFieldAssessments.legal(laboratory, 120))
                 text.put("SourceFacility", laboratory);
+            var notes = notes(source, index, payload, reviews);
+            text.put("Notes", notes.notes());
+            // An acknowledgement of the report is a review of each of its documents; the date-only
+            // element keeps the day and the route travels whole, with its time, in Notes.
+            var reviewers = new ArrayList<CdsExportNativeReportMapper.Reviewed>();
+            var seen = new HashSet<String>();
+            for (var reviewed : reviews.reviewers()) {
+                var date =
+                        new CdsExportDateDto(
+                                CdsExportDateDto.Precision.DATE,
+                                reviewed.reviewed().lexical().substring(0, 10));
+                if (seen.add(reviewed.providerNo() + "\u0000" + date.lexical()))
+                    reviewers.add(new CdsExportNativeReportMapper.Reviewed(reviewed.provider(), date));
+            }
+            return new Result(text, dates, reviewers, notes.companion());
+        } catch (HL7Exception failure) {
+            review("CDS_EXPORT_NATIVE_LAB_FIELDS_REQUIRES_REVIEW");
+            return null;
+        }
+    }
+
+    /**
+     * The Notes of one embedded document: the accession number that links it to its laboratory
+     * results, then its identification, the laboratory's own notes and the reviews as JSON. Notes
+     * is the record's only free text and Reports has no ResidualInfo, so when the laboratory's
+     * notes and the reviews pass its 32,000 characters the complete text travels in the document's
+     * companion record instead ({@link CdsExportReportContext}); nothing is cut and nobody is
+     * held. The patient inventory calls this with {@link #described} to expect that record.
+     *
+     * @param payload the decoded payload, or its description alone
+     */
+    CdsExportReportContext.Notes notes(
+            CdsExportLaboratoryOccurrenceService.NativeSource source,
+            int index,
+            Payload payload,
+            CdsExportInboxReviewMapper.Reviews reviews)
+            throws IOException {
+        try {
+            var document = source.parsed().documents().get(index);
+            var raw = source.parsed().raw();
+            Segment obx = document.result(), obr = document.order();
+            String name = componentText(raw, obx, 3, 2);
+            String ordered = componentText(raw, obr, 4, 2);
+            String laboratory = source.information().fields().get("sending_facility");
+            if (laboratory == null || laboratory.isEmpty())
+                laboratory = new Terser(source.parsed().message()).get("/MSH-4-1");
+            laboratory = literal(laboratory);
             String stored = source.information().fields().get("accessionNum");
             String order = scalar(obr, 3);
             String accession = stored == null || stored.isEmpty() ? order : stored;
@@ -251,32 +331,19 @@ final class CdsExportLaboratoryDocumentMapper {
                 }
                 if (!named.isEmpty()) details.put("reviewers", named);
             }
-            String written =
-                    "[CARLOS embedded laboratory document]\nAccession number: "
-                            + accession
-                            + "\n"
-                            + CdsExportResidualJson.text(
-                                    JsonMapper.builder().build().writeValueAsString(details));
-            // Notes is the record's only free text and Reports has no ResidualInfo: the reviews
-            // and the laboratory's notes are held, not cut, when they pass its 32,000 characters
-            // (see CdsExportNativeReportMapper.NOTES_LENGTH).
-            if (!CdsExportNativeFieldAssessments.legal(
-                    written, CdsExportNativeReportMapper.NOTES_LENGTH))
-                review("CDS_EXPORT_NATIVE_LAB_DOCUMENT_NOTES_CAPACITY");
-            text.put("Notes", written);
-            // An acknowledgement of the report is a review of each of its documents; the date-only
-            // element keeps the day and the route travels whole, with its time, in Notes.
-            var reviewers = new ArrayList<CdsExportNativeReportMapper.Reviewed>();
-            var seen = new HashSet<String>();
-            for (var reviewed : reviews.reviewers()) {
-                var date =
-                        new CdsExportDateDto(
-                                CdsExportDateDto.Precision.DATE,
-                                reviewed.reviewed().lexical().substring(0, 10));
-                if (seen.add(reviewed.providerNo() + "\u0000" + date.lexical()))
-                    reviewers.add(new CdsExportNativeReportMapper.Reviewed(reviewed.provider(), date));
-            }
-            return new Result(text, dates, reviewers);
+            // The line a person reads. The accession number is exact in the JSON below; the line
+            // is left out when it is not short text, so the leading lines always fit Notes
+            // (hl7TextInfo.accessionNum is a varchar(255); an order number from OBR-3 has no
+            // width), and a character XML cannot carry is written as U+FFFD there.
+            String lead = "[CARLOS embedded laboratory document]\n";
+            if (accession.codePointCount(0, accession.length()) <= 255)
+                lead += "Accession number: " + CdsExportXmlText.element(accession) + "\n";
+            return CdsExportReportContext.notes(
+                    lead,
+                    CdsExportResidualJson.text(
+                            JsonMapper.builder().build().writeValueAsString(details)),
+                    CdsExportReportContext.id(
+                            "hl7TextMessage", source.id() + ":" + document.ordinal()));
         } catch (HL7Exception failure) {
             review("CDS_EXPORT_NATIVE_LAB_FIELDS_REQUIRES_REVIEW");
             return null;

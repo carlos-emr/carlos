@@ -24,7 +24,11 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.dto;
 import java.util.Map;
 import java.util.Set;
 
-/** Exact demographic note and five selected cust-field decisions; delegated alert fields need their own category proof. */
+/**
+ * The demographic note as NoteAboutPatient holds it and five selected cust-field decisions;
+ * delegated alert fields need their own category proof. {@code text} is null when there is no
+ * note, or when the element cannot hold it and the native demographic record carries it instead.
+ */
 public record CdsExportPatientNoteMappingDto(
         int patient,
         String text,
@@ -68,7 +72,13 @@ public record CdsExportPatientNoteMappingDto(
                         .findFirst()
                         .orElseThrow()
                         .getValue();
-        if ((text != null) != (content.outcome() == CdsExportFieldAssessmentDto.Outcome.MAPPED))
+        // The text is exactly what NoteAboutPatient holds. A note the element cannot hold is
+        // mapped to the native demographic record alone and has no text here.
+        boolean element =
+                content.outcome() == CdsExportFieldAssessmentDto.Outcome.MAPPED
+                        && java.util.Arrays.asList(content.destination().split(",", -1))
+                                .contains("NoteAboutPatient");
+        if ((text != null) != element)
             throw new IllegalArgumentException("CDS_EXPORT_PATIENT_NOTE_MAPPING_INVALID");
     }
 

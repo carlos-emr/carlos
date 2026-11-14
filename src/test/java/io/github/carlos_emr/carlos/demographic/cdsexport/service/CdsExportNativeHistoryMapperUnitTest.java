@@ -375,6 +375,63 @@ class CdsExportNativeHistoryMapperUnitTest {
     }
 
     @Test
+    void shouldExportANoteHoldingACharacterXmlCannotCarry_andKeepItsExactText() throws Exception {
+        // Before: one pasted control character in an encounter note or a CPP item held the chart
+        // (CDS_EXPORT_NATIVE_HISTORY_UNMAPPED_FIELD).
+        String typed = "Seen today.\u000bPlan: recheck \ufffe in 2 weeks";
+        var note = map(CdsCategory.CLINICAL_NOTES, List.of(note(91, typed, null, List.of())));
+        String content = note.value().text().get("MyClinicalNotesContent");
+        assertThat(content)
+                .startsWith("Seen today.\ufffdPlan: recheck \ufffd in 2 weeks")
+                .doesNotContain("\u000b", "\ufffe");
+        var details =
+                new com.fasterxml.jackson.databind.ObjectMapper()
+                        .readTree(content.substring(content.indexOf("\n{") + 1));
+        assertThat(details.get("revisions").get(0).get("exactNarrative").asText()).isEqualTo(typed);
+        render(note.value());
+        var item = map(CdsCategory.PAST_HEALTH, List.of(note(91, typed, "MedHistory", List.of())));
+        assertThat(item.value().text().get("PastHealthProblemDescriptionOrProcedures"))
+                .isEqualTo("Seen today.\ufffdPlan: recheck \ufffd in 2 weeks");
+        var residual =
+                new com.fasterxml.jackson.databind.ObjectMapper()
+                        .readTree(residual(render(item.value()), "CARLOS.NativeHistory.v1"));
+        assertThat(residual.get("revisions").get(0).get("exactNarrative").asText())
+                .isEqualTo(typed);
+    }
+
+    @Test
+    void shouldLeaveAStatementOutOfNotesWhole_whenItsFieldsPassTheElement() throws Exception {
+        // Before: Treatment typed past Notes' 32,000 characters held the chart
+        // (CDS_EXPORT_NATIVE_HISTORY_NARRATIVE_CAPACITY); the CPP editor sets no length.
+        String treatment = "t".repeat(32_001), relationship = "R".repeat(51);
+        var mapped =
+                map(
+                        CdsCategory.FAMILY_HISTORY,
+                        List.of(
+                                note(
+                                        91,
+                                        "Diabetes",
+                                        "FamHistory",
+                                        List.of(
+                                                extension(101, "Relationship", relationship),
+                                                extension(102, "Treatment", treatment)))));
+        // The statement that fits stays; the one that does not is left out whole, never cut.
+        assertThat(mapped.value().text())
+                .containsEntry("ProblemDiagnosisProcedureDescription", "Diabetes")
+                .containsEntry("Notes", "Relationship:\n" + relationship)
+                .doesNotContainKey("Treatment");
+        var residual =
+                new com.fasterxml.jackson.databind.ObjectMapper()
+                        .readTree(residual(render(mapped.value()), "CARLOS.NativeHistory.v1"));
+        var carried = new java.util.HashMap<String, String>();
+        residual.get("revisions")
+                .get(0)
+                .get("extensions")
+                .forEach(e -> carried.put(e.get("key").asText(), e.get("value").asText()));
+        assertThat(carried).containsEntry("Treatment", treatment).containsEntry("Relationship", relationship);
+    }
+
+    @Test
     void shouldCarryTheWholeNarrative_whenItIsLongerThanNotesOrAnAlertDescription()
             throws Exception {
         // Before: family history text past 32,000 characters, and an alert past 1,000, held the

@@ -264,9 +264,9 @@ final class CdsExportNativeLaboratoryMapper {
         for (var row : source.rows()) {
             var assessed = new CdsExportNativeFieldAssessments(row, result);
             for (var entry : row.fields().entrySet()) {
-                if (entry.getValue() != null
-                        && !CdsExportNativeFieldAssessments.legal(entry.getValue(), 1 << 24))
-                    review("CDS_EXPORT_NATIVE_LAB_CONTEXT_CAPACITY");
+                // No value is refused for its characters or length: CARLOS.Laboratory.v1 is
+                // JSON, where a character XML cannot carry is its escape, and residual Content
+                // has no maxLength.
                 if (chartDated
                         && row == source.information()
                         && entry.getKey().equals("obr_date")) {

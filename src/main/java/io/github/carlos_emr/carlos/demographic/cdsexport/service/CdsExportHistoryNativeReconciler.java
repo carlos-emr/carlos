@@ -135,8 +135,9 @@ final class CdsExportHistoryNativeReconciler {
                         .anyMatch(f -> f.sourcePath().equals(root + "/" + description + "[1]")))
                     replace(changes, sourceFields, description + "[1]", null);
             }
-            // The final Notes text, when this reconciliation changes it.
-            String[] notes = {null};
+            // The final Notes text, when this reconciliation changes it, as its parts: the
+            // imported Notes this item already had, then what the current CARLOS revision adds.
+            var notes = new Notes();
             String codeRoot = CdsExportRetainedOccurrencePath.root(sourceFields.getFirst(), category);
             // Statements the current revision adds to Notes: CPP extension values its elements
             // cannot hold and several coded diagnoses (CdsExportNativeHistoryMapper), and a
@@ -163,19 +164,12 @@ final class CdsExportHistoryNativeReconciler {
                                         "Notes")
                                 .contains(name)) continue;
                 if (name.equals("Notes")) {
-                    String previous = read(sourceFields, "Notes[1]", values, 64000, checkpoint);
-                    if (previous != null && !previous.equals(value))
-                        value = previous + "\n\n[Current native narrative]\n" + value;
-                    int maximum =
-                            category == CdsCategory.FAMILY_HISTORY
-                                    ? 32000
-                                    : category == CdsCategory.ALERTS_AND_SPECIAL_NEEDS
-                                            ? 1000
-                                            : 64000;
-                    if (!CdsExportNativeFieldAssessments.legal(value, maximum))
-                        review("CDS_EXPORT_HISTORY_COMBINED_NARRATIVE_CAPACITY");
+                    String previous = read(sourceFields, "Notes[1]", values, checkpoint);
+                    notes.imported(previous, previous);
+                    if (previous == null) notes.current.add(value);
+                    else if (!previous.equals(value))
+                        notes.current.add("[Current native narrative]\n" + value);
                     // Written once below, after the archive statement is decided.
-                    notes[0] = value;
                     continue;
                 }
                 String exact = value;
@@ -224,7 +218,6 @@ final class CdsExportHistoryNativeReconciler {
             context.put("version", 1);
             context.put("originalImportedProjection", prepared.content());
             context.put("nativeHistory", json.readTree(nativeValue.metadata()));
-            String metadata = CdsExportScreeningMapper.tokenSafe(json.writeValueAsString(context));
             var pattern =
                     Pattern.compile("^ResidualInfo\\[1\\]/DataElement\\[([1-9][0-9]*)\\](?:/|$)");
             long ordinal = 0;
@@ -320,47 +313,49 @@ final class CdsExportHistoryNativeReconciler {
                             null);
                     // That import's Notes held the item's text, now superseded by the shorter
                     // current description; say so rather than offer it as notes on the new text.
-                    String previous = read(sourceFields, "Notes[1]", values, 64000, checkpoint);
+                    String previous = read(sourceFields, "Notes[1]", values, checkpoint);
                     if (previous != null) {
-                        String labelled = "[Superseded imported narrative]\n" + previous;
+                        notes.imported("[Superseded imported narrative]\n" + previous, previous);
                         // The current revision's own Notes statements (A24, A25) follow it.
+                        notes.current.clear();
                         if (nativeValue.text().containsKey("Notes"))
-                            labelled += "\n\n" + nativeValue.text().get("Notes");
-                        if (!CdsExportNativeFieldAssessments.legal(
-                                labelled, category == CdsCategory.FAMILY_HISTORY ? 32000 : 64000))
-                            review("CDS_EXPORT_HISTORY_COMBINED_NARRATIVE_CAPACITY");
-                        notes[0] = labelled;
+                            notes.current.add(nativeValue.text().get("Notes"));
                     }
                 }
             }
             // Statements not already in the Notes written above follow the item's Notes.
             if (!statements.isEmpty()) {
-                String base =
-                        notes[0] != null
-                                ? notes[0]
-                                : read(sourceFields, "Notes[1]", values, 64000, checkpoint);
-                String added = String.join("\n\n", statements);
-                notes[0] = base == null || base.isEmpty() ? added : base + "\n\n" + added;
-                if (!CdsExportNativeFieldAssessments.legal(
-                        notes[0], CdsExportNativeHistoryMapper.notesLimit(category)))
-                    review("CDS_EXPORT_HISTORY_COMBINED_NARRATIVE_CAPACITY");
+                if (!notes.changed) {
+                    String base = read(sourceFields, "Notes[1]", values, checkpoint);
+                    notes.imported(base, base);
+                }
+                notes.current.add(String.join("\n\n", statements));
             }
             // An item archived in CARLOS says so first in Notes, as a native item does: the
             // archive marker in the residual is read only by CARLOS.
             if (nativeValue.archived() && category != CdsCategory.PERSONAL_HISTORY) {
-                String base =
-                        notes[0] != null
-                                ? notes[0]
-                                : read(sourceFields, "Notes[1]", values, 64000, checkpoint);
-                notes[0] = CdsExportNativeHistoryMapper.archivedNotes(base);
-                if (!CdsExportNativeFieldAssessments.legal(
-                        notes[0], CdsExportNativeHistoryMapper.notesLimit(category)))
-                    review("CDS_EXPORT_HISTORY_COMBINED_NARRATIVE_CAPACITY");
+                if (!notes.changed && notes.current.isEmpty()) {
+                    String base = read(sourceFields, "Notes[1]", values, checkpoint);
+                    notes.imported(base, base);
+                }
+                notes.archived = true;
             }
-            if (notes[0] != null) {
-                String exact = notes[0];
-                replace(changes, sourceFields, "Notes[1]", xml -> xml.text(exact));
+            if (notes.changed || !notes.current.isEmpty() || notes.archived) {
+                // Notes holds whole parts only (CdsExportNativeHistoryMapper). When the imported
+                // Notes and what the current revision adds do not fit the element together, parts
+                // are left out whole, last first, and none is lost: a statement is exact in the
+                // revision's extension facts, the current narrative is in
+                // CARLOS.History.Narrative.v1, and imported Notes that had to make way are carried
+                // exactly in this residual as importedNotes.
+                String exact = notes.fit(CdsExportNativeHistoryMapper.notesLimit(category));
+                if (notes.importedLeftOut != null)
+                    context.put("importedNotes", notes.importedLeftOut);
+                if (!exact.isEmpty())
+                    replace(changes, sourceFields, "Notes[1]", xml -> xml.text(exact));
+                else if (notes.importedExact != null)
+                    replace(changes, sourceFields, "Notes[1]", null);
             }
+            String metadata = CdsExportScreeningMapper.tokenSafe(json.writeValueAsString(context));
             if (!residual) {
                 replace(
                         changes,
@@ -457,11 +452,52 @@ final class CdsExportHistoryNativeReconciler {
         changes.put(relative, new CdsExportRetainedSectionWriter.Change(relative, ids, content));
     }
 
+    /**
+     * The parts of an imported item's Notes after an edit in CARLOS, in the order they are
+     * written: the archive statement, the Notes the import wrote, what the current revision adds.
+     */
+    private static final class Notes {
+        /** The imported Notes as written (possibly labelled as superseded), and exactly. */
+        String imported, importedExact;
+        final List<String> current = new ArrayList<>();
+        boolean changed, archived;
+        /** The exact imported Notes, when they had to be left out of the element. */
+        String importedLeftOut;
+
+        void imported(String shown, String exact) {
+            imported = shown;
+            importedExact = exact;
+            changed = true;
+        }
+
+        /** The Notes text within {@code limit}: whole parts, the last left out first. */
+        String fit(int limit) {
+            var parts = new ArrayList<String>();
+            if (archived) parts.add(CdsExportNativeHistoryMapper.ARCHIVED_ITEM_STATEMENT);
+            int fixed = parts.size(), importedAt = -1;
+            if (imported != null && !imported.isEmpty()) {
+                importedAt = parts.size();
+                parts.add(imported);
+            }
+            parts.addAll(current);
+            while (parts.size() > fixed) {
+                String joined = String.join("\n\n", parts);
+                if (joined.codePointCount(0, joined.length()) <= limit) break;
+                if (parts.size() - 1 == importedAt) importedLeftOut = importedExact;
+                parts.removeLast();
+            }
+            return String.join("\n\n", parts);
+        }
+    }
+
+    /**
+     * The text of one imported element. The import validated it against the schema, which bounds
+     * it at 65,536 characters; a longer one is not what the import stored.
+     */
     private static String read(
             List<CdsExportRetainedFieldDto> fields,
             String relative,
             CdsExportRetainedSectionWriter.Values values,
-            int maximum,
             Runnable checkpoint)
             throws IOException {
         String root =
@@ -477,14 +513,12 @@ final class CdsExportHistoryNativeReconciler {
             for (int n; (n = reader.read(buffer)) != -1; ) {
                 checkpoint.run();
                 result.append(buffer, 0, n);
-                if (result.length() > 2L * maximum)
+                // An integrity check, not a budget: two UTF-16 units per schema character.
+                if (result.length() > 2 * 65_536)
                     review("CDS_EXPORT_HISTORY_SOURCE_NARRATIVE_CAPACITY");
             }
         }
-        String value = result.toString();
-        if (!CdsExportNativeFieldAssessments.legal(value, maximum))
-            review("CDS_EXPORT_HISTORY_SOURCE_NARRATIVE_CAPACITY");
-        return value;
+        return result.toString();
     }
 
     private static void review(String code) throws CdsExportMappingReviewException {

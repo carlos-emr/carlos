@@ -68,8 +68,17 @@ import java.util.TreeMap;
  * report is still exported, from the details CARLOS recorded: Format Text without Content, the
  * class, subclass, dates, facility report number and accompanying subclasses from the report
  * rows, and a Notes statement that its content could not be read. A stored file that is not an
- * HRM message the viewer could show is attached as stored ({@code xml}). A message holding more
- * than one report holds the patient: CARLOS shows only its first report.
+ * HRM message the viewer could show is attached as stored ({@code xml}).
+ *
+ * <p>The HRM schema lets one message hold several reports ({@code ReportsReceived} is unbounded)
+ * and the HRM intake stores such a message as it stores any other; the viewer shows only its
+ * first report. Every report of the message is exported: the first as the chart's record of the
+ * message, with all of the above, and each further one as its own Reports entry from its own
+ * message values, whose Notes say which report of the message it is. A further report carries no
+ * ReportReviewed: a sign-off attests the report the viewer showed.
+ *
+ * <p>Notes hold 32,000 characters. A report whose comments and message values pass that is not
+ * held: its complete context travels in a companion record ({@link CdsExportReportContext}).
  *
  * @since 2026-11-13
  */
@@ -159,7 +168,12 @@ final class CdsExportHospitalReportMapper {
         }
     }
 
-    /** The mapped entry, its field decisions and every row they cover. */
+    /**
+     * The mapped entry, its field decisions and every row they cover.
+     *
+     * @param companion the text of the entry's companion record when its context is longer than
+     *     Notes ({@link CdsExportReportContext}), otherwise null
+     */
     record Result(
             Map<String, String> text,
             Map<String, CdsExportDateDto> dates,
@@ -168,7 +182,8 @@ final class CdsExportHospitalReportMapper {
             List<Reviewed> reviewers,
             List<Observation> observations,
             Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields,
-            List<CdsExportCapturedTextRowDto> rows) {
+            List<CdsExportCapturedTextRowDto> rows,
+            String companion) {
         Result {
             text = Map.copyOf(text);
             dates = Map.copyOf(dates);
@@ -189,7 +204,8 @@ final class CdsExportHospitalReportMapper {
                     && reviewers.equals(that.reviewers)
                     && observations.equals(that.observations)
                     && fields.equals(that.fields)
-                    && rows.equals(that.rows);
+                    && rows.equals(that.rows)
+                    && java.util.Objects.equals(companion, that.companion);
         }
 
         @Override
@@ -202,7 +218,8 @@ final class CdsExportHospitalReportMapper {
                     reviewers,
                     observations,
                     fields,
-                    rows);
+                    rows,
+                    companion);
         }
 
         @Override
@@ -227,7 +244,42 @@ final class CdsExportHospitalReportMapper {
             Map<String, CdsExportCapturedTextRowDto> providers,
             ZoneId zone)
             throws IOException {
+        return map(source, parsed, 0, content, providers, zone);
+    }
+
+    /** The number of Reports entries one stored report becomes: one for each report it holds. */
+    static int parts(CdsExportHospitalReportMessage.Parsed parsed) {
+        return parsed == null ? 1 : Math.max(1, parsed.reports().size());
+    }
+
+    /**
+     * The companion identity ({@link CdsExportReportContext#id}) of one entry of a stored report.
+     *
+     * @param part 0 for the chart's record of the message, then one for each further report
+     */
+    static String companionId(String id, int part) {
+        return CdsExportReportContext.id(
+                CdsExportHospitalReportSources.REPORTS, part == 0 ? id : id + ":" + (part + 1));
+    }
+
+    /**
+     * As {@link #map(Source, CdsExportHospitalReportMessage.Parsed, Content, Map, ZoneId)} for one
+     * report of the message.
+     *
+     * @param part 0 for the first report, with the chart's whole record of the message; a later
+     *     index for a further report of the same message, from its own message values
+     */
+    Result map(
+            Source source,
+            CdsExportHospitalReportMessage.Parsed parsed,
+            int part,
+            Content content,
+            Map<String, CdsExportCapturedTextRowDto> providers,
+            ZoneId zone)
+            throws IOException {
         Objects.requireNonNull(content);
+        if (part < 0 || part >= parts(parsed)) invalid();
+        if (part > 0) return further(source, parsed, part, content, zone);
         var report = source.report().fields();
         String id = report.get("id");
         if (source.patient() < 1
@@ -240,11 +292,7 @@ final class CdsExportHospitalReportMapper {
                 || (content.kind() == ContentKind.BINARY || content.kind() == ContentKind.MESSAGE_FILE)
                         != (content.filePath() != null)) invalid();
         CdsExportHospitalReportMessage.Report message = null;
-        if (parsed != null) {
-            if (parsed.reports().size() > 1)
-                review("CDS_EXPORT_HRM_REPORT_MULTIPLE_REPORTS_REQUIRES_REVIEW");
-            if (!parsed.reports().isEmpty()) message = parsed.reports().getFirst();
-        }
+        if (parsed != null && !parsed.reports().isEmpty()) message = parsed.reports().getFirst();
         var text = new LinkedHashMap<String, String>();
         var dates = new LinkedHashMap<String, CdsExportDateDto>();
         var fields = new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
@@ -253,6 +301,16 @@ final class CdsExportHospitalReportMapper {
         var unwritten = new LinkedHashMap<String, Object>();
         var preface = new ArrayList<String>();
         details.put("version", 1);
+        if (parts(parsed) > 1) {
+            preface.add(
+                    "The stored HRM message of this report holds "
+                            + parts(parsed)
+                            + " reports. CARLOS shows the first; each is exported as its own"
+                            + " report, and this is report 1 of "
+                            + parts(parsed)
+                            + ".");
+            details.put("reportsInMessage", parts(parsed));
+        }
 
         // Content.
         switch (content.kind()) {
@@ -358,30 +416,7 @@ final class CdsExportHospitalReportMapper {
         }
         var observations = new ArrayList<Observation>();
         if (message != null) {
-            var extra = new ArrayList<Map<String, Object>>();
-            for (var obr : message.observations()) {
-                var observed = CdsExportHospitalReportMessage.date(obr.observed(), zone);
-                boolean fits =
-                        fits(obr.subClass(), 60)
-                                && fits(obr.mnemonic(), 200)
-                                && fits(obr.description(), 200)
-                                && (obr.observed() == null || observed != null);
-                if (fits)
-                    observations.add(
-                            new Observation(
-                                    obr.subClass(), obr.mnemonic(), obr.description(), observed));
-                else {
-                    var entry = new LinkedHashMap<String, Object>();
-                    entry.put("AccompanyingSubClass", obr.subClass());
-                    entry.put("AccompanyingMnemonic", obr.mnemonic());
-                    entry.put("AccompanyingDescription", obr.description());
-                    entry.put(
-                            "ObservationDateTime",
-                            obr.observed() == null ? null : obr.observed().lexical());
-                    extra.add(entry);
-                }
-            }
-            if (!extra.isEmpty()) unwritten.put("OBRContent", extra);
+            observations(message, zone, observations, unwritten);
             put(text, unwritten, "HRMResultStatus", message.resultStatus(), 1);
         } else {
             // The accompanying subclasses CARLOS copied from the OBR content at receipt.
@@ -607,19 +642,8 @@ final class CdsExportHospitalReportMapper {
         }
         if (!unwritten.isEmpty()) details.put("message", unwritten);
 
-        var notes = new StringBuilder();
-        for (String line : preface) notes.append(line).append('\n');
-        if (!preface.isEmpty()) notes.append('\n');
-        notes.append(NOTES_HEADER).append('\n');
-        notes.append(
-                CdsExportResidualJson.text(JsonMapper.builder().build().writeValueAsString(details)));
-        // Notes is the record's only free text and Reports has no ResidualInfo: comments and
-        // message values are held, not cut, when they pass its 32,000 characters (see
-        // CdsExportNativeReportMapper.NOTES_LENGTH).
-        if (!CdsExportNativeFieldAssessments.legal(
-                notes.toString(), CdsExportNativeReportMapper.NOTES_LENGTH))
-            review("CDS_EXPORT_HRM_REPORT_METADATA_CAPACITY");
-        text.put("Notes", notes.toString());
+        var notes = notes(preface, details, companionId(id, 0));
+        text.put("Notes", notes.notes());
         return new Result(
                 text,
                 dates,
@@ -628,7 +652,176 @@ final class CdsExportHospitalReportMapper {
                 List.copyOf(distinct.values()),
                 observations,
                 fields,
-                rows);
+                rows,
+                notes.companion());
+    }
+
+    /**
+     * A further report of a message that holds several: its own content and message values. The
+     * chart's rows are accounted with the first report, so this entry decides no field.
+     */
+    private Result further(
+            Source source,
+            CdsExportHospitalReportMessage.Parsed parsed,
+            int part,
+            Content content,
+            ZoneId zone)
+            throws IOException {
+        var report = source.report().fields();
+        String id = report.get("id");
+        var message = parsed.reports().get(part);
+        if (source.patient() < 1
+                || !source.report().table().equals(CdsExportHospitalReportSources.REPORTS)
+                || content.kind() == ContentKind.MESSAGE_FILE
+                || (content.kind() == ContentKind.BINARY) != (content.filePath() != null)) invalid();
+        var text = new LinkedHashMap<String, String>();
+        var dates = new LinkedHashMap<String, CdsExportDateDto>();
+        var unwritten = new LinkedHashMap<String, Object>();
+        switch (content.kind()) {
+            case TEXT -> {
+                if (message.text() == null) invalid();
+                text.put("Format", "Text");
+                if (!CdsExportNativeFieldAssessments.legal(message.text(), Integer.MAX_VALUE))
+                    review("CDS_EXPORT_HRM_REPORT_TEXT_REQUIRES_REVIEW");
+                text.put("TextContent", message.text());
+            }
+            case BINARY -> {
+                if (message.binary() == null) invalid();
+                text.put("Format", "Binary");
+                text.put("FilePath", content.filePath());
+            }
+            case NONE -> text.put("Format", "Text");
+            default -> invalid();
+        }
+        put(text, unwritten, "Media", message.media(), 20);
+        if (message.format() != null && !message.format().equals(text.get("Format")))
+            unwritten.put("Format", message.format());
+        if (content.kind() == ContentKind.NONE) {
+            if (message.extension() != null)
+                unwritten.put("FileExtensionAndVersion", message.extension());
+        } else put(text, unwritten, "FileExtensionAndVersion", message.extension(), 50);
+        if (content.kind() == ContentKind.BINARY && !text.containsKey("FileExtensionAndVersion"))
+            text.put("FileExtensionAndVersion", content.extension());
+        String reportClass = message.reportClass();
+        if (reportClass == null || !CLASSES.contains(reportClass)) {
+            if (reportClass != null) unwritten.put("Class", reportClass);
+            // HRM reports that state no class are hospital medical records.
+            reportClass = "Medical Records Report";
+        }
+        text.put("Class", reportClass);
+        String subClass =
+                first(
+                        60,
+                        message.subClass(),
+                        message.observations().isEmpty()
+                                ? null
+                                : message.observations().getFirst().description());
+        if (subClass != null) text.put("SubClass", subClass);
+        if (message.subClass() != null && !message.subClass().equals(subClass))
+            unwritten.put("SubClass", message.subClass());
+        dates(message.event(), null, "EventDateTime", zone, dates, unwritten);
+        dates(message.received(), report.get("timeReceived"), "ReceivedDateTime", zone, dates, unwritten);
+        if (message.reviewed() != null)
+            unwritten.put("ReviewedDateTime", message.reviewed().lexical());
+        if (message.reviewingOhip() != null)
+            unwritten.put("ReviewingOHIPPhysicianId", message.reviewingOhip());
+        String[] author = null;
+        if (message.author() != null) {
+            author = author(message.author());
+            if (author == null) unwritten.put("AuthorPhysician", name(message.author()));
+        }
+        // The facility CARLOS recorded for the message; exact in the Notes of its first report.
+        put(text, new LinkedHashMap<>(), "SourceFacility", report.get("sourceFacility"), 120);
+        put(text, unwritten, "SendingFacilityId", message.sendingFacility(), 4);
+        if (message.sendingFacilityReport() != null)
+            put(text, unwritten, "SendingFacilityReport", message.sendingFacilityReport(), 75);
+        var observations = new ArrayList<Observation>();
+        observations(message, zone, observations, unwritten);
+        put(text, unwritten, "HRMResultStatus", message.resultStatus(), 1);
+        int total = parts(parsed);
+        var details = new LinkedHashMap<String, Object>();
+        details.put("version", 1);
+        details.put("hrmReportId", id);
+        details.put("reportInMessage", part + 1);
+        details.put("reportsInMessage", total);
+        if (!unwritten.isEmpty()) details.put("message", unwritten);
+        var preface = new ArrayList<String>();
+        preface.add(
+                "Report "
+                        + (part + 1)
+                        + " of "
+                        + total
+                        + " of one stored HRM message. CARLOS shows only the first report of a"
+                        + " message; what the chart records about the message (its comments,"
+                        + " sign-offs and recipients) is in the Notes of report 1, exported"
+                        + " beside this one.");
+        if (content.kind() == ContentKind.NONE) preface.add("The HRM report has no content.");
+        var notes = notes(preface, details, companionId(id, part));
+        text.put("Notes", notes.notes());
+        return new Result(
+                text,
+                dates,
+                author,
+                null,
+                List.of(),
+                observations,
+                Map.of(),
+                List.of(),
+                notes.companion());
+    }
+
+    /**
+     * Notes of an entry: the statements a person reads, then the source context as JSON. Notes is
+     * the record's only free text and Reports has no ResidualInfo, so when the comments and
+     * message values pass its 32,000 characters the complete text travels in the entry's companion
+     * record ({@link CdsExportReportContext}); nothing is cut and nobody is held.
+     */
+    private static CdsExportReportContext.Notes notes(
+            List<String> preface, Map<String, Object> details, String reference)
+            throws IOException {
+        var lead = new StringBuilder();
+        for (String line : preface) lead.append(line).append('\n');
+        if (!preface.isEmpty()) lead.append('\n');
+        return CdsExportReportContext.notes(
+                lead.toString(),
+                NOTES_HEADER
+                        + '\n'
+                        + CdsExportResidualJson.text(
+                                JsonMapper.builder().build().writeValueAsString(details)),
+                reference);
+    }
+
+    /** The OBRContent of one message report: an element when it fits, otherwise carried. */
+    private static void observations(
+            CdsExportHospitalReportMessage.Report message,
+            ZoneId zone,
+            List<Observation> observations,
+            Map<String, Object> unwritten)
+            throws IOException {
+        var extra = new ArrayList<Map<String, Object>>();
+        for (var obr : message.observations()) {
+            var observed = CdsExportHospitalReportMessage.date(obr.observed(), zone);
+            boolean fits =
+                    fits(obr.subClass(), 60)
+                            && fits(obr.mnemonic(), 200)
+                            && fits(obr.description(), 200)
+                            && (obr.observed() == null || observed != null);
+            if (fits)
+                observations.add(
+                        new Observation(
+                                obr.subClass(), obr.mnemonic(), obr.description(), observed));
+            else {
+                var entry = new LinkedHashMap<String, Object>();
+                entry.put("AccompanyingSubClass", obr.subClass());
+                entry.put("AccompanyingMnemonic", obr.mnemonic());
+                entry.put("AccompanyingDescription", obr.description());
+                entry.put(
+                        "ObservationDateTime",
+                        obr.observed() == null ? null : obr.observed().lexical());
+                extra.add(entry);
+            }
+        }
+        if (!extra.isEmpty()) unwritten.put("OBRContent", extra);
     }
 
     /** Reports content in CDS 5.2 schema order. */

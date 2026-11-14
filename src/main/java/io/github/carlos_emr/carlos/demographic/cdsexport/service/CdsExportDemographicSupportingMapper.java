@@ -60,8 +60,9 @@ import java.util.Objects;
  * ReadMe states. The chart is never held for such a value. A care-team reference carries the
  * stored provider number and, when the captured public provider row matches it exactly, that
  * row's six public lookup columns, as the prescription record carries its author; no private
- * provider field is read. Only values that cannot be written as XML text at all still require
- * review.
+ * provider field is read. A character XML cannot carry is written as its JSON escape, so no
+ * value is refused for its characters. The record also carries the patient note when
+ * NoteAboutPatient cannot hold the stored column exactly ({@link CdsExportPatientNoteMapper#note}).
  */
 public final class CdsExportDemographicSupportingMapper {
     /** NewCategory {@code CategoryName} of the native demographic record. */
@@ -258,20 +259,15 @@ public final class CdsExportDemographicSupportingMapper {
     }
 
     /**
-     * The decision for a value the record carries: {@code MAPPED} to the record, or review when
-     * the value holds a character no XML document can carry (a lone surrogate, U+FFFE, U+FFFF).
+     * The decision for a value the record carries: {@code MAPPED} to the record. No value is
+     * refused for its characters: one XML cannot carry (a lone surrogate, U+FFFE, U+FFFF, a
+     * control character) is written as its JSON escape ({@link CdsExportResidualJson}).
      */
     static CdsExportFieldAssessmentDto carried(String value) {
         Presence presence = presence(value);
         if (presence != Presence.VALUE)
             throw new IllegalArgumentException("CDS_EXPORT_DEMOGRAPHIC_SUPPORTING_VALUE_ABSENT");
-        return carriable(value)
-                ? new CdsExportFieldAssessmentDto(presence, Outcome.MAPPED, DESTINATION, CARRIED_RULE)
-                : new CdsExportFieldAssessmentDto(
-                        presence,
-                        Outcome.REQUIRES_REVIEW,
-                        DESTINATION,
-                        "SUPPORTING_WIRE_TEXT_REQUIRES_REVIEW");
+        return new CdsExportFieldAssessmentDto(presence, Outcome.MAPPED, DESTINATION, CARRIED_RULE);
     }
 
     /**
@@ -520,11 +516,27 @@ public final class CdsExportDemographicSupportingMapper {
             entry.put("fields", values);
             relatedRows.add(entry);
         }
+        // The patient note, when NoteAboutPatient cannot hold the stored column exactly (a note
+        // longer than the element, a character XML cannot carry, a legacy frame): the same
+        // decision the demographic occurrence makes (CdsExportPatientNoteMapper.note).
+        String note = null;
+        if (custom != null && present(custom.fields().get("content"))) {
+            var decided = CdsExportPatientNoteMapper.note(custom.fields().get("content"));
+            if (decided.carried()) {
+                note = custom.fields().get("content");
+                fields.put(
+                        new CdsExportNativeFieldKeyDto(
+                                custom.table(), custom.recordKey(), "content"),
+                        new CdsExportFieldAssessmentDto(
+                                Presence.VALUE, Outcome.MAPPED, decided.destination(), decided.rule()));
+            }
+        }
         if (demographic.isEmpty()
                 && roster.isEmpty()
                 && careTeam.isEmpty()
                 && properties.isEmpty()
-                && relatedRows.isEmpty()) return null;
+                && relatedRows.isEmpty()
+                && note == null) return null;
         if (fields.values().stream().anyMatch(field -> field.outcome() != Outcome.MAPPED))
             throw new CdsExportMappingReviewException(
                     "CDS_EXPORT_DEMOGRAPHIC_SUPPORTING_TEXT_REQUIRES_REVIEW");
@@ -535,10 +547,15 @@ public final class CdsExportDemographicSupportingMapper {
         context.put("careTeam", careTeam);
         context.put("properties", properties);
         context.put("related", relatedRows);
-        String json = JsonMapper.builder().build().writeValueAsString(context);
-        if (!CdsExportNativeFieldAssessments.legal(json, 1 << 24))
-            throw new CdsExportMappingReviewException(
-                    "CDS_EXPORT_DEMOGRAPHIC_SUPPORTING_TEXT_REQUIRES_REVIEW");
+        // Written only when carried, so a record without one keeps its exact bytes.
+        if (note != null) context.put("note", Map.of("content", note));
+        // A character XML cannot carry is its JSON escape (CdsExportResidualJson); the decoded
+        // value is unchanged.
+        String json =
+                CdsExportResidualJson.text(
+                        JsonMapper.builder().build().writeValueAsString(context));
+        // No length is refused: residual Content has no maxLength and the record is one chart's
+        // demographic values.
         checkpoint.run();
         return new Record(json, fields);
     }
@@ -573,16 +590,6 @@ public final class CdsExportDemographicSupportingMapper {
 
     static boolean present(String value) {
         return value != null && !value.isEmpty();
-    }
-
-    private static boolean carriable(String value) {
-        for (int i = 0; i < value.length(); ) {
-            int code = value.codePointAt(i);
-            if (code >= 0xd800 && code <= 0xdfff || code == 0xfffe || code == 0xffff)
-                return false;
-            i += Character.charCount(code);
-        }
-        return true;
     }
 
     static Presence presence(String value) {

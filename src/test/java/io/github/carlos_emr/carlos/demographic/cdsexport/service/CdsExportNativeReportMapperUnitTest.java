@@ -347,11 +347,39 @@ class CdsExportNativeReportMapperUnitTest {
     }
 
     @Test
-    void shouldHoldBlankOrUnrepresentableStoredHtml_insteadOfExportingAnEmptyReport() {
-        assertThatThrownBy(() -> mapHtml(html(" \r\n\t")))
-                .hasMessage("CDS_EXPORT_NATIVE_REPORT_STORED_HTML_REQUIRES_REVIEW");
-        assertThatThrownBy(() -> mapHtml(html("<p>bell \u0007</p>")))
-                .hasMessage("CDS_EXPORT_NATIVE_REPORT_STORED_HTML_REQUIRES_REVIEW");
+    void shouldExportBlankStoredHtml_exactlyAsTheUserSavedIt() throws Exception {
+        // Before: CDS_EXPORT_NATIVE_REPORT_STORED_HTML_REQUIRES_REVIEW held the chart. The Add
+        // HTML form refuses only an empty body, so a body of white space is a saved document.
+        String body = " \r\n\t";
+        var mapped = mapHtml(html(body));
+        assertThat(mapped.text())
+                .containsEntry("Format", "Text")
+                .containsEntry("FileExtensionAndVersion", "html")
+                .containsEntry("TextContent", body);
+        assertThat(mapped.companion()).isNull();
+        assertThat(render(CdsCategory.REPORTS, xml -> mapper.write(mapped, xml))).isNotEmpty();
+    }
+
+    @Test
+    void shouldExportStoredHtml_whenItHoldsACharacterXmlCannotCarry() throws Exception {
+        // Before: CDS_EXPORT_NATIVE_REPORT_STORED_HTML_REQUIRES_REVIEW held the chart for one
+        // pasted control character.
+        String body = "<p>bell \u0007 and \ufffe</p>";
+        var mapped = mapHtml(html(body));
+        assertThat(mapped.text().get("TextContent")).isEqualTo("<p>bell \ufffd and \ufffd</p>");
+        String notes = mapped.text().get("Notes");
+        assertThat(notes).doesNotContain("\u0007", "\ufffe");
+        var decoded =
+                new com.fasterxml.jackson.databind.ObjectMapper()
+                        .readTree(notes.substring(notes.indexOf('\n') + 1));
+        // The exact stored HTML travels in the Notes context.
+        assertThat(decoded.get("document").get("docxml").asText()).isEqualTo(body);
+        assertThat(
+                        mapped.fields().entrySet().stream()
+                                .filter(e -> e.getKey().column().equals("docxml"))
+                                .map(e -> e.getValue().destination()))
+                .containsExactly("Reports/Notes");
+        assertThat(render(CdsCategory.REPORTS, xml -> mapper.write(mapped, xml))).isNotEmpty();
     }
 
     @Test
@@ -449,8 +477,76 @@ class CdsExportNativeReportMapperUnitTest {
     }
 
     @Test
-    void shouldRefuseOversizedMetadata_insteadOfClippingTheReportDescriptionOrSourceContext() {
-        assertThatThrownBy(() -> map(edit(document(), "docdesc", "x".repeat(32769))))
-                .hasMessage("CDS_EXPORT_NATIVE_REPORT_METADATA_CAPACITY");
+    void shouldCarryTheWholeContextInACompanionRecord_whenItIsLongerThanNotes() throws Exception {
+        // Before: CDS_EXPORT_NATIVE_REPORT_METADATA_CAPACITY held the chart past 32,000
+        // characters of Notes (a document routed to dozens of providers, each with a comment).
+        var reviews = new java.util.ArrayList<CdsExportCapturedTextRowDto>();
+        for (int i = 1; i <= 200; i++) {
+            var fields = new LinkedHashMap<String, String>();
+            fields.put("comment", "Comment " + i + " " + "x".repeat(200) + " bell \u0007");
+            fields.put("id", Integer.toString(i));
+            fields.put("lab_no", "91");
+            fields.put("lab_type", "DOC");
+            fields.put("mrpDemographicNo", null);
+            fields.put("provider_no", "17");
+            fields.put("status", "A");
+            fields.put(
+                    "timestamp",
+                    CdsExportLaboratoryReviewerMappingUnitTest.instant("2026-07-12 10:00:00"));
+            reviews.add(
+                    new CdsExportCapturedTextRowDto(
+                            CdsExportDocumentRouteSourceReader.TABLE,
+                            CdsExportPatientTableSourceReader.key(i),
+                            fields));
+        }
+        var mapped =
+                mapper.map(
+                        27,
+                        document(),
+                        link(),
+                        CdsExportNativeReportMapper.Content.file(PATH, "pdf"),
+                        providers(),
+                        ZoneId.of("America/Toronto"),
+                        CdsExportInboxReviewMapper.report()
+                                .map(reviews, List.of(), providers(), ZoneId.of("America/Toronto")));
+        String notes = mapped.text().get("Notes");
+        String reference = CdsExportReportContext.id("document", "91");
+        assertThat(notes.codePointCount(0, notes.length()))
+                .isLessThanOrEqualTo(CdsExportReportContext.NOTES_LENGTH);
+        assertThat(notes).contains(reference, CdsExportReportContext.SUBCLASS);
+        // The companion carries the complete context: every comment exactly, control character
+        // included, as JSON.
+        String companion = mapped.companion();
+        assertThat(companion).contains(reference).doesNotContain("\u0007");
+        var decoded =
+                new com.fasterxml.jackson.databind.ObjectMapper()
+                        .readTree(companion.substring(companion.indexOf('{')));
+        assertThat(decoded.get("reviews")).hasSize(200);
+        assertThat(decoded.get("reviews").get(199).get("fields").get("comment").asText())
+                .isEqualTo("Comment 200 " + "x".repeat(200) + " bell \u0007");
+        assertThat(decoded.get("document").get("docdesc").asText())
+                .isEqualTo("Exact café 😀 report description");
+        // Both records are valid Reports content; every Notes decision moves to the companion.
+        assertThat(render(CdsCategory.REPORTS, xml -> mapper.write(mapped, xml))).isNotEmpty();
+        String written =
+                new String(
+                        render(
+                                CdsCategory.REPORTS,
+                                xml -> CdsExportReportContext.write(companion, xml)),
+                        StandardCharsets.UTF_8);
+        assertThat(written)
+                .contains("<Format>Text</Format>", "<SubClass>CARLOS context of a report</SubClass>");
+        var carried = CdsExportReportContext.carried(mapped.fields());
+        assertThat(carried).isNotEmpty();
+        assertThat(carried.values()).allMatch(value -> value.destination().equals("Reports/Content"));
+        assertThat(CdsExportReportContext.relocated(mapped.fields()).values())
+                .noneMatch(value -> "Reports/Notes".equals(value.destination()));
+    }
+
+    @Test
+    void shouldKeepTheContextInNotes_whenItFits() throws Exception {
+        var mapped = map(document());
+        assertThat(mapped.companion()).isNull();
+        assertThat(mapped.text().get("Notes")).startsWith("[CARLOS native report source context]\n{");
     }
 }

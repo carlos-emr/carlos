@@ -258,9 +258,21 @@ public final class CdsExportNativeHistoryMapper {
             var state = new CdsExportNativeFieldAssessments(note, decisions);
             for (String field : OPERATIONAL)
                 state.operational(field, "VERIFIED_NATIVE_NOTE_IDENTITY_ACCESS_OR_PRESENTATION");
-            String body = state.text("note", bodyPath(category), 1 << 24);
-            if (state.raw("note") == null) review("CDS_EXPORT_NATIVE_NOTE_BODY_REQUIRED");
-            bodies.add(body == null ? "" : body);
+            String exactBody = state.raw("note");
+            if (exactBody == null) review("CDS_EXPORT_NATIVE_NOTE_BODY_REQUIRED");
+            // A note is typed or pasted, and a paste can hold a character XML cannot carry. It
+            // holds nobody: the text is written with U+FFFD in that character's place
+            // (CdsExportXmlText) and the exact text travels in this revision's details, as JSON.
+            String body = CdsExportXmlText.element(exactBody);
+            if (!exactBody.isEmpty())
+                state.set(
+                        "note",
+                        Outcome.MAPPED,
+                        bodyPath(category),
+                        body.equals(exactBody)
+                                ? "EXACT_NATIVE_TEXT"
+                                : "NOTE_TEXT_WITH_U_FFFD_EXACT_IN_REVISION_CONTEXT");
+            bodies.add(body);
             var detail = new LinkedHashMap<String, Object>();
             detail.put("revision", metadata.size() + 1);
             for (String field :
@@ -275,8 +287,8 @@ public final class CdsExportNativeHistoryMapper {
                             "minuteOfEncounterTime")) {
                 String value = state.raw(field);
                 if (value != null) {
-                    if (!CdsExportNativeFieldAssessments.legal(value, 1 << 24))
-                        review("CDS_EXPORT_NATIVE_HISTORY_TEXT_INVALID");
+                    // These travel only in the revision details (JSON): no character and no
+                    // length is refused.
                     if ((field.equals("archived") || field.equals("signed"))
                             && !Set.of("0", "1").contains(value))
                         review("CDS_EXPORT_NATIVE_HISTORY_FLAG_INVALID");
@@ -349,8 +361,10 @@ public final class CdsExportNativeHistoryMapper {
                         date = ext.raw("date_value");
                 if (key == null || key.isEmpty())
                     review("CDS_EXPORT_NATIVE_NOTE_EXTENSION_KEY_REQUIRED");
+                // A value's characters and length are never refused: it is exact in the details below
+                // (JSON) and extension() writes it for a person with U+FFFD where XML cannot
+                // carry one. The key is one of the editor's own field names.
                 if (!CdsExportNativeFieldAssessments.legal(key, 255)
-                        || value != null && !CdsExportNativeFieldAssessments.legal(value, 1 << 24)
                         || date != null && !CdsExportNativeFieldAssessments.legal(date, 128))
                     review("CDS_EXPORT_NATIVE_NOTE_EXTENSION_TEXT_INVALID");
                 var details = new LinkedHashMap<String, String>();
@@ -446,12 +460,14 @@ public final class CdsExportNativeHistoryMapper {
             // "[Revision n]" heading; repeating it in the details only doubled the note.
             if (category != CdsCategory.CLINICAL_NOTES
                     && (revision != current || category == CdsCategory.PERSONAL_HISTORY))
-                detail.put("narrative", body == null ? "" : body);
+                detail.put("narrative", exactBody);
+            else if (!body.equals(exactBody)) detail.put("exactNarrative", exactBody);
             metadata.add(detail);
         }
         var context = versioned("revisions", metadata);
         if (refiledSource != null) context.put("refiledImportedSource", refiledSource);
-        String json = JSON.writeValueAsString(context);
+        // A character XML cannot carry is its JSON escape; the decoded details are unchanged.
+        String json = CdsExportResidualJson.text(JSON.writeValueAsString(context));
         var codes = codes(category, current);
         // DiagnosisProcedureCode and DiagnosisCode hold one code. An item with several assigned
         // diagnoses (A24) writes none of them there rather than choosing one: every code is
@@ -498,10 +514,18 @@ public final class CdsExportNativeHistoryMapper {
             // reconciler adds them to the imported Notes (CdsExportHistoryNativeReconciler).
             String statements = overflow.isEmpty() ? null : String.join("\n\n", overflow);
             if (statements != null) text.put(STATEMENTS, statements);
-            // What Notes can take of this item: its limit, less the statement that leads an
-            // archived item's Notes (CdsExportNativeHistoryXmlWriter) and the item's statements.
-            int room = notesLimit(category) - length(statements);
-            if (archived) room -= length(ARCHIVED_ITEM_STATEMENT);
+            // Notes holds whole parts only, never a cut one. Its limit, less the statement that
+            // leads an archived item's Notes (CdsExportNativeHistoryXmlWriter), goes first to
+            // the item's statements: values of its own fields (Treatment, Exposure Details...)
+            // that their elements cannot hold. Statements that do not fit together are left
+            // out whole, last first; every one is exact in the revision's extension facts in
+            // CARLOS.NativeHistory.v1. Whatever room remains is for the narrative below.
+            int limit = notesLimit(category);
+            if (archived) limit -= length(ARCHIVED_ITEM_STATEMENT);
+            var kept = new ArrayList<>(overflow);
+            while (!kept.isEmpty() && length(String.join("\n\n", kept)) - 2 > limit)
+                kept.removeLast();
+            int room = limit - (kept.isEmpty() ? 0 : length(String.join("\n\n", kept)));
             var notes = new ArrayList<String>();
             if (body.codePointCount(0, body.length()) <= cap) put(text, path, body);
             else {
@@ -514,7 +538,7 @@ public final class CdsExportNativeHistoryMapper {
                 text.put("NativeNarrative", body);
                 boolean readable =
                         category != CdsCategory.ALERTS_AND_SPECIAL_NEEDS
-                                && CdsExportNativeFieldAssessments.legal(body, room);
+                                && body.codePointCount(0, body.length()) <= room;
                 if (readable) notes.add(body);
                 var note = current.note().value();
                 var key = new CdsExportNativeFieldKeyDto(note.table(), note.recordKey(), "note");
@@ -527,17 +551,8 @@ public final class CdsExportNativeHistoryMapper {
                                 readable ? "Notes" : "ResidualInfo",
                                 prior.rule()));
             }
-            notes.addAll(overflow);
-            if (!notes.isEmpty()) {
-                String joined = String.join("\n\n", notes);
-                // Only the statements can still be too long here: values of the item's own
-                // fields (Treatment, Exposure Details...) that neither their element nor Notes
-                // can hold. They have no carrier of their own.
-                if (!CdsExportNativeFieldAssessments.legal(
-                        archived ? archivedNotes(joined) : joined, notesLimit(category)))
-                    review("CDS_EXPORT_NATIVE_HISTORY_NARRATIVE_CAPACITY");
-                put(text, "Notes", joined);
-            }
+            notes.addAll(kept);
+            if (!notes.isEmpty()) put(text, "Notes", String.join("\n\n", notes));
         }
         if (decisions.values().stream().anyMatch(v -> v.outcome() == Outcome.REQUIRES_REVIEW))
             review("CDS_EXPORT_NATIVE_HISTORY_UNMAPPED_FIELD");
@@ -757,11 +772,8 @@ public final class CdsExportNativeHistoryMapper {
                             entry.getKey(),
                             "VERIFIED_NATIVE_ISSUE_IDENTITY_ACCESS_OR_CATALOGUE_ORDER");
                 else {
-                    if (entry.getValue() != null) {
-                        if (!CdsExportNativeFieldAssessments.legal(entry.getValue(), 1 << 24))
-                            review("CDS_EXPORT_NATIVE_ISSUE_TEXT_INVALID");
-                        attributes.put(entry.getKey(), entry.getValue());
-                    }
+                    // Carried in the residual JSON: no character and no length is refused.
+                    if (entry.getValue() != null) attributes.put(entry.getKey(), entry.getValue());
                     state.set(
                             entry.getKey(),
                             Outcome.MAPPED,
@@ -1061,7 +1073,8 @@ public final class CdsExportNativeHistoryMapper {
         if (target == null) {
             // A CPP field with no element in this section (Medical History's Treatment and
             // Procedure, ...) is written, labelled, as a value too long for its element is.
-            if (CPP_VALUES.contains(key)) overflow.add(key + ":\n" + value);
+            if (CPP_VALUES.contains(key))
+                overflow.add(key + ":\n" + CdsExportXmlText.element(value));
             return;
         }
         int maximum =
@@ -1091,7 +1104,7 @@ public final class CdsExportNativeHistoryMapper {
             // element cannot hold exactly is omitted from it, never truncated; it is written,
             // labelled, in the item's Notes for every receiver, and exactly in the revision's
             // extension facts in CARLOS.NativeHistory.v1.
-            overflow.add(key + ":\n" + value);
+            overflow.add(key + ":\n" + CdsExportXmlText.element(value));
             return;
         }
         put(text, target, value);

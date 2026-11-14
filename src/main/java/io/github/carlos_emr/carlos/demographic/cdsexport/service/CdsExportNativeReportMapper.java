@@ -46,8 +46,12 @@ public final class CdsExportNativeReportMapper {
                     "Other Letter");
 
     /** Reports/Notes: text32K in the schema, 32,000 characters in the migration dictionary. */
-    static final int NOTES_LENGTH = 32000;
+    static final int NOTES_LENGTH = CdsExportReportContext.NOTES_LENGTH;
 
+    /**
+     * @param companion the text of the report's companion record when its source context is
+     *     longer than Notes ({@link CdsExportReportContext}), otherwise null
+     */
     public record Result(
             Map<String, String> text,
             Map<String, CdsExportDateDto> dates,
@@ -55,13 +59,25 @@ public final class CdsExportNativeReportMapper {
             CdsExportDateDto reviewDate,
             Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields,
             List<CdsExportCapturedTextRowDto> rows,
-            List<Reviewed> additionalReviewers) {
+            List<Reviewed> additionalReviewers,
+            String companion) {
         public Result {
             text = Map.copyOf(text);
             dates = Map.copyOf(dates);
             fields = Map.copyOf(fields);
             rows = List.copyOf(rows);
             additionalReviewers = List.copyOf(additionalReviewers);
+        }
+
+        public Result(
+                Map<String, String> text,
+                Map<String, CdsExportDateDto> dates,
+                CdsExportPublicProviderDto reviewer,
+                CdsExportDateDto reviewDate,
+                Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields,
+                List<CdsExportCapturedTextRowDto> rows,
+                List<Reviewed> additionalReviewers) {
+            this(text, dates, reviewer, reviewDate, fields, rows, additionalReviewers, null);
         }
 
         public Result(
@@ -190,12 +206,14 @@ public final class CdsExportNativeReportMapper {
                 || linkStatus != null && !linkStatus.equals("A") && !linkStatus.equals("H"))
             review("CDS_EXPORT_NATIVE_REPORT_STATUS_REQUIRES_REVIEW");
         String html = content.storedHtml() ? source.get("docxml") : null;
-        // The chart renders docxml only when it is not blank (ManageDocument2Action.display);
-        // blank stored HTML shows nothing, and text the XML document cannot carry is held.
-        if (html != null
-                && (html.trim().isEmpty()
-                        || !CdsExportNativeFieldAssessments.legal(html, Integer.MAX_VALUE)))
-            review("CDS_EXPORT_NATIVE_REPORT_STORED_HTML_REQUIRES_REVIEW");
+        // Stored HTML is exported exactly as it is stored, blank included. The Add HTML form
+        // refuses only an empty body, so a body of spaces or line breaks is a document a user
+        // saved: it has a description, a type and dates in the chart's list even though opening
+        // it shows nothing (ManageDocument2Action.display renders docxml only when it is not
+        // blank). A character XML cannot carry is written in TextContent as U+FFFD
+        // (CdsExportXmlText) and the exact HTML then stays in the Notes context as well.
+        String shown = html == null ? null : CdsExportXmlText.element(html);
+        boolean exactInContext = html != null && !shown.equals(html);
         // Its restriction and program travel in Notes with every other document column.
         String program = restrictedProgram(source);
         if (program != null && !readableProgram.test(program))
@@ -214,8 +232,10 @@ public final class CdsExportNativeReportMapper {
                     state.set(
                             "docxml",
                             Outcome.MAPPED,
-                            "Reports/Content",
-                            "EXACT_STORED_HTML_DOCUMENT_CONTENT");
+                            exactInContext ? "Reports/Notes" : "Reports/Content",
+                            exactInContext
+                                    ? "STORED_HTML_IN_CONTENT_WITH_U_FFFD_EXACT_IN_SOURCE_CONTEXT"
+                                    : "EXACT_STORED_HTML_DOCUMENT_CONTENT");
                     continue;
                 }
                 // No column is refused for its size or characters: every one of them is a short
@@ -233,7 +253,7 @@ public final class CdsExportNativeReportMapper {
         if (html != null) {
             text.put("Format", "Text");
             text.put("FileExtensionAndVersion", content.extension());
-            text.put("TextContent", html);
+            text.put("TextContent", shown);
         } else {
             text.put("Format", "Binary");
             text.put("FileExtensionAndVersion", content.extension());
@@ -255,9 +275,13 @@ public final class CdsExportNativeReportMapper {
         else {
             // The stored HTML is the report's Content; the rest of the row is its context.
             var context = new LinkedHashMap<>(source);
-            context.remove("docxml");
+            if (!exactInContext) context.remove("docxml");
             details.put("document", context);
-            details.put("content", "document.docxml");
+            details.put(
+                    "content",
+                    exactInContext
+                            ? "document.docxml, with U+FFFD for each character XML cannot carry"
+                            : "document.docxml");
         }
         details.put("link", link.fields());
         for (var entry :
@@ -375,20 +399,21 @@ public final class CdsExportNativeReportMapper {
                             });
             if (!named.isEmpty()) details.put("reviewers", named);
         }
-        String notes =
-                "[CARLOS native report source context]\n"
-                        + CdsExportResidualJson.text(
-                                JsonMapper.builder().build().writeValueAsString(details));
         // Notes is the only free text of a Reports record and the category has no ResidualInfo,
         // so the dictionary's 32,000 characters are the room there is. The document and link rows
-        // always fit (short varchars); only the review rows of a document routed to dozens of
-        // providers can exceed it. Carrying those needs a second Reports record, which the
-        // patient inventory would have to expect, so until then the patient is held rather than
-        // a review being cut.
-        if (notes.codePointCount(0, notes.length()) > NOTES_LENGTH)
-            review("CDS_EXPORT_NATIVE_REPORT_METADATA_CAPACITY");
-        text.put("Notes", notes);
-        return new Result(text, dates, reviewer, reviewDate, fields, rows, additional);
+        // always fit (short varchars); the review rows of a document routed to dozens of
+        // providers can pass it. Nothing is cut and nobody is held: the complete context then
+        // travels in the report's companion record (CdsExportReportContext).
+        var notes =
+                CdsExportReportContext.notes(
+                        "",
+                        "[CARLOS native report source context]\n"
+                                + CdsExportResidualJson.text(
+                                        JsonMapper.builder().build().writeValueAsString(details)),
+                        CdsExportReportContext.id("document", source.get("document_no")));
+        text.put("Notes", notes.notes());
+        return new Result(
+                text, dates, reviewer, reviewDate, fields, rows, additional, notes.companion());
     }
 
     public void write(Result result, CdsExportXmlComposer.ContentWriter xml) throws IOException {

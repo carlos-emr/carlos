@@ -241,7 +241,9 @@ class CdsExportImportedDocumentEditUnitTest {
                                         document(current), link(), PREPARED, VARIANT, FILE, 27))
                 .isInstanceOf(java.io.IOException.class);
         var exported = export(current, false);
-        assertThat(exported.supplementary()).isNull();
+        // An edit context always travels in the supplementary record: its size is decided from
+        // the import's sealed values, which the patient inventory cannot predict.
+        assertThat(exported.supplementary()).isNotNull();
         assertThat(exported.prepared().replacedFields()).isEmpty();
         String xml = exported.xml();
         // The sending EMR's reviewer, then CARLOS's review on its date.
@@ -251,8 +253,11 @@ class CdsExportImportedDocumentEditUnitTest {
                         "<ReviewingOHIPPhysicianId>123456</ReviewingOHIPPhysicianId>",
                         "<cdsd:FullDate>2026-03-08</cdsd:FullDate>",
                         "<Class>Consultant Report</Class>",
-                        "<SubClass>Cardiology consult</SubClass>",
-                        "[CARLOS reviews and edits recorded after the import]",
+                        "<SubClass>Cardiology consult</SubClass>")
+                .doesNotContain("<Notes>");
+        assertThat(exported.supplementary().text())
+                .contains(
+                        "reviews and edits recorded in CARLOS",
                         "\"doctype\":{\"imported\":\"CDS\",\"current\":\"consult\"",
                         "2026-03-08 11:45:00");
         var decisions = exported.edit().fields();
@@ -290,13 +295,15 @@ class CdsExportImportedDocumentEditUnitTest {
         assertThat(xml)
                 .contains(
                         "<SubClass>Cardiology letter</SubClass>",
-                        "<cdsd:FullDate>2025-02-03</cdsd:FullDate>",
+                        "<cdsd:FullDate>2025-02-03</cdsd:FullDate>")
+                .doesNotContain("<SubClass>Cardiology consult</SubClass>");
+        assertThat(exported.supplementary().text())
+                .contains(
                         // The description has no element: current and imported in the context.
                         "\"docdesc\":{\"imported\":\"Cardiology consult\",\"current\":\"Cardiology follow-up letter\"",
                         // The superseded imported elements, exactly.
                         "\"supersededElements\"",
-                        "2025-01-02")
-                .doesNotContain("<SubClass>Cardiology consult</SubClass>");
+                        "2025-01-02");
         assertThat(exported.prepared().replacedFields())
                 .containsExactlyInAnyOrder(
                         field("Reports[1]/SubClass[1]", "").id(),
@@ -449,18 +456,18 @@ class CdsExportImportedDocumentEditUnitTest {
         changes.addAll(edit.changes());
         var assessments = new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
         var rows = new ArrayList<CdsExportCapturedTextRowDto>(List.of(row));
-        assertThat(
-                        CdsExportReportOccurrenceService.importedReviews(
-                                List.of(),
-                                providers(),
-                                ZONE,
-                                fields,
-                                changes,
-                                assessments,
-                                rows,
-                                new CdsExportReportOccurrenceService.Edits(
-                                        edit.reviewers(), List.of(context), edit.fields())))
-                .isNull();
+        var supplementary =
+                CdsExportReportOccurrenceService.importedReviews(
+                        List.of(),
+                        providers(),
+                        ZONE,
+                        fields,
+                        changes,
+                        assessments,
+                        rows,
+                        new CdsExportReportOccurrenceService.Edits(
+                                edit.reviewers(), List.of(context), edit.fields()));
+        assertThat(supplementary).isNotNull();
         var prepared =
                 new CdsExportRetainedSectionWriter().prepareChanges(fields, inline(), changes, () -> {});
         // The imported file path and declaration are replaced; every other field is retained.
@@ -478,7 +485,9 @@ class CdsExportImportedDocumentEditUnitTest {
         assertThat(xml)
                 .contains(
                         "<FilePath>" + RELATIVE + "</FilePath>",
-                        "<FileExtensionAndVersion>pdf</FileExtensionAndVersion>",
+                        "<FileExtensionAndVersion>pdf</FileExtensionAndVersion>");
+        assertThat(supplementary.text())
+                .contains(
                         "\"replacedFile\":{\"rule\":\"REPLACED_IMPORTED_DOCUMENT_FILE_EXPORTED_CURRENT\"",
                         "\"imported\":{\"docfilename\":\"" + FILE + "\",\"contenttype\":\"application/pdf\",\"sha256\":\"" + "a".repeat(64),
                         "\"current\":{\"docfilename\":\"" + REPLACEMENT + "\"",

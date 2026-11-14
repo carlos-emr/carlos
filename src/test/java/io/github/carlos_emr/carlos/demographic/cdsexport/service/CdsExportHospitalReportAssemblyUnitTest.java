@@ -529,6 +529,41 @@ class CdsExportHospitalReportAssemblyUnitTest {
     }
 
     @Test
+    void shouldExportEveryReportOfAMessageAndACompanion_asTheInventoryExpects() throws Exception {
+        // Before: a message holding two reports held the chart
+        // (CDS_EXPORT_HRM_REPORT_MULTIPLE_REPORTS_REQUIRES_REVIEW), and so did a comment that
+        // takes Notes past 32,000 characters (CDS_EXPORT_HRM_REPORT_METADATA_CAPACITY).
+        String twice =
+                CdsExportHospitalReportMapperUnitTest.fixture()
+                        .replaceFirst(
+                                "(?s)(<ReportsReceived>.*?</ReportsReceived>)", "$1\n    $1");
+        report(5, CdsExportHospitalReportFileSourceReader.State.READ, twice.getBytes(StandardCharsets.UTF_8));
+        String typed = "Discussed at rounds. " + "y".repeat(40_000) + " the end";
+        add(CdsExportHospitalReportMapperUnitTest.comment(201, 5, "0", typed));
+        provider("101", "Ada", "Reviewer", "123456");
+        String xml = assemble();
+        var reports = reports(xml);
+        // The chart's record of the message, its companion, and the message's second report.
+        assertThat(reports).hasSize(3);
+        assertThat(reports.get(0))
+                .contains("holds 2 reports", "<cdsd:TextContent>SEED-HRM-ATTACHMENT-MARKER")
+                .doesNotContain(typed);
+        assertThat(reports.get(1))
+                .contains("<SubClass>CARLOS context of a report</SubClass>", typed);
+        assertThat(reports.get(2))
+                .contains("Report 2 of 2 of one stored HRM message", "SEED-HRM-ATTACHMENT-MARKER");
+        assertThat(expected).hasSize(3);
+        assertThat(receipts)
+                .extracting(CdsExportClinicalOccurrenceService.Receipt::identity)
+                .containsExactlyInAnyOrderElementsOf(expected);
+        // The comment's fields are accounted in the companion's Content.
+        assertThat(receipts.get(1).fields().values())
+                .isNotEmpty()
+                .allMatch(value -> value.destination().equals("Reports/Content"));
+        assertThat(result.nativeRows()).isEqualTo(3);
+    }
+
+    @Test
     void shouldHoldOnlyThisPatient_forALegacySpellingOfTheHrmPatientLink() throws Exception {
         report(5, CdsExportHospitalReportFileSourceReader.State.MISSING, null);
         var link = rows("HRMDocumentToDemographic").firstEntry().getValue();

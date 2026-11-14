@@ -333,9 +333,10 @@ public final class CdsExportScreeningMapper {
     /**
      * Residual Content is an xs:token, whose normalization collapses XML whitespace. Compact
      * JSON already escapes tab, CR and LF inside strings, and its only literal spaces are inside
-     * strings, so escaping them keeps the exact values under any schema-aware reader. U+FFFE and
-     * U+FFFF, which XML forbids and JSON does not escape, also occur only inside strings and are
-     * written as JSON escapes.
+     * strings, so escaping them keeps the exact values under any schema-aware reader. A character
+     * XML 1.0 cannot carry (U+FFFE, U+FFFF, an unpaired surrogate) also occurs only inside
+     * strings and is escaped the same way ({@link CdsExportResidualJson#token}), so a carrier
+     * written through here never fails the document for a character a column can hold.
      *
      * <p>A carrier has no length limit of its own: the schema's residual Content is an
      * {@code xs:token} without a {@code maxLength}, the XML composer and validator bound only the
@@ -343,9 +344,7 @@ public final class CdsExportScreeningMapper {
      * character bound this exporter once applied to every carrier is gone.
      */
     static String tokenSafe(String json) {
-        return json.replace(" ", "\\u0020")
-                .replace("\ufffe", "\\ufffe")
-                .replace("\uffff", "\\uffff");
+        return CdsExportResidualJson.token(json);
     }
 
     /** Every captured field is carried exactly in the residual unless a rule says otherwise. */
@@ -355,11 +354,11 @@ public final class CdsExportScreeningMapper {
             List<CdsExportCapturedTextRowDto> rows) {
         rows.add(row);
         var fields = new CdsExportNativeFieldAssessments(row, decisions);
+        // No value is refused for a character XML cannot carry: the residual is JSON, where it
+        // is its escape (CdsExportResidualJson), and standard() keeps such a value out of the
+        // description and Notes, so it travels in the residual alone, exactly.
         for (var entry : row.fields().entrySet())
-            if (entry.getValue() == null
-                    || CdsExportNativeFieldAssessments.legal(entry.getValue(), Integer.MAX_VALUE))
-                fields.set(entry.getKey(), Outcome.MAPPED, RESIDUAL, CARRIED);
-            else fields.review(entry.getKey(), RESIDUAL, "WIRE_TEXT_REQUIRES_REVIEW");
+            fields.set(entry.getKey(), Outcome.MAPPED, RESIDUAL, CARRIED);
         return fields;
     }
 

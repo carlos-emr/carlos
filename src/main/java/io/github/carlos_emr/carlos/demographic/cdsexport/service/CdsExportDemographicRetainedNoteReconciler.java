@@ -251,7 +251,10 @@ public final class CdsExportDemographicRetainedNoteReconciler {
                                 : unchanged && !source.isEmpty()
                                         ? Outcome.MAPPED
                                         : currentAssessment.outcome(),
-                        "NoteAboutPatient",
+                        // A current note the element cannot hold exactly is decided for the
+                        // native demographic record as well, or alone (the element is then
+                        // removed below): CdsExportPatientNoteMapper.note.
+                        review || unchanged ? "NoteAboutPatient" : currentAssessment.destination(),
                         rule));
         if (!review && !unchanged && (!source.isEmpty() || mapping.text() != null))
             changes.add(

@@ -721,21 +721,41 @@ chart and is not exported, as the legacy exporter exported active documents only
 and link rows stay in the capture, every field gets the `DELETED_DOCUMENT_OR_LINK_NOT_SHOWN_IN_CHART`
 disposition, and it is neither an expected occurrence nor a reason to hold the patient. One
 document's problem holds only its patient: an HTML document with no stored HTML or an unknown
-document or link status (`CDS_EXPORT_NATIVE_REPORT_STATUS_REQUIRES_REVIEW`), blank stored HTML
-(`..._STORED_HTML_REQUIRES_REVIEW`), an empty file (`..._FILE_EMPTY`), a missing file
+document or link status (`CDS_EXPORT_NATIVE_REPORT_STATUS_REQUIRES_REVIEW`), an empty file
+(`..._FILE_EMPTY`), a missing file
 (`..._FILE_MISSING`), an unsupported stored name (`..._FILENAME_UNSUPPORTED`) or a file over
 `cds.export.maxDocumentBytes` (`..._FILE_TOO_LARGE`). No column of the document or its link holds
 the patient for its size or its characters: every one is a short varchar that fits Notes, a
 character XML 1.0 cannot carry is written in the Notes JSON as its `\uXXXX` escape, and a source
 author or facility holding such a character is left out of its `text120` element and stays exact
-in Notes. Notes (`text32K`; 32,000 characters in the dictionary) is the only free text of a
-Reports record and the category has no `ResidualInfo`, so one limit remains: a document, an
-embedded laboratory document or an HRM report whose reviews, inbox comments or report comments
-take its Notes past 32,000 characters holds the patient
-(`CDS_EXPORT_NATIVE_REPORT_METADATA_CAPACITY`, `CDS_EXPORT_NATIVE_LAB_DOCUMENT_NOTES_CAPACITY`,
-`CDS_EXPORT_HRM_REPORT_METADATA_CAPACITY`) rather than losing a review or a comment. Removing
-that hold needs a second Reports record for the overflow, like the one imported reports already
-get for their reviews, and the patient inventory to expect it. An untrusted `DOCUMENT_DIR` stops
+in Notes. Stored HTML is exported exactly as stored, blank included: the Add HTML form refuses
+only an empty body, so a body of spaces or line breaks is a document a user saved, and it
+becomes a Text report whose TextContent is that body (`..._STORED_HTML_REQUIRES_REVIEW` is
+gone). Stored HTML holding a character XML cannot carry is written in TextContent with U+FFFD
+in that character's place (`CdsExportXmlText`) and exact, as its JSON escape, in the Notes
+context (`STORED_HTML_IN_CONTENT_WITH_U_FFFD_EXACT_IN_SOURCE_CONTEXT`).
+
+Notes (`text32K`; 32,000 characters in the dictionary, which the export's validator enforces)
+is the only free text of a Reports record and the category has no `ResidualInfo`. That number
+decides where a report's CARLOS context is written, never whether the report is exported
+(`CdsExportReportContext`). When the whole Notes text fits it is written there, as before. When
+a document, an embedded laboratory document or an HRM report has reviews, inbox comments,
+laboratory notes or report comments that take it past 32,000 characters, Notes keeps its
+leading statements and one fixed sentence naming a reference, and the complete text travels in
+a companion Reports record written directly after the report: Format Text, TextContent the
+reference and the complete Notes text (TextContent has no length facet), Class Medical Records
+Report, SubClass "CARLOS context of a report". The reference is the companion's identity,
+`CdsImportKeys.hash("carlos-native-occurrence-v1", "report_context", <table>, <id>)`, a digest
+of local identifiers. The companion's receipt accounts the fields it carries
+(`Reports/Notes` decisions relocated to `Reports/Content`). The patient inventory expects the
+companion by running the same mappers on the same captured rows
+(`CdsExportReportContextPlanner` for documents and embedded laboratory documents,
+`CdsExportHospitalReportOccurrenceService.identities` for HRM reports), so the prediction is
+exact, not an estimate. `CDS_EXPORT_NATIVE_REPORT_METADATA_CAPACITY`,
+`CDS_EXPORT_NATIVE_LAB_DOCUMENT_NOTES_CAPACITY` and `CDS_EXPORT_HRM_REPORT_METADATA_CAPACITY`
+are gone. A CARLOS import does not read the companion back into the report: it stores it as an
+ordinary text report of the chart, and the two are matched by the reference a person reads in
+both. An untrusted `DOCUMENT_DIR` stops
 the job with `CDS_EXPORT_DOCUMENT_STORAGE_UNTRUSTED`. Attachments are copied from the patient's
 encrypted capture through one authenticated pass of its values member
 (`CdsExportStagingService.verifiedRanges`), which is verified again as a whole before the
@@ -803,13 +823,20 @@ each dated review becomes a `CdsExportRetainedSectionWriter.Change` that adds
 `ReportReviewed[n]` after the highest imported ordinal (`CdsExportInboxReviewMapper.nextOrdinal`),
 so no imported element is replaced and the receipt's retained fields stay the whole unit. The
 carried rows (`carriedContext`, the same JSON shape as a native report's `reviews`/`reviewers`)
-are added as `Notes[1]` when the unit has no imported Notes. When it has, the Notes element is
-never rewritten: the rows travel in a supplementary Text report ("CARLOS reviews of an imported
-report", identity `importedReviewsId(address)`, fields relocated to `Reports/Content`), which
-the inventory expects for every unit whose retained fields include `Notes[1]` and whose
-documents have a carried row (`CdsExportInboxReviewMapper.carriedByReport`) or a row whose
-current digest differs from the import's. Notes past 32,000 characters hold the patient
-(`CDS_EXPORT_IMPORTED_REPORT_REVIEW_NOTES_CAPACITY`). Every reviewer row belongs to exactly one
+are added as `Notes[1]` only when all three of these hold
+(`CdsExportReportOccurrenceService.importedReviewsInNotes`): the unit has no imported Notes; no
+document row of the unit was edited in CARLOS; and the text fits Notes' 32,000 characters.
+Otherwise the rows travel in a supplementary Text report ("CARLOS reviews of an imported
+report", identity `importedReviewsId(address)`, fields relocated to `Reports/Content`): an
+imported Notes element is never rewritten, an edit context is decided from the import's sealed
+values, which the inventory does not read (so its size cannot be predicted there), and a text
+longer than Notes is carried whole instead of holding the patient
+(`CDS_EXPORT_IMPORTED_REPORT_REVIEW_NOTES_CAPACITY` and `..._REVIEW_TEXT_REQUIRES_REVIEW` are
+gone; a character XML cannot carry is its JSON escape). The inventory expects the record for
+every unit whose retained fields include `Notes[1]` and whose documents have a carried row
+(`CdsExportInboxReviewMapper.carriedByReport`) or a row whose current digest differs from the
+import's, and, through `CdsExportReportContextPlanner`, for every unit without imported Notes
+that has an edited document row or whose carried rows do not fit Notes. Every reviewer row belongs to exactly one
 captured document.
 
 An imported document edited through the document edit page is exported, the user's edit
@@ -861,8 +888,8 @@ hold (an unlisted class, a subclass over 60 characters) leaves the imported elem
 carried; description, type, responsible provider, flags and update time are carried
 (`CARLOS_EDIT_OF_IMPORTED_DOCUMENT_IN_SOURCE_CONTEXT`); SQL NULL turned into `""` is not an
 edit (`EMPTY_EDIT_FORM_VALUE_FOR_AN_ABSENT_IMPORTED_VALUE`). Every changed column goes in an
-`edits` entry of the report's CARLOS context (`[CARLOS reviews and edits recorded after the
-import]`, appended Notes or the supplementary report) with its current value and the imported
+`edits` entry of the report's CARLOS context (always in the supplementary report: see above)
+with its current value and the imported
 value: the value the import is known to write when its SHA-256 matches the sealed baseline,
 SQL NULL or `""`, or else the baseline's digest and length; a replaced element's exact imported
 text is under `supersededElements`. Replaced elements are the receipt's replaced fields, so
@@ -939,12 +966,27 @@ A link naming a report that no longer exists shows nothing in the chart and is a
 belongs to no chart; a report whose only links name such charts is unattributable and, as
 before, holds every chart (`CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED`). Only these hold the patient: a link whose
 patient or report number is not spelled as its canonical decimal number (a legacy alias such as
-`0` + the chart number; `CDS_EXPORT_HRM_REPORT_LINK_REQUIRES_REVIEW`), a message holding more than
-one report (CARLOS shows only the first; `CDS_EXPORT_HRM_REPORT_MULTIPLE_REPORTS_REQUIRES_REVIEW`),
-Notes over 32,000 characters (`CDS_EXPORT_HRM_REPORT_METADATA_CAPACITY`), a file over
-`cds.export.maxDocumentBytes` (`CDS_EXPORT_NATIVE_REPORT_FILE_TOO_LARGE`) and an ambiguous
-wall-clock time. Untrusted storage still stops the job. The inventory expects one Reports
-occurrence per captured report (`carlos-native-occurrence-v1`, `HRMDocument`, id). The CDS
+`0` + the chart number; `CDS_EXPORT_HRM_REPORT_LINK_REQUIRES_REVIEW`), a sign-off state other
+than 0 or 1, a file over `cds.export.maxDocumentBytes`
+(`CDS_EXPORT_NATIVE_REPORT_FILE_TOO_LARGE`) and an ambiguous wall-clock time. Untrusted storage
+still stops the job.
+
+A message that holds several reports no longer holds the patient
+(`CDS_EXPORT_HRM_REPORT_MULTIPLE_REPORTS_REQUIRES_REVIEW` is gone). The HRM schema allows it
+(`ReportsReceived` is unbounded), the HRM intake stores such a message as any other, and the
+viewer shows its first report. Every report is exported
+(`CdsExportHospitalReportMapper.map(source, parsed, part, ...)`): the first as the chart's
+record of the message, with everything above and a Notes statement of how many reports the
+message holds; each further one as its own Reports entry from its own message values (content,
+class, subclass, dates, author, facility identifiers, OBRContent, result status), with Notes
+saying which report of the message it is, the message values that have no element, and no
+ReportReviewed, because a sign-off attests the report the viewer showed. The chart's rows are
+accounted with the first entry. A report whose comments and message values pass Notes' 32,000
+characters gets a companion record, as a document does. The inventory expects one Reports
+occurrence per captured report (`carlos-native-occurrence-v1`, `HRMDocument`, id), one for each
+further report of its message (`id:n`) and one for each companion;
+`CdsExportHospitalReportOccurrenceService.identities` reads, parses and maps every report the
+way `append` does to know them. The CDS
 importer never writes HRM tables (an imported report becomes a `document`), so an exported HRM
 report imported into CARLOS and exported again travels once, as that document's retained
 occurrence. HRM reports are exported in every province profile: the chart list shows them only
@@ -1308,32 +1350,24 @@ charts. The row windows of the occurrence services (`cds.export.maxNativeRows`,
 `maxIndexBytes`, `maxLookupRows`) are a separate matter and still apply to the rows they hand
 to these mappers.
 
+Required limits that no longer hold a patient (second pass):
+
+| Limit | Where | What it stopped | Now |
+| --- | --- | --- | --- |
+| Reports/Notes, 32,000 characters | `CdsExportNativeReportMapper`, `CdsExportLaboratoryDocumentMapper`, `CdsExportHospitalReportMapper`, `CdsExportReportOccurrenceService.importedReviews` | the patient | the complete context travels in a companion or supplementary Reports record (`CdsExportReportContext`, see Reports above) |
+| NoteAboutPatient, 64,000 characters (`demographiccust.content` holds 65,535 bytes) | `CdsExportPatientNoteMapper` | the patient (`PATIENT_NOTE_DICTIONARY_LENGTH_REQUIRES_REVIEW`) | the element is left out, never cut, and the whole column travels in `CARLOS.Demographic.v1` under `note` (`CdsExportPatientNoteMapper.note`); without NewCategory it is accounted as not selected, like every value of that record |
+| CPP Notes, 32,000 / 64,000 / 1,000 characters | `CdsExportNativeHistoryMapper`, `CdsExportHistoryNativeReconciler` | the patient (`CDS_EXPORT_NATIVE_HISTORY_NARRATIVE_CAPACITY`, `CDS_EXPORT_HISTORY_COMBINED_NARRATIVE_CAPACITY`, `..._SOURCE_NARRATIVE_CAPACITY`) | Notes holds whole parts only; parts that do not fit together are left out whole, last first, and each has an exact carrier: a statement (a CPP field its element cannot hold) in the revision's extension facts of `CARLOS.NativeHistory.v1`, the current narrative in `CARLOS.History.Narrative.v1`, and imported Notes that had to make way in the item's `CARLOS.NativeHistory.v1` residual as `importedNotes` |
+| A character XML 1.0 cannot carry (a control character, U+FFFE, U+FFFF, an unpaired surrogate) | the same mappers, `CdsExportInboxReviewMapper`, `CdsExportDemographicSupportingMapper`, every carrier written through `CdsExportScreeningMapper.tokenSafe` | the patient | in a JSON carrier it is its `\uXXXX` escape (`CdsExportResidualJson`); in an element it is U+FFFD, one for one (`CdsExportXmlText`), and the exact text travels in the record's carrier: a note's revision details (`exactNarrative`), the Notes context of stored HTML, the `note` of `CARLOS.Demographic.v1`, the message of `CARLOS.Laboratory.v1` |
+| 16,777,216 characters per carrier | `CdsExportDemographicSupportingMapper`, `CdsExportNativeHistoryMapper`, `CdsExportHistoryFieldReconciler`, `CdsExportNativeLaboratoryMapper`, `CdsExportInboxReviewMapper` | the patient | removed, with no number in its place (ours, not the schema's) |
+
 Limits that remain in these families, and why:
 
-- **Reports/Notes, 32,000 characters.** Notes is the only free text of a Reports record and
-  Reports has no `ResidualInfo`. A native document, an embedded laboratory document or an HRM
-  report whose reviews and comments exceed it still holds the patient. Lifting it needs a
-  second Reports record for the overflow (as imported reports already get for their reviews),
-  expected by `CdsExportPatientInventoryService`.
-- **NoteAboutPatient, 64,000 characters.** `demographiccust.content` is a TEXT column, so a
-  master-record note of 64,001 to 65,535 characters holds the patient
-  (`PATIENT_NOTE_DICTIONARY_LENGTH_REQUIRES_REVIEW`). The carrier exists
-  (`CARLOS.Demographic.v1`); using it needs `CdsExportPatientNoteMappingDto` to allow a carried
-  note, the record to gain the value and `CdsExportDemographicRetainedNoteReconciler` to treat
-  a carried note as present.
-- **An imported history item edited in CARLOS** whose imported Notes and current narrative
-  together pass the Notes limit (`CDS_EXPORT_HISTORY_COMBINED_NARRATIVE_CAPACITY`), and an
-  imported Notes text of 64,001 to 65,536 characters read during reconciliation
-  (`CDS_EXPORT_HISTORY_SOURCE_NARRATIVE_CAPACITY`).
 - **Data summaries.** 100,000 rows and 400,000 fields per table and chart
   (`CDS_EXPORT_DATA_SUMMARY_ROW_LIMIT`), 64 MiB of text and 32 MiB of retained values per record
   (`CDS_EXPORT_DATA_SUMMARY_SIZE_LIMIT`) and three quarters of `maxIndexBytes` of audit
   (`CDS_EXPORT_DATA_SUMMARY_AUDIT_LIMIT`) hold one chart. They bound what is held while one
   summary is planned and rendered; removing them means planning and rendering a record's rows
   as a stream.
-- **The 16,777,216-character residual bound** (`CdsExportDemographicSupportingMapper`,
-  `CdsExportNativeHistoryMapper`, `CdsExportHistoryFieldReconciler`,
-  `CdsExportNativeLaboratoryMapper`), shared with the importer's `CdsSourceContextParser`.
 - **Schema facets of retained import source** read back during reconciliation (a name part of
   50 characters, a phone extension of 5): the import validated them, so they are integrity
   checks.
@@ -2500,10 +2534,11 @@ does not select NewCategory the record is not written and:
 These were holds: `CDS_EXPORT_PRESCRIPTION_SUPPORTING_CATEGORY_REQUIRED`, and
 `CDS_EXPORT_UNMAPPED_DATA` from the inventory and from the care and laboratory assemblies for a
 native laboratory report, a commented imported result or a measurement. Demographic values with
-no element already followed this rule. One selection still holds a chart: a native laboratory
-report with an embedded document when Reports is not selected
-(`CdsExportPatientInventoryService`, `CdsExportLaboratoryOccurrenceService`); the document is a
-Reports entry and that assembly was not changed here.
+no element already followed this rule. A native laboratory report with an embedded document
+follows it too when Reports is not selected: the chart is exported, the document (a Reports
+entry) is named `Documents embedded in laboratory reports (Reports not selected)` with an
+`OPERATIONAL` not-selected line and a ReadMe count, and its bytes stay in the report's message,
+which the report's source record carries when NewCategory is selected.
 
 The separate owning archive DAO captures every `appointmentArchive` version, including repeated
 booking IDs, SQL NULL/empty values, large text and historical-only status/provider definitions.
@@ -3571,10 +3606,13 @@ item's statements and, for an archived item, the archived statement: 32,000 char
 FamilyHistory, 64,000 for PastHealth, ProblemList and RiskFactors (`text32K`/`text64K` counted as
 the guide counts them, which `CdsExportXmlValidator` enforces). When it does not fit, and for
 every long alert (alert Notes are `text1K`, no longer than the description), the residual alone
-carries it. No narrative length holds the patient
-(`CDS_EXPORT_NATIVE_HISTORY_NARRATIVE_CAPACITY` now fires only when the item's own statements,
-values such as Treatment or Exposure Details that neither their element nor Notes can hold,
-exceed Notes by themselves). The mapper and the revision planner no longer refuse a note with
+carries it. No narrative length holds the patient, and neither do the item's own statements
+(values such as Treatment or Exposure Details that their element cannot hold): Notes holds
+whole parts only, statements first; one that does not fit with the others is left out whole,
+last first, and is exact in the revision's extension facts in `CARLOS.NativeHistory.v1`
+(`CDS_EXPORT_NATIVE_HISTORY_NARRATIVE_CAPACITY` is gone). A note or a CPP field pasted with a
+character XML cannot carry is written with U+FFFD in its place and its exact text travels in
+the revision details (`exactNarrative`). The mapper and the revision planner no longer refuse a note with
 more than 8,192 revisions or a chart with more than 8,192 note rows; the occurrence service's
 own window still applies (see the capacity table).
 

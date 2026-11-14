@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 
+import io.github.carlos_emr.carlos.commn.model.DemographicCust;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFieldAssessmentDto.Outcome;
@@ -65,42 +66,81 @@ public final class CdsExportPatientNoteMapper {
                         CdsExportDemographicSupportingMapper.carried(value));
             else assess.set(column, Outcome.ABSENT, "", "ABSENT_DEMOGRAPHIC_CARE_TEAM_CARRIER");
         }
-        String raw = assess.raw("content"), text = raw;
+        String raw = assess.raw("content"), text = null;
         if (raw != null) {
-            if (raw.startsWith("<unotes>") && raw.endsWith("</unotes>") && raw.length() >= 17)
-                text = raw.substring(8, raw.length() - 9);
-            else if (raw.indexOf("<unotes>") >= 0
-                    && raw.indexOf("</unotes>", raw.indexOf("<unotes>") + 8) >= 0) {
-                assess.review(
-                        "content",
-                        "NoteAboutPatient",
-                        "AMBIGUOUS_PATIENT_NOTE_FRAMING_REQUIRES_REVIEW");
-                text = null;
-            }
-            if (text != null) {
-                if (!CdsExportNativeFieldAssessments.legal(text, 65536)) {
-                    assess.review(
-                            "content",
-                            "NoteAboutPatient",
-                            "PATIENT_NOTE_WIRE_TEXT_REQUIRES_REVIEW");
-                    text = null;
-                } else if (text.codePointCount(0, text.length()) > 64000) {
-                    assess.review(
-                            "content",
-                            "NoteAboutPatient",
-                            "PATIENT_NOTE_DICTIONARY_LENGTH_REQUIRES_REVIEW");
-                    text = null;
-                } else
-                    assess.set(
-                            "content",
-                            Outcome.MAPPED,
-                            "NoteAboutPatient",
-                            raw.equals(text)
-                                    ? "EXACT_UNFRAMED_PATIENT_NOTE"
-                                    : "EXACT_OUTER_UNOTES_PLAIN_TEXT_FRAME");
-            }
+            var note = note(raw);
+            text = note.text();
+            assess.set("content", Outcome.MAPPED, note.destination(), note.rule());
         }
         return new CdsExportPatientNoteMappingDto(patient, text, decisions, delegated);
+    }
+
+    /** NoteAboutPatient is a text64K: 64,000 characters as the migration dictionary counts it. */
+    static final int NOTE_LENGTH = 64000;
+
+    /**
+     * How one stored {@code demographiccust.content} value is exported.
+     *
+     * @param text the text of NoteAboutPatient, or null when the element is not written
+     * @param destination NoteAboutPatient, the native demographic record, or both
+     * @param rule the decision's rule
+     */
+    record Note(String text, String destination, String rule) {
+        /** True when the native demographic record carries the exact stored column. */
+        boolean carried() {
+            return destination.endsWith(CdsExportDemographicSupportingMapper.DESTINATION);
+        }
+
+        @Override
+        public String toString() {
+            return "Note[protected]";
+        }
+    }
+
+    /**
+     * Decides a stored patient note. No note holds the patient:
+     *
+     * <ul>
+     *   <li>the note every CARLOS screen writes, {@code <unotes>text</unotes>}, or a bare text, is
+     *       NoteAboutPatient exactly;
+     *   <li>a legacy value that has the frame somewhere inside it is written as the chart shows it
+     *       ({@link DemographicCust#patientNotesText}), and the exact column travels in the native
+     *       demographic record;
+     *   <li>a character XML 1.0 cannot carry is written as U+FFFD ({@link CdsExportXmlText}), and
+     *       the exact column travels in the record;
+     *   <li>a note longer than the element's 64,000 characters (the column holds 65,535 bytes) is
+     *       not cut: the element is left out and the whole column travels in the record.
+     * </ul>
+     *
+     * <p>Without NewCategory the record is not written, and {@link
+     * CdsExportDemographicSupportingMapper#withSelection} accounts the exact form as not selected,
+     * as it does for every other value the record carries.
+     */
+    static Note note(String raw) {
+        String carrier = CdsExportDemographicSupportingMapper.DESTINATION;
+        boolean framed =
+                raw.startsWith("<unotes>") && raw.endsWith("</unotes>") && raw.length() >= 17;
+        String shown = DemographicCust.patientNotesText(raw);
+        // The chart's reader took an inner frame: the value is not what a screen wrote.
+        boolean legacy = !framed && !shown.equals(raw);
+        String element = CdsExportXmlText.element(shown);
+        if (element.codePointCount(0, element.length()) > NOTE_LENGTH)
+            return new Note(
+                    null, carrier, "PATIENT_NOTE_LONGER_THAN_THE_ELEMENT_CARRIED_WHOLE");
+        if (!element.equals(shown))
+            return new Note(
+                    element,
+                    "NoteAboutPatient," + carrier,
+                    "PATIENT_NOTE_WITH_U_FFFD_EXACT_COLUMN_CARRIED");
+        if (legacy)
+            return new Note(
+                    element,
+                    "NoteAboutPatient," + carrier,
+                    "PATIENT_NOTE_AS_THE_CHART_SHOWS_IT_EXACT_COLUMN_CARRIED");
+        return new Note(
+                element,
+                "NoteAboutPatient",
+                framed ? "EXACT_OUTER_UNOTES_PLAIN_TEXT_FRAME" : "EXACT_UNFRAMED_PATIENT_NOTE");
     }
 
     private static void scope() throws IOException {

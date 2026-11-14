@@ -85,6 +85,11 @@ class CdsExportNativeReportAssemblyUnitTest {
     private Set<String> importedDocuments = Set.of();
     private boolean tamperAfterScans;
     private CdsExportClinicalOccurrenceService.Result result;
+    /** The capture, index and bounds of the last assembly, for the inventory's planner. */
+    private Map<String, CdsExportCapturedTableDto> lastScopes;
+    private CdsExportPatientCaptureDto lastSource;
+    private CdsExportRetainedIndexDto lastIndex;
+    private CdsExportClinicalOccurrenceService.Bounds lastBounds;
     /** A native HL7 report of the patient, captured with LaboratoryResults; null without one. */
     private String laboratory;
 
@@ -598,6 +603,10 @@ class CdsExportNativeReportAssemblyUnitTest {
         var bounds =
                 new CdsExportClinicalOccurrenceService.Bounds(
                         100_000, 32L << 20, 1000, 32L << 20, 100, 1000);
+        lastScopes = scopes;
+        lastSource = source;
+        lastIndex = index;
+        lastBounds = bounds;
         new CdsExportXmlComposer()
                 .composeFromSource(
                         output,
@@ -649,6 +658,52 @@ class CdsExportNativeReportAssemblyUnitTest {
                         ignored -> {},
                         () -> {});
         return new String(xml, StandardCharsets.UTF_8);
+    }
+
+    /**
+     * What the patient inventory expects beyond one record per document: the planner's answer for
+     * the capture just assembled.
+     */
+    private List<CdsExportIdentityDto> planned() throws Exception {
+        var laboratories =
+                new CdsExportLaboratoryOccurrenceService(values, verification, witnesses, captures);
+        var nativeDocuments = new HashSet<String>();
+        var digests = new HashMap<String, String>();
+        for (var doc : documents) {
+            String id = Integer.toString(doc.id());
+            digests.put(id, HASH);
+            if (!importedDocuments.contains(id)
+                    && !"D".equals(doc.document().get("status"))
+                    && !"D".equals(doc.link().get("status"))) nativeDocuments.add(id);
+        }
+        var embedded =
+                laboratory == null
+                        ? List.<CdsExportLaboratoryOccurrenceService.NativeSource>of()
+                        : laboratories
+                                .nativeSources(
+                                        lease,
+                                        patient,
+                                        lastScopes.keySet(),
+                                        lastSource,
+                                        lastIndex,
+                                        lastBounds,
+                                        control)
+                                .stream()
+                                .filter(source -> !source.parsed().documents().isEmpty())
+                                .toList();
+        return new CdsExportReportContextPlanner(captures, laboratories)
+                .identities(
+                        lease,
+                        patient,
+                        PATIENT_KEY,
+                        lastScopes.keySet(),
+                        lastSource,
+                        lastIndex,
+                        lastBounds,
+                        control,
+                        nativeDocuments,
+                        digests,
+                        embedded);
     }
 
     private static CdsExportXmlComposer.Section demographics() throws IOException {
@@ -925,11 +980,71 @@ class CdsExportNativeReportAssemblyUnitTest {
     }
 
     @Test
-    void shouldHoldOnlyThisPatient_forBlankStoredHtml() throws Exception {
+    void shouldExportBlankStoredHtml_asTheDocumentTheUserSaved() throws Exception {
+        // Before: CDS_EXPORT_NATIVE_REPORT_STORED_HTML_REQUIRES_REVIEW held the chart.
         add(99, storedHtml(99, "html", " \r\n\t"), "H", null);
-        assertThatThrownBy(this::assemble)
-                .isInstanceOf(CdsExportMappingReviewException.class)
-                .hasMessage("CDS_EXPORT_NATIVE_REPORT_STORED_HTML_REQUIRES_REVIEW");
+        var reports = reports(assemble());
+        assertThat(reports).hasSize(1);
+        assertThat(reports.getFirst())
+                .contains(
+                        "<Format>Text</Format>",
+                        "<FileExtensionAndVersion>html</FileExtensionAndVersion>",
+                        "<cdsd:TextContent>");
+        assertThat(planned()).isEmpty();
+    }
+
+    @Test
+    void shouldExportACompanionRecord_forEachReportWhoseContextPassesNotes() throws Exception {
+        // Before: CDS_EXPORT_NATIVE_REPORT_METADATA_CAPACITY and
+        // CDS_EXPORT_NATIVE_LAB_DOCUMENT_NOTES_CAPACITY held the chart. A document or a lab
+        // report routed to ninety providers, each of whom left an inbox comment, passes Notes.
+        add(81, uploaded(81, "20260305101400consult-letter.pdf", "application/pdf"), "A", PDF);
+        add(82, uploaded(82, "20260306101400short.pdf", "application/pdf"), "A", PDF);
+        laboratory(
+                CdsExportNativeLaboratoryFeedUnitTest.fixture(
+                                "Excelleris-ON/excellerisON-Path-PDF.xml")
+                        .getFirst());
+        provider("103", "Cy", "Inbox", "123456");
+        for (int i = 1; i <= 90; i++) {
+            route(500 + i, 81, "103", "A", "2026-03-08 11:45:00", "Document " + i + " " + "d".repeat(240));
+            laboratoryRoute(700 + i, "103", "A", "2026-03-08 11:45:00", "Result " + i + " " + "r".repeat(240));
+        }
+        route(691, 82, "103", "A", "2026-03-08 11:45:00", "One short comment");
+        var reports = reports(assemble());
+        // Document 81 and its companion, document 82, the embedded PDF and its companion.
+        assertThat(reports).hasSize(5);
+        String subclass = "<SubClass>CARLOS context of a report</SubClass>";
+        assertThat(reports.get(0)).contains("under the reference").doesNotContain("Document 90 ");
+        assertThat(reports.get(1)).contains(subclass, "Document 1 ", "Document 90 " + "d".repeat(240));
+        assertThat(reports.get(2)).contains("One short comment").doesNotContain("under the reference");
+        assertThat(reports.get(3))
+                .contains("<Class>Lab Report</Class>", "Accession number: 2016-1M7161515")
+                .doesNotContain("Result 90 ");
+        assertThat(reports.get(4)).contains(subclass, "Result 1 ", "Result 90 " + "r".repeat(240));
+        for (String report : List.of(reports.get(0), reports.get(3))) {
+            var notes =
+                    java.util.regex.Pattern.compile("(?s)<Notes>(.*?)</Notes>").matcher(report);
+            assertThat(notes.find()).isTrue();
+            assertThat(notes.group(1).length()).isLessThan(32000);
+        }
+        assertThat(receipts).hasSize(5);
+        assertThat(result.nativeRows()).isEqualTo(5);
+        var companions =
+                List.of(
+                        new CdsExportIdentityDto(
+                                PATIENT_KEY,
+                                CdsCategory.REPORTS,
+                                CdsExportReportContext.id("document", "81")),
+                        receipts.get(4).identity());
+        assertThat(receipts.get(1).identity()).isEqualTo(companions.get(0));
+        // The route rows are accounted in the companion that carries them.
+        assertThat(receipts.get(1).fields().values())
+                .isNotEmpty()
+                .allMatch(value -> value.destination().equals("Reports/Content"));
+        assertThat(receipts.get(0).fields().values())
+                .noneMatch(value -> "Reports/Notes".equals(value.destination()));
+        // The inventory expects exactly those records, and none for the short document.
+        assertThat(planned()).containsExactlyInAnyOrderElementsOf(companions);
     }
 
     @Test

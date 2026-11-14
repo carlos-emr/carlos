@@ -363,13 +363,10 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
                     // Without NewCategory a report's source record is not written: its values
                     // with no laboratory element are decided OPERATIONAL (not selected) in each
                     // result's receipt, and the chart is exported, never held.
-                    // Embedded documents are exported as Reports entries by the Reports assembler.
-                    for (var nativeSource : nativeSources)
-                        if (!nativeSource.parsed().documents().isEmpty()
-                                && !lease.document()
-                                        .command()
-                                        .categories()
-                                        .contains(CdsCategory.REPORTS)) review();
+                    // Embedded documents are exported as Reports entries by the Reports
+                    // assembler. A job that left Reports out exports the chart all the same: the
+                    // inventory names each such document as not exported
+                    // (CdsExportPatientInventoryService.LABORATORY_DOCUMENT_NOT_EXPORTED_LABEL).
                     var zone =
                             nativeSources.isEmpty() || clinic[0] != null
                                     ? clinic[0]

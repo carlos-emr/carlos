@@ -63,6 +63,10 @@ public class CdsExportPatientInventoryService {
     public static final String LABORATORY_NOT_EXPORTED_LABEL =
             "Laboratory report source records" + NOT_SELECTED;
 
+    /** ReadMe label: documents embedded in native laboratory reports when Reports was left out. */
+    public static final String LABORATORY_DOCUMENT_NOT_EXPORTED_LABEL =
+            "Documents embedded in laboratory reports (Reports not selected)";
+
     /** ReadMe label: CARLOS inbox comments on imported laboratory results, not selected. */
     public static final String LABORATORY_COMMENTS_NOT_EXPORTED_LABEL =
             "Inbox comments on imported laboratory results" + NOT_SELECTED;
@@ -384,23 +388,33 @@ public class CdsExportPatientInventoryService {
                                 id),
                         budget);
         }
+        var laboratoryDocuments = new ArrayList<CdsExportLaboratoryOccurrenceService.NativeSource>();
         for (var laboratory :
                 laboratories.nativeSources(
                         lease, patient, tables, source, index, bounds, control)) {
-            // An embedded document is a Reports entry (CdsExportLaboratoryDocumentMapper);
-            // excluding Reports would leave it unexported, so the selection needs review.
-            if (!laboratory.parsed().documents().isEmpty()
-                    && !lease.document().command().categories().contains(CdsCategory.REPORTS))
-                review();
+            if (!laboratory.parsed().documents().isEmpty()) laboratoryDocuments.add(laboratory);
+            // An embedded document is a Reports entry (CdsExportLaboratoryDocumentMapper). A job
+            // that left Reports out still exports the chart: the document is named as not
+            // exported, and its bytes stay in the report's message, which the report's source
+            // record carries whole when NewCategory is selected.
+            boolean reports =
+                    lease.document().command().categories().contains(CdsCategory.REPORTS);
             for (var document : laboratory.parsed().documents())
-                add(
-                        expected,
-                        nativeIdentity(
-                                patientKey,
-                                CdsCategory.REPORTS,
-                                "hl7TextMessage",
-                                laboratory.id() + ":" + document.ordinal()),
-                        budget);
+                if (reports)
+                    add(
+                            expected,
+                            nativeIdentity(
+                                    patientKey,
+                                    CdsCategory.REPORTS,
+                                    "hl7TextMessage",
+                                    laboratory.id() + ":" + document.ordinal()),
+                            budget);
+                else
+                    withhold(
+                            notSelected,
+                            LABORATORY_DOCUMENT_NOT_EXPORTED_LABEL,
+                            "hl7TextMessage",
+                            laboratory.id() + ":" + document.ordinal());
             for (var observation : laboratory.parsed().observations())
                 add(
                         expected,
@@ -481,6 +495,25 @@ public class CdsExportPatientInventoryService {
                             CdsCategory.REPORTS,
                             CdsExportReportOccurrenceService.importedReviewsId(address)),
                     budget);
+        // A report whose CARLOS context is longer than Reports/Notes holds: one companion Reports
+        // record, and the supplementary record of an imported report without Notes of its own
+        // (CdsExportReportContext, CdsExportReportContextPlanner).
+        if (captures != null)
+            for (var identity :
+                    new CdsExportReportContextPlanner(captures, laboratories)
+                            .identities(
+                                    lease,
+                                    patient,
+                                    patientKey,
+                                    tables,
+                                    source,
+                                    index,
+                                    bounds,
+                                    control,
+                                    documents,
+                                    documentDigests,
+                                    laboratoryDocuments))
+                add(expected, identity, budget);
         // HRM reports: one Reports occurrence per report linked to the patient.
         if (CdsExportHospitalReportOccurrenceService.captured(tables)) {
             if (hospitalReports == null

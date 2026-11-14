@@ -467,16 +467,13 @@ public final class CdsExportHistoryFieldReconciler {
             for (int count; (count = input.read(block)) != -1; ) {
                 checkpoint.run();
                 result.append(block, 0, count);
-                if (result.length() > 16_777_215)
-                    review("CDS_EXPORT_HISTORY_REFILED_SOURCE_CAPACITY");
             }
         } finally {
             Arrays.fill(block, '\0');
         }
-        String value = result.toString();
-        if (!CdsExportNativeFieldAssessments.legal(value, 16_777_215))
-            review("CDS_EXPORT_HISTORY_REFILED_SOURCE_CAPACITY");
-        return value;
+        // One imported element, as long as the import stored it: no length is refused, and its
+        // text came from an XML document, so the carrier can hold every character of it.
+        return result.toString();
     }
 
     Result choose(
@@ -899,7 +896,8 @@ public final class CdsExportHistoryFieldReconciler {
             case RISK_FACTORS -> 120;
             case FAMILY_HISTORY, PAST_HEALTH, PROBLEM_LIST -> 250;
             case ALERTS_AND_SPECIAL_NEEDS -> 1024;
-            case CLINICAL_NOTES -> 16_777_215;
+            // MyClinicalNotesContent has no length facet.
+            case CLINICAL_NOTES -> Integer.MAX_VALUE;
             default -> 0;
         };
     }

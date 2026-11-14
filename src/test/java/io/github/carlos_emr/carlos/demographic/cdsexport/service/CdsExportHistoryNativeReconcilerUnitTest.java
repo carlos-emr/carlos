@@ -304,6 +304,69 @@ class CdsExportHistoryNativeReconcilerUnitTest {
     }
 
     @Test
+    void shouldLeaveWholePartsOutOfNotes_andCarryThemExactly() throws Exception {
+        // Before: an imported item edited in CARLOS held the chart when its imported Notes and
+        // the current narrative passed Notes together
+        // (CDS_EXPORT_HISTORY_COMBINED_NARRATIVE_CAPACITY).
+        String imported = "Imported family note. " + "i".repeat(20_000);
+        String revised = "Revised in CARLOS. " + "c".repeat(20_000);
+        var fields =
+                List.of(
+                        field(
+                                CdsCategory.FAMILY_HISTORY,
+                                "ProblemDiagnosisProcedureDescription[1]",
+                                "Original imported narrative"),
+                        field(CdsCategory.FAMILY_HISTORY, "Notes[1]", imported));
+        var result = reconcile(CdsCategory.FAMILY_HISTORY, "FamHistory", fields, revised, false);
+        String xml =
+                new String(
+                        render(CdsCategory.FAMILY_HISTORY, result.content()),
+                        StandardCharsets.UTF_8);
+        // Together they pass 32,000: the imported Notes stay whole, and the current narrative,
+        // the last part, is left out of Notes and travels whole in its carrier.
+        var notes = java.util.regex.Pattern.compile("(?s)<Notes>(.*?)</Notes>").matcher(xml);
+        assertThat(notes.find()).isTrue();
+        assertThat(notes.group(1)).isEqualTo(imported);
+        assertThat(xml).contains(CdsNativeExtensionContract.encodeNarrative(revised));
+        // Imported Notes that alone pass the element make way for the archive statement and are
+        // carried exactly in the residual; before, such an item held the chart
+        // (CDS_EXPORT_HISTORY_SOURCE_NARRATIVE_CAPACITY past 64,000 characters).
+        String gap = "Imported " + "g".repeat(32_500);
+        var long1 =
+                List.of(
+                        field(
+                                CdsCategory.FAMILY_HISTORY,
+                                "ProblemDiagnosisProcedureDescription[1]",
+                                "Original imported narrative"),
+                        field(CdsCategory.FAMILY_HISTORY, "Notes[1]", gap));
+        var archived =
+                reconcile(
+                        CdsCategory.FAMILY_HISTORY,
+                        "FamHistory",
+                        long1,
+                        "Original imported narrative",
+                        true);
+        String archivedXml =
+                new String(
+                        render(CdsCategory.FAMILY_HISTORY, archived.content()),
+                        StandardCharsets.UTF_8);
+        assertThat(archivedXml)
+                .contains(
+                        "<Notes>"
+                                + CdsExportNativeHistoryMapper.ARCHIVED_ITEM_STATEMENT
+                                + "</Notes>",
+                        "importedNotes");
+        var residual =
+                new com.fasterxml.jackson.databind.ObjectMapper()
+                        .readTree(
+                                CdsExportNativeHistoryMapperUnitTest.residual(
+                                        render(CdsCategory.FAMILY_HISTORY, archived.content()),
+                                        "CARLOS.NativeHistory.v1"));
+        assertThat(residual.get("importedNotes").asText()).isEqualTo(gap);
+        assertThat(archived.replacedFields()).contains(long1.get(1).id());
+    }
+
+    @Test
     void shouldReplaceAnImportedNarrativeCarrier_whenTheEditFitsTheDescription()
             throws Exception {
         String imported = "Original imported narrative";

@@ -454,12 +454,26 @@ class CdsExportPatientInventoryServiceUnitTest {
                                 CdsCategory.REPORTS,
                                 CdsImportKeys.hash(
                                         "carlos-native-occurrence-v1", "hl7TextMessage", "91:1:1:0")));
-        // Excluding Reports would leave the document unexported, so the selection needs review.
+        // Before: a job that left Reports out held the chart (CDS_EXPORT_UNMAPPED_DATA). The
+        // chart is exported and the document is named as not exported.
         var withoutReports = fixture(CdsCategory.LABORATORY_RESULTS, CdsCategory.NEW_CATEGORY);
         when(withoutReports.laboratoryInventory.nativeSources(
                         any(), any(), anySet(), any(), any(), any(), any()))
                 .thenReturn(List.of(source));
-        assertThatThrownBy(() -> capture(withoutReports)).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+        var unselected = capture(withoutReports);
+        assertThat(unselected.identities().stream().filter(i -> i.category() == CdsCategory.REPORTS))
+                .isEmpty();
+        assertThat(
+                        unselected
+                                .notSelected()
+                                .get(
+                                        CdsExportPatientInventoryService
+                                                .LABORATORY_DOCUMENT_NOT_EXPORTED_LABEL)
+                                .get("hl7TextMessage"))
+                .containsExactly("91:1:1:0");
+        assertThat(unselected.notExported())
+                .containsEntry(
+                        CdsExportPatientInventoryService.LABORATORY_DOCUMENT_NOT_EXPORTED_LABEL, 1L);
     }
 
     @Test

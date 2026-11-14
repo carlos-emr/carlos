@@ -447,11 +447,17 @@ class CdsExportScreeningMapperUnitTest {
     }
 
     @Test
-    void shouldHoldTextThatXmlCannotCarry_forReviewInsteadOfFailingTheWriter() throws Exception {
-        var comments = extension(42, 31, "comments", "bad \uFFFE char");
+    void shouldCarryTextThatXmlCannotCarry_inTheResidualAlone() throws Exception {
+        // Before: WIRE_TEXT_REQUIRES_REVIEW held the chart for one pasted character.
+        String typed = "bad \uFFFE char";
+        var comments = extension(42, 31, "comments", typed);
         var result = map(parent(31, Map.of()), List.of(comments), List.of());
-        assertThat(result.representable()).isFalse();
-        assertThat(field(result, comments, "val").outcome()).isEqualTo(Outcome.REQUIRES_REVIEW);
+        assertThat(result.representable()).isTrue();
+        assertThat(field(result, comments, "val").outcome()).isEqualTo(Outcome.MAPPED);
+        // Kept out of Notes, exact in the residual, and the entry is valid XML.
+        assertThat(result.value().notes()).isNull();
+        assertThat(context(result).get("extensions").get(0).get("val").asText()).isEqualTo(typed);
+        assertThat(render(result.value())).isNotEmpty();
     }
 
     @Test

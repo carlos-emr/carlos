@@ -385,12 +385,56 @@ class CdsExportDemographicSupportingMapperUnitTest {
     }
 
     @Test
-    void shouldStillHoldAValueNoXmlDocumentCanCarry_forSupportingRecordContract() {
-        set("pronoun", "she/her￾");
-        assertThatThrownBy(() -> assemble(ALL)).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
-        assertThatThrownBy(() -> CdsExportDemographicSupportingMapper.map(supportingRows(), () -> {}))
-                .isInstanceOf(CdsExportMappingReviewException.class)
-                .hasMessage("CDS_EXPORT_DEMOGRAPHIC_SUPPORTING_TEXT_REQUIRES_REVIEW");
+    void shouldCarryAValueNoXmlDocumentCanCarry_asItsJsonEscape() throws Exception {
+        // Before: SUPPORTING_WIRE_TEXT_REQUIRES_REVIEW held the chart for a pasted U+FFFE.
+        String typed = "she/her\ufffe";
+        set("pronoun", typed);
+        assertThat(assemble(ALL).fields().values())
+                .noneMatch(field -> field.outcome() == Outcome.REQUIRES_REVIEW);
+        var record = CdsExportDemographicSupportingMapper.map(supportingRows(), () -> {});
+        assertThat(record.json()).doesNotContain("\ufffe");
+        assertThat(
+                        JsonMapper.builder()
+                                .build()
+                                .readTree(CdsExportScreeningMapper.tokenSafe(record.json()))
+                                .get("demographic")
+                                .get("pronoun")
+                                .asText())
+                .isEqualTo(typed);
+    }
+
+    @Test
+    void shouldCarryThePatientNote_whenNoteAboutPatientCannotHoldIt() throws Exception {
+        // Before: a master record note of 64,001 to 65,535 characters held the chart.
+        custom("101", "102", "103", ALERT, true);
+        String typed = "n".repeat(CdsExportPatientNoteMapper.NOTE_LENGTH + 1);
+        var values = new LinkedHashMap<>(rows.get("demographiccust").getFirst().fields());
+        values.put("content", "<unotes>" + typed + "</unotes>");
+        rows.get("demographiccust")
+                .set(
+                        0,
+                        new CdsExportCapturedTextRowDto(
+                                "demographiccust", CdsExportPatientTableSourceReader.key(27), values));
+        var result = assemble(ALL);
+        var content = key("demographiccust", CdsExportPatientTableSourceReader.key(27), "content");
+        assertThat(result.fields().get(content).outcome()).isEqualTo(Outcome.MAPPED);
+        assertThat(result.fields().get(content).destination())
+                .isEqualTo(CdsExportDemographicSupportingMapper.DESTINATION);
+        var record = CdsExportDemographicSupportingMapper.map(supportingRows(), () -> {});
+        assertThat(record.fields()).containsKey(content);
+        // The exact stored column, frame included.
+        assertThat(
+                        JsonMapper.builder()
+                                .build()
+                                .readTree(CdsExportScreeningMapper.tokenSafe(record.json()))
+                                .get("note")
+                                .get("content")
+                                .asText())
+                .isEqualTo("<unotes>" + typed + "</unotes>");
+        // A note the element holds exactly is not repeated in the record.
+        custom("101", "102", "103", ALERT, true);
+        assertThat(CdsExportDemographicSupportingMapper.map(supportingRows(), () -> {}).json())
+                .doesNotContain("\"note\"");
     }
 
     @Test
