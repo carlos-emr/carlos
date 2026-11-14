@@ -39,8 +39,14 @@ public record CdsImmunizationDto(String name, String type, String manufacturer, 
                 String providerName,
         @com.fasterxml.jackson.annotation.JsonInclude(
                         com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
-                String reminderDate) {
+                String reminderDate,
+        // Warnings about the restore of text a CARLOS sender wrote with U+FFFD; empty, and then
+        // omitted, for every payload sealed before they existed (CdsPreparedImmunizationDefaults).
+        @com.fasterxml.jackson.annotation.JsonInclude(
+                        com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY)
+                java.util.List<CdsClinicalDiagnosticDto> diagnostics) {
     public CdsImmunizationDto {
+        diagnostics = diagnostics == null ? java.util.List.of() : java.util.List.copyOf(diagnostics);
         if (providerName != null && providerName.isEmpty())
             throw new IllegalArgumentException("CDS_IMMUNIZATION_PROVIDER_NAME_INVALID");
         if (reminderDate != null) {
@@ -57,6 +63,15 @@ public record CdsImmunizationDto(String name, String type, String manufacturer, 
                 throw new IllegalArgumentException("CDS_IMMUNIZATION_REMINDER_DATE_INVALID");
             }
         }
+    }
+
+    /** Every value but the restore warnings: none. */
+    public CdsImmunizationDto(String name, String type, String manufacturer, String lot,
+            String route, String site, String dose, String code, String codeSystem,
+            boolean refused, String instructions, String notes, CdsTemporalDto date,
+            String providerName, String reminderDate) {
+        this(name, type, manufacturer, lot, route, site, dose, code, codeSystem, refused,
+                instructions, notes, date, providerName, reminderDate, java.util.List.of());
     }
 
     /** A value without restored native context (any source but a CARLOS sender's carrier). */

@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportComman
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -102,7 +103,8 @@ public class CdsClinicalNormalizationService {
         // #6198: a CARLOS sender's complete native row restores the quantity unit and the
         // as-needed flag, which CDS has no element for, only when the standard elements the
         // exporter wrote from the same row agree with it.
-        var carried = new CdsMedicationResidualReader(fields).read(record).source();
+        var nativeState = new CdsMedicationResidualReader(fields).read(record);
+        var carried = nativeState.source();
         String standardQuantity = text(record, "Quantity", 1024);
         String quantity, quantityUnit = null;
         if (carried != null && carried.quantityUnit() != null) {
@@ -161,6 +163,31 @@ public class CdsClinicalNormalizationService {
             diagnostics.add(
                     new CdsClinicalDiagnosticDto(
                             "CDS_RX_DESCRIPTION_NAMES_OTHER_STRENGTHS", "DrugDescription"));
+        // A CARLOS sender writes a value holding a character XML 1.0 cannot carry with U+FFFD and
+        // carries the stored row; the exact text is restored where the row proves the element.
+        var shown = new LinkedHashMap<String, String>();
+        shown.put("DrugName", name);
+        shown.put("Dosage", dose);
+        shown.put("DosageUnitOfMeasure", doseUnit);
+        shown.put("Form", form);
+        shown.put("Route", route);
+        shown.put("Frequency", frequency);
+        shown.put("Notes", text(record, "Notes", 32768));
+        shown.put("PrescriptionInstructions", text(record, "PrescriptionInstructions", 32768));
+        shown.put("DispenseInterval", text(record, "DispenseInterval", 10));
+        shown.put("ProtocolIdentifier", text(record, "ProtocolIdentifier", 20));
+        shown.put(
+                "PriorPrescriptionReferenceIdentifier",
+                text(record, "PriorPrescriptionReferenceIdentifier", 20));
+        var exact =
+                new CdsCarriedTextResolver(fields)
+                        .medication(record, nativeState.currentRow(), shown, diagnostics::add);
+        name = exact.get("DrugName");
+        dose = exact.get("Dosage");
+        doseUnit = exact.get("DosageUnitOfMeasure");
+        form = exact.get("Form");
+        route = exact.get("Route");
+        frequency = exact.get("Frequency");
         boolean requiresReconciliation =
                 strengthSourceOnly
                         || otherStrengths
@@ -208,11 +235,11 @@ public class CdsClinicalNormalizationService {
                 text(record, "PrescribedBy/OHIPPhysicianId", 20),
                 first,
                 last,
-                text(record, "Notes", 32768),
-                text(record, "PrescriptionInstructions", 32768),
-                text(record, "DispenseInterval", 10),
-                text(record, "ProtocolIdentifier", 20),
-                text(record, "PriorPrescriptionReferenceIdentifier", 20),
+                exact.get("Notes"),
+                exact.get("PrescriptionInstructions"),
+                exact.get("DispenseInterval"),
+                exact.get("ProtocolIdentifier"),
+                exact.get("PriorPrescriptionReferenceIdentifier"),
                 text(record, "PrescriptionIdentifier", 50),
                 date(record, "PrescriptionWrittenDate", command),
                 date(record, "StartDate", command),
@@ -315,6 +342,17 @@ public class CdsClinicalNormalizationService {
         // (its Notes repeat it for other receivers); the carrier restores it exactly, and a record
         // asserting both a standard Reaction and the carrier is contradictory.
         String reaction = text(record, "Reaction", 120);
+        // A CARLOS sender writes a value holding a character XML 1.0 cannot carry with U+FFFD and
+        // carries the stored row; the exact text is restored where the row proves the element.
+        var restoreWarnings = new ArrayList<CdsClinicalDiagnosticDto>();
+        var shown = new LinkedHashMap<String, String>();
+        shown.put("OffendingAgentDescription", description);
+        shown.put("Reaction", reaction);
+        var exact =
+                new CdsCarriedTextResolver(fields)
+                        .allergy(record, nativeState.sourceRow(), shown, restoreWarnings::add);
+        description = exact.get("OffendingAgentDescription");
+        reaction = exact.get("Reaction");
         if (nativeState.reaction() != null) {
             if (reaction != null)
                 throw new CdsClinicalException(
@@ -339,7 +377,8 @@ public class CdsClinicalNormalizationService {
                 nativeState.atc() != null,
                 // Default (decision 9): a source archive marker is not restored natively.
                 nativeState.archived(),
-                nativeState.nativeSeverity());
+                nativeState.nativeSeverity(),
+                restoreWarnings);
     }
 
     public CdsImmunizationDto immunization(CdsRecordDto record) throws IOException {
@@ -367,6 +406,33 @@ public class CdsClinicalNormalizationService {
         // #6198: a CARLOS sender's complete native row restores the free-text administering
         // provider and the reminder date, which CDS has no Immunizations element for.
         var carried = new CdsImmunizationResidualReader(fields).read(record);
+        // A value holding a character XML 1.0 cannot carry is written with U+FFFD; the exact text
+        // is restored where the sender's stored row proves the element.
+        var restoreWarnings = new ArrayList<CdsClinicalDiagnosticDto>();
+        var shown = new LinkedHashMap<String, String>();
+        shown.put("ImmunizationName", name);
+        shown.put("Manufacturer", manufacturer);
+        shown.put("LotNumber", lot);
+        shown.put("Route", route);
+        shown.put("Site", site);
+        shown.put("Dose", dose);
+        shown.put("Instructions", instructions);
+        shown.put("Notes", notes);
+        var exact =
+                new CdsCarriedTextResolver(fields)
+                        .immunization(
+                                record,
+                                new CdsImmunizationResidualReader(fields).sourceRow(record),
+                                shown,
+                                restoreWarnings::add);
+        name = exact.get("ImmunizationName");
+        manufacturer = exact.get("Manufacturer");
+        lot = exact.get("LotNumber");
+        route = exact.get("Route");
+        site = exact.get("Site");
+        dose = exact.get("Dose");
+        instructions = exact.get("Instructions");
+        notes = exact.get("Notes");
         String providerName = null, reminderDate = null;
         if (carried != null) {
             // The carrier must describe this event: its native status is the RefusedFlag the
@@ -409,7 +475,8 @@ public class CdsClinicalNormalizationService {
                 notes,
                 date,
                 providerName,
-                reminderDate);
+                reminderDate,
+                restoreWarnings);
     }
 
     /**

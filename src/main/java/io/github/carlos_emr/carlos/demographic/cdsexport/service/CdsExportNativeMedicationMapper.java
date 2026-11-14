@@ -113,7 +113,8 @@ public final class CdsExportNativeMedicationMapper {
      */
     static final String LONG_NAME = "Drug name longer than 120 characters (see Notes)";
 
-    static final String LONG_NAME_LABEL = "Drug name: ";
+    /** One rule for both sides: a CARLOS importer restores the name from this composition. */
+    static final String LONG_NAME_LABEL = CdsNativeExtensionContract.MEDICATION_LONG_NAME_LABEL;
 
     /**
      * The rules of a date with no date element, which its precision rows share: the rows travel
@@ -240,7 +241,8 @@ public final class CdsExportNativeMedicationMapper {
             String instructions =
                     both
                             ? sig
-                                    + "\n[Native pharmacy instructions]\n"
+                                    + CdsNativeExtensionContract
+                                            .MEDICATION_PHARMACY_INSTRUCTIONS_LABEL
                                     + CdsExportXmlText.element(pharmacy)
                             : sig;
             if (codePoints(instructions) <= Field.PrescriptionInstructions.maximum())

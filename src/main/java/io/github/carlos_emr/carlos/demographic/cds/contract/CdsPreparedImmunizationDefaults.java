@@ -44,6 +44,10 @@ public final class CdsPreparedImmunizationDefaults {
             else if (!result.get(optional).isNull() && !result.get(optional).isTextual())
                 throw new IllegalArgumentException("CDS_PREPARED_IMMUNIZATION_DEFAULTS_INVALID");
         }
+        // Restore warnings (text a CARLOS sender wrote with U+FFFD): none in an earlier payload.
+        if (!result.has("diagnostics")) result.putArray("diagnostics");
+        else if (!result.get("diagnostics").isArray())
+            throw new IllegalArgumentException("CDS_PREPARED_IMMUNIZATION_DEFAULTS_INVALID");
         return result;
     }
 }

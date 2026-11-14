@@ -172,6 +172,25 @@ class CdsExportAllergyMapperUnitTest {
     }
 
     @Test
+    void shouldRestoreTheExactDescriptionAndReaction_whenACarlosImportReadsTheExport()
+            throws Exception {
+        // A control character in the agent or the reaction: the elements show U+FFFD and the
+        // stored row travels in CARLOS.Allergy.Source.v1; a CARLOS importer restores the text.
+        var nativeFields = baseline();
+        nativeFields.put("DESCRIPTION", "Penicil\u0007lin");
+        nativeFields.put("reaction", "Hives\u000b and \uffff rash");
+        var result = mapper.map(27, allergy(nativeFields), List.of());
+        assertThat(result.value().reaction()).isEqualTo("Hives\ufffd and \ufffd rash");
+        var received = receive(result.value());
+        assertThat(received.description()).isEqualTo("Penicil\u0007lin");
+        assertThat(received.reaction()).isEqualTo("Hives\u000b and \uffff rash");
+        assertThat(received.diagnostics()).isEmpty();
+        // Re-exported unchanged, the imported allergy is written as its U+FFFD form again.
+        var again = new CdsExportPreparedAllergyMapper().map(received);
+        assertThat(again.reaction()).isEqualTo("Hives\ufffd and \ufffd rash");
+    }
+
+    @Test
     void shouldNeverTurnNativeSevereIntoLifeThreatening_withoutReconciledSourceEvidence()
             throws Exception {
         var fields = baseline();

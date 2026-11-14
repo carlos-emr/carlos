@@ -128,6 +128,9 @@ public final class CdsExportPreparedMedicationMapper {
     }
 
     private static void put(EnumMap<Field, String> fields, Field key, Object value) {
-        if (value != null) fields.put(key, value.toString());
+        // A CARLOS import restores text its sender wrote with U+FFFD (CdsCarriedTextResolver):
+        // the element of such a value is its U+FFFD form, by the rule every element follows.
+        if (value instanceof String text) fields.put(key, CdsExportXmlText.element(text));
+        else if (value != null) fields.put(key, value.toString());
     }
 }

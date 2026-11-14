@@ -650,6 +650,68 @@ class CdsExportNativeMedicationMapperUnitTest {
     }
 
     @Test
+    void shouldRestoreTheExactText_whenACarlosImportReadsAPrescriptionHoldingACharacterXmlCannotCarry()
+            throws Exception {
+        // Before: the receiving chart showed U+FFFD where the sender's had the character.
+        var fields = source();
+        fields.put("customName", "Bad\u0007name");
+        fields.put("BN", null);
+        fields.put("special", "take\u0001one");
+        fields.put("special_instruction", "keep\u0002cold");
+        fields.put("route", "P\u0003O");
+        fields.put("drug_form", "tab\u000blet");
+        fields.put("freqcode", "B\u0004D");
+        fields.put("prn", "1");
+        fields.put("comment", "note\u0005");
+        fields.put("protocol", "P\u0006");
+        fields.put("priorRxProtocol", "R\u000e");
+        fields.put("dispense_interval", "7\u000fd");
+        var result = mapper.map(27, medication(fields), List.of(), Map.of());
+        var received = receive(result);
+        assertThat(received.name()).isEqualTo("Bad\u0007name");
+        assertThat(received.pharmacyInstructions())
+                .isEqualTo("take\u0001one\n[Native pharmacy instructions]\nkeep\u0002cold");
+        assertThat(received.route()).isEqualTo("P\u0003O");
+        assertThat(received.form()).isEqualTo("tab\u000blet");
+        assertThat(received.frequency()).isEqualTo("B\u0004D PRN");
+        assertThat(received.providerNotes()).isEqualTo("note\u0005");
+        assertThat(received.protocol()).isEqualTo("P\u0006");
+        assertThat(received.priorPrescription()).isEqualTo("R\u000e");
+        assertThat(received.dispenseInterval()).isEqualTo("7\u000fd");
+        assertThat(received.diagnostics())
+                .extracting(diagnostic -> diagnostic.code())
+                .doesNotContain("CDS_MEDICATION_EXACT_TEXT_NOT_APPLIED");
+        // Re-exported unchanged, the imported prescription is written as its U+FFFD form again
+        // (never refused for its characters), and a further CARLOS import restores it again.
+        var again = new CdsExportPreparedMedicationMapper().map(received);
+        CdsExportMedicationXmlWriter.validate(again);
+        assertThat(again.fields()).containsEntry(Field.DrugName, "Bad\ufffdname");
+        var second =
+                receive(
+                        new CdsExportNativeMedicationMapper.Result(
+                                again, result.metadata(), Map.of(), false, null));
+        assertThat(second.name()).isEqualTo("Bad\u0007name");
+        assertThat(second.route()).isEqualTo("P\u0003O");
+        // A carrier that does not prove its element is reported, and the element kept.
+        var altered =
+                new CdsExportNativeMedicationMapper.Result(
+                        result.value(),
+                        result.metadata().replace("Bad\\u0007name", "Bxd\\u0007name"),
+                        result.fields(),
+                        result.archived(),
+                        result.reasons());
+        assertThat(altered.metadata()).isNotEqualTo(result.metadata());
+        var kept = receive(altered);
+        assertThat(kept.name()).isEqualTo("Bad\ufffdname");
+        assertThat(kept.route()).isEqualTo("P\u0003O");
+        assertThat(kept.diagnostics())
+                .anyMatch(
+                        diagnostic ->
+                                diagnostic.code().equals("CDS_MEDICATION_EXACT_TEXT_NOT_APPLIED")
+                                        && diagnostic.field().equals("DrugName"));
+    }
+
+    @Test
     void shouldExportAPrescriptionHoldingACharacterXmlCannotCarry_withTheStoredRowInTheResidual()
             throws Exception {
         // A control character pasted into the Rx page held the chart. Now the instructions show

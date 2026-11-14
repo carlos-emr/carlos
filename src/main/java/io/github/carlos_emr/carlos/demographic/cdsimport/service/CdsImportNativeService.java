@@ -329,6 +329,8 @@ public class CdsImportNativeService {
                                 CdsAllergyDto.class);
                 temporalNotice(run, epoch, unit, "StartDate", source.start());
                 temporalNotice(run, epoch, unit, "RecordedDate", source.recorded());
+                for (var diagnostic : source.diagnostics())
+                    notice(run, epoch, unit, "WARNING", diagnostic.code(), diagnostic.field());
                 if (source.archived() && !source.nativeArchived())
                     notice(
                             run,
@@ -365,6 +367,8 @@ public class CdsImportNativeService {
                                 command,
                                 CdsImmunizationDto.class);
                 temporalNotice(run, epoch, unit, "Date", source.date());
+                for (var diagnostic : source.diagnostics())
+                    notice(run, epoch, unit, "WARNING", diagnostic.code(), diagnostic.field());
                 written = immunizations.write(target, command.providerNo(), source);
             }
             case "Appointments" ->

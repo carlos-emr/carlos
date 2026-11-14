@@ -42,6 +42,10 @@ public final class CdsPreparedAllergyDefaults {
             if (!result.has(optional)) result.putNull(optional);
             else if (!result.get(optional).isNull() && !result.get(optional).isTextual()) invalid();
         }
+        // Restore warnings (text a CARLOS sender wrote with U+FFFD): none in an earlier payload.
+        if (!result.has("diagnostics")) result.putArray("diagnostics");
+        else if (!result.get("diagnostics").isArray())
+            throw new IllegalArgumentException("CDS_PREPARED_ALLERGY_DEFAULTS_INVALID");
         return result;
     }
 

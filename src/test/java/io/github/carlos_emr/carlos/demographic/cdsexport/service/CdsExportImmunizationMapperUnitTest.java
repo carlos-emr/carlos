@@ -517,6 +517,24 @@ class CdsExportImmunizationMapperUnitTest {
     }
 
     @Test
+    void shouldRestoreTheExactValues_whenACarlosImportReadsAVaccineHoldingACharacterXmlCannotCarry()
+            throws Exception {
+        // Before: the receiving chart showed U+FFFD in the lot, the moved name and the comments.
+        String longName = "FAKE tetanus\u0001 diphtheria booster ".repeat(5);
+        int id = 30;
+        extra(id++, "lot", "LOT\u0007-1");
+        extra(id++, "comments", "given\u000bleft arm");
+        extra(id, "name", longName);
+        var received = receive(map().value());
+        assertThat(received.lot()).isEqualTo("LOT\u0007-1");
+        assertThat(received.notes()).isEqualTo("Name: " + longName + "\ngiven\u000bleft arm");
+        assertThat(received.diagnostics()).isEmpty();
+        // Re-exported unchanged, the imported vaccine is written as its U+FFFD form again.
+        var again = new CdsExportPreparedImmunizationMapper().map(received);
+        assertThat(again.lot()).isEqualTo("LOT\ufffd-1");
+    }
+
+    @Test
     void shouldExportAVaccineHoldingACharacterXmlCannotCarry_withTheStoredValuesInTheResidual()
             throws Exception {
         // A control character pasted into the prevention form's lot, comments or brand name box

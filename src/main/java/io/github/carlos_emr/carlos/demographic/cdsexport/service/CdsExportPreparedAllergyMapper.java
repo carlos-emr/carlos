@@ -30,8 +30,10 @@ public final class CdsExportPreparedAllergyMapper {
     public CdsExportAllergyDto map(CdsAllergyDto source) throws IOException {
         java.util.Objects.requireNonNull(source);
         var dates = new CdsExportPreparedTemporalMapper();
+        // A CARLOS import restores text its sender wrote with U+FFFD (CdsCarriedTextResolver):
+        // the element of such a value is its U+FFFD form, by the rule every element follows.
         return new CdsExportAllergyDto(
-                source.description(),
+                element(source.description()),
                 source.property(),
                 source.codeSystem(),
                 source.code(),
@@ -39,9 +41,9 @@ public final class CdsExportPreparedAllergyMapper {
                 dates.map(source.start(), false),
                 source.lifeStage(),
                 source.severity(),
-                longReaction(source) ? null : source.reaction(),
+                longReaction(source) ? null : element(source.reaction()),
                 dates.map(source.recorded(), true),
-                source.notes(),
+                element(source.notes()),
                 // The native state this import wrote: a source archive marker is restored only
                 // when the import opted in (decision 9).
                 source.nativeArchived(),
@@ -51,6 +53,10 @@ public final class CdsExportPreparedAllergyMapper {
                 // A reaction restored from CARLOS.Allergy.Reaction.v1 is longer than Reaction;
                 // the source carried it in that carrier, not in the standard element.
                 longReaction(source) ? source.reaction() : null);
+    }
+
+    private static String element(String value) {
+        return value == null ? null : CdsExportXmlText.element(value);
     }
 
     private static boolean longReaction(CdsAllergyDto source) {

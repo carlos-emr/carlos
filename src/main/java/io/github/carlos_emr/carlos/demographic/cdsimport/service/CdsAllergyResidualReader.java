@@ -66,6 +66,10 @@ final class CdsAllergyResidualReader {
     /**
      * @param reaction the complete native reaction from {@code CARLOS.Allergy.Reaction.v1}
      *     (decoded), or null when the record carries none
+     * @param sourceRow the content of the last {@code CARLOS.Allergy.Source.v1}, or null. Not
+     *     interpreted: it is read only to restore the text of an element the sender wrote with
+     *     U+FFFD ({@link CdsCarriedTextResolver}), and an element of another shape is source
+     *     data, never a reason to refuse the record
      */
     record NativeState(
             boolean archived,
@@ -73,7 +77,8 @@ final class CdsAllergyResidualReader {
             String onsetOfReaction,
             String atc,
             String nativeSeverity,
-            String reaction) {}
+            String reaction,
+            CdsFieldDto sourceRow) {}
 
     NativeState read(CdsRecordDto record) throws IOException {
         if (!record.section().equals("AllergiesAndAdverseReactions"))
@@ -96,7 +101,8 @@ final class CdsAllergyResidualReader {
                     state.onsetOfReaction,
                     state.atc,
                     state.nativeSeverity,
-                    state.reaction);
+                    state.reaction,
+                    state.sourceRow);
         } catch (UncheckedIOException invalid) {
             throw invalid.getCause();
         }
@@ -112,10 +118,21 @@ final class CdsAllergyResidualReader {
         private String atc;
         private String nativeSeverity;
         private String reaction;
+        private CdsFieldDto sourceRow;
         private final Set<String> seen = new java.util.HashSet<>();
 
         private State(CdsRecordDto record) {
             this.record = record;
+        }
+
+        private boolean stringType(CdsFieldDto type) throws IOException {
+            try {
+                return CdsNativeExtensionContract.STRING_TYPE.equals(
+                        fields.readToken(record, type, 7));
+            } catch (CdsInputException capacity) {
+                if (!capacity.code().equals("CDS_TARGET_TEXT_CAPACITY_EXCEEDED")) throw capacity;
+                return false;
+            }
         }
 
         private void accept(CdsFieldDto field) throws IOException {
@@ -144,6 +161,13 @@ final class CdsAllergyResidualReader {
                 if (!capacity.code().equals("CDS_TARGET_TEXT_CAPACITY_EXCEEDED")) throw capacity;
                 fields.verifyLogicalValue(record, name);
                 return; // A longer logical name cannot equal any exact known marker.
+            }
+            if (CdsNativeExtensionContract.ALLERGY_SOURCE_CONTEXT.equals(text)) {
+                if (values.keySet().equals(Set.of("Name", "DataType", "Content"))
+                        && stringType(values.get("DataType")))
+                    sourceRow = values.get("Content");
+                values.clear();
+                return;
             }
             if (!KNOWN.contains(text)) return;
             boolean archive = CdsNativeExtensionContract.ALLERGY_ARCHIVED.equals(text);

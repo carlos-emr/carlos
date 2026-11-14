@@ -72,10 +72,20 @@ final class CdsMedicationResidualReader {
     /**
      * @param source the restorable columns of {@code CARLOS.Medication.Source.v1}, or null when
      *     the record carries none
+     * @param currentRow the content of the carrier that states the prescription's current stored
+     *     row, or null: the last {@code CARLOS.Medication.CurrentSource.v1} (a sender that changed
+     *     a prescription after its own import), else {@code CARLOS.Medication.Source.v1}. Elements
+     *     the sender wrote with U+FFFD are proven against it before their text is restored
+     *     ({@link CdsCarriedTextResolver}); a CurrentSource element of another shape is source
+     *     data, never a reason to refuse the record.
      */
-    record NativeState(boolean archived, SourceContext source) {
+    record NativeState(boolean archived, SourceContext source, CdsFieldDto currentRow) {
         NativeState(boolean archived) {
-            this(archived, null);
+            this(archived, null, null);
+        }
+
+        NativeState(boolean archived, SourceContext source) {
+            this(archived, source, null);
         }
     }
 
@@ -93,7 +103,10 @@ final class CdsMedicationResidualReader {
                         }
                     });
             state.finish();
-            return new NativeState(Boolean.TRUE.equals(state.archived), state.source);
+            return new NativeState(
+                    Boolean.TRUE.equals(state.archived),
+                    state.source,
+                    state.currentSource != null ? state.currentSource : state.sourceContent);
         } catch (UncheckedIOException failure) {
             throw failure.getCause();
         }
@@ -106,6 +119,8 @@ final class CdsMedicationResidualReader {
         private String group;
         private Boolean archived;
         private SourceContext source;
+        private CdsFieldDto sourceContent;
+        private CdsFieldDto currentSource;
 
         State(CdsRecordDto record) {
             this.record = record;
@@ -138,6 +153,14 @@ final class CdsMedicationResidualReader {
                 fields.verifyLogicalValue(record, descriptor);
                 return;
             }
+            if (name.equals(CdsNativeExtensionContract.MEDICATION_CURRENT_SOURCE)) {
+                // Not interpreted: read only to restore text an element shows with U+FFFD.
+                if (values.keySet().equals(Set.of("Name", "DataType", "Content"))
+                        && isString(values.get("DataType")))
+                    currentSource = values.get("Content");
+                values.clear();
+                return;
+            }
             if (!KNOWN.contains(name)) return;
             if (!seen.add(name) || !values.keySet().equals(Set.of("Name", "DataType", "Content")))
                 invalid();
@@ -155,8 +178,21 @@ final class CdsMedicationResidualReader {
                             case "false", "0" -> false;
                             default -> throw invalidValue();
                         };
-            } else source = sourceContext(values.get("Content"));
+            } else {
+                source = sourceContext(values.get("Content"));
+                sourceContent = values.get("Content");
+            }
             values.clear();
+        }
+
+        private boolean isString(CdsFieldDto type) throws IOException {
+            try {
+                return CdsNativeExtensionContract.STRING_TYPE.equals(
+                        fields.readToken(record, type, 7));
+            } catch (CdsInputException capacity) {
+                if (!capacity.code().equals("CDS_TARGET_TEXT_CAPACITY_EXCEEDED")) throw capacity;
+                return false;
+            }
         }
 
         /**

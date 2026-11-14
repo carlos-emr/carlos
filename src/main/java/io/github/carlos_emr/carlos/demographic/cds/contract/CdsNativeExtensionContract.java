@@ -303,6 +303,48 @@ public final class CdsNativeExtensionContract {
     }
 
     /**
+     * Leads the prescription's Notes when its name is longer than DrugName (120 characters): the
+     * name follows, then a line break and the stored comment, if any. DrugName then holds a
+     * fixed statement.
+     */
+    public static final String MEDICATION_LONG_NAME_LABEL = "Drug name: ";
+
+    /**
+     * Separates the SIG from the pharmacy instructions in PrescriptionInstructions when both are
+     * recorded and differ, and the two fit together.
+     */
+    public static final String MEDICATION_PHARMACY_INSTRUCTIONS_LABEL =
+            "\n[Native pharmacy instructions]\n";
+
+    /** A vaccine's Notes holds 32,000 characters (code points), as the guide counts text32K. */
+    public static final int PREVENTION_NOTES_LENGTH = 32000;
+
+    /**
+     * The label that opens a vaccine's Notes for a stored status no other element states in
+     * words: completed externally (given, RefusedFlag N) and ineligible (not given, Y).
+     */
+    public static final java.util.Map<String, String> PREVENTION_STATUS_NOTES =
+            java.util.Map.of("2", "Ineligible", "3", "Completed externally");
+
+    /**
+     * One stored vaccine value too long for its element, moved whole to Notes as {@code label:
+     * value}: the extension keys it is read from, the label, and the element's length.
+     */
+    public record PreventionNotesLine(java.util.List<String> keys, String label, int maximum) {}
+
+    /** The values the exporter moves to a vaccine's Notes, in the order it writes them. */
+    public static final java.util.List<PreventionNotesLine> PREVENTION_NOTES_LINES =
+            java.util.List.of(
+                    new PreventionNotesLine(java.util.List.of("name", "cdsName"), "Name", 120),
+                    new PreventionNotesLine(java.util.List.of("manufacture"), "Manufacturer", 120),
+                    new PreventionNotesLine(java.util.List.of("lot"), "Lot number", 120),
+                    new PreventionNotesLine(java.util.List.of("route"), "Route", 120),
+                    new PreventionNotesLine(java.util.List.of("location"), "Site", 120),
+                    new PreventionNotesLine(java.util.List.of("dose"), "Dose", 120),
+                    new PreventionNotesLine(
+                            java.util.List.of("instructions"), "Instructions", 250));
+
+    /**
      * Complete native prescription context; unqualified codes remain explicitly unqualified. A
      * CARLOS importer restores only the quantity unit ({@code unitName}) and the as-needed flag
      * ({@code prn}) from it, and only when the standard Quantity and Frequency/TreatmentType
