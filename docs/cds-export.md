@@ -1666,6 +1666,19 @@ so 3.5 MB for 500,000 patients), and every ledger transaction that loads the run
 Checkpoints are at most one a second, and a job history page loads at most 100 runs. A roster
 chosen by physician stores only the physicians.
 
+**The cohort manifest.** The sealed cohort (`CdsExportCohortService`, staged member
+`COHORT_MANIFEST`) binds the whole job document, explicit lists included, so a long explicit
+selection made it long too, and a manifest over 512 KiB stopped the job
+(`CDS_EXPORT_COHORT_MANIFEST_LIMIT`; an explicit selection of roughly 65,000 patients or more). No
+manifest is refused for its size now. One of at most 512 KiB is stored as before, byte for byte; a
+longer one is stored in the same two lines as the job document: the manifest with both lists empty
+and a `lists` member giving the count of each list and the SHA-256 of the second line, then
+`{"patientNos":[...],"physicianNos":[...]}`, written from the command as it streams. A manifest is
+read back only once its second line is exactly the one its first line names (digest, both counts
+and the member's authenticated end), and the member's own digest, which the ledger records in
+`cohort_digest` and every patient scope names, covers both lines. A second line that differs fails
+with `CDS_EXPORT_COHORT_INVENTORY_INVALID`, as any other altered manifest does.
+
 **Still fixed, and why.**
 
 - Nothing about the size of a request (see "Request size" above).
@@ -2814,7 +2827,8 @@ capture; selection alone is not a complete clinical snapshot.
 
 `CdsExportCohortService` fully authenticates and checks the exact selection before
 preparing its encrypted cohort manifest. The manifest binds the accepted intent,
-run/epoch, patient count, database read bounds and exact inventory bytes. Its unforgeable
+run/epoch, patient count, database read bounds and exact inventory bytes. A manifest of
+any size is sealed; a long one is stored in two verified lines (see "The cohort manifest"). Its unforgeable
 internal seal proof is the sole input to the ledger's idempotent `sealSelection` transition;
 a plain phase change cannot start capture. `cohort_member`, `cohort_digest` and
 `cohort_bytes` retain the exact committed pointer. A lost commit acknowledgement retries
