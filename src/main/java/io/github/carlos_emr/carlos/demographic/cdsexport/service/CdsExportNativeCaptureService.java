@@ -386,6 +386,20 @@ public class CdsExportNativeCaptureService {
                                             var scopes =
                                                     new TreeMap<
                                                             String, CdsExportCapturedTableDto>();
+                                            // One complete schema read answers every reader's
+                                            // verification in this transaction; it is read again
+                                            // after the last source read, below.
+                                            var schemaPass =
+                                                    tables.contains("clinical_source_catalogue")
+                                                                    && readers.get(
+                                                                                    "clinical_source_catalogue")
+                                                                            instanceof
+                                                                            CdsExportSourceCatalogueReader
+                                                                                    catalogue
+                                                            ? catalogue
+                                                            : null;
+                                            if (schemaPass != null)
+                                                schemaPass.openSchemaPass(control.schemaProbes());
                                             try {
                                                 for (var reader : selected) {
                                                     control.captureCheckpoint();
@@ -477,6 +491,8 @@ public class CdsExportNativeCaptureService {
                                                                 });
                                                 owned.add(values);
                                                 control.captureCheckpoint();
+                                                if (schemaPass != null)
+                                                    schemaPass.verifySchemaPass();
                                                 return new CdsExportNativeCaptureDto(
                                                         2,
                                                         lease.runId(),

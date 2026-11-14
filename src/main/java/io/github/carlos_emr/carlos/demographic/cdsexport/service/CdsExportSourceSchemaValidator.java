@@ -113,7 +113,33 @@ public final class CdsExportSourceSchemaValidator {
         return verify(actual == null ? null : actual.table(), actual, columns);
     }
 
+    /**
+     * Verifications that already succeeded, by scope, actual structure and column set. A
+     * verification depends only on those three values, the packaged contract resources and the
+     * pinned source catalogue, none of which change in a running application, so the same
+     * structure is not parsed and digested again for every table of every patient. The actual
+     * structure is still read from the database for every capture; only a structure that is
+     * value-for-value one already accepted is answered from here. Refusals are never kept.
+     */
+    private static final java.util.concurrent.ConcurrentHashMap<Verified, String> VERIFIED =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    private record Verified(String scope, CdsExportTableSchemaDto actual, Set<String> columns) {}
+
     public String verify(String scope, CdsExportTableSchemaDto actual, Set<String> columns)
+            throws IOException {
+        if (scope == null || actual == null || columns == null)
+            return verifyUncached(scope, actual, columns);
+        var key = new Verified(scope, actual, Set.copyOf(columns));
+        String known = VERIFIED.get(key);
+        if (known != null) return known;
+        String digest = verifyUncached(scope, actual, columns);
+        // Bounded by the pinned tables and their accepted structures.
+        if (VERIFIED.size() < 4096) VERIFIED.putIfAbsent(key, digest);
+        return digest;
+    }
+
+    private String verifyUncached(String scope, CdsExportTableSchemaDto actual, Set<String> columns)
             throws IOException {
         if (dataSummary(scope)) return verifyDataSummary(scope, actual, columns);
         if (scope == null

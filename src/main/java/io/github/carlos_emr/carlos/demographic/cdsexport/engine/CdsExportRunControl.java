@@ -142,6 +142,17 @@ public interface CdsExportRunControl {
     }
 
     /**
+     * The tables whose column-visibility probe ({@code select d.* from T limit 0}) has already
+     * succeeded in this attempt, updated by each capture's schema pass, so the probe runs once
+     * per table and attempt instead of once per table and patient; every patient's capture still
+     * verifies every table's structure. Null when the adapter keeps none: every capture then
+     * probes every table, which is always correct.
+     */
+    default java.util.Set<String> schemaProbes() {
+        return null;
+    }
+
+    /**
      * Fresh Reports and eForm read check for one patient, outside any source transaction, returning
      * the job's effective provider identity an eForm of that patient is rendered as. Never a system
      * identity; an adapter without a renderer identity refuses, so it stays fail-closed.

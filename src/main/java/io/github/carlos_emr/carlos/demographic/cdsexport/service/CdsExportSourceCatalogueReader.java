@@ -76,6 +76,26 @@ public class CdsExportSourceCatalogueReader implements CdsExportNativeSourceRead
         return source.readSourceSchema();
     }
 
+    /**
+     * Opens the capture transaction's schema pass: every reader's schema verification in this
+     * transaction is then answered from one complete read of the physical schema instead of one
+     * read per table. The caller must call {@link #verifySchemaPass} after its last source read.
+     *
+     * @param probes the tables whose column-visibility probe already succeeded in this export
+     *     attempt; null to probe every table again
+     */
+    public void openSchemaPass(Set<String> probes) {
+        source.openSchemaPass(probes);
+    }
+
+    /**
+     * Reads the physical schema again, after the capture's last source read and inside its
+     * transaction, and refuses the capture when a verified table changed since the pass opened.
+     */
+    public void verifySchemaPass() {
+        source.verifySchemaPass();
+    }
+
     /** Requires the caller's read-only transaction; names and estimates only, never values. */
     public List<io.github.carlos_emr.carlos.commn.dto.CdsExportLocalSourceDto> unreviewedLocalSources() {
         return source.unreviewedLocalSources();

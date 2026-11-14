@@ -1820,6 +1820,26 @@ public final class CdsExportPatientTableReadSupport {
     }
 
     public static CdsExportTableSchemaDto schema(EntityManager em, Plan plan) {
+        // Inside a capture's schema pass the same structure comes from the transaction's one
+        // complete catalogue read (CdsExportPhysicalSchemaReadSupport says how visibility and
+        // stability are then kept).
+        var pass = CdsExportPhysicalSchemaReadSupport.current();
+        if (pass != null) {
+            var found = pass.named(plan.table);
+            if (found.size() != 1
+                    || found.getFirst().columns().isEmpty()
+                    || found.getFirst().columns().size() > 4096
+                    || found.getFirst().primaryKeyColumns().size() > 16) invalid();
+            if (pass.unprobed(plan.table)) {
+                query(em, "select d.* from `" + plan.table + "` d limit 0").getResultList();
+                pass.probed(plan.table);
+            }
+            return new CdsExportTableSchemaDto(
+                    plan.table,
+                    found.getFirst().engine(),
+                    found.getFirst().columns(),
+                    found.getFirst().primaryKeyColumns());
+        }
         // Verify whole-table column visibility, including invisible columns, before trusting
         // the privilege-filtered information_schema catalogue. No source values are returned.
         query(em, "select d.* from `" + plan.table + "` d limit 0").getResultList();

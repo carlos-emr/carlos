@@ -211,6 +211,26 @@ public class CdsExportDataSummaryReadDao {
     public CdsExportTableSchemaDto schema(Plan plan) {
         String engine = engine(plan);
         if (engine == null) return new CdsExportTableSchemaDto(plan.table(), ABSENT, List.of(), List.of());
+        // Inside a capture's schema pass the same structure comes from the transaction's one
+        // complete catalogue read (CdsExportPhysicalSchemaReadSupport says how visibility and
+        // stability are then kept).
+        var pass = CdsExportPhysicalSchemaReadSupport.current();
+        if (pass != null) {
+            var found = pass.named(plan.table());
+            if (found.size() != 1
+                    || found.getFirst().columns().isEmpty()
+                    || found.getFirst().columns().size() > 4096
+                    || found.getFirst().primaryKeyColumns().size() > 16) throw invalid();
+            if (pass.unprobed(plan.table())) {
+                visible(plan);
+                pass.probed(plan.table());
+            }
+            return new CdsExportTableSchemaDto(
+                    plan.table(),
+                    engine,
+                    found.getFirst().columns(),
+                    found.getFirst().primaryKeyColumns());
+        }
         visible(plan);
         var columns =
                 rows(
@@ -664,6 +684,12 @@ public class CdsExportDataSummaryReadDao {
     }
 
     private String engine(String table) {
+        var pass = CdsExportPhysicalSchemaReadSupport.current();
+        if (pass != null) {
+            var found = pass.named(table);
+            if (found.size() > 1) throw invalid();
+            return found.isEmpty() ? null : found.getFirst().engine();
+        }
         var engines =
                 rows(
                         CdsExportPatientTableReadSupport.query(

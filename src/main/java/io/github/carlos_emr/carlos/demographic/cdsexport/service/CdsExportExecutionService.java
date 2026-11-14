@@ -411,6 +411,15 @@ public class CdsExportExecutionService {
             if (current != null) current.close();
         }
 
+        /** Table names only; kept for this attempt and dropped with it. */
+        private final java.util.Set<String> schemaProbes =
+                java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+        @Override
+        public java.util.Set<String> schemaProbes() {
+            return schemaProbes;
+        }
+
         private void outsideCapture() {
             if (TransactionSynchronizationManager.isActualTransactionActive()) {
                 throw new IllegalStateException("CDS_EXPORT_AUTHORIZATION_INSIDE_CAPTURE_REFUSED");

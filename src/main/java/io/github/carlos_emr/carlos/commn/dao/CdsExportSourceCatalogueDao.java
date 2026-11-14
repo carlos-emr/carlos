@@ -42,57 +42,137 @@ public class CdsExportSourceCatalogueDao {
             org.apache.logging.log4j.LogManager.getLogger(CdsExportSourceCatalogueDao.class);
     @PersistenceContext private EntityManager entityManager;
 
+    /**
+     * Opens this capture transaction's schema pass ({@link CdsExportPhysicalSchemaReadSupport}):
+     * one complete read of the physical schema that every source reader's verification in this
+     * transaction is then answered from. Without the whole-schema SELECT right no pass is opened
+     * and every reader reads its own table, as before.
+     *
+     * @param probes the tables whose column-visibility probe already succeeded in this export
+     *     attempt, updated as more succeed; null to probe every table again
+     */
+    public void openSchemaPass(Set<String> probes) {
+        snapshot();
+        CdsExportPhysicalSchemaReadSupport.open(entityManager, probes);
+    }
+
+    /**
+     * Closes the schema pass's one window, after the capture's last source read and before its
+     * transaction commits: reads the physical schema a second time and refuses the capture when a
+     * table whose structure was verified from the first read is no longer the same. Every table
+     * read in this transaction has held its metadata lock since its first read, so an unchanged
+     * second read means its rows were read under the verified structure. The whole reviewed
+     * profile is compared again as well. Nothing happens when no pass is open.
+     */
+    public void verifySchemaPass() {
+        snapshot();
+        var pass = CdsExportPhysicalSchemaReadSupport.current();
+        if (pass == null) return;
+        var again = CdsExportPhysicalSchemaReadSupport.read(entityManager, null);
+        var changed = again == null ? null : CdsExportPhysicalSchemaReadSupport.changed(pass, again);
+        if (changed == null || !changed.isEmpty()) {
+            // Table names only; a schema that changes under a running export concerns every
+            // patient, so it stops the job.
+            LOG.warn(
+                    "CDS_EXPORT_SOURCE_SCHEMA_CHANGED_DURING_CAPTURE tables={}",
+                    changed == null ? List.of() : changed.stream().limit(20).toList());
+            sourceNotice(
+                    CdsExportReviewException.Reason.CLINIC_SOURCE_UNREVIEWED,
+                    changed == null ? List.of() : List.copyOf(changed));
+            review();
+        }
+        verifyProfile(CdsExportSourceCatalogue.current(), again, null);
+    }
+
     // Identifiers come only from the immutable pinned catalogue, validated as ASCII SQL
     // identifiers.
     @SuppressWarnings("java:S2077")
     public CdsExportTableSchemaDto readSourceSchema() {
         snapshot();
-        visibility();
         var catalogue = CdsExportSourceCatalogue.current();
-        int caseMode = tableNameCaseMode();
-        var engines = engines(caseMode);
+        var pass = CdsExportPhysicalSchemaReadSupport.current();
+        // A pass exists only for an account whose whole-schema SELECT right was just shown.
+        if (pass == null) visibility();
+        verifyProfile(catalogue, pass, pass);
+        return catalogue.scope();
+    }
+
+    /**
+     * Every table of the matched pinned profile has exactly its reviewed structure.
+     *
+     * @param source the complete schema read to compare, or null to read it now
+     * @param probes where the per-table visibility probes of this attempt are kept; null with a
+     *     non-null {@code source} runs none (the second read of a pass), null without a source
+     *     probes every table
+     */
+    // Identifiers come only from the immutable pinned catalogue, validated as ASCII SQL
+    // identifiers.
+    @SuppressWarnings("java:S2077")
+    private void verifyProfile(
+            CdsExportSourceCatalogue.Snapshot catalogue,
+            CdsExportPhysicalSchemaReadSupport.Pass source,
+            CdsExportPhysicalSchemaReadSupport.Pass probes) {
+        int caseMode = source == null ? tableNameCaseMode() : source.caseMode();
+        var engines = source == null ? engines(caseMode) : engines(source, caseMode);
         var profile = profile(catalogue, engines.keySet(), caseMode).profile();
         var columns = new HashMap<String, List<CdsExportTableSchemaDto.Column>>();
-        for (var row :
-                rows(
-                        "select"
-                            + " TABLE_NAME,COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE,CHARACTER_SET_NAME,COLLATION_NAME,NULLIF(GENERATION_EXPRESSION,'')"
-                            + " from information_schema.COLUMNS where TABLE_SCHEMA=DATABASE()",
-                        65537)) {
-            String table = tableKey((String) row[0], caseMode);
-            if (!engines.containsKey(table)) continue;
-            columns.computeIfAbsent(table, ignored -> new ArrayList<>())
-                    .add(
-                            new CdsExportTableSchemaDto.Column(
-                                    (String) row[1],
-                                    (String) row[2],
-                                    (String) row[3],
-                                    (String) row[4],
-                                    (String) row[5],
-                                    (String) row[6]));
-        }
         var primary = new HashMap<String, List<String>>();
-        for (var row :
-                rows(
-                        "select TABLE_NAME,COLUMN_NAME,ORDINAL_POSITION from"
-                            + " information_schema.KEY_COLUMN_USAGE where TABLE_SCHEMA=DATABASE()"
-                            + " and CONSTRAINT_NAME='PRIMARY' order by TABLE_NAME,ORDINAL_POSITION",
-                        16385)) {
-            String table = tableKey((String) row[0], caseMode);
-            if (engines.containsKey(table))
-                primary.computeIfAbsent(table, ignored -> new ArrayList<>()).add((String) row[1]);
+        if (source != null) {
+            for (var table : source.tables()) {
+                String key = tableKey(table.name(), caseMode);
+                if (!engines.containsKey(key)) continue;
+                columns.computeIfAbsent(key, ignored -> new ArrayList<>())
+                        .addAll(table.columns());
+                primary.computeIfAbsent(key, ignored -> new ArrayList<>())
+                        .addAll(table.primaryKeyColumns());
+            }
+        } else {
+            for (var row :
+                    rows(
+                            "select"
+                                + " TABLE_NAME,COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE,CHARACTER_SET_NAME,COLLATION_NAME,NULLIF(GENERATION_EXPRESSION,'')"
+                                + " from information_schema.COLUMNS where TABLE_SCHEMA=DATABASE()",
+                            65537)) {
+                String table = tableKey((String) row[0], caseMode);
+                if (!engines.containsKey(table)) continue;
+                columns.computeIfAbsent(table, ignored -> new ArrayList<>())
+                        .add(
+                                new CdsExportTableSchemaDto.Column(
+                                        (String) row[1],
+                                        (String) row[2],
+                                        (String) row[3],
+                                        (String) row[4],
+                                        (String) row[5],
+                                        (String) row[6]));
+            }
+            for (var row :
+                    rows(
+                            "select TABLE_NAME,COLUMN_NAME,ORDINAL_POSITION from"
+                                + " information_schema.KEY_COLUMN_USAGE where TABLE_SCHEMA=DATABASE()"
+                                + " and CONSTRAINT_NAME='PRIMARY' order by TABLE_NAME,ORDINAL_POSITION",
+                            16385)) {
+                String table = tableKey((String) row[0], caseMode);
+                if (engines.containsKey(table))
+                    primary.computeIfAbsent(table, ignored -> new ArrayList<>())
+                            .add((String) row[1]);
+            }
         }
         for (var entry : profile.tables().entrySet()) {
             String table = entry.getKey();
             String key = tableKey(table, caseMode);
             if (!entry.getValue().engine().equals("InnoDB"))
                 CdsExportSourceReadLock.requirePinned();
-            // Lock the physical table metadata and prove whole-table visibility without returning
-            // any values, including account secrets.
-            entityManager
-                    .createNativeQuery("select d.* from `" + table + "` d limit 0")
-                    .setHint("org.hibernate.timeout", 120)
-                    .getResultList();
+            if (source == null || probes != null && probes.unprobed(table)) {
+                // Lock the physical table metadata and prove whole-table visibility without
+                // returning any values, including account secrets. Inside a schema pass this
+                // runs once per attempt and table; the pass's second read keeps the structure
+                // stable instead (verifySchemaPass).
+                entityManager
+                        .createNativeQuery("select d.* from `" + table + "` d limit 0")
+                        .setHint("org.hibernate.timeout", 120)
+                        .getResultList();
+                if (probes != null) probes.probed(table);
+            }
             var fields = columns.get(key);
             if (fields == null) review();
             fields.sort(Comparator.comparing(CdsExportTableSchemaDto.Column::name));
@@ -104,7 +184,18 @@ public class CdsExportSourceCatalogueDao {
                                     fields,
                                     primary.getOrDefault(key, List.of())))) review();
         }
-        return catalogue.scope();
+    }
+
+    /** The base tables of one complete schema read, keyed as the configured case mode compares. */
+    private static Map<String, String> engines(
+            CdsExportPhysicalSchemaReadSupport.Pass source, int caseMode) {
+        var result = new HashMap<String, String>();
+        for (var table : source.tables()) {
+            String key = tableKey(table.name(), caseMode);
+            if (key.equals("flyway_schema_history")) continue;
+            if (result.putIfAbsent(key, table.engine()) != null) review();
+        }
+        return result;
     }
 
     // Identifiers come only from the immutable pinned catalogue, validated as ASCII SQL
@@ -115,8 +206,16 @@ public class CdsExportSourceCatalogueDao {
         if (patient < 1) throw new IllegalArgumentException("CDS_EXPORT_PATIENT_SCOPE_INVALID");
         Objects.requireNonNull(checkpoint).run();
         var catalogue = CdsExportSourceCatalogue.current();
-        int caseMode = tableNameCaseMode();
-        var profile = profile(catalogue, engines(caseMode).keySet(), caseMode).profile();
+        // Inside a capture's schema pass the table list is the transaction's one complete read.
+        var pass = CdsExportPhysicalSchemaReadSupport.current();
+        int caseMode = pass == null ? tableNameCaseMode() : pass.caseMode();
+        var profile =
+                profile(
+                                catalogue,
+                                (pass == null ? engines(caseMode) : engines(pass, caseMode))
+                                        .keySet(),
+                                caseMode)
+                        .profile();
         for (String table : new TreeSet<>(profile.tables().keySet())) {
             checkpoint.run();
             if (!profile.tables().get(table).engine().equals("InnoDB"))
