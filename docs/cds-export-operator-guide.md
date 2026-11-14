@@ -724,16 +724,17 @@ A chart with many measurements (years of INR, glucose or blood pressure flowshee
 entries) is exported whole. The export reads its measurements in windows of 8,192
 measurements and about 64 MiB of rows, so a larger chart takes longer but never holds more
 than one window of measurement rows in memory. A chart's prescriptions, printed
-prescriptions, allergies, appointments, vaccines, screenings, Disease Registry entries and
-laboratory reports are read the same way: no count of them stops an export or holds a
-patient, and `cds.export.maxNativeRows`, `maxIndexBytes` and `maxLookupRows` do not apply
-to them. No number of occurrences in one chart stops an export either:
-`cds.export.maxIndexRows` no longer limits a chart's occurrences or its reconciliation
-audit, and `CDS_EXPORT_NATIVE_CARE_PATIENT_LIMIT_EXCEEDED` no longer exists. The three
-settings named first still stop a job (`CDS_EXPORT_RESOURCE_LIMIT`) for a chart with more
-than 8,192 rows of one kind among its documents (counted across the document and its
-patient link: about 4,096 documents), hospital reports or notes; that is a limit of this
-release, not a setting to raise (8,192 is also its maximum).
+prescriptions, allergies, appointments, vaccines, screenings, Disease Registry entries,
+laboratory reports, documents and hospital (HRM) reports are read the same way: no count
+of them stops an export or holds a patient, and `cds.export.maxNativeRows`,
+`maxIndexBytes` and `maxLookupRows` do not apply to them. No number of occurrences in one
+chart stops an export either: `cds.export.maxIndexRows` is no longer read (a value left
+in the properties file is ignored, and named once in the log with the other retired
+settings), and `CDS_EXPORT_NATIVE_CARE_PATIENT_LIMIT_EXCEEDED` no longer exists.
+`cds.export.maxNativeRows` and `maxLookupRows` still stop a job
+(`CDS_EXPORT_RESOURCE_LIMIT`) for a chart with more than 8,192 rows in one of its note
+tables (about 8,192 notes); that is a limit of this release, not a setting to raise
+(8,192 is also its maximum).
 Upgrading applies migration `V1.0.59.46`, which indexes `measurementsDeleted` (deleted
 and superseded measurements) by patient and by original measurement id. On a clinic
 with many refiled lab results the index build adds a little time to the upgrade.

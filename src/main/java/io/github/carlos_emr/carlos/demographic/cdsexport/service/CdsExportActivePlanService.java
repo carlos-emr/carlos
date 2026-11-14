@@ -97,7 +97,9 @@ public class CdsExportActivePlanService {
                         // A chart's capture is streamed to staging and has no size limit.
                         CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
                         CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
-                        (int) number("maxIndexRows", 1_000_000, 1, 1_000_000),
+                        // No count of rows refuses a chart any more: the component is what
+                        // the readers that still take it are told, and the setting is retired.
+                        1_000_000,
                         number("maxIndexBytes", 64L << 20, 1, 64L << 20),
                         (int) number("maxNativeRows", 8192, 1, 8192),
                         (int) number("maxLookupRows", 131_072, 1, 131_072));
@@ -135,6 +137,9 @@ public class CdsExportActivePlanService {
                     // The per-chart capture bounds: a chart of any size is captured.
                     "maxCapturedFields",
                     "maxCapturedBytes",
+                    // The count of one chart's rows and occurrences: hospital reports, its last
+                    // reader, are read window by window (CdsExportSectionWindowPlanner).
+                    "maxIndexRows",
                     // The capture's former time budget: a capture has no deadline, and the legacy
                     // table's READ lock lasts only while that table is read. A worker that stops
                     // is ended by the stall detector (cds.export.maxDurationMillis).
