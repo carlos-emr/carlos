@@ -90,7 +90,20 @@ public final class CdsExportSupportingFilesValidator {
             java.util.Map<String, Long> dataSummaries,
             java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportListedSourceDto>
                     listed,
-            java.util.Map<String, Long> notExported) {
+            java.util.Map<String, Long> notExported,
+            io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportMergeSummaryDto merge) {
+        /** A patient file with no Merge Records link, privilege row or merged chart. */
+        public Patient(
+                String relativePath,
+                CdsExportPatientFileDto naming,
+                CdsExportXmlValidationDto xml,
+                java.util.Map<String, Long> dataSummaries,
+                java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportListedSourceDto>
+                        listed,
+                java.util.Map<String, Long> notExported) {
+            this(relativePath, naming, xml, dataSummaries, listed, notExported, null);
+        }
+
         public Patient {
             dataSummaries =
                     java.util.Collections.unmodifiableMap(
@@ -186,7 +199,15 @@ public final class CdsExportSupportingFilesValidator {
         for (var held : metadata.heldPatients()) {
             text.field("Held patient", Integer.toString(held.patient()));
             text.field("Held patient reason", held.code());
+            for (var merged :
+                    io.github.carlos_emr.carlos.demographic.cdsexport.service
+                            .CdsExportMergedChartReadMe.held(held))
+                text.field(merged.label(), merged.value());
         }
+        for (var merged :
+                io.github.carlos_emr.carlos.demographic.cdsexport.service
+                        .CdsExportMergedChartReadMe.job(metadata.merges(), metadata.categories()))
+            text.field(merged.label(), merged.value());
         text.field(
                 "Unreviewed local tables not exported",
                 Long.toString(metadata.unreviewedLocalSources().size()));
@@ -268,6 +289,11 @@ public final class CdsExportSupportingFilesValidator {
                 identities.accept(pending.xml().senderPatientId());
                 text.field("Patient file", relative);
                 text.field("Patient XML SHA256", pending.xml().xmlSha256());
+                validateMerge(pending, metadata);
+                for (var merged :
+                        io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                .CdsExportMergedChartReadMe.file(pending.merge()))
+                    text.field(merged.label(), merged.value());
                 for (var summary : pending.dataSummaries().entrySet())
                     text.field(
                             "Patient data summary records",
@@ -284,6 +310,23 @@ public final class CdsExportSupportingFilesValidator {
                         csv.required(),
                         pending.xml(),
                         CdsExportLegacyLaboratoryReports.sections(metadata.categories()));
+                if (pending.merge() != null)
+                    for (var merged :
+                            io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                    .CdsExportMergedChartReadMe.events(
+                                            io.github.carlos_emr.carlos.demographic.cds.contract
+                                                    .CdsMergedChartContract.chart(
+                                                            pending.xml().senderPatientId()),
+                                            pending.merge(),
+                                            CdsExportLegacyLaboratoryReports.sections(
+                                                    metadata.categories()))) {
+                        var expected = new StringBuilder();
+                        for (String value : merged) {
+                            if (!expected.isEmpty()) expected.append(',');
+                            expected.append('"').append(value.replace("\"", "\"\"")).append('"');
+                        }
+                        csv.exact(expected.toString());
+                    }
                 pending = next(patientFiles, checkpoint);
             }
             if (actual != physician.patientFiles()) invalid();
@@ -299,6 +342,26 @@ public final class CdsExportSupportingFilesValidator {
                 logInput.bytes,
                 physicianCount,
                 patients);
+    }
+
+    /**
+     * A file's merged charts cannot claim more records of a section than the validated file
+     * holds, nor any Demographics (a merged chart's is in its own record), and a selected chart
+     * in another file names a different chart as its head.
+     */
+    private static void validateMerge(Patient patient, CdsExportPackageMetadataDto metadata)
+            throws IOException {
+        var merge = patient.merge();
+        if (merge == null) return;
+        var claimed = new java.util.EnumMap<CdsCategory, Long>(CdsCategory.class);
+        for (var member : merge.members())
+            member.records().forEach((section, count) -> claimed.merge(section, count, Long::sum));
+        for (var entry : claimed.entrySet()) {
+            Long held = patient.xml().occurrences().get(entry.getKey());
+            if (entry.getKey() == CdsCategory.DEMOGRAPHICS || held == null || entry.getValue() > held)
+                invalid();
+        }
+        if (!merge.members().isEmpty() && metadata.merges() == null) invalid();
     }
 
     private static void validateMetadata(CdsExportPackageMetadataDto value) throws IOException {

@@ -559,7 +559,13 @@ public class CdsExportDataSummaryOccurrenceService {
             var plan =
                     new Plan(
                             exported,
-                            CdsExportDataSummaryHtmlComposer.Patient.of(read.demographic()),
+                            // A merged chart's summaries name the patient it was merged into.
+                            patient.head() != patient.patient()
+                                    ? CdsExportDataSummaryHtmlComposer.Patient.of(
+                                                    read.demographic())
+                                            .mergedInto(patient.head())
+                                    : CdsExportDataSummaryHtmlComposer.Patient.of(
+                                            read.demographic()),
                             withheld,
                             renderings,
                             read.demographic(),

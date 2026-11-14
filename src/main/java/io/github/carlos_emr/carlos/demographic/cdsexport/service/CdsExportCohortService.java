@@ -716,6 +716,7 @@ public class CdsExportCohortService {
         private final CdsExportSelectionRowDto row;
         private final CdsExportMergeGroupDto group;
         private final int chart;
+        private final long appointmentBase;
 
         private Patient(
                 Cursor cursor,
@@ -723,11 +724,37 @@ public class CdsExportCohortService {
                 CdsExportSelectionRowDto row,
                 CdsExportMergeGroupDto group,
                 int chart) {
+            this(cursor, generation, row, group, chart, 0);
+        }
+
+        private Patient(
+                Cursor cursor,
+                long generation,
+                CdsExportSelectionRowDto row,
+                CdsExportMergeGroupDto group,
+                int chart,
+                long appointmentBase) {
             this.cursor = cursor;
             this.generation = generation;
             this.row = row;
             this.group = group;
             this.chart = chart;
+            this.appointmentBase = appointmentBase;
+        }
+
+        /**
+         * How many Appointments elements of the patient file come before this chart's: its
+         * appointment source records name positions in the file, not in the chart's own
+         * document. 0 for a chart alone and for the head of a group.
+         */
+        public long appointmentBase() {
+            return appointmentBase;
+        }
+
+        /** This scope with {@link #appointmentBase}; the same lease, thread and cursor checks. */
+        public Patient withAppointmentBase(long base) {
+            if (base < 0) throw new IllegalArgumentException("CDS_EXPORT_PATIENT_SCOPE_INVALID");
+            return new Patient(cursor, generation, row, group, chart, base);
         }
 
         void require(CdsExportLeaseDto lease) {
@@ -837,6 +864,11 @@ public class CdsExportCohortService {
 
         public boolean complete() {
             return !failed && files.eof && files.rows.eof;
+        }
+
+        /** How many charts the sealed selection lists (patient files can be fewer). */
+        public long selectedCharts() {
+            return sealed.manifest.selection().patients();
         }
 
         @Override

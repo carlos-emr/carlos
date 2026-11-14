@@ -72,12 +72,25 @@ public class CdsExportClinicalPackageService {
             return this;
         }
 
+        /** The file's chart, then its merged charts. */
+        List<Integer> charts() {
+            var charts = new ArrayList<Integer>();
+            charts.add(patient);
+            for (var member : members()) charts.add(member.patient());
+            return charts;
+        }
+
         int patient() {
             return patient;
         }
 
         List<CdsExportNoteAccessDto> notes() {
             return source.notes(patient);
+        }
+
+        /** The file's merged charts, with their notes; none for a chart alone. */
+        List<ChartMember> members() {
+            return source.chart(patient).members();
         }
     }
 
@@ -97,7 +110,66 @@ public class CdsExportClinicalPackageService {
             Map<String, Long> dataSummaries,
             List<io.github.carlos_emr.carlos.commn.dto.CdsExportListedSourceDto> listed,
             Map<String, Long> notExported,
-            List<CdsExportNoteAccessDto> notes) {}
+            List<CdsExportNoteAccessDto> notes,
+            @com.fasterxml.jackson.annotation.JsonInclude(
+                            com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY)
+                    List<ChartMember> members,
+            @com.fasterxml.jackson.annotation.JsonInclude(
+                            com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+                    CdsExportMergeSummaryDto merge) {
+        Chart {
+            // A chart written before files could hold merged charts has neither member.
+            members = members == null ? List.of() : List.copyOf(members);
+        }
+
+        /** A chart in no group, without Merge Records links: the record as it always was. */
+        Chart(
+                int patient,
+                String sourceManifestSha256,
+                String relative,
+                CdsExportPatientFileDto naming,
+                CdsExportStagedFileDto xml,
+                List<CdsExportPackageMemberDto> attachments,
+                CdsExportXmlValidationDto validation,
+                Map<String, Long> dataSummaries,
+                List<io.github.carlos_emr.carlos.commn.dto.CdsExportListedSourceDto> listed,
+                Map<String, Long> notExported,
+                List<CdsExportNoteAccessDto> notes) {
+            this(
+                    patient,
+                    sourceManifestSha256,
+                    relative,
+                    naming,
+                    xml,
+                    attachments,
+                    validation,
+                    dataSummaries,
+                    listed,
+                    notExported,
+                    notes,
+                    List.of(),
+                    null);
+        }
+
+        /** The chart and every other chart of its group, the head first. */
+        List<Integer> charts() {
+            var charts = new ArrayList<Integer>(1 + members.size());
+            charts.add(patient);
+            for (var member : members) charts.add(member.patient());
+            return charts;
+        }
+    }
+
+    /**
+     * One merged chart of a patient file of charts linked by Merge Records: what the cohort passes
+     * re-authorize and the disclosure manifest names for it.
+     */
+    record ChartMember(
+            int patient, String sourceManifestSha256, List<CdsExportNoteAccessDto> notes) {
+        ChartMember {
+            notes = notes == null ? List.of() : List.copyOf(notes);
+        }
+    }
 
     /**
      * The chart as the attempt's checkpoint keeps it ({@link CdsExportChartCheckpointPersister}):
@@ -105,6 +177,9 @@ public class CdsExportClinicalPackageService {
      * capture instead (the capture fingerprint covers them).
      */
     static com.fasterxml.jackson.databind.JsonNode checkpointRecord(Chart chart) {
+        var members = new ArrayList<ChartMember>();
+        for (var member : chart.members())
+            members.add(new ChartMember(member.patient(), member.sourceManifestSha256(), List.of()));
         return RECORDS.valueToTree(
                 new Chart(
                         chart.patient(),
@@ -117,7 +192,9 @@ public class CdsExportClinicalPackageService {
                         chart.dataSummaries(),
                         chart.listed(),
                         chart.notExported(),
-                        List.of()));
+                        List.of(),
+                        members,
+                        chart.merge()));
     }
 
     /**
@@ -144,6 +221,16 @@ public class CdsExportClinicalPackageService {
                 || chart.validation() == null
                 || chart.notes() == null
                 || !chart.notes().isEmpty()
+                || chart.members().stream()
+                        .anyMatch(
+                                member ->
+                                        member == null
+                                                || member.patient() < 1
+                                                || member.patient() == patient
+                                                || !member.notes().isEmpty()
+                                                || member.sourceManifestSha256() == null
+                                                || !member.sourceManifestSha256()
+                                                        .matches("[0-9a-f]{64}"))
                 || chart.attachments().stream()
                         .anyMatch(
                                 attachment ->
@@ -307,16 +394,27 @@ public class CdsExportClinicalPackageService {
         }
     }
 
-    /** Held patients in cohort order: four bytes and one shared code reference each. */
+    /**
+     * Held patients in cohort order: four bytes and one shared code reference each. A held file of
+     * charts linked by Merge Records also names the refused chart and its other selected charts;
+     * those are kept only for such files.
+     */
     private static final class Held {
         private final Patients patients = new Patients();
         private final ArrayList<String> codes = new ArrayList<>();
         private final Map<String, String> shared = new HashMap<>();
+        private final Map<Integer, CdsExportHeldPatientDto> merged = new HashMap<>();
 
         void add(int patient, String code) throws IOException {
-            patients.append(patient);
+            add(new CdsExportHeldPatientDto(patient, code));
+        }
+
+        void add(CdsExportHeldPatientDto value) throws IOException {
+            patients.append(value.patient());
             // A few distinct codes serve every held patient.
-            codes.add(shared.computeIfAbsent(new CdsExportHeldPatientDto(patient, code).code(), key -> key));
+            codes.add(shared.computeIfAbsent(value.code(), key -> key));
+            if (value.refused() > 0 || !value.selectedAs().isEmpty())
+                merged.put(value.patient(), value);
         }
 
         int size() {
@@ -324,7 +422,15 @@ public class CdsExportClinicalPackageService {
         }
 
         CdsExportHeldPatientDto at(int index) {
-            return new CdsExportHeldPatientDto(patients.at(index), codes.get(index));
+            var value = merged.get(patients.at(index));
+            return value != null
+                    ? value
+                    : new CdsExportHeldPatientDto(patients.at(index), codes.get(index));
+        }
+
+        /** Whether a held file of charts linked by Merge Records names more than its chart. */
+        boolean hasMerges() {
+            return !merged.isEmpty();
         }
 
         List<CdsExportHeldPatientDto> list() {
@@ -386,8 +492,13 @@ public class CdsExportClinicalPackageService {
         }
 
         List<CdsExportNoteAccessDto> notes(int patient) {
+            return chart(patient).notes();
+        }
+
+        /** The spooled chart of one patient file, read once, in cohort order. */
+        Chart chart(int patient) {
             try {
-                if (current != null && current.patient() == patient) return current.notes();
+                if (current != null && current.patient() == patient) return current;
                 if (current != null && current.patient() > patient) invalid();
                 if (notes == null) {
                     notes = charts.open();
@@ -399,10 +510,10 @@ public class CdsExportClinicalPackageService {
                     if (found < patient) continue;
                     if (found > patient) invalid();
                     current = decode(entry);
-                    return current.notes();
+                    return current;
                 }
                 invalid();
-                return List.of();
+                return null;
             } catch (IOException failure) {
                 throw new java.io.UncheckedIOException(failure);
             }
@@ -489,19 +600,37 @@ public class CdsExportClinicalPackageService {
             chart = cursor.next();
             var notes = file.notes();
             int first = Math.min(notes.size(), NOTE_BATCH);
-            for (int start = first; start < notes.size(); start += NOTE_BATCH)
+            continued(file.patient(), notes, first);
+            // Each merged chart of the file is named on its own line, with its own notes.
+            for (var member : file.members()) {
+                var memberNotes = member.notes();
+                int head = Math.min(memberNotes.size(), NOTE_BATCH);
                 pending.add(
-                        new ScopeNotes(
-                                "NOTES",
+                        new ScopeMember(
+                                "MEMBER",
+                                member.patient(),
                                 file.patient(),
-                                List.copyOf(
-                                        notes.subList(
-                                                start, Math.min(notes.size(), start + NOTE_BATCH)))));
+                                member.sourceManifestSha256(),
+                                List.copyOf(memberNotes.subList(0, head))));
+                continued(member.patient(), memberNotes, head);
+            }
             return new ScopePatient(
                     "PATIENT",
                     file.patient(),
                     file.sourceManifestSha256(),
                     List.copyOf(notes.subList(0, first)));
+        }
+
+        /** The rest of one chart's notes, after the first {@code first}, on NOTES lines. */
+        private void continued(int patient, List<CdsExportNoteAccessDto> notes, int first) {
+            for (int start = first; start < notes.size(); start += NOTE_BATCH)
+                pending.add(
+                        new ScopeNotes(
+                                "NOTES",
+                                patient,
+                                List.copyOf(
+                                        notes.subList(
+                                                start, Math.min(notes.size(), start + NOTE_BATCH)))));
         }
 
         @Override
@@ -760,6 +889,11 @@ public class CdsExportClinicalPackageService {
         // Charts whose capture began (the export read them), and those already in the audit.
         var read = new Patients();
         var audited = new Audited(read);
+        // The merged charts of each patient file that has any, by its chart; and what the
+        // ReadMe says about Merge Records for the whole job.
+        var groups = new HashMap<Integer, List<Integer>>();
+        var elsewhere = new ArrayList<CdsExportMergeJobSummaryDto.Elsewhere>();
+        long mergeFiles = 0, chartsSelected = 0;
         var physicians = new TreeMap<String, CdsExportPhysicianSummaryDto>();
         var billingNames = new HashMap<String, String>();
         var tables = captures.requiredTables(lease.document().command());
@@ -803,6 +937,7 @@ public class CdsExportClinicalPackageService {
         Throwable primary = null;
         try {
             try (var cursor = cohorts.open(lease, control)) {
+                chartsSelected = cursor.selectedCharts();
                 CdsExportCohortService.Patient patient;
                 while ((patient = cursor.next()) != null) {
                     control.checkpoint();
@@ -812,27 +947,58 @@ public class CdsExportClinicalPackageService {
                     // never silently omitted; infrastructure failures still stop the whole job.
                     Captured captured;
                     read.append(patient.patient());
+                    // A patient file of charts linked by Merge Records holds every chart's records:
+                    // each chart is read, authorized and audited as if it were exported alone.
+                    boolean grouped = !patient.members().isEmpty();
+                    if (grouped) groups.put(patient.patient(), List.copyOf(patient.members()));
+                    if (patient.group() != null) {
+                        mergeFiles++;
+                        for (int chart : patient.group().selected())
+                            if (chart != patient.patient())
+                                elsewhere.add(
+                                        new CdsExportMergeJobSummaryDto.Elsewhere(
+                                                chart, patient.patient()));
+                    }
                     // A chart an earlier attempt kept for this patient, adopted below only if the
                     // patient's new capture is exactly the one it was built from.
                     var candidate = resume.candidate(patient.patient());
-                    try {
-                        // One authorization session per patient: every step's check is answered
-                        // once, and endPatient re-runs every grant fresh after the last read and
-                        // before this patient's output is accepted (CdsExportPatientAuthorization).
-                        control.beginPatient(patient.patient());
-                        captured =
-                                capturePatient(
-                                        lease,
-                                        patient,
-                                        tables,
-                                        bounds,
-                                        applicationVersion,
-                                        control,
-                                        inFlight,
-                                        resume,
-                                        candidate,
-                                        store);
-                        control.endPatient(patient.patient());
+                    try (var group = sealed(patient)) {
+                        if (grouped) {
+                            // One session per chart, each with its own opening and closing pass.
+                            control.beginGroup(patient.group().charts());
+                            captured =
+                                    captureGroup(
+                                            lease,
+                                            patient,
+                                            tables,
+                                            bounds,
+                                            applicationVersion,
+                                            control,
+                                            inFlight,
+                                            resume,
+                                            candidate,
+                                            store);
+                            control.endGroup();
+                        } else {
+                            // One authorization session per patient: every step's check is
+                            // answered once, and endPatient re-runs every grant fresh after the
+                            // last read and before this patient's output is accepted
+                            // (CdsExportPatientAuthorization).
+                            control.beginPatient(patient.patient());
+                            captured =
+                                    capturePatient(
+                                            lease,
+                                            patient,
+                                            tables,
+                                            bounds,
+                                            applicationVersion,
+                                            control,
+                                            inFlight,
+                                            resume,
+                                            candidate,
+                                            store);
+                            control.endPatient(patient.patient());
+                        }
                     } catch (CdsExportReviewException
                             | CdsExportMappingReviewException
                             | SecurityException refused) {
@@ -840,7 +1006,7 @@ public class CdsExportClinicalPackageService {
                         if (code == null) throw refused;
                         for (int i = inFlight.size() - 1; i >= 0; i--)
                             store.discardUnpublished(inFlight.remove(i));
-                        held.add(patient.patient(), code);
+                        held.add(heldPatient(patient, code, refused));
                         checkpoints.held(patient.patient(), code);
                         // Safe code only; the patient number is recorded in the protected
                         // disclosure manifest and the encrypted ReadMe, not in the log.
@@ -850,8 +1016,10 @@ public class CdsExportClinicalPackageService {
                         continue;
                     } finally {
                         // Never let a session outlive its patient, whatever ended it.
+                        if (grouped) control.discardGroup();
                         control.discardPatient();
                     }
+                    if (chartHasMerges(captured.chart())) mergeFiles++;
                     var chart = captured.chart();
                     var name = chart.naming();
                     expectedMembers =
@@ -886,10 +1054,14 @@ public class CdsExportClinicalPackageService {
                                 adoptedAudit.computeIfAbsent(
                                         captured.adoptedFrom(), ignored -> new ArrayList<>());
                         batch.add(chart.patient());
-                        if (batch.size() == 100) {
-                            audit.adopted(lease, batch, captured.adoptedFrom());
-                            adoptedAudit.remove(captured.adoptedFrom());
-                        }
+                        if (batch.size() == 100)
+                            auditAdopted(
+                                    lease,
+                                    new TreeMap<>(
+                                            Map.of(
+                                                    captured.adoptedFrom(),
+                                                    adoptedAudit.remove(captured.adoptedFrom()))),
+                                    groups);
                     }
                     // Two names for one billing number are ambiguous; physicians without a
                     // number (and the Unassigned folder) are told apart by name only.
@@ -919,7 +1091,7 @@ public class CdsExportClinicalPackageService {
             // The whole roster is in the checkpoint before packaging starts, and every earlier
             // attempt's kept charts have been decided again: they are released.
             pinned = checkpoint(resume, owned, pinned, true, lease);
-            auditAdopted(lease, adoptedAudit);
+            auditAdopted(lease, adoptedAudit, groups);
             if (resume.adopted() > 0)
                 // Counts only.
                 LOG.info(
@@ -929,7 +1101,12 @@ public class CdsExportClinicalPackageService {
                         resume.adopted(),
                         charts.records() - resume.adopted());
             long packaged = charts.records();
-            auditReads(lease, held.patients, CdsExportAuditPersister.ReadOutcome.HELD, audited);
+            auditReads(
+                    lease,
+                    held.patients,
+                    CdsExportAuditPersister.ReadOutcome.HELD,
+                    audited,
+                    groups);
             // Every selected patient held back: there is no package to publish.
             if (packaged == 0) {
                 var refusal = allHeld(held.list());
@@ -970,7 +1147,11 @@ public class CdsExportClinicalPackageService {
                             localSources,
                             captures.listedClinicSources(),
                             unlinked,
-                            legacyLaboratoryReports);
+                            legacyLaboratoryReports,
+                            mergeFiles > 0 || held.hasMerges()
+                                    ? new CdsExportMergeJobSummaryDto(
+                                            chartsSelected, patients, elsewhere)
+                                    : null);
             long totalPatients = patients;
             var header =
                     new ScopeHeader(
@@ -993,7 +1174,8 @@ public class CdsExportClinicalPackageService {
                                     Object entry;
                                     while ((entry = disclosed.next()) != null) {
                                         line(output, entry);
-                                        if (!(entry instanceof ScopeNotes)) listed++;
+                                        if (!(entry instanceof ScopeNotes)
+                                                && !(entry instanceof ScopeMember)) listed++;
                                     }
                                 }
                                 if (listed != totalPatients) invalid();
@@ -1199,7 +1381,7 @@ public class CdsExportClinicalPackageService {
                     }
                 // Adopted charts are chart reads too, whether or not the job goes on.
                 try {
-                    auditAdopted(lease, adoptedAudit);
+                    auditAdopted(lease, adoptedAudit, groups);
                 } catch (RuntimeException cleanup) {
                     if (primary != null && cleanup != primary) primary.addSuppressed(cleanup);
                 }
@@ -1227,7 +1409,8 @@ public class CdsExportClinicalPackageService {
                             lease,
                             audited.missing(),
                             CdsExportAuditPersister.ReadOutcome.STOPPED,
-                            audited);
+                            audited,
+                            groups);
                 } catch (RuntimeException cleanup) {
                     if (primary == null) throw cleanup;
                     // The audit store may fail again with the very same failure.
@@ -1296,10 +1479,22 @@ public class CdsExportClinicalPackageService {
     }
 
     /** Writes the chart audit of every adopted chart not yet in it. */
-    private void auditAdopted(CdsExportLeaseDto lease, Map<Long, List<Integer>> adopted) {
+    private void auditAdopted(
+            CdsExportLeaseDto lease,
+            Map<Long, List<Integer>> adopted,
+            Map<Integer, List<Integer>> groups) {
         for (var iterator = adopted.entrySet().iterator(); iterator.hasNext(); ) {
             var batch = iterator.next();
-            if (!batch.getValue().isEmpty()) audit.adopted(lease, batch.getValue(), batch.getKey());
+            var charts = new ArrayList<Integer>(100);
+            for (int patient : batch.getValue())
+                for (int chart : charts(patient, groups)) {
+                    charts.add(chart);
+                    if (charts.size() == 100) {
+                        audit.adopted(lease, charts, batch.getKey());
+                        charts.clear();
+                    }
+                }
+            if (!charts.isEmpty()) audit.adopted(lease, charts, batch.getKey());
             iterator.remove();
         }
     }
@@ -1341,21 +1536,42 @@ public class CdsExportClinicalPackageService {
             CdsExportLeaseDto lease,
             Iterable<Integer> patients,
             CdsExportAuditPersister.ReadOutcome outcome,
-            Set<Integer> audited) {
+            Set<Integer> audited,
+            Map<Integer, List<Integer>> groups) {
         var batch = new ArrayList<Integer>(100);
+        var files = new ArrayList<Integer>();
         for (int patient : patients) {
             if (audited.contains(patient)) continue;
-            batch.add(patient);
-            if (batch.size() == 100) {
+            // A patient file of charts linked by Merge Records read every one of its charts; it
+            // is marked audited once the write holding its last chart succeeded.
+            var charts = charts(patient, groups);
+            if (batch.size() + charts.size() > 100) {
                 audit.read(lease, batch, outcome);
-                audited.addAll(batch);
+                audited.addAll(files);
                 batch.clear();
+                files.clear();
             }
+            for (int chart : charts) {
+                batch.add(chart);
+                if (batch.size() == 100) {
+                    audit.read(lease, batch, outcome);
+                    batch.clear();
+                }
+            }
+            files.add(patient);
         }
-        if (!batch.isEmpty()) {
-            audit.read(lease, batch, outcome);
-            audited.addAll(batch);
-        }
+        if (!batch.isEmpty()) audit.read(lease, batch, outcome);
+        audited.addAll(files);
+    }
+
+    /** A patient file's chart, then the other charts of its group read so far. */
+    private static List<Integer> charts(int patient, Map<Integer, List<Integer>> groups) {
+        var members = groups.get(patient);
+        if (members == null) return List.of(patient);
+        var charts = new ArrayList<Integer>(1 + members.size());
+        charts.add(patient);
+        charts.addAll(members);
+        return charts;
     }
 
     /**
@@ -1425,9 +1641,245 @@ public class CdsExportClinicalPackageService {
                             applicationVersion,
                             control,
                             owned,
-                            source);
+                            source,
+                            store);
             return new Captured(source, chart, fingerprint, inputs.reusable(), 0);
         }
+    }
+
+    /**
+     * One patient file of charts linked by Merge Records: every chart captured in one snapshot
+     * ({@link CdsExportNativeCaptureService#captureGroup}), then the file, adopted from an earlier
+     * attempt when that attempt kept one built from exactly these captures, built otherwise.
+     */
+    private Captured captureGroup(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient head,
+            Set<String> tables,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            String applicationVersion,
+            CdsExportRunControl control,
+            List<CdsExportStagedFileDto> owned,
+            CdsExportChartAdoptionService.Session resume,
+            CdsExportChartAdoptionService.Candidate candidate,
+            CdsExportStagingService store)
+            throws IOException {
+        try (var inputs = CdsExportChartInputs.open()) {
+            var group =
+                    captures.captureGroup(
+                            lease, head, tables, bounds.fields(), bounds.bytes(), control);
+            var captureMembers = new ArrayList<CdsExportStagedFileDto>();
+            for (var chart : group.charts())
+                captureMembers.addAll(
+                        List.of(
+                                chart.manifest(),
+                                chart.capture().values(),
+                                chart.capture().index()));
+            captureMembers.add(group.manifest());
+            owned.addAll(captureMembers);
+            var fingerprint =
+                    CdsExportChartFingerprints.group(
+                            group.charts().stream().map(CdsExportPatientCaptureDto::capture).toList());
+            var source = group.charts().getFirst();
+            var chart =
+                    buildGroup(
+                            lease, head, tables, bounds, applicationVersion, control, owned, group, store);
+            return new Captured(source, chart, fingerprint, inputs.reusable(), 0);
+        }
+    }
+
+    /**
+     * Builds the patient file of a group from its charts' captures: each chart's retained payload
+     * and document, composed as if the chart were exported alone (its appointments numbered after
+     * the earlier charts'), then the file assembled from them with the group's records, its field
+     * decisions, and its binding to the head's physician folder.
+     */
+    private Chart buildGroup(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient head,
+            Set<String> tables,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            String applicationVersion,
+            CdsExportRunControl control,
+            List<CdsExportStagedFileDto> owned,
+            CdsExportNativeCaptureService.Group group,
+            CdsExportStagingService store)
+            throws IOException {
+        boolean records = lease.document().command().categories().contains(CdsCategory.NEW_CATEGORY);
+        var parts = new ArrayList<CdsExportMergedChartComposer.Part>();
+        var documents = new ArrayList<CdsExportPatientDocumentService.Document>();
+        var scopes = new ArrayList<CdsExportCohortService.Patient>();
+        var rows = new ArrayList<MergeRows>();
+        long appointments = 0;
+        var summaries = new java.util.LinkedHashMap<String, Long>();
+        var withheld = new java.util.LinkedHashMap<String, Long>();
+        var notExported = new java.util.LinkedHashMap<String, Long>();
+        var listed = new TreeMap<String, Long>();
+        var members = new ArrayList<ChartMember>();
+        List<CdsExportNoteAccessDto> headNotes = List.of();
+        for (int index = 0; index < group.charts().size(); index++) {
+            var source = group.charts().get(index);
+            int chart = source.capture().patient();
+            if (chart != (index == 0 ? head.patient() : head.members().get(index - 1))) invalid();
+            // A merged chart's appointment records name positions after the earlier charts'.
+            var scope = (index == 0 ? head : head.member(chart)).withAppointmentBase(appointments);
+            var retained =
+                    payloads.freeze(
+                            lease,
+                            scope,
+                            tables,
+                            source.manifest(),
+                            bounds.fields(),
+                            bounds.bytes(),
+                            control);
+            owned.addAll(
+                    List.of(
+                            retained.manifest(),
+                            retained.capture().values(),
+                            retained.capture().index()));
+            var part = new CdsExportMergedChartComposer.Part(chart);
+            var document =
+                    this.documents.compose(
+                            lease,
+                            scope,
+                            tables,
+                            source,
+                            retained.manifest(),
+                            bounds,
+                            applicationVersion,
+                            control,
+                            part.listener());
+            owned.add(document.xml());
+            owned.add(document.reconciliation());
+            for (var attachment : document.attachments()) owned.add(attachment.file());
+            part.xml(document.xml());
+            appointments =
+                    Math.addExact(
+                            appointments,
+                            document.validation()
+                                    .occurrences()
+                                    .getOrDefault(CdsCategory.APPOINTMENTS, 0L));
+            parts.add(part);
+            documents.add(document);
+            scopes.add(scope);
+            rows.add(mergeRows(lease, scope, tables, source, bounds, control));
+            if (CdsExportDataSummaryOccurrenceService.captured(tables) && dataSummaries == null)
+                invalid();
+            if (dataSummaries != null) {
+                dataSummaries
+                        .kinds(lease, scope, tables, source, bounds, control)
+                        .forEach((kind, count) -> summaries.merge(kind, count, Long::sum));
+                dataSummaries
+                        .notExported(lease, scope, tables, source, bounds, control)
+                        .forEach((label, count) -> withheld.merge(label, count, Long::sum));
+            }
+            document.notExported().forEach((label, count) -> notExported.merge(label, count, Long::sum));
+            for (var table : listed(lease, scope, tables, source, bounds, control))
+                listed.merge(table.table(), table.rows(), Long::sum);
+            var noteScope = source.capture().tables().get("casemgmt_note");
+            var notes = noteScope == null ? List.<CdsExportNoteAccessDto>of() : noteScope.noteAccess();
+            if (index == 0) headNotes = notes;
+            else members.add(new ChartMember(chart, document.sourceManifestSha256(), notes));
+        }
+        var links =
+                CdsExportMergedChartMapper.links(
+                        head.group().charts(),
+                        byChart(rows, true),
+                        byChart(rows, false),
+                        head.group());
+        var composedMembers = new CdsExportMergedChartComposer.Result[1];
+        // The decisions name the merged charts' carried occurrences, known once the file is
+        // composed; the file is composed first and the decisions written after it.
+        var merged =
+                composeMerged(
+                        lease,
+                        head,
+                        parts,
+                        documents,
+                        links.any() ? links.record() : null,
+                        records,
+                        applicationVersion,
+                        control,
+                        store,
+                        owned,
+                        documents.getFirst().reconciliation(),
+                        notExported);
+        composedMembers[0] = merged.composed();
+        var decisions =
+                store.stage(
+                        "PATIENT_RECONCILIATION",
+                        output ->
+                                mergeDecisions(
+                                        output,
+                                        composedMembers[0].members(),
+                                        rows,
+                                        records,
+                                        control));
+        owned.add(decisions);
+        // Each chart's own document was an intermediate of the file.
+        for (var document : documents) {
+            owned.remove(document.xml());
+            store.discardUnpublished(document.xml());
+        }
+        var file =
+                CdsExportPatientDocumentService.merged(
+                        documents.getFirst(),
+                        merged.document().xml(),
+                        decisions,
+                        merged.document().validation(),
+                        merged.document().attachments(),
+                        notExported);
+        // Every chart's capture is authorized again for the file's output, as each would be alone.
+        for (int index = 0; index < scopes.size(); index++)
+            captures.authorizeCapturedSources(
+                    lease, scopes.get(index), tables, group.charts().get(index).capture(), control);
+        var name =
+                naming.bind(lease, head, tables, group.charts().getFirst(), file, bounds, control);
+        var summaryMembers = new ArrayList<CdsExportMergeSummaryDto.Member>();
+        for (int index = 1; index < documents.size(); index++) {
+            var member = composedMembers[0].members().get(index - 1);
+            var counts = new java.util.EnumMap<CdsCategory, Long>(CdsCategory.class);
+            member.positions().forEach((section, range) -> counts.put(section, range.count()));
+            var validation = documents.get(index).validation();
+            boolean reports = validation.occurrences().containsKey(CdsCategory.REPORTS);
+            summaryMembers.add(
+                    new CdsExportMergeSummaryDto.Member(
+                            member.chart(),
+                            counts,
+                            reports ? validation.textReports() : null,
+                            reports ? validation.binaryReports() : null));
+        }
+        var withheldAll = new java.util.LinkedHashMap<String, Long>(withheld);
+        notExported.forEach((label, count) -> withheldAll.merge(label, count, Long::sum));
+        var listedAll = new ArrayList<io.github.carlos_emr.carlos.commn.dto.CdsExportListedSourceDto>();
+        listed.forEach(
+                (table, count) ->
+                        listedAll.add(
+                                new io.github.carlos_emr.carlos.commn.dto.CdsExportListedSourceDto(
+                                        table, count)));
+        var path = new CdsExportPathComposer().compose(name);
+        return new Chart(
+                head.patient(),
+                file.sourceManifestSha256(),
+                path.physicianFolder() + "/" + path.patientXmlFile(),
+                name,
+                file.xml(),
+                file.attachments(),
+                file.validation(),
+                summaries,
+                listedAll,
+                withheldAll,
+                headNotes,
+                members,
+                summary(summaryMembers, links, records));
+    }
+
+    /** The captured link rows ({@code links}) or privilege rows of each chart, by chart. */
+    private static Map<Integer, List<CdsExportCapturedTextRowDto>> byChart(
+            List<MergeRows> rows, boolean links) {
+        var result = new HashMap<Integer, List<CdsExportCapturedTextRowDto>>();
+        for (var chart : rows) result.put(chart.chart(), links ? chart.links() : chart.privileges());
+        return result;
     }
 
     /** Builds one patient's chart from its capture: retained payload, document, file binding. */
@@ -1439,7 +1891,8 @@ public class CdsExportClinicalPackageService {
             String applicationVersion,
             CdsExportRunControl control,
             List<CdsExportStagedFileDto> owned,
-            CdsExportPatientCaptureDto source)
+            CdsExportPatientCaptureDto source,
+            CdsExportStagingService store)
             throws IOException {
         var retained =
                 payloads.freeze(
@@ -1455,21 +1908,77 @@ public class CdsExportClinicalPackageService {
                         retained.manifest(),
                         retained.capture().values(),
                         retained.capture().index()));
+        // A chart with Merge Records links or a privilege row, alone in its file: the file's
+        // links travel exactly in CARLOS.MergeLinks.v1 at the end of NewCategory. A chart with
+        // neither is composed exactly as before.
+        boolean merges = hasMergeRows(source);
+        boolean records = lease.document().command().categories().contains(CdsCategory.NEW_CATEGORY);
+        var part = merges && records ? new CdsExportMergedChartComposer.Part(patient.patient()) : null;
         var document =
-                documents.compose(
-                        lease,
-                        patient,
-                        tables,
-                        source,
-                        retained.manifest(),
-                        bounds,
-                        applicationVersion,
-                        control);
+                part == null
+                        ? documents.compose(
+                                lease,
+                                patient,
+                                tables,
+                                source,
+                                retained.manifest(),
+                                bounds,
+                                applicationVersion,
+                                control)
+                        : documents.compose(
+                                lease,
+                                patient,
+                                tables,
+                                source,
+                                retained.manifest(),
+                                bounds,
+                                applicationVersion,
+                                control,
+                                part.listener());
         var outputs = new ArrayList<CdsExportStagedFileDto>();
         outputs.add(document.xml());
         outputs.add(document.reconciliation());
         for (var attachment : document.attachments()) outputs.add(attachment.file());
         owned.addAll(outputs);
+        CdsExportMergeSummaryDto merge = null;
+        if (merges) {
+            var rows = mergeRows(lease, patient, tables, source, bounds, control);
+            var links =
+                    CdsExportMergedChartMapper.links(
+                            List.of(patient.patient()),
+                            Map.of(patient.patient(), rows.links()),
+                            Map.of(patient.patient(), rows.privileges()),
+                            patient.group());
+            merge = summary(List.of(), links, records);
+            var decisions =
+                    store.stage(
+                            "PATIENT_RECONCILIATION",
+                            output ->
+                                    mergeDecisions(
+                                            output, List.of(), List.of(rows), records, control));
+            owned.add(decisions);
+            if (part != null) {
+                part.xml(document.xml());
+                var merged =
+                        composeMerged(
+                                lease,
+                                patient,
+                                List.of(part),
+                                List.of(document),
+                                links.record(),
+                                records,
+                                applicationVersion,
+                                control,
+                                store,
+                                owned,
+                                decisions,
+                                document.notExported());
+                // The chart's own document was an intermediate of the file.
+                owned.remove(document.xml());
+                store.discardUnpublished(document.xml());
+                document = merged.document();
+            }
+        }
         var name = naming.bind(lease, patient, tables, source, document, bounds, control);
         // Per-patient ReadMe facts from the same sealed capture: the data-summary records per kind
         // (the same plan the Reports emission used) and the listed removed-feature tables.
@@ -1500,7 +2009,253 @@ public class CdsExportClinicalPackageService {
                 summaries,
                 listed(lease, patient, tables, source, bounds, control),
                 withheld,
-                noteScope == null ? List.<CdsExportNoteAccessDto>of() : noteScope.noteAccess());
+                noteScope == null ? List.<CdsExportNoteAccessDto>of() : noteScope.noteAccess(),
+                List.of(),
+                merge);
+    }
+
+    /** Whether a chart's capture holds any Merge Records link or privilege row. */
+    private static boolean hasMergeRows(CdsExportPatientCaptureDto source) {
+        var links = source.capture().tables().get("demographic_merged");
+        var privileges =
+                source.capture().tables().get(CdsExportMergePrivilegeSourceReader.TABLE);
+        return links != null && links.rows() > 0 || privileges != null && privileges.rows() > 0;
+    }
+
+    /** One chart's captured Merge Records links and privilege rows. */
+    private record MergeRows(
+            int chart,
+            List<CdsExportCapturedTextRowDto> links,
+            List<CdsExportCapturedTextRowDto> privileges) {}
+
+    private MergeRows mergeRows(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> tables,
+            CdsExportPatientCaptureDto source,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control)
+            throws IOException {
+        var reader = new CdsExportCapturedTextRowsReader(captures);
+        var links = new ArrayList<CdsExportCapturedTextRowDto>();
+        var privileges = new ArrayList<CdsExportCapturedTextRowDto>();
+        for (var table :
+                List.of("demographic_merged", CdsExportMergePrivilegeSourceReader.TABLE)) {
+            if (!tables.contains(table)) continue;
+            var target = table.equals("demographic_merged") ? links : privileges;
+            var actual =
+                    reader.forEach(
+                            lease,
+                            patient,
+                            tables,
+                            table,
+                            source.manifest(),
+                            bounds.fields(),
+                            bounds.bytes(),
+                            4096,
+                            control,
+                            target::add);
+            if (!actual.equals(source.capture())
+                    || target.size() != source.capture().tables().get(table).rows()) invalid();
+        }
+        return new MergeRows(patient.patient(), links, privileges);
+    }
+
+    /** The ReadMe's account of a file's merged charts and links. */
+    private static CdsExportMergeSummaryDto summary(
+            List<CdsExportMergeSummaryDto.Member> members,
+            CdsExportMergedChartMapper.Links links,
+            boolean records) {
+        return new CdsExportMergeSummaryDto(
+                members,
+                links.active(),
+                links.deleted(),
+                links.outside(),
+                links.record().shape().stream().map(Enum::name).toList(),
+                List.copyOf(links.record().changes()),
+                records);
+    }
+
+    /**
+     * The field decisions of a file's Merge Records rows and merged charts' demographics: every
+     * link and privilege field, and each merged chart's Demographics and native demographic
+     * occurrence, carried exactly in the file's records ({@value
+     * io.github.carlos_emr.carlos.demographic.cds.contract.CdsMergedChartContract#LINK_RULE}),
+     * or, without NewCategory, decided operational and not exported.
+     */
+    private static void mergeDecisions(
+            java.io.OutputStream output,
+            List<CdsExportMergedChartComposer.Member> members,
+            List<MergeRows> rows,
+            boolean records,
+            CdsExportRunControl control)
+            throws IOException {
+        var outcome =
+                records
+                        ? CdsExportFieldAssessmentDto.Outcome.MAPPED
+                        : CdsExportFieldAssessmentDto.Outcome.OPERATIONAL;
+        String rule =
+                records
+                        ? io.github.carlos_emr.carlos.demographic.cds.contract
+                                .CdsMergedChartContract.LINK_RULE
+                        : CdsExportDemographicSupportingMapper.NOT_SELECTED_RULE;
+        for (var member : members)
+            for (var identity : member.carried()) {
+                control.checkpoint();
+                mergeLine(
+                        output,
+                        new MergedDecision(
+                                "MERGED_CHART",
+                                member.chart(),
+                                identity,
+                                outcome,
+                                records
+                                        ? io.github.carlos_emr.carlos.demographic.cds.contract
+                                                .CdsMergedChartContract.CHART_RECORD
+                                        : null,
+                                rule));
+            }
+        for (var chart : rows) {
+            var fields = CdsExportMergedChartMapper.fields(List.of(chart.links(), chart.privileges()));
+            for (var table : fields.entrySet())
+                for (var row : table.getValue().entrySet()) {
+                    control.checkpoint();
+                    mergeLine(
+                            output,
+                            new MergeFieldDecision(
+                                    "MERGE_FIELDS",
+                                    chart.chart(),
+                                    table.getKey(),
+                                    row.getKey(),
+                                    row.getValue(),
+                                    outcome,
+                                    records
+                                            ? io.github.carlos_emr.carlos.demographic.cds.contract
+                                                    .CdsMergedChartContract.LINKS_RECORD
+                                            : null,
+                                    rule));
+                }
+        }
+    }
+
+    private record MergedDecision(
+            String kind,
+            int chart,
+            CdsExportIdentityDto identity,
+            CdsExportFieldAssessmentDto.Outcome outcome,
+            String destination,
+            String rule) {}
+
+    private record MergeFieldDecision(
+            String kind,
+            int chart,
+            String table,
+            String recordKey,
+            java.util.SortedSet<String> columns,
+            CdsExportFieldAssessmentDto.Outcome outcome,
+            String destination,
+            String rule) {}
+
+    private static void mergeLine(java.io.OutputStream output, Object value) throws IOException {
+        output.write(JSON.writeValueAsBytes(value));
+        output.write('\n');
+    }
+
+    /** A validated patient file assembled from its charts' documents. */
+    private record Merged(
+            CdsExportPatientDocumentService.Document document,
+            CdsExportMergedChartComposer.Result composed) {}
+
+    /**
+     * Writes and validates the patient file of a head and its merged charts from their documents
+     * ({@link CdsExportMergedChartComposer}): the head's sender identifier, the file's sections
+     * as written, and every reference to an attachment of one of its charts, each read to its
+     * authenticated end.
+     */
+    private Merged composeMerged(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient head,
+            List<CdsExportMergedChartComposer.Part> parts,
+            List<CdsExportPatientDocumentService.Document> charts,
+            io.github.carlos_emr.carlos.demographic.cds.contract.CdsMergedChartContract.LinksRecord
+                    links,
+            boolean records,
+            String applicationVersion,
+            CdsExportRunControl control,
+            CdsExportStagingService store,
+            List<CdsExportStagedFileDto> owned,
+            CdsExportStagedFileDto decisions,
+            Map<String, Long> notExported)
+            throws IOException {
+        var composed = new CdsExportMergedChartComposer.Result[1];
+        var xml =
+                store.stage(
+                        "PATIENT_XML",
+                        output ->
+                                composed[0] =
+                                        new CdsExportMergedChartComposer()
+                                                .compose(
+                                                        store,
+                                                        output,
+                                                        parts,
+                                                        links,
+                                                        records,
+                                                        control::checkpoint));
+        owned.add(xml);
+        var sections =
+                CdsExportLegacyLaboratoryReports.sections(lease.document().command().categories());
+        var expected = new java.util.EnumMap<CdsCategory, Long>(CdsCategory.class);
+        for (var section : sections)
+            expected.put(section, composed[0].occurrences().getOrDefault(section, 0L));
+        var references = new ArrayList<CdsExportReportReferenceDto>();
+        CdsExportXmlValidationDto checked;
+        try (var input = store.open(xml)) {
+            checked =
+                    new io.github.carlos_emr.carlos.demographic.cdsexport.validator
+                                    .CdsExportXmlValidator()
+                            .validate(
+                                    input,
+                                    new CdsExportPatientIdentityReconciler()
+                                            .identity(
+                                                    lease.document().senderNamespace(),
+                                                    head.patient())
+                                            .senderPatientId(),
+                                    sections,
+                                    applicationVersion,
+                                    lease.document().command().profile(),
+                                    references::add,
+                                    control::checkpoint);
+        }
+        if (!checked.xmlSha256().equals(xml.plaintextSha256())
+                || checked.xmlBytes() != xml.plaintextBytes()
+                || !checked.occurrences().equals(expected)) invalid();
+        // Every chart's attachments, which their charts' keys make distinct, are the file's.
+        var attachments = new TreeMap<String, CdsExportPackageMemberDto>();
+        for (var chart : charts)
+            for (var attachment : chart.attachments())
+                if (attachments.putIfAbsent(attachment.relativePath(), attachment) != null)
+                    invalid();
+        var referenced = new java.util.HashSet<String>();
+        for (var reference : references) {
+            control.checkpoint();
+            var member = attachments.get(reference.relativePath());
+            if (member == null || !referenced.add(reference.relativePath())) invalid();
+            try (var input = store.open(member.file())) {
+                input.transferTo(java.io.OutputStream.nullOutputStream());
+            }
+        }
+        if (!referenced.equals(attachments.keySet())) invalid();
+        head.require(lease);
+        control.checkpoint();
+        return new Merged(
+                CdsExportPatientDocumentService.merged(
+                        charts.getFirst(),
+                        xml,
+                        decisions,
+                        checked,
+                        List.copyOf(attachments.values()),
+                        notExported),
+                composed[0]);
     }
 
     /** The captured listed-table counts of one patient, read back from the sealed capture. */
@@ -1580,6 +2335,32 @@ public class CdsExportClinicalPackageService {
     }
 
     /**
+     * The held record of a patient file: its chart and code and, for a file of charts linked by
+     * Merge Records, the chart an access check refused and the other charts the job selected.
+     */
+    static CdsExportHeldPatientDto heldPatient(
+            CdsExportCohortService.Patient patient, String code, Exception refused) {
+        int chart =
+                refused
+                                instanceof
+                                io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                                .CdsExportMergedChartAccessException
+                                        merged
+                        ? merged.chart()
+                        : 0;
+        var selectedAs = new ArrayList<Integer>();
+        if (patient.group() != null)
+            for (int selected : patient.group().selected())
+                if (selected != patient.patient()) selectedAs.add(selected);
+        return new CdsExportHeldPatientDto(patient.patient(), code, chart, selectedAs);
+    }
+
+    /** Whether the ReadMe says anything about Merge Records for this chart's file. */
+    private static boolean chartHasMerges(Chart chart) {
+        return chart.merge() != null;
+    }
+
+    /**
      * The refusal for a job whose every selected patient was held, so there is no package. When
      * every patient was held for the same cause the job ends exactly as a one-patient job did
      * before patients could be held: the same review reason, the mapping refusal (reported as
@@ -1617,6 +2398,7 @@ public class CdsExportClinicalPackageService {
             if (byPatient.putIfAbsent(file.document().patient(), file) != null) invalid();
         long count = 0;
         var auditBatch = new ArrayList<Integer>(100);
+        var auditFiles = new ArrayList<Integer>();
         try (var cursor = cohorts.open(lease, control)) {
             CdsExportCohortService.Patient patient;
             while ((patient = cursor.next()) != null) {
@@ -1628,31 +2410,67 @@ public class CdsExportClinicalPackageService {
                     count++;
                     continue;
                 }
-                // One re-authorization pass per patient: its gates and notes are checked from
-                // the live database now, without one transaction per check.
-                control.beginAuthorizationPass(patient.patient());
-                try {
-                    captures.authorizeSources(lease, patient, tables, control);
-                    authorizeNotes(file.notes(), control);
-                } finally {
-                    control.endAuthorizationPass();
+                var members = file.members();
+                var others = new ArrayList<Integer>();
+                for (var member : members) others.add(member.patient());
+                // The file holds exactly the charts the sealed cohort grouped.
+                if (!others.equals(patient.members())) invalid();
+                try (var group = sealed(patient)) {
+                    // One re-authorization pass per chart: its gates and notes are checked from
+                    // the live database now, without one transaction per check.
+                    control.beginAuthorizationPass(patient.patient());
+                    try {
+                        captures.authorizeSources(lease, patient, tables, control);
+                        authorizeNotes(file.notes(), control);
+                    } finally {
+                        control.endAuthorizationPass();
+                    }
+                    for (var member : members) {
+                        control.beginAuthorizationPass(member.patient());
+                        try {
+                            captures.authorizeSources(
+                                    lease, patient.member(member.patient()), tables, control);
+                            authorizeNotes(member.notes(), control);
+                        } finally {
+                            control.endAuthorizationPass();
+                        }
+                    }
                 }
                 if (auditPrepared) {
-                    auditBatch.add(patient.patient());
-                    if (auditBatch.size() == 100) {
+                    // Every chart of the file is in the chart audit; a file is marked audited
+                    // once the write holding its last chart succeeded.
+                    var charts = file.document().charts();
+                    if (auditBatch.size() + charts.size() > 100) {
                         audit.prepared(lease, auditBatch);
-                        audited.addAll(auditBatch);
+                        audited.addAll(auditFiles);
                         auditBatch.clear();
+                        auditFiles.clear();
                     }
+                    for (int chart : charts) {
+                        auditBatch.add(chart);
+                        if (auditBatch.size() == 100) {
+                            audit.prepared(lease, auditBatch);
+                            auditBatch.clear();
+                        }
+                    }
+                    auditFiles.add(patient.patient());
                 }
                 count++;
             }
             if (!cursor.complete() || count != expected) invalid();
-            if (!auditBatch.isEmpty()) {
-                audit.prepared(lease, auditBatch);
-                audited.addAll(auditBatch);
-            }
+            if (!auditBatch.isEmpty()) audit.prepared(lease, auditBatch);
+            audited.addAll(auditFiles);
         }
+    }
+
+    /**
+     * The sealed scope of a patient file of charts linked by Merge Records, so that its charts
+     * pass the selected-patient check; nothing for a chart in no group.
+     */
+    static CdsExportAccessService.GroupScope sealed(CdsExportCohortService.Patient patient) {
+        var group = patient.group();
+        if (group == null) return () -> {};
+        return CdsExportAccessService.sealedGroup(group.charts(), group.selected());
     }
 
     /**
@@ -1692,6 +2510,17 @@ public class CdsExportClinicalPackageService {
 
     /** The rest of one patient's notes, after the first {@link #NOTE_BATCH} on its PATIENT line. */
     private record ScopeNotes(String kind, int patient, List<CdsExportNoteAccessDto> notes) {}
+
+    /**
+     * One merged chart of a patient file of charts linked by Merge Records, after the file's
+     * PATIENT line: its own source manifest and its first notes ({@link #NOTE_BATCH}).
+     */
+    private record ScopeMember(
+            String kind,
+            int patient,
+            int head,
+            String sourceManifestSha256,
+            List<CdsExportNoteAccessDto> notes) {}
 
     private record ScopeEnd(String kind, long patients) {}
 
@@ -1734,7 +2563,8 @@ public class CdsExportClinicalPackageService {
                         xml.xmlBytes(),
                         file.dataSummaries(),
                         file.listed(),
-                        file.notExported());
+                        file.notExported(),
+                        file.merge());
             }
         };
     }
@@ -1756,7 +2586,8 @@ public class CdsExportClinicalPackageService {
                         file.validation(),
                         file.dataSummaries(),
                         file.listed(),
-                        file.notExported());
+                        file.notExported(),
+                        file.merge());
             }
         };
     }

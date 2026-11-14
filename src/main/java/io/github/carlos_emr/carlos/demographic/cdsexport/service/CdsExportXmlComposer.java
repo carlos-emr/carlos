@@ -66,6 +66,23 @@ public final class CdsExportXmlComposer {
         void write(SectionEmitter output) throws IOException;
     }
 
+    /**
+     * Where each emitted occurrence is in the document: its section, identity, byte offset,
+     * byte length and the SHA-256 of exactly those bytes (the digest of its EMITTED
+     * disposition). The patient file of charts linked by Merge Records is assembled from these
+     * ranges ({@link CdsExportMergedChartComposer}); a chart alone records none.
+     */
+    @FunctionalInterface
+    public interface Occurrences {
+        void occurrence(
+                CdsCategory category,
+                CdsExportIdentityDto identity,
+                long offset,
+                long length,
+                String sha256)
+                throws IOException;
+    }
+
     public record Section(CdsExportIdentityDto identity, Content content) {
         public Section {
             Objects.requireNonNull(identity);
@@ -134,6 +151,40 @@ public final class CdsExportXmlComposer {
             long maximumBytes,
             Runnable checkpoint)
             throws IOException {
+        return composeFromSource(
+                output,
+                captureDigest,
+                patientKey,
+                applicationVersion,
+                profile,
+                selectedCategories,
+                sections,
+                dispositions,
+                maximumBytes,
+                checkpoint,
+                null);
+    }
+
+    /**
+     * {@link #composeFromSource(OutputStream, String, String, String, CdsLogicalProfile, Set,
+     * Sections, Dispositions, long, Runnable)} that also reports where each occurrence is. The
+     * document's bytes are the same with or without {@code occurrences}.
+     *
+     * @param occurrences receives each occurrence's range in document order, or null
+     */
+    public Result composeFromSource(
+            OutputStream output,
+            String captureDigest,
+            String patientKey,
+            String applicationVersion,
+            CdsLogicalProfile profile,
+            Set<CdsCategory> selectedCategories,
+            Sections sections,
+            Dispositions dispositions,
+            long maximumBytes,
+            Runnable checkpoint,
+            Occurrences occurrences)
+            throws IOException {
         Objects.requireNonNull(output);
         Objects.requireNonNull(sections);
         Objects.requireNonNull(dispositions);
@@ -164,6 +215,7 @@ public final class CdsExportXmlComposer {
             xml.writeNamespace("xs", "http://www.w3.org/2001/XMLSchema");
             xml.writeStartElement("", "PatientRecord", "cds");
             int[] last = {-1};
+            long[] start = {0};
             SectionEmitter emitter =
                     new SectionEmitter(
                             section -> {
@@ -184,6 +236,7 @@ public final class CdsExportXmlComposer {
                                     xml.writeCharacters("");
                                     xml.flush();
                                     counted.beginOccurrence();
+                                    start[0] = counted.total;
                                     xml.writeStartElement("", category.wireName(), "cds");
                                     ContentWriter content =
                                             new ContentWriter(
@@ -203,6 +256,13 @@ public final class CdsExportXmlComposer {
                                     throw new IOException("CDS_EXPORT_XML_WRITE_FAILED");
                                 }
                                 String digest = counted.endOccurrence();
+                                if (occurrences != null)
+                                    occurrences.occurrence(
+                                            category,
+                                            section.identity(),
+                                            start[0],
+                                            counted.total - start[0],
+                                            digest);
                                 dispositions.emitted(
                                         new CdsExportDispositionDto(
                                                 captureDigest,

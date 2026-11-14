@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import io.github.carlos_emr.carlos.commn.dto.CdsExportSelectionRowDto;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl;
@@ -127,7 +128,8 @@ public class CdsExportDisclosureScopeService {
                             cohort,
                             patients,
                             control::checkpoint,
-                            patient -> {
+                            (CdsExportCohortService.RetainedFiles)
+                                    (patient, members) -> {
                                 control.checkpoint();
                                 var node = buffered[0] ? ahead[0] : lines.required();
                                 buffered[0] = false;
@@ -206,21 +208,51 @@ public class CdsExportDisclosureScopeService {
                                         invalid();
                                     batch = following.path("notes");
                                 }
-                                // One re-authorization pass per patient: its gates and notes are
-                                // checked from the live database now, without one transaction per
-                                // check.
-                                control.beginAuthorizationPass(patient.demographicNo());
-                                try {
-                                    captures.authorizeScope(
-                                            intent.command(),
+                                // Each merged chart of the file follows on its own MEMBER line.
+                                var memberNotes = new java.util.ArrayList<java.util.List<CdsExportNoteAccessDto>>();
+                                for (int member : members) {
+                                    var line = buffered[0] ? ahead[0] : lines.required();
+                                    buffered[0] = false;
+                                    ahead[0] = null;
+                                    var read =
+                                            member(
+                                                    line,
+                                                    member,
+                                                    patient.demographicNo(),
+                                                    intent,
+                                                    lines,
+                                                    control);
+                                    notes[0] += read.notes().size();
+                                    memberNotes.add(read.notes());
+                                    ahead[0] = read.following();
+                                    buffered[0] = true;
+                                }
+                                var charts = new java.util.ArrayList<Integer>();
+                                charts.add(patient.demographicNo());
+                                charts.addAll(members);
+                                // A file of charts linked by Merge Records: its charts pass the
+                                // selected-patient check while they are re-authorized.
+                                try (var group =
+                                        members.isEmpty()
+                                                ? (CdsExportAccessService.GroupScope) () -> {}
+                                                : CdsExportAccessService.sealedGroup(
+                                                        charts, selected(patient, members, intent))) {
+                                    // One re-authorization pass per chart: its gates and notes are
+                                    // checked from the live database now, without one
+                                    // transaction per check.
+                                    authorize(
+                                            intent,
                                             patient.demographicNo(),
+                                            patientNotes,
                                             tables,
                                             control);
-                                    // The same ascending batches the packaging step uses.
-                                    CdsExportClinicalPackageService.authorizeNotes(
-                                            patientNotes, control);
-                                } finally {
-                                    control.endAuthorizationPass();
+                                    for (int index = 0; index < members.size(); index++)
+                                        authorize(
+                                                intent,
+                                                members.get(index),
+                                                memberNotes.get(index),
+                                                tables,
+                                                control);
                                 }
                             });
             if (count != patients
@@ -239,6 +271,98 @@ public class CdsExportDisclosureScopeService {
                 patients,
                 notes[0],
                 Instant.now());
+    }
+
+    private void authorize(
+            CdsExportJobDocumentDto intent,
+            int patient,
+            List<CdsExportNoteAccessDto> notes,
+            Set<String> tables,
+            CdsExportRunControl control) {
+        control.beginAuthorizationPass(patient);
+        try {
+            captures.authorizeScope(intent.command(), patient, tables, control);
+            // The same ascending batches the packaging step uses.
+            CdsExportClinicalPackageService.authorizeNotes(notes, control);
+        } finally {
+            control.endAuthorizationPass();
+        }
+    }
+
+    /**
+     * The charts of a retained group the job selected: for a selection of named patients, those
+     * of its charts the job named; a roster names no patient, so its head stands for it.
+     */
+    private static List<Integer> selected(
+            CdsExportSelectionRowDto patient, List<Integer> members, CdsExportJobDocumentDto intent) {
+        var selected = new ArrayList<Integer>();
+        var command = intent.command();
+        var charts = new ArrayList<Integer>();
+        charts.add(patient.demographicNo());
+        charts.addAll(members);
+        for (int chart : charts)
+            if (command.selection() != io.github.carlos_emr.carlos.demographic.cdsexport.command
+                                    .CdsExportCommand.Selection.SELECTED_PATIENTS
+                    || Collections.binarySearch(command.patientNos(), chart) >= 0)
+                selected.add(chart);
+        if (selected.isEmpty()) selected.add(patient.demographicNo());
+        return selected;
+    }
+
+    /** One MEMBER line and its NOTES lines, and the line after them. */
+    private record Member(List<CdsExportNoteAccessDto> notes, JsonNode following) {}
+
+    private static Member member(
+            JsonNode node,
+            int member,
+            int head,
+            CdsExportJobDocumentDto intent,
+            CdsExportJsonLines lines,
+            CdsExportRunControl control)
+            throws IOException {
+        if (node == null
+                || !node.isObject()
+                || node.size() != 5
+                || !"MEMBER".equals(node.path("kind").textValue())
+                || !node.path("patient").isIntegralNumber()
+                || !node.path("patient").canConvertToInt()
+                || node.path("patient").intValue() != member
+                || !node.path("head").isIntegralNumber()
+                || !node.path("head").canConvertToInt()
+                || node.path("head").intValue() != head
+                || !node.path("sourceManifestSha256").isTextual()
+                || !node.path("sourceManifestSha256").textValue().matches("[0-9a-f]{64}")
+                || !node.path("notes").isArray()
+                || node.path("notes").size() > CdsExportClinicalPackageService.NOTE_BATCH)
+            invalid();
+        var notes = new ArrayList<CdsExportNoteAccessDto>();
+        long previous = 0;
+        var batch = node.path("notes");
+        while (true) {
+            for (var value : batch) {
+                control.checkpoint();
+                var scope = note(value, member);
+                if (scope.noteId() <= previous
+                        || !intent.command().categories().contains(CdsCategory.CLINICAL_NOTES))
+                    invalid();
+                notes.add(scope);
+                previous = scope.noteId();
+            }
+            var following = lines.next();
+            if (following == null
+                    || !following.isObject()
+                    || !"NOTES".equals(following.path("kind").textValue()))
+                return new Member(notes, following);
+            if (following.size() != 3
+                    || !following.path("patient").isIntegralNumber()
+                    || !following.path("patient").canConvertToInt()
+                    || following.path("patient").intValue() != member
+                    || !following.path("notes").isArray()
+                    || following.path("notes").isEmpty()
+                    || following.path("notes").size() > CdsExportClinicalPackageService.NOTE_BATCH
+                    || batch.size() != CdsExportClinicalPackageService.NOTE_BATCH) invalid();
+            batch = following.path("notes");
+        }
     }
 
     private static CdsExportNoteAccessDto note(JsonNode node, int patient) throws IOException {

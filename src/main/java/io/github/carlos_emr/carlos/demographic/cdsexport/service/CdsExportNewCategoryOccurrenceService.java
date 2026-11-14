@@ -541,9 +541,12 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                     bounds,
                     control,
                     occurrence -> {
+                        // A merged chart's appointments follow the patient file's earlier
+                        // ones: the record names the element's position in the file.
                         var carrier =
                                 CdsExportAppointmentSourceMapper.map(
-                                        occurrence.ordinal(),
+                                        Math.addExact(
+                                                occurrence.ordinal(), patient.appointmentBase()),
                                         occurrence.row(),
                                         occurrence.lookups(),
                                         occurrence.complete());
