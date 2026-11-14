@@ -3318,6 +3318,11 @@
               "name": "shouldReadADocumentProgram_throughAnyMembershipInIt",
               "container": "",
               "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldReadEveryProgramGrantPastFourThousandRows_withTheShortListRule",
+              "container": "",
+              "check": "java-cds-transfer-export"
             }
           ]
         },

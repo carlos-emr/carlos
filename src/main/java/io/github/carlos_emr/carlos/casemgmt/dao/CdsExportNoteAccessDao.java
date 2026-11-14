@@ -36,6 +36,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Repository
 @Transactional(readOnly = true, propagation = Propagation.MANDATORY)
 public class CdsExportNoteAccessDao extends AbstractJpaDao {
+    /** Program grant rows one statement reads; it decides how they are read, never how many. */
+    private static final int GRANT_PAGE = 4096;
+
     /**
      * The complete note scope of a patient, in note order; a hidden or malformed note refuses the
      * whole read rather than disappearing. A chart of any number of notes is read: {@code page}
@@ -227,30 +230,42 @@ public class CdsExportNoteAccessDao extends AbstractJpaDao {
                         .setMaxResults(1)
                         .getResultList();
         if (!defaults.isEmpty()) return true;
-        List<Object[]> grants =
-                waiting(
-                                entityManager()
-                                        .createNativeQuery(
-                                """
-                                SELECT g.id, a.name, g.all_roles,
-                                EXISTS (SELECT 1 FROM program_access_roles r WHERE r.id = g.id AND r.role_id = :role)
-                                FROM program_access g JOIN access_type a ON a.access_id = g.access_type_id
-                                WHERE g.program_id = :program AND a.name = :name
-                                """,
-                                Object[].class))
-                        .setParameter("role", role)
-                        .setParameter("program", program)
-                        .setParameter("name", accessName)
-                        .setMaxResults(4097)
-                        .getResultList();
-        if (grants.size() > 4096) deny();
+        // Every grant row the database's equality matches is read, in id order a page at a time
+        // (#58: more than 4,096 rows used to refuse the check, which held the patient). The
+        // decision is the one a short list gives: exactly one row whose name is the access name
+        // decides, and a second one leaves no stable owning-reader precedence, so the note stays
+        // unreadable.
         Object[] selected = null;
-        for (Object[] grant : grants)
-            if (grant[1] instanceof String name && accessName.equals(folded(name))) {
-                if (selected != null)
-                    return false; // duplicate map keys have no stable owning-reader precedence
-                selected = grant;
+        long after = Long.MIN_VALUE;
+        while (true) {
+            List<Object[]> grants =
+                    waiting(
+                                    entityManager()
+                                            .createNativeQuery(
+                                                    """
+                                                    SELECT g.id, a.name, g.all_roles,
+                                                    EXISTS (SELECT 1 FROM program_access_roles r WHERE r.id = g.id AND r.role_id = :role)
+                                                    FROM program_access g JOIN access_type a ON a.access_id = g.access_type_id
+                                                    WHERE g.program_id = :program AND a.name = :name AND g.id > :after
+                                                    ORDER BY g.id
+                                                    """,
+                                                    Object[].class))
+                            .setParameter("role", role)
+                            .setParameter("program", program)
+                            .setParameter("name", accessName)
+                            .setParameter("after", after)
+                            .setMaxResults(GRANT_PAGE)
+                            .getResultList();
+            for (Object[] grant : grants) {
+                after = ((Number) grant[0]).longValue();
+                if (grant[1] instanceof String name && accessName.equals(folded(name))) {
+                    if (selected != null)
+                        return false; // duplicate map keys have no stable owning-reader precedence
+                    selected = grant;
+                }
             }
+            if (grants.size() < GRANT_PAGE) break;
+        }
         return selected != null && (truth(selected[2]) || truth(selected[3]));
     }
 
