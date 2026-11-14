@@ -325,7 +325,7 @@ class CdsExportHospitalReportAssemblyUnitTest {
                                 HASH, Map.of(), Set.of(), Set.of()));
         doAnswer(
                         call -> {
-                            ((CdsExportRetainedValuesService.Work) call.getArgument(10))
+                            ((CdsExportRetainedValuesService.Work) call.getArgument(8))
                                     .use(
                                             index,
                                             List.of(),
@@ -343,8 +343,7 @@ class CdsExportHospitalReportAssemblyUnitTest {
                         })
                 .when(values)
                 .withValues(
-                        any(), any(), anySet(), any(), any(), anyLong(), anyLong(), anyInt(),
-                        anyLong(), any(), any());
+                        any(), any(), anySet(), any(), any(), anyLong(), anyLong(), any(), any());
         var hospitalReports = new CdsExportHospitalReportOccurrenceService(captures, stores);
         var occurrences =
                 new CdsExportReportOccurrenceService(

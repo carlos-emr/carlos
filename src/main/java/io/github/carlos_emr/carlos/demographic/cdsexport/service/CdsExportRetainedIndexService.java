@@ -120,8 +120,6 @@ public class CdsExportRetainedIndexService {
             CdsExportStagedFileDto manifest,
             long maximumFields,
             long maximumBytes,
-            int maximumRows,
-            long maximumIndexBytes,
             CdsExportRunControl control)
             throws IOException {
         Map<String, CdsExportRetainedImportOptionsReader.Options> frozenOptions = null;
@@ -130,8 +128,8 @@ public class CdsExportRetainedIndexService {
             plans.put("cds_import_file", Plan.IMPORT_FILES);
             plans.put("cds_import_file_reference", Plan.IMPORT_FILE_REFERENCES);
         }
-        // maximumRows and maximumIndexBytes are the caller's former bounds. They are not applied
-        // and not checked: no value of either refuses an index.
+        // No count of rows and no size refuses an index: the index of a chart of any size is
+        // read (cds.export.maxIndexRows and maxIndexBytes are retired).
         if (!requiredTables.containsAll(plans.keySet()))
             throw new IllegalArgumentException("CDS_EXPORT_RETAINED_INDEX_SCOPE_INVALID");
         patient.require(lease);
@@ -145,9 +143,7 @@ public class CdsExportRetainedIndexService {
                         Set.copyOf(requiredTables),
                         Set.copyOf(plans.keySet()),
                         maximumFields,
-                        maximumBytes,
-                        maximumRows,
-                        maximumIndexBytes);
+                        maximumBytes);
         var known = session == null ? null : session.derived(key, CdsExportRetainedIndexDto.class);
         if (known != null) {
             captures.authorizeSources(lease, patient, requiredTables, control);
@@ -155,9 +151,8 @@ public class CdsExportRetainedIndexService {
             control.checkpoint();
             return known;
         }
-        // Nothing refuses an index for its size: maximumRows and maximumIndexBytes are the
-        // caller's former bounds and are not applied. The rows and bytes are still counted, for
-        // the index's own record of what it holds.
+        // Nothing refuses an index for its size. The rows and bytes are still counted, for the
+        // index's own record of what it holds.
         var tables = new TreeMap<String, Map<String, CdsExportCapturedTextRowDto>>();
         plans.keySet().forEach(table -> tables.put(table, new TreeMap<>()));
         long[] count = new long[2];
@@ -278,9 +273,7 @@ public class CdsExportRetainedIndexService {
             Set<String> requiredTables,
             Set<String> indexed,
             long maximumFields,
-            long maximumBytes,
-            int maximumRows,
-            long maximumIndexBytes) {
+            long maximumBytes) {
         @Override
         public String toString() {
             return "CdsExportRetainedIndexService.IndexKey[protected]";

@@ -60,7 +60,6 @@ public class CdsExportHistoryInventoryService {
                         source,
                         bounds.fields(),
                         bounds.bytes(),
-                        bounds.indexBytes(),
                         control);
         var context =
                 CdsExportHistoryCurrentContext.read(

@@ -75,8 +75,6 @@ public class CdsExportRetainedValuesService {
             CdsExportStagedFileDto payloadManifest,
             long maximumFields,
             long maximumBytes,
-            int maximumRows,
-            long maximumIndexBytes,
             CdsExportRunControl control,
             Work work)
             throws IOException {
@@ -90,8 +88,6 @@ public class CdsExportRetainedValuesService {
                         sourceManifest,
                         maximumFields,
                         maximumBytes,
-                        maximumRows,
-                        maximumIndexBytes,
                         control);
         // No field of the chart is kept decoded for the section: each is decoded from its row
         // of the index when it is read (CdsExportRetainedFieldList), so a section holds the

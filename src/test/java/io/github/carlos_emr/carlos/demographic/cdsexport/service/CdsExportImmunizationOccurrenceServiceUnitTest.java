@@ -899,15 +899,14 @@ class CdsExportImmunizationOccurrenceServiceUnitTest {
                 };
         doAnswer(
                         call -> {
-                            ((CdsExportRetainedValuesService.Work) call.getArgument(10))
+                            ((CdsExportRetainedValuesService.Work) call.getArgument(8))
                                     .use(index, f.retained, streams);
                             if (f.valuesEofFailure) throw new IOException("VALUES_FINAL_EOF");
                             return null;
                         })
                 .when(f.values)
                 .withValues(
-                        any(), any(), anySet(), any(), any(), anyLong(), anyLong(), anyInt(),
-                        anyLong(), any(), any());
+                        any(), any(), anySet(), any(), any(), anyLong(), anyLong(), any(), any());
         when(f.verification.verify(
                         any(), any(), anySet(), any(), any(), anyLong(), anyLong(), anyInt(),
                         any()))

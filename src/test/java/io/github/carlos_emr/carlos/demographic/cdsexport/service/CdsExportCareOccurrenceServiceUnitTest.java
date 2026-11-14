@@ -276,7 +276,7 @@ class CdsExportCareOccurrenceServiceUnitTest {
         void shouldExportEveryMeasurement_ofAChartLargerThanOneWindow() throws Exception {
             org.mockito.Mockito.doAnswer(
                             call -> {
-                                CdsExportRetainedValuesService.Work work = call.getArgument(10);
+                                CdsExportRetainedValuesService.Work work = call.getArgument(8);
                                 work.use(
                                         new CdsExportRetainedIndexDto(
                                                 CdsExportCareCaptureFixture.HASH,
@@ -299,8 +299,6 @@ class CdsExportCareOccurrenceServiceUnitTest {
                             org.mockito.ArgumentMatchers.any(),
                             org.mockito.ArgumentMatchers.any(),
                             org.mockito.ArgumentMatchers.anyLong(),
-                            org.mockito.ArgumentMatchers.anyLong(),
-                            org.mockito.ArgumentMatchers.anyInt(),
                             org.mockito.ArgumentMatchers.anyLong(),
                             org.mockito.ArgumentMatchers.any(),
                             org.mockito.ArgumentMatchers.any());
@@ -364,7 +362,7 @@ class CdsExportCareOccurrenceServiceUnitTest {
             fixture.add(CdsExportCareCaptureFixture.measurement(id, "WT", Long.toString(60 + id)));
         org.mockito.Mockito.doAnswer(
                         call -> {
-                            CdsExportRetainedValuesService.Work work = call.getArgument(10);
+                            CdsExportRetainedValuesService.Work work = call.getArgument(8);
                             work.use(
                                     new CdsExportRetainedIndexDto(
                                             CdsExportCareCaptureFixture.HASH,
@@ -387,8 +385,6 @@ class CdsExportCareOccurrenceServiceUnitTest {
                         org.mockito.ArgumentMatchers.any(),
                         org.mockito.ArgumentMatchers.any(),
                         org.mockito.ArgumentMatchers.anyLong(),
-                        org.mockito.ArgumentMatchers.anyLong(),
-                        org.mockito.ArgumentMatchers.anyInt(),
                         org.mockito.ArgumentMatchers.anyLong(),
                         org.mockito.ArgumentMatchers.any(),
                         org.mockito.ArgumentMatchers.any());

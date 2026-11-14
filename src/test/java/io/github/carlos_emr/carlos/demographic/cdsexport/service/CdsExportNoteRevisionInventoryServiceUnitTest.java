@@ -197,7 +197,7 @@ class CdsExportNoteRevisionInventoryServiceUnitTest {
     }
 
     private CdsExportNoteRevisionPlanner.Result run(long memory) throws Exception {
-        return service.inventory(lease, patient, tables, source, 1000, 1L << 20, memory, control);
+        return service.inventory(lease, patient, tables, source, 1000, 1L << 20, control);
     }
 
     @Test

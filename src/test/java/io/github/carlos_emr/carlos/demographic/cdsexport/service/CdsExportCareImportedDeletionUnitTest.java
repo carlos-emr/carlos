@@ -204,7 +204,7 @@ class CdsExportCareImportedDeletionUnitTest {
             fixture.add(CdsExportCareCaptureFixture.measurement(id, "WT", "70"));
         org.mockito.Mockito.doAnswer(
                         call -> {
-                            CdsExportRetainedValuesService.Work work = call.getArgument(10);
+                            CdsExportRetainedValuesService.Work work = call.getArgument(8);
                             work.use(index, fields, values());
                             return null;
                         })
@@ -216,8 +216,6 @@ class CdsExportCareImportedDeletionUnitTest {
                         org.mockito.ArgumentMatchers.any(),
                         org.mockito.ArgumentMatchers.any(),
                         org.mockito.ArgumentMatchers.anyLong(),
-                        org.mockito.ArgumentMatchers.anyLong(),
-                        org.mockito.ArgumentMatchers.anyInt(),
                         org.mockito.ArgumentMatchers.anyLong(),
                         org.mockito.ArgumentMatchers.any(),
                         org.mockito.ArgumentMatchers.any());

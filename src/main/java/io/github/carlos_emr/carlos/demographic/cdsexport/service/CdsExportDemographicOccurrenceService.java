@@ -203,8 +203,6 @@ public class CdsExportDemographicOccurrenceService {
                                 payloadManifest,
                                 bounds.fields(),
                                 bounds.bytes(),
-                                bounds.indexRows(),
-                                bounds.indexBytes(),
                                 control,
                                 (index, retained, streams) -> {
                                     if (!index.sourceManifestSha256()

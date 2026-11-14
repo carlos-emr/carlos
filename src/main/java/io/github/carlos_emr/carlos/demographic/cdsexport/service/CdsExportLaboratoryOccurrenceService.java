@@ -246,8 +246,6 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
                 payloadManifest,
                 bounds.fields(),
                 bounds.bytes(),
-                bounds.indexRows(),
-                bounds.indexBytes(),
                 control,
                 (index, retained, streams) -> {
                     if (!index.sourceManifestSha256().equals(source.manifest().plaintextSha256()))

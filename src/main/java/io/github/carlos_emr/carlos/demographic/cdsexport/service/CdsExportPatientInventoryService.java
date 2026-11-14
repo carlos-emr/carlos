@@ -192,8 +192,6 @@ public class CdsExportPatientInventoryService {
                         source.manifest(),
                         bounds.fields(),
                         bounds.bytes(),
-                        bounds.indexRows(),
-                        bounds.indexBytes(),
                         control);
         if (!index.sourceManifestSha256().equals(source.manifest().plaintextSha256())) invalid();
         // Every expected occurrence and retained field of the patient, packed

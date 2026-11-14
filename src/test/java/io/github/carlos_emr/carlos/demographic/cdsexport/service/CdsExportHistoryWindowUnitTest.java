@@ -156,14 +156,13 @@ class CdsExportHistoryWindowUnitTest {
         var streams = mock(CdsExportRetainedSectionWriter.Values.class, withSettings().stubOnly());
         doAnswer(
                         call -> {
-                            call.<CdsExportRetainedValuesService.Work>getArgument(10)
+                            call.<CdsExportRetainedValuesService.Work>getArgument(8)
                                     .use(retained, List.of(), streams);
                             return null;
                         })
                 .when(values)
                 .withValues(
-                        any(), any(), anySet(), any(), any(), anyLong(), anyLong(), anyInt(),
-                        anyLong(), any(), any());
+                        any(), any(), anySet(), any(), any(), anyLong(), anyLong(), any(), any());
         when(verification.verify(
                         any(), any(), anySet(), any(), any(), anyLong(), anyLong(), anyInt(),
                         any()))

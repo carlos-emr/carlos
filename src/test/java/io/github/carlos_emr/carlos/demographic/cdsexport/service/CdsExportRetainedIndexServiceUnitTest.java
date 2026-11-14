@@ -237,7 +237,7 @@ class CdsExportRetainedIndexServiceUnitTest {
                         Map.of("run_id", RUN, "unit_key", NATIVE, "file_id", file)));
         var result =
                 service.index(
-                        lease, patient, scope, manifest, 10000, 8L << 20, 1000, 4L << 20, control);
+                        lease, patient, scope, manifest, 10000, 8L << 20, control);
         assertThat(result.tables().get("cds_import_file")).containsKey(file);
         assertThat(result.tables().get("cds_import_file_reference")).containsKey(link);
         assertThat(result.metadataRows()).isEqualTo(data.size());
@@ -253,7 +253,7 @@ class CdsExportRetainedIndexServiceUnitTest {
 
     private CdsExportRetainedIndexDto index() throws Exception {
         return service.index(
-                lease, patient, TABLES, manifest, 10000, 8L << 20, 1000, 4L << 20, control);
+                lease, patient, TABLES, manifest, 10000, 8L << 20, control);
     }
 
     private void baseline() throws Exception {
@@ -519,7 +519,7 @@ class CdsExportRetainedIndexServiceUnitTest {
         // No configured count or size refuses an index: the smallest bounds a caller can state
         // index the same chart.
         var bounded =
-                service.index(lease, patient, TABLES, manifest, 10000, 8L << 20, 1, 1, control);
+                service.index(lease, patient, TABLES, manifest, 10000, 8L << 20, control);
         assertThat(bounded.tables().get("cds_import_unit")).hasSameSizeAs(index().tables().get("cds_import_unit"));
         assertThat(bounded.metadataRows()).isEqualTo(index().metadataRows());
     }
@@ -656,7 +656,7 @@ class CdsExportRetainedIndexServiceUnitTest {
                         io.github.carlos_emr.carlos.demographic.cds.security
                                 .CdsNativeBaselineTestKeys.keys());
         return service.index(
-                lease, patient, selected, manifest, 10000, 8L << 20, 1000, 4L << 20, control);
+                lease, patient, selected, manifest, 10000, 8L << 20, control);
     }
 
     @Test

@@ -55,14 +55,12 @@ public class CdsExportNoteRevisionInventoryService {
             CdsExportPatientCaptureDto source,
             long maximumFields,
             long maximumBytes,
-            long maximumInventoryBytes,
             CdsExportRunControl control)
             throws IOException {
         Objects.requireNonNull(source);
         Objects.requireNonNull(control);
         patient.require(lease);
         control.checkpoint();
-        // maximumInventoryBytes is the caller's former bound: not applied and not checked.
         if (!source.capture().tables().keySet().equals(requiredTables)
                 || !requiredTables.contains("casemgmt_note")) invalid();
         var scope = source.capture().tables().get("casemgmt_note");

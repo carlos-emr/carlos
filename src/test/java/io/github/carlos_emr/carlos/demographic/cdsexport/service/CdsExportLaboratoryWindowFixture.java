@@ -417,14 +417,13 @@ abstract class CdsExportLaboratoryWindowFixture {
         var streams = mock(CdsExportRetainedSectionWriter.Values.class, withSettings().stubOnly());
         doAnswer(
                         call -> {
-                            call.<CdsExportRetainedValuesService.Work>getArgument(10)
+                            call.<CdsExportRetainedValuesService.Work>getArgument(8)
                                     .use(index, List.copyOf(retained), streams);
                             return null;
                         })
                 .when(values)
                 .withValues(
-                        any(), any(), anySet(), any(), any(), anyLong(), anyLong(), anyInt(),
-                        anyLong(), any(), any());
+                        any(), any(), anySet(), any(), any(), anyLong(), anyLong(), any(), any());
         var command =
                 new CdsExportCommand(
                         "laboratory-windows",

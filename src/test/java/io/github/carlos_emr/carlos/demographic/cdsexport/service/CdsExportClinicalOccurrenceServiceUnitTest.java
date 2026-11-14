@@ -1168,7 +1168,7 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
                 };
         doAnswer(
                         call -> {
-                            ((CdsExportRetainedValuesService.Work) call.getArgument(10))
+                            ((CdsExportRetainedValuesService.Work) call.getArgument(8))
                                     .use(index, fields, streams);
                             if (f.finalSourceFailure)
                                 throw new IOException("FINAL_SOURCE_EOF_REJECTED");
@@ -1176,8 +1176,7 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
                         })
                 .when(f.values)
                 .withValues(
-                        any(), any(), any(), any(), any(), anyLong(), anyLong(), anyInt(),
-                        anyLong(), any(), any());
+                        any(), any(), any(), any(), any(), anyLong(), anyLong(), any(), any());
         when(f.verification.verify(
                         any(), any(), any(), any(), any(), anyLong(), anyLong(), anyInt(), any()))
                 .thenReturn(checked);

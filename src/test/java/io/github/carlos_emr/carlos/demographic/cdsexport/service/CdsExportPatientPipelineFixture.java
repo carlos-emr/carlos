@@ -153,8 +153,7 @@ final class CdsExportPatientPipelineFixture {
                         manifest);
         nativeRows.add(new CdsExportNativeRowReceiptDto("demographic", "27", "0000000027", HASH));
         when(indices.index(
-                        any(), any(), anySet(), any(), anyLong(), anyLong(), anyInt(), anyLong(),
-                        any()))
+                        any(), any(), anySet(), any(), anyLong(), anyLong(), any()))
                 .thenAnswer(call -> index());
         when(witnesses.scan(any(), any(), anySet(), any(), anyLong(), anyLong(), any(), any()))
                 .thenAnswer(
