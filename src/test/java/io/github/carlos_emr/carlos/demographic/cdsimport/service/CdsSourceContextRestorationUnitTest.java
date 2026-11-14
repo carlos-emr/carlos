@@ -309,6 +309,15 @@ class CdsSourceContextRestorationUnitTest {
                         })
                 .when(preventions)
                 .persist(any());
+        var extensionIds = new java.util.concurrent.atomic.AtomicInteger(900);
+        doAnswer(
+                        call -> {
+                            ReflectionTestUtils.setField(
+                                    (Object) call.getArgument(0), "id", extensionIds.incrementAndGet());
+                            return null;
+                        })
+                .when(extensions)
+                .persist(any());
         var writer =
                 new CdsImmunizationPersister(
                         preventions, extensions, mock(PartialDateDao.class), normalization, "");

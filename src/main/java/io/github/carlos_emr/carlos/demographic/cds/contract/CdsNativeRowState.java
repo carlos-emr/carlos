@@ -69,7 +69,9 @@ public record CdsNativeRowState(
                 || !ID.matcher(id).matches()) invalid();
         columns = List.copyOf(columns);
         cells = List.copyOf(cells);
-        if (columns.isEmpty() || columns.size() > 512 || columns.size() != cells.size()) invalid();
+        if (columns.isEmpty()
+                || columns.size() > CdsNativeRowDigest.MAXIMUM_COLUMNS
+                || columns.size() != cells.size()) invalid();
         CdsNativeRowDigest.hasher(columns);
         for (int i = 0; i < columns.size(); i++) {
             var witness = cells.get(i).exactNumeric();

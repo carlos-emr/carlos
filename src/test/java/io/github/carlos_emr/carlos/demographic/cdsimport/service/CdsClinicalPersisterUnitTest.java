@@ -421,6 +421,81 @@ class CdsClinicalPersisterUnitTest {
     }
 
     @Test
+    void shouldReturnEveryRowWritten_whenMedicationHasPartialDates() throws Exception {
+        // The unit's receipt names exactly these rows: the drug, then its two date rows. No date
+        // row is found afterwards by the drug's id.
+        var source =
+                normalization.medication(
+                        medication(
+                                Map.of(
+                                        "PrescriptionWrittenDate/YearMonth",
+                                        "2012-06",
+                                        "StartDate/YearOnly",
+                                        "2012")));
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        doAnswer(
+                        call -> {
+                            ReflectionTestUtils.setField((Object) call.getArgument(0), "id", 81);
+                            return null;
+                        })
+                .when(drugs)
+                .persist(any());
+        var dateIds = new java.util.concurrent.atomic.AtomicInteger(500);
+        doAnswer(
+                        call -> {
+                            ReflectionTestUtils.setField(
+                                    (Object) call.getArgument(0), "id", dateIds.incrementAndGet());
+                            return null;
+                        })
+                .when(dates)
+                .persist(any());
+        assertThat(medications.write(42, "999998", source))
+                .containsExactly(
+                        org.assertj.core.api.Assertions.entry("drugs", "81"),
+                        org.assertj.core.api.Assertions.entry("partial_date#written", "501"),
+                        org.assertj.core.api.Assertions.entry("partial_date#start", "502"));
+    }
+
+    @Test
+    void shouldReturnEveryRowWritten_whenAllergyHasPartialDates() throws Exception {
+        var source =
+                normalization.allergy(
+                        CdsClinicalFixture.record(
+                                directory,
+                                "AllergiesAndAdverseReactions",
+                                Map.of(
+                                        "OffendingAgentDescription",
+                                        "Synthetic agent",
+                                        "StartDate/YearMonth",
+                                        "2014-03",
+                                        "RecordedDate/YearOnly",
+                                        "2015")));
+        var allergyDao = mock(AllergyDao.class);
+        doAnswer(
+                        call -> {
+                            ReflectionTestUtils.setField((Object) call.getArgument(0), "id", 64);
+                            return null;
+                        })
+                .when(allergyDao)
+                .persist(any());
+        var dateIds = new java.util.concurrent.atomic.AtomicInteger(700);
+        doAnswer(
+                        call -> {
+                            ReflectionTestUtils.setField(
+                                    (Object) call.getArgument(0), "id", dateIds.incrementAndGet());
+                            return null;
+                        })
+                .when(dates)
+                .persist(any());
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        assertThat(new CdsAllergyPersister(allergyDao, dates, normalization).write(42, "999998", source))
+                .containsExactly(
+                        org.assertj.core.api.Assertions.entry("allergies", "64"),
+                        org.assertj.core.api.Assertions.entry("partial_date#start", "701"),
+                        org.assertj.core.api.Assertions.entry("partial_date#recorded", "702"));
+    }
+
+    @Test
     void shouldPreserveAdverseReactionWithoutSubtype_whenSourceOnlySaysAr() throws Exception {
         var source =
                 normalization.allergy(
@@ -607,10 +682,26 @@ class CdsClinicalPersisterUnitTest {
                         })
                 .when(preventions)
                 .persist(any());
+        var extensionIds = new java.util.concurrent.atomic.AtomicInteger(900);
+        doAnswer(
+                        call -> {
+                            ReflectionTestUtils.setField(
+                                    (Object) call.getArgument(0), "id", extensionIds.incrementAndGet());
+                            return null;
+                        })
+                .when(extensions)
+                .persist(any());
         var writer =
                 new CdsImmunizationPersister(preventions, extensions, dates, normalization, "");
         TransactionSynchronizationManager.setActualTransactionActive(true);
-        assertThat(writer.write(42, "999998", source)).containsEntry("preventions", "73");
+        var written = writer.write(42, "999998", source);
+        // The receipt is given every row the unit wrote: the prevention, then its extensions.
+        assertThat(written).containsEntry("preventions", "73");
+        assertThat(written.keySet().iterator().next()).isEqualTo("preventions");
+        assertThat(written)
+                .containsEntry("preventionsExt#manufacture", "901")
+                .hasSize(1 + extensionIds.get() - 900)
+                .doesNotContainKey("partial_date#date");
         ArgumentCaptor<Prevention> saved = ArgumentCaptor.forClass(Prevention.class);
         verify(preventions).persist(saved.capture());
         Prevention prevention = saved.getValue();
@@ -836,6 +927,17 @@ class CdsClinicalPersisterUnitTest {
                                             return null;
                                         })
                                 .when(preventions)
+                                .persist(any());
+                        var extensionIds = new java.util.concurrent.atomic.AtomicInteger(900);
+                        doAnswer(
+                                        call -> {
+                                            ReflectionTestUtils.setField(
+                                                    (Object) call.getArgument(0),
+                                                    "id",
+                                                    extensionIds.incrementAndGet());
+                                            return null;
+                                        })
+                                .when(extensions)
                                 .persist(any());
                         var writer =
                                 new CdsImmunizationPersister(

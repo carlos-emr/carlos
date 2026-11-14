@@ -420,46 +420,66 @@ class CdsNativeBaselineCodecUnitTest {
     }
 
     @Test
-    void shouldSealAndOpenTheImportersLargestWitness_atTheDocumentAndEnvelopeMaxima()
+    void shouldSealAndOpenAWitness_whenTargetTableIsWidenedToMariaDbsColumnLimit()
             throws Exception {
-        // 192 rows (the receipt reference bound) of the widest target table (drugs, 65 columns),
-        // every column and cell at its validated maximum, the deepest cells holding exact
-        // numeric witnesses (the six-level nesting bound).
+        // A target table widened locally to MariaDB's own 4,096 columns, every column and cell at
+        // its validated maximum, the first cells holding exact numeric witnesses (the six-level
+        // nesting bound). Six such rows are past both the 512 columns and the 8 MiB document
+        // earlier builds refused, and the deflated envelope is past their 12 MiB.
         var rows = new ArrayList<CdsNativeRowState>();
-        for (int row = 0; row < 192; row++) rows.add(widest(row, 65));
+        for (int row = 0; row < 6; row++)
+            rows.add(widest(row, CdsNativeRowDigest.MAXIMUM_COLUMNS));
         String references = receipt(rows);
-        assertThat(references.length()).isLessThanOrEqualTo(65_536);
         String document = CdsNativeBaselineCodec.encode(references, sha(references), rows);
-        assertThat(document.length())
-                .isGreaterThan(5 << 20)
-                .isLessThanOrEqualTo(CdsNativeBaselineCodec.MAX_BYTES);
+        assertThat(document.length()).isGreaterThan(8 << 20);
         var keys =
                 io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys
                         .keys();
         String sealed = CdsNativeBaselineCodec.seal(references, sha(references), rows, keys);
-        assertThat(sealed.length()).isLessThanOrEqualTo(CdsNativeBaselineCodec.MAX_SEALED_BYTES);
+        assertThat(sealed).contains("\"protocol\":4");
         assertThat(
                         CdsNativeBaselineCodec.unseal(sealed, references, sha(references), keys)
                                 .rows())
                 .containsExactlyElementsOf(rows);
-        // The envelope bound admits exactly the Base64 of a MAX_BYTES document and its tag.
-        assertThat(CdsNativeBaselineCodec.MAX_SEALED_TEXT)
-                .isEqualTo(
-                        java.util.Base64.getEncoder()
-                                .encodeToString(new byte[CdsNativeBaselineCodec.MAX_BYTES + 16])
-                                .length())
-                .isLessThan(CdsNativeBaselineCodec.MAX_SEALED_BYTES - 256);
-        // A wider row set than any target table is refused when it is encoded, never truncated.
-        var oversized = new ArrayList<CdsNativeRowState>();
-        for (int row = 0; row < 192; row++) oversized.add(widest(row, 100));
-        String wide = receipt(oversized);
-        assertThatThrownBy(() -> CdsNativeBaselineCodec.encode(wide, sha(wide), oversized))
+        // An earlier build's protocol-3 envelope of the same rows opens too.
+        String earlier = protocolThree(references, rows, keys);
+        assertThat(earlier.length()).isGreaterThan(12 << 20);
+        assertThat(
+                        CdsNativeBaselineCodec.unseal(earlier, references, sha(references), keys)
+                                .rows())
+                .containsExactlyElementsOf(rows);
+        // A row wider than MariaDB allows cannot be a target table's row.
+        assertThatThrownBy(() -> widest(0, CdsNativeRowDigest.MAXIMUM_COLUMNS + 1))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void shouldOpenAWitnessOfEveryRowItsReceiptNames_atTheReceiptsOwnBound() throws Exception {
+        // 192 rows (the receipt reference bound) of the widest shipped target table (drugs, 65
+        // columns): the witness has exactly the receipt's rows, and a 193rd row is refused
+        // because the receipt cannot name it.
+        var rows = new ArrayList<CdsNativeRowState>();
+        for (int row = 0; row < 192; row++) rows.add(widest(row, 65));
+        String references = receipt(rows);
+        assertThat(references.length()).isLessThanOrEqualTo(65_536);
+        var keys =
+                io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys
+                        .keys();
+        String sealed = CdsNativeBaselineCodec.seal(references, sha(references), rows, keys);
+        assertThat(
+                        CdsNativeBaselineCodec.unseal(sealed, references, sha(references), keys)
+                                .rows())
+                .containsExactlyElementsOf(rows);
+        var more = new ArrayList<>(rows);
+        more.add(widest(192, 65));
+        String longer = receipt(more);
+        assertThatThrownBy(() -> CdsNativeBaselineCodec.encode(longer, sha(longer), more))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("CDS_NATIVE_BASELINE_REQUIRES_REVIEW");
     }
 
     @Test
-    void shouldStillRefuseOversizedOrDeeperEnvelopesAndDocuments_beyondTheirDerivedBounds()
+    void shouldStillRefuseForgedNestedOrDeeperEnvelopesAndDocuments_beyondTheWitnessFormat()
             throws Exception {
         var row = vector();
         String references = receipt(row, false), digest = sha(references);
@@ -470,8 +490,10 @@ class CdsNativeBaselineCodecUnitTest {
         var envelope =
                 (com.fasterxml.jackson.databind.node.ObjectNode)
                         new com.fasterxml.jackson.databind.ObjectMapper().readTree(sealed);
+        // A sealed text past the 12 MiB earlier builds stored is read, and refused because it was
+        // not sealed under the installation key.
         var overlong = envelope.deepCopy();
-        overlong.put("sealed", "A".repeat(CdsNativeBaselineCodec.MAX_SEALED_TEXT + 4));
+        overlong.put("sealed", "A".repeat((12 << 20) + 4));
         assertThatThrownBy(
                         () ->
                                 CdsNativeBaselineCodec.unseal(
@@ -561,15 +583,12 @@ class CdsNativeBaselineCodecUnitTest {
     }
 
     @Test
-    void shouldRefuseADeflatedWitness_thatInflatesPastTheBoundOrCarriesTrailingBytes()
-            throws Exception {
+    void shouldRefuseADeflatedWitness_thatEndsEarlyOrCarriesTrailingBytes() throws Exception {
         var row = vector();
         String references = receipt(row, false), digest = sha(references);
         var keys =
                 io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys
                         .keys();
-        byte[] bomb = zlib(new byte[CdsNativeBaselineCodec.MAX_BYTES + 1]);
-        assertThat(bomb.length).isLessThan(65_536);
         byte[] document =
                 CdsNativeBaselineCodec.encode(references, digest, List.of(row))
                         .getBytes(StandardCharsets.UTF_8);
@@ -577,7 +596,7 @@ class CdsNativeBaselineCodecUnitTest {
         byte[] trailing = java.util.Arrays.copyOf(compressed, compressed.length + 1);
         byte[] truncated = java.util.Arrays.copyOf(compressed, compressed.length - 4);
 
-        for (byte[] body : List.of(bomb, trailing, truncated)) {
+        for (byte[] body : List.of(trailing, truncated)) {
             String envelope =
                     envelope(4, "carlos-cds-native-baseline-v4-deflate", digest, body, keys);
             assertThatThrownBy(() -> CdsNativeBaselineCodec.unseal(envelope, references, digest, keys))
@@ -645,7 +664,7 @@ class CdsNativeBaselineCodecUnitTest {
         var cells = new ArrayList<CdsNativeRowState.Cell>();
         for (int i = 0; i < width; i++) {
             boolean exact = i == 0;
-            String name = String.format("%03d", i) + "n".repeat(125);
+            String name = String.format("%04d", i) + "n".repeat(124);
             columns.add(
                     new CdsNativeRowDigest.Column(
                             name,

@@ -70,7 +70,7 @@ public record CdsExportCapturedTableDto(
             throw new IllegalArgumentException("CDS_EXPORT_CAPTURE_NOTE_ACCESS_INVALID");
         }
         if (!receiptColumns.isEmpty()
-                && (receiptColumns.size() > 512
+                && (receiptColumns.size() > 4096
                         || receiptColumns.size()
                                 != Set.copyOf(receiptColumns.stream().map(Column::name).toList())
                                         .size()

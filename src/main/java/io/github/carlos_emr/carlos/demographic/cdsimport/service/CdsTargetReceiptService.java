@@ -30,7 +30,6 @@ import io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.C
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.github.carlos_emr.carlos.commn.model.PartialDate;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReceiptDto;
 import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import jakarta.persistence.EntityManager;
@@ -49,14 +48,34 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Exact bounded native-row receipts, read through the owning transaction's physical connection. */
+/**
+ * Exact native-row receipts, read through the owning transaction's physical connection.
+ *
+ * <p>A receipt names exactly the rows its unit wrote: each writer returns the id of every row
+ * it inserted, its date, extension and issue-link rows included, and the receipt digests those
+ * rows and no others. Nothing is found by key: {@code partial_date} and {@code preventionsExt}
+ * have no foreign key, so a row another writer left behind for a reused id would otherwise be
+ * named as the import's own. The one lookup is a unit's file references, which are found by the
+ * run and unit that wrote them: their id is the hash of run, unit and file, so the lookup names
+ * exactly this unit's own rows.
+ *
+ * <p>A target table may have been widened locally: a table of up to MariaDB's own 4,096 columns
+ * is read and witnessed whole, and its digest statement is as long as its columns make it.
+ */
 @Service
 public class CdsTargetReceiptService {
     private static final ObjectMapper JSON = new ObjectMapper();
 
     /**
-     * The rows one unit's receipt names: a bound on the importer's own records, which no source
-     * file reaches. A unit is one CDS element or one page of at most
+     * MariaDB's own limit on the columns of one table; a locally widened target table up to it is
+     * receipted and witnessed whole.
+     */
+    static final int MAXIMUM_COLUMNS = CdsNativeRowDigest.MAXIMUM_COLUMNS;
+
+    /**
+     * The rows one unit's receipt names: the importer's own stored format, which no source file
+     * reaches. Since a receipt names only the rows its unit wrote, this counts the importer's
+     * writes and nothing else. A unit is one CDS element or one page of at most
      * {@link CdsSourceFieldService#PAGE_SIZE} source fields, and each kind writes a fixed set of
      * rows: a demographic record at most 12 (with its two physicians and pharmacy), a
      * prescription or allergy its row and at most two date rows, a vaccine its row, at most 14
@@ -153,36 +172,12 @@ public class CdsTargetReceiptService {
                                             new ReceiptReader(connection, true, entityManager);
                                     for (var entry : targets.entrySet()) {
                                         String table = entry.getKey();
-                                        // Several source fields may reference the same physical
-                                        // table in one bounded unit.
+                                        // Several rows of one physical table may be written in
+                                        // one bounded unit (source fields, a medication's two
+                                        // date rows, a vaccine's extensions).
                                         int separator = table.indexOf('#');
                                         if (separator >= 0) table = table.substring(0, separator);
                                         add(connection, found, table, entry.getValue(), reader);
-                                        if (table.equals("preventions")) {
-                                            preventionExtensions(
-                                                    connection, found, entry.getValue(), reader);
-                                            dates(
-                                                    connection,
-                                                    found,
-                                                    PartialDate.PREVENTION,
-                                                    entry.getValue(),
-                                                    reader);
-                                        } else if (table.equals("drugs"))
-                                            dates(
-                                                    connection,
-                                                    found,
-                                                    PartialDate.DRUGS,
-                                                    entry.getValue(),
-                                                    reader);
-                                        else if (table.equals("allergies"))
-                                            dates(
-                                                    connection,
-                                                    found,
-                                                    PartialDate.ALLERGIES,
-                                                    entry.getValue(),
-                                                    reader);
-                                        else if (table.equals("casemgmt_note"))
-                                            noteLinks(connection, found, entry.getValue(), reader);
                                     }
                                     // Publication ownership and unit references are part of
                                     // completeness, not best-effort cleanup metadata.
@@ -287,30 +282,6 @@ public class CdsTargetReceiptService {
         }
     }
 
-    private static void dates(
-            Connection connection,
-            List<Reference> references,
-            int table,
-            String id,
-            ReceiptReader reader)
-            throws java.sql.SQLException {
-        try (PreparedStatement statement =
-                connection.prepareStatement(
-                        "select id from partial_date where table_name=? and table_id=? order by id")) {
-            statement.setInt(1, table);
-            statement.setString(2, id);
-            statement.setMaxRows(65);
-            try (ResultSet rows = statement.executeQuery()) {
-                int count = 0;
-                while (rows.next()) {
-                    if (++count > 64)
-                        throw new CdsImportException("TARGET_DEPENDENCY_COUNT_REQUIRES_REVIEW");
-                    add(connection, references, "partial_date", rows.getString(1), reader);
-                }
-            }
-        }
-    }
-
     private static void fileDependencies(
             Connection connection,
             List<Reference> references,
@@ -323,12 +294,8 @@ public class CdsTargetReceiptService {
                         "select id,file_id from cds_import_file_reference where run_id=? and unit_key=? order by id")) {
             query.setString(1, run);
             query.setString(2, unit);
-            query.setMaxRows(65);
             try (ResultSet rows = query.executeQuery()) {
-                int count = 0;
                 while (rows.next()) {
-                    if (++count > 64)
-                        throw new CdsImportException("TARGET_DEPENDENCY_COUNT_REQUIRES_REVIEW");
                     add(
                             connection,
                             references,
@@ -336,49 +303,6 @@ public class CdsTargetReceiptService {
                             rows.getString(1),
                             reader);
                     add(connection, references, "cds_import_file", rows.getString(2), reader);
-                }
-            }
-        }
-    }
-
-    private static void noteLinks(
-            Connection connection, List<Reference> references, String note, ReceiptReader reader)
-            throws java.sql.SQLException {
-        try (PreparedStatement query =
-                connection.prepareStatement(
-                        "select id from casemgmt_issue_notes where note_id=? order by id")) {
-            query.setString(1, note);
-            query.setMaxRows(65);
-            try (ResultSet rows = query.executeQuery()) {
-                int count = 0;
-                while (rows.next()) {
-                    if (++count > 64)
-                        throw new CdsImportException("TARGET_DEPENDENCY_COUNT_REQUIRES_REVIEW");
-                    add(
-                            connection,
-                            references,
-                            "casemgmt_issue_notes",
-                            note + "_" + rows.getString(1),
-                            reader);
-                }
-            }
-        }
-    }
-
-    private static void preventionExtensions(
-            Connection connection, List<Reference> references, String id, ReceiptReader reader)
-            throws java.sql.SQLException {
-        try (PreparedStatement statement =
-                connection.prepareStatement(
-                        "select id from preventionsExt where prevention_id=? order by id")) {
-            statement.setString(1, id);
-            statement.setMaxRows(65);
-            try (ResultSet rows = statement.executeQuery()) {
-                int count = 0;
-                while (rows.next()) {
-                    if (++count > 64)
-                        throw new CdsImportException("TARGET_DEPENDENCY_COUNT_REQUIRES_REVIEW");
-                    add(connection, references, "preventionsExt", rows.getString(1), reader);
                 }
             }
         }
@@ -464,7 +388,7 @@ public class CdsTargetReceiptService {
                 statement.setQueryTimeout(seconds);
                 try (var result = statement.executeQuery()) {
                     var metadata = result.getMetaData();
-                    if (metadata.getColumnCount() > 512)
+                    if (metadata.getColumnCount() > MAXIMUM_COLUMNS)
                         throw new CdsImportException("TARGET_COLUMN_COUNT_REQUIRES_REVIEW");
                     for (int i = 1; i <= metadata.getColumnCount(); i++) {
                         String name = metadata.getColumnName(i);
@@ -528,8 +452,9 @@ public class CdsTargetReceiptService {
                             : List.<Column>of();
             for (var column : floating)
                 sql.append(",`").append(column.name().replace("`", "``")).append('`');
+            // As long as the table's columns make it; the server's max_allowed_packet is the
+            // only limit on its length.
             sql.append(" FROM `").append(table).append("` WHERE ").append(where);
-            if (sql.length() > 65536) throw new CdsImportException("TARGET_DIGEST_QUERY_CAPACITY");
             try (PreparedStatement statement =
                     floating.isEmpty()
                             ? connection.prepareStatement(sql.toString())

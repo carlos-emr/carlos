@@ -479,6 +479,7 @@ public class CdsHistoryPersister {
         note.setReporter_caisi_role("1");
         note.setReporter_program_team("0");
         Map<String, String> references = new LinkedHashMap<>();
+        CaseManagementIssue linked = null;
         if (source.issueCode() != null) {
             Issue category = requireIssue(source.issueCode());
             var existing = patientIssues.findCandidatesByDemographicAndIssue(patient, category.getId());
@@ -495,11 +496,16 @@ public class CdsHistoryPersister {
                 throw new CdsImportException("HISTORY_NATIVE_ISSUE_ID_MISSING");
             note.setIssues(Set.of(issue));
             references.put("casemgmt_issue", issue.getId().toString());
+            linked = issue;
         }
         notes.saveNote(note);
         if (note.getId() == null || note.getId() < 1)
             throw new CdsImportException("HISTORY_NATIVE_NOTE_ID_MISSING");
         references.put("casemgmt_note", note.getId().toString());
+        // The note's one issue link, written with it: the receipt names this row, not every
+        // link that carries the note's id.
+        if (linked != null)
+            references.put("casemgmt_issue_notes", note.getId() + "_" + linked.getId());
         if (source.observationDate() != null) {
             noteExtension(note.getId(), "cdsDatePrecision", source.observationDate().precision().name(), references);
             noteExtension(note.getId(), "cdsDateOriginal", source.observationDate().original(), references);

@@ -98,27 +98,36 @@ public class CdsImmunizationPersister {
         Prevention prevention = candidate(demographicNo, auditProviderNo, source);
         preventions.persist(prevention);
         preventions.flush();
+        // Every row written is returned, so the unit's receipt names these rows and no other
+        // extension or date row that happens to carry the same prevention id (neither table has
+        // a foreign key). The receipt keeps its order: the prevention, its extensions, its date.
+        Map<String, String> written = new java.util.LinkedHashMap<>();
+        written.put("preventions", String.valueOf(prevention.getId()));
+        String date = null;
         if (source.date().legacyPartialFormat() != null) {
-            dates.persist(new PartialDate(PartialDate.PREVENTION, prevention.getId(),
-                    PartialDate.PREVENTION_PREVENTIONDATE, source.date().legacyPartialFormat()));
+            PartialDate partial = new PartialDate(PartialDate.PREVENTION, prevention.getId(),
+                    PartialDate.PREVENTION_PREVENTIONDATE, source.date().legacyPartialFormat());
+            dates.persist(partial);
+            date = written(partial.getId());
         }
-        extra(prevention.getId(), "manufacture", source.manufacturer());
-        extra(prevention.getId(), "lot", source.lot());
-        extra(prevention.getId(), "route", source.route());
-        extra(prevention.getId(), "location", source.site());
-        extra(prevention.getId(), "dose", source.dose());
-        extra(prevention.getId(), "comments", source.notes());
-        extra(prevention.getId(), "instructions", source.instructions());
-        extra(prevention.getId(), "cdsDateOriginal", source.date().original());
-        extra(prevention.getId(), "cdsDatePrecision", source.date().precision().name());
-        extra(prevention.getId(), "cdsCode", source.code());
-        extra(prevention.getId(), "cdsCodeSystem", source.codeSystem());
-        extra(prevention.getId(), "cdsType", source.type());
-        extra(prevention.getId(), "cdsName", source.name());
+        extra(prevention.getId(), "manufacture", source.manufacturer(), written);
+        extra(prevention.getId(), "lot", source.lot(), written);
+        extra(prevention.getId(), "route", source.route(), written);
+        extra(prevention.getId(), "location", source.site(), written);
+        extra(prevention.getId(), "dose", source.dose(), written);
+        extra(prevention.getId(), "comments", source.notes(), written);
+        extra(prevention.getId(), "instructions", source.instructions(), written);
+        extra(prevention.getId(), "cdsDateOriginal", source.date().original(), written);
+        extra(prevention.getId(), "cdsDatePrecision", source.date().precision().name(), written);
+        extra(prevention.getId(), "cdsCode", source.code(), written);
+        extra(prevention.getId(), "cdsCodeSystem", source.codeSystem(), written);
+        extra(prevention.getId(), "cdsType", source.type(), written);
+        extra(prevention.getId(), "cdsName", source.name(), written);
         // The free-text "Other" provider restored from a CARLOS sender's carrier (#6198), saved
         // as the prevention form saves it.
-        extra(prevention.getId(), "providerName", source.providerName());
-        return Map.of("preventions", String.valueOf(prevention.getId()));
+        extra(prevention.getId(), "providerName", source.providerName(), written);
+        if (date != null) written.put("partial_date#date", date);
+        return written;
     }
 
     Prevention candidate(int demographicNo, String auditProviderNo, CdsImmunizationDto source) {
@@ -212,12 +221,19 @@ public class CdsImmunizationPersister {
         return clinicZone;
     }
 
-    private void extra(int preventionId, String key, String value) {
+    private void extra(int preventionId, String key, String value, Map<String, String> written) {
         if (value == null) return;
         PreventionExt ext = new PreventionExt();
         ext.setPreventionId(preventionId);
         ext.setKeyval(key);
         ext.setVal(value);
         extensions.persist(ext);
+        written.put("preventionsExt#" + key, written(ext.getId()));
+    }
+
+    /** The id the database gave a row this unit inserted; a row without one is never receipted. */
+    private static String written(Integer id) {
+        if (id == null || id < 1) throw new CdsImportException("IMMUNIZATION_NATIVE_ROW_ID_MISSING");
+        return id.toString();
     }
 }

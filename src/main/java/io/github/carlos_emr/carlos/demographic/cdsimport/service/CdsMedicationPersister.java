@@ -31,6 +31,7 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsProviderMatchDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalTransactions;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsMedicationDose;
 import java.io.IOException;
 import java.util.Date;
@@ -92,9 +93,13 @@ public class CdsMedicationPersister {
         // persist(), unlike legacy addNewDrug(), propagates failure to the transaction owner.
         drugs.persist(drug);
         drugs.flush();
-        partial(drug.getId(), PartialDate.DRUGS_WRITTENDATE, source.written());
-        partial(drug.getId(), PartialDate.DRUGS_STARTDATE, source.start());
-        return Map.of("drugs", String.valueOf(drug.getId()));
+        // Every row written is returned, so the unit's receipt names these rows and no other
+        // date row that happens to carry the same drug id.
+        Map<String, String> written = new java.util.LinkedHashMap<>();
+        written.put("drugs", String.valueOf(drug.getId()));
+        partial(drug.getId(), PartialDate.DRUGS_WRITTENDATE, source.written(), "written", written);
+        partial(drug.getId(), PartialDate.DRUGS_STARTDATE, source.start(), "start", written);
+        return written;
     }
 
     Drug candidate(int demographicNo, CdsMedicationDto source) {
@@ -205,10 +210,16 @@ public class CdsMedicationPersister {
         return drug;
     }
 
-    private void partial(int id, int field, CdsTemporalDto value) {
+    private void partial(
+            int id, int field, CdsTemporalDto value, String name, Map<String, String> written) {
         if (value.legacyPartialFormat() != null) {
-            dates.persist(
-                    new PartialDate(PartialDate.DRUGS, id, field, value.legacyPartialFormat()));
+            PartialDate date =
+                    new PartialDate(PartialDate.DRUGS, id, field, value.legacyPartialFormat());
+            dates.persist(date);
+            // The id the database gave the row; a row without one is never receipted.
+            if (date.getId() == null || date.getId() < 1)
+                throw new CdsImportException("MEDICATION_NATIVE_DATE_ID_MISSING");
+            written.put("partial_date#" + name, date.getId().toString());
         }
     }
 
