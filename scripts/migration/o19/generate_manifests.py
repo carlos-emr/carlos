@@ -1102,6 +1102,16 @@ def load_schema(files: List[Path],
             for column in ("p3_immunization", "p4_immunization"):
                 schema.apply_alter("formRourke2020", "ADD COLUMN IF NOT EXISTS "
                                    + column + " TEXT NULL")
+        elif f.name == "V1.0.59.49__cds_export_attempt_checkpoint.sql":
+            # A resumed CDS export's checkpoint pointer, added column by column behind a
+            # same-shape guard (CARLOS export metadata; not an OSCAR 19 copy target).
+            for column, definition in (("checkpoint_member", "VARCHAR(64) NULL"),
+                                       ("checkpoint_digest", "VARCHAR(64) NULL"),
+                                       ("checkpoint_bytes", "BIGINT NULL"),
+                                       ("checkpoint_charts", "BIGINT NULL"),
+                                       ("adopted_charts", "BIGINT NULL")):
+                schema.apply_alter("cds_export_attempt", "ADD COLUMN IF NOT EXISTS "
+                                   + column + " " + definition)
     return schema
 
 
