@@ -89,9 +89,6 @@ public class CdsExportConsultationLetterComposer implements CdsExportDataSummary
     static final String LOGO_NOTE =
             "The clinic logo could not be included in the printed letter (LOGO_UNAVAILABLE).";
 
-    /** The largest logo file read. */
-    private static final long MAXIMUM_LOGO_BYTES = 4L << 20;
-
     private final CdsExportPrintedFormReadDao references;
     private final DigitalSignatureManager signatures;
 
@@ -434,11 +431,11 @@ public class CdsExportConsultationLetterComposer implements CdsExportDataSummary
         }
     }
 
-    /** The configured consultation logo file, or null (reported) when it cannot be read. */
     /**
-     * The configured logo: its bytes, or {@code unreadable} when an installed file could not be
-     * read (larger than {@link #MAXIMUM_LOGO_BYTES} or an I/O failure). No installed file is
-     * neither: the letter prints without a logo and nothing is reported.
+     * The configured logo: its bytes, whatever their number, as the chart's own Print reads them,
+     * or {@code unreadable} when an installed file could not be read (an I/O failure, or a file
+     * too large for one Java array). No installed file is neither: the letter prints without a
+     * logo and nothing is reported.
      */
     static final class Logo {
         private final byte[] bytes;
@@ -467,7 +464,8 @@ public class CdsExportConsultationLetterComposer implements CdsExportDataSummary
         }
         if (file == null) return new Logo(null, false);
         try {
-            if (Files.size(file.toPath()) > MAXIMUM_LOGO_BYTES) return new Logo(null, true);
+            // The JVM's own limit, not ours: one array holds at most Integer.MAX_VALUE - 8 bytes.
+            if (Files.size(file.toPath()) > Integer.MAX_VALUE - 8) return new Logo(null, true);
             return new Logo(Files.readAllBytes(file.toPath()), false);
         } catch (IOException | RuntimeException unreadable) {
             return new Logo(null, true);
