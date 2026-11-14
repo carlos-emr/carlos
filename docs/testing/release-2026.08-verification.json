@@ -4736,6 +4736,23 @@
               "check": "java-cds-transfer-export"
             }
           ]
+        },
+        "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportMergedChartMariaDbIntegrationTest": {
+          "check": "java-cds-transfer-export",
+          "cases": [
+            {
+              "name": "shouldImportEveryMergedChartsRecordsOntoOneChart_whenAMergedGroupMakesTheRoundTrip",
+              "container": ""
+            },
+            {
+              "name": "shouldHoldTheWholeGroup_whenOneOfItsChartsIsRefused",
+              "container": ""
+            },
+            {
+              "name": "shouldAdoptAKeptMergedFileOnlyWhileItsGroupIsUnchanged_whenAStoppedExportIsResumed",
+              "container": ""
+            }
+          ]
         }
       },
       "runtimeConstraints": {
