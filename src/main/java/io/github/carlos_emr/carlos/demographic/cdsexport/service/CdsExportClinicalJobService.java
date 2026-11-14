@@ -128,7 +128,6 @@ public class CdsExportClinicalJobService {
                 selections.capture(
                         lease.document().command(),
                         store,
-                        plan.archive().patients(),
                         control::captureCheckpoint);
         if (selection.patients() == 0)
             throw new CdsExportReviewException(
@@ -142,10 +141,9 @@ public class CdsExportClinicalJobService {
                         plan.clinicalZone(),
                         plan.source(),
                         plan.xml(),
-                        plan.archive(),
                         control);
         ledger.retainPrepared(lease, prepared);
-        var encrypted = delivery.encrypt(lease, prepared, plan.ciphertextBytes(), control);
+        var encrypted = delivery.encrypt(lease, prepared, control);
         compatible(lease, plan);
         access.requireScope(lease.document().actor(), lease.document().command());
         control.checkpoint();

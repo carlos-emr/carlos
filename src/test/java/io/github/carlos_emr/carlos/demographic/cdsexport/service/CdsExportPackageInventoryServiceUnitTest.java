@@ -83,8 +83,6 @@ class CdsExportPackageInventoryServiceUnitTest {
         var sealed =
                 service.seal(
                         store,
-                        100,
-                        1L << 20,
                         () -> {},
                         output -> {
                             output.accept(member("Zed/second.xml"));
@@ -113,8 +111,6 @@ class CdsExportPackageInventoryServiceUnitTest {
                             () ->
                                     service.seal(
                                             store,
-                                            100,
-                                            1L << 20,
                                             () -> {},
                                             output -> {
                                                 for (String name : names)
@@ -134,8 +130,6 @@ class CdsExportPackageInventoryServiceUnitTest {
                         () ->
                                 service.seal(
                                         store,
-                                        100,
-                                        1L << 20,
                                         () -> {},
                                         output -> {
                                             output.accept(member("a/file/child.xml"));
@@ -153,8 +147,6 @@ class CdsExportPackageInventoryServiceUnitTest {
                         () ->
                                 service.seal(
                                         store,
-                                        100,
-                                        1L << 20,
                                         () -> {},
                                         output ->
                                                 output.accept(
@@ -165,30 +157,19 @@ class CdsExportPackageInventoryServiceUnitTest {
     }
 
     @Test
-    void shouldEnforceEntryAndTotalIndexByteLimits_withoutTruncatingTheInventory()
-            throws Exception {
-        assertThatThrownBy(
-                        () ->
-                                service.seal(
-                                        store,
-                                        1,
-                                        1L << 20,
-                                        () -> {},
-                                        output -> {
-                                            output.accept(member("a.xml"));
-                                            output.accept(member("b.xml"));
-                                        }))
-                .hasMessage("CDS_EXPORT_PACKAGE_INVENTORY_LIMIT");
-        assertThatThrownBy(
-                        () ->
-                                service.seal(
-                                        store,
-                                        100,
-                                        12,
-                                        () -> {},
-                                        output -> output.accept(member("a.xml"))))
-                .hasMessage("CDS_EXPORT_PACKAGE_INVENTORY_LIMIT");
-        assertThat(files()).isEqualTo(1);
+    void shouldSealTheInventory_withoutAMemberCountOrIndexByteCeiling() throws Exception {
+        // One member and twelve index bytes were once refusals; no count or size is now. The
+        // level-by-level merge of a large inventory is covered by the fan-in test below.
+        var sealed =
+                service.seal(
+                        store,
+                        () -> {},
+                        output -> {
+                            output.accept(member("a.xml"));
+                            output.accept(member("b.xml"));
+                        });
+        assertThat(sealed.entries()).isEqualTo(2);
+        assertThat(paths(sealed)).containsExactly("a.xml", "b.xml");
     }
 
     @Test
@@ -197,8 +178,6 @@ class CdsExportPackageInventoryServiceUnitTest {
                         () ->
                                 service.seal(
                                         store,
-                                        100,
-                                        1L << 20,
                                         () -> {},
                                         output -> {
                                             try {
@@ -217,8 +196,6 @@ class CdsExportPackageInventoryServiceUnitTest {
                         () ->
                                 service.seal(
                                         store,
-                                        10000,
-                                        8L << 20,
                                         () -> {},
                                         output -> {
                                             for (int i = 0; i < 5000; i++)
@@ -240,8 +217,6 @@ class CdsExportPackageInventoryServiceUnitTest {
                         () ->
                                 service.seal(
                                         store,
-                                        10000,
-                                        8L << 20,
                                         () -> {},
                                         output -> {
                                             output.accept(member("patient/duplicate.xml"));
@@ -264,8 +239,6 @@ class CdsExportPackageInventoryServiceUnitTest {
         var sealed =
                 service.seal(
                         store,
-                        total,
-                        64L << 20,
                         () -> {},
                         output -> {
                             for (int i = total - 1; i >= 0; i--)
@@ -289,14 +262,12 @@ class CdsExportPackageInventoryServiceUnitTest {
         var sealed =
                 service.seal(
                         store,
-                        100,
-                        1L << 20,
                         () -> {},
                         output -> {
                             output.accept(member("Z/patient.xml"));
                             output.accept(member("A/patient.xml"));
                         });
-        var result = new CdsExportPackageComposer().compose(store, sealed, 1L << 20, 100, () -> {});
+        var result = new CdsExportPackageComposer().compose(store, sealed, () -> {});
         assertThat(result.entries()).isEqualTo(2);
         assertThat(result.expandedBytes()).isEqualTo(6);
         assertThat(files()).isEqualTo(3);
@@ -307,7 +278,7 @@ class CdsExportPackageInventoryServiceUnitTest {
             throws Exception {
         var sealed =
                 service.seal(
-                        store, 100, 1L << 20, () -> {}, output -> output.accept(member("a.xml")));
+                        store, () -> {}, output -> output.accept(member("a.xml")));
         Path file = root.resolve(sealed.member().memberId() + ".stage");
         byte[] bytes = Files.readAllBytes(file);
         bytes[bytes.length - 1] ^= 1;
@@ -321,8 +292,6 @@ class CdsExportPackageInventoryServiceUnitTest {
         var sealed =
                 service.seal(
                         store,
-                        100,
-                        1L << 20,
                         () -> {},
                         output -> {
                             escaped.set(output);
@@ -336,7 +305,7 @@ class CdsExportPackageInventoryServiceUnitTest {
 
     @Test
     void shouldRefuseAnEmptyInventory_forPackageInventoryServiceContract() {
-        assertThatThrownBy(() -> service.seal(store, 100, 1L << 20, () -> {}, output -> {}))
+        assertThatThrownBy(() -> service.seal(store, () -> {}, output -> {}))
                 .hasMessage("CDS_EXPORT_PACKAGE_INVENTORY_INVALID");
     }
 
@@ -346,8 +315,6 @@ class CdsExportPackageInventoryServiceUnitTest {
                         () ->
                                 service.seal(
                                         store,
-                                        100,
-                                        1L << 20,
                                         () -> {},
                                         output -> {
                                             var error = new AtomicReference<Throwable>();

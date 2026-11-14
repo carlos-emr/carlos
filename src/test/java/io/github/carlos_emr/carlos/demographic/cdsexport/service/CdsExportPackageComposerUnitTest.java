@@ -188,7 +188,7 @@ class CdsExportPackageComposerUnitTest {
             assertThatThrownBy(
                             () ->
                                     new CdsExportPackageComposer()
-                                            .compose(store, source, 1L << 20, 100, () -> {}))
+                                            .compose(store, source, () -> {}))
                     .hasMessage("CDS_EXPORT_PACKAGE_INVALID");
             try (var files = Files.list(root)) {
                 assertThat(files.count()).isEqualTo(before);
@@ -197,27 +197,12 @@ class CdsExportPackageComposerUnitTest {
     }
 
     @Test
-    void shouldEnforceTheFinishedVolumeAndEntryLimits_withoutLeavingPartialArchives()
-            throws Exception {
+    void shouldComposeTheArchive_withoutAVolumeOrEntryCeiling() throws Exception {
+        // Ten bytes of archive and one entry were once refusals; no size or count is now.
         var members = List.of(member("a", "one"), member("b", "two"));
-        for (long[] limits : new long[][] {{10, 100}, {1L << 20, 1}}) {
-            assertThatThrownBy(
-                            () ->
-                                    new CdsExportPackageComposer()
-                                            .compose(
-                                                    store,
-                                                    source(members),
-                                                    limits[0],
-                                                    limits[1],
-                                                    () -> {}))
-                    .hasMessage(
-                            limits[0] == 10
-                                    ? "CDS_EXPORT_PACKAGE_VOLUME_LIMIT"
-                                    : "CDS_EXPORT_PACKAGE_ENTRY_LIMIT");
-        }
-        try (var files = Files.list(root)) {
-            assertThat(files).hasSize(2);
-        }
+        var proof = new CdsExportPackageComposer().compose(store, source(members), () -> {});
+        assertThat(proof.entries()).isEqualTo(2);
+        assertThat(proof.archive().plaintextBytes()).isGreaterThan(10);
     }
 
     @Test
@@ -230,8 +215,6 @@ class CdsExportPackageComposerUnitTest {
                                         .compose(
                                                 store,
                                                 source(members),
-                                                1L << 20,
-                                                100,
                                                 () -> {
                                                     if (probes.incrementAndGet() == 5)
                                                         throw new IllegalStateException(
@@ -245,7 +228,7 @@ class CdsExportPackageComposerUnitTest {
 
     private CdsExportPackageDto compose(List<CdsExportPackageMemberDto> members) throws Exception {
         return new CdsExportPackageComposer()
-                .compose(store, source(members), 1L << 20, 100, () -> {});
+                .compose(store, source(members), () -> {});
     }
 
     private void validateReplacement(

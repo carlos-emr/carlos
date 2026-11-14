@@ -50,26 +50,18 @@ public final class CdsExportPackageComposer {
     public CdsExportPackageDto compose(
             CdsExportStagingService staging,
             CdsExportPackageMembers members,
-            long maximumZipBytes,
-            long maximumEntries,
             Runnable checkpoint)
             throws IOException {
         Objects.requireNonNull(staging);
         Objects.requireNonNull(members);
         Objects.requireNonNull(checkpoint);
-        if (maximumZipBytes < 1
-                || maximumZipBytes > 64L << 30
-                || maximumEntries < 1
-                || maximumEntries > 2_000_000) {
-            throw new IllegalArgumentException("CDS_EXPORT_PACKAGE_LIMIT_INVALID");
-        }
         long[] count = {0}, expanded = {0};
         MessageDigest inventory = digest();
         var archive =
                 staging.stage(
                         "PACKAGE_ZIP",
                         output -> {
-                            var zip = new Bounded(output, maximumZipBytes);
+                            var zip = new Counted(output);
                             CdsExportStagedFileDto[] central = {null};
                             Throwable primary = null;
                             try {
@@ -85,9 +77,9 @@ public final class CdsExportPackageComposer {
                                                             byte[] name =
                                                                     paths.accept(
                                                                             member.relativePath());
-                                                            if (++count[0] > maximumEntries)
-                                                                throw new IOException(
-                                                                        "CDS_EXPORT_PACKAGE_ENTRY_LIMIT");
+                                                            // ZIP64 counts entries in 64
+                                                            // bits: no count is refused.
+                                                            count[0] = Math.addExact(count[0], 1);
                                                             long size =
                                                                     member.file().plaintextBytes();
                                                             expanded[0] =
@@ -283,25 +275,22 @@ public final class CdsExportPackageComposer {
         u32(out, value >>> 32);
     }
 
-    private static final class Bounded extends FilterOutputStream {
-        private final long maximum;
+    /** Counts archive offsets; ZIP64 records carry them in 64 bits and no size is refused. */
+    private static final class Counted extends FilterOutputStream {
         private long bytes;
 
-        Bounded(OutputStream output, long maximum) {
+        Counted(OutputStream output) {
             super(output);
-            this.maximum = maximum;
         }
 
         @Override
         public void write(int value) throws IOException {
-            if (bytes == maximum) throw new IOException("CDS_EXPORT_PACKAGE_VOLUME_LIMIT");
             out.write(value);
             bytes++;
         }
 
         @Override
         public void write(byte[] value, int offset, int length) throws IOException {
-            if (length > maximum - bytes) throw new IOException("CDS_EXPORT_PACKAGE_VOLUME_LIMIT");
             out.write(value, offset, length);
             bytes += length;
         }

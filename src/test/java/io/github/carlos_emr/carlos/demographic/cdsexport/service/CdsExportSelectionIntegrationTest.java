@@ -239,7 +239,7 @@ class CdsExportSelectionIntegrationTest {
         insert(first + 1, physician, "IN");
         insert(first + 2, physician, "DE");
         insert(first + 3, "OTHER", "AC");
-        var result = selections.capture(roster(), store, 1000, () -> {});
+        var result = selections.capture(roster(), store, () -> {});
         assertThat(rows(result))
                 .extracting(CdsExportSelectionRowDto::demographicNo)
                 .containsExactly(first, first + 1, first + 2);
@@ -267,7 +267,7 @@ class CdsExportSelectionIntegrationTest {
                             throw new IllegalStateException(failure);
                         }
                     });
-            var result = selections.capture(roster(), store, 1000, () -> {});
+            var result = selections.capture(roster(), store, () -> {});
             assertThat(rows(result))
                     .hasSize(260)
                     .extracting(CdsExportSelectionRowDto::demographicNo)
@@ -285,7 +285,7 @@ class CdsExportSelectionIntegrationTest {
     void shouldRefuseAMissingExplicitMember_insteadOfPublishingASmallerCohort() throws Exception {
         insert(first, physician, "AC");
         var command = selected(List.of(first, first + 1));
-        assertThatThrownBy(() -> selections.capture(command, store, 1000, () -> {}))
+        assertThatThrownBy(() -> selections.capture(command, store, () -> {}))
                 .hasMessage("CDS_EXPORT_SELECTED_PATIENT_MISSING");
         try (var files = Files.list(root)) {
             assertThat(files).isEmpty();
@@ -297,21 +297,22 @@ class CdsExportSelectionIntegrationTest {
         insert(first, physician, "AC");
         insert(first + 1, physician, "DE");
         insert(first + 2, "OTHER", "IN");
-        var result = selections.capture(selected(List.of(first + 2, first)), store, 1000, () -> {});
+        var result = selections.capture(selected(List.of(first + 2, first)), store, () -> {});
         assertThat(rows(result))
                 .extracting(CdsExportSelectionRowDto::demographicNo)
                 .containsExactly(first, first + 2);
     }
 
     @Test
-    void shouldEraseAPartialInventory_whenTheCohortExceedsItsBound() throws Exception {
+    void shouldListEveryRosterPatient_withoutACohortBound() throws Exception {
+        // A bound of one patient once refused this two-patient roster; no count does now.
         insert(first, physician, "AC");
         insert(first + 1, physician, "DE");
-        assertThatThrownBy(() -> selections.capture(roster(), store, 1, () -> {}))
-                .hasMessage("CDS_EXPORT_COHORT_LIMIT_REQUIRES_REVIEW");
-        try (var files = Files.list(root)) {
-            assertThat(files).isEmpty();
-        }
+        var result = selections.capture(roster(), store, () -> {});
+        assertThat(result.patients()).isEqualTo(2);
+        assertThat(rows(result))
+                .extracting(CdsExportSelectionRowDto::demographicNo)
+                .containsExactly(first, first + 1);
     }
 
     @Test
@@ -323,7 +324,6 @@ class CdsExportSelectionIntegrationTest {
                                 selections.capture(
                                         roster(),
                                         store,
-                                        1000,
                                         () -> {
                                             if (probes.incrementAndGet() == 8)
                                                 throw new IllegalStateException(
@@ -345,7 +345,6 @@ class CdsExportSelectionIntegrationTest {
                                 selections.capture(
                                         roster(),
                                         store,
-                                        1000,
                                         () -> {
                                             if (probes.incrementAndGet() == 4)
                                                 throw new IllegalStateException(

@@ -25,8 +25,7 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.dto;
 public record CdsExportPackageDto(CdsExportStagedFileDto archive, long entries,
         long expandedBytes, String membersSha256) {
     public CdsExportPackageDto {
-        if (archive == null || !archive.purpose().equals("PACKAGE_ZIP") || entries < 1 || entries > 2_000_000 || expandedBytes < 0 || expandedBytes > 512L << 30
-                || archive.plaintextBytes() > 64L << 30
+        if (archive == null || !archive.purpose().equals("PACKAGE_ZIP") || entries < 1 || expandedBytes < 0
                 || membersSha256 == null || !membersSha256.matches("[0-9a-f]{64}")) {
             throw new IllegalArgumentException("CDS_EXPORT_PACKAGE_PROOF_INVALID");
         }

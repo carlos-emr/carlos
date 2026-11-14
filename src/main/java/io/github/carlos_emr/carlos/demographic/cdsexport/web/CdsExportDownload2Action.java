@@ -68,9 +68,14 @@ public class CdsExportDownload2Action extends ActionSupport {
             var actor = exports.downloadActor(viewer, runId);
             try (var download = artifacts.open(actor, runId, artifact)) {
                 response.setStatus(200);
-                response.setContentType("application/pkcs7-mime");
+                // A package larger than one AES-GCM message is a tar archive of CMS parts.
+                response.setContentType(
+                        download.parts() ? "application/x-tar" : "application/pkcs7-mime");
                 response.setHeader(
-                        "Content-Disposition", "attachment; filename=\"cds-export.p7m\"");
+                        "Content-Disposition",
+                        download.parts()
+                                ? "attachment; filename=\"cds-export-parts.tar\""
+                                : "attachment; filename=\"cds-export.p7m\"");
                 response.setHeader("Cache-Control", "no-store");
                 response.setHeader("X-Content-Type-Options", "nosniff");
                 response.setHeader(CdsExportWebService.API_HEADER, "1");

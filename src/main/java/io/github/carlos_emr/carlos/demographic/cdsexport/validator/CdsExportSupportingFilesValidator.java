@@ -42,12 +42,44 @@ import java.util.concurrent.CancellationException;
  * receipts and a sealed physician inventory. It never accepts the composer's own patient
  * summaries as output evidence. Both streams are caller owned and must reach EOF. This
  * checks supporting-file consistency, not source completeness or permission to disclose.
- * The exact patient-identifier index has a separate conservative 64 MiB retention bound.
+ * No count or size is refused: both files are streamed, and the proof that no two patients
+ * share a sender identifier belongs to the caller's {@link Identities}, which the packaging step
+ * keeps on protected storage instead of in memory.
  */
 public final class CdsExportSupportingFilesValidator {
     private static final int MAXIMUM_LINE_CHARACTERS = 65536;
     private static final JsonMapper JSON =
             JsonMapper.builder().enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).build();
+
+    /**
+     * Receives every exported patient's sender identifier, in ReadMe order. The validation result
+     * is returned only after {@link #requireUnique} has passed.
+     */
+    public interface Identities {
+        void accept(String senderPatientId) throws IOException;
+
+        /** Fails when any identifier was accepted more than once. */
+        void requireUnique() throws IOException;
+    }
+
+    /**
+     * An index held in memory, for a caller that validates a small, already bounded package. The
+     * packaging step never uses it: its roster has no bound.
+     */
+    public static Identities inMemoryIdentities() {
+        var seen = new HashSet<String>();
+        return new Identities() {
+            @Override
+            public void accept(String senderPatientId) throws IOException {
+                if (!seen.add(senderPatientId)) invalid();
+            }
+
+            @Override
+            public void requireUnique() {
+                // Each identifier was checked as it arrived.
+            }
+        };
+    }
 
     /** The relative path is the actual ZIP entry, including its named export container. */
     public record Patient(
@@ -104,9 +136,7 @@ public final class CdsExportSupportingFilesValidator {
             CdsExportPackageMetadataDto metadata,
             Iterator<CdsExportPhysicianSummaryDto> physicians,
             Iterator<Patient> patientFiles,
-            long maximumPhysicians,
-            long maximumPatients,
-            long maximumBytes,
+            Identities identities,
             Runnable checkpoint)
             throws IOException {
         Objects.requireNonNull(readMe);
@@ -115,17 +145,10 @@ public final class CdsExportSupportingFilesValidator {
         Objects.requireNonNull(checkpoint);
         Objects.requireNonNull(physicians);
         Objects.requireNonNull(patientFiles);
-        if (maximumPhysicians < 1
-                || maximumPhysicians > 1000000
-                || maximumPatients < 1
-                || maximumPatients > 10000000
-                || maximumBytes < 1
-                || maximumBytes > (64L << 30))
-            throw new IllegalArgumentException("CDS_EXPORT_SUPPORTING_LIMITS_INVALID");
+        Objects.requireNonNull(identities);
         validateMetadata(metadata);
-        long[] totalBytes = {0};
-        var readMeInput = new Counted(readMe, totalBytes, maximumBytes, checkpoint);
-        var logInput = new Counted(eventLog, totalBytes, maximumBytes, checkpoint);
+        var readMeInput = new Counted(readMe, checkpoint);
+        var logInput = new Counted(eventLog, checkpoint);
         var text = new Lines(readMeInput, checkpoint);
         var csv = new Lines(logInput, checkpoint);
         text.field("Physician group", metadata.physicianGroup());
@@ -200,11 +223,9 @@ public final class CdsExportSupportingFilesValidator {
         long physicianCount = 0, patients = 0;
         String previousFolder = null, previousPath = null;
         Patient pending = next(patientFiles, checkpoint);
-        var senderIds = new HashSet<String>();
-        long identityBytes = 0;
         while (physicians.hasNext()) {
             probe(checkpoint);
-            if (++physicianCount > maximumPhysicians) limit();
+            physicianCount = Math.addExact(physicianCount, 1);
             var physician = Objects.requireNonNull(physicians.next());
             String folder =
                     paths.physicianFolder(
@@ -235,15 +256,10 @@ public final class CdsExportSupportingFilesValidator {
                 if (!relative.equals(pending.relativePath())
                         || previousPath != null && previousPath.compareTo(relative) >= 0) invalid();
                 previousPath = relative;
-                if (++patients > maximumPatients) limit();
+                patients = Math.addExact(patients, 1);
                 actual++;
                 validatePatient(pending, metadata);
-                identityBytes =
-                        Math.addExact(
-                                identityBytes,
-                                256L + 4L * pending.xml().senderPatientId().length());
-                if (identityBytes > (64L << 20)) limit();
-                if (!senderIds.add(pending.xml().senderPatientId())) invalid();
+                identities.accept(pending.xml().senderPatientId());
                 text.field("Patient file", relative);
                 text.field("Patient XML SHA256", pending.xml().xmlSha256());
                 for (var summary : pending.dataSummaries().entrySet())
@@ -265,6 +281,7 @@ public final class CdsExportSupportingFilesValidator {
         }
         if (pending != null || patients == 0 || text.next() != null || csv.next() != null)
             invalid();
+        identities.requireUnique();
         probe(checkpoint);
         return new Result(
                 readMeInput.hash(),
@@ -388,10 +405,6 @@ public final class CdsExportSupportingFilesValidator {
         throw new IOException("CDS_EXPORT_SUPPORTING_FILES_INVALID");
     }
 
-    private static void limit() throws IOException {
-        throw new IOException("CDS_EXPORT_SUPPORTING_FILES_RESOURCE_LIMIT");
-    }
-
     private static final class Lines {
         private final BufferedReader reader;
         private final Runnable checkpoint;
@@ -423,7 +436,8 @@ public final class CdsExportSupportingFilesValidator {
                     if (reader.read() != '\n') invalid();
                     return result.toString();
                 }
-                if (result.length() >= MAXIMUM_LINE_CHARACTERS) limit();
+                // One line is one composed field; a longer one is not a line this exporter wrote.
+                if (result.length() >= MAXIMUM_LINE_CHARACTERS) invalid();
                 result.append((char) code);
             }
         }
@@ -448,8 +462,6 @@ public final class CdsExportSupportingFilesValidator {
     }
 
     private static final class Counted extends FilterInputStream {
-        private final long[] total;
-        private final long maximum;
         private final Runnable checkpoint;
 
         // Per-operation incremental digest, owned by this stream/row accumulator; never shared
@@ -459,10 +471,8 @@ public final class CdsExportSupportingFilesValidator {
 
         private long bytes;
 
-        Counted(InputStream input, long[] total, long maximum, Runnable checkpoint) {
+        Counted(InputStream input, Runnable checkpoint) {
             super(input);
-            this.total = total;
-            this.maximum = maximum;
             this.checkpoint = checkpoint;
             try {
                 digest = MessageDigest.getInstance("SHA-256");
@@ -493,10 +503,8 @@ public final class CdsExportSupportingFilesValidator {
             return read;
         }
 
-        private void count(int amount) throws IOException {
-            if (amount > maximum - total[0]) limit();
-            total[0] += amount;
-            bytes += amount;
+        private void count(int amount) {
+            bytes = Math.addExact(bytes, amount);
         }
 
         String hash() {

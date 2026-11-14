@@ -39,11 +39,7 @@ class CdsExportActivePlanServiceUnitTest {
             throws Exception {
         var plan = new CdsExportActivePlanService(settings(), () -> "2026.09.0-test").resolve();
         assertThat(plan.clinicalZone().getId()).isEqualTo("America/Toronto");
-        // The roster and member counts are what the package formats hold, not an operator budget.
-        assertThat(plan.archive().patients()).isEqualTo(2_000_000);
-        assertThat(plan.archive().members()).isEqualTo(2_000_000);
         assertThat(plan.source().nativeRows()).isEqualTo(8192);
-        assertThat(plan.ciphertextBytes()).isEqualTo(128L << 30);
         assertThat(plan.retentionSeconds()).isEqualTo(604800);
         assertThat(plan.zoneSha256()).matches("[0-9a-f]{64}");
     }
@@ -57,26 +53,11 @@ class CdsExportActivePlanServiceUnitTest {
     }
 
     @Test
-    void shouldAllowALargerFiniteMetadataBudget_whenTheOperatorSizesTheHeapForIt()
-            throws Exception {
-        var properties = settings();
-        properties.setProperty("cds.export.maxMetadataBytes", Long.toString(2L << 30));
-        var plan = new CdsExportActivePlanService(properties, () -> "2026.08.0-test").resolve();
-        assertThat(plan.archive().metadataBytes()).isEqualTo(2L << 30);
-        properties.setProperty("cds.export.maxMetadataBytes", Long.toString((4L << 30) + 1));
-        assertThatThrownBy(
-                        () ->
-                                new CdsExportActivePlanService(properties, () -> "2026.08.0-test")
-                                        .resolve())
-                .hasMessage("CDS_EXPORT_CONFIGURATION_INVALID");
-    }
-
-    @Test
     void shouldRefuseAnUnboundedOrOverflowingBudget_insteadOfClampingIt() {
         for (String value :
                 new String[] {"0", "-1", "4294967297", "999999999999999999999", "1.5"}) {
             var settings = settings();
-            settings.setProperty("cds.export.maxMetadataBytes", value);
+            settings.setProperty("cds.export.retentionSeconds", value);
             assertThatThrownBy(
                             () ->
                                     new CdsExportActivePlanService(settings, () -> "2026.09.0-test")
@@ -86,7 +67,7 @@ class CdsExportActivePlanServiceUnitTest {
     }
 
     @Test
-    void shouldIgnoreARetiredRosterOrPackageCountSetting_whateverItsValue() throws Exception {
+    void shouldIgnoreEveryRetiredPackageCeilingSetting_whateverItsValue() throws Exception {
         for (String value : new String[] {"1", "0", "-1", "100000", "invalid", ""}) {
             var settings = settings();
             for (String retired : CdsExportActivePlanService.RETIRED)
@@ -95,22 +76,22 @@ class CdsExportActivePlanServiceUnitTest {
                     io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(
                             CdsExportActivePlanService.class)) {
                 var service = new CdsExportActivePlanService(settings, () -> "2026.09.0-test");
-                var archive = service.resolve().archive();
+                // No setting can make a roster, a member count, the inventory, the packaging
+                // records, the supporting files, the archive, its delivery or one staging file
+                // too large to export: every value, valid or not, resolves to the same plan.
+                assertThat(service.resolve().retentionSeconds()).isEqualTo(604800);
                 service.resolve();
-
-                // No setting can make a roster, a member count, the inventory or the supporting
-                // files too large to export.
-                assertThat(archive.patients()).isEqualTo(2_000_000);
-                assertThat(archive.members()).isEqualTo(2_000_000);
-                assertThat(archive.indexBytes()).isEqualTo(64L << 30);
-                assertThat(archive.supportingBytes()).isEqualTo(64L << 30);
-                // Said once, by name only.
+                // Said once, by name only, never a value.
                 assertThat(log.messages())
                         .containsExactly(
                                 "CDS_EXPORT_RETIRED_SETTINGS_IGNORED settings=[cds.export.maxPatients,"
                                         + " cds.export.maxPackageMembers,"
                                         + " cds.export.maxPackageIndexBytes,"
-                                        + " cds.export.maxSupportingBytes]");
+                                        + " cds.export.maxSupportingBytes,"
+                                        + " cds.export.maxMetadataBytes,"
+                                        + " cds.export.maxZipBytes,"
+                                        + " cds.export.maxCiphertextBytes,"
+                                        + " cds.export.maxStagedFileBytes]");
             }
         }
     }
@@ -140,8 +121,8 @@ class CdsExportActivePlanServiceUnitTest {
             throws Exception {
         var settings = settings();
         var service = new CdsExportActivePlanService(settings, () -> "2026.09.0-test");
-        settings.setProperty("cds.export.maxMetadataBytes", "0");
-        assertThat(service.resolve().archive().metadataBytes()).isEqualTo(256L << 20);
+        settings.setProperty("cds.export.retentionSeconds", "60");
+        assertThat(service.resolve().retentionSeconds()).isEqualTo(604800);
     }
 
     @Test

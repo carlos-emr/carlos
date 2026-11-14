@@ -29,7 +29,7 @@ public record CdsExportSelectionDto(Instant readStartedAt, Instant readCompleted
     public CdsExportSelectionDto {
         if (readStartedAt == null || readCompletedAt == null || readCompletedAt.isBefore(readStartedAt)
                 || readStartedAt.getNano() % 1000 != 0 || readCompletedAt.getNano() % 1000 != 0
-                || patients < 0 || patients > 2_000_000 || inventory == null || !inventory.purpose().equals("PATIENT_SELECTION")) {
+                || patients < 0 || inventory == null || !inventory.purpose().equals("PATIENT_SELECTION")) {
             throw new IllegalArgumentException("CDS_EXPORT_SELECTION_RECEIPT_INVALID");
         }
     }

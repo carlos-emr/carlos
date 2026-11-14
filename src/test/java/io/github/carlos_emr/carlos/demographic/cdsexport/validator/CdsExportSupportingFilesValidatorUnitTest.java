@@ -110,14 +110,13 @@ class CdsExportSupportingFilesValidatorUnitTest {
     }
 
     private CdsExportSupportingFilesValidator.Result validate() throws Exception {
-        return validate(readMe, log, actual, 1000000, () -> {});
+        return validate(readMe, log, actual, () -> {});
     }
 
     private CdsExportSupportingFilesValidator.Result validate(
             byte[] text,
             byte[] csv,
             List<CdsExportSupportingFilesValidator.Patient> patients,
-            long maximum,
             Runnable checkpoint)
             throws Exception {
         return new CdsExportSupportingFilesValidator()
@@ -127,9 +126,7 @@ class CdsExportSupportingFilesValidatorUnitTest {
                         metadata,
                         physicians.iterator(),
                         patients.iterator(),
-                        100,
-                        100,
-                        maximum,
+                        CdsExportSupportingFilesValidator.inMemoryIdentities(),
                         checkpoint);
     }
 
@@ -481,7 +478,6 @@ class CdsExportSupportingFilesValidatorUnitTest {
                                                 .getBytes(StandardCharsets.UTF_8),
                                         log,
                                         actual,
-                                        1000000,
                                         () -> {}))
                 .hasMessage("CDS_EXPORT_SUPPORTING_FILES_INVALID");
         assertThatThrownBy(
@@ -497,7 +493,6 @@ class CdsExportSupportingFilesValidatorUnitTest {
                                                         + "\n")
                                                 .getBytes(StandardCharsets.UTF_8),
                                         actual,
-                                        1000000,
                                         () -> {}))
                 .hasMessage("CDS_EXPORT_SUPPORTING_FILES_INVALID");
     }
@@ -510,7 +505,6 @@ class CdsExportSupportingFilesValidatorUnitTest {
                                         readMe,
                                         Arrays.copyOf(log, log.length - 1),
                                         actual,
-                                        1000000,
                                         () -> {}))
                 .hasMessage("CDS_EXPORT_SUPPORTING_FILES_INVALID");
         assertThatThrownBy(
@@ -519,7 +513,6 @@ class CdsExportSupportingFilesValidatorUnitTest {
                                         Arrays.copyOf(readMe, readMe.length - 1),
                                         log,
                                         actual,
-                                        1000000,
                                         () -> {}))
                 .hasMessage("CDS_EXPORT_SUPPORTING_FILES_INVALID");
     }
@@ -533,16 +526,61 @@ class CdsExportSupportingFilesValidatorUnitTest {
     }
 
     @Test
-    void shouldCheckTheCombinedByteBudget_withoutAcceptingOneValidFileAfterTheOtherExhaustsIt() {
+    void shouldHandEverySenderIdentifierToTheCallersIndex_andAskItForUniqueness() throws Exception {
+        // The validator keeps no index of its own: no patient count or identifier size is
+        // refused, and the caller's index (on protected storage in a real export) is the proof.
+        var seen = new java.util.ArrayList<String>();
+        boolean[] asked = {false};
+        var result =
+                new CdsExportSupportingFilesValidator()
+                        .validate(
+                                new ByteArrayInputStream(readMe),
+                                new ByteArrayInputStream(log),
+                                metadata,
+                                physicians.iterator(),
+                                actual.iterator(),
+                                new CdsExportSupportingFilesValidator.Identities() {
+                                    @Override
+                                    public void accept(String senderPatientId) {
+                                        seen.add(senderPatientId);
+                                    }
+
+                                    @Override
+                                    public void requireUnique() {
+                                        asked[0] = true;
+                                    }
+                                },
+                                () -> {});
+        assertThat(result.patientFiles()).isEqualTo(1);
+        assertThat(seen).containsExactly(actual.getFirst().xml().senderPatientId());
+        assertThat(asked[0]).isTrue();
+    }
+
+    @Test
+    void shouldFailTheValidation_whenTheCallersIndexFindsARepeatedIdentifier() {
         assertThatThrownBy(
                         () ->
-                                validate(
-                                        readMe,
-                                        log,
-                                        actual,
-                                        readMe.length + log.length - 1,
-                                        () -> {}))
-                .hasMessage("CDS_EXPORT_SUPPORTING_FILES_RESOURCE_LIMIT");
+                                new CdsExportSupportingFilesValidator()
+                                        .validate(
+                                                new ByteArrayInputStream(readMe),
+                                                new ByteArrayInputStream(log),
+                                                metadata,
+                                                physicians.iterator(),
+                                                actual.iterator(),
+                                                new CdsExportSupportingFilesValidator
+                                                        .Identities() {
+                                                    @Override
+                                                    public void accept(String senderPatientId) {}
+
+                                                    @Override
+                                                    public void requireUnique()
+                                                            throws java.io.IOException {
+                                                        throw new java.io.IOException(
+                                                                "CDS_EXPORT_SUPPORTING_FILES_INVALID");
+                                                    }
+                                                },
+                                                () -> {}))
+                .hasMessage("CDS_EXPORT_SUPPORTING_FILES_INVALID");
     }
 
     @Test
@@ -592,7 +630,6 @@ class CdsExportSupportingFilesValidatorUnitTest {
                                         readMe,
                                         log,
                                         actual,
-                                        1000000,
                                         () -> {
                                             throw new java.util.concurrent.CancellationException(
                                                     "SYNTHETIC_CANCELLED");
@@ -623,9 +660,7 @@ class CdsExportSupportingFilesValidatorUnitTest {
                         metadata,
                         physicians.iterator(),
                         actual.iterator(),
-                        100,
-                        100,
-                        1000000,
+                        CdsExportSupportingFilesValidator.inMemoryIdentities(),
                         () -> {});
         assertThat(text.available()).isZero();
         assertThat(csv.available()).isZero();
@@ -704,8 +739,8 @@ class CdsExportSupportingFilesValidatorUnitTest {
         byte[] oversized =
                 ("Physician group: \"" + "x".repeat(65537) + "\"\n")
                         .getBytes(StandardCharsets.UTF_8);
-        assertThatThrownBy(() -> validate(oversized, log, actual, 1000000, () -> {}))
-                .hasMessage("CDS_EXPORT_SUPPORTING_FILES_RESOURCE_LIMIT");
+        assertThatThrownBy(() -> validate(oversized, log, actual, () -> {}))
+                .hasMessage("CDS_EXPORT_SUPPORTING_FILES_INVALID");
     }
 
     @Test
@@ -793,14 +828,6 @@ class CdsExportSupportingFilesValidatorUnitTest {
         assertThat(result.patientFiles()).isEqualTo(2);
         actual = List.of(actual.getLast(), actual.getFirst());
         assertThatThrownBy(this::validate).hasMessage("CDS_EXPORT_SUPPORTING_FILES_INVALID");
-    }
-
-    @Test
-    void shouldEnforceTheExactByteLimit_includingTheLastTerminator() throws Exception {
-        assertThat(
-                        validate(readMe, log, actual, readMe.length + log.length, () -> {})
-                                .patientFiles())
-                .isEqualTo(1);
     }
 
     @Test

@@ -87,7 +87,6 @@ public class CdsExportDisclosureScopeService {
         Objects.requireNonNull(intent);
         Objects.requireNonNull(control);
         if (patients < 1
-                || patients > 2_000_000
                 || !"COHORT_MANIFEST".equals(cohort.purpose())
                 || !"DISCLOSURE_MANIFEST".equals(authorization.purpose())) invalid();
         control.checkpoint();
@@ -112,6 +111,9 @@ public class CdsExportDisclosureScopeService {
                         "tables",
                         new TreeSet<>(tables));
         long[] notes = {0};
+        // One line read ahead while looking for a patient's NOTES continuation lines.
+        var ahead = new JsonNode[1];
+        boolean[] buffered = {false};
         try (var input = store.open(authorization)) {
             var lines = new CdsExportJsonLines(input, 1 << 20, control::checkpoint);
             if (!JSON.readTree(JSON.writeValueAsBytes(expectedHeader)).equals(lines.next()))
@@ -127,7 +129,10 @@ public class CdsExportDisclosureScopeService {
                             control::checkpoint,
                             patient -> {
                                 control.checkpoint();
-                                var node = lines.required();
+                                var node = buffered[0] ? ahead[0] : lines.required();
+                                buffered[0] = false;
+                                ahead[0] = null;
+                                if (node == null) invalid();
                                 if (node.isObject()
                                         && "HELD".equals(node.path("kind").textValue())) {
                                     // A held patient was not packaged, so nothing is disclosed
@@ -157,21 +162,49 @@ public class CdsExportDisclosureScopeService {
                                                 .textValue()
                                                 .matches("[0-9a-f]{64}")
                                         || !node.path("notes").isArray()
-                                        || node.path("notes").size() > 8192) invalid();
+                                        || node.path("notes").size()
+                                                > CdsExportClinicalPackageService.NOTE_BATCH)
+                                    invalid();
                                 long previous = 0;
                                 var patientNotes =
                                         new java.util.ArrayList<CdsExportNoteAccessDto>();
-                                for (var value : node.path("notes")) {
-                                    control.checkpoint();
-                                    var scope = note(value, patient.demographicNo());
-                                    if (scope.noteId() <= previous
-                                            || !intent.command()
-                                                    .categories()
-                                                    .contains(CdsCategory.CLINICAL_NOTES))
+                                var batch = node.path("notes");
+                                // A patient's notes beyond one line's batch follow on NOTES
+                                // lines; a manifest written before those existed has none.
+                                while (true) {
+                                    for (var value : batch) {
+                                        control.checkpoint();
+                                        var scope = note(value, patient.demographicNo());
+                                        if (scope.noteId() <= previous
+                                                || !intent.command()
+                                                        .categories()
+                                                        .contains(CdsCategory.CLINICAL_NOTES))
+                                            invalid();
+                                        patientNotes.add(scope);
+                                        previous = scope.noteId();
+                                        notes[0]++;
+                                    }
+                                    var following = lines.next();
+                                    if (following == null
+                                            || !following.isObject()
+                                            || !"NOTES".equals(following.path("kind").textValue())) {
+                                        ahead[0] = following;
+                                        buffered[0] = true;
+                                        break;
+                                    }
+                                    if (following.size() != 3
+                                            || !following.path("patient").isIntegralNumber()
+                                            || !following.path("patient").canConvertToInt()
+                                            || following.path("patient").intValue()
+                                                    != patient.demographicNo()
+                                            || !following.path("notes").isArray()
+                                            || following.path("notes").isEmpty()
+                                            || following.path("notes").size()
+                                                    > CdsExportClinicalPackageService.NOTE_BATCH
+                                            || batch.size()
+                                                    != CdsExportClinicalPackageService.NOTE_BATCH)
                                         invalid();
-                                    patientNotes.add(scope);
-                                    previous = scope.noteId();
-                                    notes[0]++;
+                                    batch = following.path("notes");
                                 }
                                 // One re-authorization pass per patient: its gates and notes are
                                 // checked from the live database now, without one transaction per
@@ -183,10 +216,9 @@ public class CdsExportDisclosureScopeService {
                                             patient.demographicNo(),
                                             tables,
                                             control);
-                                    if (!patientNotes.isEmpty())
-                                        control.authorizeNotes(
-                                                CdsCategory.CLINICAL_NOTES,
-                                                java.util.List.copyOf(patientNotes));
+                                    // The same ascending batches the packaging step uses.
+                                    CdsExportClinicalPackageService.authorizeNotes(
+                                            patientNotes, control);
                                 } finally {
                                     control.endAuthorizationPass();
                                 }
@@ -195,7 +227,7 @@ public class CdsExportDisclosureScopeService {
                     || !JSON.readTree(
                                     JSON.writeValueAsBytes(
                                             Map.of("kind", "END", "patients", patients)))
-                            .equals(lines.next())
+                            .equals(buffered[0] ? ahead[0] : lines.next())
                     || lines.next() != null) invalid();
         }
         control.checkpoint();

@@ -129,7 +129,7 @@ class CdsExportClinicalJobServiceUnitTest {
                                 "d".repeat(64), "PATIENT_SELECTION", "e".repeat(64), 1));
         when(stores.bind()).thenReturn(binding);
         when(stores.create(eq(lease), any())).thenReturn(store);
-        when(selections.capture(eq(command), eq(store), eq(plan.archive().patients()), any()))
+        when(selections.capture(eq(command), eq(store), any()))
                 .thenReturn(selected);
         when(cohorts.prepare(lease, selected, control)).thenReturn(sealed);
         when(packages.compose(
@@ -138,10 +138,9 @@ class CdsExportClinicalJobServiceUnitTest {
                         plan.clinicalZone(),
                         plan.source(),
                         plan.xml(),
-                        plan.archive(),
                         control))
                 .thenReturn(prepared);
-        when(delivery.encrypt(lease, prepared, plan.ciphertextBytes(), control))
+        when(delivery.encrypt(lease, prepared, control))
                 .thenReturn(encrypted);
         when(provider.getObject()).thenReturn(publication);
         ready =
@@ -198,7 +197,6 @@ class CdsExportClinicalJobServiceUnitTest {
                 .capture(
                         eq(lease.document().command()),
                         eq(store),
-                        eq(plan.archive().patients()),
                         any());
         order.verify(cohorts).prepare(lease, selected, control);
         order.verify(ledger).sealSelection(lease, sealed);
@@ -209,10 +207,9 @@ class CdsExportClinicalJobServiceUnitTest {
                         plan.clinicalZone(),
                         plan.source(),
                         plan.xml(),
-                        plan.archive(),
                         control);
         order.verify(ledger).retainPrepared(lease, prepared);
-        order.verify(delivery).encrypt(lease, prepared, plan.ciphertextBytes(), control);
+        order.verify(delivery).encrypt(lease, prepared, control);
         order.verify(publication).publish(lease, encrypted, plan.retentionSeconds(), control);
     }
 
@@ -234,7 +231,7 @@ class CdsExportClinicalJobServiceUnitTest {
                             TransactionSynchronizationManager.setCurrentTransactionReadOnly(true);
                             try {
                                 callback[0].run();
-                                ((Runnable) call.getArgument(3)).run();
+                                ((Runnable) call.getArgument(2)).run();
                             } finally {
                                 TransactionSynchronizationManager.setActualTransactionActive(false);
                                 TransactionSynchronizationManager.setCurrentTransactionReadOnly(
@@ -246,7 +243,6 @@ class CdsExportClinicalJobServiceUnitTest {
                 .capture(
                         eq(lease.document().command()),
                         eq(store),
-                        eq(plan.archive().patients()),
                         any());
         service.execute(lease, control);
         verify(control, times(2)).captureCheckpoint();
@@ -254,7 +250,7 @@ class CdsExportClinicalJobServiceUnitTest {
 
     @Test
     void shouldRefuseAnEmptyRoster_asReviewBeforeSealingOrSerializingAnything() throws Exception {
-        when(selections.capture(any(), any(), anyLong(), any()))
+        when(selections.capture(any(), any(), any()))
                 .thenReturn(
                         new CdsExportSelectionDto(
                                 selected.readStartedAt(),
@@ -283,7 +279,7 @@ class CdsExportClinicalJobServiceUnitTest {
                             return encrypted;
                         })
                 .when(delivery)
-                .encrypt(lease, prepared, plan.ciphertextBytes(), control);
+                .encrypt(lease, prepared, control);
         assertThatThrownBy(() -> service.execute(lease, control))
                 .hasMessage("CDS_EXPORT_RUNTIME_CHANGED");
         verifyNoInteractions(publication);

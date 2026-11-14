@@ -42,7 +42,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Bounded, read-only, repeatable-read cohort discovery. Provider requests discover every
+ * Paged, read-only, repeatable-read cohort discovery of a roster of any size. Provider requests discover every
  * matching patient status; selected requests retain exactly their explicit IDs or refuse
  * a missing member. All bytes are encrypted while streaming. This is the deliberate
  * bounded-spooling exception to the no-I/O transaction rule: no rendering/publication or
@@ -78,14 +78,11 @@ public class CdsExportSelectionService {
     public CdsExportSelectionDto capture(
             CdsExportCommand command,
             CdsExportStagingService staging,
-            long maximumPatients,
             Runnable checkpoint)
             throws IOException {
         Objects.requireNonNull(command);
         Objects.requireNonNull(staging);
         Objects.requireNonNull(checkpoint);
-        if (maximumPatients < 1 || maximumPatients > 2_000_000)
-            throw new IllegalArgumentException("CDS_EXPORT_COHORT_LIMIT_INVALID");
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new IllegalStateException("CDS_EXPORT_AMBIENT_TRANSACTION_REFUSED");
         }
@@ -112,14 +109,12 @@ public class CdsExportSelectionService {
                                                             roster(
                                                                     command.physicianNos(),
                                                                     output,
-                                                                    maximumPatients,
                                                                     count,
                                                                     checkpoint);
                                                         } else
                                                             selected(
                                                                     command.patientNos(),
                                                                     output,
-                                                                    maximumPatients,
                                                                     count,
                                                                     checkpoint);
                                                     });
@@ -153,7 +148,6 @@ public class CdsExportSelectionService {
     private void roster(
             List<String> physicians,
             OutputStream output,
-            long maximum,
             long[] count,
             Runnable checkpoint)
             throws IOException {
@@ -169,7 +163,7 @@ public class CdsExportSelectionService {
                         || after != null && row.demographicNo() <= after
                         || !physicians.contains(row.physicianNo()))
                     throw new IOException("CDS_EXPORT_SELECTION_SCOPE_REQUIRES_REVIEW");
-                append(row, output, maximum, count);
+                append(row, output, count);
                 after = row.demographicNo();
             }
             if (page.size() < PAGE) return;
@@ -179,7 +173,6 @@ public class CdsExportSelectionService {
     private void selected(
             List<Integer> patients,
             OutputStream output,
-            long maximum,
             long[] count,
             Runnable checkpoint)
             throws IOException {
@@ -200,16 +193,18 @@ public class CdsExportSelectionService {
                         || !seen.add(row.demographicNo())) {
                     throw new IOException("CDS_EXPORT_SELECTION_PAGE_INVALID");
                 }
-                append(row, output, maximum, count);
+                append(row, output, count);
                 previous = row.demographicNo();
             }
         }
     }
 
     private static void append(
-            CdsExportSelectionRowDto row, OutputStream output, long maximum, long[] count)
+            CdsExportSelectionRowDto row, OutputStream output, long[] count)
             throws IOException {
-        if (++count[0] > maximum) throw new IOException("CDS_EXPORT_COHORT_LIMIT_REQUIRES_REVIEW");
+        // Every selected patient is listed: the roster is streamed to protected storage and no
+        // count refuses it.
+        count[0] = Math.addExact(count[0], 1);
         if (row.physicianNo() != null && row.physicianNo().length() > 16)
             throw new IOException("CDS_EXPORT_SELECTION_SCOPE_REQUIRES_REVIEW");
         output.write(JSON.writeValueAsBytes(row));

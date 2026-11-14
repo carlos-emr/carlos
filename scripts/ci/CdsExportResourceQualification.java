@@ -86,7 +86,7 @@ public final class CdsExportResourceQualification {
         });
         String expectedHash = HexFormat.of().formatHex(expected.digest());
         require(source.plaintextSha256().equals(expectedHash), "SOURCE_HASH_DIFFERS");
-        var archive = new CdsExportPackageComposer().compose(store, members(source, MEMBERS), 24 * GIB, 10,
+        var archive = new CdsExportPackageComposer().compose(store, members(source, MEMBERS),
                 CdsExportResourceQualification::checkpoint);
         require(archive.expandedBytes() == memberBytes * MEMBERS, "AGGREGATE_LENGTH_DIFFERS");
         try (var input = store.open(archive.archive())) {
@@ -114,7 +114,7 @@ public final class CdsExportResourceQualification {
         try (var input = store.open(archive.archive());
              var output = Files.newOutputStream(root.resolve("delivery.cms"), StandardOpenOption.CREATE_NEW)) {
             var delivery = new CdsExportDeliveryComposer().compose(input, output, certificate, pin,
-                    archive.archive().plaintextBytes(), archive.archive().plaintextSha256(), Instant.now(), 24 * GIB,
+                    archive.archive().plaintextBytes(), archive.archive().plaintextSha256(), Instant.now(),
                     CdsExportResourceQualification::checkpoint);
             result.put("ciphertextBytes", delivery.ciphertextBytes());
             result.put("ciphertextSha256", delivery.ciphertextSha256());
@@ -137,7 +137,7 @@ public final class CdsExportResourceQualification {
 
     private static void countBoundary(CdsExportStagingService store) throws Exception {
         var empty = store.stage("EMPTY_RESOURCE", output -> { });
-        var archive = new CdsExportPackageComposer().compose(store, members(empty, 65537), 64L << 20, 100000,
+        var archive = new CdsExportPackageComposer().compose(store, members(empty, 65537),
                 CdsExportResourceQualification::checkpoint);
         try (var input = store.open(archive.archive())) {
             verifyZip(input, 65537, 0, empty.plaintextSha256(), archive.archive().plaintextSha256());

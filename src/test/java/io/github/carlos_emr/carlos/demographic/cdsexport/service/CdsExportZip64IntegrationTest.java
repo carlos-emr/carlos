@@ -77,7 +77,7 @@ class CdsExportZip64IntegrationTest {
                         };
         var proof =
                 new CdsExportPackageComposer()
-                        .compose(store, members, 16L << 20, 100_000, () -> {});
+                        .compose(store, members, () -> {});
         assertThat(proof.entries()).isEqualTo(count);
         assertThat(proof.expandedBytes()).isZero();
         int actual = 0;

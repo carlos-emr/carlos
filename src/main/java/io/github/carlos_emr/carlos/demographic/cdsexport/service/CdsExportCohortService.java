@@ -194,7 +194,7 @@ public class CdsExportCohortService {
         Objects.requireNonNull(intent);
         Objects.requireNonNull(checkpoint);
         Objects.requireNonNull(patients);
-        if (expectedPatients < 1 || expectedPatients > 2_000_000) invalid();
+        if (expectedPatients < 1) invalid();
         checkpoint.run();
         var manifest = manifest(store, file);
         if (!manifest.runId().equals(runId)

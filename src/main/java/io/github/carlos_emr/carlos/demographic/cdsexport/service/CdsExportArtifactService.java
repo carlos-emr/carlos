@@ -119,14 +119,23 @@ public class CdsExportArtifactService {
     }
 
     /**
-     * A single-use, finite delivery; the durable lease also protects a slow/blocked output from
-     * retention.
+     * A single-use delivery of a package of any size; the durable lease also protects a slow
+     * output from retention, and a transfer that stops moving is ended by its heartbeat.
      */
     public final class Download implements AutoCloseable {
         private final CdsExportActorDto actor;
         private final CdsExportLedgerService.Download lease;
         private final long started = System.nanoTime();
         private final long timeoutNanos;
+
+        /**
+         * When the download thread last made progress (a block written, a verification step).
+         * {@code cds.export.downloadTimeoutSeconds} bounds the time since then and nothing else:
+         * it detects a transfer that has stopped moving, and never ends one for how long a
+         * package of any size takes to send. Only the lease heartbeat can observe the silence.
+         */
+        private final java.util.concurrent.atomic.AtomicLong progress =
+                new java.util.concurrent.atomic.AtomicLong(started);
         private long lastProbe = started - 1_000_000_000L, lastScope;
         /** Duration of the latest complete cohort re-verification, and the allowance it earns. */
         private long lastScopeNanos, verificationAllowanceNanos;
@@ -319,9 +328,19 @@ public class CdsExportArtifactService {
             return lease.context().ciphertext().plaintextSha256();
         }
 
+        /**
+         * True when the delivery is a tar archive of CMS parts (a package larger than one AES-GCM
+         * message), false when it is one CMS object.
+         */
+        public boolean parts() {
+            return CdsExportDeliveryComposer.PARTS_PROFILE.equals(
+                    lease.context().delivery().encryptionProfile());
+        }
+
         private void local() {
             if (Thread.currentThread().isInterrupted()
-                    || System.nanoTime() - started > timeoutNanos + verificationAllowanceNanos)
+                    || System.nanoTime() - progress.get()
+                            > timeoutNanos + verificationAllowanceNanos)
                 throw new CancellationException("CDS_EXPORT_DOWNLOAD_STOPPED");
             var failed = heartbeatFailure.get();
             if (failed != null) throw failed;
@@ -332,6 +351,8 @@ public class CdsExportArtifactService {
         }
 
         private void probe() {
+            // Only the download thread probes: reaching here is its proof of progress.
+            progress.set(System.nanoTime());
             local();
             long now = System.nanoTime();
             if (now - lastProbe >= 1_000_000_000L) {

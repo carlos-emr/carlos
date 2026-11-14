@@ -30,7 +30,7 @@ public record CdsExportArtifactContextDto(int protocol, String runId, long epoch
         CdsExportStagedFileDto readMe, CdsExportStagedFileDto eventLog, CdsExportPackageDto archive,
         CdsExportStagedFileDto ciphertext, CdsExportDeliveryDto delivery) {
     public CdsExportArtifactContextDto {
-        if (protocol != 1 || runId == null || !UUID.fromString(runId).toString().equals(runId) || epoch < 1 || patients < 1 || patients > 2_000_000
+        if (protocol != 1 || runId == null || !UUID.fromString(runId).toString().equals(runId) || epoch < 1 || patients < 1
                 || !hash(compatibilityDigest) || !hash(recipientFingerprint) || !hash(auditPlanDigest)
                 || !purpose(cohort, "COHORT_MANIFEST") || !purpose(authorization, "DISCLOSURE_MANIFEST")
                 || !purpose(ownership, "ATTEMPT_MEMBERS") || !purpose(readMe, "SUPPORTING_README") || !purpose(eventLog, "SUPPORTING_EVENT_LOG")
@@ -38,11 +38,14 @@ public record CdsExportArtifactContextDto(int protocol, String runId, long epoch
         var ids = new HashSet<String>();
         for (var member : List.of(cohort, authorization, ownership, readMe, eventLog, archive.archive())) if (!ids.add(member.memberId())) invalid();
         if (ciphertext != null && (!purpose(ciphertext, "DELIVERY_CMS") || !ids.add(ciphertext.memberId())
-                || !"cms-aes256gcm-rsa-oaep-sha256-v1".equals(delivery.encryptionProfile())
+                || !PROFILES.contains(delivery.encryptionProfile())
                 || !recipientFingerprint.equals(delivery.recipientFingerprint()) || !archive.archive().plaintextSha256().equals(delivery.zipSha256())
                 || archive.archive().plaintextBytes() != delivery.zipBytes() || !ciphertext.plaintextSha256().equals(delivery.ciphertextSha256())
                 || ciphertext.plaintextBytes() != delivery.ciphertextBytes())) invalid();
     }
+    /** One CMS object, or a tar archive of CMS parts for a package larger than one AES-GCM message. */
+    private static final Set<String> PROFILES =
+            Set.of("cms-aes256gcm-rsa-oaep-sha256-v1", "tar-cms-aes256gcm-rsa-oaep-sha256-v2");
     public boolean encrypted() { return ciphertext != null; }
     private static boolean hash(String value) { return value != null && value.matches("[0-9a-f]{64}"); }
     private static boolean purpose(CdsExportStagedFileDto file, String expected) { return file != null && file.purpose().equals(expected); }

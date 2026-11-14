@@ -33,8 +33,9 @@ import org.springframework.stereotype.Service;
 
 /**
  * Encrypted external sort and sealed, reopenable package membership. Native/cohort capture
- * order need not equal archive component order. Only bounded batches and merge heads are
- * retained in memory. Clinical payload members remain caller-owned throughout; this service
+ * order need not equal archive component order. Only bounded batches, merge heads and a
+ * logarithmic number of run descriptors are retained in memory; no member count or inventory
+ * size is refused. Clinical payload members remain caller-owned throughout; this service
  * deletes only its own intermediate inventory members. This is not clinical publication proof.
  */
 @Service
@@ -66,23 +67,15 @@ public class CdsExportPackageInventoryService {
     // failure.
     @SuppressWarnings("java:S1143")
     public Sealed seal(
-            CdsExportStagingService store,
-            long maximumEntries,
-            long maximumIndexBytes,
-            Runnable checkpoint,
-            Producer producer)
+            CdsExportStagingService store, Runnable checkpoint, Producer producer)
             throws IOException {
         Objects.requireNonNull(store);
         Objects.requireNonNull(checkpoint);
         Objects.requireNonNull(producer);
-        if (maximumEntries < 1
-                || maximumEntries > 2_000_000
-                || maximumIndexBytes < 12
-                || maximumIndexBytes > (64L << 30)) {
-            throw new IllegalArgumentException("CDS_EXPORT_PACKAGE_INVENTORY_LIMIT_INVALID");
-        }
         var owned = new ArrayList<CdsExportStagedFileDto>();
-        var runs = new ArrayList<Run>();
+        // Sorted runs by level: a full level is merged into one run of the next, so the run
+        // descriptors held in memory grow with the logarithm of the member count, not with it.
+        var levels = new ArrayList<List<Run>>();
         var batch = new ArrayList<Entry>();
         long[] count = {0}, bytes = {12}, batchBytes = {0};
         var active = new AtomicBoolean(true);
@@ -99,17 +92,17 @@ public class CdsExportPackageInventoryService {
                                 if (!active.get() || Thread.currentThread() != owner) invalid();
                                 checkpoint.run();
                                 Entry entry = entry(member);
-                                if (count[0] == maximumEntries
-                                        || entry.bytes() > maximumIndexBytes - bytes[0]) limit();
                                 if (!batch.isEmpty()
                                         && (batch.size() == BATCH_ENTRIES
                                                 || entry.bytes() > BATCH_BYTES - batchBytes[0])) {
-                                    runs.add(flush(store, batch, checkpoint, owned));
+                                    add(store, levels, 0, flush(store, batch, checkpoint, owned),
+                                            checkpoint, owned);
                                     batchBytes[0] = 0;
                                 }
                                 batch.add(entry);
-                                count[0]++;
-                                bytes[0] += entry.bytes();
+                                // No member count or inventory size is refused.
+                                count[0] = Math.addExact(count[0], 1);
+                                bytes[0] = Math.addExact(bytes[0], entry.bytes());
                                 batchBytes[0] += entry.bytes();
                             } catch (IOException | RuntimeException | Error failure) {
                                 failed.set(true);
@@ -120,7 +113,11 @@ public class CdsExportPackageInventoryService {
                 active.set(false);
             }
             if (failed.get() || count[0] == 0) invalid();
-            if (!batch.isEmpty()) runs.add(flush(store, batch, checkpoint, owned));
+            if (!batch.isEmpty())
+                add(store, levels, 0, flush(store, batch, checkpoint, owned), checkpoint, owned);
+            // Oldest runs first; ties cannot occur because two members never share a path.
+            var runs = new ArrayList<Run>();
+            for (var level : levels.reversed()) runs.addAll(level);
             while (runs.size() > MERGE_FAN_IN) {
                 var next = new ArrayList<Run>();
                 for (int offset = 0; offset < runs.size(); offset += MERGE_FAN_IN) {
@@ -138,7 +135,7 @@ public class CdsExportPackageInventoryService {
             Run finalRun = merge(store, runs, "PACKAGE_MEMBERS", checkpoint, owned);
             result = finalRun.file();
             if (finalRun.entries() != count[0] || result.plaintextBytes() != bytes[0]) invalid();
-            var sealed = new Sealed(store, finalRun, maximumIndexBytes, checkpoint);
+            var sealed = new Sealed(store, finalRun, checkpoint);
             try (var cursor = sealed.open()) {
                 while (cursor.next() != null) checkpoint.run();
             }
@@ -166,6 +163,26 @@ public class CdsExportPackageInventoryService {
                     else throw cleanup;
                 }
         }
+    }
+
+    /** A level that reaches the merge fan-in becomes one run of the next level. */
+    private static void add(
+            CdsExportStagingService store,
+            List<List<Run>> levels,
+            int level,
+            Run run,
+            Runnable checkpoint,
+            List<CdsExportStagedFileDto> owned)
+            throws IOException {
+        while (levels.size() <= level) levels.add(new ArrayList<>());
+        var held = levels.get(level);
+        held.add(run);
+        if (held.size() < MERGE_FAN_IN) return;
+        var group = List.copyOf(held);
+        Run merged = merge(store, group, "PACKAGE_MEMBER_SORT", checkpoint, owned);
+        held.clear();
+        discard(store, group, owned);
+        add(store, levels, level + 1, merged, checkpoint, owned);
     }
 
     private static Run flush(
@@ -414,14 +431,11 @@ public class CdsExportPackageInventoryService {
     public static final class Sealed implements CdsExportPackageMembers {
         private final CdsExportStagingService store;
         private final Run run;
-        private final long maximumBytes;
         private final Runnable checkpoint;
 
-        private Sealed(
-                CdsExportStagingService store, Run run, long maximumBytes, Runnable checkpoint) {
+        private Sealed(CdsExportStagingService store, Run run, Runnable checkpoint) {
             this.store = store;
             this.run = run;
-            this.maximumBytes = maximumBytes;
             this.checkpoint = checkpoint;
         }
 
@@ -436,8 +450,7 @@ public class CdsExportPackageInventoryService {
         @Override
         public Cursor open() throws IOException {
             checkpoint.run();
-            if (run.file().plaintextBytes() > maximumBytes
-                    || !"PACKAGE_MEMBERS".equals(run.file().purpose())) invalid();
+            if (!"PACKAGE_MEMBERS".equals(run.file().purpose())) invalid();
             return new Reader(store, run, checkpoint);
         }
 
@@ -451,7 +464,4 @@ public class CdsExportPackageInventoryService {
         throw new IOException("CDS_EXPORT_PACKAGE_INVENTORY_INVALID");
     }
 
-    private static void limit() throws IOException {
-        throw new IOException("CDS_EXPORT_PACKAGE_INVENTORY_LIMIT");
-    }
 }

@@ -306,8 +306,6 @@ class CdsExportDeliveryInteropIntegrationTest {
                         .compose(
                                 staging,
                                 CdsExportPackageComposerUnitTest.source(members),
-                                1L << 20,
-                                100,
                                 () -> {});
         byte[] plain;
         try (var input = staging.open(finished.archive())) {
@@ -324,7 +322,6 @@ class CdsExportDeliveryInteropIntegrationTest {
                             plain.length,
                             CdsExportDeliveryComposerUnitTest.hash(plain),
                             CdsExportRecipientFixture.NOW,
-                            1L << 20,
                             () -> {});
         }
         Path certificate = root.resolve("recipient.pem"),

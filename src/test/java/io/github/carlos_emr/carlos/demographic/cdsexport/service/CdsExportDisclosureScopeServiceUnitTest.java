@@ -236,6 +236,44 @@ class CdsExportDisclosureScopeServiceUnitTest {
                 .hasMessage("CDS_EXPORT_DISCLOSURE_SCOPE_INVALID");
     }
 
+    private static List<CdsExportNoteAccessDto> notes(int patient, long first, int count) {
+        var notes = new java.util.ArrayList<CdsExportNoteAccessDto>();
+        for (int i = 0; i < count; i++)
+            notes.add(new CdsExportNoteAccessDto(first + i, patient, "0", "0"));
+        return notes;
+    }
+
+    @Test
+    void shouldReadAPatientsNotesBeyondOneLine_fromItsContinuationLines() throws Exception {
+        // 8,192 notes on the PATIENT line and 5 more on a NOTES line: a chart is not refused
+        // for how many notes it has, and every one of them is re-authorized.
+        patients.set(0, patient(27, notes(27, 1, 8192)));
+        patients.add(1, Map.of("kind", "NOTES", "patient", 27, "notes", notes(27, 8193, 5)));
+        var result = checkScope(manifest());
+        assertThat(result.patients()).isEqualTo(2);
+        assertThat(result.notes()).isEqualTo(8198);
+        verify(control)
+                .authorizeNote(
+                        CdsCategory.CLINICAL_NOTES, new CdsExportNoteAccessDto(8197, 27, "0", "0"));
+    }
+
+    @Test
+    void shouldRejectAContinuationLine_thatDoesNotFollowAFullLineOfItsOwnPatient()
+            throws Exception {
+        // After a line that was not full.
+        patients.add(1, Map.of("kind", "NOTES", "patient", 27, "notes", notes(27, 11, 1)));
+        assertThatThrownBy(() -> checkScope(manifest()))
+                .hasMessage("CDS_EXPORT_DISCLOSURE_SCOPE_INVALID");
+        // Of another patient, and out of note order.
+        patients.set(0, patient(27, notes(27, 1, 8192)));
+        patients.set(1, Map.of("kind", "NOTES", "patient", 28, "notes", notes(28, 9000, 1)));
+        assertThatThrownBy(() -> checkScope(manifest()))
+                .hasMessage("CDS_EXPORT_DISCLOSURE_SCOPE_INVALID");
+        patients.set(1, Map.of("kind", "NOTES", "patient", 27, "notes", notes(27, 8192, 1)));
+        assertThatThrownBy(() -> checkScope(manifest()))
+                .hasMessage("CDS_EXPORT_DISCLOSURE_SCOPE_INVALID");
+    }
+
     @Test
     void shouldNotCacheAFormerAuthorization_afterPatientRightsAreRevoked() throws Exception {
         var manifest = manifest();

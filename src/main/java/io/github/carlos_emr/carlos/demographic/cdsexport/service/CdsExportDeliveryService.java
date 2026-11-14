@@ -58,13 +58,10 @@ public class CdsExportDeliveryService {
     public Encrypted encrypt(
             CdsExportLeaseDto lease,
             CdsExportClinicalPackageService.Prepared prepared,
-            long maximumCiphertextBytes,
             CdsExportRunControl control)
             throws IOException {
         Objects.requireNonNull(control);
         Objects.requireNonNull(prepared);
-        if (maximumCiphertextBytes < 1 || maximumCiphertextBytes > (128L << 30))
-            throw new IllegalArgumentException("CDS_EXPORT_DELIVERY_LIMIT_INVALID");
         if (!lease.runId().equals(prepared.runId()) || lease.epoch() != prepared.epoch()) invalid();
         var policy = disclosure.resolveAccepted(lease.document(), Instant.now());
         var metadata = prepared.metadata();
@@ -107,11 +104,10 @@ public class CdsExportDeliveryService {
                                                                     .archive()
                                                                     .plaintextSha256(),
                                                             Instant.now(),
-                                                            maximumCiphertextBytes,
                                                             control::checkpoint);
                                 }
                             });
-            if (!CdsExportDeliveryComposer.PROFILE.equals(proof[0].encryptionProfile())
+            if (!CdsExportDeliveryComposer.PROFILES.contains(proof[0].encryptionProfile())
                     || !lease.document()
                             .recipientFingerprint()
                             .equals(proof[0].recipientFingerprint())

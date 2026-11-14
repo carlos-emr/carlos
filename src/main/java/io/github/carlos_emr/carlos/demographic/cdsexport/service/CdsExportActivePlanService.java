@@ -40,8 +40,6 @@ public class CdsExportActivePlanService {
             String zoneSha256,
             CdsExportClinicalOccurrenceService.Bounds source,
             CdsExportXmlLimitsDto xml,
-            CdsExportClinicalPackageService.Limits archive,
-            long ciphertextBytes,
             long retentionSeconds) {}
 
     private final Properties settings = new Properties();
@@ -103,48 +101,36 @@ public class CdsExportActivePlanService {
                         (int) number("maxNativeRows", 8192, 1, 8192),
                         (int) number("maxLookupRows", 131_072, 1, 131_072));
         retired();
-        var archive =
-                new CdsExportClinicalPackageService.Limits(
-                        PATIENTS,
-                        PACKAGE_MEMBERS,
-                        PACKAGE_INDEX_BYTES,
-                        number("maxMetadataBytes", 256L << 20, 1, 4L << 30),
-                        SUPPORTING_BYTES,
-                        number("maxZipBytes", 64L << 30, 1, 64L << 30));
         return new Plan(
                 build,
                 ZoneId.of(zone.zoneId()),
                 zone.sha256(),
                 bounds,
                 CdsExportXmlLimitsDto.defaults(),
-                archive,
-                number("maxCiphertextBytes", 128L << 30, 1, 128L << 30),
                 number("retentionSeconds", 7 * 86_400L, 60, 30 * 86_400L));
     }
 
     /**
-     * What the package formats themselves can hold: the patient and member counts their sealed
-     * manifests accept, and the largest inventory and supporting files their readers accept.
-     * These are not operator budgets. A roster, a member count, the on-disk inventory and the
-     * ReadMe and event log are streamed to protected storage, so nothing in memory grows with
-     * them and no setting may refuse an export for their size.
-     */
-    static final long PATIENTS = 2_000_000,
-            PACKAGE_MEMBERS = 2_000_000,
-            PACKAGE_INDEX_BYTES = 64L << 30,
-            SUPPORTING_BYTES = 64L << 30;
-
-    /**
-     * Settings that used to cap those counts and sizes. An installation may still carry them, so
-     * they are accepted and ignored, whatever their value, instead of failing an export or
-     * start-up.
+     * Settings that used to cap a whole package: its patients, members, on-disk inventory,
+     * supporting files, the per-chart records the packaging step kept in memory, the archive, its
+     * encrypted delivery and any one protected staging file. No count, size or time setting may
+     * refuse, hold or fail an export, so each of these is accepted and ignored, whatever its
+     * value, instead of failing an export or start-up. A roster, a member list, the inventory,
+     * the per-chart packaging records and the supporting files are streamed to protected storage
+     * ({@link CdsExportSpoolService}, {@link CdsExportPackageInventoryService}); the archive is
+     * ZIP64 and a delivery larger than one AES-GCM message is written in parts
+     * ({@link CdsExportDeliveryComposer}). Only a genuine storage failure stops an export.
      */
     static final List<String> RETIRED =
             List.of(
                     "maxPatients",
                     "maxPackageMembers",
                     "maxPackageIndexBytes",
-                    "maxSupportingBytes");
+                    "maxSupportingBytes",
+                    "maxMetadataBytes",
+                    "maxZipBytes",
+                    "maxCiphertextBytes",
+                    "maxStagedFileBytes");
 
     private final java.util.concurrent.atomic.AtomicBoolean retiredReported =
             new java.util.concurrent.atomic.AtomicBoolean();

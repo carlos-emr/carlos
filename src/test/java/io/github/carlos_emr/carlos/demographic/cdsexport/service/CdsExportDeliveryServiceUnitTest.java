@@ -120,14 +120,12 @@ class CdsExportDeliveryServiceUnitTest {
                 new CdsExportPackageInventoryService()
                         .seal(
                                 store,
-                                10,
-                                1L << 20,
                                 () -> {},
                                 output ->
                                         output.accept(
                                                 new CdsExportPackageMemberDto(
                                                         "Patient/file.xml", member)));
-        archive = new CdsExportPackageComposer().compose(store, members, 1L << 20, 10, () -> {});
+        archive = new CdsExportPackageComposer().compose(store, members, () -> {});
         var authorization = store.stage("DISCLOSURE_MANIFEST", output -> output.write(1));
         when(prepared.runId()).thenReturn(run);
         when(prepared.epoch()).thenReturn(1L);
@@ -176,7 +174,7 @@ class CdsExportDeliveryServiceUnitTest {
     void shouldEncryptTheExactValidatedArchive_andIndependentlyDecryptToTheSameBytes()
             throws Exception {
         long before = files();
-        var result = service.encrypt(lease, prepared, 8L << 20, control);
+        var result = service.encrypt(lease, prepared, control);
         byte[] ciphertext;
         try (var input = store.open(result.ciphertext())) {
             ciphertext = input.readAllBytes();
@@ -207,7 +205,7 @@ class CdsExportDeliveryServiceUnitTest {
         when(scopes.verify(lease, prepared, control))
                 .thenReturn(verified)
                 .thenThrow(new SecurityException("REVOKED"));
-        assertThatThrownBy(() -> service.encrypt(lease, prepared, 8L << 20, control))
+        assertThatThrownBy(() -> service.encrypt(lease, prepared, control))
                 .hasMessage("REVOKED");
         assertThat(files()).isEqualTo(before);
         try (var input = store.open(archive.archive())) {
@@ -223,7 +221,7 @@ class CdsExportDeliveryServiceUnitTest {
                 .thenThrow(
                         new CdsExportReviewException(
                                 CdsExportReviewException.Reason.SOURCE_CHANGED));
-        assertThatThrownBy(() -> service.encrypt(lease, prepared, 8L << 20, control))
+        assertThatThrownBy(() -> service.encrypt(lease, prepared, control))
                 .hasMessage("CDS_EXPORT_SOURCE_CHANGED");
         assertThat(files()).isEqualTo(before);
     }
@@ -232,7 +230,7 @@ class CdsExportDeliveryServiceUnitTest {
     void shouldRefuseAnUnrelatedScopeReceipt_beforeStartingEncryption() throws Exception {
         when(verified.authorizationSha256()).thenReturn("f".repeat(64));
         long before = files();
-        assertThatThrownBy(() -> service.encrypt(lease, prepared, 8L << 20, control))
+        assertThatThrownBy(() -> service.encrypt(lease, prepared, control))
                 .hasMessage("CDS_EXPORT_DELIVERY_BINDING_INVALID");
         assertThat(files()).isEqualTo(before);
         verifyNoInteractions(ledger);
@@ -254,17 +252,16 @@ class CdsExportDeliveryServiceUnitTest {
                                 m.profile(),
                                 m.categories(),
                                 "Different audit terms"));
-        assertThatThrownBy(() -> service.encrypt(lease, prepared, 8L << 20, control))
+        assertThatThrownBy(() -> service.encrypt(lease, prepared, control))
                 .hasMessage("CDS_EXPORT_DELIVERY_BINDING_INVALID");
         verifyNoInteractions(scopes);
     }
 
     @Test
-    void shouldRefuseTheCiphertextBudget_withoutRetainingAPartialArtifact() throws Exception {
-        long before = files();
-        assertThatThrownBy(() -> service.encrypt(lease, prepared, 10, control))
-                .hasMessage("CDS_EXPORT_DELIVERY_BYTE_LIMIT");
-        assertThat(files()).isEqualTo(before);
+    void shouldEncryptWithoutACiphertextBudget_forDeliveryServiceContract() throws Exception {
+        // A ten-byte ciphertext budget once refused this package; no size refuses a delivery.
+        var result = service.encrypt(lease, prepared, control);
+        assertThat(result.ciphertext().plaintextBytes()).isGreaterThan(10);
     }
 
     @Test
@@ -284,7 +281,7 @@ class CdsExportDeliveryServiceUnitTest {
                                 archive.expandedBytes(),
                                 archive.membersSha256()));
         long before = files();
-        assertThatThrownBy(() -> service.encrypt(lease, prepared, 8L << 20, control))
+        assertThatThrownBy(() -> service.encrypt(lease, prepared, control))
                 .isInstanceOf(java.io.IOException.class);
         assertThat(files()).isEqualTo(before);
     }
