@@ -244,4 +244,14 @@ class CdsExportSpoolServiceUnitTest {
                 .hasMessage("CDS_EXPORT_SPOOL_SCOPE_INVALID");
         assertThat(spool).hasToString("CdsExportSpoolService[protected]");
     }
+
+    @Test
+    void shouldCompareEntriesByTheirBytes_forEqualKeysAndValues() {
+        var one = new CdsExportSpoolService.Entry("key", new byte[] {1, 2, 3});
+        var same = new CdsExportSpoolService.Entry("key", new byte[] {1, 2, 3});
+
+        assertThat(one).isEqualTo(same).hasSameHashCodeAs(same);
+        assertThat(one).isNotEqualTo(new CdsExportSpoolService.Entry("key", new byte[] {1, 2, 4}));
+        assertThat(one).isNotEqualTo(new CdsExportSpoolService.Entry("other", new byte[] {1, 2, 3}));
+    }
 }

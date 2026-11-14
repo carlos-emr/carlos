@@ -61,6 +61,19 @@ public final class CdsExportSpoolService implements AutoCloseable {
 
     /** One spooled record. The value is the caller's own encoding; the spool never interprets it. */
     public record Entry(String key, byte[] value) {
+        /** Two entries are equal when their keys and the bytes of their values are. */
+        @Override
+        public boolean equals(Object other) {
+            return other instanceof Entry entry
+                    && Objects.equals(key, entry.key)
+                    && java.util.Arrays.equals(value, entry.value);
+        }
+
+        @Override
+        public int hashCode() {
+            return 31 * Objects.hashCode(key) + java.util.Arrays.hashCode(value);
+        }
+
         @Override
         public String toString() {
             return "CdsExportSpoolService.Entry[protected]";
@@ -186,6 +199,9 @@ public final class CdsExportSpoolService implements AutoCloseable {
      * A new spool holding the same records in key order ({@link String#compareTo}; equal keys keep
      * their order here). The caller owns and closes both spools.
      */
+    // The new spool is returned to the caller, who owns and closes it; when sorting does not
+    // complete it is closed here, in the finally block, before the failure leaves.
+    @SuppressWarnings("java:S2095")
     public CdsExportSpoolService sorted(String sortedPurpose) throws IOException {
         usable();
         var result =
