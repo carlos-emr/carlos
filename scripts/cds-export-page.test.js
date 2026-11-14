@@ -252,6 +252,127 @@ function pageHarness(search) {
         settle: () => new Promise(resolve => setImmediate(resolve))};
 }
 
+/**
+ * The page with a clock the test moves: timers fire when advance() passes them, and a request
+ * the page abandons rejects as the browser rejects an aborted fetch.
+ */
+function clockHarness() {
+    const vm = require('node:vm'), fs = require('node:fs');
+    const nodes = new Map(), timers = new Map(), pending = [];
+    let initialize, serial = 0, now = 0;
+    function node(nodeId) {
+        if (!nodes.has(nodeId)) nodes.set(nodeId, {value: '', textContent: '', dataset: {}, events: {}, fields: {},
+            addEventListener(event, handler) { this.events[event] = handler; },
+            removeAttribute() {}, setAttribute() {}, replaceChildren() {}, querySelectorAll() { return []; }});
+        return nodes.get(nodeId);
+    }
+    node('cdsExport').dataset = {context: '', owner: 'web-7', canResume: 'true'};
+    const document = {getElementById: node, createElement: () => node('created-' + serial++),
+        querySelector: () => ({value: 'synthetic-csrf'}), addEventListener(event, handler) {
+            if (event === 'DOMContentLoaded') initialize = handler;
+        }};
+    const window = {document, location: {search: ''}, sessionStorage: {getItem() { return ''; }, setItem() {}},
+        crypto: require('node:crypto'), confirm: () => true, addEventListener() {}};
+    vm.runInNewContext(fs.readFileSync(require.resolve('../src/main/webapp/js/demographic/cds-export.js'), 'utf8'), {
+        window, document, URLSearchParams, AbortController,
+        // The form's own fields, as FormData would list them.
+        FormData: function (form) { return Object.entries(form.fields); },
+        setTimeout(callback, delay) { const token = ++serial; timers.set(token, {callback, at: now + delay}); return token; },
+        clearTimeout(token) { timers.delete(token); },
+        fetch(url, options) {
+            return new Promise((resolve, reject) => {
+                options.signal.addEventListener('abort', () => reject(new Error('The operation was aborted.')));
+                pending.push({url, options, resolve});
+            });
+        }
+    });
+    const settle = () => new Promise(resolve => setImmediate(resolve));
+    function response(data, status = 200, json = async () => ({apiVersion: 1, ok: status < 300, ...data})) {
+        return {ok: status < 300, status, headers: {get(name) {
+            return name === 'Content-Type' ? 'application/json' : '1';
+        }}, json};
+    }
+    /** Moves the clock forward, firing every timer due by then in order. */
+    async function advance(millis) {
+        const until = now + millis;
+        for (;;) {
+            const due = [...timers].filter(([, timer]) => timer.at <= until).sort((a, b) => a[1].at - b[1].at)[0];
+            if (!due) break;
+            timers.delete(due[0]); now = due[1].at; due[1].callback();
+            await settle();
+        }
+        now = until;
+    }
+    function submit(patients) {
+        node('exportForm').fields = {submissionKey: 'key-1', providerNo: '999998', profile: 'omd-5.2',
+            selection: 'SELECTED_PATIENTS', patientNos: patients, recipientId: 'recipient', auditPlanId: 'audit'};
+        return node('exportForm').events.submit({preventDefault() {}, target: node('exportForm')});
+    }
+    return {node, pending, response, advance, settle, submit, initialize: () => initialize()};
+}
+
+async function openedPage() {
+    const page = clockHarness();
+    page.initialize();
+    page.pending.shift().resolve(page.response({jobs: [], nextAfter: '', mayHaveMore: false}));
+    await page.settle();
+    return page;
+}
+
+test('a submission names every one of 20,000 listed patients in the request it posts', async () => {
+    const page = await openedPage();
+    const patients = Array.from({length: 20000}, (_, index) => String(1000000 + index)).join(',');
+    assert.ok(patients.length > 120000);
+    page.submit(patients);
+    await page.settle();
+    const post = page.pending.shift();
+    assert.match(post.url, /cdsExportSubmit$/);
+    assert.equal(post.options.method, 'POST');
+    const sent = new URLSearchParams(post.options.body).get('patientNos');
+    assert.equal(sent, patients);
+    assert.equal(sent.split(',').length, 20000);
+});
+
+test('a submission the server answers after 20 seconds is still accepted', async () => {
+    // The page once abandoned every request after 15 seconds in total.
+    const page = await openedPage();
+    page.submit('27');
+    await page.settle();
+    const post = page.pending.shift();
+    await page.advance(20000);
+    post.resolve(page.response({job: job()}, 202));
+    await page.settle();
+    assert.equal(page.node('exportNotice').textContent, 'Export accepted. Job ' + id + '. Acceptance does not mean the package is ready.');
+});
+
+test('each part of an answer restarts the wait, so a slow reply is not abandoned', async () => {
+    const page = await openedPage();
+    page.submit('27');
+    await page.settle();
+    const post = page.pending.shift();
+    await page.advance(25000);
+    let body;
+    post.resolve(page.response({}, 202, () => new Promise(resolve => { body = resolve; })));
+    await page.settle();
+    await page.advance(25000);
+    body({apiVersion: 1, ok: true, job: job()});
+    await page.settle();
+    assert.match(page.node('exportNotice').textContent, /^Export accepted\. Job /);
+});
+
+test('a submission that receives nothing for 30 seconds is reported as unconfirmed, naming its key', async () => {
+    const page = await openedPage();
+    const key = page.node('submissionKey').value;
+    page.submit('27');
+    await page.settle();
+    page.pending.shift();
+    await page.advance(29999);
+    assert.match(page.node('exportNotice').textContent, /^Confirming submission/);
+    await page.advance(1);
+    assert.equal(page.node('exportNotice').textContent, 'Submission could not be confirmed'
+        + ' (CDS_EXPORT_RESPONSE_UNCONFIRMED). Check saved key ' + key + ' before starting another export.');
+});
+
 test('opening an unknown job says so at once instead of retrying for minutes', async () => {
     const page = pageHarness('?runId=' + id);
     page.initialize();

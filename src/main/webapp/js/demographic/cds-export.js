@@ -5,6 +5,8 @@
     const API_HEADER = 'X-CARLOS-CDS-Export-API-Version';
     const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
     const FINAL = new Set(['READY', 'REVIEW_REQUIRED', 'FAILED', 'CANCELLED', 'EXPIRED']);
+    /** How long a request may receive nothing before it is abandoned; the import page uses the same. */
+    const SILENCE_MILLIS = 30000;
     /**
      * English defaults; the page replaces them with its language's text from #cdsExportText
      * (useMessages). Positional {0}/{1} markers are filled by text().
@@ -244,6 +246,24 @@
             try { global.sessionStorage.setItem(storageKey, key); }
             catch (_) { notice(text('keepKey', key)); }
         }
+        /** The reply as JSON; each piece of it that arrives calls progressed() (see request). */
+        async function replyJson(response, progressed) {
+            if (!response.body || typeof response.body.getReader !== 'function') return response.json();
+            const reader = response.body.getReader(), decoder = new TextDecoder('utf-8', {fatal: true});
+            let text = '';
+            for (let piece = await reader.read(); !piece.done; piece = await reader.read()) {
+                progressed();
+                text += decoder.decode(piece.value, {stream: true});
+            }
+            return JSON.parse(text + decoder.decode());
+        }
+        /**
+         * A request is abandoned only after SILENCE_MILLIS in which no part of its answer arrived,
+         * never for its total time: the headers and every piece of the reply restart the wait, as
+         * on the import page, so a busy server or a long selection is waited for. An abandoned
+         * request ends as CDS_EXPORT_RESPONSE_UNCONFIRMED, which a submission reports as
+         * unconfirmed, naming the saved key to check.
+         */
         async function request(route, values = {}, post = false) {
             const params = new URLSearchParams({...values, apiVersion: String(API_VERSION)});
             const headers = {'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'};
@@ -253,20 +273,31 @@
                 if (!token) throw new Error('CDS_EXPORT_CSRF_UNAVAILABLE');
                 headers['CSRF-TOKEN'] = token; headers['Content-Type'] = 'application/x-www-form-urlencoded;charset=UTF-8';
             }
-            const abort = new AbortController(), timeout = setTimeout(() => abort.abort(), 15000);
+            const abort = new AbortController();
+            let silence;
+            const progressed = () => {
+                clearTimeout(silence);
+                silence = setTimeout(() => abort.abort(), SILENCE_MILLIS);
+            };
+            progressed();
             try {
                 const response = await fetch(context + '/form/' + route + (post ? '' : '?' + params), {
                     method: post ? 'POST' : 'GET', body: post ? params.toString() : undefined,
                     headers, credentials: 'same-origin', cache: 'no-store', signal: abort.signal
                 });
+                progressed();
                 if (response.headers.get(API_HEADER) !== String(API_VERSION)
                         || !response.headers.get('Content-Type')?.startsWith('application/json')) throw new Error('CDS_EXPORT_RESPONSE_UNCONFIRMED');
-                const data = await response.json();
+                const data = await replyJson(response, progressed);
                 if (data.apiVersion !== API_VERSION || !response.ok || data.ok !== true) {
                     throw responseFailure(data, response.status);
                 }
                 return data;
-            } finally { clearTimeout(timeout); }
+            } catch (error) {
+                // The browser's own abort text never reaches the page: the outcome is unknown.
+                if (abort.signal.aborted) throw new Error('CDS_EXPORT_RESPONSE_UNCONFIRMED');
+                throw error;
+            } finally { clearTimeout(silence); }
         }
         function controls() {
             const shown = current ? presentation(current) : null;
