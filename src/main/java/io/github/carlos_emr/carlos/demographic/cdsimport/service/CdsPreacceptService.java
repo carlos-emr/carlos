@@ -175,7 +175,8 @@ public class CdsPreacceptService {
         if (Files.exists(seal, LinkOption.NOFOLLOW_LINKS)) {
             Ownership existing = ownership(root);
             JsonNode journal = journal(existing);
-            if (!journal.path("requestSha256").asText().equals(requestDigest))
+            if (!CdsImportKeys.sameDigest(
+                    journal.path("requestSha256").asText(), requestDigest))
                 throw new CdsImportException("PREACCEPT_REQUEST_CONFLICT");
             appendIndex(existing);
             return existing;
@@ -778,7 +779,8 @@ public class CdsPreacceptService {
                 || !seal.path("document").asText().equals("acceptance-" + digest + ".json"))
             throw new CdsImportException("PREACCEPT_JOURNAL_INVALID");
         byte[] bytes = read(root.resolve(seal.path("document").asText()), 65536);
-        if (!hash(bytes).equals(digest)) throw new CdsImportException("PREACCEPT_JOURNAL_INVALID");
+        if (!CdsImportKeys.sameDigest(hash(bytes), digest))
+            throw new CdsImportException("PREACCEPT_JOURNAL_INVALID");
         JsonNode body = JSON.readTree(bytes);
         if (body.path("version").asInt() != 1
                 || !body.path("generation").asText().equals(seal.path("generation").asText())

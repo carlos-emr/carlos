@@ -247,7 +247,7 @@ public class CdsUploadService {
                 CdsUploadChunkDto previous = readChunk(journal, offset / chunkBytes());
                 if (previous.offset() == offset
                         && previous.bytes() == bytes
-                        && previous.sha256().equals(hash)) return dto(row);
+                        && CdsImportKeys.sameDigest(previous.sha256(), hash)) return dto(row);
                 throw problem("UPLOAD_RETRY_CONTENT_CONFLICT", 409);
             }
             if (!"OPEN".equals(row.getState()) || offset != row.getReceivedBytes()) {

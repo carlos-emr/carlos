@@ -329,7 +329,7 @@ public record CdsRulesetFingerprint(String sha256) {
         }
         String hash = java.util.HexFormat.of().formatHex(digest.digest());
         String previous = classes.putIfAbsent(name, hash);
-        if (previous != null && !previous.equals(hash)) throw unavailable();
+        if (previous != null && !CdsImportKeys.sameDigest(previous, hash)) throw unavailable();
     }
 
     private static CdsImportException unavailable() {

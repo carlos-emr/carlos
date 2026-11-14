@@ -141,7 +141,8 @@ public class CdsUnwrittenRevisionReviewService {
         snapshots.forEachXml(
                 snapshot,
                 xml -> {
-                    if (xml.relativeName().equals(member) && xml.sha256().equals(xmlSha)) {
+                    if (xml.relativeName().equals(member)
+                            && CdsImportKeys.sameDigest(xml.sha256(), xmlSha)) {
                         if (selected[0] != null) throw failure("REVISION_SOURCE_AMBIGUOUS");
                         selected[0] = xml;
                     }
@@ -166,7 +167,8 @@ public class CdsUnwrittenRevisionReviewService {
                             }
                         },
                         corrections.find(run, member, xmlSha, parseResult.getParent()));
-        if (!xmlSha.equals(parsed.sourceSha256()) || !fresh.sourcePatientId().equals(vendor[0]))
+        if (!CdsImportKeys.sameDigest(xmlSha, parsed.sourceSha256())
+                || !fresh.sourcePatientId().equals(vendor[0]))
             throw failure("REVISION_ACCEPTED_SOURCE_CHANGED");
         write(attempt.resolve("revision-context.json"), attempt, bytes);
         write(attempt.resolve("lineage-approval.json"), attempt, JSON.writeValueAsBytes(fresh));

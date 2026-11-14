@@ -198,6 +198,8 @@ public class CdsImportConfigurationService {
     public String rawValue(String key) { return properties.getProperty(key); }
 
     /** Effective normalization choices are part of provenance; resource limits and live grants are not clinical facts. */
+    // FindSecBugs UNSAFE_HASH_EQUALS: The flagged comparison is a property key against the source profiles key while the policy is assembled; no digest or secret is compared.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "UNSAFE_HASH_EQUALS", justification = "the flagged comparison is a property key against the source profiles key while the policy is assembled; no digest or secret is compared")
     public String normalizationPolicyDigest(CdsImportCommand command) {
         String calendarZone = java.time.ZoneId.systemDefault().getId();
         String cacheKey = command.sourceNamespace() + "\u0000" + calendarZone;

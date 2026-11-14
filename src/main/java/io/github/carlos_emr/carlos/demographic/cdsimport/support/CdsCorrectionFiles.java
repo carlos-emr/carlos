@@ -83,11 +83,13 @@ public final class CdsCorrectionFiles {
                             CdsPaths.within(source.getParent().resolve(name), source.getParent()),
                             262144);
             if (value.length != length.intValue()
-                    || !CdsPaths.hex(CdsPaths.sha256().digest(value)).equals(digest))
+                    || !io.github.carlos_emr.carlos.utility.CdsImportKeys.sameDigest(
+                            CdsPaths.hex(CdsPaths.sha256().digest(value)), digest))
                 throw failure();
             if (seen.add(name)) publish(directory.resolve(name), directory, value, digest);
-            else if (!CdsPaths.hex(CdsPaths.sha256().digest(read(directory.resolve(name), 262144)))
-                    .equals(digest)) throw failure();
+            else if (!io.github.carlos_emr.carlos.utility.CdsImportKeys.sameDigest(
+                    CdsPaths.hex(CdsPaths.sha256().digest(read(directory.resolve(name), 262144))),
+                    digest)) throw failure();
         }
         Path staged = directory.resolve(master.sha256() + ".json");
         publish(staged, directory, bytes, master.sha256());
@@ -99,7 +101,8 @@ public final class CdsCorrectionFiles {
     private static void publish(Path path, Path root, byte[] bytes, String digest)
             throws IOException {
         if (Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {
-            if (!CdsPaths.hex(CdsPaths.sha256().digest(read(path, bytes.length))).equals(digest))
+            if (!io.github.carlos_emr.carlos.utility.CdsImportKeys.sameDigest(
+                    CdsPaths.hex(CdsPaths.sha256().digest(read(path, bytes.length))), digest))
                 throw failure();
             return;
         }

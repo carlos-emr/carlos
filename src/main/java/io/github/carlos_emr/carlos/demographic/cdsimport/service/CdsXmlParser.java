@@ -883,7 +883,8 @@ public class CdsXmlParser {
             if (cancelled.getAsBoolean()) fail("CDS_INPUT_CANCELLED");
             if (!rootSeen || patients != 1 || !stack.isEmpty()) fail("CDS_XML_ENVELOPE_INVALID");
             if (corrections != null
-                    && (!corrections.acceptedXmlSha256().equals(sourceSha256)
+                    && (!io.github.carlos_emr.carlos.utility.CdsImportKeys.sameDigest(
+                                    corrections.acceptedXmlSha256(), sourceSha256)
                             || applied.size() != reviewed.size()))
                 fail("CDS_CORRECTION_SOURCE_XML_OR_TARGET_MISMATCH");
             fieldOutput.flush();

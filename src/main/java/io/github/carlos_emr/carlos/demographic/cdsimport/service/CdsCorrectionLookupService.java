@@ -100,7 +100,7 @@ public class CdsCorrectionLookupService {
                                 }));
         if (found.isEmpty()) return null;
         Selection selected = found.get();
-        if (!acceptedXmlSha256.equals(selected.xmlDigest()))
+        if (!CdsImportKeys.sameDigest(acceptedXmlSha256, selected.xmlDigest()))
             throw new CdsImportException("REVIEW_ACCEPTED_SOURCE_CHANGED");
         Path root = jobs.root(runId).resolve("corrections").resolve(source);
         Path supplied = Path.of(selected.location());
@@ -137,12 +137,15 @@ public class CdsCorrectionLookupService {
                                     runId, sourceKey(xmlRelative, acceptedXmlSha256));
                     if (selected == null
                             || !Set.of("OVERLAY_READY", "REVALIDATED").contains(selected.getState())
-                            || !acceptedXmlSha256.equals(selected.getSourceXmlSha256())
-                            || !selectedManifestSha256.equals(selected.getManifestSha256()))
+                            || !CdsImportKeys.sameDigest(
+                                    acceptedXmlSha256, selected.getSourceXmlSha256())
+                            || !CdsImportKeys.sameDigest(
+                                    selectedManifestSha256, selected.getManifestSha256()))
                         throw new CdsImportException("REVIEW_SOURCE_PROOF_CHANGED");
                     var existing = patients.findKey(runId, patientKey);
                     if (existing != null
-                            && !newPatientSourceDigest.equals(existing.getSourceDigest())) {
+                            && !CdsImportKeys.sameDigest(
+                                    newPatientSourceDigest, existing.getSourceDigest())) {
                         ledger.reviseUncommittedLineage(
                                 runId,
                                 epoch,

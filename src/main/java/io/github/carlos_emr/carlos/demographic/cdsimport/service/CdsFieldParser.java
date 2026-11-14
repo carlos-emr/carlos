@@ -1021,7 +1021,8 @@ public class CdsFieldParser {
             bytes = input.readNBytes((int) length);
             if (bytes.length != length
                     || input.read() != -1
-                    || !hash.equals(CdsPaths.hex(CdsPaths.sha256().digest(bytes))))
+                    || !io.github.carlos_emr.carlos.utility.CdsImportKeys.sameDigest(
+                            hash, CdsPaths.hex(CdsPaths.sha256().digest(bytes))))
                 throw failure("CDS_CORRECTION_REPLACEMENT_CHANGED");
         }
         return StandardCharsets.UTF_8

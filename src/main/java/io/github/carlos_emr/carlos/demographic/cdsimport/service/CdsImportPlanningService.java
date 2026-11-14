@@ -712,7 +712,7 @@ public class CdsImportPlanningService {
                         state.runId, state.epoch, sourcePatientId, copyKey, sourceDigest);
         if (!state.runId.equals(revision.runId())
                 || !patientKey.equals(revision.patientKey())
-                || !sourceDigest.equals(revision.newSourceDigest()))
+                || !CdsImportKeys.sameDigest(sourceDigest, revision.newSourceDigest()))
             throw new CdsImportException("REVISION_PROOF_IDENTITY_MISMATCH");
         var identified =
                 ledger.recordRevisionConflictPatient(
@@ -739,7 +739,7 @@ public class CdsImportPlanningService {
         if (Files.exists(proof, LinkOption.NOFOLLOW_LINKS)) {
             if (Files.isSymbolicLink(proof)
                     || Files.size(proof) != bytes.length
-                    || !hashFile(proof).equals(hash)) {
+                    || !CdsImportKeys.sameDigest(hashFile(proof), hash)) {
                 throw new CdsImportException("REVISION_PROOF_HASH_MISMATCH");
             }
         } else {

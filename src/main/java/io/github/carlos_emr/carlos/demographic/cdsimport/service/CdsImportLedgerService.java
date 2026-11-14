@@ -282,7 +282,7 @@ public class CdsImportLedgerService {
                     CdsImportPatient old = patients.findKey(runId, patientKey);
                     if (old != null) {
                         if (!old.getLineageKey().equals(lineageKey)
-                                || !old.getSourceDigest().equals(sourceDigest))
+                                || !CdsImportKeys.sameDigest(old.getSourceDigest(), sourceDigest))
                             throw new CdsImportException("PATIENT_PLAN_CONFLICT");
                         verifyCanonical(run, old);
                         return dto(old);
@@ -298,12 +298,15 @@ public class CdsImportLedgerService {
                         lineage.setOptionsDigest(run.getOptionsDigest());
                         lineage.setRulesetDigest(run.getRulesetDigest());
                         lineages.persist(lineage);
-                    } else if (!lineage.getSourceDigest().equals(sourceDigest)
-                            || !lineage.getOptionsDigest().equals(run.getOptionsDigest())
-                            || !lineage.getRulesetDigest().equals(run.getRulesetDigest())) {
+                    } else if (!CdsImportKeys.sameDigest(lineage.getSourceDigest(), sourceDigest)
+                            || !CdsImportKeys.sameDigest(
+                                    lineage.getOptionsDigest(), run.getOptionsDigest())
+                            || !CdsImportKeys.sameDigest(
+                                    lineage.getRulesetDigest(), run.getRulesetDigest())) {
                         boolean purePreview =
-                                lineage.getSourceDigest().equals(sourceDigest)
-                                        && lineage.getRulesetDigest().equals(run.getRulesetDigest())
+                                CdsImportKeys.sameDigest(lineage.getSourceDigest(), sourceDigest)
+                                        && CdsImportKeys.sameDigest(
+                                                lineage.getRulesetDigest(), run.getRulesetDigest())
                                         && lineage.getTargetDemographicNo() == null
                                         && checkpoints.countLineage(lineageKey) == 0
                                         && patients.actualAttempts(lineageKey) == 0;
@@ -381,7 +384,7 @@ public class CdsImportLedgerService {
                     CdsImportPatient patient = patient(runId, patientKey);
                     CdsImportUnit previous = units.findKey(runId, unitKey);
                     if (previous != null) {
-                        if (!previous.getSourceDigest().equals(sourceDigest)
+                        if (!CdsImportKeys.sameDigest(previous.getSourceDigest(), sourceDigest)
                                 || !previous.getPatientKey().equals(patientKey)
                                 || !previous.getCategory().equals(category)
                                 || previous.getOrdinal() != ordinal)
@@ -473,7 +476,7 @@ public class CdsImportLedgerService {
                         () -> {
                             CdsImportRun run = lockSealingOwner(runId, epoch);
                             if (run.getExecutionDigest() != null) {
-                                if (!manifestDigest.equals(run.getManifestDigest())
+                                if (!CdsImportKeys.sameDigest(manifestDigest, run.getManifestDigest())
                                         || run.getExpectedPatients() != expectedPatients
                                         || run.getExpectedUnits() != expectedUnits)
                                     throw new CdsImportException(
@@ -481,7 +484,8 @@ public class CdsImportLedgerService {
                                 return true;
                             }
                             if ("SEALING".equals(run.getState())
-                                    && (!manifestDigest.equals(run.getManifestDigest())
+                                    && (!CdsImportKeys.sameDigest(
+                                                    manifestDigest, run.getManifestDigest())
                                             || run.getExpectedPatients() != expectedPatients
                                             || run.getExpectedUnits() != expectedUnits))
                                 throw new CdsImportException("MANIFEST_REVISION_REVIEW_REQUIRED");
@@ -559,7 +563,7 @@ public class CdsImportLedgerService {
         CdsImportRun run = lockSealingOwner(runId, epoch);
         if (!"SEALING".equals(run.getState())
                 || run.getExecutionDigest() != null
-                || !digest.equals(run.getManifestDigest()))
+                || !CdsImportKeys.sameDigest(digest, run.getManifestDigest()))
             throw new CdsImportException("MANIFEST_SEAL_CONFLICT");
         return run;
     }
@@ -1126,7 +1130,8 @@ public class CdsImportLedgerService {
                     CdsImportPatient existing = patients.findKey(runId, conflict.patientKey());
                     if (existing != null) {
                         if (!existing.getLineageKey().equals(conflict.lineageKey())
-                                || !existing.getSourceDigest().equals(newPatientSourceDigest))
+                                || !CdsImportKeys.sameDigest(
+                                        existing.getSourceDigest(), newPatientSourceDigest))
                             throw new CdsImportException("PATIENT_PLAN_CONFLICT");
                         return dto(existing);
                     }
@@ -1180,9 +1185,11 @@ public class CdsImportLedgerService {
         if (canonical == null) throw new CdsImportException("CANONICAL_LINEAGE_NOT_FOUND");
         long checkpointCount = checkpoints.countLineage(key);
         boolean differs =
-                !canonical.getSourceDigest().equals(newSourceDigest)
-                        || !canonical.getOptionsDigest().equals(run.getOptionsDigest())
-                        || !canonical.getRulesetDigest().equals(run.getRulesetDigest());
+                !CdsImportKeys.sameDigest(canonical.getSourceDigest(), newSourceDigest)
+                        || !CdsImportKeys.sameDigest(
+                                canonical.getOptionsDigest(), run.getOptionsDigest())
+                        || !CdsImportKeys.sameDigest(
+                                canonical.getRulesetDigest(), run.getRulesetDigest());
         boolean eligible =
                 differs
                         && canonical.getTargetDemographicNo() == null
@@ -1237,9 +1244,9 @@ public class CdsImportLedgerService {
         var proof = revision(run, sourcePatientId, copyKey, newPatientSourceDigest);
         if (!proof.eligible())
             throw new CdsImportException("UNWRITTEN_REVISION_AFTER_WRITE_OR_UNCERTAINTY_REFUSED");
-        if (!proof.oldSourceDigest().equals(expectedOldSourceDigest)
-                || !proof.oldOptionsDigest().equals(expectedOldOptionsDigest)
-                || !proof.oldRulesetDigest().equals(expectedOldRulesetDigest))
+        if (!CdsImportKeys.sameDigest(proof.oldSourceDigest(), expectedOldSourceDigest)
+                || !CdsImportKeys.sameDigest(proof.oldOptionsDigest(), expectedOldOptionsDigest)
+                || !CdsImportKeys.sameDigest(proof.oldRulesetDigest(), expectedOldRulesetDigest))
             throw new CdsImportException("CANONICAL_REVISION_CONFLICT");
         CdsImportLineage canonical = lineages.lock(proof.lineageKey());
         canonical.setSourceDigest(newPatientSourceDigest);
@@ -3313,7 +3320,8 @@ public class CdsImportLedgerService {
                     CdsImportRun run = lockOwned(runId, epoch);
                     if (run.getExpectedPatients() != patients.count(runId)
                             || run.getExpectedUnits() != units.count(runId, null)
-                            || !run.getExecutionDigest().equals(actualExecutionDigest))
+                            || !CdsImportKeys.sameDigest(
+                                    run.getExecutionDigest(), actualExecutionDigest))
                         throw new CdsImportException("SEALED_WORKSET_CHANGED");
                     run = runs.lock(runId);
                     boolean complete = true;

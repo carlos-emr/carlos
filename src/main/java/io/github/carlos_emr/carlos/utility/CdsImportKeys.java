@@ -62,16 +62,29 @@ public final class CdsImportKeys {
     }
 
     /**
-     * Whether two hex content digests are the same text. For the lower-case hex digests compared
-     * in CDS import and export this is exactly {@code left.equals(right)}: a null {@code left}
-     * still fails fast and a null {@code right} is unequal. The comparison goes through
-     * {@link MessageDigest#isEqual} for call sites inside lambda bodies, where SpotBugs cannot
-     * apply a per-site suppression of UNSAFE_HASH_EQUALS. These are content digests of files,
-     * rows and manifests, not secrets; the constant-time comparison is incidental.
+     * Whether two content digests are the same text: exactly {@code left.equals(right)} for any
+     * two strings, so a null {@code left} still fails fast and a null {@code right} is unequal.
+     * The comparison goes through {@link MessageDigest#isEqual}, the form static analysis expects
+     * of a digest comparison (FindSecBugs UNSAFE_HASH_EQUALS), and the only form available inside
+     * a lambda body, where SpotBugs cannot apply a per-site suppression. The digests compared in
+     * CDS import and export are unkeyed SHA-256 values of files, rows and manifests, not
+     * secrets; the constant-time comparison is incidental.
      */
     public static boolean sameDigest(String left, String right) {
-        byte[] expected = left.getBytes(StandardCharsets.UTF_8);
-        return right != null && MessageDigest.isEqual(expected, right.getBytes(StandardCharsets.UTF_8));
+        byte[] expected = utf16(left);
+        return right != null && MessageDigest.isEqual(expected, utf16(right));
+    }
+
+    // Every char as two bytes. A charset encoder would replace an unpaired surrogate, which
+    // could make two different strings compare equal.
+    private static byte[] utf16(String value) {
+        byte[] bytes = new byte[value.length() * 2];
+        for (int i = 0; i < value.length(); i++) {
+            char unit = value.charAt(i);
+            bytes[2 * i] = (byte) (unit >>> 8);
+            bytes[2 * i + 1] = (byte) unit;
+        }
+        return bytes;
     }
 
     public static String digestValue(String value, String name) {

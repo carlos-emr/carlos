@@ -60,7 +60,7 @@ public class CdsImportReportService {
                             run.getManifestDigest() == null
                                     ? run.getSourceDigest()
                                     : run.getManifestDigest();
-                    if (!manifestDigest.equals(expectedManifest)
+                    if (!CdsImportKeys.sameDigest(manifestDigest, expectedManifest)
                             || run.getReportGeneration() != expectedGeneration
                             || expectedGeneration == Long.MAX_VALUE)
                         throw new CdsImportException("REPORT_GENERATION_CONFLICT");

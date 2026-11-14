@@ -84,7 +84,7 @@ public class CdsImportFileService {
                             && runId.equals(file.getRunId())
                             && file.getVerifiedEpoch() == epoch
                             && "PUBLISHED".equals(file.getState())
-                            && digest.equals(file.getDigest())
+                            && CdsImportKeys.sameDigest(digest, file.getDigest())
                             && byteLength == file.getByteLength();
                 });
     }
@@ -99,7 +99,7 @@ public class CdsImportFileService {
                     CdsImportFile file = files.lock(fileId);
                     if (file == null
                             || !"PUBLISHED".equals(file.getState())
-                            || !digest.equals(file.getDigest())
+                            || !CdsImportKeys.sameDigest(digest, file.getDigest())
                             || byteLength != file.getByteLength())
                         throw new CdsImportException("DURABLE_FILE_CONFLICT");
                     if (runId.equals(file.getRunId())) file.setVerifiedEpoch(epoch);
@@ -167,7 +167,7 @@ public class CdsImportFileService {
         CdsImportFile file = files.lock(fileId);
         if (file == null
                 || !"PUBLISHED".equals(file.getState())
-                || !file.getDigest().equals(digest))
+                || !CdsImportKeys.sameDigest(file.getDigest(), digest))
             throw new CdsImportException("FILE_NOT_AVAILABLE");
         String id = CdsImportKeys.hash(runId, unitKey, fileId);
         if (references.get(id) == null) {
