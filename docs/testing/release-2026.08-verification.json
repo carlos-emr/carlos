@@ -2043,6 +2043,16 @@
               "name": "shouldCancelASlowBinaryRead_whenTimeoutIsSetAfterItsMetadataPrepare",
               "container": "",
               "check": "java-cds-transfer-import"
+            },
+            {
+              "name": "shouldNameOnlyTheUnitsOwnDateRows_whenSixtyFiveOrphanedRowsCarryTheNextDrugId",
+              "container": "",
+              "check": "java-cds-transfer-import"
+            },
+            {
+              "name": "shouldReceiptAndWitnessADrugsRow_whenTheTableIsWidenedTo600Columns",
+              "container": "",
+              "check": "java-cds-transfer-import"
             }
           ]
         },
@@ -7593,7 +7603,7 @@
         "CdsSourceFieldCapacityUnitTest": 2,
         "CdsSourceFieldsViewModelAssemblerUnitTest": 2,
         "CdsSpecificationCrosswalkUnitTest": 6,
-        "CdsTargetReceiptMariaDbIntegrationTest": 7,
+        "CdsTargetReceiptMariaDbIntegrationTest": 9,
         "CdsTemporalReadServiceUnitTest": 9,
         "CdsTemporalUnitTest": 26,
         "CdsUnwrittenRevisionReviewServiceUnitTest": 4,
