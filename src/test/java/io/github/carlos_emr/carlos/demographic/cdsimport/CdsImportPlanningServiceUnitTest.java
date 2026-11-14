@@ -81,6 +81,44 @@ class CdsImportPlanningServiceUnitTest {
     }
 
     @Test
+    void shouldSealEveryDistinctPatient_pastTheRetiredEntryAndSpoolCeilings() throws Exception {
+        Fixture fixture = fixture(false, true);
+        // A deployment that still sets the retired ceilings to tiny values: a second patient and
+        // work rows past them are planned, because no roster size or spool size refuses a plan.
+        var settings = new java.util.Properties();
+        settings.setProperty("cds.import.maxEntries", "1");
+        settings.setProperty("cds.import.maxExpandedBytes", "1");
+        settings.setProperty("cds.import.maxSourceBytes", "1");
+        settings.setProperty("cds.import.minimumFreeDiskBytes", "1");
+        when(fixture.configuration.limits())
+                .thenReturn(new CdsImportConfigurationService(settings).limits());
+        when(fixture.identity.source(any(), any()))
+                .thenReturn(
+                        new CdsPatientIdentityDto(
+                                "source-one",
+                                "First",
+                                "Last",
+                                LocalDate.of(1971, 3, 4),
+                                "123",
+                                "ON",
+                                "F",
+                                "AC"),
+                        new CdsPatientIdentityDto(
+                                "source-two",
+                                "Second",
+                                "Other",
+                                LocalDate.of(1980, 5, 6),
+                                "456",
+                                "ON",
+                                "M",
+                                "AC"));
+        fixture.planner.plan("run", 1, fixture.document, fixture.snapshot);
+        verify(fixture.ledger).seal(eq("run"), eq(1L), matches("[0-9a-f]{64}"), eq(2L), eq(16L));
+        org.junit.jupiter.api.Assertions.assertTrue(
+                Files.size(fixture.document.jobRoot().resolve("work.jsonl")) > 1);
+    }
+
+    @Test
     void shouldWithholdSealAndRetainPreciseClinicalFailure_whenNormalizationRefusesSource()
             throws Exception {
         Fixture fixture = fixture(true, false);
@@ -595,7 +633,7 @@ class CdsImportPlanningServiceUnitTest {
                         mock(CdsImportJobService.class),
                         identityRegistry,
                         reviews);
-        return new Fixture(ledger, planner, document, snapshot, source, identity);
+        return new Fixture(ledger, planner, document, snapshot, source, identity, configuration);
     }
 
     private record Fixture(
@@ -604,5 +642,6 @@ class CdsImportPlanningServiceUnitTest {
             CdsImportJobDocumentDto document,
             CdsSnapshotDto snapshot,
             Path source,
-            CdsPatientIdentityResolver identity) {}
+            CdsPatientIdentityResolver identity,
+            CdsImportConfigurationService configuration) {}
 }

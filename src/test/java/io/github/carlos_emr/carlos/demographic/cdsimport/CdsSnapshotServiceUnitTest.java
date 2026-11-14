@@ -55,55 +55,35 @@ class CdsSnapshotServiceUnitTest {
     private static final ObjectMapper JSON = new ObjectMapper();
 
     @Test
-    void shouldRejectExpandedZipBudgets_whenDescriptorSizesAreUnknown() throws Exception {
-        for (String budget : new String[] {"entry", "total", "count"}) {
-            Path source = Files.createDirectory(temp.resolve("budget-" + budget));
-            Path archive = source.resolve("patients.zip");
-            // The entry case must fit the aggregate budget so either missing byte check fails.
-            int payloadSize = budget.equals("entry") ? 4096 : 2048;
-            zip(
-                    archive,
-                    new String[] {"one.bin", "two.bin", "three.bin"},
-                    new String[] {"x".repeat(payloadSize), "x".repeat(2048), ""});
-            assertTrue(
-                    Files.size(archive) < 2048, "Synthetic highly compressed archive stays small");
-            byte[] original = Files.readAllBytes(archive);
-            try (ZipInputStream input = new ZipInputStream(Files.newInputStream(archive))) {
-                assertEquals(-1, input.getNextEntry().getSize());
-            }
-            var limits =
-                    new CdsInputLimitsDto(
-                            2048,
-                            budget.equals("total") ? 3000 : 8192,
-                            budget.equals("count") ? 2 : 10,
-                            256,
-                            65536,
-                            2048,
-                            0,
-                            10000,
-                            8192,
-                            1_000_000);
-            Path durable = Files.createDirectory(temp.resolve("durable-" + budget));
-            CdsInputException failure =
-                    assertThrows(
-                            CdsInputException.class,
-                            () ->
-                                    service.snapshot(
-                                            archive,
-                                            source,
-                                            durable,
-                                            "rejected",
-                                            limits,
-                                            () -> false));
-            assertEquals(
-                    budget.equals("count") ? "CDS_INPUT_ENTRY_LIMIT" : "CDS_INPUT_BYTE_LIMIT",
-                    failure.code());
-            assertFalse(Files.exists(durable.resolve("rejected")));
-            assertFalse(Files.exists(durable.resolve("rejected.pending/snapshot.seal")));
-            assertArrayEquals(original, Files.readAllBytes(archive));
-            // Failed CDS attempts intentionally retain private, unsealed evidence under the job's
-            // durable root; they cannot be consumed as an accepted snapshot or update patients.
+    void shouldRecordStreamedLengths_whenDescriptorSizesAreUnknown() throws Exception {
+        Path source = Files.createDirectory(temp.resolve("descriptor"));
+        Path archive = source.resolve("patients.zip");
+        // Deflated entries written as a stream declare no size before their data; the snapshot
+        // records the bytes it actually expanded, with no size or count ceiling to cross.
+        zip(
+                archive,
+                new String[] {"one.bin", "two.bin", "three.bin", "patient.xml"},
+                new String[] {
+                    "x".repeat(4096),
+                    "x".repeat(2048),
+                    "",
+                    "<OmdCds xmlns='cds'><PatientRecord/></OmdCds>"
+                });
+        assertTrue(Files.size(archive) < 2048, "Synthetic highly compressed archive stays small");
+        try (ZipInputStream input = new ZipInputStream(Files.newInputStream(archive))) {
+            assertEquals(-1, input.getNextEntry().getSize());
         }
+        byte[] original = Files.readAllBytes(archive);
+        Path durable = Files.createDirectory(temp.resolve("durable-descriptor"));
+        var snapshot = service.snapshot(archive, source, durable, "accepted", LIMITS, () -> false);
+        List<CdsSnapshotFileDto> rows = new ArrayList<>();
+        service.forEachFile(snapshot, rows::add);
+        assertEquals(
+                List.of(4096L, 2048L, 0L, 45L),
+                rows.stream().map(CdsSnapshotFileDto::length).toList());
+        assertEquals(4, snapshot.files());
+        assertEquals(1, snapshot.patientXmlFiles());
+        assertArrayEquals(original, Files.readAllBytes(archive));
     }
 
     @Test
@@ -205,15 +185,13 @@ class CdsSnapshotServiceUnitTest {
                     }
                 };
         var constructor =
-                Class.forName(CdsSnapshotService.class.getName() + "$CountingSource")
-                        .getDeclaredConstructor(
-                                InputStream.class, long.class, CdsZipDirectory.Check.class);
+                Class.forName(CdsSnapshotService.class.getName() + "$CheckedSource")
+                        .getDeclaredConstructor(InputStream.class, CdsZipDirectory.Check.class);
         constructor.setAccessible(true);
         InputStream controlled =
                 (InputStream)
                         constructor.newInstance(
                                 bytes,
-                                1L << 20,
                                 (CdsZipDirectory.Check)
                                         () -> {
                                             if (probes.incrementAndGet() == 3)
@@ -312,7 +290,6 @@ class CdsSnapshotServiceUnitTest {
                                         archive,
                                         names,
                                         snapshot,
-                                        10,
                                         2,
                                         () -> {
                                             probes.incrementAndGet();
@@ -634,7 +611,7 @@ class CdsSnapshotServiceUnitTest {
     }
 
     @Test
-    void shouldLeaveOriginalAndUnsealedEvidence_whenCancelledOrByteBudgetExceeded()
+    void shouldLeaveOriginalAndUnsealedEvidence_whenCancelledOrAtTheDiskReserve()
             throws Exception {
         Path source = Files.createDirectory(temp.resolve("source")),
                 xml = source.resolve("patient.xml");
@@ -648,10 +625,13 @@ class CdsSnapshotServiceUnitTest {
                                 service.snapshot(
                                         xml, source, durable, "cancelled", LIMITS, () -> true));
         assertEquals("CDS_INPUT_CANCELLED", cancelled.code());
-        var tiny = new CdsInputLimitsDto(10, 10, 100, 256, 65536, 100, 1, 10000, 8192);
-        assertThrows(
-                CdsInputException.class,
-                () -> service.snapshot(xml, source, durable, "tiny", tiny, () -> false));
+        // No store has this much free space: the reserve stops the copy before its first byte.
+        var full = new CdsInputLimitsDto(256, 65536, Long.MAX_VALUE, 10000, 8192);
+        CdsInputException reserve =
+                assertThrows(
+                        CdsInputException.class,
+                        () -> service.snapshot(xml, source, durable, "tiny", full, () -> false));
+        assertEquals("CDS_INPUT_DISK_RESERVE", reserve.code());
         assertEquals(original, Files.readString(xml));
         assertFalse(Files.exists(durable.resolve("cancelled")));
         assertFalse(Files.exists(durable.resolve("tiny")));

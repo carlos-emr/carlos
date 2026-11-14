@@ -82,8 +82,9 @@ public final class CdsXmlReaders {
         // entity against these entity-size ceilings (default 100,000), so ordinary escaped
         // clinical text would be refused part way through a large source. DOCTYPE is refused
         // above, leaving only the five one-character predefined entities: no expansion is
-        // possible and maxSourceBytes already bounds the count. No finite int ceiling fits
-        // every permitted source size, so 0 (no limit) is the only lossless setting here.
+        // possible, so their count grows only with the source, which is read as a stream. No
+        // finite int ceiling fits every source size, so 0 (no limit) is the only lossless
+        // setting here.
         reader.setProperty("jdk.xml.maxGeneralEntitySizeLimit", "0");
         reader.setProperty("jdk.xml.totalEntitySizeLimit", "0");
         reader.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "");

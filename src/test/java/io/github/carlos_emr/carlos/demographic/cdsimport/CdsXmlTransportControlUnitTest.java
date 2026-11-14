@@ -298,16 +298,11 @@ class CdsXmlTransportControlUnitTest {
     private static CdsInputLimitsDto limits(long maximumMillis) {
         var d = CdsInputLimitsDto.defaults();
         return new CdsInputLimitsDto(
-                d.maxSourceBytes(),
-                d.maxExpandedBytes(),
-                d.maxEntries(),
                 d.maxXmlDepth(),
                 d.maxBoundedScalarCharacters(),
-                d.maxBinaryBytes(),
                 0,
                 maximumMillis,
                 d.maxPathCharacters(),
-                d.maxCompressionRatio(),
                 d.maxNamespaceAliases(),
                 d.maxUniqueXmlNames(),
                 d.maxXmlNameCharacters(),

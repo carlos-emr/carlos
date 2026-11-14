@@ -808,8 +808,8 @@ public class CdsFieldParser {
                         position = Math.addExact(position, row.length + 1L);
                         digest.update(identity(rebased));
                         count++;
-                        if (position - initial > limits.maxExpandedBytes())
-                            throw failure("CDS_INPUT_BYTE_LIMIT");
+                        // The derived child spool grows with the record; only the free-disk
+                        // reserve stops it for its size.
                         if (position >= nextDiskCheck) {
                             if (Files.getFileStore(parent).getUsableSpace()
                                     < limits.minimumFreeDiskBytes())

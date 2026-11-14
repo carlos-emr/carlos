@@ -687,9 +687,12 @@ public class CdsImportPlanningService {
         if (!valid[0] && !boundTyped[0] && state.blocked) emitTyped(state, typed.path, null);
     }
 
+    /**
+     * Counts one planned patient into the seal. No roster size refuses a plan: a patient costs the
+     * plan a fixed amount of memory (this counter and the running manifest digest); its identity,
+     * units and dependencies are database rows and its work rows are spooled to private storage.
+     */
     private void accountPatient(State state, String patientKey, String sourceDigest) {
-        if (state.patients >= configuration.limits().maxEntries())
-            throw new CdsImportException("PLANNED_PATIENT_RESOURCE_LIMIT");
         state.patients++;
         CdsImportKeys.add(state.manifest, "PATIENT");
         CdsImportKeys.add(state.manifest, patientKey);
@@ -826,8 +829,8 @@ public class CdsImportPlanningService {
                                     .put("detail", detail));
             bytes = Math.addExact(bytes, row.length + 1L);
             var limits = configuration.limits();
-            if (bytes > limits.maxExpandedBytes())
-                throw new CdsImportException("PREFLIGHT_DIAGNOSTIC_BYTE_LIMIT");
+            // One XML's typed diagnostics may be as many as its fields; the reserve alone
+            // stops this spool for its size.
             if (bytes >= nextDisk) {
                 if (Files.getFileStore(path.getParent()).getUsableSpace()
                         < limits.minimumFreeDiskBytes())
@@ -1324,18 +1327,22 @@ public class CdsImportPlanningService {
         try (OutputStream output =
                 new BufferedOutputStream(
                         CdsPaths.newPrivateFile(attempt, document.jobRoot()), 65536)) {
-            long[] count = {0}, bytes = {0};
+            long[] bytes = {0}, nextDisk = {0};
             var limits = configuration.limits();
             Consumer<CdsCourseCopyDto> save =
                     copy -> {
                         try {
                             fields.checkpoint();
                             byte[] row = JSON.writeValueAsBytes(copy);
-                            count[0]++;
+                            // A course of any size is frozen; the copies are streamed to the
+                            // job's private storage and only its reserve stops them.
+                            if (bytes[0] >= nextDisk[0]) {
+                                if (Files.getFileStore(document.jobRoot()).getUsableSpace()
+                                        < limits.minimumFreeDiskBytes())
+                                    throw new CdsImportException("PLANNING_DISK_RESERVE");
+                                nextDisk[0] = Math.addExact(bytes[0], 16L << 20);
+                            }
                             bytes[0] = Math.addExact(bytes[0], row.length + 1L);
-                            if (count[0] > limits.maxEntries()
-                                    || bytes[0] > limits.maxExpandedBytes())
-                                throw new CdsImportException("FROZEN_COPIES_RESOURCE_LIMIT");
                             output.write(row);
                             output.write('\n');
                         } catch (IOException failed) {
@@ -1468,6 +1475,9 @@ public class CdsImportPlanningService {
                                 "CDS_INPUT_CANCELLED",
                                 "CDS_INPUT_DEADLINE",
                                 "CDS_INPUT_DISK_RESERVE",
+                                // The plan's own storage reached its reserve: an operational
+                                // stop under its own code, never a review of one source XML.
+                                "PLANNING_DISK_RESERVE",
                                 "CDS_DIAGNOSTIC_WRITE_FAILED",
                                 "CDS_SECURE_XML_PARSER_UNAVAILABLE",
                                 "CDS_SPOOL_CLOSE_FAILED",
@@ -1634,8 +1644,7 @@ public class CdsImportPlanningService {
             channel.force(false);
             position = Math.addExact(position, bytes.length + 1L);
             var limits = configuration.limits();
-            if (position > limits.maxExpandedBytes())
-                throw new CdsImportException("PLANNING_SPOOL_BYTE_LIMIT");
+            // The work spool holds one row per unit of any roster; the reserve alone stops it.
             if (position >= nextDiskCheck) {
                 if (Files.getFileStore(document.jobRoot()).getUsableSpace()
                         < limits.minimumFreeDiskBytes())

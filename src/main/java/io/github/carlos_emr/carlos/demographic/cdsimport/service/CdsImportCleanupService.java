@@ -385,8 +385,8 @@ public class CdsImportCleanupService {
                 || !owner.extension().matches("[a-z0-9]{1,8}")
                 || owner.digest() == null
                 || !owner.digest().matches("[a-f0-9]{64}")
-                || owner.byteLength() < 0
-                || owner.byteLength() > configuration.limits().maxExpandedBytes())
+                // A publication of any length has a valid proof; its bytes are verified below.
+                || owner.byteLength() < 0)
             throw new CdsImportException("CLEANUP_OWNER_PROOF_INVALID");
         ledger.unitStatus(run, owner.unitKey());
         String expected =

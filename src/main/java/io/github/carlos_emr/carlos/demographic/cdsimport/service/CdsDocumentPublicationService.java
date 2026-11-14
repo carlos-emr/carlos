@@ -95,8 +95,9 @@ public class CdsDocumentPublicationService {
                 || !variant.matches("[a-z]{1,16}")
                 || !extension.matches("[a-z0-9]{1,8}")
                 || !expectedDigest.matches("[0-9a-f]{64}")
-                || expectedLength < 0
-                || expectedLength > configuration.limits().maxExpandedBytes()) {
+                || expectedLength < 0) {
+            // A document of any length is published; the copy below stops only when the
+            // document store reaches its free-disk reserve.
             throw new CdsImportException("DOCUMENT_PUBLICATION_IDENTITY_INVALID");
         }
         Path root = PathValidationUtils.getRequiredDocumentDirectory().toPath();
