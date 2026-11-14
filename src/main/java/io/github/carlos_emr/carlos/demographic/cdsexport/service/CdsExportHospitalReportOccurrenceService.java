@@ -161,7 +161,6 @@ public class CdsExportHospitalReportOccurrenceService {
         Runnable authorize =
                 () -> control.authorizeCategory(patient.patient(), CdsCategory.REPORTS, false);
         var captured = new CdsExportCapturedValues(store, source.capture().values());
-        Throwable primary = null;
         try {
             for (var entry : planned.reports().entrySet()) {
                 control.checkpoint();
@@ -183,17 +182,18 @@ public class CdsExportHospitalReportOccurrenceService {
                 }
             }
         } catch (IOException | RuntimeException | Error failure) {
-            primary = failure;
-            throw failure;
-        } finally {
-            // Re-authenticates the captured values member the messages were read from.
+            // The failure that ended the reading is the one reported; a failure of the closing
+            // re-authentication travels with it.
             try {
                 captured.close();
             } catch (IOException | RuntimeException cleanup) {
-                if (primary != null) primary.addSuppressed(cleanup);
-                else throw cleanup;
+                failure.addSuppressed(cleanup);
             }
+            throw failure;
         }
+        // Re-authenticates the captured values member the messages were read from; a failure
+        // here refuses the result.
+        captured.close();
         return List.copyOf(all);
     }
 

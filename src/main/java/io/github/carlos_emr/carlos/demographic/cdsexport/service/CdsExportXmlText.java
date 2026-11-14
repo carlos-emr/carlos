@@ -24,13 +24,14 @@ final class CdsExportXmlText {
 
     /** Whether every character of {@code value} can be written in an XML 1.0 document. */
     static boolean carried(String value) {
-        return value == null || element(value) == value;
+        // A replaced character is never equal to the one it replaced.
+        return value == null || element(value).equals(value);
     }
 
     /**
      * {@code value} with each character XML 1.0 cannot carry replaced by U+FFFD.
      *
-     * @return the same instance when nothing was replaced, so callers can tell by identity
+     * @return the same instance when nothing was replaced
      */
     static String element(String value) {
         StringBuilder safe = null;
