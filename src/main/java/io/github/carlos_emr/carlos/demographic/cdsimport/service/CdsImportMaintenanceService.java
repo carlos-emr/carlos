@@ -112,8 +112,10 @@ public class CdsImportMaintenanceService {
         boolean locked = false;
         try {
             connection = dataSource.openUnpooledCdsMaintenanceConnection();
+            // Silent for the stall window plus the unwind allowance, the session is closed by
+            // the database and its lock released, exactly as for a dead worker.
             io.github.carlos_emr.carlos.utility.CdsJdbcConnectionTimeouts.retainOwnerForDuration(
-                    connection, configuration.limits().maxDurationMillis());
+                    connection, configuration.limits().stallWindowMillis());
             // Keep transaction-duration DDL pins without a run-long consistent data read view.
             connection.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
             if (scalar(connection, "SELECT GET_LOCK(?, 0)", state.lockName()) != 1) {

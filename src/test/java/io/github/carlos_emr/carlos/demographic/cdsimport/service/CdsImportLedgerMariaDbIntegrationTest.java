@@ -835,11 +835,11 @@ class CdsImportLedgerMariaDbIntegrationTest {
             Runnable budget =
                     () -> {
                         if (clock.get() >= 100_000_000)
-                            throw new CdsImportException("IMPORT_ATTEMPT_TIMEOUT");
+                            throw new CdsImportException("IMPORT_WORKER_STALLED");
                     };
             long before = countNative();
             expect(
-                    "IMPORT_ATTEMPT_TIMEOUT",
+                    "IMPORT_WORKER_STALLED",
                     () ->
                             engine.executeUnit(
                                     job.id,

@@ -163,7 +163,7 @@ class CdsDocumentPublicationServiceUnitTest {
     }
 
     @Test
-    void shouldRetireOnlyUnpublishedPartial_whenActualCopyExhaustsAttemptBudgetOutsideTransaction()
+    void shouldRetireOnlyUnpublishedPartial_whenTheAttemptStallsDuringTheCopyOutsideTransaction()
             throws Exception {
         byte[] content = new byte[3 * 65536];
         java.util.Arrays.fill(content, (byte) 65);
@@ -179,7 +179,7 @@ class CdsDocumentPublicationServiceUnitTest {
         Runnable budget =
                 () -> {
                     if (clock.get() >= 100_000_000)
-                        throw new CdsImportException("IMPORT_ATTEMPT_TIMEOUT");
+                        throw new CdsImportException("IMPORT_WORKER_STALLED");
                 };
         try (MockedStatic<PathValidationUtils> paths =
                         mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
@@ -188,8 +188,6 @@ class CdsDocumentPublicationServiceUnitTest {
                                 "run",
                                 1,
                                 owner,
-                                "IMPORT_PREPARATION_TIMEOUT",
-                                10000,
                                 clock::get,
                                 budget,
                                 fields,
@@ -263,7 +261,7 @@ class CdsDocumentPublicationServiceUnitTest {
                                                                     return read;
                                                                 }
                                                             }))
-                    .hasMessage("IMPORT_ATTEMPT_TIMEOUT");
+                    .hasMessage("IMPORT_WORKER_STALLED");
             assertThat(reads).hasValue(2);
             try (var walk = Files.walk(directory)) {
                 assertThat(walk.filter(Files::isRegularFile).count()).isZero();

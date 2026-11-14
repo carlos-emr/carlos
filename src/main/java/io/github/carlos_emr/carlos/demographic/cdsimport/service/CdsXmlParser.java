@@ -311,7 +311,7 @@ public class CdsXmlParser {
         private final Set<String> prefixes = new HashSet<>();
         private final Set<String> namespaceUris = new HashSet<>();
         private final Set<String> qualifiedNames = new HashSet<>();
-        private final long started = System.nanoTime();
+        private final CdsImportStallWindow window;
         private Locator locator;
 
         // One SAX Pipeline is created per parse and called only by that parse's synchronous reader.
@@ -363,6 +363,7 @@ public class CdsXmlParser {
             manifestPath = manifest;
             diagnosticsPath = diagnostics;
             this.limits = limits;
+            window = new CdsImportStallWindow(limits.stallWindowMillis());
             this.cancelled = cancelled;
             this.consumer = consumer;
             this.corrections = corrections;
@@ -833,8 +834,9 @@ public class CdsXmlParser {
                 if (cancelled.getAsBoolean()) fail("CDS_INPUT_CANCELLED");
                 nextCancellationCheck = now + 250_000_000L;
             }
-            if ((now - started) / 1_000_000 > limits.maxDurationMillis())
-                fail("CDS_INPUT_DEADLINE");
+            // Each read and SAX callback is a checkpoint: a parse that keeps moving runs to the
+            // end of a document of any size, and one silent for the stall window stops.
+            if (window.stalled()) fail(CdsImportStallWindow.WORKER_STALLED);
             long spoolBytes =
                     Math.addExact(
                             Math.addExact(valueOutput.count, fieldOutput.count),

@@ -197,7 +197,8 @@ public class CdsImportConfigurationService {
                 Math.toIntExact(number("cds.import.maxXmlDepth", defaults.maxXmlDepth())),
                 Math.toIntExact(number("cds.import.maxScalarCharacters", defaults.maxBoundedScalarCharacters())),
                 number("cds.import.minimumFreeDiskBytes", defaults.minimumFreeDiskBytes()),
-                number("cds.import.maxDurationMillis", defaults.maxDurationMillis()),
+                // The setting keeps its name; it is the stall window, not an attempt budget.
+                number("cds.import.maxDurationMillis", defaults.stallWindowMillis()),
                 Math.toIntExact(number("cds.import.maxPathCharacters", defaults.maxPathCharacters())),
                 Math.toIntExact(number("cds.import.maxNamespaceAliases", defaults.maxNamespaceAliases())),
                 Math.toIntExact(number("cds.import.maxUniqueXmlNames", defaults.maxUniqueXmlNames())),

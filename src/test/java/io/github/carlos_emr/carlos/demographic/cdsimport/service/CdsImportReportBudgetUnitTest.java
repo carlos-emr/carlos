@@ -43,21 +43,25 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-/** Real protected report publication with deterministic time; clinical writes are deliberately absent. */
+/**
+ * Real protected report publication with deterministic time; clinical writes are deliberately
+ * absent. Report generation has its own stall window: rows that keep moving are written to the
+ * end, and a generation silent for the whole window stops without changing clinical results.
+ */
 @Tag("unit")
 class CdsImportReportBudgetUnitTest {
     @TempDir Path temporary;
 
     @Test
-    void shouldTimeOutCombinedRowsWithoutChangingClinicalCompletion_andSucceedOnSameRunRetry()
+    void shouldEndSilentGenerationWithoutChangingClinicalCompletion_andSucceedOnSameRunRetry()
             throws Exception {
         Fixture f = new Fixture();
         Path old =
                 Files.writeString(f.jobRoot.resolve("prior-report-proof"), "retained prior report");
-        f.rowMillis.set(60);
+        f.rowMillis.set(150);
         CdsImportException failure =
                 assertThrows(CdsImportException.class, () -> f.results.generate(f.run, 1));
-        assertEquals("IMPORT_REPORT_GENERATION_TIMEOUT", failure.getCode());
+        assertEquals("IMPORT_REPORT_GENERATION_STALLED", failure.getCode());
         assertEquals("FAILED", f.reportState.get());
         assertEquals("COMPLETE", f.job.state());
         assertEquals("retained prior report", Files.readString(old));
@@ -70,7 +74,7 @@ class CdsImportReportBudgetUnitTest {
                         isNull(),
                         isNull(),
                         eq("WARNING"),
-                        eq("IMPORT_REPORT_GENERATION_TIMEOUT"),
+                        eq("IMPORT_REPORT_GENERATION_STALLED"),
                         eq("REPORTING"),
                         isNull(),
                         anyString(),
@@ -89,24 +93,34 @@ class CdsImportReportBudgetUnitTest {
         assertTrue(receipt.path("cleanComplete").asBoolean());
         assertEquals("COMPLETE", receipt.path("state").asText());
         var errors = Files.readString(f.selected.get().getParent().resolve("ImportErrorLog.jsonl"));
-        assertTrue(errors.contains("IMPORT_REPORT_GENERATION_TIMEOUT"));
+        assertTrue(errors.contains("IMPORT_REPORT_GENERATION_STALLED"));
         assertTrue(errors.contains("\"blocking\":false"));
         assertEquals("retained prior report", Files.readString(old));
         verify(f.ledger, never()).finish(anyString(), anyLong());
     }
 
     @Test
-    void shouldGiveCleanupTheSameReportBudget_withTimeoutNotPublishingCompletion()
+    void shouldDeliverSlowButMovingReports_pastTheOldGenerationDuration() throws Exception {
+        Fixture f = new Fixture();
+        f.rowMillis.set(60);
+        f.results.generate(f.run, 1);
+        assertTrue(f.clock.get() > TimeUnit.MILLISECONDS.toNanos(100));
+        assertEquals("DELIVERED", f.reportState.get());
+        assertNotNull(f.selected.get());
+    }
+
+    @Test
+    void shouldGiveCleanupTheSameStallWindow_withAStallNotPublishingCompletion()
             throws Exception {
         Fixture f = new Fixture();
         when(f.cleanup.reconcile(eq(f.run), eq(1L), any(), any()))
                 .thenAnswer(
                         call -> {
-                            f.clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(100));
+                            f.clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(150));
                             call.<Runnable>getArgument(3).run();
                             return f.clean;
                         });
-        assertTimeoutFailure(f);
+        assertStallFailure(f);
         assertEquals("COMPLETE", f.job.state());
         assertEquals("FAILED", f.reportState.get());
         try (var paths = Files.walk(f.jobRoot)) {
@@ -115,7 +129,7 @@ class CdsImportReportBudgetUnitTest {
     }
 
     @Test
-    void shouldRetainDeliveredImmutableGenerationOnTimeout_untilExplicitSameRunRecovery()
+    void shouldRetainDeliveredImmutableGenerationOnStall_untilExplicitSameRunRecovery()
             throws Exception {
         Fixture f = new Fixture();
         f.results.generate(f.run, 1);
@@ -123,9 +137,9 @@ class CdsImportReportBudgetUnitTest {
         byte[] manifest = Files.readAllBytes(previous),
                 receipt = Files.readAllBytes(previous.getParent().resolve("completion.json"));
         assertEquals(1, f.generation.get());
-        f.rowMillis.set(60);
+        f.rowMillis.set(150);
         assertEquals(
-                "IMPORT_REPORT_GENERATION_TIMEOUT",
+                "IMPORT_REPORT_GENERATION_STALLED",
                 assertThrows(CdsImportException.class, () -> f.results.generate(f.run, 1))
                         .getCode());
         assertEquals("DELIVERED", f.reportState.get());
@@ -160,11 +174,11 @@ class CdsImportReportBudgetUnitTest {
         when(f.ledger.status(f.run))
                 .thenAnswer(
                         call -> {
-                            f.clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(100));
+                            f.clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(150));
                             return f.job;
                         });
         assertEquals(
-                "IMPORT_REPORT_GENERATION_TIMEOUT",
+                "IMPORT_REPORT_GENERATION_STALLED",
                 assertThrows(CdsImportException.class, () -> f.results.generate(f.run, 1))
                         .getCode());
         assertEquals("DELIVERED", f.reportState.get());
@@ -177,17 +191,17 @@ class CdsImportReportBudgetUnitTest {
     }
 
     @Test
-    void shouldRefuseFinalSelection_whenBudgetExpiresAfterReceiptCreation() throws Exception {
+    void shouldRefuseFinalSelection_whenTheWorkerStallsAfterReceiptCreation() throws Exception {
         Fixture f = new Fixture();
         AtomicLong summaries = new AtomicLong();
         when(f.ledger.summary(f.run))
                 .thenAnswer(
                         call -> {
                             if (summaries.incrementAndGet() == 1)
-                                f.clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(100));
+                                f.clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(150));
                             return f.summary();
                         });
-        assertTimeoutFailure(f);
+        assertStallFailure(f);
         assertEquals("FAILED", f.reportState.get());
         try (var paths = Files.walk(f.jobRoot)) {
             assertTrue(
@@ -198,6 +212,16 @@ class CdsImportReportBudgetUnitTest {
 
     @Test
     void shouldProbeXmlMembersInValidationScan_evenWithNoDiagnosticRows() throws Exception {
+        for (long memberMillis : new long[] {60, 150}) {
+            validationScan(memberMillis);
+        }
+    }
+
+    /**
+     * Three members of 60ms outlast the 100ms window, and the scan, probing each member, is
+     * never silent for it; one member of 150ms is.
+     */
+    private void validationScan(long memberMillis) throws Exception {
         Fixture f = new Fixture();
         Path snapshotRoot = Files.createDirectory(f.jobRoot.resolve("snapshot"));
         var snapshot =
@@ -215,7 +239,7 @@ class CdsImportReportBudgetUnitTest {
                                             .<java.util.function.Consumer<CdsSnapshotFileDto>>
                                                     getArgument(1);
                             for (int i = 0; i < 3; i++) {
-                                f.clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(60));
+                                f.clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(memberMillis));
                                 consumer.accept(
                                         new CdsSnapshotFileDto(
                                                 "patient" + i + ".xml",
@@ -250,9 +274,17 @@ class CdsImportReportBudgetUnitTest {
                         new CdsFieldParser(),
                         f.cleanup,
                         f.clock::get);
+        if (memberMillis < 100) {
+            try {
+                results.generate(f.run, 1);
+            } catch (CdsImportException other) {
+                assertNotEquals("IMPORT_REPORT_GENERATION_STALLED", other.getCode());
+            }
+            return;
+        }
         CdsImportException failure =
                 assertThrows(CdsImportException.class, () -> results.generate(f.run, 1));
-        assertEquals("IMPORT_REPORT_GENERATION_TIMEOUT", failure.getCode());
+        assertEquals("IMPORT_REPORT_GENERATION_STALLED", failure.getCode());
         verify(f.selection, never())
                 .select(anyString(), anyLong(), anyLong(), anyString(), anyString(), anyString());
     }
@@ -525,9 +557,9 @@ class CdsImportReportBudgetUnitTest {
         verify(f.ledger, never()).finish(anyString(), anyLong());
     }
 
-    private static void assertTimeoutFailure(Fixture f) throws Exception {
+    private static void assertStallFailure(Fixture f) throws Exception {
         assertEquals(
-                "IMPORT_REPORT_GENERATION_TIMEOUT",
+                "IMPORT_REPORT_GENERATION_STALLED",
                 assertThrows(CdsImportException.class, () -> f.results.generate(f.run, 1))
                         .getCode());
         verify(f.selection, never())
@@ -571,7 +603,7 @@ class CdsImportReportBudgetUnitTest {
                                     PosixFilePermissions.fromString("rwx------")));
             Path request = Files.writeString(jobRoot.resolve("job.json"), "{}");
             var limits = mock(CdsInputLimitsDto.class);
-            when(limits.maxDurationMillis()).thenReturn(100L);
+            when(limits.stallWindowMillis()).thenReturn(100L);
             when(configuration.limits()).thenReturn(limits);
             when(configuration.stagingRoot()).thenReturn(staging);
             when(ledger.snapshotLocation(run)).thenReturn(request.toString());
@@ -602,17 +634,17 @@ class CdsImportReportBudgetUnitTest {
                                             : List.of());
             doAnswer(
                             call -> {
-                                if ("IMPORT_REPORT_GENERATION_TIMEOUT"
+                                if ("IMPORT_REPORT_GENERATION_STALLED"
                                         .equals(call.getArgument(5))) {
                                     var diagnostic = mock(CdsImportDiagnosticDto.class);
                                     when(diagnostic.id()).thenReturn(1L);
                                     when(diagnostic.code())
-                                            .thenReturn("IMPORT_REPORT_GENERATION_TIMEOUT");
+                                            .thenReturn("IMPORT_REPORT_GENERATION_STALLED");
                                     when(diagnostic.severity()).thenReturn("WARNING");
                                     when(diagnostic.stage()).thenReturn("REPORTING");
                                     when(diagnostic.safeSummary())
                                             .thenReturn(
-                                                    "Previous report generation attempt timed out");
+                                                    "Previous report generation attempt stalled");
                                     history.add(diagnostic);
                                 }
                                 return null;

@@ -1340,8 +1340,6 @@ class CdsImportCoordinatorMariaDbIntegrationTest {
                 run,
                 7,
                 owner,
-                "IMPORT_FILE_VERIFICATION_TIMEOUT",
-                10000,
                 System::nanoTime,
                 () -> {},
                 new CdsFieldParser(),

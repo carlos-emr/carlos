@@ -65,8 +65,8 @@ public final class CdsImportCli {
                     "MAINTENANCE_GUARD_NOT_READY",
                     "MAINTENANCE_RELEASE_REQUIRES_RECONCILIATION",
                     "GLOBAL_HOLDS_REMAIN",
-                    "IMPORT_FILE_VERIFICATION_TIMEOUT",
-                    "IMPORT_PREPARATION_TIMEOUT",
+                    // The worker reached no checkpoint for the stall window; resumable.
+                    "IMPORT_WORKER_STALLED",
                     "CDS_INPUT_CANCELLED",
                     "CDS_INPUT_DISK_RESERVE",
                     "CDS_SOURCE_SNAPSHOT_FAILED",

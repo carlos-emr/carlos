@@ -290,7 +290,7 @@ class CdsImportCleanupServiceUnitTest {
     }
 
     @Test
-    void shouldRetainPrivateRecoveryEvidenceOnReportBudgetExpiry_beforeAnyDeletion()
+    void shouldRetainPrivateRecoveryEvidenceOnReportStall_beforeAnyDeletion()
             throws Exception {
         byte[] content = {3, 4, 5};
         String hash = hash(content);
@@ -306,14 +306,14 @@ class CdsImportCleanupServiceUnitTest {
         Runnable budget =
                 () -> {
                     if (elapsed.get() >= 100)
-                        throw new CdsImportException("IMPORT_REPORT_GENERATION_TIMEOUT");
+                        throw new CdsImportException("IMPORT_REPORT_GENERATION_STALLED");
                 };
         try (MockedStatic<PathValidationUtils> paths =
                 mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS)) {
             paths.when(PathValidationUtils::getRequiredDocumentDirectory)
                     .thenReturn(document.toFile());
             assertThatThrownBy(() -> cleanup.reconcile(run, epoch, current, budget))
-                    .hasMessage("IMPORT_REPORT_GENERATION_TIMEOUT");
+                    .hasMessage("IMPORT_REPORT_GENERATION_STALLED");
             assertThat(Files.readAllBytes(operation.resolve("payload.partial"))).isEqualTo(content);
             assertThat(Files.exists(operation.resolve("owner.json"))).isTrue();
             assertThat(Files.readString(job.resolve("accepted-source.xml")))

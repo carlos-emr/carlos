@@ -89,8 +89,6 @@ class CdsImportExecutionControlUnitTest {
                         "run",
                         7,
                         coordinator,
-                        "IMPORT_PREPARATION_TIMEOUT",
-                        10000,
                         clock::get,
                         () -> {},
                         fields,
@@ -124,8 +122,6 @@ class CdsImportExecutionControlUnitTest {
                         "run",
                         7,
                         coordinator,
-                        "IMPORT_PREPARATION_TIMEOUT",
-                        10000,
                         clock::get,
                         () -> {},
                         fields,
@@ -148,7 +144,7 @@ class CdsImportExecutionControlUnitTest {
         var clock = new AtomicLong();
         var fields = new CdsFieldParser();
         var owner = owner();
-        try (var scope = scope(owner, fields, clock, 10000, () -> {})) {
+        try (var scope = scope(owner, fields, clock, () -> {})) {
             for (int index = 0; index < 100; index++) {
                 fields.checkpoint();
                 scope.check(false);
@@ -176,7 +172,7 @@ class CdsImportExecutionControlUnitTest {
         var clock = new AtomicLong();
         var fields = new CdsFieldParser();
         var owner = owner();
-        try (var scope = scope(owner, fields, clock, 10000, () -> {})) {
+        try (var scope = scope(owner, fields, clock, () -> {})) {
             int expected = 1;
             for (long next :
                     new long[] {
@@ -206,39 +202,61 @@ class CdsImportExecutionControlUnitTest {
                         owner,
                         fields,
                         clock,
-                        10000,
                         () -> {
                             budgets.incrementAndGet();
                             if (clock.get() >= 100_000_000)
-                                throw new CdsImportException("IMPORT_ATTEMPT_TIMEOUT");
+                                throw new CdsImportException("IMPORT_WORKER_STALLED");
                         })) {
             fields.checkpoint();
             clock.set(100_000_000);
-            assertThatThrownBy(fields::checkpoint).hasMessage("IMPORT_ATTEMPT_TIMEOUT");
+            assertThatThrownBy(fields::checkpoint).hasMessage("IMPORT_WORKER_STALLED");
             verify(owner, times(1)).control("run");
             assertThat(budgets.get()).isGreaterThanOrEqualTo(4);
         }
     }
 
     @Test
-    void shouldCheckStageBudgetOnEveryBoundedFieldRead_withoutSqlHidingDeadline() throws Exception {
+    void shouldStopAtTheAttemptStallWindow_whenOneReadOrSqlPollIsSilent() throws Exception {
         var clock = new AtomicLong();
         var fields = new CdsFieldParser();
         var owner = owner();
-        try (var scope = scope(owner, fields, clock, 100, () -> {})) {
-            clock.set(100_000_000);
-            assertThatThrownBy(fields::checkpoint).hasMessage("IMPORT_FILE_VERIFICATION_TIMEOUT");
+        var window = new CdsImportStallWindow(100, clock::get);
+        try (var scope = scope(owner, fields, clock, window::checkpoint)) {
+            fields.checkpoint();
+            // One read silent for longer than the window, then no SQL poll is due yet.
+            clock.addAndGet(150_000_000);
+            assertThatThrownBy(fields::checkpoint).hasMessage("IMPORT_WORKER_STALLED");
+            // A stall is sticky: the next read cannot carry on.
+            assertThatThrownBy(fields::checkpoint).hasMessage("IMPORT_WORKER_STALLED");
             verify(owner, times(1)).control("run");
         }
         clock.set(0);
         when(owner.control("run"))
                 .thenAnswer(
                         call -> {
-                            clock.addAndGet(100_000_000);
+                            clock.addAndGet(150_000_000);
                             return VALID;
                         });
-        assertThatThrownBy(() -> scope(owner, fields, clock, 100, () -> {}))
-                .hasMessage("IMPORT_FILE_VERIFICATION_TIMEOUT");
+        var silentPoll = new CdsImportStallWindow(100, clock::get);
+        assertThatThrownBy(() -> scope(owner, fields, clock, silentPoll::checkpoint))
+                .hasMessage("IMPORT_WORKER_STALLED");
+    }
+
+    @Test
+    void shouldKeepReading_whileEveryReadMovesPastTheOldStageDuration() throws Exception {
+        var clock = new AtomicLong();
+        var fields = new CdsFieldParser();
+        var owner = owner();
+        var window = new CdsImportStallWindow(100, clock::get);
+        try (var scope = scope(owner, fields, clock, window::checkpoint)) {
+            // Forty reads of 50ms each: two seconds, twenty times the window, never silent.
+            for (int read = 0; read < 40; read++) {
+                clock.addAndGet(50_000_000);
+                fields.checkpoint();
+            }
+            scope.check(true);
+            verify(owner, atLeast(3)).control("run");
+        }
     }
 
     @Test
@@ -249,7 +267,7 @@ class CdsImportExecutionControlUnitTest {
         var owner = owner();
         when(owner.control("run")).thenReturn(null);
         try (var prior = fields.control(previous::incrementAndGet)) {
-            assertThatThrownBy(() -> scope(owner, fields, new AtomicLong(), 10000, () -> {}))
+            assertThatThrownBy(() -> scope(owner, fields, new AtomicLong(), () -> {}))
                     .hasMessage("IMPORT_COORDINATOR_LOST");
             fields.checkpoint();
             assertThat(previous).hasValue(1);
@@ -280,7 +298,7 @@ class CdsImportExecutionControlUnitTest {
             var owner = owner();
             var clock = new AtomicLong();
             var fields = new CdsFieldParser();
-            try (var scope = scope(owner, fields, clock, 10000, () -> {})) {
+            try (var scope = scope(owner, fields, clock, () -> {})) {
                 when(owner.control("run")).thenReturn(values[index]);
                 String expected = codes[index];
                 assertThatThrownBy(() -> scope.check(true)).hasMessage(expected);
@@ -294,7 +312,7 @@ class CdsImportExecutionControlUnitTest {
     void shouldRefuseWorkOnInterruptOrScopeEnd_withoutAnotherSqlRead() throws Exception {
         var owner = owner();
         var fields = new CdsFieldParser();
-        var scope = scope(owner, fields, new AtomicLong(), 10000, () -> {});
+        var scope = scope(owner, fields, new AtomicLong(), () -> {});
         try {
             Thread.currentThread().interrupt();
             assertThatThrownBy(() -> scope.check(false)).hasMessage("IMPORT_CANCELLED");
@@ -312,7 +330,7 @@ class CdsImportExecutionControlUnitTest {
             var clock = new AtomicLong(initial);
             var owner = owner();
             var fields = new CdsFieldParser();
-            try (var scope = scope(owner, fields, clock, 10000, () -> {})) {
+            try (var scope = scope(owner, fields, clock, () -> {})) {
                 clock.addAndGet(249_999_999);
                 fields.checkpoint();
                 verify(owner, times(1)).control("run");
@@ -330,7 +348,7 @@ class CdsImportExecutionControlUnitTest {
         var clock = new AtomicLong();
         var owner = owner();
         var checks = new AtomicInteger();
-        try (var control = scope(owner, f.fields, clock, 10000, checks::incrementAndGet)) {
+        try (var control = scope(owner, f.fields, clock, checks::incrementAndGet)) {
             var loaded = f.jobs.snapshot("run", 7, f.document, control);
             f.planner.plan("run", 7, f.document, loaded, control);
             assertThat(loaded).isEqualTo(f.snapshot);
@@ -347,7 +365,7 @@ class CdsImportExecutionControlUnitTest {
     void shouldRejectForeignOrClosedBindingsInSnapshotPlanningAndPublication_beforeAnyDataAccess(
             @org.junit.jupiter.api.io.TempDir Path temp) throws Exception {
         var f = planning(temp, 0);
-        var control = scope(owner(), f.fields, new AtomicLong(), 10000, () -> {});
+        var control = scope(owner(), f.fields, new AtomicLong(), () -> {});
         clearInvocations(f.ledger, f.files);
         try {
             assertThatThrownBy(() -> f.jobs.snapshot("other", 7, null, control))
@@ -402,7 +420,7 @@ class CdsImportExecutionControlUnitTest {
                                 0,
                                 null,
                                 null));
-        try (var control = scope(owner(), f.fields, new AtomicLong(), 10000, () -> {})) {
+        try (var control = scope(owner(), f.fields, new AtomicLong(), () -> {})) {
             assertThatThrownBy(() -> f.jobs.snapshot("run", 7, f.document, control))
                     .hasMessage("OWNER_FENCED");
         }
@@ -424,7 +442,7 @@ class CdsImportExecutionControlUnitTest {
                             })
                     .when(f.nativeRecords)
                     .validate(any(), any(), any(), anyString());
-            try (var control = scope(owner, f.fields, clock, 10000, () -> {})) {
+            try (var control = scope(owner, f.fields, clock, () -> {})) {
                 assertThatThrownBy(() -> f.planner.plan("run", 7, f.document, f.snapshot, control))
                         .hasMessage(code);
             }
@@ -446,10 +464,9 @@ class CdsImportExecutionControlUnitTest {
                         owner,
                         f.fields,
                         clock,
-                        10000,
                         () -> {
                             if (reads.incrementAndGet() >= 20)
-                                throw new CdsImportException("IMPORT_ATTEMPT_TIMEOUT");
+                                throw new CdsImportException("IMPORT_WORKER_STALLED");
                         })) {
             Path parsed = temp.resolve("budget-parse");
             assertThatThrownBy(
@@ -463,7 +480,7 @@ class CdsImportExecutionControlUnitTest {
                                                     record -> {},
                                                     null,
                                                     () -> control.check(false)))
-                    .hasMessage("IMPORT_ATTEMPT_TIMEOUT");
+                    .hasMessage("IMPORT_WORKER_STALLED");
             assertThat(Files.isDirectory(parsed)).isTrue();
             assertThat(Files.exists(parsed.resolve("parse.seal"))).isFalse();
             assertThat(clock.get()).isZero();
@@ -483,13 +500,12 @@ class CdsImportExecutionControlUnitTest {
                         owner,
                         f.fields,
                         clock,
-                        10000,
                         () -> {
                             if (checks.incrementAndGet() >= 80)
-                                throw new CdsImportException("IMPORT_ATTEMPT_TIMEOUT");
+                                throw new CdsImportException("IMPORT_WORKER_STALLED");
                         })) {
             assertThatThrownBy(() -> f.jobs.snapshot("run", 7, f.document, control))
-                    .hasMessage("IMPORT_ATTEMPT_TIMEOUT");
+                    .hasMessage("IMPORT_WORKER_STALLED");
             assertThat(clock.get()).isZero();
             verify(owner, times(1)).control("run");
             verify(f.ledger, times(1)).status("run");
@@ -510,7 +526,6 @@ class CdsImportExecutionControlUnitTest {
                         owner,
                         fields,
                         clock,
-                        10000,
                         () -> {
                             Path members = target.resolve("stopped.pending/members");
                             if (Files.isDirectory(members))
@@ -525,7 +540,7 @@ class CdsImportExecutionControlUnitTest {
                                                                     failed);
                                                         }
                                                     }))
-                                        throw new CdsImportException("IMPORT_ATTEMPT_TIMEOUT");
+                                        throw new CdsImportException("IMPORT_WORKER_STALLED");
                                 } catch (java.io.IOException failed) {
                                     throw new java.io.UncheckedIOException(failed);
                                 }
@@ -541,7 +556,7 @@ class CdsImportExecutionControlUnitTest {
                                                     CdsInputLimitsDto.defaults(),
                                                     () -> false,
                                                     () -> control.check(false)))
-                    .hasMessage("IMPORT_ATTEMPT_TIMEOUT");
+                    .hasMessage("IMPORT_WORKER_STALLED");
             verify(owner, times(1)).control("run");
         }
         assertThat(Files.exists(target.resolve("stopped"))).isFalse();
@@ -581,7 +596,7 @@ class CdsImportExecutionControlUnitTest {
                         })
                 .when(f.files)
                 .publishedVerified(anyString(), anyLong(), anyString(), anyString(), anyLong());
-        try (var control = scope(owner, f.fields, clock, 10000, () -> {})) {
+        try (var control = scope(owner, f.fields, clock, () -> {})) {
             f.planner.publishValues("run", 7, work, control);
             f.planner.publishValues("run", 7, work, control);
             verify(owner, times(1)).control("run");
@@ -598,8 +613,6 @@ class CdsImportExecutionControlUnitTest {
                         "run",
                         8,
                         owner,
-                        "IMPORT_PREPARATION_TIMEOUT",
-                        10000,
                         clock::get,
                         () -> {},
                         f.fields,
@@ -624,13 +637,12 @@ class CdsImportExecutionControlUnitTest {
                         owner,
                         f.fields,
                         clock,
-                        10000,
                         () -> {
                             if (checks.incrementAndGet() >= 5)
-                                throw new CdsImportException("IMPORT_ATTEMPT_TIMEOUT");
+                                throw new CdsImportException("IMPORT_WORKER_STALLED");
                         })) {
             assertThatThrownBy(() -> f.planner.publishValues("run", 7, work, control))
-                    .hasMessage("IMPORT_ATTEMPT_TIMEOUT");
+                    .hasMessage("IMPORT_WORKER_STALLED");
             verify(owner, times(1)).control("run");
         }
         verify(f.files, never())
@@ -789,7 +801,6 @@ class CdsImportExecutionControlUnitTest {
                         owner,
                         fields,
                         clock,
-                        10000,
                         () -> {
                             try {
                                 if (Files.isRegularFile(copied)
@@ -801,7 +812,7 @@ class CdsImportExecutionControlUnitTest {
                                                 .thenReturn(
                                                         new CdsImportControlDto(
                                                                 true, true, 7, true, true));
-                                    } else throw new CdsImportException("IMPORT_ATTEMPT_TIMEOUT");
+                                    } else throw new CdsImportException("IMPORT_WORKER_STALLED");
                                 }
                             } catch (java.io.IOException failed) {
                                 throw new java.io.UncheckedIOException(failed);
@@ -818,7 +829,7 @@ class CdsImportExecutionControlUnitTest {
                                                     CdsInputLimitsDto.defaults(),
                                                     () -> false,
                                                     () -> control.check(false)))
-                    .hasMessage(cancellation ? "IMPORT_CANCELLED" : "IMPORT_ATTEMPT_TIMEOUT");
+                    .hasMessage(cancellation ? "IMPORT_CANCELLED" : "IMPORT_WORKER_STALLED");
         }
         assertThat(probes.get()).isEqualTo(stopAfter);
         assertThat(Files.exists(durable.resolve("stopped"))).isFalse();
@@ -1013,16 +1024,13 @@ class CdsImportExecutionControlUnitTest {
             CdsImportCoordinatorService.Owner owner,
             CdsFieldParser fields,
             AtomicLong clock,
-            long millis,
-            Runnable budget) {
+            Runnable attemptCheckpoint) {
         return new CdsImportExecutionControl(
                 "run",
                 7,
                 owner,
-                "IMPORT_FILE_VERIFICATION_TIMEOUT",
-                millis,
                 clock::get,
-                budget,
+                attemptCheckpoint,
                 fields,
                 mock(CdsImportMaintenanceService.Owner.class));
     }

@@ -135,25 +135,25 @@ public class CdsImportResultService {
             throws IOException {
         boolean reportSelected = false, priorDelivered = false;
         try {
-            long started = nanoTime.getAsLong(),
-                    maximumMillis = configuration.limits().maxDurationMillis();
+            // Report generation has its own stall window: every row, file and cleanup step is a
+            // checkpoint, so a large run's reports are written to the end while they progress.
+            var window =
+                    new CdsImportStallWindow(configuration.limits().stallWindowMillis(), nanoTime);
             var entryFacts = ledger.reportEntry(runId);
             priorDelivered = entryFacts.reportsDelivered();
-            Runnable reportBudget =
+            Runnable reportCheckpoint =
                     () -> {
-                        if (java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(
-                                        nanoTime.getAsLong() - started)
-                                >= maximumMillis)
-                            throw new CdsImportException("IMPORT_REPORT_GENERATION_TIMEOUT");
+                        if (window.stalled())
+                            throw new CdsImportException(CdsImportStallWindow.REPORT_STALLED);
                     };
-            var shared = reportControl(runId, epoch, coordinator, reportBudget);
+            var shared = reportControl(runId, epoch, coordinator, reportCheckpoint);
             Runnable reportProbe =
                     () -> {
                         if (shared != null) shared.check(false);
                         else {
-                            reportBudget.run();
+                            reportCheckpoint.run();
                             checkGeneration(runId, epoch);
-                            reportBudget.run();
+                            reportCheckpoint.run();
                         }
                     };
             reportProbe.run();
@@ -215,7 +215,7 @@ public class CdsImportResultService {
                         List<CdsImportPatientDto> page = ledger.patients(runId, after, 100);
                         if (page.isEmpty()) break;
                         for (CdsImportPatientDto patient : page) {
-                            reportBudget.run();
+                            reportCheckpoint.run();
                             Map<String, Long> imported = emptyCounts(),
                                     prior = emptyCounts(),
                                     pending = emptyCounts();
@@ -226,7 +226,7 @@ public class CdsImportResultService {
                                         ledger.units(runId, patient.patientKey(), unitAfter, 100);
                                 if (unitPage.isEmpty()) break;
                                 for (CdsImportUnitDto unit : unitPage) {
-                                    reportBudget.run();
+                                    reportCheckpoint.run();
                                     Map<String, Object> row = new LinkedHashMap<>();
                                     row.put("patientId", patient.sourcePatientId());
                                     row.put("patientKey", patient.patientKey());
@@ -302,7 +302,7 @@ public class CdsImportResultService {
                                         .collect(java.util.stream.Collectors.toSet());
                         Map<String, String> sourceIds = ledger.sourcePatientIds(runId, keys);
                         for (CdsImportDiagnosticDto diagnostic : page) {
-                            reportBudget.run();
+                            reportCheckpoint.run();
                             Map<String, Object> row = new LinkedHashMap<>();
                             row.put("diagnosticId", diagnostic.id());
                             row.put("patientKey", diagnostic.patientKey());
@@ -327,7 +327,7 @@ public class CdsImportResultService {
                     final long[] validationRows = {0};
                     java.util.function.Consumer<Map<String, Object>> validationConsumer =
                             row -> {
-                                reportBudget.run();
+                                reportCheckpoint.run();
                                 if (++validationRows[0] % 100 == 0) reportProbe.run();
                                 try {
                                     line(errors, row);
@@ -344,9 +344,9 @@ public class CdsImportResultService {
                     reportProbe.run();
                     cleanupResult =
                             shared == null
-                                    ? cleanup.reconcile(runId, epoch, directory, reportBudget)
+                                    ? cleanup.reconcile(runId, epoch, directory, reportCheckpoint)
                                     : cleanup.reconcile(
-                                            runId, epoch, directory, reportBudget, shared);
+                                            runId, epoch, directory, reportCheckpoint, shared);
                     reportBoundary(shared, reportProbe);
                     for (String code : cleanupResult.safeCodes())
                         line(
@@ -445,7 +445,7 @@ public class CdsImportResultService {
                                     "name",
                                     entry.getValue().getFileName().toString(),
                                     "sha256",
-                                    hash(entry.getValue(), reportProbe, reportBudget),
+                                    hash(entry.getValue(), reportProbe, reportCheckpoint),
                                     "bytes",
                                     Files.size(entry.getValue())));
                 }
@@ -457,7 +457,7 @@ public class CdsImportResultService {
                 CdsPaths.forceFile(selected);
                 CdsPaths.forceDirectory(directory);
                 CdsPaths.forceDirectory(job);
-                String digest = hash(selected, reportProbe, reportBudget);
+                String digest = hash(selected, reportProbe, reportCheckpoint);
                 reportBoundary(shared, reportProbe);
                 try {
                     selection.select(
@@ -479,20 +479,20 @@ public class CdsImportResultService {
                 ledger.operational(runId, epoch, null, cleanupResult.state(), null);
             }
         } catch (IOException | RuntimeException failure) {
-            boolean timedOut =
+            boolean stalled =
                     failure instanceof CdsImportException known
-                            && "IMPORT_REPORT_GENERATION_TIMEOUT".equals(known.getCode());
+                            && CdsImportStallWindow.REPORT_STALLED.equals(known.getCode());
             try {
                 ledger.operational(
                         runId,
                         epoch,
-                        reportSelected || timedOut && priorDelivered ? null : "FAILED",
+                        reportSelected || stalled && priorDelivered ? null : "FAILED",
                         "FAILED",
                         reportSelected ? "IMPORT_CLEANUP_FAILED" : "IMPORT_REPORT_DELIVERY_FAILED");
             } catch (RuntimeException unavailable) {
                 failure.addSuppressed(unavailable);
             }
-            if (timedOut) {
+            if (stalled) {
                 try {
                     ledger.diagnostic(
                             runId,
@@ -500,10 +500,10 @@ public class CdsImportResultService {
                             null,
                             null,
                             "WARNING",
-                            "IMPORT_REPORT_GENERATION_TIMEOUT",
+                            CdsImportStallWindow.REPORT_STALLED,
                             "REPORTING",
                             null,
-                            "Protected report generation exceeded its active attempt budget; clinical receipts and source were retained",
+                            "Protected report generation made no progress for the stall window; clinical receipts and source were retained",
                             null,
                             false);
                 } catch (RuntimeException unavailable) {
@@ -578,10 +578,10 @@ public class CdsImportResultService {
             String runId,
             long epoch,
             CdsImportCoordinatorService.Owner coordinator,
-            Runnable reportBudget) {
+            Runnable reportCheckpoint) {
         if (coordinator == null) return null;
         try {
-            return new CdsImportReportControl(runId, epoch, coordinator, nanoTime, reportBudget);
+            return new CdsImportReportControl(runId, epoch, coordinator, nanoTime, reportCheckpoint);
         } catch (CdsImportException unavailable) {
             // Only an initial lost/closed coordinator uses the established fresh epoch-only report
             // path.

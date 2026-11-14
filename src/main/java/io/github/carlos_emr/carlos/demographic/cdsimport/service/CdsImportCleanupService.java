@@ -331,7 +331,7 @@ public class CdsImportCleanupService {
                     if (invalid instanceof CdsImportException known
                             && Set.of(
                                             "OWNER_FENCED",
-                                            "IMPORT_REPORT_GENERATION_TIMEOUT",
+                                            CdsImportStallWindow.REPORT_STALLED,
                                             "IMPORT_COORDINATOR_LOST",
                                             "IMPORT_CONTROL_UNAVAILABLE",
                                             "REPORT_CANCELLED")

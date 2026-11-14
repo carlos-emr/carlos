@@ -229,8 +229,8 @@ public class CdsImportExecutionService {
                 }
                 return ledger.status(runId);
             }
-            Runnable attemptBudget = attemptBudget();
-            attemptBudget.run();
+            Runnable attemptCheckpoint = attemptCheckpoint();
+            attemptCheckpoint.run();
             coordinator.check();
             configuration.requireEnabled();
             if (!job.rulesetDigest()
@@ -244,7 +244,7 @@ public class CdsImportExecutionService {
             configuration.requireNativeBaselineKey();
             try (var owner = maintenance.acquire()) {
                 safety.verify(owner);
-                attemptBudget.run();
+                attemptCheckpoint.run();
                 boolean preflightRecovery = resume || job.ownerEpoch() > 0;
                 epoch = ledger.claimPreparation(runId, coordinator, owner, resume);
                 if (!ledger.isSealed(runId)) {
@@ -258,10 +258,9 @@ public class CdsImportExecutionService {
                                     planningEpoch,
                                     coordinator,
                                     owner,
-                                    "CDS_INPUT_DEADLINE",
-                                    attemptBudget)) {
+                                    attemptCheckpoint)) {
                         var snapshot = jobs.snapshot(runId, planningEpoch, document, control);
-                        attemptBudget.run();
+                        attemptCheckpoint.run();
                         ledger.inventoryDiscovered(
                                 runId,
                                 epoch,
@@ -275,7 +274,7 @@ public class CdsImportExecutionService {
                                     return null;
                                 });
                     }
-                    attemptBudget.run();
+                    attemptCheckpoint.run();
                     job = ledger.status(runId);
                     if ("REVIEW_REQUIRED".equals(job.state())) {
                         ledger.release(runId, epoch);
@@ -285,7 +284,7 @@ public class CdsImportExecutionService {
                 }
                 job = ledger.status(runId);
                 if (document.command().dryRun()) {
-                    attemptBudget.run();
+                    attemptCheckpoint.run();
                     ledger.completeDryRun(runId, epoch);
                     if ("DRY_RUN_COMPLETE".equals(ledger.status(runId).state())
                             && ledger.heldPatients(runId) == 0) {
@@ -307,11 +306,10 @@ public class CdsImportExecutionService {
                                 epoch,
                                 coordinator,
                                 owner,
-                                "IMPORT_FILE_VERIFICATION_TIMEOUT",
-                                attemptBudget)) {
+                                attemptCheckpoint)) {
                     fileVerification.verify(runId, epoch, control);
                 }
-                attemptBudget.run();
+                attemptCheckpoint.run();
                 // Verify current-run receipts before new writes. Completed patients retain their
                 // existing publication.
                 String patientAfter = "";
@@ -320,7 +318,7 @@ public class CdsImportExecutionService {
                             ledger.patients(runId, patientAfter, 100);
                     if (patientPage.isEmpty()) break;
                     for (CdsImportPatientDto patient : patientPage) {
-                        attemptBudget.run();
+                        attemptCheckpoint.run();
                         if (!COMPLETE.contains(patient.state())) {
                             if (recovery)
                                 ledger.preparePatientResume(runId, epoch, patient.patientKey());
@@ -330,7 +328,7 @@ public class CdsImportExecutionService {
                                         ledger.units(runId, patient.patientKey(), after, 100);
                                 if (page.isEmpty()) break;
                                 for (CdsImportUnitDto unit : page) {
-                                    attemptBudget.run();
+                                    attemptCheckpoint.run();
                                     if (Set.of("COMMITTED", "ALREADY_COMPLETE")
                                             .contains(unit.state())) {
                                         currentPatient = unit.patientKey();
@@ -343,7 +341,7 @@ public class CdsImportExecutionService {
                                                     throw new CdsImportException(
                                                             "COMMITTED_UNIT_REPLAY_REFUSED");
                                                 },
-                                                attemptBudget);
+                                                attemptCheckpoint);
                                     }
                                     after = unit.unitKey();
                                 }
@@ -356,7 +354,7 @@ public class CdsImportExecutionService {
                     if (patientPage.size() < 100) break;
                 }
                 while (true) {
-                    attemptBudget.run();
+                    attemptCheckpoint.run();
                     configuration.requireEnabled();
                     coordinator.check();
                     if (ledger.status(runId).cancelRequested())
@@ -364,7 +362,7 @@ public class CdsImportExecutionService {
                     List<CdsImportUnitDto> ready = ledger.readyUnits(runId, 100);
                     if (ready.isEmpty()) break;
                     for (CdsImportUnitDto unit : ready) {
-                        attemptBudget.run();
+                        attemptCheckpoint.run();
                         currentPatient = unit.patientKey();
                         currentUnit = unit.unitKey();
                         var work = planning.work(runId, unit, readContext);
@@ -382,8 +380,7 @@ public class CdsImportExecutionService {
                                         preparationEpoch,
                                         coordinator,
                                         owner,
-                                        "IMPORT_PREPARATION_TIMEOUT",
-                                        attemptBudget)) {
+                                        attemptCheckpoint)) {
                             planning.publishValues(
                                     runId, preparationEpoch, work, control, readContext);
                             owner.readIo(
@@ -399,7 +396,7 @@ public class CdsImportExecutionService {
                                         return null;
                                     });
                         }
-                        attemptBudget.run();
+                        attemptCheckpoint.run();
                         final long unitEpoch = epoch;
                         executeUnit(
                                 runId,
@@ -415,8 +412,8 @@ public class CdsImportExecutionService {
                                                 work.actor(),
                                                 work.snapshot(),
                                                 work.xmlRelative()),
-                                attemptBudget);
-                        attemptBudget.run();
+                                attemptCheckpoint);
+                        attemptCheckpoint.run();
                     }
                 }
                 currentPatient = null;
@@ -427,11 +424,10 @@ public class CdsImportExecutionService {
                                 epoch,
                                 coordinator,
                                 owner,
-                                "IMPORT_FILE_VERIFICATION_TIMEOUT",
-                                attemptBudget)) {
+                                attemptCheckpoint)) {
                     fileVerification.verify(runId, epoch, control);
                 }
-                attemptBudget.run();
+                attemptCheckpoint.run();
                 if (recovery) ledger.resolveRecoveredExecution(runId, epoch);
                 String after = "";
                 while (true) {
@@ -441,7 +437,7 @@ public class CdsImportExecutionService {
                         currentPatient = patient.patientKey();
                         currentUnit = null;
                         if (!CdsImportLedgerService.FINAL_PATIENT.contains(patient.state())) {
-                            attemptBudget.run();
+                            attemptCheckpoint.run();
                             final long finalEpoch = epoch;
                             owner.read(
                                     () -> {
@@ -688,30 +684,30 @@ public class CdsImportExecutionService {
         return path == null || path.isBlank() || path.length() > 2048 ? null : path;
     }
 
-    /** Only local budget checks participate in the atomic unit; no owner SQL or nested transaction. */
+    /** Only local stall checkpoints participate in the atomic unit; no owner SQL or nested transaction. */
     CdsImportReceiptDto executeUnit(
             String run,
             long epoch,
             String unit,
             CdsImportUnitService.Work work,
-            Runnable attemptBudget) {
-        try (var control = fields.controlEveryCheckpoint(attemptBudget)) {
-            attemptBudget.run();
+            Runnable attemptCheckpoint) {
+        try (var control = fields.controlEveryCheckpoint(attemptCheckpoint)) {
+            attemptCheckpoint.run();
             return units.execute(
                     run,
                     epoch,
                     unit,
                     () -> {
-                        attemptBudget.run();
+                        attemptCheckpoint.run();
                         var receipt = work.write();
-                        attemptBudget.run();
+                        attemptCheckpoint.run();
                         return receipt;
                     },
                     previous -> {
-                        attemptBudget.run();
+                        attemptCheckpoint.run();
                         boolean verified = nativeRecords.verify(previous);
                         // A real target mismatch retains its reconciliation precedence.
-                        if (verified) attemptBudget.run();
+                        if (verified) attemptCheckpoint.run();
                         return verified;
                     });
         }
@@ -723,27 +719,22 @@ public class CdsImportExecutionService {
             long epoch,
             CdsImportCoordinatorService.Owner coordinator,
             CdsImportMaintenanceService.Owner owner,
-            String timeoutCode,
-            Runnable attemptBudget) {
+            Runnable attemptCheckpoint) {
         return new CdsImportExecutionControl(
-                run,
-                epoch,
-                coordinator,
-                timeoutCode,
-                configuration.limits().maxDurationMillis(),
-                nanoTime,
-                attemptBudget,
-                fields,
-                owner);
+                run, epoch, coordinator, nanoTime, attemptCheckpoint, fields, owner);
     }
 
-    private Runnable attemptBudget() {
-        long started = nanoTime.getAsLong(),
-                maximumMillis = configuration.limits().maxDurationMillis();
-        return () -> {
-            if (java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(nanoTime.getAsLong() - started)
-                    >= maximumMillis) throw new CdsImportException("IMPORT_ATTEMPT_TIMEOUT");
-        };
+    /**
+     * The attempt's one stall window ({@code cds.import.maxDurationMillis}). Every snapshot read,
+     * parse, plan row, preparation, verification read and unit callback of the attempt is a
+     * checkpoint of it, so an attempt that keeps making progress runs to its end however long
+     * it takes, and no scope can start a fresh clock to hide a silent gap. A worker that was
+     * silent for the whole window stops at its next checkpoint with {@code
+     * IMPORT_WORKER_STALLED}, an operational failure the same run resumes from.
+     */
+    private Runnable attemptCheckpoint() {
+        return new CdsImportStallWindow(configuration.limits().stallWindowMillis(), nanoTime)
+                ::checkpoint;
     }
 
     private record ResumeAttempt(String run, long event) {}

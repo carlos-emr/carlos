@@ -101,6 +101,7 @@ public class CdsSnapshotService {
     }
 
     private final UsableSpace usableSpace;
+    private final java.util.function.LongSupplier clock;
 
     public CdsSnapshotService() {
         this(path -> Files.getFileStore(path).getUsableSpace());
@@ -108,7 +109,13 @@ public class CdsSnapshotService {
 
     /** A test models a filling disk here instead of filling a real one. */
     CdsSnapshotService(UsableSpace usableSpace) {
+        this(usableSpace, System::nanoTime);
+    }
+
+    /** A test also drives the stall window's clock instead of waiting for it. */
+    CdsSnapshotService(UsableSpace usableSpace, java.util.function.LongSupplier clock) {
         this.usableSpace = java.util.Objects.requireNonNull(usableSpace);
+        this.clock = java.util.Objects.requireNonNull(clock);
     }
 
     /**
@@ -190,7 +197,8 @@ public class CdsSnapshotService {
                         limits,
                         cancelled,
                         checkpoint,
-                        usableSpace);
+                        usableSpace,
+                        clock);
         try (inventory) {
             // The reserve is checked before the first byte is written, not only after 16 MiB.
             inventory.check();
@@ -698,7 +706,10 @@ public class CdsSnapshotService {
         } catch (javax.xml.parsers.ParserConfigurationException | SAXException configuration) {
             throw CdsPaths.failure("CDS_SECURE_XML_PARSER_UNAVAILABLE");
         } catch (CdsInputException stopped) {
-            if (Set.of("CDS_INPUT_CANCELLED", "CDS_INPUT_DEADLINE", "CDS_INPUT_DISK_RESERVE")
+            if (Set.of(
+                            "CDS_INPUT_CANCELLED",
+                            CdsImportStallWindow.WORKER_STALLED,
+                            "CDS_INPUT_DISK_RESERVE")
                     .contains(stopped.code())) throw stopped;
             return true;
         } catch (IOException _) {
@@ -931,7 +942,7 @@ public class CdsSnapshotService {
         private final BooleanSupplier cancelled;
         private final Runnable checkpoint;
         private final UsableSpace usableSpace;
-        private final long started = System.nanoTime();
+        private final CdsImportStallWindow window;
 
         // One snapshot invocation owns this Inventory and all synchronous copy callbacks.
         @SuppressWarnings("java:S9428")
@@ -955,7 +966,8 @@ public class CdsSnapshotService {
                 CdsInputLimitsDto limits,
                 BooleanSupplier cancelled,
                 Runnable checkpoint,
-                UsableSpace usableSpace)
+                UsableSpace usableSpace,
+                java.util.function.LongSupplier clock)
                 throws IOException {
             this.pending = pending;
             this.members = members;
@@ -965,6 +977,7 @@ public class CdsSnapshotService {
             this.cancelled = cancelled;
             this.checkpoint = checkpoint;
             this.usableSpace = usableSpace;
+            window = new CdsImportStallWindow(limits.stallWindowMillis(), clock);
             output = new BufferedOutputStream(CdsPaths.newPrivateFile(manifest, pending), BUFFER);
         }
 
@@ -978,8 +991,9 @@ public class CdsSnapshotService {
                 now = System.nanoTime();
                 nextResourceCheck = now + 250_000_000L;
             }
-            if ((now - started) / 1_000_000 > limits.maxDurationMillis())
-                throw CdsPaths.failure("CDS_INPUT_DEADLINE");
+            // A copy that keeps moving is never stopped for how long it takes; one silent for
+            // the whole stall window is.
+            if (window.stalled()) throw CdsPaths.failure(CdsImportStallWindow.WORKER_STALLED);
             // The reserve is the only thing that stops a source for its size: an archive of any
             // size, entry count or compression ratio is copied until its store would run short.
             long written = Math.addExact(total, archiveCopied);
