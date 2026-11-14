@@ -225,8 +225,9 @@ class CdsImportCleanupServiceUnitTest {
                     .thenReturn(document.toFile());
             var result = cleanup.reconcile(run, epoch, current);
             assertThat(Files.exists(known)).isFalse();
-            assertThat(result.safeCodes())
-                    .doesNotContain("CLEANUP_PRIVATE_OPERATION_REQUIRES_REVIEW");
+            // An empty list also means no review was asked for.
+            assertThat(result.safeCodes().contains("CLEANUP_PRIVATE_OPERATION_REQUIRES_REVIEW"))
+                    .isFalse();
         }
     }
 

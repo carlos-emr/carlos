@@ -124,11 +124,10 @@ final class CdsDemographicResidualReader {
             if (content == null) return new Note(null);
             // "note" is named too, so a note member that is not an object is seen and reported
             // rather than read as no note at all.
-            JsonNode note =
-                    CdsSourceContextParser.read(
-                                    fields.openToken(last[0], content),
-                                    Set.of("note", "note/content"))
-                            .get("note");
+            JsonNode note;
+            try (var token = fields.openToken(last[0], content)) {
+                note = CdsSourceContextParser.read(token, Set.of("note", "note/content")).get("note");
+            }
             if (note == null) return null;
             if (!note.isObject()) return new Note(null);
             JsonNode text = note.get("content");
