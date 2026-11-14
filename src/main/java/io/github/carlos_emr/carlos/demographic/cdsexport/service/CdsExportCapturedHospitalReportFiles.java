@@ -37,6 +37,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.function.IntPredicate;
 
 /**
  * The captured HRM message files of one authenticated patient generation: each report's stored
@@ -81,6 +82,7 @@ final class CdsExportCapturedHospitalReportFiles {
         }
     }
 
+    /** Every captured message file of the chart, by report. */
     Map<Integer, File> read(
             CdsExportNativeCaptureService captures,
             CdsExportLeaseDto lease,
@@ -90,8 +92,34 @@ final class CdsExportCapturedHospitalReportFiles {
             CdsExportClinicalOccurrenceService.Bounds bounds,
             CdsExportRunControl control)
             throws IOException {
+        return read(captures, lease, patient, tables, source, bounds, control, null, null, null);
+    }
+
+    /**
+     * The captured message files of the reports one section window holds. Every file row of the
+     * capture is read and checked in every pass, whether or not the window keeps it; no count of
+     * them refuses the chart.
+     *
+     * @param keep the reports of the window, or null to keep every file
+     * @param known every report of the chart: a file of a report the chart does not hold refuses
+     *     the capture; null when {@code keep} is null (the caller compares the two sets itself)
+     * @param budget counts each kept file against the window; null to count none
+     * @return the kept files, or null when the window passed its budget
+     */
+    Map<Integer, File> read(
+            CdsExportNativeCaptureService captures,
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> tables,
+            CdsExportPatientCaptureDto source,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control,
+            IntPredicate keep,
+            IntPredicate known,
+            CdsExportSectionWindowPlanner.Budget budget)
+            throws IOException {
         var files = new TreeMap<Integer, File>();
-        try (var fields = new Fields(bounds.nativeRows(), files)) {
+        try (var fields = new Fields(files, keep, known, budget)) {
             var actual =
                     captures.scan(
                             lease,
@@ -107,18 +135,22 @@ final class CdsExportCapturedHospitalReportFiles {
             if (!actual.equals(source.capture())
                     || scope == null
                     || !scope.columns().equals(COLUMNS)
-                    || files.size() != scope.rows()) invalid();
+                    || fields.count != scope.rows()) invalid();
             captures.authorizeSources(lease, patient, tables, control);
             patient.require(lease);
             control.authorizeCategory(patient.patient(), CdsCategory.REPORTS, false);
         }
+        if (budget != null && budget.exceeded()) return null;
         return Map.copyOf(files);
     }
 
     private static final class Fields
             implements CdsExportNativeCaptureReader.Fields, AutoCloseable {
-        private final int maximum;
         private final Map<Integer, File> files;
+        private final IntPredicate keep, known;
+        private final CdsExportSectionWindowPlanner.Budget budget;
+        /** File rows read, kept or not. The capture's rising row keys make each a different report. */
+        private long count;
         private final Map<String, CdsExportCapturedFieldDto> fields = new HashMap<>();
         private final Map<String, String> text = new HashMap<>();
         private String key;
@@ -126,9 +158,15 @@ final class CdsExportCapturedHospitalReportFiles {
         private ByteArrayOutputStream value;
         private boolean closed;
 
-        Fields(int maximum, Map<Integer, File> files) {
-            this.maximum = maximum;
+        Fields(
+                Map<Integer, File> files,
+                IntPredicate keep,
+                IntPredicate known,
+                CdsExportSectionWindowPlanner.Budget budget) {
             this.files = files;
+            this.keep = keep;
+            this.known = known;
+            this.budget = budget;
         }
 
         @Override
@@ -203,8 +241,13 @@ final class CdsExportCapturedHospitalReportFiles {
                     || (reference == null || reference.isEmpty())
                             != (state == CdsExportHospitalReportFileSourceReader.State.NOT_RECORDED))
                 invalid();
-            if (files.size() >= maximum
-                    || files.putIfAbsent(
+            count++;
+            if (known != null && !known.test(id)) invalid();
+            // A window found too large keeps nothing more; it is read again with fewer reports.
+            if ((keep == null || keep.test(id))
+                    && (budget == null
+                            || budget.add(1, 512L + (reference == null ? 0 : 2L * reference.length())))
+                    && files.putIfAbsent(
                                     id, new File(id, reference, state, read ? content : null, key))
                             != null) invalid();
             fields.clear();

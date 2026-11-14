@@ -83,6 +83,21 @@ class CdsExportNativeReportAssemblyUnitTest {
     private CdsExportStagedFileDto valuesMember;
     private CdsExportLeaseDto lease;
     private Set<String> importedDocuments = Set.of();
+    /** The installed window (8,192 rows, 64 MiB) unless a test states a small one. */
+    private CdsExportClinicalOccurrenceService.Bounds bounds =
+            new CdsExportClinicalOccurrenceService.Bounds(
+                    CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
+                    CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
+                    1000,
+                    32L << 20,
+                    100,
+                    1000);
+    /** Documents captured without their row, without their link, or without a witness. */
+    private final Set<Integer> withoutDocument = new HashSet<>(),
+            withoutLink = new HashSet<>(),
+            unwitnessed = new HashSet<>();
+    /** A document whose row changed after its witness was taken; 0 for none. */
+    private int changed;
     private boolean tamperAfterScans;
     private CdsExportClinicalOccurrenceService.Result result;
     /** The capture, index and bounds of the last assembly, for the inventory's planner. */
@@ -305,11 +320,15 @@ class CdsExportNativeReportAssemblyUnitTest {
         scopes.put(
                 "document",
                 new CdsExportCapturedTableDto(
-                        Set.copyOf(Plan.DOCUMENTS.columns()), documents.size(), HASH));
+                        Set.copyOf(Plan.DOCUMENTS.columns()),
+                        documents.size() - withoutDocument.size(),
+                        HASH));
         scopes.put(
                 "ctl_document",
                 new CdsExportCapturedTableDto(
-                        Set.copyOf(Plan.DOCUMENT_LINKS.columns()), documents.size(), HASH));
+                        Set.copyOf(Plan.DOCUMENT_LINKS.columns()),
+                        documents.size() - withoutLink.size(),
+                        HASH));
         scopes.put(
                 CdsExportDocumentFileSourceReader.TABLE,
                 new CdsExportCapturedTableDto(
@@ -368,8 +387,8 @@ class CdsExportNativeReportAssemblyUnitTest {
                                                                         valueOutput,
                                                                         indexOutput,
                                                                         scopes.keySet(),
-                                                                        100_000,
-                                                                        32L << 20,
+                                                                        10_000_000,
+                                                                        1L << 30,
                                                                         () -> {},
                                                                         writer -> {
                                                                             for (var entry :
@@ -386,7 +405,22 @@ class CdsExportNativeReportAssemblyUnitTest {
                                                                                         writer,
                                                                                         entry
                                                                                                 .getKey(),
-                                                                                        sorted,
+                                                                                        sorted.stream()
+                                                                                                .filter(
+                                                                                                        doc ->
+                                                                                                                !(entry.getKey()
+                                                                                                                                        .equals(
+                                                                                                                                                "document")
+                                                                                                                                ? withoutDocument
+                                                                                                                                : entry.getKey()
+                                                                                                                                                .equals(
+                                                                                                                                                        "ctl_document")
+                                                                                                                                        ? withoutLink
+                                                                                                                                        : Set.of())
+                                                                                                                        .contains(
+                                                                                                                                doc
+                                                                                                                                        .id()))
+                                                                                                .toList(),
                                                                                         zone);
                                                                                 for (var row :
                                                                                         rows(
@@ -423,8 +457,8 @@ class CdsExportNativeReportAssemblyUnitTest {
                                                 valueInput,
                                                 indexInput,
                                                 plan,
-                                                100_000,
-                                                32L << 20,
+                                                10_000_000,
+                                                1L << 30,
                                                 () -> {},
                                                 call.getArgument(7));
                             }
@@ -509,9 +543,14 @@ class CdsExportNativeReportAssemblyUnitTest {
         var receiptRows = new ArrayList<CdsExportNativeRowReceiptDto>();
         for (var doc : documents) {
             String key = CdsExportPatientTableSourceReader.key(doc.id());
-            receiptRows.add(witness("document", Integer.toString(doc.id()), key, doc.document()));
-            receiptRows.add(
-                    witness("ctl_document", PATIENT + "_" + doc.id(), key, doc.link()));
+            if (unwitnessed.contains(doc.id())) continue;
+            var witnessed = new TreeMap<>(doc.document());
+            if (changed == doc.id()) witnessed.put("docdesc", "As it was when witnessed");
+            if (!withoutDocument.contains(doc.id()))
+                receiptRows.add(witness("document", Integer.toString(doc.id()), key, witnessed));
+            if (!withoutLink.contains(doc.id()))
+                receiptRows.add(
+                        witness("ctl_document", PATIENT + "_" + doc.id(), key, doc.link()));
         }
         if (laboratory != null)
             for (String table : List.of("hl7TextMessage", "hl7TextInfo", "patientLabRouting"))
@@ -523,23 +562,20 @@ class CdsExportNativeReportAssemblyUnitTest {
                                             .get(table.equals("hl7TextMessage") ? "lab_id" : "id"),
                                     row.getKey(),
                                     row.getValue()));
-        when(witnesses.scan(any(), any(), anySet(), any(), anyLong(), anyLong(), any(), any()))
-                .thenAnswer(
+        doAnswer(
                         call -> {
                             for (var row : receiptRows)
                                 ((CdsExportNativeRowReceiptReader.Receipts) call.getArgument(7))
                                         .accept(row);
                             var counts = new TreeMap<String, Long>();
-                            counts.put("document", (long) documents.size());
-                            counts.put("ctl_document", (long) documents.size());
-                            for (var row : receiptRows) counts.putIfAbsent(row.table(), 0L);
-                            for (var row : receiptRows)
-                                if (!row.table().equals("document")
-                                        && !row.table().equals("ctl_document"))
-                                    counts.merge(row.table(), 1L, Long::sum);
+                            counts.put("document", 0L);
+                            counts.put("ctl_document", 0L);
+                            for (var row : receiptRows) counts.merge(row.table(), 1L, Long::sum);
                             return new CdsExportNativeRowReceiptsDto(
                                     HASH, counts, receiptRows.size(), 0, Set.of());
-                        });
+                        })
+                .when(witnesses)
+                .scan(any(), any(), anySet(), any(), anyLong(), anyLong(), any(), any());
         var references = new HashMap<String, List<CdsExportRetainedIndexDto.Reference>>();
         var applied = new HashSet<String>();
         if (!importedDocuments.isEmpty()) {
@@ -600,9 +636,9 @@ class CdsExportNativeReportAssemblyUnitTest {
                 new CdsExportReportOccurrenceService(
                         values, verification, witnesses, captures, stores);
         var output = new ByteArrayOutputStream();
-        var bounds =
-                new CdsExportClinicalOccurrenceService.Bounds(
-                        100_000, 32L << 20, 1000, 32L << 20, 100, 1000);
+        var bounds = this.bounds;
+        receipts.clear();
+        attachments.clear();
         lastScopes = scopes;
         lastSource = source;
         lastIndex = index;
@@ -1154,5 +1190,149 @@ class CdsExportNativeReportAssemblyUnitTest {
         assertThat(reports(xml)).isEmpty();
         assertThat(receipts).isEmpty();
         assertThat(attachments).isEmpty();
+    }
+
+    /** A chart of every kind of native document, with reviews, a removed document and a companion. */
+    private void mixedChart() {
+        add(81, uploaded(81, "20260305101400consult-letter.pdf", "application/pdf"), "A", PDF);
+        add(82, storedHtml(82, "html", "<p>Discharge summary</p>"), "H", null);
+        add(83, storedHtml(83, "link", DocumentLink.toRedirectHtml("https://portal.example.org/r")), "H", null);
+        var deleted = uploaded(84, "20260101090000old-letter.pdf", "application/pdf");
+        deleted.put("status", "D");
+        add(84, deleted, "A", null);
+        add(85, uploaded(85, "20260101090100moved-letter.pdf", "application/pdf"), "D", null);
+        add(86, uploaded(86, "20260306101400short.pdf", "application/pdf"), "A", PDF);
+        add(112, uploaded(112, "20260307101400later.pdf", "application/pdf"), "A", PDF);
+        provider("103", "Cy", "Inbox", "123456");
+        for (int i = 1; i <= 90; i++)
+            route(500 + i, 81, "103", "A", "2026-03-08 11:45:00", "Document " + i + " " + "d".repeat(240));
+        route(691, 86, "103", "A", "2026-03-08 11:45:00", "One short comment");
+        route(692, 84, "103", "A", "2026-03-08 11:45:00", "On a removed document");
+        review(801, 86, "103", "2026-03-09 09:00:00");
+        extraReviewer(901, 112, "103", "2026-03-10 09:00:00");
+    }
+
+    private CdsExportClinicalOccurrenceService.Bounds window(int rows, long bytes) {
+        return bounds.withWindow(rows, bytes);
+    }
+
+    @Test
+    void shouldEmitTheSameBytesAndReceipts_whenAChartIsReadInSmallWindows() throws Exception {
+        mixedChart();
+        String whole = assemble();
+        var wholeReceipts = List.copyOf(receipts);
+        var wholePlanned = planned();
+        var wholeResult = result;
+        var wholeAttachments = new TreeMap<String, byte[]>();
+        for (var entry : attachments.entrySet())
+            wholeAttachments.put(entry.getKey(), attachment(entry.getValue()));
+        // Documents 81 (with its companion), 82, 83, 86 and 112; 84 and 85 are not in the chart.
+        assertThat(reports(whole)).hasSize(6);
+        assertThat(wholePlanned).hasSize(1);
+        // One document a window, three a window, and a byte limit that makes every window of
+        // more than one document too large (each is read again smaller).
+        for (var small : List.of(window(1, 64L << 20), window(3, 64L << 20), window(4, 4096))) {
+            bounds = small;
+            assertThat(assemble()).isEqualTo(whole);
+            assertThat(receipts)
+                    .usingRecursiveFieldByFieldElementComparator()
+                    .containsExactlyElementsOf(wholeReceipts);
+            assertThat(result).isEqualTo(wholeResult);
+            assertThat(attachments.keySet()).isEqualTo(wholeAttachments.keySet());
+            for (var entry : attachments.entrySet())
+                assertThat(attachment(entry.getValue()))
+                        .isEqualTo(wholeAttachments.get(entry.getKey()));
+            assertThat(planned()).containsExactlyInAnyOrderElementsOf(wholePlanned);
+        }
+    }
+
+    @Test
+    void shouldExportEveryDocument_whenAChartHoldsMoreThanOneWindowOfRows() throws Exception {
+        // Before: the 8,193rd document or link row stopped the job with RESOURCE_LIMIT
+        // (maxNativeRows), and so did as many reviewer rows or captured files.
+        int count = CdsExportClinicalOccurrenceService.Bounds.WINDOW_ROWS / 2 + 1;
+        for (int id = 1; id <= count; id++)
+            add(id, storedHtml(id, "html", "<p>Note " + id + "</p>"), "H", null);
+        provider("103", "Cy", "Inbox", "123456");
+        route(900_001, count, "103", "A", "2026-03-08 11:45:00", "On the last document");
+        String xml = assemble();
+        var reports = reports(xml);
+        assertThat(reports).hasSize(count);
+        assertThat(reports.getFirst()).contains("&lt;p&gt;Note 1&lt;/p&gt;");
+        assertThat(reports.getLast())
+                .contains("&lt;p&gt;Note " + count + "&lt;/p&gt;", "On the last document");
+        // In the order of the document numbers, each once.
+        assertThat(receipts)
+                .extracting(CdsExportClinicalOccurrenceService.Receipt::nativeId)
+                .containsExactlyElementsOf(
+                        java.util.stream.IntStream.rangeClosed(1, count)
+                                .mapToObj(Integer::toString)
+                                .toList());
+        assertThat(result.nativeRows()).isEqualTo(count);
+        assertThat(planned()).isEmpty();
+    }
+
+    @Test
+    void shouldHoldThePatient_forALinkOfNoDocumentInAChartReadInWindows() throws Exception {
+        mixedChart();
+        // A document without a stored file, so only its link is left in the capture.
+        withoutDocument.add(83);
+        bounds = window(2, 64L << 20);
+        assertThatThrownBy(this::assemble)
+                .isInstanceOf(CdsExportReviewException.class)
+                .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+    }
+
+    @Test
+    void shouldRefuseADocumentWithoutALink_whenAChartIsReadInWindows() throws Exception {
+        mixedChart();
+        withoutLink.add(112);
+        bounds = window(2, 64L << 20);
+        assertThatThrownBy(this::assemble)
+                .isInstanceOf(IOException.class)
+                .hasMessage("CDS_EXPORT_REPORT_OCCURRENCE_INVALID");
+    }
+
+    @Test
+    void shouldRefuseAnUnwitnessedDocument_whenAChartIsReadInWindows() throws Exception {
+        mixedChart();
+        unwitnessed.add(86);
+        bounds = window(2, 64L << 20);
+        assertThatThrownBy(this::assemble)
+                .isInstanceOf(IOException.class)
+                .hasMessage("CDS_EXPORT_REPORT_OCCURRENCE_INVALID");
+    }
+
+    @Test
+    void shouldRefuseADocumentChangedSinceItsWitness_whenAChartIsReadInWindows() throws Exception {
+        mixedChart();
+        changed = 112;
+        bounds = window(2, 64L << 20);
+        assertThatThrownBy(this::assemble)
+                .isInstanceOf(IOException.class)
+                .hasMessage("CDS_EXPORT_REPORT_OCCURRENCE_INVALID");
+    }
+
+    @Test
+    void shouldRefuseAReviewOfNoDocument_whenAChartIsReadInWindows() throws Exception {
+        mixedChart();
+        review(802, 777, "103", "2026-03-09 09:00:00");
+        bounds = window(2, 64L << 20);
+        assertThatThrownBy(this::assemble)
+                .isInstanceOf(IOException.class)
+                .hasMessage("CDS_EXPORT_REPORT_OCCURRENCE_INVALID");
+    }
+
+    @Test
+    void shouldHoldThePatient_forAnImportedDocumentNoReportUsesInAChartReadInWindows()
+            throws Exception {
+        mixedChart();
+        importedDocuments = Set.of("86");
+        rows(CdsExportDocumentRouteSourceReader.TABLE).remove(CdsExportPatientTableSourceReader.key(691));
+        rows("document_review").clear();
+        bounds = window(2, 64L << 20);
+        assertThatThrownBy(this::assemble)
+                .isInstanceOf(CdsExportReviewException.class)
+                .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
     }
 }

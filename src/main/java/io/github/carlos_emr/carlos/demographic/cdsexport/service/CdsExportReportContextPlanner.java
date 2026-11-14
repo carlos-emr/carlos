@@ -66,15 +66,21 @@ final class CdsExportReportContextPlanner {
         this.captures = Objects.requireNonNull(captures);
     }
 
+    /** Receives the identities of the companion and supplementary records, one at a time. */
+    @FunctionalInterface
+    interface Identities {
+        void accept(CdsExportIdentityDto identity) throws IOException;
+    }
+
     /**
+     * The identities {@link #forEachIdentity} reports, as one list.
+     *
      * @param nativeDocuments numbers of the captured documents the chart shows that no applied
      *     import accounts for
      * @param documentDigests current witness digest of every captured document row, by number
      * @return the identity of every companion or supplementary Reports record to expect, except
      *     those of documents embedded in laboratory reports ({@link #laboratoryCompanions})
      */
-    // FindSecBugs UNSAFE_HASH_EQUALS: SHA-256 of a document row as it is now, compared with the digest the import receipt recorded, to find reports edited since import; not a secret.
-    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "UNSAFE_HASH_EQUALS", justification = "SHA-256 of a document row as it is now, compared with the digest the import receipt recorded, to find reports edited since import; not a secret")
     List<CdsExportIdentityDto> identities(
             CdsExportLeaseDto lease,
             CdsExportCohortService.Patient patient,
@@ -87,8 +93,52 @@ final class CdsExportReportContextPlanner {
             Set<String> nativeDocuments,
             Map<String, String> documentDigests)
             throws IOException {
-        if (!planned(lease, tables)) return List.of();
         var result = new ArrayList<CdsExportIdentityDto>();
+        forEachIdentity(
+                lease,
+                patient,
+                patientKey,
+                tables,
+                source,
+                index,
+                bounds,
+                control,
+                nativeDocuments,
+                documentDigests,
+                result::add);
+        return List.copyOf(result);
+    }
+
+    /**
+     * Feeds {@code sink} the identity of every companion or supplementary Reports record to
+     * expect, except those of documents embedded in laboratory reports ({@link
+     * #laboratoryCompanions}). The documents are read and mapped window by window ({@link
+     * CdsExportSectionWindowPlanner}): the owners are the native documents and the unedited
+     * imported reports without Notes, and a window holds the document, link, reviewer and route
+     * rows of its owners. A chart that fits one window is read in one pass, as before; no count
+     * or size of documents refuses it.
+     *
+     * @param nativeDocuments numbers of the captured documents the chart shows that no applied
+     *     import accounts for
+     * @param documentDigests current witness digest of every captured document row, by number
+     */
+    // FindSecBugs UNSAFE_HASH_EQUALS: SHA-256 of a document row as it is now, compared with the digest the import receipt recorded, to find reports edited since import; not a secret.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "UNSAFE_HASH_EQUALS", justification = "SHA-256 of a document row as it is now, compared with the digest the import receipt recorded, to find reports edited since import; not a secret")
+    void forEachIdentity(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            String patientKey,
+            Set<String> tables,
+            CdsExportPatientCaptureDto source,
+            CdsExportRetainedIndexDto index,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control,
+            Set<String> nativeDocuments,
+            Map<String, String> documentDigests,
+            Identities sink)
+            throws IOException {
+        Objects.requireNonNull(sink);
+        if (!planned(lease, tables)) return;
         // Imported reports without Notes of their own: an edited one always has a supplementary
         // record; an unedited one is decided below from its review rows.
         var noted = new HashSet<String>();
@@ -112,120 +162,172 @@ final class CdsExportReportContextPlanner {
                 }
         }
         for (String address : edited)
-            result.add(
+            sink.accept(
                     new CdsExportIdentityDto(
                             patientKey,
                             CdsCategory.REPORTS,
                             CdsExportReportOccurrenceService.importedReviewsId(address)));
         importedDocuments.values().removeAll(edited);
-        if (nativeDocuments.isEmpty() && importedDocuments.isEmpty()) return List.copyOf(result);
-        var documents = new HashMap<String, CdsExportCapturedTextRowDto>();
-        var links = new HashMap<String, CdsExportCapturedTextRowDto>();
-        var reviewers = new TreeMap<String, List<CdsExportCapturedTextRowDto>>();
-        if (!nativeDocuments.isEmpty() || !importedDocuments.isEmpty()) {
-            var wanted = new HashSet<>(REVIEWERS.keySet());
-            wanted.add("document");
-            wanted.add("ctl_document");
-            var read =
-                    new CdsExportCapturedTextRowsReader(captures)
-                            .forEachTable(
-                                    lease,
-                                    patient,
-                                    tables,
-                                    wanted,
-                                    source.manifest(),
-                                    bounds.fields(),
-                                    bounds.bytes(),
-                                    67_108_864,
-                                    control,
-                                    row -> {
-                                        control.checkpoint();
-                                        String column = REVIEWERS.get(row.table());
-                                        String document =
-                                                row.fields()
-                                                        .get(column == null ? "document_no" : column);
-                                        boolean wantedRow =
-                                                nativeDocuments.contains(document)
-                                                        || column != null
-                                                                && importedDocuments.containsKey(
-                                                                        document);
-                                        if (!wantedRow) return;
-                                        if (column != null)
-                                            reviewers
-                                                    .computeIfAbsent(
-                                                            document, ignored -> new ArrayList<>())
-                                                    .add(row);
-                                        else if (row.table().equals("document"))
-                                            documents.put(document, row);
-                                        else links.put(document, row);
-                                    });
-            if (!read.equals(source.capture())) invalid();
-        }
-        var providers = providers(lease, patient, tables, source, bounds, control);
-        var zone = zone(lease, patient, tables, source, bounds, control);
-        for (String id : new TreeSet<>(nativeDocuments)) {
-            control.checkpoint();
-            var document = documents.get(id);
-            var link = links.get(id);
-            if (document == null || link == null) continue;
-            var representation =
-                    CdsExportDocumentRepresentation.of(document.fields(), link.fields());
-            if (representation != CdsExportDocumentRepresentation.FILE
-                    && representation != CdsExportDocumentRepresentation.STORED_HTML) continue;
-            try {
-                var mapped =
-                        new CdsExportNativeReportMapper()
-                                .map(
-                                        patient.patient(),
-                                        document,
-                                        link,
-                                        // Notes do not depend on the file's declared extension.
-                                        representation == CdsExportDocumentRepresentation.FILE
-                                                ? CdsExportNativeReportMapper.Content.file(
-                                                        "Reports/" + "0".repeat(64) + ".bin", "bin")
-                                                : CdsExportNativeReportMapper.Content.html(),
-                                        providers,
-                                        zone,
-                                        reviews(reviewers.getOrDefault(id, List.of()), providers, zone),
-                                        // The occurrence service asks the live program question.
-                                        program -> true);
-                if (mapped.companion() != null)
-                    result.add(
-                            new CdsExportIdentityDto(
-                                    patientKey,
-                                    CdsCategory.REPORTS,
-                                    CdsExportReportContext.id("document", id)));
-            } catch (CdsExportMappingReviewException held) {
-                // The occurrence service holds the patient for this document.
-            }
-        }
-        // Unedited imported reports without Notes: by unit, every review row of its documents.
-        var units = new TreeMap<String, List<CdsExportCapturedTextRowDto>>();
+        if (nativeDocuments.isEmpty() && importedDocuments.isEmpty()) return;
+        // The owners: each native document, then each unedited imported report without Notes
+        // (references to strings the caller and the index hold).
+        var natives = new ArrayList<>(new TreeSet<>(nativeDocuments));
+        var byUnit = new TreeMap<String, List<String>>();
         importedDocuments.forEach(
                 (document, address) ->
-                        units.computeIfAbsent(address, ignored -> new ArrayList<>())
-                                .addAll(reviewers.getOrDefault(document, List.of())));
-        for (var unit : units.entrySet()) {
-            control.checkpoint();
-            if (unit.getValue().isEmpty()) continue;
-            try {
-                var reviews = reviews(unit.getValue(), providers, zone);
-                if (reviews.carried().isEmpty()) continue;
-                if (!CdsExportReportOccurrenceService.importedReviewsInNotes(
-                        false,
-                        false,
-                        CdsExportReportOccurrenceService.importedReviewNotes(reviews, List.of())))
-                    result.add(
-                            new CdsExportIdentityDto(
-                                    patientKey,
-                                    CdsCategory.REPORTS,
-                                    CdsExportReportOccurrenceService.importedReviewsId(
-                                            unit.getKey())));
-            } catch (CdsExportMappingReviewException held) {
-                // The occurrence service holds the patient for this report.
-            }
-        }
-        return List.copyOf(result);
+                        byUnit.computeIfAbsent(address, ignored -> new ArrayList<>()).add(document));
+        var addresses = new ArrayList<>(byUnit.keySet());
+        var wanted = new HashSet<>(REVIEWERS.keySet());
+        wanted.add("document");
+        wanted.add("ctl_document");
+        CdsExportSectionWindowPlanner.forEachWindow(
+                (long) natives.size() + addresses.size(),
+                bounds.window(),
+                owners -> {
+                    for (int i = 0; i < natives.size(); i++) owners.add("n" + i);
+                    for (int i = 0; i < addresses.size(); i++) owners.add("u" + i);
+                },
+                (window, budget) -> {
+                    // The documents of this window: its native documents, and the documents of
+                    // its imported reports with the report each belongs to.
+                    var windowNatives = new ArrayList<String>();
+                    var windowImported = new HashMap<String, String>();
+                    for (int i = 0; i < natives.size(); i++)
+                        if (window.contains("n" + i)) windowNatives.add(natives.get(i));
+                    for (int i = 0; i < addresses.size(); i++)
+                        if (window.contains("u" + i))
+                            for (String document : byUnit.get(addresses.get(i)))
+                                windowImported.put(document, addresses.get(i));
+                    var nativeSet = new HashSet<>(windowNatives);
+                    var documents = new HashMap<String, CdsExportCapturedTextRowDto>();
+                    var links = new HashMap<String, CdsExportCapturedTextRowDto>();
+                    var reviewers = new TreeMap<String, List<CdsExportCapturedTextRowDto>>();
+                    var read =
+                            new CdsExportCapturedTextRowsReader(captures)
+                                    .forEachTable(
+                                            lease,
+                                            patient,
+                                            tables,
+                                            wanted,
+                                            source.manifest(),
+                                            bounds.fields(),
+                                            bounds.bytes(),
+                                            67_108_864,
+                                            control,
+                                            row -> {
+                                                control.checkpoint();
+                                                String column = REVIEWERS.get(row.table());
+                                                String document =
+                                                        row.fields()
+                                                                .get(
+                                                                        column == null
+                                                                                ? "document_no"
+                                                                                : column);
+                                                boolean wantedRow =
+                                                        nativeSet.contains(document)
+                                                                || column != null
+                                                                        && windowImported
+                                                                                .containsKey(
+                                                                                        document);
+                                                // A window found too large keeps nothing more; it
+                                                // is read again with fewer documents.
+                                                if (!wantedRow || budget.exceeded()) return;
+                                                long size = 1024L;
+                                                for (String value : row.fields().values())
+                                                    if (value != null)
+                                                        size =
+                                                                Math.addExact(
+                                                                        size, 64L + 2L * value.length());
+                                                if (!budget.add(0, size)) return;
+                                                if (column != null)
+                                                    reviewers
+                                                            .computeIfAbsent(
+                                                                    document,
+                                                                    ignored -> new ArrayList<>())
+                                                            .add(row);
+                                                else if (row.table().equals("document"))
+                                                    documents.put(document, row);
+                                                else links.put(document, row);
+                                            });
+                    if (!read.equals(source.capture())) invalid();
+                    if (budget.exceeded()) return false;
+                    var providers = providers(lease, patient, tables, source, bounds, control);
+                    var zone = zone(lease, patient, tables, source, bounds, control);
+                    for (String id : windowNatives) {
+                        control.checkpoint();
+                        var document = documents.get(id);
+                        var link = links.get(id);
+                        if (document == null || link == null) continue;
+                        var representation =
+                                CdsExportDocumentRepresentation.of(document.fields(), link.fields());
+                        if (representation != CdsExportDocumentRepresentation.FILE
+                                && representation != CdsExportDocumentRepresentation.STORED_HTML)
+                            continue;
+                        try {
+                            var mapped =
+                                    new CdsExportNativeReportMapper()
+                                            .map(
+                                                    patient.patient(),
+                                                    document,
+                                                    link,
+                                                    // Notes do not depend on the file's declared
+                                                    // extension.
+                                                    representation
+                                                                    == CdsExportDocumentRepresentation
+                                                                            .FILE
+                                                            ? CdsExportNativeReportMapper.Content.file(
+                                                                    "Reports/" + "0".repeat(64) + ".bin",
+                                                                    "bin")
+                                                            : CdsExportNativeReportMapper.Content.html(),
+                                                    providers,
+                                                    zone,
+                                                    reviews(
+                                                            reviewers.getOrDefault(id, List.of()),
+                                                            providers,
+                                                            zone),
+                                                    // The occurrence service asks the live program
+                                                    // question.
+                                                    program -> true);
+                            if (mapped.companion() != null)
+                                sink.accept(
+                                        new CdsExportIdentityDto(
+                                                patientKey,
+                                                CdsCategory.REPORTS,
+                                                CdsExportReportContext.id("document", id)));
+                        } catch (CdsExportMappingReviewException held) {
+                            // The occurrence service holds the patient for this document.
+                        }
+                    }
+                    // Unedited imported reports without Notes: by unit, every review row of its
+                    // documents.
+                    var units = new TreeMap<String, List<CdsExportCapturedTextRowDto>>();
+                    windowImported.forEach(
+                            (document, address) ->
+                                    units.computeIfAbsent(address, ignored -> new ArrayList<>())
+                                            .addAll(reviewers.getOrDefault(document, List.of())));
+                    for (var unit : units.entrySet()) {
+                        control.checkpoint();
+                        if (unit.getValue().isEmpty()) continue;
+                        try {
+                            var reviews = reviews(unit.getValue(), providers, zone);
+                            if (reviews.carried().isEmpty()) continue;
+                            if (!CdsExportReportOccurrenceService.importedReviewsInNotes(
+                                    false,
+                                    false,
+                                    CdsExportReportOccurrenceService.importedReviewNotes(
+                                            reviews, List.of())))
+                                sink.accept(
+                                        new CdsExportIdentityDto(
+                                                patientKey,
+                                                CdsCategory.REPORTS,
+                                                CdsExportReportOccurrenceService.importedReviewsId(
+                                                        unit.getKey())));
+                        } catch (CdsExportMappingReviewException held) {
+                            // The occurrence service holds the patient for this report.
+                        }
+                    }
+                    return true;
+                });
     }
 
     /** Whether the job writes Reports records whose context this planner predicts. */

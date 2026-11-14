@@ -78,6 +78,15 @@ class CdsExportHospitalReportAssemblyUnitTest {
     private final Map<String, TreeMap<String, Map<String, String>>> rows = new TreeMap<>();
     /** The captured message file of each report: its reference, state and bytes. */
     private final TreeMap<Integer, Object[]> files = new TreeMap<>();
+    /** The installed window (8,192 reports, 64 MiB) unless a test states a small one. */
+    private CdsExportClinicalOccurrenceService.Bounds bounds =
+            new CdsExportClinicalOccurrenceService.Bounds(
+                    CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
+                    CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
+                    1000,
+                    32L << 20,
+                    100,
+                    1000);
     private CdsExportStagingService store;
     private CdsExportLeaseDto lease;
     private CdsExportClinicalOccurrenceService.Result result;
@@ -209,8 +218,8 @@ class CdsExportHospitalReportAssemblyUnitTest {
                                                                         valueOutput,
                                                                         indexOutput,
                                                                         scopes.keySet(),
-                                                                        100_000,
-                                                                        32L << 20,
+                                                                        10_000_000,
+                                                                        1L << 30,
                                                                         () -> {},
                                                                         writer -> {
                                                                             for (var entry : scopes.entrySet()) {
@@ -242,8 +251,8 @@ class CdsExportHospitalReportAssemblyUnitTest {
                                                 valueInput,
                                                 indexInput,
                                                 plan,
-                                                100_000,
-                                                32L << 20,
+                                                10_000_000,
+                                                1L << 30,
                                                 () -> {},
                                                 call.getArgument(7));
                             }
@@ -338,9 +347,9 @@ class CdsExportHospitalReportAssemblyUnitTest {
         var occurrences =
                 new CdsExportReportOccurrenceService(
                         values, verification, witnesses, captures, stores, null, hospitalReports);
-        var bounds =
-                new CdsExportClinicalOccurrenceService.Bounds(
-                        100_000, 32L << 20, 1000, 32L << 20, 100, 1000);
+        var bounds = this.bounds;
+        receipts.clear();
+        attachments.clear();
         expected =
                 hospitalReports.identities(
                         lease, patient, PATIENT_KEY, scopes.keySet(), source, bounds, control);
@@ -581,5 +590,129 @@ class CdsExportHospitalReportAssemblyUnitTest {
         assertThat(reports(xml)).isEmpty();
         assertThat(receipts).isEmpty();
         assertThat(expected).isEmpty();
+    }
+
+    /** The chart of the first test: four reports, their children and a link to no report. */
+    private void mixedChart() throws Exception {
+        byte[] text = CdsExportHospitalReportMapperUnitTest.fixture().getBytes(StandardCharsets.UTF_8);
+        report(5, CdsExportHospitalReportFileSourceReader.State.READ, text);
+        report(6, CdsExportHospitalReportFileSourceReader.State.READ, binaryMessage());
+        report(7, CdsExportHospitalReportFileSourceReader.State.MISSING, null);
+        report(
+                8,
+                CdsExportHospitalReportFileSourceReader.State.READ,
+                "LabUpload truncated before the XML".getBytes(StandardCharsets.UTF_8));
+        report(12, CdsExportHospitalReportFileSourceReader.State.MISSING, null);
+        add(CdsExportHospitalReportMapperUnitTest.link(199, 99));
+        add(CdsExportHospitalReportMapperUnitTest.comment(201, 5, "0", "Booked a follow-up ultrasound"));
+        add(CdsExportHospitalReportMapperUnitTest.comment(202, 6, "1", "Deleted comment"));
+        add(CdsExportHospitalReportMapperUnitTest.comment(203, 12, "0", "Seen"));
+        add(CdsExportHospitalReportMapperUnitTest.subClass(301, 5, "1"));
+        add(CdsExportHospitalReportMapperUnitTest.subClass(302, 7, "1"));
+        add(CdsExportHospitalReportMapperUnitTest.route(401, 5, "101", "1", "2024-01-19 16:45:00"));
+        add(CdsExportHospitalReportMapperUnitTest.route(402, 6, "101", "0", null));
+        provider("101", "Ada", "Reviewer", "123456");
+    }
+
+    private CdsExportClinicalOccurrenceService.Bounds window(int rows, long bytes) {
+        return bounds.withWindow(rows, bytes);
+    }
+
+    @Test
+    void shouldEmitTheSameBytesAndReceipts_whenAChartIsReadInSmallWindows() throws Exception {
+        mixedChart();
+        String whole = assemble();
+        var wholeReceipts = List.copyOf(receipts);
+        var wholeExpected = List.copyOf(expected);
+        var wholeAttachments = new TreeMap<String, byte[]>();
+        for (var entry : attachments.entrySet())
+            try (var input = store.open(entry.getValue().file())) {
+                wholeAttachments.put(entry.getKey(), input.readAllBytes());
+            }
+        assertThat(reports(whole)).hasSize(5);
+        // One report a window, two a window, and a byte limit that makes every window of more
+        // than one report too large (each is read again smaller).
+        for (var small : List.of(window(1, 64L << 20), window(2, 64L << 20), window(4, 1500))) {
+            bounds = small;
+            String windowed = assemble();
+            assertThat(windowed).isEqualTo(whole);
+            assertThat(receipts)
+                    .usingRecursiveFieldByFieldElementComparator()
+                    .containsExactlyElementsOf(wholeReceipts);
+            assertThat(expected).containsExactlyInAnyOrderElementsOf(wholeExpected);
+            assertThat(attachments.keySet()).isEqualTo(wholeAttachments.keySet());
+            for (var entry : attachments.entrySet())
+                try (var input = store.open(entry.getValue().file())) {
+                    assertThat(input.readAllBytes()).isEqualTo(wholeAttachments.get(entry.getKey()));
+                }
+        }
+    }
+
+    @Test
+    void shouldExportEveryHrmReport_whenAChartHoldsMoreThanOneWindowOfThem() throws Exception {
+        // Before: 8,193 stored reports stopped the job with RESOURCE_LIMIT (maxNativeRows), and
+        // the captured file descriptors failed it at the same number.
+        int count = CdsExportClinicalOccurrenceService.Bounds.WINDOW_ROWS + 1;
+        for (int id = 1; id <= count; id++)
+            report(id, CdsExportHospitalReportFileSourceReader.State.MISSING, null);
+        add(CdsExportHospitalReportMapperUnitTest.comment(900_001, count, "0", "The last report"));
+        provider("101", "Ada", "Reviewer", "123456");
+        String xml = assemble();
+        assertThat(reports(xml)).hasSize(count);
+        assertThat(reports(xml).getLast()).contains("The last report");
+        assertThat(receipts).hasSize(count);
+        assertThat(receipts)
+                .extracting(CdsExportClinicalOccurrenceService.Receipt::nativeId)
+                .containsExactlyElementsOf(
+                        java.util.stream.IntStream.rangeClosed(1, count)
+                                .mapToObj(Integer::toString)
+                                .toList());
+        assertThat(expected).hasSize(count);
+        assertThat(result.nativeRows()).isEqualTo(count);
+    }
+
+    @Test
+    void shouldRefuseAChildOfNoReport_whenAChartIsReadInWindows() throws Exception {
+        mixedChart();
+        add(CdsExportHospitalReportMapperUnitTest.comment(299, 77, "0", "Orphan"));
+        bounds = window(2, 64L << 20);
+        assertThatThrownBy(this::assemble)
+                .isInstanceOf(IOException.class)
+                .hasMessage("CDS_EXPORT_HRM_REPORT_OCCURRENCE_INVALID");
+        assertThat(attachments).isEmpty();
+    }
+
+    @Test
+    void shouldRefuseAReportWithoutALink_whenAChartIsReadInWindows() throws Exception {
+        mixedChart();
+        rows("HRMDocumentToDemographic")
+                .values()
+                .removeIf(link -> "12".equals(link.get("hrmDocumentId")));
+        bounds = window(2, 64L << 20);
+        assertThatThrownBy(this::assemble)
+                .isInstanceOf(IOException.class)
+                .hasMessage("CDS_EXPORT_HRM_REPORT_OCCURRENCE_INVALID");
+    }
+
+    @Test
+    void shouldRefuseAFileOfNoReportAndAReportWithoutAFile_whenAChartIsReadInWindows()
+            throws Exception {
+        mixedChart();
+        files.put(77, files.remove(12));
+        bounds = window(2, 64L << 20);
+        assertThatThrownBy(this::assemble)
+                .isInstanceOf(IOException.class)
+                .hasMessageMatching("CDS_EXPORT_(HRM_REPORT_OCCURRENCE|HOSPITAL_REPORT_CAPTURE)_INVALID");
+    }
+
+    @Test
+    void shouldHoldThePatient_forALinkSpelledOtherwiseInAWindowThatDoesNotKeepIt() throws Exception {
+        mixedChart();
+        rows("HRMDocumentToDemographic").lastEntry().getValue().put("hrmDocumentId", "012");
+        bounds = window(1, 64L << 20);
+        assertThatThrownBy(this::assemble)
+                .isInstanceOf(CdsExportMappingReviewException.class)
+                .hasMessage("CDS_EXPORT_HRM_REPORT_LINK_REQUIRES_REVIEW");
+        assertThat(attachments).isEmpty();
     }
 }

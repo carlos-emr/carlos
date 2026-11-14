@@ -27,7 +27,7 @@ import java.io.*;
 import java.nio.charset.*;
 import java.util.*;
 
-/** Bounded file descriptors are usable only after the complete source/index authenticated scan. */
+/** File descriptors are usable only after the complete source/index authenticated scan. */
 final class CdsExportCapturedDocumentFiles {
     record File(int document, String filename, CdsExportCapturedFieldDto content) {
         @Override
@@ -36,6 +36,7 @@ final class CdsExportCapturedDocumentFiles {
         }
     }
 
+    /** Every captured document file of the chart, by document. */
     Map<Integer, File> read(
             CdsExportNativeCaptureService captures,
             CdsExportLeaseDto lease,
@@ -45,8 +46,31 @@ final class CdsExportCapturedDocumentFiles {
             CdsExportClinicalOccurrenceService.Bounds bounds,
             CdsExportRunControl control)
             throws IOException {
+        return read(captures, lease, patient, tables, source, bounds, control, null, null);
+    }
+
+    /**
+     * The captured files of the documents one section window holds. Every file row of the
+     * capture is read and checked in every pass, whether or not the window keeps it; no count of
+     * them refuses the chart.
+     *
+     * @param keep the documents of the window, or null to keep every file
+     * @param budget counts each kept file against the window; null to count none
+     * @return the kept files, or null when the window passed its budget
+     */
+    Map<Integer, File> read(
+            CdsExportNativeCaptureService captures,
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> tables,
+            CdsExportPatientCaptureDto source,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control,
+            java.util.function.IntPredicate keep,
+            CdsExportSectionWindowPlanner.Budget budget)
+            throws IOException {
         var files = new TreeMap<Integer, File>();
-        try (var fields = new Fields(bounds.nativeRows(), files)) {
+        try (var fields = new Fields(files, keep, budget)) {
             var actual =
                     captures.scan(
                             lease,
@@ -59,7 +83,7 @@ final class CdsExportCapturedDocumentFiles {
                             fields);
             fields.finish();
             if (!actual.equals(source.capture())
-                    || files.size()
+                    || fields.count
                             != actual.tables().get(CdsExportDocumentFileSourceReader.TABLE).rows())
                 invalid();
             captures.authorizeSources(lease, patient, tables, control);
@@ -69,13 +93,17 @@ final class CdsExportCapturedDocumentFiles {
                     io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory.REPORTS,
                     false);
         }
+        if (budget != null && budget.exceeded()) return null;
         return Map.copyOf(files);
     }
 
     private static final class Fields
             implements CdsExportNativeCaptureReader.Fields, AutoCloseable {
-        private final int maximum;
         private final Map<Integer, File> files;
+        private final java.util.function.IntPredicate keep;
+        private final CdsExportSectionWindowPlanner.Budget budget;
+        /** File rows read, kept or not. The capture's rising row keys make each a different document. */
+        private long count;
         private final Map<String, CdsExportCapturedFieldDto> fields = new HashMap<>();
         private final Map<String, String> text = new HashMap<>();
         private String key;
@@ -83,9 +111,13 @@ final class CdsExportCapturedDocumentFiles {
         private ByteArrayOutputStream value;
         private boolean closed;
 
-        Fields(int maximum, Map<Integer, File> files) {
-            this.maximum = maximum;
+        Fields(
+                Map<Integer, File> files,
+                java.util.function.IntPredicate keep,
+                CdsExportSectionWindowPlanner.Budget budget) {
             this.files = files;
+            this.keep = keep;
+            this.budget = budget;
         }
 
         @Override
@@ -146,8 +178,12 @@ final class CdsExportCapturedDocumentFiles {
             } catch (NumberFormatException malformed) {
                 throw new IOException("CDS_EXPORT_DOCUMENT_CAPTURE_INVALID");
             }
-            if (files.size() >= maximum
-                    || files.putIfAbsent(
+            count++;
+            // A window found too large keeps nothing more; it is read again with fewer documents.
+            if ((keep == null || keep.test(id))
+                    && (budget == null
+                            || budget.add(3, 512L + 2L * text.get("filename").length()))
+                    && files.putIfAbsent(
                                     id, new File(id, text.get("filename"), fields.get("content")))
                             != null) invalid();
             fields.clear();

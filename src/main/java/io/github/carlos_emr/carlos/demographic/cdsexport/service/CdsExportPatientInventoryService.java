@@ -527,29 +527,35 @@ public class CdsExportPatientInventoryService {
         // A report whose CARLOS context is longer than Reports/Notes holds: one companion Reports
         // record, and the supplementary record of an imported report without Notes of its own
         // (CdsExportReportContext, CdsExportReportContextPlanner).
+        // The documents are read and mapped window by window: only the identities are kept.
         if (contexts != null)
-            for (var identity :
-                    contexts.identities(
-                            lease,
-                            patient,
-                            patientKey,
-                            tables,
-                            source,
-                            index,
-                            bounds,
-                            control,
-                            documents,
-                            documentDigests))
-                add(expected, identity);
+            contexts.forEachIdentity(
+                    lease,
+                    patient,
+                    patientKey,
+                    tables,
+                    source,
+                    index,
+                    bounds,
+                    control,
+                    documents,
+                    documentDigests,
+                    identity -> add(expected, identity));
         // HRM reports: one Reports occurrence per report linked to the patient.
         if (CdsExportHospitalReportOccurrenceService.captured(tables)) {
             if (hospitalReports == null
                     || !lease.document().command().categories().contains(CdsCategory.REPORTS))
                 invalid();
-            for (var identity :
-                    hospitalReports.identities(
-                            lease, patient, patientKey, tables, source, bounds, control))
-                add(expected, identity);
+            // Window by window: only the identities are kept.
+            hospitalReports.forEachIdentity(
+                    lease,
+                    patient,
+                    patientKey,
+                    tables,
+                    source,
+                    bounds,
+                    control,
+                    identity -> add(expected, identity));
         }
         // Data-summary records (registration point): one Reports occurrence per planned record.
         if (CdsExportDataSummaryOccurrenceService.captured(tables)) {
