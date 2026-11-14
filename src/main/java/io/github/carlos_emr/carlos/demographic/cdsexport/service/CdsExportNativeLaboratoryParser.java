@@ -125,8 +125,10 @@ final class CdsExportNativeLaboratoryParser {
     @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "matches the one-letter HL7 do-not-disclose indicator Y or y; only y and Y fold to it, and a match blocks the message, so folding can only withhold")
     Parsed parse(String encoded, Runnable checkpoint) throws IOException {
         try {
-            if (encoded == null || encoded.isEmpty() || encoded.length() > 2_800_000)
-                review("CDS_EXPORT_NATIVE_LAB_MESSAGE_CAPACITY");
+            // No size is refused: a report with embedded documents is as long as the laboratory
+            // made it, and one message is parsed at a time.
+            if (encoded == null || encoded.isEmpty())
+                review("CDS_EXPORT_NATIVE_LAB_MESSAGE_ENCODING");
             byte[] bytes = Base64.getDecoder().decode(encoded.replaceAll("[\\t\\r\\n ]", ""));
             String text;
             try {
@@ -140,7 +142,8 @@ final class CdsExportNativeLaboratoryParser {
             } finally {
                 Arrays.fill(bytes, (byte) 0);
             }
-            if (!text.startsWith("MSH") || !CdsExportNativeFieldAssessments.legal(text, 2_100_000))
+            if (!text.startsWith("MSH")
+                    || !CdsExportNativeFieldAssessments.legal(text, Integer.MAX_VALUE))
                 review("CDS_EXPORT_NATIVE_LAB_MESSAGE_ENCODING");
             // PipeParser never accepts XML, entities, DTDs or network schema locations.
             var parser = new PipeParser();
@@ -149,7 +152,7 @@ final class CdsExportNativeLaboratoryParser {
             parser.setValidationContext(new ValidationContextImpl());
             Message message = parser.parse(segmentBreaks(text));
             var segments = new ArrayList<Segment>();
-            collect(message, segments, 0, checkpoint);
+            collect(message, segments, checkpoint);
             if (segments.isEmpty() || !segments.getFirst().getName().equals("MSH")) invalid();
             var msh = segments.getFirst();
             // "ORU" without its R01 trigger never gets here: HAPI cannot tell the structure from
@@ -249,8 +252,6 @@ final class CdsExportNativeLaboratoryParser {
                     results,
                     orderComments,
                     resultComments);
-            if (observations.size() + documents.size() > 8192)
-                review("CDS_EXPORT_NATIVE_LAB_RESULT_CAPACITY");
             return new Parsed(
                     message, observations, documents, blockedMessage, raw(text, segments));
         } catch (HL7Exception | IllegalArgumentException | CharacterCodingException failure) {
@@ -279,8 +280,6 @@ final class CdsExportNativeLaboratoryParser {
         int repetitions =
                 "TX".equals(type) || "FT".equals(type) ? 1 : Math.max(1, result.getField(5).length);
         var target = "ED".equals(type) ? documents : output;
-        if (repetitions > 8192 || output.size() + documents.size() > 8192 - repetitions)
-            review("CDS_EXPORT_NATIVE_LAB_RESULT_CAPACITY");
         for (int i = 0; i < repetitions; i++)
             target.add(
                     new Observation(
@@ -376,17 +375,15 @@ final class CdsExportNativeLaboratoryParser {
         return out.toString();
     }
 
-    private static void collect(Group group, List<Segment> output, int depth, Runnable checkpoint)
+    private static void collect(Group group, List<Segment> output, Runnable checkpoint)
             throws HL7Exception, IOException {
-        if (depth > 32) review("CDS_EXPORT_NATIVE_LAB_MESSAGE_DEPTH");
         for (String name : group.getNames())
             for (var structure : group.getAll(name)) {
                 checkpoint.run();
                 if (structure instanceof Segment segment) output.add(segment);
                 else if (structure instanceof Group child)
-                    collect(child, output, depth + 1, checkpoint);
+                    collect(child, output, checkpoint);
                 else invalid();
-                if (output.size() > 32768) review("CDS_EXPORT_NATIVE_LAB_SEGMENT_CAPACITY");
             }
     }
 

@@ -556,6 +556,28 @@ class CdsExportNativeLaboratoryMapperUnitTest {
     }
 
     @Test
+    void shouldParseTheWholeMessage_whenItIsLongerOrHasMoreResultsThanTheFormerLimits()
+            throws Exception {
+        // Before: a message past about 2.1 MB (CDS_EXPORT_NATIVE_LAB_MESSAGE_CAPACITY), 8,192
+        // results (..._RESULT_CAPACITY) or 32,768 segments (..._SEGMENT_CAPACITY) held the patient.
+        var text = new StringBuilder(message());
+        for (int i = 0; i < 8200; i++)
+            text.append("OBX|")
+                    .append(100 + i)
+                    .append("|NM|2345-7^Glucose^LN||5.4|mmol/L|||||F\r");
+        text.append("NTE|1||").append("n".repeat(2_200_000)).append('\r');
+        var parsed =
+                new CdsExportNativeLaboratoryParser()
+                        .parse(
+                                Base64.getEncoder()
+                                        .encodeToString(
+                                                text.toString().getBytes(StandardCharsets.UTF_8)),
+                                () -> {});
+        assertThat(parsed.observations()).hasSizeGreaterThan(8200);
+        assertThat(parsed.observations().getLast().comments()).hasSize(1);
+    }
+
+    @Test
     void
             shouldPreservePartialDateAndExplicitOffsetPrecision_andNeverInventMinuteSecondsOrDstOffsets()
                     throws Exception {

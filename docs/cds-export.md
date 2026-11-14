@@ -1298,6 +1298,7 @@ the record's CARLOS residual. These numbers were CARLOS's own and are gone:
 | 8,192 revisions of a note, 8,192 note rows, chains or reviews per chart | `CdsExportNativeHistoryMapper`, `CdsExportNoteRevisionPlanner` | the job | removed here; the history occurrence service's own window still applies |
 | 4,096 import runs naming one chart | `CdsExportImportOptionsSourceReader` | the whole job (`CDS_EXPORT_IMPORT_OPTIONS_RUN_LIMIT`) | every run is read |
 | 10,000 prevention rows | `CdsExportPreventionScopePlanner` | the whole job | every row is planned |
+| An HL7 report of about 2.1 MB, 8,192 results or 32,768 segments | `CdsExportNativeLaboratoryParser` | the patient (`CDS_EXPORT_NATIVE_LAB_MESSAGE_CAPACITY`, `..._RESULT_CAPACITY`, `..._SEGMENT_CAPACITY`) | the message is parsed whole, one message at a time; a report with an embedded PDF is as long as the laboratory made it |
 | 1,024 characters per care value, as a hold | `CdsExportNativeCareMapper` | the patient | the schema's 1,024 only decides whether the observation gets a standard element |
 
 What these mappers hold in memory is one chart's rows of the tables they map (its
