@@ -159,6 +159,9 @@ public final class CdsExportScalingFixture {
                                     + ":vendorCode="
                                     + database.getErrorCode()
                             : "";
+            // Prints only the exception's simple class name and this fixture's own method and
+            // line (read from the frames above), never a message, trace, SQL, path or value.
+            // nosemgrep: java.lang.security.audit.active-debug-code-getstacktrace.active-debug-code-getstacktrace
             System.err.println(
                     "CDS_EXPORT_SCALING_FIXTURE_FAILED:"
                             + failure.getClass().getSimpleName()

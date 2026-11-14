@@ -2600,12 +2600,12 @@ public final class CdsExportPatientTableReadSupport {
         requireReadTransaction();
         // Package-owned callers use finite enum identifier plans; patient, keys, offsets and
         // lengths are bound values. No client SQL enters this boundary.
+        // The suppression sits on the line before createNativeQuery, where Semgrep reports.
+        // nosemgrep:java.lang.security.audit.formatted-sql-string.formatted-sql-string,java.lang.security.audit.sqli.jpa-sqli.jpa-sqli
+        Query query = em.createNativeQuery(sql, Object[].class).setFlushMode(FlushModeType.COMMIT);
         // A read waits for its answer and is sent again when the server ends it at its
         // deadline: no statement of an export fails for how long the database takes.
-        // nosemgrep:java.lang.security.audit.formatted-sql-string.formatted-sql-string,java.lang.security.audit.sqli.jpa-sqli.jpa-sqli
-        return CdsExportStatementWaitReadSupport.waiting(
-                em,
-                em.createNativeQuery(sql, Object[].class).setFlushMode(FlushModeType.COMMIT));
+        return CdsExportStatementWaitReadSupport.waiting(em, query);
     }
 
     /** Every export read runs inside an explicit read-only transaction. */
