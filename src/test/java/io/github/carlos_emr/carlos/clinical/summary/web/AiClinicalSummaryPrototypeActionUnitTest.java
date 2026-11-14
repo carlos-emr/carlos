@@ -25,6 +25,8 @@ import org.mockito.MockedStatic;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import static org.mockito.ArgumentMatchers.*;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 
 class AiClinicalSummaryPrototypeActionUnitTest extends CarlosUnitTestBase {
     private final HttpServletRequest request = mock(HttpServletRequest.class);
@@ -174,6 +176,14 @@ class AiClinicalSummaryPrototypeActionUnitTest extends CarlosUnitTestBase {
         verify(request, never()).setAttribute(eq("summaryGenerated"), any());
         verify(request).setAttribute("summaryArtifact", fresh.getView());
         verify(request).setAttribute(eq("summaryGenerationError"), contains("chart changed"));
+        // Both rows are chart-level: the patient is the key, there is no document id, and no note text.
+        logActionMock.verify(() -> LogAction.addLogSynchronous(user, "ClinicalSummary.generate",
+                LogConst.CON_AI_CLINICAL_SUMMARY, null, 42, "demographicNo=42"));
+        logActionMock.verify(() -> LogAction.addLogSynchronous(user, "ClinicalSummary.generateRejected",
+                LogConst.CON_AI_CLINICAL_SUMMARY, null, 42, "demographicNo=42"));
+        logActionMock.verify(() -> LogAction.addLogSynchronous(any(), anyString(), anyString()), never());
+        logActionMock.verify(() -> LogAction.addLogSynchronous(any(), anyString(), contains("Changed note"),
+                any(), any(), anyString()), never());
     }
 
     @ParameterizedTest
