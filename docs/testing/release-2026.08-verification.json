@@ -4548,6 +4548,16 @@
               "name": "shouldDeferTheRelease_whileAnotherRunStillHoldsAChart",
               "container": "",
               "check": "java-cds-transfer-import"
+            },
+            {
+              "name": "shouldRecordAnUnreadableReceiptAsUnverifiable_insteadOfAbortingTheAbandon",
+              "container": "",
+              "check": "java-cds-transfer-import"
+            },
+            {
+              "name": "shouldLetARootDelegatedOperatorAbandonABrowserStartedRun_forItsProviderOnly",
+              "container": "",
+              "check": "java-cds-transfer-import"
             }
           ]
         }
