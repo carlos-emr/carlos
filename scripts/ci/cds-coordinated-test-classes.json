@@ -44,6 +44,7 @@
   "io.github.carlos_emr.carlos.app.contract.CdsTransferPermissionSeedMariaDbIntegrationTest",
   "io.github.carlos_emr.carlos.app.contract.MutatorActionGetRejectionContractUnitTest",
   "io.github.carlos_emr.carlos.casemgmt.dao.CdsExportNoteAccessDaoMariaDbIntegrationTest",
+  "io.github.carlos_emr.carlos.casemgmt.dao.CdsExportNoteAccessDaoUnitTest",
   "io.github.carlos_emr.carlos.casemgmt.dao.CdsExportNoteSourceMariaDbIntegrationTest",
   "io.github.carlos_emr.carlos.commn.dao.CdsClientFormDaoIntegrationTest",
   "io.github.carlos_emr.carlos.commn.dao.CdsClientFormDataDaoIntegrationTest",

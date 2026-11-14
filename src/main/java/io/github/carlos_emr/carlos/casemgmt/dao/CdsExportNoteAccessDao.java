@@ -194,7 +194,7 @@ public class CdsExportNoteAccessDao extends AbstractJpaDao {
                 || reporter.getFirst().isBlank()
                 || ownRole.size() != 1) return false;
         if (role == Long.parseLong(scope.reporterRole())) return true;
-        String accessName = "read " + reporter.getFirst().toLowerCase() + " notes";
+        String accessName = "read " + folded(reporter.getFirst()) + " notes";
         // RoleProgramAccessDAO.hasAccess uses the database's equality semantics and does not filter
         // AccessType.type.
         List<?> defaults =
@@ -226,12 +226,26 @@ public class CdsExportNoteAccessDao extends AbstractJpaDao {
         if (grants.size() > 4096) deny();
         Object[] selected = null;
         for (Object[] grant : grants)
-            if (grant[1] instanceof String name && accessName.equals(name.toLowerCase())) {
+            if (grant[1] instanceof String name && accessName.equals(folded(name))) {
                 if (selected != null)
                     return false; // duplicate map keys have no stable owning-reader precedence
                 selected = grant;
             }
         return selected != null && (truth(selected[2]) || truth(selected[3]));
+    }
+
+    /**
+     * Lower-case form of a role or access-type name for the "read ROLE notes" rule. The fold is
+     * pinned to {@link java.util.Locale#ROOT}: who may read a note must not depend on the JVM's
+     * default locale. Under a Turkish default, the I of "ADMIN" folds to a dotless i and the
+     * role would no longer equal its own "read admin notes" grant. The folded names are compared
+     * exactly, so a name that differs in any other way (another script, another normalization
+     * form) is not matched and the note stays unreadable.
+     */
+    // FindSecBugs IMPROPER_UNICODE: Role and access-type names of an authorization rule, folded with Locale.ROOT and then compared exactly; a name that does not fold to the same characters is denied.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "role and access-type names of an authorization rule, folded with Locale.ROOT and then compared exactly; a name that does not fold to the same characters is denied")
+    static String folded(String name) {
+        return name.toLowerCase(java.util.Locale.ROOT);
     }
 
     /**
