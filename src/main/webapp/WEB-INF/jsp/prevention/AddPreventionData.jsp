@@ -150,7 +150,36 @@
 
     if (id != null) {
 
-        existingPrevention = PreventionData.getPreventionById(id);
+        // When the record cannot be shown, this window shows only the reason. The entry form with
+        // today's date and empty fields would present defaults as the saved record and let them
+        // be saved over it.
+        String recordUnavailableKey = null;
+        try {
+            existingPrevention = PreventionData.getPreventionById(id);
+            if (existingPrevention == null) {
+                // No record has this id (or the id is not a number). The page used to fail on a
+                // null here; the record may have been removed or replaced by a newer version.
+                recordUnavailableKey = "prevention.unreadable.recordNotFound";
+            }
+        } catch (io.github.carlos_emr.carlos.prevention.dto.PreventionSourceUnavailableException unavailable) {
+            PreventionData.logUnreadable("prevention record popup", demographic_no);
+            recordUnavailableKey = "prevention.unreadable.record";
+        }
+        if (recordUnavailableKey != null) {
+%>
+<!DOCTYPE html>
+<html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
+<head>
+    <title><fmt:message key="oscarprevention.index.oscarpreventiontitre"/></title>
+</head>
+<body>
+<div class="prevention-unreadable" role="alert"
+     style="color:#842029; background:#f8d7da; border:1px solid #f5c2c7; padding:10px 14px; margin:12px; font-family:sans-serif;"><fmt:message key="<%= recordUnavailableKey %>"/></div>
+</body>
+</html>
+<%
+            return;
+        }
 
         prevDate = (String) existingPrevention.get("preventionDate");
         prevDate = partialDateDao.getDatePartial(prevDate, PartialDate.PREVENTION, Integer.parseInt(id), PartialDate.PREVENTION_PREVENTIONDATE);

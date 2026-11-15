@@ -134,7 +134,7 @@ Some reads deliberately use bounded current projections because ordinary APIs ca
 | Native receipts | Server-side length/hash projection rather than materializing large native values |
 | Filesystem storage | Reservations, inode/free-space admission and ownership-aware publication/retention |
 
-Physical I/O controls check local interruption and stage/attempt budgets on bounded reads. Fresh physical ownership/control probes remain bounded in time and are forced at critical boundaries. Query optimization must preserve these checks, current permissions and all receipt hashes.
+Physical I/O controls check local interruption and the attempt's stall window on bounded reads; no stage has a clock of its own, and nothing limits how long a progressing import runs. Fresh physical ownership/control probes remain bounded in time and are forced at critical boundaries. Query optimization must preserve these checks, current permissions and all receipt hashes.
 
 The [resource verification contract](cds-import-performance.md) defines the measured heap, RSS, cgroup, SQL, time and storage gates. A heap flag alone does not establish total memory use, and a CI throughput observation does not predict upload time or every production workload.
 

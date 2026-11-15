@@ -308,7 +308,7 @@ async function expectedProxyFixture(options={}) {
   const f=await networkFixture(options),token='a'.repeat(32);
   const selected=f.emit(1,{url:'http://localhost/carlos/form/cdsImportSubmit',method:'POST',status:504,
     body:'apiVersion=2&uploadId='+acceptedUpload,headers:{'content-type':'text/html','x-owned-proxy':token},
-    ...(options.requestChanges || {})});
+    ...options.requestChanges});
   const badResponse={status:selected.response.status(),url:selected.request.url(),method:selected.request.method(),resourceType:selected.request.resourceType()};
   f.recorder.badResponses.push(badResponse);await Promise.resolve();
   const fault={kind:'nginx',accepted:true,proxyVerified:true,status:504,runId:acceptedRun,uploadId:acceptedUpload,

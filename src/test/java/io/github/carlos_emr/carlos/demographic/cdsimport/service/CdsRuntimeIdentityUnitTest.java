@@ -1,23 +1,20 @@
 /**
  * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  *
- * This software is published under the GPL GNU General Public License.
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ * <p>This software is published under the GPL GNU General Public License. This program is free
+ * software; you can redistribute it and/or modify it under the terms of the GNU General Public
+ * License as published by the Free Software Foundation; either version 2 of the License, or (at
+ * your option) any later version.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * <p>This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>You should have received a copy of the GNU General Public License along with this program; if
+ * not, write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
  *
- * CARLOS EMR Project
- * https://github.com/carlos-emr/carlos
+ * <p>CARLOS EMR Project https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
@@ -25,12 +22,9 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportExcept
 
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsCalendarZone;
 
-
-
 import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 
 import static org.assertj.core.api.Assertions.*;
-
 
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -60,25 +54,35 @@ class CdsRuntimeIdentityUnitTest {
         Path second = Files.copy(first, folder.resolve("renamed.jar"));
         Files.setLastModifiedTime(second, FileTime.fromMillis(1));
         byte[] buffer = new byte[65536];
-        String expected = CdsRuntimeIdentity.artifactHash(first, 1000, buffer);
-        assertThat(CdsRuntimeIdentity.artifactHash(second, 1000, buffer)).isEqualTo(expected);
+        String expected = CdsRuntimeIdentity.artifactHash(first, buffer);
+        assertThat(CdsRuntimeIdentity.artifactHash(second, buffer)).isEqualTo(expected);
         Files.writeString(second, "synthetic changed artifact bytes");
-        assertThat(CdsRuntimeIdentity.artifactHash(second, 1000, buffer)).isNotEqualTo(expected);
+        assertThat(CdsRuntimeIdentity.artifactHash(second, buffer)).isNotEqualTo(expected);
     }
 
     @Test
-    void shouldRefuseRuntimeIdentity_whenArtifactOriginIsOversizedMissingOrDirectory()
-            throws Exception {
+    void shouldHashTheModuleImage_whenItIsLargerThan512MiB() throws Exception {
+        // A JDK module image over 512 MiB (or a jar over 128 MiB) once stopped every import and
+        // export. The stand-in is sparse: its 513 MiB of zeros are read, never stored.
+        Path modules = temp.resolve("modules");
+        try (var file = new java.io.RandomAccessFile(modules.toFile(), "rw")) {
+            file.setLength((512L << 20) + (1L << 20));
+        }
+        byte[] buffer = new byte[65536], none = new byte[65536];
+        var zeros = CdsImportKeys.digest();
+        for (long left = Files.size(modules); left > 0; left -= none.length)
+            zeros.update(none, 0, (int) Math.min(none.length, left));
+        assertThat(CdsRuntimeIdentity.artifactHash(modules, buffer))
+                .isEqualTo(java.util.HexFormat.of().formatHex(zeros.digest()));
+    }
+
+    @Test
+    void shouldRefuseRuntimeIdentity_whenArtifactOriginIsMissingOrADirectory() {
         byte[] buffer = new byte[65536];
-        Path file = Files.write(temp.resolve("oversized.jar"), new byte[101]);
-        assertThatThrownBy(() -> CdsRuntimeIdentity.artifactHash(file, 100, buffer))
-                .hasMessageContaining("IMPORT_RULESET_RUNTIME_UNAVAILABLE");
         assertThatThrownBy(
-                        () ->
-                                CdsRuntimeIdentity.artifactHash(
-                                        temp.resolve("missing.jar"), 100, buffer))
+                        () -> CdsRuntimeIdentity.artifactHash(temp.resolve("missing.jar"), buffer))
                 .hasMessageContaining("IMPORT_RULESET_RUNTIME_UNAVAILABLE");
-        assertThatThrownBy(() -> CdsRuntimeIdentity.artifactHash(temp, 1000, buffer))
+        assertThatThrownBy(() -> CdsRuntimeIdentity.artifactHash(temp, buffer))
                 .hasMessageContaining("IMPORT_RULESET_RUNTIME_UNAVAILABLE");
     }
 
@@ -94,22 +98,36 @@ class CdsRuntimeIdentityUnitTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings={"com/google/common/base/Ascii.class","com/google/common/base/CharMatcher.class",
-            "org/mariadb/jdbc/Driver.class"})
+    @ValueSource(
+            strings = {
+                "com/google/common/base/Ascii.class",
+                "com/google/common/base/CharMatcher.class",
+                "org/mariadb/jdbc/Driver.class"
+            })
     @ResourceLock("java.util.TimeZone")
     @ResourceLock("java.util.Locale")
-    void shouldRefuseRuntimeIdentity_whenAnActualSemanticDependencyIsUnavailable(String hiddenResource) {
-        ClassLoader deployed=CdsRuntimeIdentity.class.getClassLoader();
+    void shouldRefuseRuntimeIdentity_whenAnActualSemanticDependencyIsUnavailable(
+            String hiddenResource) {
+        ClassLoader deployed = CdsRuntimeIdentity.class.getClassLoader();
         assertThat(deployed.getResource(hiddenResource)).isNotNull();
-        var hiddenRequests=new AtomicInteger();
-        ClassLoader unavailable=new ClassLoader(deployed) {
-            @Override public java.net.URL getResource(String name) {
-                if (hiddenResource.equals(name)) {hiddenRequests.incrementAndGet();return null;}
-                return super.getResource(name);
-            }
-        };
-        assertThatThrownBy(()->CdsRuntimeIdentity.addTo(CdsImportKeys.digest(),unavailable,new byte[65536]))
-                .isInstanceOf(CdsImportException.class).hasMessage("IMPORT_RULESET_RUNTIME_UNAVAILABLE");
+        var hiddenRequests = new AtomicInteger();
+        ClassLoader unavailable =
+                new ClassLoader(deployed) {
+                    @Override
+                    public java.net.URL getResource(String name) {
+                        if (hiddenResource.equals(name)) {
+                            hiddenRequests.incrementAndGet();
+                            return null;
+                        }
+                        return super.getResource(name);
+                    }
+                };
+        assertThatThrownBy(
+                        () ->
+                                CdsRuntimeIdentity.addTo(
+                                        CdsImportKeys.digest(), unavailable, new byte[65536]))
+                .isInstanceOf(CdsImportException.class)
+                .hasMessage("IMPORT_RULESET_RUNTIME_UNAVAILABLE");
         assertThat(hiddenRequests).hasValue(1);
     }
 

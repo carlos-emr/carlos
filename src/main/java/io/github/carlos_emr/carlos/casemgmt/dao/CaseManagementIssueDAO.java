@@ -39,7 +39,7 @@ import io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementIssueListDTO;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 
-public interface CaseManagementIssueDAO {
+public interface CaseManagementIssueDAO extends io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadDao {
 
     public List<CaseManagementIssue> getIssuesByDemographic(String demographic_no);
 
@@ -106,6 +106,10 @@ public interface CaseManagementIssueDAO {
      * @param issue issue to insert (no positive identifier) or write
      */
     public void saveIssue(CaseManagementIssue issue);
+
+    /** Inserts a new CDS-restored marker with its source change time; never updates an existing row. */
+    void insertCdsMarker(CaseManagementIssue issue);
+
 
     public List<CaseManagementIssue> getAllCertainIssues();
 
