@@ -312,3 +312,29 @@ historical metric assertions. Source freshness passes; 92 files without measured
 line coverage, 88 unreviewed zero floors and unmet historical assertions remain
 explicit. These overlapping executions are not unique-test sums, and this
 checkpoint adds no waiver or lower threshold.
+
+
+The PR #5706 completion refresh binds the final production Java tree at
+`494f6e24cb2051cdf184043637a62bf48cb242ac` to 1,592 source floors and eleven
+nonexecutable package annotations. The full JDK 25 H2 execution has 41,314 cases,
+zero failures/errors and 474 exactly routed skips. The broad physical MariaDB
+execution passes 5,659 cases in 439 suites without skips. Final deadline and
+maintenance checks pass 109 cases, connection-policy checks pass 35, and all
+five permission cases pass as an unprivileged user. These runs overlap and are
+not summed as unique tests.
+
+Earlier executions use `ccf1fc0a23cca5adbfec67925240eb88b8529cad`; 7,646 of the
+7,653 final production class files are byte-identical. The report selects the
+exact final JaCoCo class IDs, so earlier versions of the seven changed classes
+supply no coverage. A missing final-class execution remains uncovered. Each
+input records its own source, execution hash and strict report-manifest hash.
+This is a source-bound baseline refresh, not a receipt from the separate
+all-release-lane ratchet.
+
+All four required ZIP refusal lines and 432 higher historical metrics across
+210 files are retained. The full release comparison still refuses 76 unreviewed
+zero floors and misses 145 line, 164 instruction and 123 branch floors. Seven
+old floor entries are outside the current comparison because their sources
+were removed or restored to the reviewed base. No executable exclusion, lower
+floor or zero-coverage waiver was added. Passing PR source freshness does not
+certify those outstanding release-wide coverage requirements.
