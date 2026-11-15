@@ -81,7 +81,7 @@ final class CdsMergedChartStreamReader {
                         .onUnmappableCharacter(CodingErrorAction.REPORT))
                 .setBufferSize(8192).get()) {
             digest = CdsMergedChartContract.verifyDocument(chart, document);
-        } catch (CharacterCodingException malformed) {
+        } catch (CharacterCodingException _) {
             throw invalid();
         }
         expect(',');
@@ -103,7 +103,6 @@ final class CdsMergedChartStreamReader {
                 String name = string(longestName);
                 if (!CdsCategory.wireNames().contains(name)) throw invalid();
                 CdsCategory category = CdsCategory.fromWireName(name);
-                if (positions.containsKey(category)) throw invalid();
                 expect(':');
                 expect('{');
                 key("first");
@@ -112,7 +111,8 @@ final class CdsMergedChartStreamReader {
                 key("count");
                 long count = number();
                 expect('}');
-                positions.put(category, new CdsMergedChartContract.Range(first, count));
+                if (positions.putIfAbsent(category, new CdsMergedChartContract.Range(first, count)) != null)
+                    throw invalid();
                 if (peek() != ',') break;
                 expect(',');
             }
@@ -153,7 +153,7 @@ final class CdsMergedChartStreamReader {
             text.append((char) take());
         }
         try { return Long.parseLong(text.toString()); }
-        catch (NumberFormatException malformed) { throw invalid(); }
+        catch (NumberFormatException _) { throw invalid(); }
     }
 
     private boolean pendingDigit() throws IOException {

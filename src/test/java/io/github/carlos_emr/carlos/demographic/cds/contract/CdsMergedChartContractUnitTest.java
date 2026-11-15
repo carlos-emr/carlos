@@ -226,6 +226,8 @@ class CdsMergedChartContractUnitTest {
                                         + "<CategoryDescription>x</CategoryDescription>"
                                         + RESIDUAL
                                         + "</NewCategory>"),
+                        // A DTD is forbidden even when the document otherwise validates.
+                        document("C34", "").replace("<OmdCds", "<!DOCTYPE OmdCds><OmdCds"),
                         // Not schema-valid.
                         document("C34", "<Unknown/>"))) {
             var record =

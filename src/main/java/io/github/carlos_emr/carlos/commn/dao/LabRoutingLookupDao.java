@@ -52,6 +52,8 @@ public class LabRoutingLookupDao extends AbstractDaoImpl<Demographic> {
      */
     // The column must match PROVIDER_COLUMNS exactly; all identifier values are bound parameters.
     @SuppressWarnings("java:S2077")
+    // FindSecBugs IMPROPER_UNICODE: The folded column is checked against a finite ASCII allowlist before SQL composition; identifier values remain bound parameters.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "the folded column must match the finite ASCII PROVIDER_COLUMNS allowlist; identifiers are bound parameters, not folded trust decisions")
     public List<String> findProviders(String column, String identifier, boolean ontario,
                                       Integer limit, boolean orderByLength) {
         String selected = column == null ? "ohip_no" : column.trim().toLowerCase(Locale.ROOT);
@@ -95,6 +97,8 @@ public class LabRoutingLookupDao extends AbstractDaoImpl<Demographic> {
      * @throws NullPointerException if either name is null
      * @throws ArrayIndexOutOfBoundsException if a specified DOB lacks three components
      */
+    // FindSecBugs IMPROPER_UNICODE: UNKNOWN is a legacy missing-value marker, not an identity or authorization comparison; changing this fold would change established lab routing semantics.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive UNKNOWN checks preserve legacy missing-value semantics; they do not compare identities or authorize access, and every lookup value is bound")
     public List<Patient> findHl7Patients(String lastName, String firstName, String sex, String dob,
                                        String hin, boolean ignoreNames) {
         // Legacy HL7 matching rejects null names before it can broaden a name-prefix query.

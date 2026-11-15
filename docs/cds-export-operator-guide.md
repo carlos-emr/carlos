@@ -17,7 +17,10 @@ XML validation does not establish clinical completeness or OntarioMD certificati
    for web and CLI work. An accepted job records those compatibility bindings.
    The CLI uses a minimal `C.UTF-8` process locale and sets Java's default time
    zone to the configured clinical zone. Give the web JVM the same effective
-   locale and default zone; different runtime bindings prevent shared recovery.
+   locale and default zone ID; equivalent aliases such as `UTC` and `Etc/UTC`
+   are different runtime bindings and prevent shared recovery. On Debian installs,
+   set `CARLOS_TZ` in `/etc/carlos-emr/carlos-emr.env` to the exact configured
+   clinical zone ID, then restart the service before submitting a job.
    Original import fingerprints and metadata must never be rewritten to force
    compatibility. After an upgrade, a READY package stays downloadable until it
    expires; it does not depend on the build that made it. A job that was queued or

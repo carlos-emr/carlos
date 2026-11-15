@@ -102,6 +102,7 @@ public class CdsSnapshotService {
     private final UsableSpace usableSpace;
     private final java.util.function.LongSupplier clock;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public CdsSnapshotService() {
         this(path -> Files.getFileStore(path).getUsableSpace());
     }

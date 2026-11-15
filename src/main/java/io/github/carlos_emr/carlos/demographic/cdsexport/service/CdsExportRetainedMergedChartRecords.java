@@ -30,7 +30,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
-import java.util.regex.Pattern;
 
 /**
  * The merged-chart records ({@link CdsMergedChartContract}) a sending CARLOS wrote and this
@@ -49,10 +48,6 @@ final class CdsExportRetainedMergedChartRecords {
 
     /** Field rule of their retained fields. */
     static final String RULE = "RECEIVED_MERGED_CHART_RECORD_KEPT_AS_IMPORT_SOURCE";
-
-    /** The source path of a NewCategory record's CategoryName, as the importer stores it. */
-    private static final Pattern CATEGORY_NAME =
-            Pattern.compile("(?:/[^/]+)*/NewCategory(?:\\[[0-9]+\\])?/CategoryName(?:\\[1\\])?");
 
     private CdsExportRetainedMergedChartRecords() {}
 
@@ -91,6 +86,24 @@ final class CdsExportRetainedMergedChartRecords {
                 && value != null
                 && Set.of(CdsMergedChartContract.CHART_RECORD, CdsMergedChartContract.LINKS_RECORD)
                         .contains(value)
-                && CATEGORY_NAME.matcher(path).matches();
+                && categoryNamePath(path);
+    }
+
+    /** Match the stored absolute path in one pass, without a recursive regular expression. */
+    static boolean categoryNamePath(String path) {
+        if (!path.startsWith("/") || path.contains("//")) return false;
+        int last = path.lastIndexOf('/');
+        String field = path.substring(last + 1);
+        if (!field.equals("CategoryName") && !field.equals("CategoryName[1]")) return false;
+        int start = path.lastIndexOf('/', last - 1) + 1;
+        String category = "NewCategory";
+        if (!path.regionMatches(start, category, 0, category.length())) return false;
+        int suffix = start + category.length();
+        if (suffix == last) return true;
+        if (suffix + 2 >= last || path.charAt(suffix) != '[' || path.charAt(last - 1) != ']')
+            return false;
+        for (int i = suffix + 1; i < last - 1; i++)
+            if (path.charAt(i) < '0' || path.charAt(i) > '9') return false;
+        return true;
     }
 }

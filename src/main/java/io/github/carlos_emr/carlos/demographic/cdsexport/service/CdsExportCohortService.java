@@ -195,10 +195,11 @@ public class CdsExportCohortService {
                 || manifest.epoch() != lease.epoch()
                 || !manifest.intent().equals(lease.document())) invalid();
         verifySelection(store, lease.document().command(), manifest.selection(), control);
+        var plan = plan(store, manifest.selection(), control::checkpoint);
         return new Cursor(
                 new Sealed(lease, manifest, member),
                 store.open(manifest.selection().inventory()),
-                plan(store, manifest.selection(), control::checkpoint),
+                plan,
                 control);
     }
 

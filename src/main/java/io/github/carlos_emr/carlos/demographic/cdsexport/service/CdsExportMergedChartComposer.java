@@ -164,6 +164,9 @@ public final class CdsExportMergedChartComposer {
      *     row
      * @param records whether NewCategory is selected, so the records are written
      */
+    // Cleanup throws only when composition succeeded; otherwise it is suppressed on the original
+    // failure. A failed spool deletion must never turn into a successful published package.
+    @SuppressWarnings("java:S1143")
     public Result compose(
             CdsExportStagingService store,
             OutputStream output,

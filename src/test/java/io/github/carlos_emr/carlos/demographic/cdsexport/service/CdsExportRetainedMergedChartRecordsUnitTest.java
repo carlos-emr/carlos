@@ -89,6 +89,15 @@ class CdsExportRetainedMergedChartRecordsUnitTest {
                                         dto("5", "/OmdCds[1]/PatientRecord[1]/NewCategory[2]/CategoryDescription[1]",
                                                 CdsMergedChartContract.CHART_RECORD))))
                 .isFalse();
+        for (String path : List.of("/NewCategory/CategoryName", "/NewCategory[0]/CategoryName[1]",
+                "/a".repeat(100_000) + "/NewCategory[123]/CategoryName"))
+            assertThat(CdsExportRetainedMergedChartRecords.categoryNamePath(path)).isTrue();
+        for (String path : List.of("NewCategory/CategoryName", "//NewCategory/CategoryName",
+                "/a//NewCategory/CategoryName", "/NewCategory[]/CategoryName",
+                "/NewCategory[-1]/CategoryName", "/NewCategory[1x]/CategoryName",
+                "/NewCategory[1]/CategoryName[2]", "/NewCategory[1]/CategoryName/",
+                "/a".repeat(100_000) + "/Other/CategoryName"))
+            assertThat(CdsExportRetainedMergedChartRecords.categoryNamePath(path)).isFalse();
     }
 
     private static String address(String unit) {

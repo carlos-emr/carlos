@@ -24,7 +24,7 @@ again in the same transaction ([statement deadlines are waits](cds-import-jdbc-t
 | `cds.import.enabled` | `false` | Admit imports/resume. Disabling admission does not release existing holds or maintenance. |
 | `cds.import.maintenanceGuardEnabled` | `false` | Application JDBC writer guard and bounded connections. Required for execution; admission alone still protects import metadata. |
 | `cds.import.maintenanceMode` | `false` | Explicit permission to acquire a maintenance window, separate from guard readiness. |
-| `cds.import.clinicalZone` | empty | Required IANA zone when enabled; its rules must match the web JVM zone. The CLI selects its one-shot process zone before Spring startup. |
+| `cds.import.clinicalZone` | empty | Required IANA zone when enabled; its rules must match the web JVM zone. Use the exact same zone ID for web and CLI recovery: aliases such as `UTC` and `Etc/UTC` have distinct runtime fingerprints. The CLI selects its one-shot process zone before Spring startup. Debian's web JVM uses `CARLOS_TZ` from `/etc/carlos-emr/carlos-emr.env`. |
 | `cds.import.allowedRoot` | none | Absolute root for trusted CLI source files. |
 | `cds.import.stagingRoot` | none | Absolute private engine staging/report/evidence root, also used for CLI diagnostics. |
 | `cds.import.uploadRoot` | none | Absolute private browser upload root. |

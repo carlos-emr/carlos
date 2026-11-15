@@ -40,7 +40,6 @@ import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -223,50 +222,59 @@ final class CdsMergedChartReader {
         return text.toString();
     }
 
-    private CdsFieldDto contentField(CdsRecordDto record, String name) throws IOException {
+    private CdsFieldDto contentField(CdsRecordDto occurrence, String name) throws IOException {
         var groups = new HashMap<String, Map<String, CdsFieldDto>>();
         try {
-            fields.forEachField(
-                    record,
-                    field -> {
-                        if (!Set.of("cds", "cds_dt").contains(field.namespace())) return;
-                        int slash = field.path().lastIndexOf('/');
-                        if (slash < 0) return;
-                        String parent = field.path().substring(0, slash);
-                        if (!CdsFieldParser.unindexed(parent).equals("ResidualInfo/DataElement"))
-                            return;
-                        String leaf = CdsFieldParser.unindexed(field.path().substring(slash + 1));
-                        if (!Set.of("Name", "DataType", "Content").contains(leaf)) return;
-                        if (!field.kind().equals("TEXT")
-                                || groups.computeIfAbsent(parent, ignored -> new HashMap<>())
-                                                .putIfAbsent(leaf, field)
-                                        != null)
-                            throw new IllegalArgumentException(INVALID);
-                    });
+            fields.forEachField(occurrence, field -> collectDataField(groups, field));
         } catch (UncheckedIOException failure) {
             throw failure.getCause();
         }
         CdsFieldDto content = null;
-        var seen = new HashSet<String>();
         for (var group : groups.values()) {
-            var descriptor = group.get("Name");
-            if (descriptor == null) continue;
-            String element;
-            try {
-                element = fields.readToken(record, descriptor, 64);
-            } catch (CdsInputException capacity) {
-                if (!capacity.code().equals("CDS_TARGET_TEXT_CAPACITY_EXCEEDED")) throw capacity;
-                continue;
-            }
-            if (!name.equals(element)) continue;
-            if (!seen.add(element)
-                    || !group.keySet().equals(Set.of("Name", "DataType", "Content"))
-                    || !CdsNativeExtensionContract.STRING_TYPE.equals(
-                            fields.readToken(record, group.get("DataType"), 7)))
-                throw new IllegalArgumentException(INVALID);
-            content = group.get("Content");
+            CdsFieldDto candidate = matchingContent(occurrence, group, name);
+            if (candidate == null) continue;
+            if (content != null) throw new IllegalArgumentException(INVALID);
+            content = candidate;
         }
         if (content == null) throw new IllegalArgumentException(INVALID);
         return content;
+    }
+
+    /** Collect only the three text fields of each direct residual data element. */
+    private static void collectDataField(
+            Map<String, Map<String, CdsFieldDto>> groups, CdsFieldDto field) {
+        if (!Set.of("cds", "cds_dt").contains(field.namespace())) return;
+        int slash = field.path().lastIndexOf('/');
+        if (slash < 0) return;
+        String parent = field.path().substring(0, slash);
+        if (!CdsFieldParser.unindexed(parent).equals("ResidualInfo/DataElement")) return;
+        String leaf = CdsFieldParser.unindexed(field.path().substring(slash + 1));
+        if (!Set.of("Name", "DataType", "Content").contains(leaf)) return;
+        if (!field.kind().equals("TEXT")
+                || groups.computeIfAbsent(parent, ignored -> new HashMap<>())
+                                .putIfAbsent(leaf, field)
+                        != null)
+            throw new IllegalArgumentException(INVALID);
+    }
+
+    /** A matching named element must contain exactly one string content field. */
+    private CdsFieldDto matchingContent(
+            CdsRecordDto occurrence, Map<String, CdsFieldDto> group, String name)
+            throws IOException {
+        CdsFieldDto descriptor = group.get("Name");
+        if (descriptor == null) return null;
+        String element;
+        try {
+            element = fields.readToken(occurrence, descriptor, 64);
+        } catch (CdsInputException capacity) {
+            if (!capacity.code().equals("CDS_TARGET_TEXT_CAPACITY_EXCEEDED")) throw capacity;
+            return null;
+        }
+        if (!name.equals(element)) return null;
+        if (!group.keySet().equals(Set.of("Name", "DataType", "Content"))
+                || !CdsNativeExtensionContract.STRING_TYPE.equals(
+                        fields.readToken(occurrence, group.get("DataType"), 7)))
+            throw new IllegalArgumentException(INVALID);
+        return group.get("Content");
     }
 }

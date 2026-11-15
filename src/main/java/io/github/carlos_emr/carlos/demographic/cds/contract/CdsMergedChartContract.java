@@ -726,14 +726,6 @@ public final class CdsMergedChartContract {
      *
      * @throws IllegalArgumentException {@code CDS_MERGED_CHART_CARRIER_INVALID} otherwise
      */
-    // FindSecBugs XXE_XMLREADER: The reader comes from CdsXmlReaders.reader, which sets secure processing and disallow-doctype-decl, turns off external general and parameter entities and external DTD loading, clears ACCESS_EXTERNAL_DTD and installs a resolver that always refuses.
-    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(
-            value = "XXE_XMLREADER",
-            justification =
-                    "the reader comes from CdsXmlReaders.reader, which sets secure processing and"
-                        + " disallow-doctype-decl, turns off external general and parameter"
-                        + " entities and external DTD loading, clears ACCESS_EXTERNAL_DTD and"
-                        + " installs a resolver that always refuses")
     public static void verifyDocument(ChartRecord record) {
         byte[] bytes = record.document().getBytes(StandardCharsets.UTF_8);
         try {
@@ -748,6 +740,14 @@ public final class CdsMergedChartContract {
     }
 
     /** Validates a streamed document and returns its digest when the carrier states it afterwards. */
+    // FindSecBugs XXE_XMLREADER: The reader comes from CdsXmlReaders.reader, which sets secure processing and disallow-doctype-decl, turns off external general and parameter entities and external DTD loading, clears ACCESS_EXTERNAL_DTD and installs a resolver that always refuses.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(
+            value = "XXE_XMLREADER",
+            justification =
+                    "the reader comes from CdsXmlReaders.reader, which sets secure processing and"
+                        + " disallow-doctype-decl, turns off external general and parameter"
+                        + " entities and external DTD loading, clears ACCESS_EXTERNAL_DTD and"
+                        + " installs a resolver that always refuses")
     public static String verifyDocument(int chart, java.io.InputStream input) throws IOException {
         if (chart < 1) throw invalid();
         MessageDigest digest;

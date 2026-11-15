@@ -138,7 +138,7 @@ public final class CdsExportMergedChartMapper {
         var record =
                 new CdsMergedChartContract.LinksRecord(
                         charts, List.copyOf(byId.values()), rows, shape, changes);
-        return new Links(record, active.size(), byId.size() - active.size(), outside);
+        return new Links(record, active.size(), (long) byId.size() - active.size(), outside);
     }
 
     /**
