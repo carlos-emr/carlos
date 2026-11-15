@@ -149,7 +149,6 @@ final class CdsDemographicResidualReader {
         // A separate pass: a property value longer than any restorable text leaves the rows
         // unread without losing the columns read above.
         List<CarriedProperty> rows = new java.util.ArrayList<>();
-        boolean propertiesReadable = true;
         try {
             try (var token = fields.openToken(record, content)) {
                 CdsSourceContextParser.read(
@@ -171,11 +170,11 @@ final class CdsDemographicResidualReader {
                         });
             }
         } catch (IllegalArgumentException unreadable) {
-            propertiesReadable = false;
+            return new Carried(java.util.Collections.unmodifiableMap(values), null, true);
         }
         return new Carried(
                 java.util.Collections.unmodifiableMap(values),
-                propertiesReadable ? List.copyOf(rows) : null,
+                List.copyOf(rows),
                 true);
     }
 

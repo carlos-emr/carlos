@@ -485,7 +485,8 @@ public final class CdsExportCli {
             // The job's durable outcome, or the failure that ended the wait, decides the exit
             // code. A progress thread that has not stopped (a status read the database has not
             // answered) is noted and left to end with the process; it prints nothing more.
-            if (!progress.retire())
+            progress.close();
+            if (!progress.isTerminated())
                 err.println(
                         "CDS_EXPORT_PROGRESS_LINGERING: progress reporting had not stopped after "
                                 + TimeUnit.NANOSECONDS.toSeconds(reporting.retireNanos())

@@ -717,7 +717,9 @@ public class CdsDemographicPersister {
                 digest = hash;
             } else {
                 repeated = true;
-                if (!digest.equals(hash)) {
+                if (!MessageDigest.isEqual(
+                        digest.getBytes(StandardCharsets.US_ASCII),
+                        hash.getBytes(StandardCharsets.US_ASCII))) {
                     conflict = true;
                     value = null;
                 }
