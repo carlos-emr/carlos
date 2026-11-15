@@ -27,6 +27,7 @@
  * reloads its configuration, so the check finds ITS flowsheet by name, never by trigger.
  * Coverage plan §2.5 flowsheet-admin (gap-clinical).
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const {clickOpensPopupOrNavigates} = require('./lib/playwright-ui');
 const {revealAuditLink} = require('./lib/playwright-link-audit');
@@ -40,8 +41,7 @@ async function workflow(s) {
   await s.step('the configured server log records a refused Health Tracker GET', async () => {
     // This endpoint rejects GET before reading or saving any patient data. Its fresh WARN proves
     // the configured stream is live even when a successful flowsheet request logs nothing.
-    const response = await s.context.request.get(`${s.config.baseUrl}/encounter/oscarMeasurements/HealthTrackerUpdate`,
-      {maxRedirects: 0});
+    const response = await authenticatedProbe(s, `${s.config.baseUrl}/encounter/oscarMeasurements/HealthTrackerUpdate`, {maxRedirects: 0});
     const status = response.status();
     const allow = response.headers().allow;
     await response.dispose();

@@ -49,7 +49,7 @@
     }
 %>
 <%@ page
-        import="io.github.carlos_emr.carlos.form.*, java.util.*,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*,io.github.carlos_emr.carlos.db.*,io.github.carlos_emr.carlos.billing.ca.bc.MSP.*, io.github.carlos_emr.carlos.billing.ca.bc.Teleplan.*" %>
+        import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.WCBForm" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.Teleplan.WCBCodes" %>
@@ -67,7 +67,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%

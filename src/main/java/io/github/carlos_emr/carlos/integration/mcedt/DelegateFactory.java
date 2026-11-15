@@ -28,6 +28,8 @@
  */
 package io.github.carlos_emr.carlos.integration.mcedt;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
@@ -133,7 +135,7 @@ public class DelegateFactory {
             try {
                 builder.setClientKeystoreFilename(signatureFile.toURI().toURL().toString());
             } catch (MalformedURLException e) {
-                logger.error("Malformed URL: " + clientKeystorePropertiesPath, e);
+                logger.error("Malformed client keystore configuration URL: {}", LogSafe.exceptionTrace(e));
             }
         }
     }

@@ -1,4 +1,5 @@
 /**
+ * Modifications by CARLOS Contributors, 2026.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
@@ -36,8 +37,9 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt.DemographicProperty;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ConsultationRequestExtKey;
 import io.github.carlos_emr.carlos.fax.core.FaxRecipient;
+import io.github.carlos_emr.carlos.consultation.dto.ConsultationFaxRow;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
-import io.github.carlos_emr.carlos.utility.DemographicContactCreator;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -136,7 +138,6 @@ public class EctConsultationFormRequestUtil {
 	private final ConsultationServiceDao consultationServiceDao = (ConsultationServiceDao) SpringUtils.getBean(ConsultationServiceDao.class);
 	private final DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
 	private final ContactDao contactDao = SpringUtils.getBean(ContactDao.class);
-	private final FaxJobDao faxJobDao = SpringUtils.getBean(FaxJobDao.class);
     private final FaxClientLogDao faxClientLogDao = SpringUtils.getBean(FaxClientLogDao.class);
 
     private final boolean bMultisites = IsPropertiesOn.isMultisitesEnable();
@@ -239,8 +240,6 @@ public class EctConsultationFormRequestUtil {
         return verdict;
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean estRequestFromId(LoggedInInfo loggedInInfo, String id) {
 
         boolean verdict = true;
@@ -249,7 +248,11 @@ public class EctConsultationFormRequestUtil {
 
 		ConsultationRequest cr = consultationRequestDao.find(Integer.parseInt(id));
 		
-		if (cr != null) {
+        Map<String, String> extensions = new HashMap<>();
+        if (cr != null) {
+            for (ConsultationRequestExt ext : consultationRequestExtDao.getConsultationRequestExts(cr.getId())) {
+                if (!extensions.containsKey(ext.getKey())) extensions.put(ext.getKey(), ext.getValue());
+            }
 			fdid = cr.getFdid();
 			pwb = ConversionUtils.toBoolString(cr.isPatientWillBook());
 			urgency = cr.getUrgency();
@@ -259,13 +262,9 @@ public class EctConsultationFormRequestUtil {
 
             // attempting to make this code as backwards compatible as possible while enabling
             // the use of a patients health care team directly in the Consultation module.
+            ProfessionalContact teamContact = null;
             if (CarlosProperties.getInstance().getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true")) {
                 Integer demographicContactId = cr.getDemographicContactId();
-                DemographicContact demographicContact = cr.getDemographicContact();
-                Integer contactType = null;
-                String contactCategory = null;
-                Integer contactId = null;
-                ProfessionalContact professionalContact = null;
 
                 if (demographicContactId == null) {
                     // a null demographicContactId will return a negative professionalSpecialist id or zero for null.
@@ -282,23 +281,9 @@ public class EctConsultationFormRequestUtil {
                     specialist = demographicContactId + "";
                 }
 
-                // if the professionalSpecialist is not found and the Health Care Team is enabled
-                // this could mean that the professionalSpecialist is in a different table.
-                // Some professional specialists - such as nurse practitioners - are stored in the contacts table.
-                if (demographicContact != null) {
-                    contactType = demographicContact.getType();
-                    contactCategory = demographicContact.getCategory();
-                    contactId = Integer.parseInt(demographicContact.getContactId());
-                }
-
-                if (contactType == DemographicContact.TYPE_CONTACT
-                        && DemographicContact.CATEGORY_PROFESSIONAL.equalsIgnoreCase(contactCategory)) {
-                    professionalContact = (ProfessionalContact) contactDao.find(contactId);
-                }
-
-                if (professionalContact != null) {
-                    cr.setProfessionalSpecialist(DemographicContactCreator.convertProfessionalContactAsProfessionalSpecialist(loggedInInfo, professionalContact));
-                }
+                // Some consultants - such as nurse practitioners - are professional contacts on the
+                // patient's health care team (the Contact table) rather than directory specialists.
+                teamContact = healthCareTeamContact(cr.getDemographicContact());
 
             } else {
                 // The HCT is not enabled therefore identifiers for the DemographicContact model
@@ -306,9 +291,12 @@ public class EctConsultationFormRequestUtil {
                 specialist = "" + cr.getSpecialistId();
             }
 
-            // ProfessionalSpecialist joined to the ConsultationRequest will always
-            // be available. This model is used in the Fax and PDF printing methods.
-            professionalSpecialist = cr.getProfessionalSpecialist();
+            // The consultant the Fax and PDF printing methods use: the directory specialist the
+            // request names or, for a health-care-team contact, that contact with its own values.
+            // The request entity itself is left as loaded.
+            professionalSpecialist = teamContact == null
+                    ? cr.getProfessionalSpecialist()
+                    : healthCareTeamConsultant(loggedInInfo, teamContact);
 
 
 			Date appointmentTime = cr.getAppointmentTime();
@@ -322,7 +310,7 @@ public class EctConsultationFormRequestUtil {
 			setAppointmentInstructions( cr.getAppointmentInstructions() );
 			setAppointmentInstructionsLabel( cr.getAppointmentInstructionsLabel() );
 			letterheadName = cr.getLetterheadName();
-			letterheadTitle = consultationRequestExtDao.getConsultationRequestExtsByKey(Integer.parseInt(id), "letterheadTitle");
+			letterheadTitle = extensions.get("letterheadTitle");
 			letterheadAddress = cr.getLetterheadAddress();
 			letterheadPhone = cr.getLetterheadPhone();
 			letterheadFax = cr.getLetterheadFax();
@@ -376,7 +364,7 @@ public class EctConsultationFormRequestUtil {
                 }
             }
 
-			isEReferral = consultationRequestExtDao.getConsultationRequestExtsByKey(Integer.parseInt(id), ConsultationRequestExtKey.EREFERRAL_REF.getKey()) != null;
+			isEReferral = extensions.get(ConsultationRequestExtKey.EREFERRAL_REF.getKey()) != null;
         }
 
         getFaxLogs(id);
@@ -384,11 +372,46 @@ public class EctConsultationFormRequestUtil {
         return verdict;
     }
 
+    /**
+     * The professional contact a health-care-team link names as the consultant: a {@code
+     * TYPE_CONTACT} link in the professional category (any letter case) whose {@code Contact} row
+     * is a {@link ProfessionalContact}. Null for any other link (a directory specialist's, whose
+     * consultant is the request's own {@code specId}), for no link, and for a link whose contact id
+     * is not a number or names no professional contact; the consultation form never offers those,
+     * and the letter then prints the directory specialist the request names, if any.
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    private ProfessionalContact healthCareTeamContact(DemographicContact link) {
+        if (link == null
+                || link.getType() != DemographicContact.TYPE_CONTACT
+                || !DemographicContact.CATEGORY_PROFESSIONAL.equalsIgnoreCase(link.getCategory())) {
+            return null;
+        }
+        Integer contactId;
+        try {
+            contactId = Integer.valueOf(link.getContactId());
+        } catch (NumberFormatException malformed) {
+            return null;
+        }
+        return contactDao.find(contactId) instanceof ProfessionalContact professional ? professional : null;
+    }
+
+    /**
+     * A health-care-team contact as the consultant, with its own values only ({@link
+     * ProfessionalSpecialist#healthCareTeamConsultant}). Reading the patient's team contact
+     * requires {@code _demographic} read rights, as it always has.
+     */
+    private static ProfessionalSpecialist healthCareTeamConsultant(LoggedInInfo loggedInInfo, ProfessionalContact contact) {
+        if (!SpringUtils.getBean(SecurityInfoManager.class).hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+        return ProfessionalSpecialist.healthCareTeamConsultant(contact);
+    }
+
     private void getFaxLogs(String requestId) {
 
-        List<FaxClientLog> faxClientLogs = faxClientLogDao.findClientLogbyRequestId(Integer.parseInt(requestId));
-        for (FaxClientLog faxClientLog : faxClientLogs) {
-            FaxJob faxJob = faxJobDao.find(faxClientLog.getFaxId());
+        for (ConsultationFaxRow faxJob : faxClientLogDao.findConsultationFaxRows(Integer.parseInt(requestId))) {
             FaxRecipient faxRecipient = null;
             String specialistFax = "";
 
@@ -407,12 +430,12 @@ public class EctConsultationFormRequestUtil {
 
             if (faxJob != null) {
                 faxRecipient = new FaxRecipient();
-                faxRecipient.setFax(faxJob.getDestination());
-                faxRecipient.setName(faxJob.getRecipient());
-                faxRecipient.setStatus(faxJob.getStatus());
-                faxRecipient.setSent(faxClientLog.getStartTime());
+                faxRecipient.setFax(faxJob.destination());
+                faxRecipient.setName(faxJob.recipient());
+                faxRecipient.setStatus(faxJob.status());
+                faxRecipient.setSent(faxJob.sent());
 
-                MiscUtils.getLogger().debug("Does this fax number " + specialistFax + " equal this fax number " + faxRecipient.getFax());
+
             }
 
 

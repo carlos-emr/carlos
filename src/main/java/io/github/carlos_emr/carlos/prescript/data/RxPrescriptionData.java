@@ -45,7 +45,6 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
@@ -166,6 +165,7 @@ public class RxPrescriptionData {
     private Prescription prescriptionFromDrug(Drug drug) {
         int drugId = drug.getId();
         Prescription prescription = new Prescription(drugId, drug.getProviderNo(), drug.getDemographicId());
+        prescription.setSourceRowVersion(drug.getRowVersion());
         prescription.setRxCreatedDate(drug.getCreateDate());
         prescription.setRxDate(drug.getRxDate());
         prescription.setEndDate(drug.getEndDate());
@@ -354,6 +354,7 @@ public class RxPrescriptionData {
         if (rePrescribe.getRefillDuration() != null) prescription.setRefillDuration(rePrescribe.getRefillDuration());
         if (rePrescribe.getRefillQuantity() != null) prescription.setRefillQuantity(rePrescribe.getRefillQuantity());
         prescription.setDrugReferenceId(rePrescribe.getDrugId());
+        prescription.setSourceRowVersion(rePrescribe.getSourceRowVersion());
         prescription.setDispenseInternal(rePrescribe.getDispenseInternal());
         prescription.setProtocol(rePrescribe.getProtocol());
         prescription.setPriorRxProtocol(rePrescribe.getPriorRxProtocol());
@@ -387,6 +388,7 @@ public class RxPrescriptionData {
 
     public Prescription toPrescription(Drug drug, int demographicNo) {
         Prescription p = new Prescription(drug.getId(), drug.getProviderNo(), demographicNo);
+        p.setSourceRowVersion(drug.getRowVersion());
         p.setRxCreatedDate(drug.getCreateDate());
         p.setRxDate(drug.getRxDate());
         p.setEndDate(drug.getEndDate());
@@ -708,6 +710,13 @@ public class RxPrescriptionData {
         String providerNo;
         int demographicNo;
         long randomId = 0;
+        private String pendingSubmission;
+        public String getPendingSubmission() { return pendingSubmission; }
+        public void setPendingSubmission(String token) { pendingSubmission = token; }
+        private Long sourceRowVersion;
+        public Long getSourceRowVersion() { return sourceRowVersion; }
+        public void setSourceRowVersion(Long version) { sourceRowVersion = version; }
+
         private String draftRevision = java.util.UUID.randomUUID().toString();
 
         /** The identity of this draft version, independent of its reusable numeric card key. */
@@ -1842,6 +1851,7 @@ public class RxPrescriptionData {
             syncDrug(drug, ConversionUtils.fromIntString(scriptId));
             dao.persist(drug);
             drugId = drug.getId();
+            sourceRowVersion = drug.getRowVersion();
 
             return true;
         }
@@ -2607,7 +2617,7 @@ public class RxPrescriptionData {
 
     @Override
     public String toString() {
-        return (ReflectionToStringBuilder.toString(this));
+        return getClass().getSimpleName() + "[protected]";
     }
 
 }

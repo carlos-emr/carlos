@@ -14,8 +14,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import org.jfree.chart.ChartUtils;
-import org.jfree.chart.JFreeChart;
+import io.github.carlos_emr.carlos.eform.util.BrowserChartRenderer;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -102,11 +102,13 @@ class ScatterPlotRequestIsolationUnitTest extends CarlosUnitTestBase {
             when(measurements.findByDemographicNoTypeAndDate(patient, "WT", observed)).thenReturn(reading);
         }
         List<Number> plotted = new ArrayList<>();
-        try (var jpeg = mockStatic(ChartUtils.class)) {
-            jpeg.when(() -> ChartUtils.writeChartAsJPEG(any(java.io.OutputStream.class), eq(1.0f),
-                    any(JFreeChart.class), eq(550), eq(360))).thenAnswer(call -> {
-                        JFreeChart chart = call.getArgument(2);
-                        plotted.add(chart.getXYPlot().getDataset().getY(0, 0));
+        try (var jpeg = mockStatic(BrowserChartRenderer.class)) {
+            jpeg.when(() -> BrowserChartRenderer.write(any(), any(java.io.OutputStream.class),
+                    any(MeasurementChart.class), eq(550), eq(360), eq("jpeg"))).thenAnswer(call -> {
+                        MeasurementChart chart = call.getArgument(2);
+                        var datasets = (java.util.List<java.util.Map<String, Object>>) chart.toConfig().get("datasets");
+                        var points = (java.util.List<java.util.Map<String, Object>>) datasets.get(0).get("data");
+                        plotted.add((Number) points.get(0).get("y"));
                         return null;
                     });
             for (String patient : new String[]{"000101", "202", "101"}) {

@@ -29,6 +29,16 @@
 
 --%>
 
+<%--
+    Stores a provider's own new password and/or PIN, posted by providerchangepassword.jsp.
+
+    Reached only through provider/ViewProviderUpdatePassword. That gate (POST-only) has already
+    refused a new password that breaks the configured password policy and a new PIN shorter than
+    password_pin_min_length, so this page never sees one: the form's JavaScript check is feedback
+    only. What remains here is what needs the stored record: the current password or PIN must
+    match, the confirmation must match, and the new value must differ from the current one and
+    from the configured number of previous passwords.
+--%>
 <%
     if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logoutPage");
@@ -36,7 +46,7 @@
 %>
 
 <%@ page
-        import="java.lang.*, java.util.*, java.text.*, io.github.carlos_emr.*"
+        import="java.lang.*, java.util.*"
         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Security" %>
@@ -50,7 +60,7 @@
 %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%

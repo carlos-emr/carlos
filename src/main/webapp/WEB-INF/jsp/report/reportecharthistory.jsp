@@ -45,7 +45,7 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
@@ -53,20 +53,13 @@
 
     String demographic_no = request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "0";
     String deepcolor = "#CCCCFF", weakcolor = "#EEEEFF";
-    String strLimit1 = "0";
-    String strLimit2 = "10";
-    if (request.getParameter("limit1") != null) strLimit1 = request.getParameter("limit1");
-    if (request.getParameter("limit2") != null) strLimit2 = request.getParameter("limit2");
+    int historyOffset = request.getAttribute("historyOffset") instanceof Integer ? (Integer) request.getAttribute("historyOffset") : 0;
+    int historyPageSize = request.getAttribute("historyPageSize") instanceof Integer ? (Integer) request.getAttribute("historyPageSize") : 10;
 %>
-<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*,io.github.carlos_emr.carlos.providers.data.*"
+<%@ page import="java.lang.*, io.github.carlos_emr.carlos.providers.data.*"
          errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.EChartDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.EChart" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.data.ProviderData" %>
-<%
-    EChartDao eChartDao = SpringUtils.getBean(EChartDao.class);
-%>
 
 <html>
 <head>
@@ -87,6 +80,9 @@
 <body bgproperties="fixed" onLoad="setfocus()" topmargin="0"
       leftmargin="0" rightmargin="0">
 
+<p><strong><fmt:message key="encounter.historicalChart.title"/></strong><br/>
+    <fmt:message key="encounter.historicalChart.notice"/>
+</p>
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
     <tr bgcolor="#CCCCFF">
         <th align=CENTER NOWRAP><font face="Helvetica"><fmt:message key="encounter.echartHistory.title"/></font></th>
@@ -120,19 +116,15 @@
         String splitectsize = request.getParameter("splitectsize") != null ? request.getParameter("splitectsize") : "-";
         String bgcolor = null;
 
-        String[] param = new String[1];
-        param[0] = demographic_no;
-        int[] itemp1 = new int[2];
-        itemp1[1] = Integer.parseInt(strLimit1);
-        itemp1[0] = Integer.parseInt(strLimit2);
 
-        for (EChart eChart : eChartDao.getChartsForDemographic(Integer.parseInt(demographic_no))) {
+
+        for (EChart eChart : request.getAttribute("historyRows") == null ? java.util.List.<EChart>of() : (java.util.List<EChart>) request.getAttribute("historyRows")) {
 
             //bodd = bodd?false:true;
             nItems++;
             bgcolor = nItems % 2 == 0 ? "#EEEEFF" : "white";
-            datetime = eChart.getTimestamp().toString();
-            ectsize = eChart.getEncounter().length() / 1024;
+            datetime = eChart.getTimestamp() == null ? String.valueOf(eChart.getId()) : eChart.getTimestamp().toString();
+            ectsize = eChart.getEncounter() == null ? 0 : eChart.getEncounter().length() / 1024;
 
             if (eChart.getSubject() != null && eChart.getSubject().equals("SPLIT CHART")) {
                 splitectsize = "" + ectsize;
@@ -157,15 +149,14 @@
 <br>
 <CENTER>
     <%
-        int nLastPage = 0, nNextPage = 0;
-        int intLimit2 = Integer.parseInt(strLimit2);
-        nNextPage = intLimit2 + Integer.parseInt(strLimit1);
-        nLastPage = Integer.parseInt(strLimit1) - intLimit2;
-        if (nLastPage >= 0) {
+        int nLastPage = Math.max(0, historyOffset - historyPageSize);
+        long nNextPage = (long) historyOffset + historyPageSize;
+        int intLimit2 = historyPageSize;
+        if (historyOffset > 0) {
     %> <a
         href="<%= request.getContextPath() %>/report/ViewReportecharthistory?demographic_no=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>&limit1=<%=nLastPage%>&limit2=<%=intLimit2%>"><fmt:message key="report.reportecharthistory.lastPage"/></a> | <%
     }
-    if (nItems == intLimit2) {
+    if (Boolean.TRUE.equals(request.getAttribute("historyHasNext"))) {
 %> <a
         href="<%= request.getContextPath() %>/report/ViewReportecharthistory?demographic_no=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>&limit1=<%=nNextPage%>&limit2=<%=intLimit2%>&splitectsize=<carlos:encode value='<%= splitectsize %>' context="uriComponent"/>">
     <fmt:message key="report.reportecharthistory.nextPage"/></a> <%

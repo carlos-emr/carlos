@@ -52,12 +52,12 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ page
-        import="java.lang.*, java.util.*, java.text.*,java.sql.*, io.github.carlos_emr.*"
+        import="java.lang.*, java.util.*, io.github.carlos_emr.*"
         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <%!

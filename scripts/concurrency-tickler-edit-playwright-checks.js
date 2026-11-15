@@ -9,17 +9,18 @@
  * to Complete and saves. Session A, still on its stale form, raises the priority to High and saves.
  *
  * Asserted: B's completion lands (control); A's save reaches the server and stores its priority or is
- * refused; and the tickler is NOT silently put back to Active. EditTickler2Action compares the posted
- * status / priority / assignee / date with the row it just loaded, not with what the form was
- * rendered from, so every posted field wins; the stale Active status reverts the completion. The
- * check fails at that last step.
+ * refused; and the tickler is NOT silently put back to Active. EditTickler2Action used to compare the
+ * posted status / priority / assignee / date with the row it just loaded, not with what the form was
+ * rendered from, so every posted field won and the stale Active status reverted the completion. The
+ * form now carries the version it was rendered from (ticklerVersion); a stale form is refused with
+ * HTTP 409, one alert and a message in the popup, and nothing of it is written.
  *
  * Fixtures: one owned tickler seeded by SQL for the owned FAKE- patient (removed by cleanup with its
  * comments and history rows, asserted gone). Wave-7 sweep "concurrency".
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
-const { openSecondSession, failureMark, consumeKnownConsole } = require('./lib/concurrency-support');
+const { openSecondSession, failureMark, consumeKnownConsole, consumeExpectedFailure } = require('./lib/concurrency-support');
 const { seedTickler, openPatientTicklerList, openTicklerEdit, saveTicklerEdit } = require('./lib/concurrency-tickler');
 
 async function workflow(s) {
@@ -64,6 +65,12 @@ async function workflow(s) {
     h.assert(saveOutcome !== 'timeout', 'Session A\'s stale save was neither stored nor refused');
     if (saveOutcome === 'refused') {
       h.assert(dialogs.length === 1 && dialogs[0].type === 'alert', 'A refused stale save raised more than the one alert');
+      // EditTickler2Action answers a form rendered from an older version of the task with HTTP 409 and the
+      // #tickler-edit-stale sentinel; the popup shows that refusal in its error banner and in the one alert.
+      consumeExpectedFailure(s.recorder, mark, { status: 409, path: /\/tickler\/EditTickler$/ });
+      h.assert(/\bNOT\b/.test(dialogs[0].text || '') && !/\?\?\?/.test(dialogs[0].text || ''),
+        `The stale-save alert does not say the changes were not saved (${JSON.stringify(dialogs[0].text)})`);
+      h.assert(await aEdit.locator('#error').isVisible(), 'The refused stale save left no message in the popup');
       consumeKnownConsole(s.recorder, mark, /\[ticklerEdit\] Server did not return expected success response/);
     } else {
       h.assert(dialogs.length === 0, 'A stored stale save also raised an alert');

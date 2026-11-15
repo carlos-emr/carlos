@@ -84,7 +84,7 @@ public class BillingEditWithApptNoViewModelAssembler {
         String status = request.getParameter("status");
         b.appointmentNo(appointmentNo)
                 .billForm(billForm)
-                .demographicName(request.getParameter("demographic_name"))
+                .demographicName(io.github.carlos_emr.carlos.billing.CA.BillingPatientContext.name(request))
                 .demographicNo(request.getParameter("demographic_no"))
                 .providerView(request.getParameter("providerview"))
                 .apptProviderNo(request.getParameter("apptProvider_no"))

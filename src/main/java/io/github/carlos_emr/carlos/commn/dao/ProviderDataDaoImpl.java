@@ -48,6 +48,25 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 @Repository
 public class ProviderDataDaoImpl extends AbstractDaoImpl<ProviderData> implements ProviderDataDao {
 
+    @Override
+    // S2077: the enum selects fixed predicate fragments; the provider identifier is bound.
+    @SuppressWarnings("java:S2077")
+    public List<ReportChoice> findReportChoices(String providerNo, ReportScope scope) {
+        String restriction = switch (scope) {
+            case ALL -> " AND provider_type='doctor'";
+            case SITE -> " AND EXISTS (SELECT 1 FROM providersite s WHERE s.provider_no=p.provider_no"
+                    + " AND s.site_id IN (SELECT site_id FROM providersite WHERE provider_no=:provider))";
+            case TEAM -> " AND team IN (SELECT team FROM provider WHERE provider_no=:provider)"
+                    + " AND (NOT(team IS NULL OR team='') OR provider_no=:provider)";
+        };
+        Query query = entityManager.createNativeQuery("SELECT provider_no,last_name,first_name FROM provider p"
+                + " WHERE status='1'" + restriction + " ORDER BY last_name", Object[].class);
+        if (scope != ReportScope.ALL) query.setParameter("provider", providerNo);
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = query.getResultList();
+        return rows.stream().map(row -> new ReportChoice((String) row[0], (String) row[1], (String) row[2])).toList();
+    }
+
     private static final String ACTIVE_WHERE_CLAUSE = " p.status = '1'";
 
     public ProviderDataDaoImpl() {

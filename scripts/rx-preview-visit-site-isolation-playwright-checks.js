@@ -199,7 +199,7 @@ async function workflow(s) {
     h.assert(new URL(rxA.url()).searchParams.get('demographicNo') === A, 'The day sheet\'s Rx link opened another patient than A');
     const master = await openFromDaySheet('B', masterLink('B'), '/demographic/DemographicEdit');
     await master.close();
-    const { address, shown } = await saveAndPrint(rxA, 'A', A);
+    const { print, address, shown } = await saveAndPrint(rxA, 'A', A);
     // A clinic name is text: its markup is shown, not applied.
     const labels = await address.evaluate(select => Array.from(select.options, option => option.label));
     h.assert(labels.includes(sites.SD.name), 'The print window\'s address list does not show a clinic name with markup as written');
@@ -213,6 +213,7 @@ async function workflow(s) {
       address.selectOption({ label: sites.SC.name }),
     ]);
     h.assert(remembered.ok(), `Remembering the picked address answered HTTP ${remembered.status()}`);
+    await print.frameLocator('#preview').locator('#clinicAddress').filter({hasText:'33 Charlie Road'}).waitFor({state:'visible',timeout:TIMEOUT});
     await rxA.close();
     // The page's fetch never reads the empty reply, so its body may stay open until the window
     // closes and Chromium then cancels it (net::ERR_ABORTED). Wait, briefly, for that to be
@@ -261,6 +262,43 @@ async function workflow(s) {
       .evaluateAll(options => options.map(option => option.value));
     h.assert(assignees.includes(provider), 'Picking A\'s clinic did not list the clinic\'s provider as an assignee');
     await tickler.close();
+  });
+  await s.step('multisite printing with no provider sites uses the primary clinic and renders a PDF', async () => {
+    const links = sql.rows(`SELECT site_id FROM providersite WHERE provider_no=${q(provider)} ORDER BY site_id`);
+    let unlinked = false;
+    const restore = () => {
+      if (!unlinked) return;
+      const current = sql.rows(`SELECT site_id FROM providersite WHERE provider_no=${q(provider)} ORDER BY site_id`);
+      if (JSON.stringify(current) !== JSON.stringify(links)) {
+        h.assert(current.length === 0, 'The provider site fixture changed owner while unlinked');
+        if (links.length) sql.execute('INSERT INTO providersite(provider_no,site_id) VALUES ' + links.map(([site]) => `(${q(provider)},${key(site, 'site')})`).join(','));
+      }
+      unlinked = false;
+    };
+    s.cleanup(restore);
+    unlinked = true;
+    try {
+      sql.execute(`DELETE FROM providersite WHERE provider_no=${q(provider)}`);
+      const rx = await context.newPage();
+      await h.gotoApp(rx, s.config.baseUrl, `/rx/choosePatient?demographicNo=${C}`);
+      await settle(rx, 'Rx with no provider sites');
+      const {print, address} = await saveAndPrint(rx, 'primary-clinic', C);
+      h.assert(await address.locator('option').count() === 0, 'The no-sites fixture still offered a satellite');
+      await print.frameLocator('#preview').locator('#preview2Form').waitFor();
+      const intent = await print.evaluate(() => {
+        const realm = frames.preview, prototype = realm.HTMLFormElement.prototype, original = prototype.submit;
+        let captured;
+        prototype.submit = function () { captured = {url:this.action, form:Object.fromEntries(new realm.FormData(this))}; };
+        try { onPrint2('oscarRxPrint', faxScriptNo); } finally { prototype.submit = original; }
+        return captured;
+      });
+      h.assert(intent && new URL(intent.url).searchParams.get('useSC') === 'false'
+        && new URL(intent.url).searchParams.get('scAddress') === '', 'An empty site list requested a satellite header');
+      const pdf = await context.request.post(intent.url, {form:intent.form});
+      h.assert(pdf.status() === 200 && (pdf.headers()['content-type'] || '').startsWith('application/pdf')
+        && (await pdf.body()).subarray(0,5).toString() === '%PDF-', 'Primary-clinic printing did not render a PDF');
+      await rx.close();
+    } finally { restore(); }
   });
 }
 

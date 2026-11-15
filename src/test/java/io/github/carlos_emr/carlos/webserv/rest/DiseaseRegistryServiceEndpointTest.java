@@ -20,6 +20,9 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
@@ -66,6 +69,8 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.IssueTo1;
 class DiseaseRegistryServiceEndpointTest extends CarlosRestTestBase {
     @org.junit.jupiter.api.BeforeEach
     void authorizeFixture() {
+        org.mockito.Mockito.when(mockSecurityInfoManager.hasPrivilege(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("_newCasemgmt.DxRegistry"), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq("123"))).thenReturn(true);
+        org.mockito.Mockito.when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(123))).thenReturn(true);
         org.mockito.Mockito.when(mockSecurityInfoManager.hasPrivilege(
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.isNull())).thenReturn(true);
@@ -82,6 +87,20 @@ class DiseaseRegistryServiceEndpointTest extends CarlosRestTestBase {
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.isNull());
         org.mockito.Mockito.verifyNoInteractions(mockQuickListDao);
+    }
+
+    @Test
+    void shouldRejectPatientOverride_beforeReadingRegistryRows() {
+        org.mockito.Mockito.when(mockSecurityInfoManager.hasPrivilege(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("_newCasemgmt.DxRegistry"), org.mockito.ArgumentMatchers.eq("r"), org.mockito.ArgumentMatchers.eq("123"))).thenReturn(false);
+        assertThat(request().path("/dxRegisty/getDiseaseRegistry").query("demographicNo",123).get().getStatus()).isEqualTo(403);
+        org.mockito.Mockito.verifyNoInteractions(mockDxresearchDao);
+    }
+
+    @Test
+    void shouldRejectBlockedChart_beforeCreatingRegistryRows() {
+        org.mockito.Mockito.when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(123))).thenReturn(false);
+        assertThat(request().path("/dxRegisty/123/add").post(jakarta.ws.rs.client.Entity.json(new IssueTo1())).getStatus()).isEqualTo(403);
+        org.mockito.Mockito.verifyNoInteractions(mockDxresearchDao);
     }
 
     @Mock private SecurityInfoManager mockSecurityInfoManager;
@@ -210,6 +229,8 @@ class DiseaseRegistryServiceEndpointTest extends CarlosRestTestBase {
         @Test
         @DisplayName("should return 200 with empty list when no entries exist")
         void shouldReturn200WithEmptyList_whenNoEntriesExist() {
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_newCasemgmt.DxRegistry"), eq("r"), eq("456"))).thenReturn(true);
+            when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(), eq(456))).thenReturn(true);
             when(mockDxresearchDao.getByDemographicNo(456)).thenReturn(Collections.emptyList());
 
             Response response = request().path("/dxRegisty/getDiseaseRegistry")

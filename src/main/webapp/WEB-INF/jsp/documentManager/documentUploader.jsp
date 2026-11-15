@@ -37,13 +37,13 @@
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao"%>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils"%>
 
-<%@page import="io.github.carlos_emr.carlos.mds.data.*"%>
+
 <%@page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData"%>
 <%@page import="java.util.*"%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String)session.getAttribute("userrole") + "," + (String) session.getAttribute("user");

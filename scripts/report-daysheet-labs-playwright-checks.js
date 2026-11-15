@@ -21,6 +21,7 @@
  * row), one mygroup row, five appointments today and three legacy billing/billingdetail rows, all
  * marker/id scoped and removed (and re-checked) in cleanup. No demo row is changed.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const { randomInt } = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const { authzReadFixture } = require('./lib/authz-read-fixture');
@@ -376,7 +377,7 @@ async function workflow(s) {
 
   // ── Mutation refusal and the remaining report filter checks ────────────────────
   await s.step('a GET carrying the PHCP role-update parameters does not change secUserRole', async () => {
-    const response = await s.context.request.get(h.appUrl(s.config.baseUrl, '/report/ViewReportonbilledvisitprovider'
+    const response = await authenticatedProbe(s, h.appUrl(s.config.baseUrl, '/report/ViewReportonbilledvisitprovider'
       + `?buttonUpdate=Update&providerId=${nurse}&name${nurse}=doctor`), { maxRedirects: 0 });
     h.assert(response.status() === 405, `Role-update GET answered HTTP ${response.status()}`);
     await response.dispose();

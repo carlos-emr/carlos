@@ -28,11 +28,13 @@
  * own FAKE patient made a BC patient. Cleanup deletes every BC billing row of that patient, then the
  * codes and the physician, and asserts each is gone. BC installs only (billregion=BC).
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { expectValue, runWorkflow } = require('./lib/workflow-session');
 const bc = require('./lib/bc-billing-fixture');
 const { masterRecordLink } = require('./lib/master-record-link');
+const { observeBillingNameQueries } = require('./lib/billing-url-privacy');
 
 const TIMEOUT = 30000;
 const FEE = '12.34';
@@ -58,6 +60,8 @@ function createCodes(s) {
 }
 
 async function workflow(s) {
+  const privacy = observeBillingNameQueries(s.context);
+  s.cleanup(privacy.dispose);
   const { sql, marker, patient } = s;
   const q = h.sqlString;
   const physician = bc.createBillingPhysician(s);
@@ -141,7 +145,7 @@ async function workflow(s) {
   });
 
   await s.step('a GET to Save Bill is refused and writes nothing', async () => {
-    const response = await s.context.request.get(h.appUrl(s.config.baseUrl, '/billing/CA/BC/SaveBilling?submit=Save%20Bill'),
+    const response = await authenticatedProbe(s, h.appUrl(s.config.baseUrl, '/billing/CA/BC/SaveBilling?submit=Save%20Bill'),
       { maxRedirects: 0 });
     h.assert(response.status() === 405, `A GET Save Bill answered ${response.status()}, not 405`);
     h.assert(billRows() === '0', 'A refused GET wrote a bill');
@@ -162,6 +166,7 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT COUNT(*) FROM billing WHERE demographic_no=${patient} AND demographic_name LIKE ${q(`${marker}%`)}`) === '1',
       'The bill is not named for the owned patient');
   });
+  await s.step('bill-entry navigation uses patient identifiers without patient-name query parameters', async () => privacy.assertNoNames());
 }
 
 async function preflight({ sql }) {

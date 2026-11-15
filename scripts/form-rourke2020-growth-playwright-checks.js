@@ -384,8 +384,9 @@ function trackRourkeWrites(context, sql, patient) {
   return state;
 }
 
-async function workflow(s, { select = validatePin() } = {}) {
+async function workflow(s, { select = validatePin(), sex = PATIENT_SEX, birthDate, additionalGrowthFields = [], repeatMeasurementFixture = false, inspectGraph = () => {} } = {}) {
   const { sql, patient, provider, marker } = s;
+  h.assert(['F','M'].includes(sex)&&typeof inspectGraph==='function'&&typeof repeatMeasurementFixture==='boolean','Invalid growth fixture sex or output inspector');
   const wanted = new Set(select);
   const wants = form => form.concerns.some(concern => wanted.has(claims.claimKey(form.key, concern)));
   const needed = new Set(FORMS.filter(wants).map(form => form.key));
@@ -395,8 +396,9 @@ async function workflow(s, { select = validatePin() } = {}) {
     }
   }
   const today = (() => { const n = new Date(); return { y: n.getUTCFullYear(), m: n.getUTCMonth() + 1, d: n.getUTCDate() }; })();
-  const dob = day(today, -INFANT_DAYS);
+  const dob = birthDate || day(today, -INFANT_DAYS);
   const fieldsOf = { rourke2020: rourkeFields(marker, dob), growth036: growthFields(marker, dob), growthchart: chartFields(marker, today) };
+  fieldsOf.growth036.push(...additionalGrowthFields);
   const entries = FORMS.filter(form => needed.has(form.key)).map(form => ({
     form, name: `${marker} ${form.code}`, results: {}, seen: new Set(), restore: {}, lost: {}, pages: [], fields: fieldsOf[form.key], extras: [], radios: [],
   }));
@@ -464,7 +466,8 @@ async function workflow(s, { select = validatePin() } = {}) {
 
   // FIXTURE, not an assertion. An infant (so every Rourke visit up to 18 months is in the past) with the contact
   // and health-card columns every registered patient has.
-  sql.execute(`UPDATE demographic SET year_of_birth='${dob.y}',month_of_birth='${pad(dob.m)}',date_of_birth='${pad(dob.d)}',sex='${PATIENT_SEX}',
+  h.assert(Number.isInteger(dob.y)&&dob.y>=1900&&dob.y<=today.y&&Number.isInteger(dob.m)&&dob.m>=1&&dob.m<=12&&Number.isInteger(dob.d)&&dob.d>=1&&dob.d<=31,'Invalid owned infant birth date');
+  sql.execute(`UPDATE demographic SET year_of_birth='${dob.y}',month_of_birth='${pad(dob.m)}',date_of_birth='${pad(dob.d)}',sex='${sex}',
     address='1 Test St',city='Toronto',postal='M5V 2T6',phone='416-555-0100',phone2='416-555-0101',hin='9876543217',ver='AB',
     email='fake@example.invalid',roster_status='RO'
     WHERE demographic_no=${patient} AND last_name=${h.sqlString(marker)}`);
@@ -1056,6 +1059,7 @@ async function workflow(s, { select = validatePin() } = {}) {
     h.assert(found === pages, `${what} has ${found} pages, not the ${pages} its chart is laid out on`);
     h.assert(plotted >= points, `${what} plots ${plotted} points; ${points} typed points fit the chart`);
     pngs.forEach((png, index) => h.assert(pdfGraph.isPng(png) && png.length >= MIN_PNG_BYTES, `${what} page ${index + 1} draws as a ${png.length}-byte image, not a chart`));
+    inspectGraph({form:entry.form.key,what,body,sex,dob,stage:'form'});
     return { plotted, pages: found };
   }
 
@@ -1120,11 +1124,15 @@ async function workflow(s, { select = validatePin() } = {}) {
         sql.execute(`INSERT INTO measurements (type,demographicNo,providerNo,dataField,measuringInstruction,comments,dateObserved,dateEntered,appointmentNo)
           VALUES ('WT',${patient},${h.sqlString(provider)},'6.4','in kg','',${h.sqlString(when)},NOW(),0),
                  ('HT',${patient},${h.sqlString(provider)},'62.5','in cm','',${h.sqlString(when)},NOW(),0)`);
+        if(repeatMeasurementFixture)sql.execute(`INSERT INTO measurements (type,demographicNo,providerNo,dataField,measuringInstruction,comments,dateObserved,dateEntered,appointmentNo)
+          VALUES ('WT',${patient},${h.sqlString(provider)},'6.4','in kg','',${h.sqlString(when)},NOW(),0),
+                 ('HT',${patient},${h.sqlString(provider)},'62.5','in cm','',${h.sqlString(when)},NOW(),0)`);
         const answer = await s.context.request.get(new URL(entry.graph.length.url, chart.url()).toString());
         const body = assertPdf({ status: answer.status(), type: answer.headers()['content-type'] || '', body: await answer.body() }, 'the Length and Weight graph');
         const plotted = pdfGraph.plottedPoints(body)[0];
         detail(entry, `the Length and Weight graph plots ${plotted} points with a weight and a length added to measurements (${entry.graph.length.plotted} before)`);
         h.assert(plotted >= entry.graph.length.plotted + 2, `the graph plots ${plotted} points with a weight and a length in measurements, ${entry.graph.length.plotted} without`);
+        inspectGraph({form:'rourke2020',what:'Length and Weight',body,sex,dob,stage:'measurements'});
       }, { take: false });
     }
     // The baseline for graphgrowth: the head circumference graph as it is now, before the Growth 0-36 form is saved.
@@ -1188,8 +1196,8 @@ async function workflow(s, { select = validatePin() } = {}) {
     await afterPrint('printsex', async () => {
       // The mark is judged where the template places it (the M and F boxes of page I), not as a count of x anywhere on the page.
       const marks = sexMarks(await printedPageOne());
-      const own = PATIENT_SEX === 'F' ? 'female' : 'male';
-      const other = PATIENT_SEX === 'F' ? 'male' : 'female';
+      const own = sex === 'F' ? 'female' : 'male';
+      const other = sex === 'F' ? 'male' : 'female';
       h.assert(marks[own] === 1 && marks[other] === 0,
         `the printed record puts ${marks[own]} mark(s) in the ${own} box and ${marks[other]} in the ${other} box, for a ${own} patient`);
     });
@@ -1383,6 +1391,7 @@ async function workflow(s, { select = validatePin() } = {}) {
         const floor = rourke.graph.headCirc.baseline + GROWTH_ROWS * 2;
         detail(rourke, `the Head Circumference graph plots ${plotted} points with the Growth 0-36 rows saved (${rourke.graph.headCirc.baseline} before; floor ${floor})`);
         h.assert(plotted >= floor, `the Head Circumference graph plots ${plotted} points with ${GROWTH_ROWS} Growth 0-36 rows, ${rourke.graph.headCirc.baseline} without them (two points for each row are expected)`);
+        inspectGraph({form:'rourke2020',what:'Head Circumference',body,sex,dob,stage:'combined'});
       }, { take: false });
     }
   }

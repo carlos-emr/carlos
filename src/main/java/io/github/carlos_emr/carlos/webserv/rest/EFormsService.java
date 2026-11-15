@@ -22,6 +22,8 @@
 
 package io.github.carlos_emr.carlos.webserv.rest;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -121,7 +123,7 @@ public class EFormsService extends AbstractServiceImpl
 		}
 		File directory = PathValidationUtils.resolveConfiguredDirectory(imageHomeDir, "EFORM_IMAGES_DIR");
 		if (!directory.isDirectory()) {
-			logger.error("eForm image directory does not exist: {}", imageHomeDir);
+			logger.error("eForm image directory does not exist");
 			return RestResponse.errorResponse("Image directory not available");
 		}
 
@@ -159,7 +161,7 @@ public class EFormsService extends AbstractServiceImpl
 		}
 		catch (RuntimeException e)
 		{
-			logger.error("DB tag Error: ", e);
+			logger.error("DB tag Error: {}", LogSafe.exceptionTrace(e));
 			return RestResponse.errorResponse("Error retrieving database tag list");
 		}
 		return RestResponse.successResponse(dbTagList);

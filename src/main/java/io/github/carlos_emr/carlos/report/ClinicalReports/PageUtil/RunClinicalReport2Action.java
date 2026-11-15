@@ -40,7 +40,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.apache.commons.collections4.KeyValue;
+import java.util.Map;
+import java.util.AbstractMap;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -50,6 +51,7 @@ import io.github.carlos_emr.carlos.report.ClinicalReports.ClinicalReportManager;
 import io.github.carlos_emr.carlos.report.ClinicalReports.Denominator;
 import io.github.carlos_emr.carlos.report.ClinicalReports.Numerator;
 import io.github.carlos_emr.carlos.report.ClinicalReports.ReportEvaluator;
+import io.github.carlos_emr.carlos.report.data.ReportLimitNotice;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -179,14 +181,14 @@ public class RunClinicalReport2Action extends ActionSupport {
         }
 
 
-        List<KeyValue> extraVal = null;
+        List<Map.Entry<String, String>> extraVal = null;
         for (Object params : request.getParameterMap().keySet()) {
             String requestParam = (String) params;
             if (requestParam.startsWith("report_measurement") && !request.getParameter(requestParam).equals("-1")) {
                 if (extraVal == null) {
                     extraVal = new LinkedList();
                 }
-                KeyValue kv = new org.apache.commons.collections4.keyvalue.DefaultKeyValue(requestParam, request.getParameter(requestParam));
+                Map.Entry<String, String> kv = new AbstractMap.SimpleEntry<>(requestParam, request.getParameter(requestParam));
                 extraVal.add(kv);
                 request.setAttribute(requestParam, request.getParameter(requestParam));
             }
@@ -199,7 +201,14 @@ public class RunClinicalReport2Action extends ActionSupport {
 
 
         ReportEvaluator re = new ReportEvaluator();
-        re.evaluate(LoggedInInfo.getLoggedInInfoFromSession(request), d, n, numerators, extraVal, inclNonPositiveResults);
+        try {
+            re.evaluate(LoggedInInfo.getLoggedInInfoFromSession(request), d, n, numerators, extraVal, inclNonPositiveResults);
+        } catch (IllegalStateException e) {
+            // The report still fails as before. When a configured_report.* limit stopped it, the error
+            // page names that limit, so the user can narrow the report or ask for the limit to be raised.
+            ReportLimitNotice.publish(request, e);
+            throw e;
+        }
 
         int num = re.getNumeratorCount();
         int denom = re.getDenominatorCount();

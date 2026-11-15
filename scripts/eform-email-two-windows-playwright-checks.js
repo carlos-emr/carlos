@@ -26,6 +26,7 @@
 const net = require('node:net');
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
+const {fillComposeMessage, prepareComposePassword} = require('./lib/email-compose-probe');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 
@@ -197,9 +198,8 @@ async function workflow(s) {
   async function send(composer, entry, label) {
     await composer.locator('#senderEmailAddress').selectOption(configId);
     await composer.locator('#subjectEmail').fill(`${marker} ${label}`);
-    await composer.locator('#bodyEmail').fill(`${marker} body ${label}`);
-    await composer.locator('#emailPDFPassword').fill(`PW${hex}${label}`);
-    await composer.locator('#emailPDFPasswordClue').fill(`${marker} clue`);
+    await fillComposeMessage(composer, `${marker} body ${label}`);
+    await prepareComposePassword(composer, `PW${hex}${label}`, `${marker} clue`);
     await composer.locator('#doNotAddAsNoteOption').check();
     await Promise.all([composer.waitForURL(/\/email\/emailSendAction/, { timeout: TIMEOUT }), composer.locator('#btnSend').click()]);
     await composer.locator('#successMessage').waitFor({ timeout: TIMEOUT });

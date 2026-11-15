@@ -19,7 +19,7 @@
  * line with its explanation and nothing paid; Summary lists the practitioner's billed and paid totals;
  * the refused claim is marked refused (F); MSP Reconciliation Reports opens from the menu; LAST, that list's
  * Billed PDF names the owned claims (patient number and both fee codes) and its Summary PDF the payee and
- * practitioner numbers.
+ * practitioner numbers; both CSV links download flat tables containing the same identifiers.
  * Known failures, recorded in the manifest notes: on 2026.08 Submit stores the remittance and then
  * answers HTTP 500 (#4806; #4808 is its release fix), so the upload step fails; MSP Reconciliation
  * Reports from the menu fails on every BC install (#4439, D6); the list's PDF links answer HTTP 404 until
@@ -40,7 +40,7 @@ const ui = require('./lib/playwright-ui');
 const bc = require('./lib/bc-billing-fixture');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow } = require('./lib/workflow-session');
-const { requirePoppler, pdfTextBuffer, squash } = require('./lib/export-content-helpers');
+const { requirePoppler, pdfTextBuffer, squash, parseCsv, saveDownload, scratchDir } = require('./lib/export-content-helpers');
 
 const TIMEOUT = 60000;
 const UPLOAD_ROUTE = '/billing/CA/BC/ViewBillingTA';
@@ -57,7 +57,7 @@ const STEP = {
   summary: "the remittance's Summary lists the practitioner's billed and paid totals",
   refused: 'the claim MSP refused is marked refused (F)',
   menu: 'Administration ▸ Billing ▸ MSP Reconciliation Reports opens the reconciliation list',
-  pdfs: "the list's Billed PDF and Summary PDF are PDFs that name the remittance's claims, payee and practitioner",
+  pdfs: "the list's Billed and Summary PDF/CSV downloads name the remittance's claims, payee and practitioner",
 };
 
 const text = (value, width) => String(value).padEnd(width, ' ').slice(0, width);
@@ -272,6 +272,15 @@ async function workflow(s) {
   });
 
   await s.step(STEP.pdfs, async () => {
+    // The importer retains fixed-width substrings. Exercise space-padded report amounts after
+    // the reconciliation UI assertions, whose existing formatting is outside the export contract.
+    sql.execute(`UPDATE teleplanS21 SET t_amtbilled=LPAD(CAST(t_amtbilled AS UNSIGNED),9,' '),
+        t_amtpaid=LPAD(CAST(t_amtpaid AS UNSIGNED),9,' '), t_cheque=LPAD(CAST(t_cheque AS UNSIGNED),9,' ')
+      WHERE s21_id=${Number(raNo)} AND filename LIKE ${like};
+      UPDATE teleplanS22 SET t_amtbilled=LPAD(CAST(t_amtbilled AS UNSIGNED),9,' '),
+        t_amtpaid=LPAD(CAST(t_amtpaid AS UNSIGNED),9,' ') WHERE s21_id=${Number(raNo)} AND filename LIKE ${like};
+      UPDATE teleplanS00 SET t_paidamt=LPAD(CAST(t_paidamt AS UNSIGNED),9,' ')
+      WHERE s21_id=${Number(raNo)} AND filename LIKE ${like}`);
     // Numbers, not names: the reports' columns can cut a long name.
     for (const [type, label, wanted] of [['REP_MSPREM', 'Billed PDF', [String(patient), PAID.code, REFUSED.code]],
       ['REP_MSPREMSUM', 'Summary PDF', [physician.payeeNo, physician.ohipNo]]]) {
@@ -284,6 +293,17 @@ async function workflow(s) {
       const text = squash(pdfTextBuffer(await response.body()));
       const missing = wanted.filter(value => !text.includes(squash(value)));
       h.assert(missing.length === 0, `The ${label} does not name ${JSON.stringify(missing)}: ${text.slice(0, 300)}`);
+      const directory = scratchDir();
+      s.cleanup(() => fs.rmSync(directory, { recursive: true, force: true }));
+      const csvLink = listRow().locator(`a[href*="docFormat=csv&repType=${type}&"]`);
+      h.assert(await csvLink.count() === 1, `The remittance row has no ${type} CSV link`);
+      const file = await saveDownload(admin, directory, () => csvLink.click(), { route: /createBillingReportAction$/ });
+      h.assert(file.status === 200 && /^application\/csv\b/.test(file.headers['content-type'] || ''), `${type} CSV failed to download`);
+      const csv = file.bytes.toString('utf8');
+      const grid = parseCsv(csv);
+      h.assert(grid.length > 1 && grid.every(row => row.length === grid[0].length), `${type} CSV has inconsistent rows`);
+      h.assert(wanted.every(value => csv.includes(value)), `${type} CSV lost claim/payee/practitioner fields`);
+      if (type === 'REP_MSPREMSUM') h.assert(grid[0][0] === 'Record Type', 'Summary CSV is missing its flat record-type column');
     }
   });
   await admin.close();

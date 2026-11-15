@@ -1,0 +1,81 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+
+import java.io.*;
+import java.nio.file.*;
+import java.util.*;
+import net.sf.jasperreports.engine.*;
+import net.sf.jasperreports.engine.data.*;
+import net.sf.jasperreports.engine.export.*;
+import net.sf.jasperreports.engine.export.ooxml.*;
+import net.sf.jasperreports.export.*;
+import io.github.carlos_emr.carlos.billings.ca.bc.data.PayRefSummary;
+public class Baseline {
+ public static void main(String[] args) throws Exception {
+  Locale.setDefault(Locale.CANADA); TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+  Path root=Path.of(args[0]), out=Path.of(args[1]); Files.createDirectories(out);
+  var paths=new ArrayList<Path>(); try(var s=Files.list(root.resolve("oscar/oscarBilling/ca/bc/reports"))){paths.addAll(s.filter(p->p.getFileName().toString().matches("csv_rep_.*\\.jrxml")).sorted().toList());}
+  paths.add(root.resolve("org/oscarehr/common/web/DxResearchReport.jrxml"));
+  try(var db=java.sql.DriverManager.getConnection("jdbc:h2:mem:baseline;MODE=MySQL;DB_CLOSE_DELAY=-1")) {
+   for(String table:List.of("teleplanS21","teleplanS22","teleplanS23","teleplanS25","teleplan_adj_codes")) {
+    var cols=new LinkedHashSet<String>(); cols.add("s21_id"); cols.add("s22_id");cols.add("s23_id");cols.add("s25_id");cols.add("status");cols.add("t_s22type");cols.add("t_s23type");cols.add("adj_code");
+    var templates=new ArrayList<Path>(paths); for(String sub:List.of("msppremsum.practsum.jrxml","msppremsum.s23.jrxml","broadcastmessages.jrxml")) templates.add(root.resolve("oscar/oscarBilling/ca/bc/reports/"+sub));
+    for(Path p:templates) for(JRField f:JasperCompileManager.compileReport(p.toString()).getFields()) if(f.getName().startsWith("t_")||f.getName().equals("adj_desc"))cols.add(f.getName());
+    if(table.equals("teleplan_adj_codes")){cols.clear();cols.add("adj_code");cols.add("adj_desc");}
+    db.createStatement().execute("create table "+table+" ("+cols.stream().map(c->c+" varchar(100)").collect(java.util.stream.Collectors.joining(","))+")");
+    String values=cols.stream().map(c->"'"+switch(c){case "status"->"A";case "t_s22type"->"A";case "t_s23type"->"S23";case "t_payment"->"20261001";case "t_payeename","t_practitionername"->"Synthetic Clinic";case "t_message"->"Synthetic broadcast";case "adj_desc"->"Synthetic adjustment";default->"1";}+"'").collect(java.util.stream.Collectors.joining(","));
+    db.createStatement().execute("insert into "+table+" values ("+values+")");
+   }
+   for(Path p:paths){
+    JasperReport report=JasperCompileManager.compileReport(p.toString());
+    Map<String,Object> row=new HashMap<>(), params=new HashMap<>();
+    for(JRField f:report.getFields()) {String n=f.getName();Object v="1";
+     if(n.toLowerCase(Locale.ROOT).contains("date")||n.equals("strDOB")||n.equals("demoDOB")||n.equals("t_payment"))v="20261001";
+     if(n.toLowerCase(Locale.ROOT).contains("name"))v="Synthetic Élodie";
+     if(n.equals("amount")||n.equals("amtOwing"))v="-1234.50";
+     if(n.equals("strHIN")||n.equals("hin"))v="0012345678";
+     if(n.toLowerCase(Locale.ROOT).contains("phone"))v="0012345678";
+     if(n.equals("serviceDateRange"))v="4";
+     if(n.equals("expString")||n.equals("expSum")||n.equals("reason"))v="Synthetic reason";
+     if(f.getValueClass()==Integer.class)v=1;
+     row.put(n,v);
+    }
+    for(JRParameter par:report.getParameters())if(!par.isSystemDefined()) {
+     if(par.getValueClass()==String.class)params.put(par.getName(),"1");
+     if(par.getValueClass()==PayRefSummary.class){PayRefSummary s=new PayRefSummary();s.addIncValue("1",-1234.50);params.put(par.getName(),s);}
+    }
+    params.put("REPORT_LOCALE",Locale.CANADA);
+    JasperPrint print;
+    if(p.getFileName().toString().equals("csv_rep_mspremsum.jrxml")) {
+     for(var e:Map.of("practSum","msppremsum.practsum.jrxml","adj","msppremsum.s23.jrxml","msgs","broadcastmessages.jrxml").entrySet())params.put(e.getKey(),JasperCompileManager.compileReport(p.getParent().resolve(e.getValue()).toString()));
+     params.put("s21id","1"); print=JasperFillManager.fillReport(report,params,db);
+    }else print=JasperFillManager.fillReport(report,params,new JRMapCollectionDataSource(List.of(row)));
+    String name=p.getFileName().toString().replace(".jrxml","");
+    if(name.startsWith("csv_")) {var ex=new JRCsvExporter();ex.setExporterInput(new SimpleExporterInput(print));ex.setExporterOutput(new SimpleWriterExporterOutput(out.resolve(name+".csv").toFile()));ex.exportReport();}
+    else {var ex=new JRXlsxExporter();var config=new SimpleXlsxReportConfiguration();
+     config.setIgnorePageMargins(true);config.setOffsetX(0);config.setIgnoreCellBorder(false);config.setDetectCellType(true);
+     config.setWhitePageBackground(false);config.setOnePagePerSheet(false);config.setMaxRowsPerSheet(65000);ex.setConfiguration(config);ex.setExporterInput(new SimpleExporterInput(print));ex.setExporterOutput(new SimpleOutputStreamExporterOutput(out.resolve(name+".xlsx").toFile()));ex.exportReport();}
+    System.out.println(name+" pages="+print.getPages().size());
+   }
+  }
+ }
+}

@@ -48,6 +48,23 @@ import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationExc
 @DisplayName("LogSafe")
 class LogSafeUnitTest {
 
+    @Test
+    void shouldPreserveDiagnosticTypesAndLocations_withoutMessagesOrSourceFilenames() {
+        String privateValue = "FAKE-PRIVATE-PATIENT-FILE";
+        Throwable failure = new java.io.IOException(privateValue) {
+            @Override public String getMessage() { throw new AssertionError("message must not be read"); }
+            @Override public String toString() { throw new AssertionError("throwable must not be formatted"); }
+        };
+        failure.setStackTrace(new StackTraceElement[]{new StackTraceElement("safe.Code", "read", privateValue, 42)});
+        Throwable cause = new IllegalArgumentException(privateValue);
+        cause.setStackTrace(new StackTraceElement[]{new StackTraceElement("safe.Parser", "parse", privateValue, 7)});
+        failure.initCause(cause); cause.initCause(failure); failure.addSuppressed(new IllegalStateException(privateValue));
+        String trace = LogSafe.exceptionTrace(failure);
+        assertThat(trace).contains("safe.Code.read:42", "safe.Parser.parse:7", "java.lang.IllegalArgumentException",
+                "java.lang.IllegalStateException", "repeated or truncated exception").doesNotContain(privateValue);
+        assertThat(LogSafe.exceptionTrace(null)).isEmpty();
+    }
+
     @Nested
     @DisplayName("sanitize(String)")
     class SanitizeString {

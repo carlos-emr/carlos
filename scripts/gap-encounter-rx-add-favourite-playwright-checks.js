@@ -95,7 +95,8 @@ async function workflow(s) {
     // its own X before reusing the favourite, so a successful reuse really must insert a card.
     await rx.locator(`#set_${key} a[onclick^='removePrescribingDrug']`).first().click();
     await rx.locator(`#drugName_${key}`).waitFor({ state: 'detached', timeout: 30000 });
-    const link = rx.locator(`a[title="${cardFavourite}"]`).first();
+    // The prescribing page lists each favourite as a button (SideLinksEditFavorites2.jsp, since #6099), no longer a link.
+    const link = rx.locator(`button.rx-favorite-template[title="${cardFavourite}"]`).first();
     await link.waitFor({ state: 'attached', timeout: 20000 });
     const before = await rx.locator("[id^='drugName_']").evaluateAll(els => els.map(el => el.id));
     const [staged] = await Promise.all([
