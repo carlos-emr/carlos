@@ -310,6 +310,24 @@ class CdsExportStatementWaitReadSupportUnitTest {
     }
 
     @Test
+    void shouldPropagateMaintenanceRefusal_whenTheUnitDeadlineCannotBeArmed() throws Exception {
+        var server = new CdsExportStatementWaitTestServer(60_000);
+        var refusal = new org.hibernate.JDBCException("guard refused",
+                new SQLException("reviewed adapter required", "45000"));
+        when(server.connection().prepareStatement(CdsExportStatementWaitReadSupport.DEADLINE))
+                .thenThrow(refusal);
+        var worked = new java.util.concurrent.atomic.AtomicBoolean();
+        assertThatThrownBy(() -> CdsExportStatementWaitReadSupport.transaction(units(server), status -> {
+            CdsExportStatementWaitReadSupport.arm();
+            worked.set(true);
+            return "unprotected";
+        })).isSameAs(refusal);
+        assertThat(worked).isFalse();
+        assertThat(server.transactions()).isEqualTo(1);
+        assertThat(server.deadline()).isZero();
+    }
+
+    @Test
     void shouldSendTheWholeUnitAgain_whenItsSharedCodeSwallowedAStatementEndedAtTheDeadline()
             throws Exception {
         var server = new CdsExportStatementWaitTestServer(60_000);

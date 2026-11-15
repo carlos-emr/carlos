@@ -516,9 +516,19 @@ public final class CdsExportStatementWaitReadSupport {
             em.unwrap(Session.class).doWork(connection -> network.arm(connection, unit));
         } catch (RuntimeException failed) {
             if (io.github.carlos_emr.carlos.demographic.cdsexport.support
-                    .CdsExportDatabaseUnavailableException.lost(failed)) throw failed;
+                    .CdsExportDatabaseUnavailableException.lost(failed)
+                    || admissionRefused(failed)) throw failed;
             // A server that cannot take the deadline: the unit runs without one.
         }
+    }
+
+    /** A maintenance refusal is not a server missing its optional deadline capability. */
+    private static boolean admissionRefused(Throwable failure) {
+        var seen = new java.util.HashSet<Throwable>();
+        for (Throwable cause = failure; cause != null && seen.add(cause); cause = cause.getCause()) {
+            if (cause instanceof SQLException sql && "45000".equals(sql.getSQLState())) return true;
+        }
+        return false;
     }
 
     /** The entity manager of the transaction on this thread: the one its holder binds. */

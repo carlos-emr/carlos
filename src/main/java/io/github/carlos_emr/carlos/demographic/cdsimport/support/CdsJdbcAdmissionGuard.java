@@ -100,7 +100,8 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
                     "character_sets",
                     "collation_character_set_applicability",
                     "system_variables",
-                    "session_variables");
+                    "session_variables",
+                    "session_status");
     private static final Set<String> LEDGER =
             Set.of(
                     "cds_export_run",
@@ -873,6 +874,12 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
         if (upper.matches(
                 "SET\\s+(?:SESSION\\s+)?TRANSACTION\\s+ISOLATION\\s+LEVEL\\s+(?:READ COMMITTED|READ"
                     + " UNCOMMITTED|REPEATABLE READ|SERIALIZABLE)"))
+            return new SqlShape(false, false, false);
+        // Reviewed export wait adapter: this one bound session variable changes only a
+        // statement's deadline. MariaDB does not commit the transaction when setting it.
+        // The complete stream was parsed above; expressions, other assignments, GLOBAL,
+        // autocommit and appended statements do not match this exact prepared spelling.
+        if (upper.equals("SET SESSION MAX_STATEMENT_TIME = ?"))
             return new SqlShape(false, false, false);
         try {
             boolean read = parsed instanceof Select;

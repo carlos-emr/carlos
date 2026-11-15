@@ -54,6 +54,18 @@ ledger and source-derived login tables have an exact SQL allowlist. Joins/subque
 tables still require admission. Vendor unwrap, multiple SQL statements, callable routines,
 unreviewed functions and implicit-commit SQL are refused while the guard is installed.
 
+The export wait adapter may prepare exactly `SET SESSION max_statement_time = ?`.
+It sets or restores a bound statement deadline without committing the transaction or
+changing its isolation, admission locks, or autocommit. Global settings, expressions,
+additional assignments, and additional statements remain refused. Reads of
+`information_schema.SESSION_STATUS` expose server counters, including the number of
+expired statements; joining those counters to a clinical table still requires admission.
+`CdsExportStatementWaitMariaDbIntegrationTest` exercises the actual guarded connection,
+deadline expiry and restoration, and rollback of an earlier write, so a rejected adapter
+cannot silently leave the export's unit deadline disabled.
+An admission refusal (`SQLState 45000`) while arming the deadline also propagates to
+the caller; it is never treated as a server lacking the optional deadline capability.
+
 SQL keyword and allowlist-token classification folds ASCII letters only. The classifier must not turn a Unicode lookalike into `VERSION`, a known built-in function, or an allowlisted ledger table. Function names pass an explicit ASCII boundary before the shared reporting helper, whose own case conversion would otherwise reintroduce the ambiguity. This restriction applies to recognized security tokens: Unicode values and ordinary Unicode identifiers still go through the existing complete-statement parser and admission rules. The original SQL is executed unchanged after admission; it is never rewritten into the classification spelling.
 
 `Owner.close()` stops new unit admission, drains old units and releases the advisory connection.

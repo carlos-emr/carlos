@@ -34,6 +34,38 @@ import static org.mockito.Mockito.*;
 @Tag("unit")
 class CdsJdbcAdmissionGuardUnitTest {
     @Test
+    void shouldAdmitOnlyTheBoundStatementDeadline_whenTheMaintenanceGuardIsInstalled()
+            throws Exception {
+        Connection raw = mock(Connection.class);
+        var set = mock(java.sql.PreparedStatement.class);
+        String deadline = "SET SESSION max_statement_time = ?";
+        when(raw.prepareStatement(deadline)).thenReturn(set);
+        var guarded = CdsJdbcAdmissionGuard.wrap(raw, new CdsJdbcAdmissionState("fixture"));
+        try (var statement = guarded.prepareStatement(deadline)) {
+            statement.setDouble(1, 0.05);
+            statement.execute();
+        }
+        verify(set).setDouble(1, 0.05);
+        verify(set).execute();
+        verify(raw, never()).commit();
+        verify(raw, never()).setAutoCommit(anyBoolean());
+        for (String sql : new String[] {
+                "SET GLOBAL max_statement_time = ?", "SET SESSION autocommit = ?",
+                "SET SESSION max_statement_time = (SELECT COUNT(*) FROM demographic)",
+                "SET SESSION max_statement_time = ?, autocommit = 1",
+                deadline + "; COMMIT", deadline + "; DELETE FROM demographic"}) {
+            assertThatThrownBy(() -> guarded.prepareStatement(sql)).as(sql)
+                    .isInstanceOf(SQLException.class);
+        }
+        assertThat(CdsJdbcAdmissionGuard.clinical(
+                "SELECT CAST(VARIABLE_VALUE AS SIGNED) FROM information_schema.SESSION_STATUS"
+                        + " WHERE VARIABLE_NAME = 'MAX_STATEMENT_TIME_EXCEEDED'")).isFalse();
+        assertThat(CdsJdbcAdmissionGuard.clinical(
+                "SELECT s.VARIABLE_VALUE FROM information_schema.SESSION_STATUS s"
+                        + " JOIN demographic d ON d.demographic_no=1")).isTrue();
+    }
+
+    @Test
     void shouldKeepServerBinaryStatementsGuarded_withoutExposingTheDriverConnection()
             throws Exception {
         Connection raw = mock(Connection.class);

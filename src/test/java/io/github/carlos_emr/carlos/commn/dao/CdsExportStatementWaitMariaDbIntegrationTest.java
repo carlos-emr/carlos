@@ -103,6 +103,51 @@ class CdsExportStatementWaitMariaDbIntegrationTest {
         return pool;
     }
 
+    @Test
+    void shouldEnforceAndRestoreTheGuardedDeadline_withoutCommittingTheTransaction()
+            throws Exception {
+        String ownedUrl = url.replace("/cds_export_test", "/" + owned);
+        try (var raw = DriverManager.getConnection(ownedUrl, account, secret)) {
+            raw.setAutoCommit(false);
+            try (var update = raw.prepareStatement("UPDATE lease SET renewals=1 WHERE id=1")) {
+                assertThat(update.executeUpdate()).isEqualTo(1);
+            }
+            var guarded = io.github.carlos_emr.carlos.demographic.cdsimport.support
+                    .CdsJdbcAdmissionGuard.wrap(raw,
+                            new io.github.carlos_emr.carlos.demographic.cdsimport.support
+                                    .CdsJdbcAdmissionState(owned));
+            double original;
+            long ended;
+            try (var read = guarded.prepareStatement(CdsExportStatementWaitReadSupport.SEEN);
+                    var rows = read.executeQuery()) {
+                assertThat(rows.next()).isTrue();
+                original = rows.getDouble(1);
+                ended = rows.getLong(2);
+            }
+            try (var set = guarded.prepareStatement(CdsExportStatementWaitReadSupport.DEADLINE)) {
+                set.setDouble(1, 0.05);
+                set.execute();
+                try (var slow = raw.prepareStatement("SELECT SLEEP(0.2)")) {
+                    assertThatThrownBy(slow::executeQuery).isInstanceOf(java.sql.SQLException.class)
+                            .satisfies(failure -> assertThat(((java.sql.SQLException) failure)
+                                    .getErrorCode()).isEqualTo(1969));
+                } finally {
+                    set.setDouble(1, original);
+                    set.execute();
+                }
+            }
+            try (var read = guarded.prepareStatement(CdsExportStatementWaitReadSupport.SEEN);
+                    var rows = read.executeQuery()) {
+                assertThat(rows.next()).isTrue();
+                assertThat(rows.getDouble(1)).isEqualTo(original);
+                assertThat(rows.getLong(2)).isGreaterThan(ended);
+            }
+            guarded.rollback();
+        }
+        assertThat(sql.queryForObject("SELECT renewals FROM `" + owned + "`.lease WHERE id=1",
+                Integer.class)).isZero();
+    }
+
     /** One physical connection with the given socket timeout, behind a real entity manager. */
     private void open(int socketTimeoutMillis) {
         String ownedUrl = url.replace("/cds_export_test", "/" + owned);
