@@ -43,13 +43,13 @@
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="org.apache.logging.log4j.Logger" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewAction" %>
+
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementViewFormBean" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementCPP" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%
     Logger logger = MiscUtils.getLogger();
 
@@ -66,9 +66,8 @@
     <script type="text/javascript" src="${pageContext.request.contextPath}/js/oscarClientManagement/profilePicture.js"></script>
 </head>
 <body>
-    <fmt:setBundle basename="cdsImportMessages" var="cdsSourceLabels"/>
-    <div><fmt:message key="sourceClinicalNotes" bundle="${cdsSourceLabels}"/>: <source:cdsSourceFields demographicNo="${requestScope.demographicNo}" category="ClinicalNotes"/> — <fmt:message key="sourceAdditionalCategories" bundle="${cdsSourceLabels}"/>: <source:cdsSourceFields demographicNo="${requestScope.demographicNo}" category="NewCategory"/></div>
-    <p class="cds-note-source-timing"><fmt:message key="sourceClinicalNotesTimingHelp" bundle="${cdsSourceLabels}"/></p>
+    <%-- Rendered only for a patient with imported CDS notes or additional categories. --%>
+    <source:cdsChartSourceLinks demographicNo="${requestScope.demographicNo}"/>
     <form name="caseManagementViewForm" action="${pageContext.request.contextPath}/CaseManagementView" method="post">
         <% if (io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) != null) { %>
         <input type="hidden" name="chartContext" value="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>"/>

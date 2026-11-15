@@ -45,7 +45,8 @@ ran EL 6, and any tool that puts `WEB-INF/lib/*` on its class path saw the EL 5 
 Until #5416 the WAR shipped two such copies:
 
 - `jakarta.el-api-5.0.1.jar`, an Expression Language 5 API beside Tomcat 11's EL 6. It arrived
-  at `compile` scope through `displaytag` → `jakarta.servlet.jsp.jstl-api` 3.0.2, which declares
+  at `compile` scope through `jakarta.servlet.jsp.jstl-api` 3.0.2 (then reached through
+  displaytag, which #5472 removed; the JSTL API is now a direct dependency), which declares
   EL 5.0.0. The Glassfish JSTL implementation declares the same API `provided`.
 - `jakarta.annotation-api-3.0.0.jar`, a direct `compile` dependency that duplicated Tomcat's
   `annotations-api.jar`.
@@ -69,7 +70,7 @@ a fallback.
   against the `el-api.jar` of Tomcat 11.0.27 and of Ubuntu 26.04's 11.0.22. CARLOS code has no
   EL resolver of its own. The EL functions
   in `carlos-tag.tld` and `integration-tags.tld` are static `String` methods (`SafeEncode`) and do
-  not touch the EL API. displaytag does not use EL classes at all.
+  not touch the EL API. displaytag, removed in #5472, used no EL classes either.
 - **Run-time behaviour is unchanged:** because of the class-loader filter, JSPs were already
   evaluated by Tomcat's EL 6 before this change.
 
@@ -105,8 +106,8 @@ a fallback.
 - Both read `scripts/fixtures/tomcat-container-packages.json`. Change that file only alongside
   a change to Tomcat's class-loader filter.
 - `scripts/el-jstl-pages-playwright-checks.js` opens representative deployed pages (JSTL,
-  displaytag, the `carlos:` EL functions) and fails on an unevaluated `${...}` or `#{...}`, an
-  error page or an EL failure.
+  including the tables that replaced displaytag, and the `carlos:` EL functions) and fails on
+  an unevaluated `${...}` or `#{...}`, an error page or an EL failure.
 
 To check by hand:
 

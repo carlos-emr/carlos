@@ -685,6 +685,11 @@ public class LoginFilter implements Filter {
 
     private boolean isFacilitySelectionAllowed(String requestURI, String contextPath) {
         String normalizedUri = normalizeUri(requestURI);
+        // The chooser's own files need exact matches, without the route matcher's PATH_INFO allowance.
+        if (normalizedUri.equals(contextPath + "/css/caisi_css.css")
+                || normalizedUri.equals(contextPath + "/js/global.js")) {
+            return true;
+        }
         return inListOfExemptions(normalizedUri, contextPath, PENDING_FACILITY_SELECTION_URLS);
     }
 

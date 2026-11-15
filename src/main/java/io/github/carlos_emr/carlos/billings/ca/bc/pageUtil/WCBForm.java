@@ -31,7 +31,6 @@
 package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 
 import io.github.carlos_emr.Misc;
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.entities.WCB;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
@@ -42,7 +41,7 @@ public final class WCBForm {
 
 
     public String toString() {
-        return ReflectionToStringBuilder.toString(this);
+        return getClass().getSimpleName() + "[protected]";
     }
 
     /**

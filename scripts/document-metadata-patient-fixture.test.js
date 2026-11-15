@@ -31,6 +31,7 @@ function fixture() {
     throw new Error('Unexpected SQL');
   }};
   const context = {module: {exports: {}}, Buffer, process, require(name) {
+    if (name === './lib/authenticated-probe') return require('./lib/authenticated-probe');
     if (name === './mixed-engine-owned-cleanup') return mixed;
     if (name === './playwright-harness') return {sqlString: value => "'" + value + "'"};
     return require(name);

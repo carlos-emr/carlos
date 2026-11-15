@@ -36,6 +36,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -178,7 +182,42 @@ class ManageBillingFormService2ActionUnitTest extends CarlosUnitTestBase {
                 .replaceServiceCodes(any(), any());
     }
 
-    /** Mark unused — tests assert behavior, not used directly. */
-    @SuppressWarnings("unused")
-    private CtlBillingService unused;
+    /** Only surrounding whitespace changes; the form, group and order stay intact. */
+    @ParameterizedTest
+    @ValueSource(strings = {" A007A", "A007A ", "\t A007A \r\n", "A007A"})
+    void shouldTrimServiceCodes_whenReplacingBillingFormRows(String serviceCode) throws Exception {
+        request.setParameter("group3", "Common Codes");
+        request.setParameter("group3_service19", serviceCode);
+        request.setParameter("group3_service19_order", "7");
+
+        new ManageBillingFormService2Action().execute();
+
+        ArgumentCaptor<List<CtlBillingService>> rows = ArgumentCaptor.captor();
+        verify(billingFormConfigurationService).replaceServiceCodes(eq("42"), rows.capture());
+        assertThat(rows.getValue()).singleElement().satisfies(row -> {
+            assertThat(row.getServiceCode()).isEqualTo("A007A");
+            assertThat(row.getServiceOrder()).isEqualTo(7);
+            assertThat(row.getServiceGroup()).isEqualTo("Group3");
+            assertThat(row.getServiceGroupName()).isEqualTo("Common Codes");
+        });
+        assertThat(response.getStatus()).isEqualTo(302);
+    }
+
+    /** Blank codes are ignored before their invalid orders can abort a save. */
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "\t\r\n", "  \t  "})
+    void shouldSkipEmptyServiceCodes_whenOrderIsInvalid(String serviceCode) throws Exception {
+        if (serviceCode != null) {
+            request.setParameter("group1_service0", serviceCode);
+        }
+        request.setParameter("group1_service0_order", "invalid");
+
+        new ManageBillingFormService2Action().execute();
+
+        ArgumentCaptor<List<CtlBillingService>> rows = ArgumentCaptor.captor();
+        verify(billingFormConfigurationService).replaceServiceCodes(eq("42"), rows.capture());
+        assertThat(rows.getValue()).isEmpty();
+        assertThat(response.getStatus()).isEqualTo(302);
+    }
 }

@@ -742,7 +742,7 @@ test('native PDF audit requires status, MIME and complete PDF bytes and disposes
   ]) {
     let disposed = false;
     const page = {
-      locator: selector => ({ innerText: async () => '', count: async () => selector.includes('embed[type="application/pdf"]') ? 1 : 0 }),
+      locator: selector => ({ innerText: async () => '', allTextContents: async () => [], count: async () => selector.includes('embed[type="application/pdf"]') ? 1 : 0 }),
       url: () => 'https://127.0.0.1/carlos/document/observed',
       context: () => ({ request: { get: async url => {
         assert.equal(url, page.url());
@@ -1217,6 +1217,8 @@ test('shouldRecordBrowserVersion_whenLaunchBrowserStartedOne', async (t) => {
     processRef,
   });
   assert.equal(launched.length, 1, 'launchBrowser reached the (fake) playwright');
+  assert.equal(launched[0].handleSIGINT,false,'the cooperative entry point owns SIGINT');
+  assert.equal(launched[0].handleSIGTERM,false,'the cooperative entry point owns SIGTERM');
   assert.equal(result.browserVersion, 'chromium 154.0.8025.0');
   assert.equal(JSON.parse(fs.readFileSync(resultPath, 'utf8')).browserVersion, 'chromium 154.0.8025.0');
 });
@@ -1506,4 +1508,49 @@ test('a CDS route or public qualification property cannot excuse an unproven net
   recorder.requestFailures.push({label:'cds',url:'https://host/carlos/form/cdsImportStatus',resourceType:'fetch',
     errorText:'net::ERR_ABORTED',cdsMetadataEofEvidence:{classification:'CDS_METADATA_EOF_CONFIRMED'}});
   assert.throws(() => assertStrictPage(recorder), /fetch request failed/);
+});
+
+test('only Chromium built-in PDF renderer internal aborts are excluded',async()=>{
+ const recorder=createRecorder(),page=fakePage();wireStrictPage(page,'pdf',recorder,{baseline:[]});
+ const internal='chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/06977c87-317a-4972-a20c-7abfa89ea907';
+ const failure=(url,type='other',errorText='net::ERR_ABORTED')=>({url:()=>url,resourceType:()=>type,failure:()=>({errorText})});
+ await page.emit('requestfailed',failure(internal));assert.equal(recorder.requestFailures.length,0);
+ for(const request of [failure('https://host/carlos/pdf'),failure(internal,'script'),failure(internal,'other','net::ERR_FAILED'),failure(internal.replace('mhjfbmdgcfjbbpaeojofohoefgiehjai','anotherextension'))])await page.emit('requestfailed',request);
+ assert.equal(recorder.requestFailures.length,4);
+});
+
+test('diagnostic redaction handles quoted JSON URLs and embedded Playwright addresses',()=>{
+ const input=JSON.stringify({url:'https://host/carlos/route?demographic_no=123#private',nested:{message:'goto("/carlos/chart?demographic_no=456") failed'}},null,2);
+ const output=harness.withoutQueryStrings(input);
+ assert(!/123|456|demographic_no|private/.test(output));
+ const parsed=JSON.parse(output);assert.equal(parsed.url,'https://host/carlos/route');
+ assert.equal(parsed.nested.message,'goto("/carlos/chart") failed');
+});
+
+test('shared credential configuration refuses opted-in remote cleartext before login',()=>{
+ assert.throws(()=>readConfig({env:{BASE_URL:'http://example.invalid/carlos',ALLOW_NON_LOCAL_BASE_URL:'true'}}),/must use https/);
+ assert.doesNotThrow(()=>readConfig({env:{BASE_URL:'https://example.invalid/carlos',ALLOW_NON_LOCAL_BASE_URL:'true'}}));
+ assert.doesNotThrow(()=>readConfig({env:{BASE_URL:'http://127.0.0.1:8080/carlos'}}));
+});
+
+// #6072: exercise the actual detector, including safe clinical/reference text.
+for (const [body, headings, refused] of [
+  ['HTTP Status: 500 Reference ID: synthetic', ['HTTP Status: 500'], true],
+  ['Unable to complete the request', ['HTTP Status: 404'], true],
+  ['HTTP Status 403', ['HTTP Status 403'], true],
+  ['The patient quoted HTTP Status 404 from a portal.', ['Patient chart'], false],
+  ['Portal troubleshooting\nHTTP Status: 500\nCall the clinic', ['Patient chart'], false],
+  ['An error occurred\nReference ID: synthetic', ['An error occurred'], true],
+  ['Clinical reference ID: 123', ['Patient chart'], false],
+  ['An error occurred in the past medical history', ['Patient chart'], false],
+]) {
+  test(`error-page detector: ${body}`, async () => {
+    const page = {url: () => 'https://127.0.0.1/carlos/chart', locator: selector => ({innerText: async () => body, allTextContents: async () => headings})};
+    if (refused) await assert.rejects(harness.assertNotErrorPage(page, 'fixture'), /error page/);
+    else assert.equal(await harness.assertNotErrorPage(page, 'fixture'), body);
+  });
+}
+test('error-page detector preserves a failed body read', async () => {
+  const page = {locator: () => ({innerText: async () => {throw new Error('page closed');}})};
+  await assert.rejects(harness.assertNotErrorPage(page, 'fixture'), /page closed/);
 });

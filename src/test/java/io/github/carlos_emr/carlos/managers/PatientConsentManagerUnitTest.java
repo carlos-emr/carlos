@@ -93,6 +93,49 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         return ct;
     }
 
+    @Test
+    void shouldRefuseAnEditedConsentQuery_whenTheConsentTypeIsAbsent() {
+        Date editedAfter = new Date(0);
+        assertThatThrownBy(() -> manager.getConsentsByTypeAndEditDate(loggedInInfo, null, editedAfter))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("consent type");
+        verifyNoInteractions(mockConsentDao, mockConsentTypeDao);
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    void shouldPreserveTheEditedConsentQuery_whenTheSpecifiedTypeIsInactive() {
+        ConsentType type = createActiveConsentType(7, "FAKE historical consent");
+        type.setActive(false);
+        Date editedAfter = new Date(0);
+        List<Consent> consents = List.of(new Consent());
+        when(mockConsentDao.findLastEditedByConsentTypeId(7, editedAfter)).thenReturn(consents);
+
+        assertThat(manager.getConsentsByTypeAndEditDate(loggedInInfo, type, editedAfter)).isSameAs(consents);
+
+        verify(mockConsentDao).findLastEditedByConsentTypeId(7, editedAfter);
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogSynchronous(loggedInInfo,
+                "PatientConsentManager.getConsentsByTypeAndEditDate", " Demographic: " + type));
+    }
+
+    @Test
+    void shouldIdentifyThePatientInTheAudit_whenConsentListIsRead() {
+        when(mockConsentDao.findByDemographic(101)).thenReturn(List.of());
+        assertThat(manager.getAllConsentsByDemographic(loggedInInfo, 101)).isEmpty();
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogStrict(
+                loggedInInfo, "PatientConsentManager.getAllConsentsByDemographic", null, null,
+                "101", " Demographic: 101"));
+    }
+
+    @Test
+    void shouldWithholdConsentResults_whenAuditPersistenceFails() {
+        when(mockConsentDao.findByDemographic(101)).thenReturn(List.of());
+        RuntimeException failure = new IllegalStateException("audit unavailable");
+        logActionMock.when(() -> io.github.carlos_emr.carlos.log.LogAction.addLogStrict(
+                loggedInInfo, "PatientConsentManager.getAllConsentsByDemographic", null, null,
+                "101", " Demographic: 101")).thenThrow(failure);
+        assertThatThrownBy(() -> manager.getAllConsentsByDemographic(loggedInInfo, 101)).isSameAs(failure);
+    }
+
     private void setConsentId(Consent consent, Integer id) {
         try {
             java.lang.reflect.Field idField = Consent.class.getDeclaredField("id");

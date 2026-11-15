@@ -96,6 +96,8 @@ class TestMariaDBInitialization(unittest.TestCase):
         self.init_rc = 0
         self.create_tables = True
         self.init_exception = None
+        self.startup_snapshots = []
+        self.rewrite_startup_artifacts = False
         stack.enter_context(patch.object(init, "run", side_effect=self.run_command))
 
     def run_command(self, args, timeout=30, env=None, cwd=None):
@@ -134,6 +136,14 @@ class TestMariaDBInitialization(unittest.TestCase):
             self.assertEqual(timeout, 200)
             self.assertEqual(env, {"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "LC_ALL": "C"})
             self.assertEqual(cwd, "/")
+            self.startup_snapshots.append({entry.name: entry.read_bytes()
+                                          for entry in self.datadir.iterdir()
+                                          if entry.is_file() and init.STARTUP_FILE.fullmatch(entry.name)})
+            if self.rewrite_startup_artifacts:
+                # The bootstrap server can update engine files and remove
+                # scratch files; the helper must hand the originals to it.
+                (self.datadir / "ibdata1").write_bytes(b"bootstrap engine state")
+                (self.datadir / "ibtmp1").unlink()
             extra, = [arg.split("=", 1)[1] for arg in args if arg.startswith("--extra-file=")]
             sql = Path(extra)
             self.timezone_files.append(sql)
@@ -205,7 +215,7 @@ class TestMariaDBInitialization(unittest.TestCase):
         self.assertEqual(self.initialized(), [])
         self.assertEqual(list(self.runtime.iterdir()), [])
 
-    def test_failed_first_start_artifacts_are_kept_byte_for_byte(self):
+    def test_failed_first_start_artifacts_reach_vendor_initializer_unchanged(self):
         files = {name: name.encode() for name in (
             "ibdata1", "ib_logfile0", "ibtmp1", "undo001", "aria_log_control",
             "aria_log.00000001", "ddl_recovery.log", "binlog.000001", "binlog.index",
@@ -214,9 +224,11 @@ class TestMariaDBInitialization(unittest.TestCase):
             (self.datadir / name).write_bytes(body)
         (self.datadir / "lost+found").mkdir()
         (self.datadir / "#binlog_cache_files").mkdir()
+        self.rewrite_startup_artifacts = True
         self.assertEqual(init.main(), 0)
-        for name, body in files.items():
-            self.assertEqual((self.datadir / name).read_bytes(), body)
+        self.assertEqual(self.startup_snapshots, [files])
+        self.assertEqual((self.datadir / "ibdata1").read_bytes(), b"bootstrap engine state")
+        self.assertFalse((self.datadir / "ibtmp1").exists())
 
     def test_existing_schema_refuses_initialization_even_when_mysql_is_missing(self):
         schema = self.datadir / "carlos"
@@ -514,7 +526,7 @@ class TestMariaDBInitialization(unittest.TestCase):
         self.assertEqual(init.main(), 1)
         self.init_exception = FileNotFoundError("initializer missing")
         self.assertEqual(init.main(), 1)
-        self.assertIn("No files were removed", self.stderr.getvalue())
+        self.assertIn("The helper removed no existing files", self.stderr.getvalue())
         self.assertEqual(len(self.timezone_files), 3)
         self.assertTrue(all(not path.exists() for path in self.timezone_files))
         self.assertEqual(list(self.runtime.iterdir()), [])

@@ -48,7 +48,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ page
-        import="io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*,java.util.*, io.github.carlos_emr.carlos.providers.data.*, io.github.carlos_emr.carlos.prevention.*" %>
+        import="io.github.carlos_emr.carlos.util.*, java.util.*, io.github.carlos_emr.carlos.providers.data.*, io.github.carlos_emr.carlos.prevention.*" %>
 <%@ page import="io.github.carlos_emr.carlos.prevention.PreventionData" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.data.ProviderData" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
@@ -63,7 +63,19 @@
     String date = request.getParameter("date");
     String demographicNo = request.getParameter("demographicNo");
     if (id != null && demographicNo != null) {
-        ArrayList<Map<String, Object>> alist = PreventionData.getPreventionDataFromExt("workflowId", id);
+        // A failed read is stated in the panel. An empty panel would read as "no injection was
+        // recorded for this form".
+        ArrayList<Map<String, Object>> alist;
+        try {
+            alist = PreventionData.getPreventionDataFromExt("workflowId", id);
+        } catch (io.github.carlos_emr.carlos.prevention.dto.PreventionSourceUnavailableException unavailable) {
+            alist = new ArrayList<Map<String, Object>>();
+            PreventionData.logUnreadable("RH injection panel", demographicNo);
+%>
+<div class="prevention-unreadable" role="alert"
+     style="color:#842029; background:#f8d7da; border:1px solid #f5c2c7; padding:6px 10px; margin:4px;"><fmt:message key="prevention.unreadable.injections"/></div>
+<%
+        }
         int shown = 0;
         for (int k = 0; k < alist.size(); k++) {
             Map<String, Object> hdata = alist.get(k);

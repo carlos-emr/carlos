@@ -47,11 +47,11 @@ function consumeExpectedFailure(recorder, mark, { status, method = 'POST', path,
   h.assert(errors.length >= 1 && errors.length <= max && errors.every(e => e.status === status && e.method === method
     && path.test(new URL(e.url).pathname)),
   `Expected ${max === 1 ? 'exactly one' : `1 to ${max}`} HTTP ${status} on ${method} ${path} and nothing else`);
-  const urls = new Set(errors.map(e => e.url));
+  const urls = new Set(errors.map(e => h.withoutQueryStrings(e.url)));
   recorder.badResponses.splice(mark.responses, errors.length);
   for (let i = recorder.consoleIssues.length - 1; i >= mark.console; i--) {
     const entry = recorder.consoleIssues[i];
-    if (entry.location && urls.has(entry.location.url) && entry.text.startsWith('Failed to load resource:')
+    if (entry.location && urls.has(h.withoutQueryStrings(entry.location.url)) && entry.text.startsWith('Failed to load resource:')
         && entry.text.includes(`status of ${status} (`)) recorder.consoleIssues.splice(i, 1);
     // The page's own handler logging the refusal it just showed the user (console.error(new Error('HTTP 409'))).
     else if (appConsole && appConsole.test(entry.text)) recorder.consoleIssues.splice(i, 1);

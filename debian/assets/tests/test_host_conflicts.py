@@ -686,9 +686,7 @@ class TestShippedAndWired(unittest.TestCase):
 
 
 class TestPostinstConfirmation(unittest.TestCase):
-    """free_front_door asks before stopping anything when debconf can ask, and
-    goes ahead -- logged -- when it cannot (a non-interactive install takes
-    the question's default, true)."""
+    """free_front_door stops services only after an explicit operator opt-in."""
 
     PLAN = "will-stop: apache2.service (package apache2), on *:80"
     STOPPED = ("stopped: apache2.service (package apache2) was listening on *:80, which the "
@@ -755,9 +753,14 @@ printf 'FREED=%s\n' "$FRONT_DOOR_FREED"
         self.assertIn("NOT stopping (declined): apache2.service", r.stderr)
         self.assertTrue(any("front door: declined to stop apache2.service" in c for c in calls), calls)
 
-    def test_noninteractive_takes_the_default_and_goes_ahead(self):
+    def test_noninteractive_default_leaves_other_services_running(self):
         # db_input returns 30 when the question is not shown; db_get then
-        # returns the stored value, which is the template default (true).
+        # returns the stored value, which is the template default (false).
+        r, calls = self.run_block("false", shown=False)
+        self.assertNotIn("host_conflicts front-door 0.0.0.0", calls)
+        self.assertIn("FREED=\n", r.stdout)
+
+    def test_noninteractive_explicit_preseed_permits_recovery(self):
         r, calls = self.run_block("true", shown=False)
         self.assertIn("host_conflicts front-door 0.0.0.0", calls)
         self.assertIn("FREED=" + self.STOPPED[len("stopped: "):], r.stdout)
@@ -782,11 +785,11 @@ printf 'FREED=%s\n' "$FRONT_DOOR_FREED"
         r, calls = self.run_block("true", old_version="", nginx_state="inactive")
         self.assertIn("host_conflicts front-door 0.0.0.0", calls)
 
-    def test_the_question_defaults_to_yes(self):
+    def test_the_question_defaults_to_no(self):
         templates = TEMPLATES.read_text()
         block = templates[templates.index("Template: carlos-emr/stop-port-conflicts\n"):]
         self.assertTrue(block.startswith("Template: carlos-emr/stop-port-conflicts\n"
-                                         "Type: boolean\nDefault: true\n"), block[:120])
+                                         "Type: boolean\nDefault: false\n"), block[:120])
         self.assertIn("${services}", block.split("\n\n")[0])
 
 

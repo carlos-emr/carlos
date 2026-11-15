@@ -142,6 +142,8 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
 
         EChart chart = new EChart();
         chart.setId(77);
+        chart.setDemographicNo(PATIENT);
+        chart.setEncounter("Historical note");
         chart.setTimestamp(new Date(0));
         when(eChartDao.getLatestChart(PATIENT)).thenReturn(chart);
     }
@@ -595,15 +597,17 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should skip the encounter item when the patient has no encounter record")
-        void shouldSkipEncounter_whenPatientHasNoChart() throws Exception {
+        @DisplayName("should preserve existing attachments when a selected encounter is unavailable")
+        void shouldRefuseEncounter_whenPatientHasNoChart() throws Exception {
             when(eChartDao.getLatestChart(anyInt())).thenReturn(null);
+            givenEarlierAttachment();
             MsgAttachPDF2Action action = newAction();
             action.setItem(new String[]{"encounter"});
 
-            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
             assertThat(renderedRoutes).isEmpty();
-            assertThat(stagedPdfs()).isNull();
+            assertThat(stagedPdfs()).contains("FAKE earlier attachment");
         }
 
         @Test

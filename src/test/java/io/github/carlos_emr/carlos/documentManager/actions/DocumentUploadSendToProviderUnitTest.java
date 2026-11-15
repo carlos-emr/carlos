@@ -168,15 +168,53 @@ class DocumentUploadSendToProviderUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"scan.pdf", "scan.PDF", "scan.pDf"})
+    void shouldCountPdfPages_forMixedCaseExtensions(String filename) throws Exception {
+        uploadToPendingDocs("999998", filename);
+        eDocUtilMock.verify(() -> EDocUtil.addDocumentSQL(org.mockito.ArgumentMatchers.argThat(
+                document -> document.getNumberOfPages() == 1
+                        && "application/pdf".equals(document.getContentType()))));
+    }
+
+    @Test
+    void shouldReportPersistenceFailure_withoutRoutingOrClaimingAStoredDocument() throws Exception {
+        eDocUtilMock.when(() -> EDocUtil.addDocumentSQL(any(EDoc.class)))
+                .thenThrow(new IllegalStateException("SYNTHETIC_PRIVATE_STORAGE_DETAIL"));
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(DocumentUpload2Action.class)) {
+            uploadToPendingDocs("999998");
+            var response = (MockHttpServletResponse) ServletActionContext.getResponse();
+            assertThat(response.getContentAsString())
+                    .contains(java.util.ResourceBundle.getBundle("oscarResources").getString("dms.addDocument.errorNoWrite"))
+                    .doesNotContain("\"size\"", "SYNTHETIC_PRIVATE_STORAGE_DETAIL");
+            org.mockito.Mockito.verifyNoInteractions(routingDao, queueLinkDao);
+            assertThat(upload).doesNotExist();
+            assertThat(logs.messages().toString()).contains("Failed to store uploaded document")
+                    .doesNotContain("SYNTHETIC_PRIVATE_STORAGE_DETAIL", documentDir.toString());
+        }
+    }
+
+    @Test
+    void shouldPreserveNonPdfUploads_withoutAttemptingPdfPageCounting() throws Exception {
+        Files.writeString(upload.toPath(), "SYNTHETIC ordinary document");
+        uploadToPendingDocs("999998", "scan.txt");
+        eDocUtilMock.verify(() -> EDocUtil.addDocumentSQL(org.mockito.ArgumentMatchers.argThat(
+                document -> document.getNumberOfPages() == 0)));
+    }
+
     /** One upload to pending docs, posted the way the uploader page posts it. */
     private void uploadToPendingDocs(String provider) throws Exception {
+        uploadToPendingDocs(provider, "scan.pdf");
+    }
+
+    private void uploadToPendingDocs(String provider, String filename) throws Exception {
         request.setParameter("destination", "pendingDocs");
         request.setParameter("destFolder", "");
         request.setParameter("provider", provider);
         request.setParameter("queue", "1");
         DocumentUpload2Action action = new DocumentUpload2Action();
         action.setFiledata(upload);
-        action.setFiledataFileName("scan.pdf");
+        action.setFiledataFileName(filename);
         assertThat(action.executeUpload()).isNull();
     }
 

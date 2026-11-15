@@ -13,13 +13,13 @@ the clinical-value immutability callback is unchanged.
 
 ## Physical database regression suite
 
-`MeasurementPatientMatchMariaDbIntegrationTest` runs the real DAO, Connector/J
+`MeasurementPatientMatchMariaDbIntegrationTest` runs the real DAO, MariaDB Connector/J
 and production dialect against MariaDB. It creates a random `carlos_test_5399_*`
 database and drops only that database after the suite. Supply a disposable
-MariaDB server URL ending in `/`, without a database name or query string:
+MariaDB server URL beginning with `jdbc:mariadb:` and ending in `/`, without a database name or query string:
 
 ```sh
-export CARLOS_TEST_MARIADB_URL=jdbc:mysql://127.0.0.1:3306/
+export CARLOS_TEST_MARIADB_URL=jdbc:mariadb://127.0.0.1:3306/
 export CARLOS_TEST_MARIADB_USER=carlos_test
 # Supply CARLOS_TEST_MARIADB_PASSWORD through the environment when required.
 mvn -B -ntp test -Dtest=MeasurementPatientMatchMariaDbIntegrationTest -Dtest.forkCount=1
@@ -51,7 +51,9 @@ tests that explicitly create their own H2 factories remain covered by the full
 H2 job; they are not presented as MariaDB coverage.
 
 Set `CARLOS_TEST_MARIADB_DAO=true` alongside the JDBC environment above to opt
-the existing `CarlosTestBase` into MariaDB. Both its JPA EntityManagerFactory
+the existing `CarlosTestBase` into MariaDB. The standalone
+`AppointmentUpdateDaoIntegrationTest` uses this same `jdbc:mariadb:` server URL
+and uses H2 when the variable is absent. Both its JPA EntityManagerFactory
 and legacy SessionFactory use `OscarMySQL5Dialect`. Each cached Spring context
 owns a random database, which is dropped after its persistence factories and
 pool close. `MariaDbDaoHarnessIntegrationTest` verifies the physical database,

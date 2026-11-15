@@ -28,6 +28,8 @@ on:
       - '.devcontainer/**'
       - '.github/workflows/db-schema-verify.yml'
       - 'scripts/ci/verify-flyway-baseline.sh'
+      - 'scripts/ci/fetch-flyway.sh'
+      - 'scripts/ci/prepare-ubuntu-apt.py'
       - '.claude/**'
 
 # Read-only job: it checks out the repo and talks to a local docker container.
@@ -57,18 +59,21 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Cache pinned Flyway CLI archive
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/flyway.tgz
+          key: flyway-cli-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/ci/fetch-flyway.sh') }}
+
       - name: Install MariaDB client and Flyway CLI
         run: |
-          sudo apt-get update && sudo apt-get install -y mariadb-client
-          FLYWAY_VERSION=11.14.0
-          # Pinned SHA256 (same pin as release/make_CARLOS_deb.sh) — update together with the version.
-          FLYWAY_SHA256=310af67e104e128e93cfe7fa7a59570024f0bb2c03bfdc70137acbe03d5cf5d0
-          # The bundled linux CLI tarball is on Red Gate's mirror; Maven Central only has the jar.
-          curl -fsSL "https://download.red-gate.com/maven/release/com/redgate/flyway/flyway-commandline/${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}-linux-x64.tar.gz" \
-            -o /tmp/flyway.tgz
-          echo "${FLYWAY_SHA256}  /tmp/flyway.tgz" | sha256sum -c -
-          tar xzf /tmp/flyway.tgz
-          echo "$PWD/flyway-${FLYWAY_VERSION}" >> "$GITHUB_PATH"
+          set -euo pipefail
+          sudo python3 scripts/ci/prepare-ubuntu-apt.py
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 \
+            -o Acquire::https::Timeout=30 -o APT::Update::Error-Mode=any update
+          sudo apt-get install -y mariadb-client
+          bash scripts/ci/fetch-flyway.sh "$RUNNER_TEMP/flyway" /tmp/flyway.tgz
+          echo "$RUNNER_TEMP/flyway" >> "$GITHUB_PATH"
 
       - name: Start MariaDB 11.8.8 with the CARLOS server config
         env:

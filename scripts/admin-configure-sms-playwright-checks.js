@@ -17,6 +17,7 @@
  * click; cleanup deletes the rows the run made and restores the snapshot. EXCLUSIVE=1: clinic-wide.
  * SKIP: a database without sms_config (a build without the SMS settings page), or a login without _admin.sms.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { openAdminPage, submitInFrame } = require('./lib/admin-frame');
@@ -79,7 +80,7 @@ async function workflow(s) {
   await s.step('a GET carrying the save is refused with 405 and changes nothing', async () => {
     const saved = JSON.stringify(snapshot());
     const params = new URLSearchParams({ method: 'configure', senderNumber: '+15550199', enabled: 'true' });
-    const response = await s.context.request.get(h.appUrl(s.config.baseUrl, `/admin/ConfigureSms?${params}`), { maxRedirects: 0 });
+    const response = await authenticatedProbe(s, h.appUrl(s.config.baseUrl, `/admin/ConfigureSms?${params}`), { maxRedirects: 0 });
     h.assert(response.status() === 405, `A GET save answered ${response.status()}, not 405`);
     h.assert(JSON.stringify(snapshot()) === saved, 'A refused GET changed the SMS settings');
   });

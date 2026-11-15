@@ -29,6 +29,8 @@
 
 package io.github.carlos_emr.carlos.prevention;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.net.URL;
@@ -182,27 +184,27 @@ public class PreventionDSImpl implements PreventionDS {
                     URL url = PreventionDS.class.getResource(preventionPath.substring(10));
                     if (url != null) {
                         try {
-                            log.debug("Loading prevention rules from classpath: {}", url.getFile());
+                            log.debug("Loading prevention rules from classpath");
                             kieBase = DroolsHelper.loadFromUrl(url);
                             fileFound = true;
                         } catch (Exception e) {
-                            log.error("Failed to load prevention rule base from classpath '{}', falling back to database/classpath", preventionPath, e);
+                            log.error("Failed to load prevention rule base from classpath , falling back to database/classpath: {}", LogSafe.exceptionTrace(e));
                         }
                     } else {
-                        log.warn("Prevention classpath resource not found: {}", preventionPath);
+                        log.warn("Prevention classpath resource not found");
                     }
                 } else {
                     // PREVENTION_FILE is an admin-configured property (not user input),
                     // so path traversal validation is not required here.
                     File file = PathValidationUtils.resolveTrustedPath(new File(preventionPath));
                     if (file.isFile() && file.canRead()) {
-                        log.debug("Loading prevention rules from file: {}", file.getName());
+                        log.debug("Loading configured prevention rules");
 
                         try (FileInputStream fis = new FileInputStream(file)) {
                             kieBase = DroolsHelper.loadFromInputStream(fis);
                             fileFound = true;
                         } catch (Exception e) {
-                            log.error("Failed to load prevention rule base from filesystem '{}', falling back to database/classpath", file.getName(), e);
+                            log.error("Failed to load prevention rule base from filesystem , falling back to database/classpath: {}", LogSafe.exceptionTrace(e));
                         }
                     }
                 }
@@ -227,7 +229,7 @@ public class PreventionDSImpl implements PreventionDS {
             if (!fileFound) {
                 URL url = PreventionDS.class.getResource("/oscar/prevention/prevention.drl");  //TODO: change this so it is configurable;
                 if (url != null) {
-                    log.debug("Loading prevention rules from classpath fallback: {}", url.getFile());
+                    log.debug("Loading prevention rules from classpath fallback");
                     kieBase = DroolsHelper.loadFromUrl(url);
                 } else {
                     log.error("Failed to load prevention rule base: classpath fallback resource /oscar/prevention/prevention.drl not found");
