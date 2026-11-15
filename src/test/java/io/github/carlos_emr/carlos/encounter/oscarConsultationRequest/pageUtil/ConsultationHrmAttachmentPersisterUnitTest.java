@@ -37,6 +37,7 @@ class ConsultationHrmAttachmentPersisterUnitTest extends CarlosUnitTestBase {
         var owner = new ConsultationRequest(); owner.setDemographicId(42);
         when(requests.lockForAttachmentSync(11)).thenReturn(owner);
         lenient().when(security.hasPrivilege(info, "_con", "w", 42)).thenReturn(true);
+        lenient().when(security.isAllowedAccessToPatientRecord(info, 42)).thenReturn(true);
         lenient().when(security.hasPrivilege(info, "_hrm", "r", (String) null)).thenReturn(true);
         persister = new ConsultationHrmAttachmentPersister(requests, attachments, extensions, security);
     }
@@ -59,7 +60,15 @@ class ConsultationHrmAttachmentPersisterUnitTest extends CarlosUnitTestBase {
             verify(attachments, never()).remove(any());
             logActionMock.verify(() -> LogAction.addLogStrict(info, "delete", "consultation HRM attachment", "7", "42", "explicit detach"));
         }
-        verify(security, never()).isAllowedAccessToPatientRecord(any(), any());
+        verify(security).isAllowedAccessToPatientRecord(info, 42);
+    }
+
+    @Test
+    void shouldKeepRelationshipsAndPendingQueue_whenPatientRecordAccessIsDenied() {
+        when(security.isAllowedAccessToPatientRecord(info, 42)).thenReturn(false);
+        assertThatThrownBy(() -> persister.detach(info, 11, 7)).isInstanceOf(SecurityException.class);
+        verifyNoInteractions(attachments, extensions);
+        logActionMock.verifyNoInteractions();
     }
 
     @Test

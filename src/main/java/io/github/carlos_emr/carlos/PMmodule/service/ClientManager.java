@@ -53,6 +53,18 @@ public interface ClientManager {
 
     List<Demographic> search(ClientSearchFormBean criteria);
 
+    /**
+     * Delegates a filtered ten-row client page to the demographic DAO, clamping past the last page.
+     *
+     * @param criteria ClientSearchFormBean the client filters and domain selection
+     * @param page int the nonnegative, zero-based page number
+     * @param sort int 0/1 for ID, 2 name, 3 birth date, 4 gender description, 5 chart number,
+     *     6 current-service admission or 7 health/safety alert presence; other values use ID
+     * @param descending boolean whether to reverse the primary sort; ID ties remain ascending
+     * @return QueryPage of Demographic containing at most ten rows and the exact filtered total
+     * @throws IllegalArgumentException if the executed page query receives a negative page
+     * @throws ArithmeticException if the last page or row offset exceeds int capacity
+     */
     io.github.carlos_emr.carlos.commn.dao.QueryPage<Demographic> searchClientPage(ClientSearchFormBean criteria, int page, int sort, boolean descending);
 
     List<ClientReferral> getReferrals();

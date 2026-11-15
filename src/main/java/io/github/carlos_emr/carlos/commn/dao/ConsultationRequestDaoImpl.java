@@ -80,6 +80,10 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
         return ((Number) query.getSingleResult()).intValue();
     }
 
+    /**
+     * @deprecated since 2026.08; use {@link #getConsultationListRows(Integer)}, which returns
+     *     {@code List<ConsultationListRow>} instead of {@code List<ConsultationRequest>}
+     */
     @Deprecated(since = "2026.08", forRemoval = false)
     public List<ConsultationRequest> getConsults(Integer demoNo) {
         // Compatibility entity lookup. Production lists use getConsultationListRows instead;
@@ -93,6 +97,11 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
     }
 
 
+    /**
+     * @deprecated since 2026.08; construct a {@link ConsultationListFilterDto} and use
+     *     {@link #getConsultationListRows(ConsultationListFilterDto)}, which returns
+     *     {@code List<ConsultationListRow>} instead of {@code List<ConsultationRequest>}
+     */
     @Deprecated(since = "2026.08", forRemoval = false)
     public List<ConsultationRequest> getConsults(String team, boolean showCompleted, Date startDate, Date endDate, String orderby, String desc, String searchDate, Integer offset, Integer limit) {
         return getConsults(new ConsultationListFilterDto(team, showCompleted, startDate, endDate, orderby, desc,
@@ -101,6 +110,10 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
 
     private static final String LIST_ROW_SELECTION = "new io.github.carlos_emr.carlos.consultation.dto.ConsultationListRow(cr.id, cr.status, cr.demographicId, d.alias, cr.providerNo, cr.serviceId, service.serviceId, service.serviceDesc, specialist.id, specialist.lastName, specialist.firstName, p.providerNo, p.lastName, p.firstName, cr.urgency, cr.siteName, cr.sendTo, cr.referralDate, cr.appointmentDate, cr.appointmentTime, cr.followUpDate, cr.patientWillBook)";
 
+    /**
+     * @deprecated since 2026.08; use {@link #getConsultationListRows(ConsultationListFilterDto)}, which
+     *     returns {@code List<ConsultationListRow>} instead of {@code List<ConsultationRequest>}
+     */
     @Override
     @Deprecated(since = "2026.08", forRemoval = false)
     public List<ConsultationRequest> getConsults(ConsultationListFilterDto filter) {

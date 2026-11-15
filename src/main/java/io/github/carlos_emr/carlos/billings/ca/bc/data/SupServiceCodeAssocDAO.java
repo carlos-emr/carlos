@@ -72,6 +72,14 @@ public class SupServiceCodeAssocDAO extends AbstractDaoImpl<BillingTrayFee> {
         return mapAssociations(entityManager.createQuery(getBaseQuery()).getResultList());
     }
 
+    /**
+     * Reads fifty tray associations per page in ascending association-ID order, clamping past the last page.
+     *
+     * @param page int the nonnegative, zero-based page number
+     * @return QueryPage of Map from String to String containing the mapped rows and exact association total
+     * @throws IllegalArgumentException if page is negative
+     * @throws ArithmeticException if the last page or row offset exceeds int capacity
+     */
     public io.github.carlos_emr.carlos.commn.dao.QueryPage<Map<String, String>> getServiceCodeAssociationsPage(int page) {
         String query = "SELECT btf FROM BillingTrayFee btf";
         var rows = io.github.carlos_emr.carlos.commn.dao.QueryPage.load(entityManager,

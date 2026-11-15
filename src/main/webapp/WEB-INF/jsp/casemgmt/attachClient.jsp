@@ -259,7 +259,7 @@
 <br/>
 <div id="serverTableRegion" data-server-page-region>
 <c:if test="${requestScope.clients != null}">
-    <form method="post" name="mergeform" action="<%=request.getContextPath()%>/admin/MergeRecords">
+    <form method="post" name="mergeform" data-server-page-preserve-selection action="<%=request.getContextPath()%>/admin/MergeRecords">
         <%-- Local paging excludes hidden-row controls from this merge form. The banner sits below
              the table and a sort orders the whole list, as this page set paging.banner.placement
              and sort.amount for displaytag. --%>

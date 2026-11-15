@@ -39,8 +39,30 @@
             const page = new DOMParser().parseFromString(await response.text(), 'text/html');
             const replacement = page.querySelector('[data-server-page-region]');
             if (!replacement?.querySelector('[data-server-page-form]')) throw new Error('Missing results');
+            const selectionKey = input => JSON.stringify([input.form.name, input.name, input.type, input.value]);
+            const selectionControls = root => root.querySelectorAll(
+                '[data-server-page-preserve-selection] input[type="radio"], [data-server-page-preserve-selection] input[type="checkbox"]');
+            const selections = new Map(Array.from(selectionControls(region), input => [selectionKey(input), input.checked]));
+            const active = document.activeElement;
+            const restoreFocus = region.contains(active);
+            const focusRole = active?.dataset.serverPageFocus;
+            const focusName = active?.name;
+            const focusValue = active?.value;
             region.replaceWith(replacement);
             globalThis.CarlosTables?.initializeAll();
+            selectionControls(replacement).forEach(input => {
+                const key = selectionKey(input);
+                if (selections.has(key)) input.checked = selections.get(key);
+            });
+            if (restoreFocus) {
+                const controls = Array.from(replacement.querySelectorAll('button, input, select, a[href]'));
+                const equivalent = controls.find(control => focusRole
+                    ? control.dataset.serverPageFocus === focusRole
+                    : control.name === focusName && control.value === focusValue);
+                const target = equivalent && !equivalent.disabled ? equivalent
+                    : replacement.querySelector('[data-server-page-form] button:not(:disabled)');
+                target?.focus();
+            }
         } catch (failure) {
             error.textContent = error.dataset.error;
         } finally {

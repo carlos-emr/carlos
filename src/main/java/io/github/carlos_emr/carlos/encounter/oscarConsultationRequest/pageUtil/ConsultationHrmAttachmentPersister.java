@@ -29,6 +29,17 @@ public class ConsultationHrmAttachmentPersister {
         this.security = security;
     }
 
+    /**
+     * Soft-deletes the selected HRM relationship and its duplicates and removes its patient-scoped Ocean entry.
+     * The consultation is locked and consultation-write, patient-record and HRM-read access are checked first.
+     * A missing report may still be detached; a strict audit failure rolls the transaction back.
+     *
+     * @param info LoggedInInfo the current user
+     * @param requestId int the consultation owning the stored association
+     * @param associationId int the stored HRM association to detach
+     * @throws NoSuchElementException if the consultation or active HRM association cannot be found
+     * @throws SecurityException if consultation-write, patient-record or HRM-read access is denied
+     */
     @Transactional
     public void detach(LoggedInInfo info, int requestId, int associationId) {
         var owner = requests.lockForAttachmentSync(requestId);
@@ -36,6 +47,9 @@ public class ConsultationHrmAttachmentPersister {
         int patient = owner.getDemographicId();
         if (!security.hasPrivilege(info, "_con", SecurityInfoManager.WRITE, patient)) {
             throw new SecurityException("missing required sec object (_con)");
+        }
+        if (!security.isAllowedAccessToPatientRecord(info, patient)) {
+            throw new SecurityException("patient record access denied");
         }
         if (!security.hasPrivilege(info, "_hrm", SecurityInfoManager.READ, (String) null)) {
             throw new SecurityException("missing required sec object (_hrm)");

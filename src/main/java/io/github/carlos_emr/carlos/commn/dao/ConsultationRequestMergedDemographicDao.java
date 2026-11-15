@@ -36,6 +36,10 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 
 public interface ConsultationRequestMergedDemographicDao {
+    /**
+     * @deprecated since 2026.08; use {@link ConsultationRequestDao#getConsultationListRows(Integer)},
+     *     which returns {@code List<ConsultationListRow>} instead of {@code List<ConsultationRequest>}
+     */
     @Deprecated(since = "2026.08", forRemoval = false)
     List<ConsultationRequest> getConsults(Integer demoNo);
 

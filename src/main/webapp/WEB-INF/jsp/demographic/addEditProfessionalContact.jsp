@@ -318,7 +318,7 @@
                     <c:if test="${pcontact.id gt 0}"><c:set var="select" value="${pcontact.province}" scope="page"/></c:if>
                     <select name="pcontact.province" id="pcontact.province">
                         <c:set var="selectedProvinceToken" value="|${pageScope.select}|"/>
-                        <c:if test="${empty pageScope.select or not fn:contains('|AB|BC|MB|NB|NL|NT|NS|NU|ON|PE|QC|SK|YT|US|', selectedProvinceToken)}">
+                        <c:if test="${empty pageScope.select or fn:contains(pageScope.select, '|') or not fn:contains('|AB|BC|MB|NB|NL|NT|NS|NU|ON|PE|QC|SK|YT|US|', selectedProvinceToken)}">
                             <option value="${carlos:forHtmlAttribute(pageScope.select)}" selected="selected">${carlos:forHtml(pageScope.select)}</option>
                         </c:if>
                         <option value="AB" ${ pageScope.select eq 'AB' ? 'selected' : '' }><fmt:message key="admin.sitesAdminDetail.province.AB"/></option>

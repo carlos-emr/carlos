@@ -8,7 +8,6 @@ const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 const { ownedReferrals } = require('./lib/consultation-referral-fixture');
 const { authzReadFixture } = require('./lib/authz-read-fixture');
-const q = h.sqlString;
 
 async function workflow(s) {
     const { sql, marker, patient, provider, context, config, recorder } = s;
@@ -20,11 +19,11 @@ async function workflow(s) {
     const hrmId = referrals.seed({ reason: marker + ' HRM', sendTo: team, site_name: 'Z' });
     const hiddenId = referrals.seed({ reason: marker + ' restricted', demographicNo: other.demographicNo, sendTo: team, site_name: 'A' });
     const phantom = 9005756;
-    h.assert(sql.value(`SELECT COUNT(*) FROM HRMDocument WHERE id=${phantom}`) === '0', 'Synthetic HRM ID is in use');
+    h.assert(sql.value('SELECT COUNT(*) FROM HRMDocument WHERE id=?', [phantom]) === '0', 'Synthetic HRM ID is in use');
     const association = h.insertId(sql, `INSERT INTO consultdocs(requestId,document_no,doctype,provider_no,attach_date)
-        VALUES(${hrmId},${phantom},'H',${q(provider)},CURDATE())`, 'HRM association');
+        VALUES(?,?,'H',?,CURDATE())`, 'HRM association', [hrmId, phantom, provider]);
     sql.execute(`INSERT INTO consultdocs(requestId,document_no,doctype,provider_no,attach_date)
-        VALUES(${hrmId},${phantom},'H',${q(provider)},CURDATE())`);
+        VALUES(?,?,'H',?,CURDATE())`, [hrmId, phantom, provider]);
     const identities = authzReadFixture({ sql, marker, provider, testUser: config.testUser });
     s.cleanup(() => identities.cleanup());
     const role = identities.addRole({ _appointment: 'r', _demographic: 'r', _con: 'w', _eChart: 'r', '_casemgmt.notes': 'r', _admin: 'r' });
@@ -65,8 +64,8 @@ async function workflow(s) {
         h.assert(!body.includes('EctConsultationFormRequest2Form') && !body.includes(other.marker), 'Restricted form emitted clinical markup');
     });
     await s.step('optional HRM access writes no false denial audit; deleted attachments need explicit authorized removal', async () => {
-        const deniedAudit = () => sql.value(`SELECT COUNT(*) FROM log WHERE provider_no=${q(restricted.providerNo)}
-            AND content='UNAUTHORIZED' AND action='HRMUtil.listHRMDocuments'`);
+        const deniedAudit = () => sql.value(`SELECT COUNT(*) FROM log WHERE provider_no=?
+            AND content='UNAUTHORIZED' AND action='HRMUtil.listHRMDocuments'`, [restricted.providerNo]);
         const before = deniedAudit();
         const optional = await openForm(limited, hrmId);
         h.assert(await optional.locator('.remove-unavailable-hrm').count() === 0, 'HRM removal was offered without HRM read');
@@ -74,7 +73,7 @@ async function workflow(s) {
         const form = await openForm(context, hrmId);
         const reason = form.locator('[name="reasonForConsultation"]');
         await reason.fill(marker + ' unsaved draft');
-        const beforeLinks = sql.value(`SELECT COUNT(*) FROM consultdocs WHERE requestId=${hrmId} AND deleted IS NULL`);
+        const beforeLinks = sql.value('SELECT COUNT(*) FROM consultdocs WHERE requestId=? AND deleted IS NULL', [hrmId]);
         h.assert(beforeLinks === '2', 'Opening the form silently detached HRM links');
         const get = await context.request.get(h.appUrl(config.baseUrl,
             `/encounter/DetachConsultationHrm?requestId=${hrmId}&associationId=${association}`));
@@ -88,14 +87,14 @@ async function workflow(s) {
         h.assert(response.status() === 204, 'Explicit HRM removal failed');
         await button.waitFor({ state: 'detached' });
         h.assert(await reason.inputValue() === marker + ' unsaved draft', 'HRM removal lost the clinical draft');
-        h.assert(sql.value(`SELECT COUNT(*) FROM consultdocs WHERE requestId=${hrmId} AND deleted='Y'`) === '2', 'Duplicate stored links survived removal');
+        h.assert(sql.value("SELECT COUNT(*) FROM consultdocs WHERE requestId=? AND deleted='Y'", [hrmId]) === '2', 'Duplicate stored links survived removal');
         const reopened = await openForm(context, hrmId);
         h.assert(await reopened.locator('#consultAttachmentsNotIncluded').count() === 0, 'HRM omission notice survived explicit removal');
     });
 
     const contact = h.insertId(sql, `INSERT INTO DemographicContact(demographicNo,contactId,category,type,role,deleted,facilityId,creator,active,consentToContact)
-        VALUES(${patient},${q(referrals.specId)},'professional',3,'1',0,1,${q(provider)},1,1)`, 'specialist contact');
-    s.cleanup(() => sql.execute(`DELETE FROM DemographicContact WHERE id=${contact} AND demographicNo=${patient}`));
+        VALUES(?,?,'professional',3,'1',0,1,?,1,1)`, 'specialist contact', [patient, referrals.specId, provider]);
+    s.cleanup(() => sql.execute('DELETE FROM DemographicContact WHERE id=? AND demographicNo=?', [contact, patient]));
     async function editor() {
         const page = await context.newPage();
         await h.gotoApp(page, config.baseUrl, `/demographic/Contact?method=editHealthCareTeam&contactId=${contact}`);
@@ -128,14 +127,16 @@ async function workflow(s) {
     }
     await s.step('specialist addresses round-trip intact and stale full-field edits are refused', async () => {
         for (const address of ['a, Toronto, M5V 1A1, ON, CA, ', '123 Main St, Toronto, ON M5V 1A1',
-                '1 Fake St, Testville, A1A 1A1, ZZ, CA, ', '1 Fake St\nTestville ON']) {
-            sql.execute(`UPDATE professionalSpecialists SET address=${q(address)} WHERE specId=${referrals.specId}`);
+                '1 Fake St, Testville, A1A 1A1, ZZ, CA, ', '1 Fake St, Testville, A1A 1A1, ON|PE, CA, ',
+                '1 Fake St\nTestville ON']) {
+            sql.execute('UPDATE professionalSpecialists SET address=? WHERE specId=?', [address, referrals.specId]);
             const page = await editor();
             if (address.startsWith('a,')) h.assert(await page.locator('[name="pcontact.country"]').inputValue() === 'CA', 'Country was not parsed');
             if (address.includes(', ZZ,')) h.assert(await page.locator('[name="pcontact.province"]').inputValue() === 'ZZ', 'Unknown province defaulted');
+            if (address.includes(', ON|PE,')) h.assert(await page.locator('[name="pcontact.province"]').inputValue() === 'ON|PE', 'Compound province defaulted');
             h.assert(await saveEditor(page) === 200, 'Unchanged specialist save failed');
             h.assert(await saveEditor(page) === 200, 'Successful edit did not retain a usable version');
-            h.assert(sql.value(`SELECT HEX(address) FROM professionalSpecialists WHERE specId=${referrals.specId}`)
+            h.assert(sql.value('SELECT HEX(address) FROM professionalSpecialists WHERE specId=?', [referrals.specId])
                 === Buffer.from(address).toString('hex').toUpperCase(), 'Unchanged address bytes changed');
             await page.close();
         }
@@ -151,17 +152,17 @@ async function workflow(s) {
         await stale.locator('[name="pcontact.workPhone"]').fill('555-0110');
         await expectRejectedEdit(stale, 409);
         h.assert(await stale.locator('[name="pcontact.workPhone"]').inputValue() === '555-0110', 'Rejected edit lost submitted text');
-        h.assert(sql.value(`SELECT phone FROM professionalSpecialists WHERE specId=${referrals.specId}`) === '555-0109', 'Stale edit overwrote the newer contact');
+        h.assert(sql.value('SELECT phone FROM professionalSpecialists WHERE specId=?', [referrals.specId]) === '555-0109', 'Stale edit overwrote the newer contact');
         await expectRejectedEdit(stale, 409);
-        h.assert(sql.value(`SELECT phone FROM professionalSpecialists WHERE specId=${referrals.specId}`) === '555-0109',
+        h.assert(sql.value('SELECT phone FROM professionalSpecialists WHERE specId=?', [referrals.specId]) === '555-0109',
             'Retrying the stale form overwrote the newer contact');
     });
 
     const directoryName = marker + 'Page';
-    s.cleanup(() => sql.execute(`DELETE FROM professionalSpecialists WHERE lName=${q(directoryName)}`));
+    s.cleanup(() => sql.execute('DELETE FROM professionalSpecialists WHERE lName=?', [directoryName]));
     const expected = [];
     for (let i = 0; i < 37; i++) expected.push(h.insertId(sql, `INSERT INTO professionalSpecialists
-        (fName,lName,address,hideFromView,deleted) VALUES('Same',${q(directoryName)},'Synthetic',0,0)`, 'paged specialist'));
+        (fName,lName,address,hideFromView,deleted) VALUES('Same',?,'Synthetic',0,0)`, 'paged specialist', [directoryName]));
     await s.step('Referral Doctors sends bounded pages with no duplicate or missing specialist and retains batch selections', async () => {
         const directory = await context.newPage();
         await h.gotoApp(directory, config.baseUrl, '/admin/ManageBillingReferral?method=list');

@@ -467,6 +467,20 @@ public interface DemographicDao {
 
     public List<Demographic> search(ClientSearchFormBean bean);
 
+    /**
+     * Searches the filtered client set in ten-row pages, clamping requests beyond its last page.
+     * Equal primary sort values use ascending demographic ID as a stable tie breaker.
+     *
+     * @param bean ClientSearchFormBean the client filters and domain selection
+     * @param page int the nonnegative, zero-based page number
+     * @param sort int 0/1 for ID, 2 for name, 3 for birth date, 4 for gender description,
+     *     5 for chart number, 6 for current-service admission or 7 for health/safety alert presence;
+     *     other values fall back to ID
+     * @param descending boolean whether to reverse the primary sort
+     * @return QueryPage of Demographic containing at most ten rows and the exact filtered total
+     * @throws IllegalArgumentException if the executed page query receives a negative page
+     * @throws ArithmeticException if the last page or row offset exceeds int capacity
+     */
     QueryPage<Demographic> searchClientPage(ClientSearchFormBean bean, int page, int sort, boolean descending);
 
     public void saveClient(Demographic client);

@@ -16,6 +16,18 @@ public final class ConsultationFormPatientResolver {
         this.security = security;
     }
 
+    /**
+     * Resolves and authorizes the form's patient before any clinical content loads. A stored
+     * consultation's owner replaces the supplied patient ID. A remote segment-only view may have no local patient.
+     *
+     * @param info LoggedInInfo the current user
+     * @param requestId String the consultation ID; null, blank and "null" mean absent
+     * @param demographicNo String the supplied patient ID; null, blank and "null" mean absent
+     * @return Integer the authorized local patient ID, or null for a segment-only view
+     * @throws NoSuchElementException if the consultation does not exist
+     * @throws IllegalArgumentException if an ID is malformed or the stored consultation has no positive patient ID
+     * @throws SecurityException if consultation read privileges or patient-record access are denied
+     */
     public Integer resolve(LoggedInInfo info, String requestId, String demographicNo) {
         Integer patient = positiveId(demographicNo);
         if (requestId != null && !requestId.isBlank() && !"null".equals(requestId)) {

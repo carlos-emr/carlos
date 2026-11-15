@@ -13,9 +13,19 @@ public record QueryPage<T>(List<T> rows, long total, int page, int size) {
     public int getPage() { return page; }
     public int getSize() { return size; }
     // Jakarta's RecordELResolver calls property(), including computed properties.
+    /** @return long the exclusive row offset after this page's actual results */
     public long end() { return (long) page * size + rows.size(); }
+    /**
+     * @return int the number of pages, including one empty page for an empty result
+     * @throws ArithmeticException if this record was constructed with a zero page size
+     */
     public int pageCount() { return (int) Math.max(1, (total + size - 1) / size); }
+    /** @return boolean whether a page precedes this zero-based page */
     public boolean previous() { return page > 0; }
+    /**
+     * @return boolean whether another page follows this page
+     * @throws ArithmeticException if this record was constructed with a zero page size
+     */
     public boolean next() { return page + 1 < pageCount(); }
     public long getEnd() { return end(); }
     public int getPageCount() { return pageCount(); }
@@ -26,6 +36,20 @@ public record QueryPage<T>(List<T> rows, long total, int page, int size) {
      * The supplied query must be a DAO-owned single-root SELECT with no outer ORDER BY.
      * The order is an application allowlist expression, never a request value. Count and data
      * share the exact predicates and bindings. Other unpaged DAO methods keep their contracts.
+     * Requests beyond the result window are clamped to its last page (page zero when empty).
+     *
+     * @param <T> the row result type
+     * @param em EntityManager the query's persistence context
+     * @param source Query the source query whose bound parameters are copied
+     * @param text String the DAO-owned single-root SELECT, without an outer ORDER BY
+     * @param requestedPage int the nonnegative, zero-based page number
+     * @param pageSize int the positive maximum number of rows per page
+     * @param order String the DAO's literal, allowlisted sort expression
+     * @param nativeSql boolean whether the query is native SQL instead of JPQL
+     * @param type Class of T the native SQL result type; ignored for JPQL
+     * @return QueryPage of T containing the bounded rows, exact total and clamped page number
+     * @throws IllegalArgumentException if the page is negative, the size is not positive or the query has no FROM
+     * @throws ArithmeticException if the last page or row offset cannot be represented as an int
      */
     @SuppressWarnings("unchecked")
     public static <T> QueryPage<T> load(EntityManager em, Query source, String text, int requestedPage,

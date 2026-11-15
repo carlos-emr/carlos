@@ -20,11 +20,11 @@
                 <input type="hidden" name="${carlos:forHtmlAttribute(parameter.key)}" value="${carlos:forHtmlAttribute(value)}"/>
             </c:forEach>
         </c:forEach>
-        <button type="submit" name="tablePage" value="0" ${serverTablePage.previous ? '' : 'disabled'}><fmt:message key="table.paging.first"/></button>
-        <button type="submit" name="tablePage" value="${serverTablePage.page - 1}" ${serverTablePage.previous ? '' : 'disabled'}><fmt:message key="table.paging.previous"/></button>
+        <button type="submit" name="tablePage" data-server-page-focus="first" value="0" ${serverTablePage.previous ? '' : 'disabled'}><fmt:message key="table.paging.first"/></button>
+        <button type="submit" name="tablePage" data-server-page-focus="previous" value="${serverTablePage.page - 1}" ${serverTablePage.previous ? '' : 'disabled'}><fmt:message key="table.paging.previous"/></button>
         <span>${serverTablePage.page + 1} / ${serverTablePage.pageCount}</span>
-        <button type="submit" name="tablePage" value="${serverTablePage.page + 1}" ${serverTablePage.next ? '' : 'disabled'}><fmt:message key="table.paging.next"/></button>
-        <button type="submit" name="tablePage" value="${serverTablePage.pageCount - 1}" ${serverTablePage.next ? '' : 'disabled'}><fmt:message key="table.paging.last"/></button>
+        <button type="submit" name="tablePage" data-server-page-focus="next" value="${serverTablePage.page + 1}" ${serverTablePage.next ? '' : 'disabled'}><fmt:message key="table.paging.next"/></button>
+        <button type="submit" name="tablePage" data-server-page-focus="last" value="${serverTablePage.pageCount - 1}" ${serverTablePage.next ? '' : 'disabled'}><fmt:message key="table.paging.last"/></button>
         <span role="alert" data-server-page-error data-error="${carlos:forHtmlAttribute(serverPageError)}"></span>
     </form>
     <script src="${pageContext.request.contextPath}/share/javascript/csrfTokenFetch.js" defer></script>

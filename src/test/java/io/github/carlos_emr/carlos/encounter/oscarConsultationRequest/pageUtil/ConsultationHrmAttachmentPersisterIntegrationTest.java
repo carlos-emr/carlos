@@ -45,6 +45,7 @@ class ConsultationHrmAttachmentPersisterIntegrationTest extends CarlosTestBase {
     @PersistenceContext(unitName = "entityManagerFactory") private EntityManager em;
     private TransactionTemplate tx;
     private ConsultationHrmAttachmentPersister service;
+    private SecurityInfoManager security;
     private final LoggedInInfo info = mock(LoggedInInfo.class);
     private int requestId;
     private int selectedId;
@@ -68,8 +69,9 @@ class ConsultationHrmAttachmentPersisterIntegrationTest extends CarlosTestBase {
                 applicationContext.getBean(io.github.carlos_emr.carlos.commn.dao.EReferAttachmentDataDaoImpl.class));
         org.springframework.test.util.ReflectionTestUtils.setField(ocean, "eReferAttachmentDao",
                 applicationContext.getBean(io.github.carlos_emr.carlos.commn.dao.EReferAttachmentDaoImpl.class));
-        var security = mock(SecurityInfoManager.class);
+        security = mock(SecurityInfoManager.class);
         when(security.hasPrivilege(eq(info), eq("_con"), eq("w"), anyInt())).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(eq(info), anyInt())).thenReturn(true);
         when(security.hasPrivilege(info, "_hrm", "r", (String) null)).thenReturn(true);
         var target = new ConsultationHrmAttachmentPersister(requests, attachments, extensions, security);
         var proxy = new ProxyFactory(target);
@@ -111,7 +113,11 @@ class ConsultationHrmAttachmentPersisterIntegrationTest extends CarlosTestBase {
             em.createQuery("delete from EReferAttachment q where q.id in :ids")
                     .setParameter("ids", List.of(queueId, foreignQueueId)).executeUpdate();
             extensions.clear(requestId);
-            attachments.findByRequestId(requestId).forEach(row -> attachments.remove(row.getId()));
+            java.util.stream.Stream.of(selectedId, duplicateId, otherId)
+                    .filter(id -> id > 0).forEach(attachments::remove);
+            em.flush();
+            assertThat(em.createQuery("SELECT COUNT(d) FROM ConsultDocs d WHERE d.requestId = :requestId", Long.class)
+                    .setParameter("requestId", requestId).getSingleResult()).isZero();
             requests.remove(requestId);
         });
     }
@@ -125,6 +131,19 @@ class ConsultationHrmAttachmentPersisterIntegrationTest extends CarlosTestBase {
         return tx.execute(status -> em.createQuery(
                 "select d.labId from EReferAttachmentData d where d.eReferAttachment.id = :id order by d.labId", Integer.class)
                 .setParameter("id", id).getResultList());
+    }
+
+    @Test
+    void shouldKeepCommittedRelationshipsAndQueue_whenPatientRecordIsLockedOut() {
+        when(security.isAllowedAccessToPatientRecord(info, patient)).thenReturn(false);
+        try (var audit = mockStatic(LogAction.class)) {
+            assertThatThrownBy(() -> service.detach(info, requestId, selectedId))
+                    .isInstanceOf(SecurityException.class);
+            assertThat(deletedFlags()).containsExactly("active", "active", "active");
+            assertThat(queuedDocuments(queueId)).containsExactly(128, 129);
+            assertThat(queuedDocuments(foreignQueueId)).containsExactly(128, 129);
+            audit.verifyNoInteractions();
+        }
     }
 
     @Test

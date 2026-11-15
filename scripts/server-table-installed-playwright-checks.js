@@ -8,7 +8,6 @@ const {runWorkflow}=require('./lib/workflow-session');
 const {createOwnedPatient,newOwnedMarker,removeOwnedPatient}=require('./lib/owned-patient');
 const {randomUUID}=require('node:crypto');
 const {authzReadFixture}=require('./lib/authz-read-fixture');
-const q=h.sqlString;
 async function workflow(s) {
  const {sql,marker,provider,patient,config}=s;
  const identities=authzReadFixture({sql,marker,provider,testUser:config.testUser});s.cleanup(()=>identities.cleanup());
@@ -21,8 +20,8 @@ async function workflow(s) {
   const owned=newOwnedMarker();const id=createOwnedPatient(sql,{marker:owned,provider,firstName:marker});patients.push([id,owned]);
  }
  const note=h.insertId(sql,`INSERT INTO casemgmt_note(update_date,observation_date,demographic_no,provider_no,note,history,uuid,locked,archived,signed)
- VALUES(NOW(),NOW(),${patient},${q(provider)},${q(marker)},'',${q(randomUUID())},'0',0,0)`,'source note');
- s.cleanup(()=>{sql.execute(`DELETE FROM casemgmt_note WHERE note_id=${note} AND demographic_no=${patient}`);h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE note_id=${note}`)==='0','Source note cleanup failed');});
+ VALUES(NOW(),NOW(),?,?,?,'',?,'0',0,0)`,'source note',[patient,provider,marker,randomUUID()]);
+ s.cleanup(()=>{sql.execute('DELETE FROM casemgmt_note WHERE note_id=? AND demographic_no=?',[note,patient]);h.assert(sql.value('SELECT COUNT(*) FROM casemgmt_note WHERE note_id=?',[note])==='0','Source note cleanup failed');});
  async function navigate(page,button){const old=await page.locator('[data-server-page-region]').elementHandle();await button.click();await page.waitForFunction(element=>!element.isConnected,old);}
  await s.step('Attach Client bounds real POST searches, preserves the note and unsaved criteria, and repeats CSRF paging',async()=>{
   const page=await context.newPage();await h.gotoApp(page,config.baseUrl,`/PMmodule/ClientSearch2?method=attachForm&noteId=${note}`);
@@ -47,7 +46,7 @@ async function workflow(s) {
   await navigate(page,page.locator('[data-server-page-form] button[name="tablePage"]').nth(2));
   h.assert(await page.locator('#client tbody tr').count()===10,'Native Soundex second page failed');
  });
- const fees=[];s.cleanup(()=>{if(fees.length)sql.execute(`DELETE FROM billing_trayfees WHERE id IN (${fees.join(',')})`);h.assert(!fees.length||sql.value(`SELECT COUNT(*) FROM billing_trayfees WHERE id IN (${fees.join(',')})`)==='0','Tray cleanup failed');});
+ const fees=[];s.cleanup(()=>{if(fees.length){const marks=fees.map(()=>'?').join(',');sql.execute(`DELETE FROM billing_trayfees WHERE id IN (${marks})`,fees);h.assert(sql.value(`SELECT COUNT(*) FROM billing_trayfees WHERE id IN (${marks})`,fees)==='0','Tray cleanup failed');}});
  for(let i=0;i<121;i++)fees.push(h.insertId(sql,"INSERT INTO billing_trayfees(billingServiceNo,billingServiceTrayNo) VALUES('0','0')",'tray association'));
  await s.step('BC tray sends 50 rows per page and paging retains both unsaved fee codes',async()=>{
   const page=await context.newPage();await h.gotoApp(page,config.baseUrl,'/billing/CA/BC/supServiceCodeAssocAction?actionMode=view');
