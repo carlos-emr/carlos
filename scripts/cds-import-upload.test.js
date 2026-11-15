@@ -18,10 +18,14 @@ const CHUNK_URL = ORIGIN + '/carlos/form/cdsUpload?operation=chunk&uploadId=' + 
 const RECEIPT = {ok: true, upload: {id: UPLOAD, receivedBytes: 3}};
 const settle = () => new Promise(resolve => setImmediate(resolve));
 
-async function until(condition, message, turns = 500) {
-  for (let turn = 0; turn < turns; turn++) {
+async function until(condition, message, timeoutMillis = 10000) {
+  // File reads and WebCrypto finish on real worker threads. A fixed number of
+  // immediate callbacks can expire before those workers get CPU on a busy runner.
+  // This clock belongs to the harness; the page's timeout clock stays virtual.
+  const deadline = performance.now() + timeoutMillis;
+  while (performance.now() < deadline) {
     if (condition()) return;
-    await settle();
+    await new Promise(resolve => setTimeout(resolve, 1));
   }
   assert.fail(message);
 }
@@ -324,10 +328,10 @@ test('any number of selected files is uploaded and submitted, one file after ano
     }
   });
   p.node('cdsImportForm').fire('submit');
-  await until(() => order.length === count * 4, 'not every file was transferred and submitted', 200000);
+  await until(() => order.length === count * 4, 'not every file was transferred and submitted', 30000);
   assert.deepEqual(order, Array.from({length: count}, (_, n) => ['begin', 'chunk', 'finish', 'submit']
     .map(step => step + ' ' + n)).flat());
-  await until(() => /^130 file\(s\) accepted/.test(p.node('cdsNotice').textContent), 'no completion notice', 20000);
+  await until(() => /^130 file\(s\) accepted/.test(p.node('cdsNotice').textContent), 'no completion notice');
 });
 
 test('twenty-five files are each begun and submitted while every earlier upload still holds its reservation', async () => {
@@ -364,7 +368,7 @@ test('twenty-five files are each begun and submitted while every earlier upload 
     }
   });
   p.node('cdsImportForm').fire('submit');
-  await until(() => /^25 file\(s\) accepted/.test(p.node('cdsNotice').textContent), 'not every file was accepted', 50000);
+  await until(() => /^25 file\(s\) accepted/.test(p.node('cdsNotice').textContent), 'not every file was accepted');
   assert.equal(mostReserved, count, 'all twenty-five reservations were held at once');
   assert.equal(p.requests.filter(row => row.url.pathname.endsWith('/cdsImportSubmit')).length, count);
 });
