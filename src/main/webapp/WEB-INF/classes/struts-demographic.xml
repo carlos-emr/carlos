@@ -102,6 +102,25 @@
         <action name="demographic/cdsSourceFieldContent" class="cdsSourceFieldContent2Action">
             <result name="input" type="httpheader"><param name="status">400</param></result>
         </action>
+        <action name="form/cdsExport" class="viewCdsExport2Action">
+            <result name="input" type="httpheader"><param name="status">400</param></result>
+            <result name="success">/WEB-INF/jsp/demographic/demographicCdsExport.jsp</result>
+        </action>
+        <action name="form/cdsExportSubmit" class="submitCdsExport2Action">
+            <result name="input" type="httpheader"><param name="status">400</param></result>
+        </action>
+        <action name="form/cdsExportStatus" class="cdsExportStatus2Action">
+            <result name="input" type="httpheader"><param name="status">400</param></result>
+        </action>
+        <action name="form/cdsExportReport" class="cdsExportReport2Action">
+            <result name="input" type="httpheader"><param name="status">400</param></result>
+        </action>
+        <action name="form/cdsExportDownload" class="cdsExportDownload2Action">
+            <result name="input" type="httpheader"><param name="status">400</param></result>
+        </action>
+        <action name="form/cdsExportControl" class="cdsExportControl2Action">
+            <result name="input" type="httpheader"><param name="status">400</param></result>
+        </action>
         <action name="demographic/DemographicExport" class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicExportAction42Action">
             <result name="success">/WEB-INF/jsp/demographic/demographicExport.jsp</result>
             <result name="fail">/WEB-INF/jsp/demographic/demographicExport.jsp</result>

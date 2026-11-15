@@ -893,8 +893,18 @@
             // Prevention item: read-only here. Adding one goes through the
             // prevention module popup so its consent/refusal rules still apply.
             String prevType = h2.get("prevention_type");
-            List<Map<String, Object>> plist = PreventionData.getPreventionData(loggedInInfo, prevType, demographicNoInt);
-            Collections.reverse(plist);
+            // A failed read is shown as such in this card. An empty list here would read as
+            // "No Data", which says the patient has never had this prevention.
+            List<Map<String, Object>> plist;
+            boolean preventionUnreadable = false;
+            try {
+                plist = PreventionData.getPreventionData(loggedInInfo, prevType, demographicNoInt);
+                Collections.reverse(plist);
+            } catch (io.github.carlos_emr.carlos.prevention.dto.PreventionSourceUnavailableException unavailable) {
+                plist = new ArrayList<Map<String, Object>>();
+                preventionUnreadable = true;
+                PreventionData.logUnreadable("health tracker", demographicNoInt);
+            }
 %>
                 <div class="card mb-2" style="<%= hidden %>">
                     <div class="card-header py-2">
@@ -919,7 +929,9 @@
                         </div>
                     </div>
                     <div class="card-body p-0">
-                        <% if (!plist.isEmpty()) { %>
+                        <% if (preventionUnreadable) { %>
+                        <p class="text-danger px-2 py-1 mb-0 prevention-unreadable" role="alert"><fmt:setBundle basename="oscarResources"/><fmt:message key="prevention.unreadable.message"/></p>
+                        <% } else if (!plist.isEmpty()) { %>
                         <div class="history-strip">
                             <% for (Map<String, Object> hdata : plist) {
                                 String com = PreventionData.getPreventionComment("" + hdata.get("id"));

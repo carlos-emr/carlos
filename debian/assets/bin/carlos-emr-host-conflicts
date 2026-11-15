@@ -94,7 +94,7 @@ listeners() {
 host_of() {
     h="${1%:*}"
     h="${h#\[}"
-    h="${h%\]}"
+    h="${h%"]"}"
     printf '%s\n' "${h%%%*}"
 }
 
@@ -251,7 +251,7 @@ advice() {
 }
 
 describe() {  # $1 name, $2 pid, $3 unit (may be empty), $4 addresses
-    if [ "$1" = - ]; then
+    if [ "$1" = "-" ]; then
         printf 'a listener whose owner ss cannot show is on %s' "$4"
     elif [ -n "$3" ]; then
         printf '%s (pid %s, %s) is listening on %s' "$1" "$2" "$3" "$4"
@@ -270,19 +270,19 @@ colliding() {
         [ -n "${rows}" ] || continue
         while read -r addr name pid; do
             collides "$(host_of "${addr}")" "${bind_ip}" || continue
-            unit=-
-            if [ "${pid}" != - ]; then
+            unit='-'
+            if [ "${pid}" != "-" ]; then
                 if [ "${pid}" = 1 ]; then
                     unit="$(socket_unit_for "${addr}")"
-                    [ -n "${unit}" ] || unit=-
+                    [ -n "${unit}" ] || unit='-'
                 else
-                    unit="$(unit_of "${pid}")" || unit=-
+                    unit="$(unit_of "${pid}")" || unit='-'
                 fi
             fi
             # nginx.service's own sockets are the point, not a conflict. An
             # nginx whose unit cannot be told is given the benefit of the doubt.
             [ "${unit}" = nginx.service ] && continue
-            [ "${unit}" = - ] && [ "${name}" = nginx ] && continue
+            [ "${unit}" = "-" ] && [ "${name}" = nginx ] && continue
             printf '%s %s %s %s\n' "${addr}" "${name}" "${pid}" "${unit}"
         done <<EOF
 ${rows}
@@ -317,7 +317,7 @@ front_door() {
     if [ "${mode}" != report ]; then
         stopped_units=" "
         while read -r name pid unit addrs; do
-            [ "${name}" != - ] || continue
+            [ "${name}" != "-" ] || continue
             case "${unit}" in
                 *.service | *.socket) ;;
                 *) continue ;;
@@ -398,7 +398,7 @@ EOF
         if [ "${mode}" = plan ]; then
             case "${stopped_units:- }" in *" ${unit} "*) continue ;; esac
         fi
-        [ "${unit}" != - ] || unit=""
+        [ "${unit}" != "-" ] || unit=""
         why=""
         case "${denied}" in *" ${unit} "*) why="policy-rc.d forbids stopping services during this install, so it was left running; " ;; esac
         say "blocked: $(describe "${name}" "${pid}" "${unit}" "${addrs}"), so nginx cannot serve the CARLOS front door; ${why}$(advice "${name}" "${unit}")"
@@ -419,7 +419,7 @@ mariadb_cause() {
             if [ -n "${holders}" ]; then
                 printf '%s\n' "${holders}" | {
                     read -r name pid unit addrs
-                    [ "${unit}" != - ] || unit=""
+                    [ "${unit}" != "-" ] || unit=""
                     say "cause: mariadb.service is ${state} because port 3306 is taken: $(describe "${name}" "${pid}" "${unit}" "${addrs}"); $(advice "${name}" "${unit}")"
                 }
                 return 0
@@ -434,7 +434,7 @@ mariadb_cause() {
                 say "cause: mariadb.service is ${state}: MariaDB's mysql system tables are missing; see 'Missing MariaDB system tables' in /usr/share/doc/carlos-emr/README.Debian. On a new site, reconfigure carlos-emr to retry initialization; on an existing site, check the data volume mount and recover the database from backup"
                 return 0
             fi
-            say "cause: mariadb.service is ${state}${last:+ (its last error: ${last})}; see: sudo journalctl -u mariadb -n 50"
+            say "cause: mariadb.service is ${state}${last:+" (its last error: ${last})"}; see: sudo journalctl -u mariadb -n 50"
             return 0 ;;
         activating)
             say "cause: mariadb.service was still starting; when 'systemctl is-active mariadb' says active, finish the install"
@@ -457,12 +457,12 @@ mariadb_cause() {
                 # A locked root cannot log in to unlock itself, by password or
                 # by socket: only the grant-table reset recovers it.
                 say "cause: MariaDB is running, but its root@localhost account is locked (${first}), and a locked root cannot log in to unlock itself; reset it as described under 'MariaDB root access' in /usr/share/doc/carlos-emr/README.Debian (a restart with --skip-grant-tables)" ;;
-            *"ERROR 1045"*"using password: NO"*)
+            *ERROR\ 1045*using\ password:\ NO*)
                 # 1045 without a password offered: the account wants one. The
                 # unix_socket plugin, which is how CARLOS administers MariaDB,
                 # would have let the system root user in.
                 say "cause: MariaDB is running, but its root@localhost account was given a password before CARLOS was installed and refuses the system root user over the unix socket, which is how CARLOS administers the database; put root back to the distribution default (socket login, no root password) as described under 'MariaDB root access' in /usr/share/doc/carlos-emr/README.Debian" ;;
-            *"ERROR 1045"*"using password: YES"*)
+            *ERROR\ 1045*using\ password:\ YES*)
                 # A password was sent although CARLOS passes none: a client
                 # option file (/root/.my.cnf, or a [client] section under
                 # /etc/mysql) supplies one, and root has no socket login to
@@ -476,14 +476,14 @@ mariadb_cause() {
                 if [ -n "${holders}" ]; then
                     printf '%s\n' "${holders}" | {
                         read -r name pid unit addrs
-                        [ "${unit}" != - ] || unit=""
+                        [ "${unit}" != "-" ] || unit=""
                         say "cause: MariaDB is not answering on its unix socket, and port 3306 is taken: $(describe "${name}" "${pid}" "${unit}" "${addrs}"); $(advice "${name}" "${unit}")"
                     }
                 else
-                    say "cause: MariaDB is not answering on its unix socket (${first:-ERROR 2002}); check 'systemctl status mariadb' and any 'socket =' setting under /etc/mysql"
+                    say "cause: MariaDB is not answering on its unix socket (${first:-"ERROR 2002"}); check 'systemctl status mariadb' and any 'socket =' setting under /etc/mysql"
                 fi ;;
             *)
-                say "cause: MariaDB refused root: ${first:-exit status ${rc}}" ;;
+                say "cause: MariaDB refused root: ${first:-"exit status ${rc}"}" ;;
         esac
     fi
     return 0

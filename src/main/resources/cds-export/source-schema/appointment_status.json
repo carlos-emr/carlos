@@ -1,0 +1,81 @@
+{
+  "table": "appointment_status",
+  "engine": "InnoDB",
+  "columns": [
+    {
+      "name": "active",
+      "type": "int(1)",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "color",
+      "type": "char(7)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "description",
+      "type": "char(30)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "editable",
+      "type": "int(1)",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "icon",
+      "type": "char(30)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "id",
+      "type": "int(11)",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "short_letter_colour",
+      "type": "int(11)",
+      "nullable": "YES",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "short_letters",
+      "type": "varchar(5)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "status",
+      "type": "char(2)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_bin",
+      "expression": null
+    }
+  ],
+  "primaryKeyColumns": [
+    "id"
+  ]
+}

@@ -64,6 +64,76 @@ class PasswordPolicyUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRefuseWithLengthRule_whenPasswordIsShorterThanConfiguredMinimum() {
+        CarlosProperties properties = properties();
+        when(properties.getProperty("password_min_length")).thenReturn("10");
+        String nineCharacters = new String(new char[] {'A', 'b', 'c', 'd', 'e', 'f', 'g', '1', '!'});
+
+        PasswordPolicy.Validation refused = PasswordPolicy.validate(nineCharacters, properties);
+
+        assertThat(refused.isValid()).isFalse();
+        assertThat(refused.auditReason()).isEqualTo("password_policy_min_length");
+        assertThat(refused.message(key -> "[" + key + "]")).isEqualTo(
+                "[password.policy.violation.msgPasswordLengthError] 10 [password.policy.violation.msgSymbols]");
+        assertThat(PasswordPolicy.validate(nineCharacters + "x", properties).isValid()).isTrue();
+    }
+
+    @Test
+    void shouldRefuseWithGroupRule_whenPasswordUsesFewerGroupsThanConfigured() {
+        CarlosProperties properties = properties();
+        when(properties.getProperty("password_min_groups")).thenReturn("4");
+
+        PasswordPolicy.Validation refused = PasswordPolicy.validate(EIGHT_CHARACTERS_THREE_GROUPS, properties);
+
+        assertThat(refused.isValid()).isFalse();
+        assertThat(refused.auditReason()).isEqualTo("password_policy_min_groups");
+        assertThat(refused.message(key -> "[" + key + "]")).isEqualTo(
+                "[password.policy.violation.msgPasswordStrengthError] 4 [password.policy.violation.msgPasswordGroups]");
+        assertThat(PasswordPolicy.validate(EIGHT_CHARACTERS_THREE_GROUPS + "!", properties).isValid()).isTrue();
+    }
+
+    @Test
+    void shouldAcceptAnyPassword_whenRequirementsAreIgnored() {
+        CarlosProperties properties = properties();
+        when(properties.getProperty("IGNORE_PASSWORD_REQUIREMENTS")).thenReturn("true");
+
+        assertThat(PasswordPolicy.validate("a", properties).isValid()).isTrue();
+    }
+
+    @Test
+    void shouldRefusePin_whenShorterThanConfiguredMinimum() {
+        CarlosProperties properties = properties();
+        when(properties.getProperty("password_pin_min_length")).thenReturn("6");
+
+        PasswordPolicy.Validation refused = PasswordPolicy.validatePinLength("12345", properties);
+
+        assertThat(refused.isValid()).isFalse();
+        assertThat(refused.auditReason()).isEqualTo("pin_policy_min_length");
+        assertThat(refused.message(key -> "[" + key + "]")).isEqualTo(
+                "[password.policy.violation.msgPinLengthError] 6 [password.policy.violation.msgDigits]");
+        assertThat(PasswordPolicy.validatePinLength("123456", properties).isValid()).isTrue();
+        assertThat(PasswordPolicy.validatePinLength(null, properties).isValid()).isFalse();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "-1", "bad", "2147483648"})
+    void shouldUseDefaultPinLength_whenConfigurationIsInvalid(String value) {
+        CarlosProperties properties = properties();
+        when(properties.getProperty("password_pin_min_length")).thenReturn(value);
+
+        assertThat(PasswordPolicy.validatePinLength("123", properties).isValid()).isFalse();
+        assertThat(PasswordPolicy.validatePinLength("1234", properties).isValid()).isTrue();
+    }
+
+    @Test
+    void shouldKeepPinRule_whenPasswordRequirementsAreIgnored() {
+        CarlosProperties properties = properties();
+        when(properties.getProperty("IGNORE_PASSWORD_REQUIREMENTS")).thenReturn("true");
+
+        assertThat(PasswordPolicy.validatePinLength("12", properties).isValid()).isFalse();
+    }
+
+    @Test
     void shouldHonorConfiguredCharacters_whenWhitespaceIsExplicitlyInSpecialGroup() {
         assertThat(PasswordPolicy.countGroups("abcdefG ", "abcdef", "G", "123", "! ")).isEqualTo(3);
         assertThat(PasswordPolicy.countGroups("abcdefG ", "abcdef", "G", "123", "!")).isEqualTo(2);

@@ -64,6 +64,8 @@ import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.managers.CanadianVaccineCatalogueManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.PreventionManager;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionSourceUnavailableException;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
@@ -118,6 +120,82 @@ class PreventionPageDataUnitTest extends CarlosUnitTestBase {
     void restore() throws Exception {
         swapPreventionDataField("preventionDao", savedPreventionDao);
         swapPreventionDataField("partialDateDao", savedPartialDateDao);
+    }
+
+    @Test
+    @DisplayName("should refuse an unavailable source instead of returning an empty or partial chart")
+    void shouldRefuseUnavailableSource_insteadOfSilentlyDroppingPreventions() {
+        var failure = new org.springframework.dao.DataAccessResourceFailureException("synthetic source failure");
+        when(preventionDao.findByTypeAndDemoNo("Flu", 7)).thenThrow(failure);
+        PreventionPageData pageData = new PreventionPageData(user, PATIENT, demographicManager);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> pageData.getPreventionData("Flu"))
+                .isExactlyInstanceOf(PreventionSourceUnavailableException.class).hasCause(failure);
+    }
+
+    @Test
+    @DisplayName("should refuse every type once one read failed, including types already read")
+    void shouldRefuseEveryType_onceOneReadHasFailed() {
+        var failure = new org.springframework.dao.DataAccessResourceFailureException("synthetic source failure");
+        Prevention flu = prevention(1, "Flu", 2020);
+        when(preventionDao.findByTypeAndDemoNo("Flu", 7)).thenReturn(List.of(flu));
+        when(preventionDao.findByTypeAndDemoNo("PAP", 7)).thenThrow(failure);
+        PreventionPageData pageData = new PreventionPageData(user, PATIENT, demographicManager);
+        assertThat(pageData.getPreventionData("Flu")).hasSize(1);
+
+        assertThatThrownBy(() -> pageData.getPreventionData("PAP"))
+                .isExactlyInstanceOf(PreventionSourceUnavailableException.class);
+
+        // The Flu rows were read, but a page that showed them now would show part of the history
+        // as the whole of it.
+        assertThatThrownBy(() -> pageData.getPreventionData("Flu"))
+                .isExactlyInstanceOf(PreventionSourceUnavailableException.class).hasCause(failure);
+        assertThatThrownBy(() -> pageData.getPreventionData("MMR"))
+                .isExactlyInstanceOf(PreventionSourceUnavailableException.class);
+        verify(preventionDao, times(0)).findByTypeAndDemoNo("MMR", 7);
+    }
+
+    @Test
+    @DisplayName("should tell a page before it writes anything that the preventions cannot be read")
+    void shouldReportUnreadable_beforeThePageWritesAnyType() {
+        Prevention flu = prevention(1, "Flu", 2020);
+        when(preventionDao.findByTypeAndDemoNo("Flu", 7)).thenReturn(List.of(flu));
+        when(preventionDao.findByTypeAndDemoNo("PAP", 7))
+                .thenThrow(new org.springframework.dao.DataAccessResourceFailureException("synthetic source failure"));
+        PreventionPageData pageData = new PreventionPageData(user, PATIENT, demographicManager);
+
+        assertThat(pageData.canReadAll(java.util.Arrays.asList("Flu", null, "PAP", "MMR"))).isFalse();
+
+        assertThatThrownBy(() -> pageData.getPreventionData("Flu"))
+                .isExactlyInstanceOf(PreventionSourceUnavailableException.class);
+    }
+
+    @Test
+    @DisplayName("should read each listed type once when all of them can be read")
+    void shouldKeepPreloadedLists_whenEveryTypeCanBeRead() {
+        Prevention flu = prevention(1, "Flu", 2020);
+        when(preventionDao.findByTypeAndDemoNo("Flu", 7)).thenReturn(List.of(flu));
+        PreventionPageData pageData = new PreventionPageData(user, PATIENT, demographicManager);
+
+        assertThat(pageData.canReadAll(List.of("Flu", "PAP"))).isTrue();
+
+        assertThat(pageData.getPreventionData("Flu")).hasSize(1);
+        assertThat(pageData.getPreventionData("PAP")).isEmpty();
+        verify(preventionDao, times(1)).findByTypeAndDemoNo("Flu", 7);
+        verify(preventionDao, times(1)).findByTypeAndDemoNo("PAP", 7);
+    }
+
+    @Test
+    @DisplayName("should pass a date that needs review through without remembering it as unreadable")
+    void shouldPassTheDateReviewRefusalThrough_withoutMarkingThePageUnreadable() {
+        when(preventionDao.findByTypeAndDemoNo("Flu", 7)).thenThrow(new PreventionDatePrecisionException());
+        Prevention pap = prevention(2, "PAP", 2021);
+        when(preventionDao.findByTypeAndDemoNo("PAP", 7)).thenReturn(List.of(pap));
+        PreventionPageData pageData = new PreventionPageData(user, PATIENT, demographicManager);
+
+        assertThatThrownBy(() -> pageData.getPreventionData("Flu"))
+                .isExactlyInstanceOf(PreventionDatePrecisionException.class);
+
+        assertThat(pageData.getPreventionData("PAP")).hasSize(1);
     }
 
     @Test
@@ -224,9 +302,51 @@ class PreventionPageDataUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should keep the standalone lookup returning nothing when the user may not read the patient")
     void shouldReturnNothing_whenStandaloneLookupIsDenied() {
-        when(demographicManager.getDemographic(user, Integer.valueOf(7))).thenThrow(new RuntimeException(DENIED));
+        // A denial is a SecurityException, as DemographicManagerImpl.checkPrivilege throws it.
+        when(demographicManager.getDemographic(user, Integer.valueOf(7))).thenThrow(new SecurityException(DENIED));
 
-        assertThat(PreventionData.getPreventionData(user, "Flu", 7)).isEmpty();
+        try (LogCapture logs = LogCapture.forLogger(PreventionData.class)) {
+            assertThat(PreventionData.getPreventionData(user, "Flu", 7)).isEmpty();
+
+            // An expected outcome, not a fault: one warning with the chart number, no stack trace.
+            assertThat(logs.events()).hasSize(1).allSatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getThrown()).isNull();
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("demographicNo=7", "may not read the chart").doesNotContain(DENIED);
+            });
+        }
+        verifyNoInteractions(preventionDao);
+    }
+
+    @Test
+    @DisplayName("should keep the standalone lookup returning nothing when a patient directive refuses the chart")
+    void shouldReturnNothing_whenAPatientDirectiveRefusesTheChart() {
+        when(demographicManager.getDemographic(user, Integer.valueOf(7)))
+                .thenThrow(new io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException("synthetic directive"));
+
+        try (LogCapture logs = LogCapture.forLogger(PreventionData.class)) {
+            assertThat(PreventionData.getPreventionData(user, "Flu", 7)).isEmpty();
+
+            assertThat(logs.events()).noneMatch(event -> event.getLevel().isMoreSpecificThan(Level.ERROR)
+                    || event.getThrown() != null);
+        }
+        verifyNoInteractions(preventionDao);
+    }
+
+    @Test
+    @DisplayName("should refuse the read, not return an empty history, when the patient lookup itself fails")
+    void shouldRefuseTheRead_whenThePatientLookupFails() {
+        var failure = new org.springframework.dao.DataAccessResourceFailureException("synthetic source failure");
+        when(demographicManager.getDemographic(user, Integer.valueOf(7))).thenThrow(failure);
+
+        // An empty list here would read as "this patient has no preventions".
+        assertThatThrownBy(() -> PreventionData.getPreventionData(user, "Flu", 7))
+                .isExactlyInstanceOf(PreventionSourceUnavailableException.class).hasCause(failure);
+        assertThatThrownBy(() -> PreventionData.getExactPreventionData(user, "Flu", 7))
+                .isExactlyInstanceOf(PreventionSourceUnavailableException.class).hasCause(failure);
+        assertThatThrownBy(() -> PreventionData.getPreventionData(user, 7))
+                .isExactlyInstanceOf(PreventionSourceUnavailableException.class).hasCause(failure);
         verifyNoInteractions(preventionDao);
     }
 

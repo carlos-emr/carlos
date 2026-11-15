@@ -23,8 +23,8 @@ import static org.mockito.Mockito.*;
 
 /**
  * Pins the audit row written when a provider opens a note's history through
- * {@code CaseManagementEntry?method=history} (#4426): the patient goes in the demographic slot and
- * the note text in the data slot, never the other way round.
+ * {@code CaseManagementEntry?method=history} (#4426): the patient goes in the demographic slot and a
+ * description of the revision (never the note text) in the data slot.
  */
 @Tag("unit")
 @Tag("security")
@@ -69,13 +69,18 @@ class CaseManagementNoteHistoryAuditUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldAuditReadAgainstNotePatient_withNoteTextAsData() {
-        String audit = note.getAuditString();
+    void shouldAuditReadAgainstNotePatient_withoutNoteTextInData() {
+        note.setUuid("0b4c6f6e-7f1d-4c58-9a0e-2f1f5f2a9d11");
 
         assertThat(action.history()).isEqualTo("historyview");
 
+        // The patient in the demographic slot; the data slot describes the revision read and is
+        // never empty (the audit-log-chart-note-history check reads it), but carries no note text.
         logActionMock.verify(() -> LogAction.addLog("4249", LogConst.READ, LogConst.CON_CME_NOTE, "501",
-                "192.0.2.7", "101", audit));
+                "192.0.2.7", "101", "uuid=0b4c6f6e-7f1d-4c58-9a0e-2f1f5f2a9d11; signed=false; issues=0"));
+        logActionMock.verify(() -> LogAction.addLog(anyString(), anyString(), anyString(), anyString(), anyString(),
+                anyString(), org.mockito.ArgumentMatchers.argThat((String data) -> data.contains("chest pain")
+                        || data.contains("Jane Roe") || data.contains("earlier revision"))), never());
         logActionMock.verify(() -> LogAction.addLog(anyString(), anyString(), anyString(), anyString(), anyString(),
                 anyString()), never());
     }

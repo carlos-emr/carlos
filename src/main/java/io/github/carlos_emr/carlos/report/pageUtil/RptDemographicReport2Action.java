@@ -38,6 +38,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.report.data.DemographicSets;
 import io.github.carlos_emr.carlos.report.data.RptDemographicQuery2Builder;
 import io.github.carlos_emr.carlos.report.data.RptDemographicQuery2Loader;
@@ -88,6 +90,7 @@ public class RptDemographicReport2Action extends ActionSupport implements ModelD
             MiscUtils.getLogger().debug("run query");
             RptDemographicQuery2Builder demoQ = new RptDemographicQuery2Builder();
             ArrayList searchedArray = demoQ.buildQuery(loggedInInfo, form);
+            auditListing(loggedInInfo, query, searchedArray.size());
             MiscUtils.getLogger().debug("searchArray size " + searchedArray.size());
             request.setAttribute("searchedArray", searchedArray);
             request.setAttribute("selectArray", select);
@@ -102,6 +105,7 @@ public class RptDemographicReport2Action extends ActionSupport implements ModelD
         } else if ("Add to Study".equals(query)) {
             RptDemographicQuery2Builder demoQ = new RptDemographicQuery2Builder();
             ArrayList searchedArray = demoQ.buildQuery(loggedInInfo, form);
+            auditListing(loggedInInfo, query, searchedArray.size());
             request.setAttribute("searchedArray", searchedArray);
             MiscUtils.getLogger().info("SELECT ARRAY IS NULL " + String.valueOf(select == null));
             MiscUtils.getLogger().info("STUDY ID IS " + studyId);
@@ -112,6 +116,7 @@ public class RptDemographicReport2Action extends ActionSupport implements ModelD
             MiscUtils.getLogger().debug("run query and save to patient set");
             RptDemographicQuery2Builder demoQ = new RptDemographicQuery2Builder();
             ArrayList searchedArray = demoQ.buildQuery(loggedInInfo, form);
+            auditListing(loggedInInfo, query, searchedArray.size());
 
             if (select != null && select.length > 0 && select[0].equals("demographic_no")) {
                 DemographicSets demoSet = new DemographicSets();
@@ -132,5 +137,49 @@ public class RptDemographicReport2Action extends ActionSupport implements ModelD
         }
 
         return SUCCESS;
+    }
+
+    /** The most ids of the Demographic IDs criterion copied into one audit row. */
+    private static final int MAX_AUDITED_IDS = 200;
+
+    /** A report column key as the page's checkboxes post it; anything else is not copied into the audit row. */
+    private static final java.util.regex.Pattern COLUMN_KEY = java.util.regex.Pattern.compile("[A-Za-z0-9_]{1,40}");
+
+    /**
+     * Audits one run of the report: a listing of patients (ids, names, whatever columns were
+     * ticked) was produced for this user. One row per run, never one per listed patient; it is
+     * therefore not filed under a patient, but names the Demographic IDs criterion when one was
+     * given, the columns listed and the number of patients returned. Criteria that are patient
+     * text (a first or last name) are not copied. Best effort, like the sibling export audit of
+     * Patient List by Appointment Time: the listing is shown whether or not the row is stored.
+     */
+    private void auditListing(LoggedInInfo loggedInInfo, String run, int rows) {
+        StringBuilder data = new StringBuilder("run=").append(run).append("; columns=");
+        String[] select = form.getSelect();
+        boolean first = true;
+        for (String column : select == null ? new String[0] : select) {
+            if (column != null && COLUMN_KEY.matcher(column).matches()) {
+                data.append(first ? "" : ",").append(column);
+                first = false;
+            }
+        }
+        // The form's parser turns an empty token (", " between two ids) into 0: not a patient.
+        List<Integer> ids = new ArrayList<>();
+        for (Integer id : form.getDemographicIds()) {
+            if (id != null && id > 0) {
+                ids.add(id);
+            }
+        }
+        if (!ids.isEmpty()) {
+            data.append("; demographicIds=");
+            for (int i = 0; i < ids.size() && i < MAX_AUDITED_IDS; i++) {
+                data.append(i == 0 ? "" : ",").append(ids.get(i));
+            }
+            if (ids.size() > MAX_AUDITED_IDS) {
+                data.append(",(+").append(ids.size() - MAX_AUDITED_IDS).append(" more)");
+            }
+        }
+        data.append("; rows=").append(rows);
+        LogAction.addLog(loggedInInfo, LogConst.READ, LogConst.CON_DEMOGRAPHIC_REPORT, null, null, data.toString());
     }
 }
