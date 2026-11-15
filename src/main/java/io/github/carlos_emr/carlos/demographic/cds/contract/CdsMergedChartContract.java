@@ -743,7 +743,13 @@ public final class CdsMergedChartContract {
 
     /** Validates one streamed standalone document without retaining its clinical text. Caller owns input. */
     public static void verifyDocument(int chart, java.io.InputStream input, String expectedDigest) throws IOException {
-        if (chart < 1 || expectedDigest == null || !expectedDigest.matches("[0-9a-f]{64}")) throw invalid();
+        if (expectedDigest == null || !expectedDigest.matches("[0-9a-f]{64}")) throw invalid();
+        if (!sameDigest(verifyDocument(chart, input), expectedDigest)) throw invalid();
+    }
+
+    /** Validates a streamed document and returns its digest when the carrier states it afterwards. */
+    public static String verifyDocument(int chart, java.io.InputStream input) throws IOException {
+        if (chart < 1) throw invalid();
         MessageDigest digest;
         try { digest = MessageDigest.getInstance("SHA-256"); }
         catch (NoSuchAlgorithmException impossible) { throw new IllegalStateException(impossible); }
@@ -773,11 +779,11 @@ public final class CdsMergedChartContract {
                 throw invalid();
             }
             checked.transferTo(java.io.OutputStream.nullOutputStream());
-            if (!sameDigest(HexFormat.of().formatHex(digest.digest()), expectedDigest)) throw invalid();
             if (shape.patients != 1
                     || shape.demographics != 1
                     || !senderId(chart).equals(shape.vendorId)
                     || shape.other) throw invalid();
+            return HexFormat.of().formatHex(digest.digest());
         }
     }
 

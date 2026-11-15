@@ -126,6 +126,120 @@ class CdsMergedChartReaderUnitTest {
                 .isInstanceOf(CdsMergedChartReader.InvalidCarrier.class);
     }
 
+    @Test
+    void shouldPreserveEscapedMetadataAndUnicode_whenTheCarrierIsReadInSmallChunks() throws Exception {
+        String document = member().replace("FAKE-Merged", "FAKE-café 😀");
+        String json = CdsMergedChartContract.json(new CdsMergedChartContract.ChartRecord(
+                MERGED, HEAD, range(2, 1), document,
+                CdsMergedChartContract.sha256(document.getBytes(StandardCharsets.UTF_8))));
+        json = json.replace("\"chart\"", "\"ch\\u0061rt\"")
+                .replace("C34", "\\u004334").replace("😀", "\\ud83d\\ude00");
+        try (var input = new java.io.FilterReader(new java.io.StringReader(json)) {
+            @Override public int read(char[] chars, int offset, int length) throws java.io.IOException {
+                return super.read(chars, offset, Math.min(length, 3));
+            }
+        }) {
+            var chart = CdsMergedChartStreamReader.read(input);
+            assertThat(chart.chart()).isEqualTo(MERGED);
+            assertThat(chart.head()).isEqualTo(HEAD);
+            assertThat(chart.positions()).isEqualTo(range(2, 1));
+        }
+    }
+
+    @Test
+    void shouldRefuseMalformedStreamingCarriers_beforeReturningAnyChart() throws Exception {
+        String document = member();
+        String json = CdsMergedChartContract.json(new CdsMergedChartContract.ChartRecord(
+                MERGED, HEAD, range(2, 1), document,
+                CdsMergedChartContract.sha256(document.getBytes(StandardCharsets.UTF_8))));
+        for (String malformed : List.of(
+                json + "{}",
+                json.replace("\"version\":1", "\"version\":1.0"),
+                json.replace("\"version\":1", "\"version\":01"),
+                json.replace("\"version\":1", "\"version\":1,\"version\":1"),
+                json.replace("\"first\":2", "\"first\":9223372036854775808"),
+                json.replace("\"first\":2", "\"first\":0"),
+                json.replace("\"first\":2,\"count\":1", "\"count\":1,\"first\":2"),
+                json.replace("\"Appointments\":{\"first\":2,\"count\":1}",
+                        "\"Appointments\":{\"first\":2,\"count\":1},\"Appointments\":{\"first\":2,\"count\":1}"),
+                json.replace("FAKE-Merged", "FAKE-\\q"),
+                json.replace("FAKE-Merged", "FAKE-\\u00xz"),
+                json.replace("FAKE-Merged", "FAKE-\\ud800"),
+                json.replace("FAKE-Merged", "FAKE-\n"),
+                json.replace("FAKE-Merged", "FAKE-Tampered"),
+                json.substring(0, json.length() - 1),
+                json.substring(0, json.indexOf("FAKE-Merged")) )) {
+            assertThatThrownBy(() -> CdsMergedChartStreamReader.read(new java.io.StringReader(malformed)))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage(CdsMergedChartReader.INVALID);
+        }
+    }
+
+    @Test
+    void shouldPropagateAnInterruptedSourceRead_withoutClosingTheCallersReader() throws Exception {
+        String document = member();
+        String json = CdsMergedChartContract.json(new CdsMergedChartContract.ChartRecord(
+                MERGED, HEAD, range(2, 1), document,
+                CdsMergedChartContract.sha256(document.getBytes(StandardCharsets.UTF_8))));
+        var closed = new java.util.concurrent.atomic.AtomicBoolean();
+        try (var input = new java.io.FilterReader(new java.io.StringReader(json)) {
+            private int reads;
+            @Override public int read(char[] chars, int offset, int length) throws java.io.IOException {
+                if (reads++ == 2) throw new java.io.IOException("synthetic-read-failure");
+                return super.read(chars, offset, Math.min(length, 97));
+            }
+            @Override public void close() throws java.io.IOException {
+                closed.set(true);
+                super.close();
+            }
+        }) {
+            assertThatThrownBy(() -> CdsMergedChartStreamReader.read(input))
+                    .isInstanceOf(java.io.IOException.class).hasMessage("synthetic-read-failure");
+            assertThat(closed.get()).isFalse();
+        }
+        assertThat(closed.get()).isTrue();
+    }
+
+    @Test
+    void shouldStreamALargeEmbeddedDocument_withoutRetainingItsText() throws Exception {
+        Path document = base.resolve("large-member.xml");
+        String suffix = "</PatientRecord></OmdCds>";
+        try (var writer = Files.newBufferedWriter(document, StandardCharsets.UTF_8)) {
+            writer.write(member().replace(suffix, ""));
+            writer.write("<NewCategory><CategoryName>CARLOS.NativeDemographic.v1</CategoryName>"
+                    + "<CategoryDescription>Large synthetic source record</CategoryDescription>"
+                    + "<ResidualInfo><cdsd:DataElement><cdsd:Name>fixture</cdsd:Name>"
+                    + "<cdsd:DataType>string</cdsd:DataType><cdsd:Content>");
+            String chunk = "FAKE café 😀 / \\ \n".repeat(512);
+            for (int index = 0; index < 4096; index++) writer.write(chunk);
+            writer.write("</cdsd:Content></cdsd:DataElement></ResidualInfo></NewCategory>" + suffix);
+        }
+        var digest = java.security.MessageDigest.getInstance("SHA-256");
+        try (var input = new java.security.DigestInputStream(Files.newInputStream(document), digest)) {
+            input.transferTo(java.io.OutputStream.nullOutputStream());
+        }
+        Path carrier = base.resolve("large-member.json");
+        try (var out = new com.fasterxml.jackson.core.JsonFactory().createGenerator(Files.newOutputStream(carrier));
+                var input = Files.newBufferedReader(document, StandardCharsets.UTF_8)) {
+            out.writeStartObject();
+            out.writeNumberField("version", 1);
+            out.writeStringField("chart", "C34");
+            out.writeStringField("head", "C12");
+            out.writeObjectFieldStart("positions");
+            out.writeEndObject();
+            out.writeFieldName("document");
+            out.writeString(input, -1);
+            out.writeStringField("documentSha256", java.util.HexFormat.of().formatHex(digest.digest()));
+            out.writeEndObject();
+        }
+        assertThat(Files.size(document)).isGreaterThan(32L << 20);
+        try (var input = Files.newBufferedReader(carrier, StandardCharsets.UTF_8)) {
+            var checked = CdsMergedChartStreamReader.read(input);
+            assertThat(checked.chart()).isEqualTo(MERGED);
+            assertThat(checked.positions()).isEmpty();
+        }
+    }
+
     private CdsMergedChartReader.Carriers read(Path manifest, String sender) throws Exception {
         return new CdsMergedChartReader(new CdsFieldParser()).read(manifest, sender);
     }

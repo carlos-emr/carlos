@@ -146,9 +146,9 @@ final class CdsMergedChartReader {
                                 return; // A longer name cannot equal either record's name.
                             }
                             if (CdsMergedChartContract.CHART_RECORD.equals(category)) {
-                                var chart = CdsMergedChartContract.chartRecord(content(record, category));
-                                CdsMergedChartContract.verifyDocument(chart);
-                                chartRecords.add(new ChartScope(chart.chart(), chart.head(), chart.positions()));
+                                try (Reader input = fields.openToken(record, contentField(record, category))) {
+                                    chartRecords.add(CdsMergedChartStreamReader.read(input));
+                                }
                             } else if (CdsMergedChartContract.LINKS_RECORD.equals(category))
                                 linkRecords.add(
                                         CdsMergedChartContract.linksRecord(
@@ -215,6 +215,15 @@ final class CdsMergedChartReader {
      * JSON. A record whose element is missing, repeated or not a string fails its check.
      */
     private String content(CdsRecordDto record, String name) throws IOException {
+        var text = new StringBuilder();
+        try (Reader reader = fields.openToken(record, contentField(record, name))) {
+            char[] buffer = new char[8192];
+            for (int read; (read = reader.read(buffer)) >= 0; ) text.append(buffer, 0, read);
+        }
+        return text.toString();
+    }
+
+    private CdsFieldDto contentField(CdsRecordDto record, String name) throws IOException {
         var groups = new HashMap<String, Map<String, CdsFieldDto>>();
         try {
             fields.forEachField(
@@ -258,12 +267,6 @@ final class CdsMergedChartReader {
             content = group.get("Content");
         }
         if (content == null) throw new IllegalArgumentException(INVALID);
-        // The record holds one standalone demographic document: read whole, whatever its length.
-        var text = new StringBuilder();
-        try (Reader reader = fields.openToken(record, content)) {
-            char[] buffer = new char[8192];
-            for (int read; (read = reader.read(buffer)) >= 0; ) text.append(buffer, 0, read);
-        }
-        return text.toString();
+        return content;
     }
 }

@@ -7672,7 +7672,7 @@
         "CdsHistoryExactNarrativeUnitTest": 15,
         "CdsHistoryExtensionsMariaDbIntegrationTest": 1,
         "CdsHistoryExtensionUnitTest": 12,
-        "CdsMergedChartReaderUnitTest": 3
+        "CdsMergedChartReaderUnitTest": 7
       },
       "minimumCases": 1194,
       "requireCoverage": true,

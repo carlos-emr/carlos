@@ -65,7 +65,7 @@ are added only after seal verification).
 
 | Marker | Type | Category | Import behaviour |
 | --- | --- | --- | --- |
-| `CARLOS.MergedChart.v1` | string (JSON) | NewCategory | A sending member's demographic document, digest, identity and section ranges. Validated before writes; every clinical record imports into the head. The member document remains protected source and does not create another receiving chart. |
+| `CARLOS.MergedChart.v1` | string (JSON) | NewCategory | A sending member's demographic document, digest, identity and section ranges. JSON-decoded, schema-validated and hashed as a stream before writes, without retaining the embedded document in memory or imposing a document-length limit; every clinical record imports into the head. The member document remains protected source and does not create another receiving chart. |
 | `CARLOS.MergeLinks.v1` | string (JSON) | NewCategory | Sending chart membership, exact active/deleted/outside links and merge privileges. Validated and retained as source only; no merge link or access-control row is restored. |
 | `CARLOS.Allergy.Archived.v1` | boolean | Allergies | Restored as a native archived allergy only when `cds.import.mapping.restoreArchivedAllergies=true` (decision 9, default off). By default the allergy is imported active with warning `CDS_ALLERGY_ARCHIVED_SOURCE_MARKER`; when restored, `CDS_ALLERGY_ARCHIVED_SOURCE_RESTORED`. The decision is part of the run's ruleset and of each prepared allergy. |
 | `CARLOS.Allergy.AgeOfOnset.v1` | string | Allergies | Exact native age text (at most 4 characters). |
