@@ -64,6 +64,37 @@ def disk_retirement_allowed(
     )
 
 
+def extract_candidate_war(war: Path, webapp: Path) -> None:
+    """Extract the owned candidate code tree, keeping every member inside its mount."""
+    with zipfile.ZipFile(war) as archive:
+        for member in archive.infolist():
+            target = webapp / member.filename
+            if (
+                member.filename.startswith("/")
+                or ".." in Path(member.filename).parts
+                or not target.resolve().is_relative_to(webapp.resolve())
+            ):
+                raise RuntimeError("candidate WAR contains an unsafe member")
+            if member.is_dir():
+                target.mkdir(parents=True, exist_ok=True, mode=0o755)
+            else:
+                target.parent.mkdir(parents=True, exist_ok=True, mode=0o755)
+                with (
+                    archive.open(member) as source,
+                    target.open("xb") as output,
+                ):
+                    shutil.copyfileobj(source, output, 65536)
+                target.chmod(0o644)
+    # mkdir's requested mode is reduced by the caller's umask. This mount holds
+    # packaged code, not clinical state: the delegated service user must be able
+    # to traverse every directory, including implicit ZIP parents. Private state
+    # and credentials live outside this tree and retain their protected modes.
+    webapp.chmod(0o755)
+    for directory in webapp.rglob("*"):
+        if directory.is_dir():
+            directory.chmod(0o755)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -185,25 +216,7 @@ def main() -> int:
             )
             status["warSha256"] = status["warContentManifest"]["warSha256"]
             save()
-            with zipfile.ZipFile(war) as archive:
-                for member in archive.infolist():
-                    target = webapp / member.filename
-                    if (
-                        member.filename.startswith("/")
-                        or ".." in Path(member.filename).parts
-                        or not target.resolve().is_relative_to(webapp.resolve())
-                    ):
-                        raise RuntimeError("candidate WAR contains an unsafe member")
-                    if member.is_dir():
-                        target.mkdir(parents=True, exist_ok=True, mode=0o755)
-                    else:
-                        target.parent.mkdir(parents=True, exist_ok=True, mode=0o755)
-                        with (
-                            archive.open(member) as source,
-                            target.open("xb") as output,
-                        ):
-                            shutil.copyfileobj(source, output, 65536)
-                        target.chmod(0o644)
+            extract_candidate_war(war, webapp)
             WAR_MANIFEST.verify_archive_binding(war, status["warSha256"])
             status["productionClasses"] = sum(
                 1 for _ in (webapp / "WEB-INF/classes").rglob("*.class")

@@ -6,6 +6,7 @@ from collections import Counter
 import copy
 import importlib.util
 import json
+import os
 from pathlib import Path
 import struct
 import tempfile
@@ -21,6 +22,13 @@ SPEC = importlib.util.spec_from_file_location(
 )
 GATE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(GATE)
+
+
+CI_SPEC = importlib.util.spec_from_file_location(
+    "cds_performance_ci", Path(__file__).with_name("run-cds-performance-ci.py")
+)
+CI = importlib.util.module_from_spec(CI_SPEC)
+CI_SPEC.loader.exec_module(CI)
 
 
 class PerformanceEvidenceTest(unittest.TestCase):
@@ -39,6 +47,43 @@ class PerformanceEvidenceTest(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
+
+    def test_candidate_war_is_service_readable_under_a_restrictive_umask(self):
+        war = self.root / "candidate.war"
+        with zipfile.ZipFile(war, "w") as archive:
+            # Omit directory entries: extraction must also repair implicit parents.
+            archive.writestr("WEB-INF/classes/sample.class", b"candidate bytecode")
+            archive.writestr("WEB-INF/lib/runtime.jar", b"candidate dependency")
+        private = self.root / "private"
+        private.mkdir(mode=0o700)
+        secret = private / "credentials"
+        secret.write_text("synthetic private material")
+        secret.chmod(0o600)
+        webapp = self.root / "webapp"
+        previous = os.umask(0o077)
+        try:
+            webapp.mkdir(mode=0o755)
+            CI.extract_candidate_war(war, webapp)
+        finally:
+            os.umask(previous)
+        for path in (webapp, *webapp.rglob("*")):
+            self.assertEqual(path.stat().st_mode & 0o777, 0o755 if path.is_dir() else 0o644)
+        self.assertEqual((webapp / "WEB-INF/classes/sample.class").read_bytes(), b"candidate bytecode")
+        self.assertEqual(private.stat().st_mode & 0o777, 0o700)
+        self.assertEqual(secret.stat().st_mode & 0o777, 0o600)
+
+    def test_candidate_war_rejects_members_outside_its_owned_mount(self):
+        for index, name in enumerate(("../outside", "/absolute", "WEB-INF/../../outside")):
+            with self.subTest(name=name):
+                war = self.root / (str(index) + ".war")
+                with zipfile.ZipFile(war, "w") as archive:
+                    archive.writestr(name, b"must never escape")
+                webapp = self.root / ("webapp-" + str(index))
+                webapp.mkdir()
+                with self.assertRaisesRegex(RuntimeError, "unsafe member"):
+                    CI.extract_candidate_war(war, webapp)
+                self.assertEqual(list(webapp.iterdir()), [])
+                self.assertFalse((self.root / "outside").exists())
 
     def test_valid_pdf_has_real_stream_length_object_offsets_and_terminal_xref(self):
         file = self.root / "source.pdf"
