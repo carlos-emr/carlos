@@ -37,6 +37,7 @@ const valid = () => Promise.resolve({ type: 'basic', status: 200, ok: true, json
  */
 function harness(heartbeat = valid) {
   const requests = []; const alerts = []; const effects = []; const fetches = []; const replaced = []; const timers = [];
+  let keydown;
   const hidden = (name, value) => ({ name, type: 'hidden', value, disabled: false });
   const editor = { name: 'caseNote_note', value: TYPED, disabled: false };
   const elements = [editor, hidden('sign', 'off'), hidden('verify', 'off'), hidden('toBill', 'false')];
@@ -72,7 +73,7 @@ function harness(heartbeat = valid) {
     CarlosAjax: { request: (url, options) => requests.push({ url, options }) },
     $: id => fields[id], $F: id => fields[id].value,
     alert: message => alerts.push(message),
-    jQuery: () => ({ each() {} }),
+    jQuery: () => ({ each() {}, on(event, handler) { assert.equal(event, 'keydown'); keydown = handler; } }),
     clearAutoSaveTimer: () => effects.push('pause autosave'), setTimer: () => effects.push('resume autosave'),
     destroyNoteIssueAutocomplete: () => effects.push('destroy autocomplete'),
     fetch: (url, options) => { fetches.push({ url, options }); return heartbeat(url, options); },
@@ -81,8 +82,12 @@ function harness(heartbeat = valid) {
   vm.runInContext(chartActionUrlSource(source), context);
   vm.runInContext(slice('    var ajaxRequest;', '    function submitIssue('), context);
   vm.runInContext(slice('    function saveNoteAjax(', '    var changeIssueMsg;'), context);
+  const shortcut = source.match(/jQuery\(document\)\.on\('keydown', function\(e\) \{[\s\S]*?\n        \}\);/);
+  assert.ok(shortcut, 'the production keyboard shortcut is present');
+  vm.runInContext(shortcut[0], context);
+  const pressBill = () => keydown({ ctrlKey: true, shiftKey: false, altKey: false, key: 'b', preventDefault() {} });
   const submits = () => effects.filter(effect => effect.submit).map(effect => effect.submit);
-  return { context, requests, alerts, effects, fetches, replaced, fields, editor, toolbar, entryForm, timers, submits };
+  return { context, requests, alerts, effects, fetches, replaced, fields, editor, toolbar, entryForm, timers, submits, pressBill };
 }
 
 const settled = () => new Promise(resolve => setImmediate(resolve));
@@ -122,6 +127,30 @@ test('Save refused for another reason still names the status', () => {
   h.requests[0].options.onFailure({ status: 500 });
   assert.deepEqual(h.alerts, ['save failed 500']);
 });
+
+for (const rejected of [
+  { status: 200, responseURL: `${ORIGIN}/carlos/logoutPage` },
+  { status: 401 },
+]) {
+  test(`Ctrl+B during a plain Save does not leave signing choices after a ${rejected.status} rejection`, () => {
+    const h = harness();
+    h.context.saveNoteAjax('save', 'list');
+    h.pressBill();
+    assert.equal(h.requests.length, 1);
+    assert.equal(h.fetches.length, 0);
+    const request = h.requests[0];
+    request.options[rejected.status === 200 ? 'onSuccess' : 'onFailure'](rejected);
+    request.options.onComplete(rejected);
+    assert.equal(h.editor.value, TYPED);
+    assert.deepEqual(['sign', 'verify', 'toBill'].map(name => h.entryForm.elements[name].value), ['off', 'off', 'false']);
+    h.context.Form.serialize = form => new URLSearchParams(Object.fromEntries(
+      form.elements.map(element => [element.name, element.value]))).toString();
+    h.context.saveNoteAjax('save', 'list');
+    const retry = new URLSearchParams(h.requests[1].options.postBody);
+    assert.equal(retry.get('sign'), 'off');
+    assert.equal(retry.get('toBill'), 'false');
+  });
+}
 
 for (const [name, responseURL] of [
   ['the save action itself (a server-side forward to the chart)', 'action'],
@@ -186,10 +215,7 @@ test('Bill pressed during the check (Ctrl+B) starts nothing and does not change 
   let answer;
   const h = harness(() => new Promise(resolve => { answer = resolve; }));
   signAndSave(h);
-  // Ctrl+B sets Sign and Bill, then asks for Sign & Save.
-  h.entryForm.elements.sign.value = 'on';
-  h.entryForm.elements.toBill.value = 'true';
-  assert.equal(h.context.savePage('saveAndExit', ''), false);
+  h.pressBill();
   assert.equal(h.fetches.length, 1, 'no second check');
   assert.deepEqual(h.alerts, [h.context.noteSavingMessage]);
   answer({ type: 'basic', status: 200, ok: true, json: async () => ({ valid: true }) });

@@ -385,6 +385,10 @@
             // Ctrl+B — Bill (sign, save & bill)
             if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key === 'b') {
                 e.preventDefault();
+                if (noteSwitchSavePending) {
+                    alert(noteSavingMessage);
+                    return;
+                }
                 document.forms['caseManagementEntryForm'].sign.value = 'on';
                 document.forms['caseManagementEntryForm'].toBill.value = 'true';
                 savePage('saveAndExit', '');
