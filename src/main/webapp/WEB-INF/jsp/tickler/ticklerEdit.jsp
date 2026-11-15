@@ -84,6 +84,7 @@
 <%@page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService" %>
+<%@ page import="io.github.carlos_emr.carlos.tickler.pageUtil.TicklerEditVersion" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentData" %>
 <%
     TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
@@ -433,6 +434,14 @@
                             enableSubmitButtons();
                             return;
                         }
+                        // Someone else changed the task after this popup was opened: the server wrote nothing
+                        // (HTTP 409). Say so where it stays visible and in a dialog that cannot be missed. The
+                        // Update button stays disabled: this form can no longer be saved, only reopened.
+                        if (iframe.contentDocument && iframe.contentDocument.getElementById('tickler-edit-stale')) {
+                            CarlosTicklerValidation.show('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerEdit.stale.error") %>' context="javaScriptBlock"/>');
+                            alert('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerEdit.stale.error") %>' context="javaScriptBlock"/>');
+                            return;
+                        }
                         // Verify success by checking for sentinel element in the response
                         var saveOk = iframe.contentDocument && iframe.contentDocument.getElementById('tickler-edit-ok');
                         if (!saveOk) {
@@ -505,6 +514,9 @@
         <form name="serviceform" action="<%=request.getContextPath()%>/tickler/EditTickler" method="post">
             <input type="hidden" name="method" value="editTickler"/>
             <input type="hidden" name="ticklerNo" value="<%=ticklerNo%>"/>
+            <%-- The version of the task this form was rendered from; EditTickler2Action refuses a form that
+                 another user's change (a completion, a deletion, a comment) has overtaken. --%>
+            <input type="hidden" name="<%= TicklerEditVersion.PARAMETER %>" value="<carlos:encode value='<%= TicklerEditVersion.of(t) %>' context="htmlAttribute"/>"/>
             <input type="hidden" name="parentAjaxId" value="<carlos:encode value='<%= request.getParameter("parentAjaxId") != null ? request.getParameter("parentAjaxId") : "" %>' context="htmlAttribute"/>"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
             <div class="page-header-bar">
                 <h2 class="page-header-title"><fmt:message key="tickler.ticklerEdit.title"/></h2>

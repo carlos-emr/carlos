@@ -130,6 +130,11 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
 
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_hrm"), eq("r"), isNull()))
                 .thenReturn(true);
+        // The staged reports are filed to patients 1 and 2, whom this provider may read. A test of
+        // a locked patient takes one of these answers away.
+        for (int patient : new int[] {1, 2}) {
+            permitPatient(patient);
+        }
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
@@ -200,6 +205,63 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
         verify(failingResponse).resetBuffer();
         verify(failingResponse).setContentType("text/html;charset=UTF-8");
         verify(failingResponse).sendError(500, "Unable to generate HRM PDF");
+    }
+
+    @Test
+    @DisplayName("should refuse a report filed to a patient the provider is locked out of, before any header or file")
+    void shouldRefuseBeforeAnyOutput_whenPatientIsLocked() {
+        stageSingleHrmReport();
+        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 1)).thenReturn(false);
+
+        try (MockedConstruction<HRMPDFCreator> creators = mockConstruction(HRMPDFCreator.class)) {
+            assertThatThrownBy(() -> new PrintHRMReport2Action().execute())
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required patient read access");
+
+            assertThat(creators.constructed()).isEmpty();
+        }
+        assertThat(response.getContentType()).isNull();
+        assertThat(response.getHeader("Content-Disposition")).isNull();
+        assertThat(response.getContentAsByteArray()).isEmpty();
+        assertThat(tempDir).isEmptyDirectory();
+    }
+
+    @Test
+    @DisplayName("should refuse the whole packet when one of several reports is filed to a locked patient")
+    void shouldRefuseWholePacket_whenOneReportIsFiledToLockedPatient() {
+        request.setParameter("hrmReportId", "101", "102");
+        when(hrmDocumentToDemographicDao.findByHrmDocumentId(101)).thenReturn(List.of(hrmMapping(1)));
+        when(hrmDocumentToDemographicDao.findByHrmDocumentId(102)).thenReturn(List.of(hrmMapping(2)));
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", "r", "2")).thenReturn(false);
+
+        try (MockedConstruction<HRMPDFCreator> creators = mockConstruction(HRMPDFCreator.class)) {
+            assertThatThrownBy(() -> new PrintHRMReport2Action().execute()).isInstanceOf(SecurityException.class);
+
+            assertThat(creators.constructed()).isEmpty();
+        }
+        assertThat(response.getContentType()).isNull();
+        assertThat(tempDir).isEmptyDirectory();
+    }
+
+    @Test
+    @DisplayName("should print a report filed to no patient on the module right alone")
+    void shouldPrint_whenReportIsFiledToNoPatient() throws Exception {
+        request.addParameter("hrmReportId", "103");
+        when(hrmDocumentToDemographicDao.findByHrmDocumentId(103)).thenReturn(List.of());
+        try (MockedConstruction<HRMPDFCreator> creators = mockConstruction(HRMPDFCreator.class);
+                MockedStatic<ConcatPDF> concatPdfMock = mockStatic(ConcatPDF.class)) {
+            concatPdfMock.when(() -> ConcatPDF.concat(any(ArrayList.class), any(OutputStream.class)))
+                    .thenAnswer(invocation -> {
+                        ((OutputStream) invocation.getArgument(1)).write(PDF_BYTES);
+                        return null;
+                    });
+
+            assertThat(new PrintHRMReport2Action().execute()).isEqualTo(ActionSupport.NONE);
+
+            assertThat(creators.constructed()).hasSize(1);
+            assertThat(response.getContentAsByteArray()).startsWith(PDF_BYTES);
+        }
+        verify(securityInfoManager, org.mockito.Mockito.never()).isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(103));
     }
 
     @Test
@@ -386,6 +448,12 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
         demographic.setLastName(lastName);
         demographic.setFirstName(firstName);
         return demographic;
+    }
+
+    private void permitPatient(int patient) {
+        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, patient)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", Integer.toString(patient))).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", "r", Integer.toString(patient))).thenReturn(true);
     }
 
     private void stageSingleHrmReport() {

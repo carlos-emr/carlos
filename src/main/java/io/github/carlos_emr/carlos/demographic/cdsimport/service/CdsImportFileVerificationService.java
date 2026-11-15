@@ -40,7 +40,6 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.security.MessageDigest;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.TimeUnit;
 import java.util.function.LongSupplier;
 
 /** Physical reconciliation is streaming and outside clinical transactions, including resumed/no-op references. */
@@ -143,12 +142,16 @@ public class CdsImportFileVerificationService {
         files.verifiedIfOwned(run, epoch, file.id(), file.digest(), file.byteLength());
     }
 
-    /** Elapsed-time polling applies even to slow reads that never reach the old 16MiB threshold. */
+    /**
+     * Elapsed-time polling applies even to slow reads that never reach the old 16MiB threshold.
+     * Every bounded read is a checkpoint of the stall window: a slow file that keeps moving is
+     * verified to its end, and a read silent for the whole window stops the verification.
+     */
     private final class VerificationControl {
         private final String run;
         private final long epoch;
-        private final long started = nanoTime.getAsLong();
-        private final long maximumMillis = configuration.limits().maxDurationMillis();
+        private final CdsImportStallWindow window =
+                new CdsImportStallWindow(configuration.limits().stallWindowMillis(), nanoTime);
         private final CdsControlPollBackoff polls = new CdsControlPollBackoff();
         private final CdsImportExecutionControl shared;
 
@@ -166,9 +169,8 @@ public class CdsImportFileVerificationService {
             if (Thread.currentThread().isInterrupted())
                 throw new CdsImportException("IMPORT_CANCELLED");
             fields.checkpoint();
+            window.checkpoint();
             long now = nanoTime.getAsLong();
-            if (TimeUnit.NANOSECONDS.toMillis(now - started) >= maximumMillis)
-                throw new CdsImportException("IMPORT_FILE_VERIFICATION_TIMEOUT");
             if (polls.due(forceOwner, now)) {
                 polls.expire();
                 requireOwner(run, epoch);

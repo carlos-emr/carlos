@@ -37,48 +37,82 @@ import static org.mockito.ArgumentMatchers.*;
 
 @Tag("unit")
 class CdsImportPermissionUnitTest {
-    @Test void shouldRefuseClinicalMigration_whenUserCanOnlyEditDemographics() {
+    @Test
+    void shouldRefuseClinicalMigration_whenUserCanOnlyEditDemographics() {
         var fixture = fixture();
         assertThatThrownBy(() -> fixture.access().requireOperatorSession(fixture.actor()))
-                .isInstanceOf(SecurityException.class).hasMessageContaining("import administration");
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("import administration");
     }
 
-    @Test void shouldAllowExistingAdministrator_whenLiveAccountAndDemographicRightsRemainValid() {
+    @Test
+    void shouldAllowExistingAdministrator_whenLiveAccountAndDemographicRightsRemainValid() {
         var fixture = fixture();
-        when(fixture.security().hasPrivilegeReadOnly(any(), eq("_admin"), eq("w"), isNull())).thenReturn(true);
-        assertThatCode(() -> fixture.access().requireOperatorSession(fixture.actor())).doesNotThrowAnyException();
+        when(fixture.security().hasPrivilegeReadOnly(any(), eq("_admin"), eq("w"), isNull()))
+                .thenReturn(true);
+        assertThatCode(() -> fixture.access().requireOperatorSession(fixture.actor()))
+                .doesNotThrowAnyException();
     }
 
-    @Test void shouldAllowExplicitMigrationCapability_withoutGrantingGeneralAdministration() {
+    @Test
+    void shouldAllowExplicitMigrationCapability_withoutGrantingGeneralAdministration() {
         var fixture = fixture();
-        when(fixture.security().hasPrivilegeReadOnly(any(), eq("_cds_import"), eq("w"), isNull())).thenReturn(true);
-        assertThatCode(() -> fixture.access().requireOperatorSession(fixture.actor())).doesNotThrowAnyException();
+        when(fixture.security().hasPrivilegeReadOnly(any(), eq("_cds_import"), eq("w"), isNull()))
+                .thenReturn(true);
+        assertThatCode(() -> fixture.access().requireOperatorSession(fixture.actor()))
+                .doesNotThrowAnyException();
         verify(fixture.security()).hasPrivilegeReadOnly(any(), eq("_admin"), eq("w"), isNull());
     }
 
-    @Test void shouldRefuseExpiredAccount_afterAnEarlierOperatorCheck() {
-        var fixture=fixture();
-        when(fixture.security().hasPrivilegeReadOnly(any(),eq("_admin"),eq("w"),isNull())).thenReturn(true);
+    @Test
+    void shouldRefuseExpiredAccount_afterAnEarlierOperatorCheck() {
+        var fixture = fixture();
+        when(fixture.security().hasPrivilegeReadOnly(any(), eq("_admin"), eq("w"), isNull()))
+                .thenReturn(true);
         fixture.access().requireOperatorSession(fixture.actor());
-        Security expired=new Security();expired.setSecurityNo(9);expired.setProviderNo("77");
-        expired.setBExpireset(1);expired.setDateExpiredate(new java.util.Date(0));
+        Security expired = new Security();
+        expired.setSecurityNo(9);
+        expired.setProviderNo("77");
+        expired.setBExpireset(1);
+        expired.setDateExpiredate(new java.util.Date(0));
         when(fixture.accounts().find(9)).thenReturn(expired);
-        assertThatThrownBy(()->fixture.access().requireOperatorSession(fixture.actor())).isInstanceOf(SecurityException.class);
-        verify(fixture.accounts(),times(2)).find(9);
+        assertThatThrownBy(() -> fixture.access().requireOperatorSession(fixture.actor()))
+                .isInstanceOf(SecurityException.class);
+        verify(fixture.accounts(), times(2)).find(9);
     }
 
     private static Fixture fixture() {
         var security = mock(SecurityInfoManager.class);
-        when(security.hasPrivilegeReadOnly(any(), eq("_demographic"), eq("w"), isNull())).thenReturn(true);
-        var providers=mock(ProviderDao.class);var accounts=mock(SecurityDao.class);
-        var access = new CdsImportAccessService(security, new CdsImportConfigurationService(new Properties()),
-                mock(CdsCourseService.class),mock(CdsProgramContextService.class),providers,accounts,mock(ProviderFacilityDao.class));
-        Security account = new Security(); account.setSecurityNo(9); account.setProviderNo("77");
-        Provider provider = new Provider(); provider.setProviderNo("77"); provider.setStatus("1");
+        when(security.hasPrivilegeReadOnly(any(), eq("_demographic"), eq("w"), isNull()))
+                .thenReturn(true);
+        var providers = mock(ProviderDao.class);
+        var accounts = mock(SecurityDao.class);
+        var access =
+                new CdsImportAccessService(
+                        security,
+                        new CdsImportConfigurationService(new Properties()),
+                        mock(CdsCourseService.class),
+                        mock(CdsProgramContextService.class),
+                        providers,
+                        accounts,
+                        mock(ProviderFacilityDao.class));
+        Security account = new Security();
+        account.setSecurityNo(9);
+        account.setProviderNo("77");
+        Provider provider = new Provider();
+        provider.setProviderNo("77");
+        provider.setStatus("1");
         when(accounts.find(9)).thenReturn(account);
         when(providers.getProvider("77")).thenReturn(provider);
-        LoggedInInfo actor = new LoggedInInfo(); actor.setLoggedInSecurity(account); actor.setLoggedInProvider(provider);
+        LoggedInInfo actor = new LoggedInInfo();
+        actor.setLoggedInSecurity(account);
+        actor.setLoggedInProvider(provider);
         return new Fixture(access, security, actor, accounts);
     }
-    private record Fixture(CdsImportAccessService access, SecurityInfoManager security, LoggedInInfo actor, SecurityDao accounts) { }
+
+    private record Fixture(
+            CdsImportAccessService access,
+            SecurityInfoManager security,
+            LoggedInInfo actor,
+            SecurityDao accounts) {}
 }

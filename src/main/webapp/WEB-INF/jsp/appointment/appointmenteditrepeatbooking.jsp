@@ -126,6 +126,13 @@
             recurrenceSucceeded = true;
         } catch (IllegalArgumentException ex) {
             recurrenceMessage = ex.getMessage();
+        } catch (io.github.carlos_emr.carlos.managers.AppointmentUpdateException ex) {
+            // The Edit Appointment form this page was opened from is no longer current: another user
+            // changed the appointment after it was rendered. Nothing was written.
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
+            java.util.ResourceBundle conflictBundle = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
+            recurrenceMessage = conflictBundle.getString("appointment.editConflict.message") + " "
+                    + conflictBundle.getString("appointment.editConflict.instructions");
         } catch (SecurityException ex) {
             throw ex;
         } catch (RuntimeException ex) {

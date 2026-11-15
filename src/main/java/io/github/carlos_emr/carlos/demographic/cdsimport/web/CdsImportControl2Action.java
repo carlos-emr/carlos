@@ -38,51 +38,139 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
 /** Explicit POST controls and versioned review; a click alone can never clear a clinical blocker. */
-@Component("cdsImportControl2Action") @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+@Component("cdsImportControl2Action")
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class CdsImportControl2Action extends ActionSupport {
     private final transient SecurityInfoManager securityInfoManager;
     private final transient CdsWebService web;
     private final transient CdsImportService imports;
-    private String operation, runId, kind, patientKey, unitKey, sourceXPath, replacementValue, reason;
+    private String operation,
+            runId,
+            kind,
+            patientKey,
+            unitKey,
+            sourceXPath,
+            replacementValue,
+            reason;
     private Long diagnosticId;
     private long expectedVersion = -1;
-    public CdsImportControl2Action(CdsWebService web, CdsImportService imports, SecurityInfoManager securityInfoManager) {
-        this.securityInfoManager = securityInfoManager; this.web = web; this.imports = imports; }
-    @Override public String execute() throws Exception {
+
+    public CdsImportControl2Action(
+            CdsWebService web, CdsImportService imports, SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+        this.web = web;
+        this.imports = imports;
+    }
+
+    @Override
+    public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
         if (!"POST".equals(request.getMethod())) {
-            response.setHeader("Allow", "POST"); response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED); return NONE;
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
         }
-        LoggedInInfo loggedInInfo = request.getSession(false) == null ? null
-                : LoggedInInfo.getLoggedInInfoFromSession(request.getSession(false));
+        LoggedInInfo loggedInInfo =
+                request.getSession(false) == null
+                        ? null
+                        : LoggedInInfo.getLoggedInInfoFromSession(request.getSession(false));
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", (String) null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", (String) null)
-                && !securityInfoManager.hasPrivilege(loggedInInfo, "_cds_import", "w", (String) null)) {
+                && !securityInfoManager.hasPrivilege(
+                        loggedInInfo, "_cds_import", "w", (String) null)) {
             throw new SecurityException("missing required sec object (_cds_import)");
         }
         try {
             var actor = web.authorize(request);
-            web.parameters(request, Set.of("operation", "runId", "kind", "diagnosticId", "patientKey", "unitKey", "expectedVersion", "sourceXPath", "replacementValue", "reason"));
+            web.parameters(
+                    request,
+                    Set.of(
+                            "operation",
+                            "runId",
+                            "kind",
+                            "diagnosticId",
+                            "patientKey",
+                            "unitKey",
+                            "expectedVersion",
+                            "sourceXPath",
+                            "replacementValue",
+                            "reason"));
             if ("cancel".equals(operation)) imports.cancel(actor, runId);
             else if ("resume".equals(operation)) imports.resume(actor, runId);
-            else if ("review".equals(operation)) imports.resolveReview(actor, runId,
-                    new CdsImportReviewCommand(kind, diagnosticId, patientKey, unitKey, expectedVersion, sourceXPath, replacementValue, reason));
+            else if ("review".equals(operation))
+                imports.resolveReview(
+                        actor,
+                        runId,
+                        new CdsImportReviewCommand(
+                                kind,
+                                diagnosticId,
+                                patientKey,
+                                unitKey,
+                                expectedVersion,
+                                sourceXPath,
+                                replacementValue,
+                                reason));
             else throw new CdsUploadException("IMPORT_CONTROL_INVALID", 400);
-            web.json(response, 200, Map.of("ok", true, "job", web.job(imports.status(actor, runId))));
-        } catch (Exception failure) { web.failure(response, failure); }
+            web.json(
+                    response,
+                    200,
+                    Map.of("ok", true, "job", web.job(imports.status(actor, runId))));
+        } catch (Exception failure) {
+            web.failure(response, failure);
+        }
         return NONE;
     }
-    @StrutsParameter public void setOperation(String value) { operation = value; }
-    @StrutsParameter public void setRunId(String value) { runId = value; }
-    @StrutsParameter public void setKind(String value) { kind = value; }
-    @StrutsParameter public void setDiagnosticId(Long value) { diagnosticId = value; }
-    @StrutsParameter public void setPatientKey(String value) { patientKey = value; }
-    @StrutsParameter public void setUnitKey(String value) { unitKey = value; }
-    @StrutsParameter public void setExpectedVersion(long value) { expectedVersion = value; }
-    @StrutsParameter public void setSourceXPath(String value) { sourceXPath = value; }
-    @StrutsParameter public void setReplacementValue(String value) { replacementValue = value; }
-    @StrutsParameter public void setReason(String value) { reason = value; }
+
+    @StrutsParameter
+    public void setOperation(String value) {
+        operation = value;
+    }
+
+    @StrutsParameter
+    public void setRunId(String value) {
+        runId = value;
+    }
+
+    @StrutsParameter
+    public void setKind(String value) {
+        kind = value;
+    }
+
+    @StrutsParameter
+    public void setDiagnosticId(Long value) {
+        diagnosticId = value;
+    }
+
+    @StrutsParameter
+    public void setPatientKey(String value) {
+        patientKey = value;
+    }
+
+    @StrutsParameter
+    public void setUnitKey(String value) {
+        unitKey = value;
+    }
+
+    @StrutsParameter
+    public void setExpectedVersion(long value) {
+        expectedVersion = value;
+    }
+
+    @StrutsParameter
+    public void setSourceXPath(String value) {
+        sourceXPath = value;
+    }
+
+    @StrutsParameter
+    public void setReplacementValue(String value) {
+        replacementValue = value;
+    }
+
+    @StrutsParameter
+    public void setReason(String value) {
+        reason = value;
+    }
 }

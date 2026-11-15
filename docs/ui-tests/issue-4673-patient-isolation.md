@@ -36,8 +36,10 @@ their separate 400 contract.
 
 ## Historical chart retrieval after the modern-only cutover
 
-The modern chart header offers **Historical legacy chart (read only)** to users with the
-existing report-read permission. The history route retains its report, patient demographic-read
+The modern chart header no longer links **Historical legacy chart (read only)**; the link was
+removed from the chart on request. The history route itself is unchanged and is reached by its
+address, `/report/ViewReportecharthistory?demographic_no=<id>`, by users with the existing
+report-read permission. It retains its report, patient demographic-read
 and record-restriction checks. Each listed revision opens the existing patient-scoped historical
 print route; both retained print routes load only the explicitly requested revision belonging to
 that patient. They label the content as a retained historical snapshot that excludes subsequent
