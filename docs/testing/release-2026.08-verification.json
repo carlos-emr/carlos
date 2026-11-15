@@ -4746,6 +4746,12 @@
           "cases": [
             "shouldPreserveEveryStoredMarkerColumn_throughAnActualMariaDbRoundTrip"
           ]
+        },
+        "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsHistoryFidelityMariaDbIntegrationTest": {
+          "check": "java-cds-native",
+          "cases": [
+            "shouldStoreTheSameEncounterType_afterCarlosExportAndImport"
+          ]
         }
       },
       "runtimeConstraints": {
@@ -6666,7 +6672,7 @@
       },
       "requiredFamilies": {
         "CdsHrmRepairAdmissionMariaDbIntegrationTest": 11,
-        "CdsClinicalStorageMariaDbIntegrationTest": 12,
+        "CdsClinicalStorageMariaDbIntegrationTest": 17,
         "CdsHistoryVisibilityMariaDbIntegrationTest": 1,
         "CdsReviewAcceptanceMariaDbIntegrationTest": 8,
         "CdsImportCoordinatorMariaDbIntegrationTest": 14,
@@ -6677,9 +6683,10 @@
         "CdsTargetReceiptMariaDbIntegrationTest": 5,
         "CdsAppointmentStorageMariaDbIntegrationTest": 1,
         "CdsDemographicStorageMariaDbIntegrationTest": 1,
-        "CdsNativeIssuesMariaDbIntegrationTest": 1
+        "CdsNativeIssuesMariaDbIntegrationTest": 1,
+        "CdsHistoryFidelityMariaDbIntegrationTest": 1
       },
-      "minimumCases": 92,
+      "minimumCases": 93,
       "requireCoverage": true,
       "requireClassIdentity": true,
       "runtimeConstraints": {
@@ -7543,7 +7550,7 @@
         "CdsClinicalPersisterUnitTest": 26,
         "CdsClinicalReadAccessUnitTest": 6,
         "CdsClinicalSourceServiceUnitTest": 8,
-        "CdsClinicalStorageMariaDbIntegrationTest": 13,
+        "CdsClinicalStorageMariaDbIntegrationTest": 17,
         "CdsClinicalSyntheticDatesUnitTest": 7,
         "CdsContractCorpusUnitTest": 1,
         "CdsControlPollBackoffUnitTest": 3,
@@ -7626,9 +7633,11 @@
         "CdsXmlParserUnitTest": 14,
         "CdsXmlTransportControlUnitTest": 7,
         "CdsNativeIssuesMariaDbIntegrationTest": 1,
-        "CdsNativeIssuesImportServiceUnitTest": 9
+        "CdsNativeIssuesImportServiceUnitTest": 9,
+        "CdsHistoryFidelityMariaDbIntegrationTest": 1,
+        "CdsHistoryExactNarrativeUnitTest": 15
       },
-      "minimumCases": 1177,
+      "minimumCases": 1178,
       "requireCoverage": true,
       "requireClassIdentity": true,
       "runtimeConstraints": {
@@ -7929,7 +7938,8 @@
         "ContextStartupListenerUnitTest": 5,
         "MutatorActionGetRejectionContractUnitTest": 158,
         "QueryByExampleSqlValidatorUnitTest": 80,
-        "ViewCds4ReportResults2ActionUnitTest": 5
+        "ViewCds4ReportResults2ActionUnitTest": 5,
+        "CdsPreparedHistoryDefaultsUnitTest": 6
       },
       "minimumCases": 389,
       "requireCoverage": true,

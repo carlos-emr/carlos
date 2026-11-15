@@ -95,4 +95,16 @@ class CdsPreparedHistoryDefaultsUnitTest {
                     .hasMessage("CDS_PREPARED_HISTORY_DEFAULTS_INVALID");
         }
     }
+    @Test
+    void shouldPreserveOldSealedHistoryBytes_whenEncounterTypeWasNotStored() throws Exception {
+        var old = json.readTree("{\"content\":\"Old note\"}");
+        var copy = CdsPreparedHistoryDefaults.applyNative(old);
+        assertThat(copy.path("encounterType").isNull()).isTrue();
+        assertThat(old.has("encounterType")).isFalse();
+        for (String invalid : new String[] {"1", "false", "[]", "{}"})
+            assertThatThrownBy(() -> CdsPreparedHistoryDefaults.applyNative(
+                    json.readTree("{\"encounterType\":" + invalid + "}")))
+                    .hasMessage("CDS_PREPARED_HISTORY_DEFAULTS_INVALID");
+    }
+
 }

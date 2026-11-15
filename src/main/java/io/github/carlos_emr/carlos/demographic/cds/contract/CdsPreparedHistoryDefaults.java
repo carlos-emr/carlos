@@ -47,6 +47,9 @@ public final class CdsPreparedHistoryDefaults {
      */
     public static ObjectNode applyNative(JsonNode value) {
         ObjectNode result = apply(value);
+        JsonNode encounter = result.get("encounterType");
+        if (encounter == null) result.putNull("encounterType");
+        else if (!encounter.isNull() && !encounter.isTextual()) throw invalid();
         JsonNode codes = result.get("additionalIssueCodes");
         if (codes == null) result.putArray("additionalIssueCodes");
         else {

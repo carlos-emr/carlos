@@ -535,3 +535,12 @@ The CARLOS application owns the shared engine, web workflow, migrations and clin
 Update the relevant contract when changing a public route, command, configuration property, DTO field, state transition, DAO operation, native representation, resource bound or recovery decision. Update this index when adding a document. Check relative links and examples against the implementation.
 
 Keep executed candidate-specific results on the release pull request with their exact source/artifact identities. Preserve failures, skips, interrupted attempts and pending gates explicitly. A previous candidate's result or a source review does not certify a successor or establish OntarioMD certification.
+
+A CARLOS encounter type is restored to `casemgmt_note.encounter_type`. An exact
+CARLOS encounter choice in `ClinicalNotes/NoteType` binds directly. Custom types,
+including display whitespace and values longer than the CDS NoteType element,
+are restored from the current CARLOS revision details when their projected
+NoteType agrees with the current XML element. A changed element takes precedence;
+unrecognized standard types and unapplied carried types remain in the protected
+source with a diagnostic. Earlier revisions never supply a missing current type.
+Prepared records sealed before this field existed retain their original bytes.

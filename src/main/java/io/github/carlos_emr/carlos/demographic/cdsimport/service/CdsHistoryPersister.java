@@ -397,6 +397,7 @@ public class CdsHistoryPersister {
                 notice.accept(sourceView(contentPath));
             } else content = logical;
         }
+        String encounter = encounterType(record, nativeState.revisionDetails(), content, notice);
         Long observation = null, created = null;
         String author = null;
         String observationField = observationField(record, command);
@@ -454,7 +455,7 @@ public class CdsHistoryPersister {
                             observationField,
                             List.copyOf(warnings.values()),
                             nativeState.archived(),
-                            otherSections));
+                            otherSections, encounter));
         } catch (CdsImportException capacity) {
             if (!"NATIVE_PREPARATION_CAPACITY_EXCEEDED".equals(capacity.getCode())) throw capacity;
             // The whole note does not fit the column that holds its prepared record: the
@@ -476,8 +477,55 @@ public class CdsHistoryPersister {
                             observationField,
                             List.copyOf(warnings.values()),
                             nativeState.archived(),
-                            otherSections));
+                            otherSections, encounter));
         }
+    }
+
+    /**
+     * Known CDS NoteType values bind directly to the receiving chart's encounter choices.
+     * A CARLOS carrier additionally restores custom types, including whitespace and types
+     * longer than NoteType. Its projected NoteType must agree with the current XML element;
+     * an edited element is never overwritten by stale carried metadata.
+     */
+    String encounterType(CdsRecordDto record, CdsFieldDto details, String content,
+            Consumer<CdsClinicalDiagnosticDto> notice) throws IOException {
+        boolean clinical = record.section().equals("ClinicalNotes");
+        String element = clinical ? fields.firstToken(record, "NoteType", 100) : null;
+        String fallback = io.github.carlos_emr.carlos.utility.EncounterUtil
+                .getEncounterTypeFromOldDbValue(element) == null ? null : element;
+        java.io.Reader source = null;
+        if (details != null) source = fields.openToken(record, details);
+        else if (clinical) {
+            int at = content.lastIndexOf(CdsNativeExtensionContract.NOTE_DETAILS_HEADING);
+            if (at > 0) source = new java.io.StringReader(content.substring(
+                    at + CdsNativeExtensionContract.NOTE_DETAILS_HEADING.length()));
+        }
+        if (source != null) {
+            try (java.io.Reader input = source) {
+                String carried = CdsHistoryEncounterReader.read(input);
+                if (carried != null) {
+                    String projected = clinical && encounterToken(carried) ? carried : null;
+                    if (Objects.equals(projected, element)) return carried;
+                    notice.accept(new CdsClinicalDiagnosticDto(
+                            "CDS_HISTORY_ENCOUNTER_CARRIER_NOT_APPLIED", "NoteType"));
+                }
+            } catch (IllegalArgumentException malformed) {
+                notice.accept(new CdsClinicalDiagnosticDto(
+                        "CDS_HISTORY_ENCOUNTER_CARRIER_NOT_APPLIED",
+                        clinical ? "MyClinicalNotesContent" : "ResidualInfo"));
+            }
+        }
+        if (element != null && fallback == null)
+            notice.accept(new CdsClinicalDiagnosticDto(
+                    "CDS_HISTORY_ENCOUNTER_TYPE_RETAINED_IN_SOURCE", "NoteType"));
+        return fallback;
+    }
+
+    private static boolean encounterToken(String value) {
+        return !value.isEmpty() && value.codePointCount(0, value.length()) <= 50 && value.equals(value.strip())
+                && !value.contains("  ")
+                && value.codePoints().noneMatch(c -> c == '\t' || c == '\r' || c == '\n')
+                && CdsNativeExtensionContract.xmlElementText(value).equals(value);
     }
 
     /** Reported when the CPP section tags a CARLOS sender carries for an item cannot be read. */
@@ -559,6 +607,7 @@ public class CdsHistoryPersister {
         note.setProviderNo(source.providerNo() == null ? "" : source.providerNo());
         note.setSigning_provider_no("");
         note.setSigned(false);
+        note.setEncounter_type(source.encounterType() == null ? "" : source.encounterType());
         note.setArchived(source.archived());
         // create_date is a native revision Formula, not a source-created storage column.
         // Exact source creation values/precision remain in the ClinicalNotes source category.

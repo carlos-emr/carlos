@@ -5,6 +5,7 @@
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionContract;
@@ -407,4 +408,75 @@ class CdsHistoryExactNarrativeUnitTest {
                 .extracting(CdsClinicalDiagnosticDto::code)
                 .containsExactly(CdsHistoryPersister.EXACT_NARRATIVE_NOT_APPLIED);
     }
+    @Test
+    void shouldRestoreCustomEncounterTypes_fromTheActualCarlosExport() throws Exception {
+        for (String value : java.util.List.of("telephone encounter with client", "Custom visit",
+                "Phone  call\t", "Telephone follow-up with the patient's substitute decision maker",
+                "🩺".repeat(50), "🩺".repeat(100))) {
+            var record = record(CdsExportNativeHistoryFixture.encounterDocument(value), "ClinicalNotes");
+            var notices = new java.util.ArrayList<CdsClinicalDiagnosticDto>();
+            String content = fields.firstText(record, "MyClinicalNotesContent", 10000);
+            assertThat(persister().encounterType(record, null, content, notices::add)).isEqualTo(value);
+            assertThat(notices).isEmpty();
+        }
+    }
+
+    @Test
+    void shouldUseTheReviewedNoteType_whenCarriedEncounterMetadataIsStale() throws Exception {
+        String value = "telephone encounter with client";
+        var document = new String(CdsExportNativeHistoryFixture.encounterDocument(value),
+                java.nio.charset.StandardCharsets.UTF_8).replace(
+                        ">" + value + "<", ">face to face encounter with client<");
+        var record = record(document.getBytes(java.nio.charset.StandardCharsets.UTF_8), "ClinicalNotes");
+        var notices = new java.util.ArrayList<CdsClinicalDiagnosticDto>();
+        assertThat(persister().encounterType(record, null,
+                fields.firstText(record, "MyClinicalNotesContent", 10000), notices::add))
+                .isEqualTo("face to face encounter with client");
+        assertThat(notices).extracting(CdsClinicalDiagnosticDto::code)
+                .containsExactly("CDS_HISTORY_ENCOUNTER_CARRIER_NOT_APPLIED");
+    }
+
+    @Test
+    void shouldReadOnlyTheCurrentEncounterType_fromWrappedRevisionDetails() throws Exception {
+        String body = "x".repeat(500000);
+        String details = "{\"version\":1,\"nativeHistory\":{\"version\":1,\"revisions\":["
+                + "{\"encounterType\":\"Old\",\"narrative\":\"" + body + "\"},"
+                + "{\"encounterType\":\"Current\"}]}}";
+        assertThat(CdsHistoryEncounterReader.read(new java.io.StringReader(details))).isEqualTo("Current");
+        assertThat(CdsHistoryEncounterReader.read(new java.io.StringReader(
+                "{\"version\":1,\"revisions\":[{\"encounterType\":\"Old\"},{}]}"))).isNull();
+    }
+
+    @Test
+    void shouldRefuseAmbiguousOrInvalidEncounterDetails_withoutDefaultingTheirValues() {
+        for (String invalid : java.util.List.of(
+                "{\"version\":2,\"revisions\":[{}]}",
+                "{\"version\":1,\"revisions\":[{\"encounterType\":null}]}",
+                "{\"version\":1,\"revisions\":[{\"encounterType\":\"A\",\"encounterType\":\"B\"}]}",
+                "{\"version\":1,\"revisions\":[{\"encounterType\":\"" + "x".repeat(101) + "\"}]}",
+                "{\"version\":1,\"revisions\":[{}],\"revisions\":[{}]}",
+                "{\"version\":1,\"revisions\":[{}]}{}")) {
+            assertThatThrownBy(() -> CdsHistoryEncounterReader.read(new java.io.StringReader(invalid)))
+                    .hasMessage("CDS_HISTORY_ENCOUNTER_DETAILS_MALFORMED");
+        }
+    }
+
+    @Test
+    void shouldUseOnlyExactNativeChoices_whenTheSenderSuppliesNoCarlosCarrier() throws Exception {
+        for (String type : java.util.List.of("telephone encounter with client", "Unknown type")) {
+            var record = CdsClinicalFixture.record(directory, "ClinicalNotes",
+                    java.util.Map.of("NoteType", type, "MyClinicalNotesContent", "Plain note"));
+            var notices = new java.util.ArrayList<CdsClinicalDiagnosticDto>();
+            String result = persister().encounterType(record, null, "Plain note", notices::add);
+            if (type.equals("Unknown type")) {
+                assertThat(result).isNull();
+                assertThat(notices).extracting(CdsClinicalDiagnosticDto::code)
+                        .containsExactly("CDS_HISTORY_ENCOUNTER_TYPE_RETAINED_IN_SOURCE");
+            } else {
+                assertThat(result).isEqualTo(type);
+                assertThat(notices).isEmpty();
+            }
+        }
+    }
+
 }

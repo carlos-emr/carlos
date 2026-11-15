@@ -52,7 +52,19 @@ public record CdsHistoryNativeDto(
                 boolean archived,
         @com.fasterxml.jackson.annotation.JsonInclude(
                         com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY)
-                List<String> additionalIssueCodes) {
+                List<String> additionalIssueCodes,
+        @com.fasterxml.jackson.annotation.JsonInclude(
+                        com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY)
+                String encounterType) {
+    public CdsHistoryNativeDto(
+            String content, String issueCode, Long observationMillis, Long createdMillis,
+            String providerNo, CdsTemporalDto observationDate, String observationField,
+            List<CdsClinicalDiagnosticDto> diagnostics, boolean archived,
+            List<String> additionalIssueCodes) {
+        this(content, issueCode, observationMillis, createdMillis, providerNo, observationDate,
+                observationField, diagnostics, archived, additionalIssueCodes, null);
+    }
+
     public CdsHistoryNativeDto(
             String content,
             String issueCode,
@@ -98,6 +110,8 @@ public record CdsHistoryNativeDto(
     }
 
     public CdsHistoryNativeDto {
+        if (encounterType != null && encounterType.codePointCount(0, encounterType.length()) > 100)
+            throw new IllegalArgumentException("HISTORY_PREPARED_ENCOUNTER_INVALID");
         diagnostics = List.copyOf(diagnostics);
         additionalIssueCodes =
                 additionalIssueCodes == null ? List.of() : List.copyOf(additionalIssueCodes);

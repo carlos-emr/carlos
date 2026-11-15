@@ -135,4 +135,18 @@ public final class CdsExportNativeHistoryFixture {
                 xml -> CdsExportIssueMarkerMapper.write(mapped.json(), xml));
     }
 
+    /** A real native note projected through the mapper and schema-valid XML writer. */
+    public static byte[] encounterDocument(String encounter) throws Exception {
+        var original = CdsExportNativeHistoryMapperUnitTest.note(91, "Seen today.", null, List.of());
+        var values = new LinkedHashMap<>(original.note().value().fields());
+        values.put("encounter_type", encounter);
+        var current = new CdsExportHistoryFieldReconciler.Current(
+                CdsExportNativeHistoryMapperUnitTest.row(Plan.CASE_NOTES, 91, values),
+                original.extensions(), original.links(), original.patientIssues(), original.definitions());
+        var mapped = new CdsExportNativeHistoryMapper().map(27, CdsCategory.CLINICAL_NOTES,
+                List.of(current), CdsExportNativeHistoryMapperUnitTest.providers(),
+                ZoneId.of("America/Toronto"));
+        return CdsExportNativeHistoryMapperUnitTest.render(mapped.value());
+    }
+
 }
