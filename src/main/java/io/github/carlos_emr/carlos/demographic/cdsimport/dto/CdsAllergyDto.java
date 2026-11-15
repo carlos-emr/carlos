@@ -22,6 +22,260 @@
 package io.github.carlos_emr.carlos.demographic.cdsimport.dto;
 
 /** AR is an adverse reaction, not evidence of an intolerance subtype. */
-public record CdsAllergyDto(String description, String property, String code,
-        String codeSystem, String reactionType, String reaction, String severity,
-        String lifeStage, String notes, CdsTemporalDto start, CdsTemporalDto recorded) { }
+public record CdsAllergyDto(
+        String description,
+        String property,
+        String code,
+        String codeSystem,
+        String reactionType,
+        String reaction,
+        String severity,
+        String lifeStage,
+        String notes,
+        CdsTemporalDto start,
+        CdsTemporalDto recorded,
+        @com.fasterxml.jackson.annotation.JsonInclude(
+                        com.fasterxml.jackson.annotation.JsonInclude.Include.NON_DEFAULT)
+                boolean archived,
+        @com.fasterxml.jackson.annotation.JsonInclude(
+                        com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+                String ageOfOnset,
+        @com.fasterxml.jackson.annotation.JsonInclude(
+                        com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+                String onsetOfReaction,
+        @com.fasterxml.jackson.annotation.JsonInclude(
+                        com.fasterxml.jackson.annotation.JsonInclude.Include.NON_DEFAULT)
+                boolean atcResidual,
+        // Decision 9: a source archive marker is restored natively only when the operator opts
+        // in. True records that this import kept the allergy active despite the marker; absent
+        // (false) keeps the meaning of every payload sealed before the option existed.
+        @com.fasterxml.jackson.annotation.JsonInclude(
+                        com.fasterxml.jackson.annotation.JsonInclude.Include.NON_DEFAULT)
+                boolean archivedNotRestored,
+        // The native severity code carried by CARLOS.Allergy.Severity.v1 ("3", Severe), which
+        // has no CDS 5.2 Severity value; when present the standard Severity is absent.
+        @com.fasterxml.jackson.annotation.JsonInclude(
+                        com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+                String nativeSeverity,
+        // Warnings about the restore of text a CARLOS sender wrote with U+FFFD; empty, and then
+        // omitted, for every payload sealed before they existed (CdsPreparedAllergyDefaults).
+        @com.fasterxml.jackson.annotation.JsonInclude(
+                        com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY)
+                java.util.List<CdsClinicalDiagnosticDto> diagnostics) {
+    public CdsAllergyDto {
+        diagnostics = diagnostics == null ? java.util.List.of() : java.util.List.copyOf(diagnostics);
+        if (atcResidual
+                && (!"ATC".equals(codeSystem)
+                        || !io.github.carlos_emr.carlos.demographic.cds.contract
+                                .CdsNativeExtensionContract.validAllergyAtc(code)))
+            throw new IllegalArgumentException("CDS_ALLERGY_ATC_RESIDUAL_INVALID");
+        if (archivedNotRestored && !archived)
+            throw new IllegalArgumentException("CDS_ALLERGY_ARCHIVE_DECISION_INVALID");
+        if (nativeSeverity != null
+                && (severity != null
+                        || !io.github.carlos_emr.carlos.demographic.cds.contract
+                                .CdsNativeExtensionContract.ALLERGY_SEVERITY_VALUES
+                                .containsKey(nativeSeverity)))
+            throw new IllegalArgumentException("CDS_ALLERGY_NATIVE_SEVERITY_INVALID");
+    }
+
+    /** Every value but the restore warnings: none. */
+    public CdsAllergyDto(
+            String description,
+            String property,
+            String code,
+            String codeSystem,
+            String reactionType,
+            String reaction,
+            String severity,
+            String lifeStage,
+            String notes,
+            CdsTemporalDto start,
+            CdsTemporalDto recorded,
+            boolean archived,
+            String ageOfOnset,
+            String onsetOfReaction,
+            boolean atcResidual,
+            boolean archivedNotRestored,
+            String nativeSeverity) {
+        this(
+                description,
+                property,
+                code,
+                codeSystem,
+                reactionType,
+                reaction,
+                severity,
+                lifeStage,
+                notes,
+                start,
+                recorded,
+                archived,
+                ageOfOnset,
+                onsetOfReaction,
+                atcResidual,
+                archivedNotRestored,
+                nativeSeverity,
+                java.util.List.of());
+    }
+
+    /** The marker and ATC provenance shape used before the archive option and severity carrier. */
+    public CdsAllergyDto(
+            String description,
+            String property,
+            String code,
+            String codeSystem,
+            String reactionType,
+            String reaction,
+            String severity,
+            String lifeStage,
+            String notes,
+            CdsTemporalDto start,
+            CdsTemporalDto recorded,
+            boolean archived,
+            String ageOfOnset,
+            String onsetOfReaction,
+            boolean atcResidual) {
+        this(
+                description,
+                property,
+                code,
+                codeSystem,
+                reactionType,
+                reaction,
+                severity,
+                lifeStage,
+                notes,
+                start,
+                recorded,
+                archived,
+                ageOfOnset,
+                onsetOfReaction,
+                atcResidual,
+                false,
+                null);
+    }
+
+    /** Whether the native allergy row is written (and stays) archived. */
+    public boolean nativeArchived() {
+        return archived && !archivedNotRestored;
+    }
+
+    /** This value with the import's archive policy applied (decision 9; default: keep active). */
+    public CdsAllergyDto withArchiveRestoration(boolean restore) {
+        return new CdsAllergyDto(
+                description,
+                property,
+                code,
+                codeSystem,
+                reactionType,
+                reaction,
+                severity,
+                lifeStage,
+                notes,
+                start,
+                recorded,
+                archived,
+                ageOfOnset,
+                onsetOfReaction,
+                atcResidual,
+                archived && !restore,
+                nativeSeverity,
+                diagnostics);
+    }
+
+    /** The optional marker provenance must not change old sealed native projections. */
+    public CdsAllergyDto(
+            String description,
+            String property,
+            String code,
+            String codeSystem,
+            String reactionType,
+            String reaction,
+            String severity,
+            String lifeStage,
+            String notes,
+            CdsTemporalDto start,
+            CdsTemporalDto recorded,
+            boolean archived,
+            String ageOfOnset,
+            String onsetOfReaction) {
+        this(
+                description,
+                property,
+                code,
+                codeSystem,
+                reactionType,
+                reaction,
+                severity,
+                lifeStage,
+                notes,
+                start,
+                recorded,
+                archived,
+                ageOfOnset,
+                onsetOfReaction,
+                false);
+    }
+
+    /** Legacy prepared values and source records without a marker keep their existing behavior. */
+    public CdsAllergyDto(
+            String description,
+            String property,
+            String code,
+            String codeSystem,
+            String reactionType,
+            String reaction,
+            String severity,
+            String lifeStage,
+            String notes,
+            CdsTemporalDto start,
+            CdsTemporalDto recorded) {
+        this(
+                description,
+                property,
+                code,
+                codeSystem,
+                reactionType,
+                reaction,
+                severity,
+                lifeStage,
+                notes,
+                start,
+                recorded,
+                false,
+                null,
+                null);
+    }
+
+    /** The archive-only prepared value retains its exact twelve-field/omitted-default shape. */
+    public CdsAllergyDto(
+            String description,
+            String property,
+            String code,
+            String codeSystem,
+            String reactionType,
+            String reaction,
+            String severity,
+            String lifeStage,
+            String notes,
+            CdsTemporalDto start,
+            CdsTemporalDto recorded,
+            boolean archived) {
+        this(
+                description,
+                property,
+                code,
+                codeSystem,
+                reactionType,
+                reaction,
+                severity,
+                lifeStage,
+                notes,
+                start,
+                recorded,
+                archived,
+                null,
+                null);
+    }
+}

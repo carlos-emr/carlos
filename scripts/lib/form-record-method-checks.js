@@ -21,19 +21,29 @@ function formState(sql, patient) {
     groupLinks: sql.rows(`SELECT * FROM GroupNoteLink WHERE demographicNo=${patient} ORDER BY id`) };
 }
 
-/** Validate the actual native request, including its rendered identities and redirect. */
-function assertNativeFormPost(result, { patient, previousId, baseUrl }) {
+/**
+ * Validate the actual native request, including its rendered identities and answer. Update
+ * (`submit=save`) redirects to its own saved form; Save & Exit (`submit=exit`) answers with the
+ * completion page itself, which closes the window, so it has no redirect and no new form id.
+ */
+function assertNativeFormPost(result, { patient, previousId, baseUrl, submit = 'save' }) {
+  const label = submit === 'exit' ? 'VT Save & Exit' : 'VT Update';
   const address = new URL(result.url);
   const sent = new URLSearchParams(result.data);
   const expected = new URL(h.appUrl(baseUrl, '/form/SubmitForm'));
   h.assert(result.method === 'POST' && address.origin === expected.origin && address.pathname === expected.pathname,
-    'VT Update did not use its native POST action');
+    `${label} did not use its native POST action`);
   for (const [name, value] of [['demographic_no', patient], ['value(formName)', 'VTForm'],
-    ['value(formId)', previousId], ['submit', 'save']]) {
-    h.assert(same(sent.getAll(name), [String(value)]), 'VT Update submitted a different or repeated form identity');
+    ['value(formId)', previousId], ['submit', submit]]) {
+    h.assert(same(sent.getAll(name), [String(value)]), `${label} submitted a different or repeated form identity`);
   }
   h.assert(sent.getAll('CSRF-TOKEN').length > 0 && sent.getAll('CSRF-TOKEN').every(value => value && value === sent.get('CSRF-TOKEN')),
-    'VT Update omitted its rendered CSRF authority');
+    `${label} omitted its rendered CSRF authority`);
+  if (submit === 'exit') {
+    h.assert(result.status === 200 && Object.hasOwn(result.headers, h.APPLICATION_HEADER) && !result.headers.location,
+      'The form-only native Save & Exit did not return its completion page from the application');
+    return { parameters: sent, id: null };
+  }
   h.assert(result.status === 302 && Object.hasOwn(result.headers, h.APPLICATION_HEADER),
     'The form-only native Update was not accepted by the application');
   const redirected = new URL(result.headers.location, baseUrl);
@@ -46,9 +56,12 @@ function assertNativeFormPost(result, { patient, previousId, baseUrl }) {
   return { parameters: sent, id: redirected.searchParams.get('formId') };
 }
 
-function assertFormRefusal(result, { status, tokens = [] }) {
+function assertFormRefusal(result, { status, tokens = [], label = '' }) {
   h.assert(result.status === status && Object.hasOwn(result.headers, h.APPLICATION_HEADER)
-    && !h.isWafPage(result.status, result.body), 'The form refusal was not the exact application response');
+    && !h.isWafPage(result.status, result.body),
+  `The form refusal was not the exact application response${label ? ` (${label})` : ''}: HTTP ${result.status}, expected ${status}; `
+    + `application header ${Object.hasOwn(result.headers, h.APPLICATION_HEADER) ? 'present' : 'absent'}; `
+    + `firewall page ${h.isWafPage(result.status, result.body) ? 'yes' : 'no'}; allow=${result.headers.allow || '-'}`);
   if (status === 405) h.assert(result.headers.allow === 'POST', 'SubmitForm did not advertise its POST-only contract');
   h.assert(!tokens.some(token => result.body.includes(token)) && !/name=["']value\(ExerValue\)["']/.test(result.body),
     'A refused form request exposed its clinical form');
@@ -61,24 +74,36 @@ async function requestFormRefusal(context, baseUrl, parameters, { method, status
   const options = { method, maxRedirects: 0, failOnStatusCode: false };
   if (method === 'GET' || method === 'HEAD') address.search = values.toString();
   else options.form = Object.fromEntries(values);
+  if (method !== 'GET' && method !== 'HEAD' && method !== 'POST') {
+    // Tomcat reads a form body only for POST, so CSRFGuard (which runs before HttpMethodGuardFilter) never sees a
+    // token sent in a PUT body and refuses with 403 first. The valid form authority this boundary is meant to carry
+    // reaches CSRFGuard only as its Ajax header pair, so the method guard's own 405 is what the request then meets.
+    options.headers = { 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': values.get('CSRF-TOKEN') };
+  }
   const response = await context.request.fetch(address.href, options);
   try {
     const result = { status: response.status(), headers: response.headers(), body: await response.text() };
-    assertFormRefusal(result, { status, tokens });
+    assertFormRefusal(result, { status, tokens, label: `${method} ${setup ? 'SetupForm' : 'SubmitForm'}` });
     return result;
   } finally { await response.dispose(); }
 }
 
-/** One native Update may add its exact form and one reading, preserving all older rows. */
-function assertFormSaveDelta(before, after, { formId, measurementId }) {
+/**
+ * One native save adds its exact form row, preserving all older rows. Only Save & Exit records
+ * readings (`FrmForm2Action` writes measurements for `submit=exit` alone), so an Update passes no
+ * `measurementId` and must leave every measurement unchanged; Save & Exit adds exactly that one.
+ */
+function assertFormSaveDelta(before, after, { formId, measurementId = null }) {
   const old = structuredClone(after);
-  for (const [domain, id] of [['forms', formId], ['measurements', measurementId]]) {
+  const added = [['forms', formId]];
+  if (measurementId !== null) added.push(['measurements', measurementId]);
+  for (const [domain, id] of added) {
     h.assert(after[domain].length === before[domain].length + 1
       && after[domain].filter(row => row[0] === id).length === 1
-      && !before[domain].some(row => row[0] === id), 'Native VT Update did not add exactly one new owned row');
+      && !before[domain].some(row => row[0] === id), 'Native VT save did not add exactly one new owned row');
     old[domain] = after[domain].filter(row => row[0] !== id);
   }
-  assertPatientStateUnchanged(before, old, 'Native form-only Update');
+  assertPatientStateUnchanged(before, old, measurementId === null ? 'Native form-only Update' : 'Native form-only Save & Exit');
 }
 
 /** All parents, domains and child identities are checked before any fixture deletion. */
@@ -214,12 +239,41 @@ async function checkFormRecordMethods(s, { fixture }) {
     h.assert(sql.value(`SELECT COUNT(*) FROM formVTForm WHERE ID=${openId} AND demographic_no=${open}
       AND provider_no=${q(login.providerNo)} AND ExerValue='150' AND ExerComments=${q(text)}`) === '1',
     'Native form-only save did not persist its exact form');
-    const readings = sql.rows(`SELECT id FROM measurements WHERE demographicNo=${open}
-      AND providerNo=${q(login.providerNo)} AND type='Exer' AND dataField='150' AND comments=${q(text)}`);
-    h.assert(readings.length === 1, 'Native form-only save did not persist its exact exercise reading');
+    // Update saves the form alone; FrmForm2Action records readings only on Save & Exit.
+    h.assert(sql.value(`SELECT COUNT(*) FROM measurements WHERE demographicNo=${open} AND comments=${q(text)}`) === '0',
+      'Native VT Update recorded a measurement; only Save & Exit records readings');
     const after = snapshot();
     assertPatientStateUnchanged(before[0], after[0], 'Native form-only save bystander');
-    assertFormSaveDelta(before[1], after[1], { formId: openId, measurementId: readings[0][0] });
+    assertFormSaveDelta(before[1], after[1], { formId: openId });
+  };
+  const nativeSaveAndExit = async (previousId, text) => {
+    intents.push({ patient: open, comment: text, value: '150' });
+    const before = snapshot();
+    await page.locator('[name="value(ExerValue)"]').fill('150');
+    await page.locator('[name="value(ExerComments)"]').fill(text);
+    const submitPath = new URL(h.appUrl(config.baseUrl, '/form/SubmitForm')).pathname;
+    const posted = page.waitForResponse(answer => answer.request().method() === 'POST'
+      && new URL(answer.url()).pathname === submitPath);
+    posted.catch(() => {});
+    // The completion page closes its own window where the browser allows it, so the click may outlive its page.
+    const dialogs = await h.withExpectedDialogs(page, () => page
+      .locator('form[action$="/form/SubmitForm"] input[type="submit"][onclick*="onSaveExit();"]').first().click()
+      .catch(error => { if (!page.isClosed()) throw error; }));
+    h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'VT Save & Exit did not ask for confirmation exactly once');
+    const response = await posted;
+    await response.finished();
+    assertNativeFormPost({ url: response.url(), method: response.request().method(),
+      data: response.request().postData() || '', status: response.status(), headers: response.headers() },
+    { patient: open, previousId, baseUrl: config.baseUrl, submit: 'exit' });
+    const forms = sql.rows(`SELECT ID FROM formVTForm WHERE demographic_no=${open}
+      AND provider_no=${q(login.providerNo)} AND ExerValue='150' AND ExerComments=${q(text)}`);
+    h.assert(forms.length === 1 && forms[0][0] !== previousId, 'Native Save & Exit did not persist its exact new form');
+    const readings = sql.rows(`SELECT id FROM measurements WHERE demographicNo=${open}
+      AND providerNo=${q(login.providerNo)} AND type='Exer' AND dataField='150' AND comments=${q(text)}`);
+    h.assert(readings.length === 1, 'Native Save & Exit did not record its exact exercise reading once');
+    const after = snapshot();
+    assertPatientStateUnchanged(before[0], after[0], 'Native Save & Exit bystander');
+    assertFormSaveDelta(before[1], after[1], { formId: forms[0][0], measurementId: readings[0][0] });
   };
   try {
     await s.step('a genuine standalone form-only login opens and natively saves a new VT without chart or program grants', async () => {
@@ -269,7 +323,7 @@ async function checkFormRecordMethods(s, { fixture }) {
         unchanged(before, 'Refused non-POST VT mutation');
       }
     });
-    await s.step('the same form-only login still reopens and natively updates its stored VT after all refusals', async () => {
+    await s.step('the same form-only login still reopens, natively updates, then saves and exits its stored VT after all refusals', async () => {
       const before = snapshot();
       const response = await page.goto(setupUrl(open, openId));
       await page.waitForLoadState('load');
@@ -278,6 +332,8 @@ async function checkFormRecordMethods(s, { fixture }) {
       'The stored VT positive control was not served');
       unchanged(before, 'Allowed stored VT setup');
       await nativeSave(openId, `${marker}-FORM-OPEN-LAST`);
+      // Last, because the completion page may close the window: Save & Exit records the one reading.
+      await nativeSaveAndExit(openId, `${marker}-FORM-OPEN-EXIT`);
       h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM program_provider WHERE provider_no=${q(login.providerNo)})
         +(SELECT COUNT(*) FROM provider_default_program WHERE provider_no=${q(login.providerNo)})`) === '0',
       'Standalone form operations acquired unexpected program state');

@@ -39,18 +39,40 @@ import java.util.TimeZone;
 import io.github.carlos_emr.carlos.commn.model.CdsClinicalException;
 
 /** Source temporal meaning. A partial date is an interval, never an asserted first day. */
-public record CdsTemporalDto(Precision precision, String original, LocalDate earliest,
-        LocalDate latest, LocalDateTime localDateTime, OffsetDateTime offsetDateTime, int appliedShiftDays) {
-    public enum Precision { UNKNOWN, YEAR, MONTH, FULL_DATE, LOCAL_DATE_TIME, OFFSET_DATE_TIME }
+public record CdsTemporalDto(
+        Precision precision,
+        String original,
+        LocalDate earliest,
+        LocalDate latest,
+        LocalDateTime localDateTime,
+        OffsetDateTime offsetDateTime,
+        int appliedShiftDays) {
+    public enum Precision {
+        UNKNOWN,
+        YEAR,
+        MONTH,
+        FULL_DATE,
+        LOCAL_DATE_TIME,
+        OFFSET_DATE_TIME
+    }
 
-    public CdsTemporalDto(Precision precision, String original, LocalDate earliest,
-            LocalDate latest, LocalDateTime localDateTime, OffsetDateTime offsetDateTime) {
+    public CdsTemporalDto(
+            Precision precision,
+            String original,
+            LocalDate earliest,
+            LocalDate latest,
+            LocalDateTime localDateTime,
+            OffsetDateTime offsetDateTime) {
         this(precision, original, earliest, latest, localDateTime, offsetDateTime, 0);
     }
 
     public CdsTemporalDto {
-        if (precision == null || (precision != Precision.UNKNOWN && (original == null
-                || earliest == null || latest == null || earliest.isAfter(latest)))) {
+        if (precision == null
+                || (precision != Precision.UNKNOWN
+                        && (original == null
+                                || earliest == null
+                                || latest == null
+                                || earliest.isAfter(latest)))) {
             throw new IllegalArgumentException("Invalid CDS temporal representation");
         }
     }
@@ -66,23 +88,42 @@ public record CdsTemporalDto(Precision precision, String original, LocalDate ear
         try {
             if (precision == Precision.YEAR) {
                 String value = calendarLexical(lexical, 4, field);
-                Year parsed = Year.parse(value, DateTimeFormatter.ofPattern("uuuu")
-                        .withResolverStyle(ResolverStyle.STRICT));
+                Year parsed =
+                        Year.parse(
+                                value,
+                                DateTimeFormatter.ofPattern("uuuu")
+                                        .withResolverStyle(ResolverStyle.STRICT));
                 requireClinicalYear(parsed.getValue(), field);
-                return new CdsTemporalDto(Precision.YEAR, lexical, parsed.atDay(1),
-                        parsed.atMonth(12).atEndOfMonth(), null, null);
+                return new CdsTemporalDto(
+                        Precision.YEAR,
+                        lexical,
+                        parsed.atDay(1),
+                        parsed.atMonth(12).atEndOfMonth(),
+                        null,
+                        null);
             }
             if (precision == Precision.MONTH) {
                 String value = calendarLexical(lexical, 7, field);
-                YearMonth parsed = YearMonth.parse(value,
-                        DateTimeFormatter.ofPattern("uuuu-MM").withResolverStyle(ResolverStyle.STRICT));
+                YearMonth parsed =
+                        YearMonth.parse(
+                                value,
+                                DateTimeFormatter.ofPattern("uuuu-MM")
+                                        .withResolverStyle(ResolverStyle.STRICT));
                 requireClinicalYear(parsed.getYear(), field);
-                return new CdsTemporalDto(Precision.MONTH, lexical, parsed.atDay(1),
-                        parsed.atEndOfMonth(), null, null);
+                return new CdsTemporalDto(
+                        Precision.MONTH,
+                        lexical,
+                        parsed.atDay(1),
+                        parsed.atEndOfMonth(),
+                        null,
+                        null);
             }
             if (precision == Precision.FULL_DATE) {
-                LocalDate parsed = LocalDate.parse(calendarLexical(lexical, 10, field),
-                        DateTimeFormatter.ISO_LOCAL_DATE.withResolverStyle(ResolverStyle.STRICT));
+                LocalDate parsed =
+                        LocalDate.parse(
+                                calendarLexical(lexical, 10, field),
+                                DateTimeFormatter.ISO_LOCAL_DATE.withResolverStyle(
+                                        ResolverStyle.STRICT));
                 requireClinicalYear(parsed.getYear(), field);
                 return new CdsTemporalDto(Precision.FULL_DATE, lexical, parsed, parsed, null, null);
             }
@@ -114,7 +155,8 @@ public record CdsTemporalDto(Precision precision, String original, LocalDate ear
     }
 
     public boolean exactCalendarDate() {
-        return precision == Precision.FULL_DATE || precision == Precision.LOCAL_DATE_TIME
+        return precision == Precision.FULL_DATE
+                || precision == Precision.LOCAL_DATE_TIME
                 || precision == Precision.OFFSET_DATE_TIME;
     }
 
@@ -128,24 +170,32 @@ public record CdsTemporalDto(Precision precision, String original, LocalDate ear
         java.sql.Date result = java.sql.Date.valueOf(value);
         if (!result.toLocalDate().equals(value)
                 || !legacyDay(result, TimeZone.getDefault(), Locale.ROOT).equals(value.toString())
-                || !legacyDay(result, TimeZone.getDefault(), Locale.getDefault(Locale.Category.FORMAT)).equals(value.toString()))
-            throw unrepresentable(false);
+                || !legacyDay(
+                                result,
+                                TimeZone.getDefault(),
+                                Locale.getDefault(Locale.Category.FORMAT))
+                        .equals(value.toString())) throw unrepresentable(false);
         return result;
     }
 
     /** TIMESTAMP storage requires an explicit clinic/source zone when the source has no offset. */
     public Date timestampStorageAnchor(ZoneId sourceZone) {
         if (precision == Precision.UNKNOWN) return null;
-        if (offsetDateTime != null) return timestampStorageInstant(offsetDateTime.toInstant(), sourceZone);
+        if (offsetDateTime != null)
+            return timestampStorageInstant(offsetDateTime.toInstant(), sourceZone);
         if (localDateTime == null) {
             // A date supplies no clock. Use the first valid clock on that same civil day;
             // midnight gaps must not discard an otherwise representable calendar date.
             LocalDateTime anchor = earliest.atStartOfDay(sourceZone).toLocalDateTime();
             if (!anchor.toLocalDate().equals(earliest)) throw unrepresentable(false);
             Date result = legacyCivil(anchor, sourceZone, false);
-            if (!legacyDay(result, TimeZone.getTimeZone(sourceZone), Locale.ROOT).equals(earliest.toString())
-                    || !legacyDay(result, TimeZone.getTimeZone(sourceZone), Locale.getDefault(Locale.Category.FORMAT)).equals(earliest.toString()))
-                throw unrepresentable(false);
+            if (!legacyDay(result, TimeZone.getTimeZone(sourceZone), Locale.ROOT)
+                            .equals(earliest.toString())
+                    || !legacyDay(
+                                    result,
+                                    TimeZone.getTimeZone(sourceZone),
+                                    Locale.getDefault(Locale.Category.FORMAT))
+                            .equals(earliest.toString())) throw unrepresentable(false);
             return result;
         }
         LocalDateTime value = localDateTime;
@@ -162,15 +212,21 @@ public record CdsTemporalDto(Precision precision, String original, LocalDate ear
         Date actual = Date.from(instant);
         Date reversed = legacyCivil(expected, nativeZone, true);
         if (reversed.getTime() != actual.getTime()
-                || !legacyDay(actual, TimeZone.getTimeZone(nativeZone), Locale.ROOT).equals(expected.toLocalDate().toString())
-                || !legacyDay(actual, TimeZone.getTimeZone(nativeZone), Locale.getDefault(Locale.Category.FORMAT)).equals(expected.toLocalDate().toString()))
-            throw unrepresentable(true);
+                || !legacyDay(actual, TimeZone.getTimeZone(nativeZone), Locale.ROOT)
+                        .equals(expected.toLocalDate().toString())
+                || !legacyDay(
+                                actual,
+                                TimeZone.getTimeZone(nativeZone),
+                                Locale.getDefault(Locale.Category.FORMAT))
+                        .equals(expected.toLocalDate().toString())) throw unrepresentable(true);
         return actual;
     }
 
     /** A synthetic calendar anchor is explicitly distinct from an asserted clinical timestamp. */
     public boolean calendarAnchorAdjusted(ZoneId zone) {
-        if (precision != Precision.YEAR && precision != Precision.MONTH && precision != Precision.FULL_DATE) return false;
+        if (precision != Precision.YEAR
+                && precision != Precision.MONTH
+                && precision != Precision.FULL_DATE) return false;
         var first = earliest.atStartOfDay(zone);
         return !first.toLocalDate().equals(earliest)
                 || !first.toLocalTime().equals(java.time.LocalTime.MIDNIGHT)
@@ -180,12 +236,21 @@ public record CdsTemporalDto(Precision precision, String original, LocalDate ear
     private static Date legacyCivil(LocalDateTime value, ZoneId zone, boolean timestamp) {
         if (value.getYear() < 1 || value.getYear() > 9999) throw unrepresentable(timestamp);
         GregorianCalendar calendar = new GregorianCalendar(TimeZone.getTimeZone(zone), Locale.ROOT);
-        calendar.clear(); calendar.setLenient(false);
-        calendar.set(value.getYear(), value.getMonthValue() - 1, value.getDayOfMonth(),
-                value.getHour(), value.getMinute(), value.getSecond());
+        calendar.clear();
+        calendar.setLenient(false);
+        calendar.set(
+                value.getYear(),
+                value.getMonthValue() - 1,
+                value.getDayOfMonth(),
+                value.getHour(),
+                value.getMinute(),
+                value.getSecond());
         calendar.set(Calendar.MILLISECOND, value.getNano() / 1_000_000);
-        try { return calendar.getTime(); }
-        catch (IllegalArgumentException invalid) { throw unrepresentable(timestamp); }
+        try {
+            return calendar.getTime();
+        } catch (IllegalArgumentException invalid) {
+            throw unrepresentable(timestamp);
+        }
     }
 
     private static String legacyDay(Date date, TimeZone zone, Locale locale) {
@@ -195,8 +260,11 @@ public record CdsTemporalDto(Precision precision, String original, LocalDate ear
     }
 
     private static CdsClinicalException unrepresentable(boolean timestamp) {
-        return new CdsClinicalException(timestamp ? "CDS_NATIVE_TIMESTAMP_REQUIRES_REVIEW"
-                : "CDS_NATIVE_DATE_REQUIRES_REVIEW", "Date");
+        return new CdsClinicalException(
+                timestamp
+                        ? "CDS_NATIVE_TIMESTAMP_REQUIRES_REVIEW"
+                        : "CDS_NATIVE_DATE_REQUIRES_REVIEW",
+                "Date");
     }
 
     public String legacyPartialFormat() {

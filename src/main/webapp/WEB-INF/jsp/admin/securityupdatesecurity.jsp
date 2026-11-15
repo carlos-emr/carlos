@@ -58,6 +58,7 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.MfaManager" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.www.admin.SecurityUpdatePasswordValidator" %>
+<%@ page import="io.github.carlos_emr.carlos.www.admin.SecurityEditVersion" %>
 
 
 <%!
@@ -393,6 +394,9 @@
                 <tr>
                     <td colspan="2" align="center">
                         <input type="hidden" name="security_no" value="<carlos:encode value='<%= String.valueOf(security.getSecurityNo()) %>' context="htmlAttribute"/>">
+                        <%-- The version of the login this form shows (SecurityEditVersion): a save from a form
+                             opened before another save changed the login is refused instead of undoing it. --%>
+                        <input type="hidden" name="<%= SecurityEditVersion.PARAMETER %>" value="<carlos:encode value='<%= SecurityEditVersion.of(security) %>' context="htmlAttribute"/>">
                         <input type="submit" name="subbutton"
                                value='<fmt:message key="admin.securityupdatesecurity.btnSubmit"/>'>
                         <input type="button" value="<fmt:message key="admin.securityupdatesecurity.btnDelete"/>"

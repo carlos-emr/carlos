@@ -51,6 +51,7 @@ import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBean;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBeanHandler;
 import io.github.carlos_emr.carlos.prevention.PreventionData;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionSourceUnavailableException;
 import io.github.carlos_emr.carlos.prevention.pageUtil.PreventionReportDisplay;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
@@ -79,6 +80,7 @@ public class ChildImmunizationReport implements PreventionReport {
 
     public Hashtable<String, Object> runReport(LoggedInInfo loggedInInfo, ArrayList<ArrayList<String>> list, Date asofDate) {
         int inList = 0;
+        int unreadable = 0;
         double done = 0;
         ArrayList<PreventionReportDisplay> returnReport = new ArrayList<PreventionReportDisplay>();
 
@@ -90,15 +92,29 @@ public class ChildImmunizationReport implements PreventionReport {
             log.debug("fieldList " + fieldList.size());
 
             // search prevention_date prevention_type deleted refused
-            ArrayList<Map<String, Object>> prevs1 = PreventionData.getExactPreventionData(loggedInInfo, "DTaP-IPV", demo);
+            // The shot count comes from all five reads, so any one failing makes the row unreadable.
+            ArrayList<Map<String, Object>> prevs1;
+            ArrayList<Map<String, Object>> prevsDtapIPVHIB;
+            ArrayList<Map<String, Object>> prevs2;
+            ArrayList<Map<String, Object>> prevs4;
+            try {
+                prevs1 = PreventionData.getExactPreventionData(loggedInInfo, "DTaP-IPV", demo);
 
-            ArrayList<Map<String, Object>> prevsDtapIPVHIB = PreventionData.getExactPreventionData(loggedInInfo, "DTaP-IPV-Hib", demo);
+                prevsDtapIPVHIB = PreventionData.getExactPreventionData(loggedInInfo, "DTaP-IPV-Hib", demo);
 
-            ArrayList<Map<String, Object>> prevs2 = PreventionData.getExactPreventionData(loggedInInfo, "Hib", demo);
+                prevs2 = PreventionData.getExactPreventionData(loggedInInfo, "Hib", demo);
 
-            ArrayList<Map<String, Object>> prevs4 = PreventionData.getExactPreventionData(loggedInInfo, "MMR", demo);
+                prevs4 = PreventionData.getExactPreventionData(loggedInInfo, "MMR", demo);
 
-            prevs4.addAll(PreventionData.getExactPreventionData(loggedInInfo, "MMRV", demo));
+                prevs4.addAll(PreventionData.getExactPreventionData(loggedInInfo, "MMRV", demo));
+            } catch (PreventionSourceUnavailableException unavailable) {
+                // One unreadable chart must neither abort the report nor vanish from it: the
+                // patient is listed as "could not be read" and counted for the page's notice.
+                returnReport.add(PreventionReportDisplay.unreadable(demo));
+                PreventionData.logUnreadable("Child immunization prevention report", demo);
+                unreadable++;
+                continue;
+            }
 
 
             //need to compile accurate dtap numbers
@@ -279,6 +295,7 @@ public class ChildImmunizationReport implements PreventionReport {
         h.put("up2date", "" + Math.round(done));
         h.put("percent", percentStr);
         h.put("returnReport", returnReport);
+        h.put(UNREADABLE_COUNT, "" + unreadable);
         h.put("inEligible", "" + inList);
         h.put("eformSearch", "CHI");
         h.put("followUpType", "CIMF");

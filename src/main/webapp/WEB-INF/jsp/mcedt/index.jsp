@@ -159,7 +159,7 @@
 
         <title>MCEDT: Index</title>
 
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
+        <base href="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(request.getContextPath() + "/") %>">
 
     </head>
 

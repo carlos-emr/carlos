@@ -166,7 +166,17 @@ done
      server-side against `password_min_length`, `password_min_groups`, group character sets, and
      `IGNORE_PASSWORD_REQUIREMENTS`.
 
-3. **PIN Requirements**:
+3. **A provider's own password change**:
+   - Both Preferences entry points apply the same `PasswordPolicy` on the server before anything
+     is stored: the Change Password popup (`provider/ViewProviderUpdatePassword`, enforced by its
+     gate action before the update page runs) and the general preferences save
+     (`provider/UserPreference`). The forms' JavaScript check is feedback only.
+   - A refused request stores nothing and returns the form's own message for the broken rule.
+     The popup also refuses a new PIN shorter than `password_pin_min_length`.
+   - The administrator's Security Records add and edit pages apply the password policy on the
+     server too; their PIN length is checked in the browser only.
+
+4. **PIN Requirements**:
    - Separate PIN for additional security layer
    - Minimum 4 digits recommended
 
@@ -184,7 +194,7 @@ password.pastPasswordsToNotUse=0
 # Accepted true values are true/yes/on/1; unrecognized values fail secure as enabled.
 mandatory_password_reset=true
 
-# Shared account-creation / forced-reset complexity policy
+# Shared account-creation / forced-reset / own-password-change complexity policy
 # Length must be positive; groups must be 1..4. Malformed or out-of-range
 # values fall back to 8 characters and 3 groups respectively.
 password_min_length = 8

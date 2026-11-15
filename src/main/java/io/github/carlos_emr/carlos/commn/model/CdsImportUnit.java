@@ -69,6 +69,9 @@ public class CdsImportUnit extends AbstractModel<String> {
     @Column(name = "target_digest", nullable = true, length = 64)
     private String targetDigest;
 
+    @Column(name = "native_baseline", nullable = true, columnDefinition = "longtext")
+    private String nativeBaseline;
+
     @Column(name = "committed_at", nullable = true)
     private Instant committedAt;
 
@@ -95,6 +98,8 @@ public class CdsImportUnit extends AbstractModel<String> {
     public void setState(String value) { state = value; }
     public String getTargetReferences() { return targetReferences; }
     public void setTargetReferences(String value) { targetReferences = value; }
+    public String getNativeBaseline() { return nativeBaseline; }
+    public void setNativeBaseline(String value) { nativeBaseline = value; }
     public String getTargetDigest() { return targetDigest; }
     public void setTargetDigest(String value) { targetDigest = value; }
     public Instant getCommittedAt() { return committedAt; }

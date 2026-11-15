@@ -130,6 +130,8 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
     private static final String ERROR_NO_WRITE_KEY = "dms.addDocument.errorNoWrite";
     private static final String ERROR_ZERO_SIZE_KEY = "dms.addDocument.errorZeroSize";
     private static final String ERROR_DUPLICATE_KEY = "dms.addDocument.errorDuplicate";
+    private static final String ERROR_DESCRIPTION_TOO_LONG = "desctoolong";
+    private static final String ERROR_DESCRIPTION_TOO_LONG_KEY = "dms.error.descriptionTooLong";
     private static final String PARAM_FUNCTION = "function";
     private static final String PARAM_FUNCTION_ID = "functionid";
     private static final String PARAM_CUR_USER = "curUser";
@@ -433,6 +435,10 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                 errors.put("descmissing", "dms.error.descriptionInvalid");
                 throw new Exception();
             }
+            if (!descriptionFits()) {
+                errors.put(ERROR_DESCRIPTION_TOO_LONG, ERROR_DESCRIPTION_TOO_LONG_KEY);
+                throw new Exception();
+            }
             if (this.getDocType().length() == 0) {
                 errors.put("typemissing", "dms.error.typeMissing");
                 throw new Exception();
@@ -523,10 +529,15 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
 
             // ---
             String doc_no = EDocUtil.addDocumentSQL(newDoc);
-            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
             // add note if document is added under a patient
             String module = this.getFunction().trim();
             String moduleId = this.getFunctionId().trim();
+            if (module.equals("demographic")) {
+                // Filed onto a chart: the audit row names the patient, so the upload can be found from it.
+                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr(), moduleId);
+            } else {
+                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
+            }
             if (module.equals("demographic")) {// doc is uploaded under a patient, moduleId become demo no.
 
                 Date now = EDocUtil.getDmsDateTimeAsDate();
@@ -594,6 +605,16 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
     }
 
     /**
+     * Whether the posted description fits {@code document.docdesc} as it is stored ({@link EDoc}
+     * trims it). The packaged database cuts a longer one off without an error, so add and edit
+     * refuse it with a {@code docerrors} message before anything is written; the page's
+     * {@code maxlength} and its submit check are only the visible half.
+     */
+    private boolean descriptionFits() {
+        return Document.descriptionFits(this.getDocDesc().trim());
+    }
+
+    /**
      * Edits an existing document's metadata and optionally replaces its file content.
      * Handles reviewer assignment, extra reviewer tracking, and document type updates.
      *
@@ -616,6 +637,10 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         try {
             if (this.getDocDesc().length() == 0) {
                 errors.put("descmissing", "dms.error.descriptionInvalid");
+                throw new Exception();
+            }
+            if (!descriptionFits()) {
+                errors.put(ERROR_DESCRIPTION_TOO_LONG, ERROR_DESCRIPTION_TOO_LONG_KEY);
                 throw new Exception();
             }
             if (this.getDocType().length() == 0) {

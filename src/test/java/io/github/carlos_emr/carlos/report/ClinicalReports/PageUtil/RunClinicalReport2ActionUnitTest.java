@@ -58,4 +58,33 @@ class RunClinicalReport2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(response.getContentAsByteArray()).isEmpty();
         }
     }
+
+    @Test
+    void shouldNameTheLimitOnTheErrorPage_whenDenominatorIsRefusedByALimit() {
+        var security = createAndRegisterMock(SecurityInfoManager.class);
+        when(security.hasPrivilege(any(), eq("_report"), eq("r"), isNull())).thenReturn(true);
+        var request = new MockHttpServletRequest(); request.setParameter("numerator", "n"); request.setParameter("denominator", "d");
+        var reports = mock(ClinicalReportManager.class);
+        var refusal = new io.github.carlos_emr.carlos.report.data.ConfiguredReportQuery.LimitExceededException(
+                io.github.carlos_emr.carlos.report.data.ConfiguredReportQuery.Limit.IDENTIFIERS, 100_000);
+        var denominator = mock(Denominator.class);
+        when(denominator.getDenominatorList()).thenThrow(new IllegalStateException(
+                "Clinical report could not be completed; narrow the filters or retry", refusal));
+        var numerator = mock(Numerator.class);
+        when(reports.getDenominatorById("d")).thenReturn(denominator); when(reports.getNumeratorById("n")).thenReturn(numerator);
+        try (var servlet = mockStatic(ServletActionContext.class); var manager = mockStatic(ClinicalReportManager.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+            manager.when(ClinicalReportManager::getInstance).thenReturn(reports);
+            // The report still fails as a whole (no zero population, no partial result) ...
+            assertThatThrownBy(() -> new RunClinicalReport2Action().execute())
+                    .isInstanceOf(IllegalStateException.class).hasCause(refusal);
+            assertThat(request.getAttribute("denominator")).isNull();
+            assertThat(request.getSession().getAttribute("ClinicalReports")).isNull();
+            // ... and the error page is told which limit stopped it and which setting raises it.
+            assertThat(request.getAttribute("carlosReportLimitKey")).isEqualTo("report.configured.limitIdentifiers");
+            assertThat(request.getAttribute("carlosReportLimitValue")).isEqualTo(100_000);
+            assertThat(request.getAttribute("carlosReportLimitSetting")).isEqualTo("configured_report.max_identifier_rows");
+        }
+    }
 }

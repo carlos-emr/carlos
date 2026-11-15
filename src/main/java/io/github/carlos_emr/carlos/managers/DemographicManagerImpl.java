@@ -215,10 +215,16 @@ public class DemographicManagerImpl implements DemographicManager {
         Set<Integer> ids = new LinkedHashSet<>(demographicIds);
         ids.remove(null);
         ids.remove(0);
-        Set<Integer> readable = securityInfoManager.getReadableDemographicIds(loggedInInfo, ids);
         Map<Integer, String> names = new HashMap<>();
-        // Retain permitted orphaned referrals; absence from the name query is not a denial.
-        for (Integer id : readable) names.put(id, "");
+        if (ids.isEmpty()) {
+            return names;
+        }
+        // The patient-specific decision for each ID. Only the readable ones reach the name query.
+        Set<Integer> readable = securityInfoManager.getReadableDemographicIds(loggedInInfo, ids);
+        for (Integer id : readable) {
+            // Readable but possibly without a demographic row: present, with no name.
+            names.put(id, "");
+        }
         if (!readable.isEmpty()) {
             for (DemographicName patient : demographicDao.getDemographicNames(readable)) {
                 names.put(patient.demographicNo(), patient.formattedName());
@@ -964,8 +970,9 @@ public class DemographicManagerImpl implements DemographicManager {
                 (offset, size) -> demographicDao.searchPatients(loggedInInfo, searchRequest, offset, size),
                 DemographicSearchResult::getDemographicNo);
 
+        // Rows keep their health card number: search clients confirm a patient by it. Patients the
+        // caller may not read were already left out above.
         for (DemographicSearchResult demographic : results) {
-            demographic.setHin(null);
             LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.searchPatients result",
                     "demographicId=" + demographic.getDemographicNo());
         }

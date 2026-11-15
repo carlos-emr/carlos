@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.consultation.dto.ConsultationListRow;
 import io.github.carlos_emr.carlos.provider.dto.ProviderSummaryDTO;
 import io.github.carlos_emr.carlos.consultation.dto.ConsultationNameFormat;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
@@ -109,27 +110,57 @@ public class EctViewConsultationRequestsUtil {
    public List<String> siteName;
    public List<ProviderSummaryDTO> consultProvider;
    public List<Boolean> eReferral; 
+   /** Whether the last team page load found a row beyond the page it was asked for. */
    private boolean moreRows;
+   /** Whether the last team load left out rows of patients the user may not read. */
    private boolean restrictedRows;
 
-   public boolean hasMoreRows() { return moreRows; }
-   public boolean hasRestrictedRows() { return restrictedRows; }
+   /**
+    * Whether the list continues after the page loaded by
+    * {@link #estConsultationPageByTeam(LoggedInInfo, ConsultationListFilterDto, int)}. Rows left
+    * out of the page do not change the answer.
+    */
+   public boolean hasMoreRows() {
+      return moreRows;
+   }
 
    /**
-    * Loads an offset page plus its lookahead. Authorization suppresses rows within the page,
-    * never pulls the next page's row forward or changes the offset used by navigation.
+    * Whether the last team load left out one or more rows because the user may not read the
+    * patient's record. Such a row is not listed at all: not its patient, not its referral.
     */
-   public boolean estConsultationPageByTeam(LoggedInInfo info, ConsultationListFilterDto filter, int pageSize) {
+   public boolean hasRestrictedRows() {
+      return restrictedRows;
+   }
+
+   /**
+    * Loads one page of the team list, for a caller that fetches a lookahead row to learn whether a
+    * next page exists.
+    *
+    * <p>The filter's limit must be {@code pageSize + 1}. Only the first {@code pageSize} rows
+    * fetched are the page; the extra row answers {@link #hasMoreRows()} and is neither listed nor
+    * looked up. Rows of patients the user may not read are left out of the page (see
+    * {@link #hasRestrictedRows()}) without pulling the next page's rows forward, so the offsets of
+    * the previous and next pages do not depend on what the user may read.</p>
+    *
+    * @param loggedInInfo the current user, for the per-patient read checks
+    * @param filter the list filters, with the page's offset and a limit of {@code pageSize + 1}
+    * @param pageSize the number of rows on a page
+    * @return true when the page loaded, with or without rows; false when it could not be loaded, in
+    *         which case every list is empty and the caller must report a failure rather than an
+    *         empty result
+    * @since 2026-11-12
+    */
+   public boolean estConsultationPageByTeam(LoggedInInfo loggedInInfo, ConsultationListFilterDto filter, int pageSize) {
       initializeLists();
       try {
          List<ConsultationListRow> rows = SpringUtils.getBean(ConsultationRequestDao.class)
                  .getConsultationListRows(filter);
-         moreRows = rows.size() > pageSize;
-         return populate(info, rows.subList(0, Math.min(pageSize, rows.size())), false);
+         boolean lookaheadRowFound = rows.size() > pageSize;
+         boolean loaded = populate(loggedInInfo, rows.subList(0, Math.min(pageSize, rows.size())), false);
+         moreRows = lookaheadRowFound;
+         return loaded;
       } catch (Exception e) {
-         initializeLists();
-         MiscUtils.getLogger().error("Error loading consultation page ({})", e.getClass().getSimpleName());
-         return false;
+         return loadFailed(e);
       }
    }
    
@@ -154,30 +185,47 @@ public class EctViewConsultationRequestsUtil {
               orderby, desc, searchDate, offset, limit, null, null));
    }
 
-   /** Loads a page using scalar rows and bulk lookups, retaining patient-specific read checks. */
+   /**
+    * Loads the rows the filter selects using scalar rows and bulk lookups, retaining
+    * patient-specific read checks. Rows of patients the user may not read are left out (see
+    * {@link #hasRestrictedRows()}); one restricted patient does not fail the list (issue #5775).
+    *
+    * @return true when the rows loaded; false when they could not be loaded, in which case every
+    *         list is empty
+    */
    public boolean estConsultationVecByTeam(LoggedInInfo loggedInInfo, ConsultationListFilterDto filter) {
       initializeLists();
       try {
          return populate(loggedInInfo, SpringUtils.getBean(ConsultationRequestDao.class)
                  .getConsultationListRows(filter), false);
       } catch (Exception e) {
-         initializeLists();
-         MiscUtils.getLogger().error("Error ({})", e.getClass().getSimpleName());
-         return false;
+         return loadFailed(e);
       }
    }
 
-   /** Loads the patient's consultation rows without materializing eager associations. */
+   /**
+    * Loads the patient's consultation rows without materializing eager associations. All rows
+    * belong to the one patient, so a user who may not read that patient gets no rows and false.
+    */
    public boolean estConsultationVecByDemographic(LoggedInInfo loggedInInfo, String demoNo) {
       initializeLists();
       try {
          return populate(loggedInInfo, SpringUtils.getBean(ConsultationRequestDao.class)
                  .getConsultationListRows(Integer.valueOf(demoNo)), true);
       } catch (Exception e) {
-         initializeLists();
-         MiscUtils.getLogger().error("Error ({})", e.getClass().getSimpleName());
-         return false;
+         return loadFailed(e);
       }
+   }
+
+   /**
+    * Leaves every list empty, so a failure part-way through cannot publish some rows or leave the
+    * parallel lists at different lengths, and logs where it failed. The trace carries exception
+    * types and code locations only: a message could quote a patient's data.
+    */
+   private boolean loadFailed(Exception e) {
+      initializeLists();
+      MiscUtils.getLogger().error("Consultation list could not be loaded trace={}", LogSafe.exceptionTrace(e));
+      return false;
    }
 
    private void initializeLists() {
@@ -208,17 +256,29 @@ public class EctViewConsultationRequestsUtil {
       for (ConsultationListRow row : rows) {
          if (row.demographicId() != null) patientIds.add(row.demographicId());
       }
-      DemographicManager demographics = SpringUtils.getBean(DemographicManager.class);
-      Map<Integer, String> names = patientChart
-              ? demographics.getDemographicFormattedNames(loggedInInfo, patientIds)
-              : demographics.getReadableDemographicFormattedNames(loggedInInfo, patientIds);
-      if (!patientChart) {
-         List<ConsultationListRow> permitted = rows.stream().filter(row -> row.demographicId() == null
-                 || row.demographicId() == 0 || names.containsKey(row.demographicId())).toList();
-         restrictedRows = permitted.size() != rows.size();
-         rows = permitted;
+      // The manager decides each distinct patient's read access before any name is fetched.
+      // Do not replace it with a direct demographic join: the list's scope filter is an additional gate.
+      DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
+      Map<Integer, String> names;
+      if (patientChart) {
+         // One patient, whose chart the caller opened: a denial fails the list, as it always has.
+         names = demographicManager.getDemographicFormattedNames(loggedInInfo, patientIds);
+      } else {
+         // A team page mixes patients. A row whose patient this user may not read is left out
+         // whole, as it was when names were looked up row by row; unlike then, the readable rows
+         // after it are kept (issue #5775). A row with no patient, or whose patient record is
+         // gone, stays listed without a name.
+         names = demographicManager.getReadableDemographicFormattedNames(loggedInInfo, patientIds);
+         List<ConsultationListRow> readableRows = new ArrayList<>();
+         for (ConsultationListRow row : rows) {
+            if (row.demographicId() == null || row.demographicId() == 0 || names.containsKey(row.demographicId())) {
+               readableRows.add(row);
+            }
+         }
+         restrictedRows = readableRows.size() != rows.size();
+         rows = readableRows;
+         if (rows.isEmpty()) return true;
       }
-      if (rows.isEmpty()) return true;
       Set<String> requestingProviders = new LinkedHashSet<>();
       for (ConsultationListRow row : rows) {
          if (row.providerNo() != null && !row.providerNo().isEmpty()) requestingProviders.add(row.providerNo());
@@ -248,8 +308,8 @@ public class EctViewConsultationRequestsUtil {
          ids.add(row.id().toString());
          status.add(row.status());
          String patientName = row.demographicId() == null ? "" : names.getOrDefault(row.demographicId(), "");
-         if (row.demographicId() != null && names.containsKey(row.demographicId())
-                 && !patientName.isEmpty() && row.patientAlias() != null && !row.patientAlias().isEmpty()) {
+         // Only beside a name that was found: the team lookup also lists a readable patient with no record.
+         if (!patientName.isEmpty() && row.patientAlias() != null && !row.patientAlias().isEmpty()) {
             patientName += " (" + row.patientAlias() + ")";
          }
          patient.add(patientName);

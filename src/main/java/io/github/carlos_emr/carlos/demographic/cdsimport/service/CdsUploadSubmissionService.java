@@ -21,28 +21,36 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
+import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand;
 import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsUploadImportCommand;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.io.IOException;
 import java.util.Objects;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Service;
 
 /** Resolves upload options without claiming bytes; job acceptance alone owns the durable claim and acknowledgement. */
 @Service
 public class CdsUploadSubmissionService {
+    private static final Logger LOG = LogManager.getLogger(CdsUploadSubmissionService.class);
     private final CdsImportAccessService access;
     private final CdsImportService imports;
     private final CdsUploadService uploads;
     private final CdsImportConfigurationService configuration;
+    private final OscarLogDao audit;
 
     public CdsUploadSubmissionService(CdsImportAccessService access, CdsImportService imports,
-            CdsUploadService uploads, CdsImportConfigurationService configuration) {
+            CdsUploadService uploads, CdsImportConfigurationService configuration, OscarLogDao audit) {
         this.access = Objects.requireNonNull(access);
         this.imports = Objects.requireNonNull(imports);
         this.uploads = Objects.requireNonNull(uploads);
         this.configuration = Objects.requireNonNull(configuration);
+        this.audit = Objects.requireNonNull(audit);
     }
 
     public CdsImportJobDto submit(LoggedInInfo actor, CdsUploadImportCommand requested) throws IOException {
@@ -63,6 +71,36 @@ public class CdsUploadSubmissionService {
         // Fail known option/authorization errors without changing upload state. The facade rechecks
         // current rights, and JobService rechecks admission before its serialized durable claim.
         access.webActor(actor, command);
-        return imports.submit(actor, command);
+        var job = imports.submit(actor, command);
+        auditSubmission(actor, job, requested.dryRun());
+        return job;
+    }
+
+    /**
+     * The browser submission's row in the normal chart audit table: who submitted the import, from
+     * which client address, and its run. Each committed import unit later writes its own row naming
+     * the patient and the same run, but without an address, because the durable worker that writes
+     * it serves no request. No source value, file name or health number is written.
+     *
+     * <p>The row is written after the durable acceptance, in its own transaction. The job is then
+     * already accepted and the worker will run it, so a failed write is reported in the server log
+     * (without identifiers) instead of telling the browser its accepted import failed.
+     */
+    private void auditSubmission(LoggedInInfo actor, CdsImportJobDto job, boolean dryRun) {
+        try {
+            var entry = new OscarLog();
+            entry.setProviderNo(actor.getLoggedInProviderNo());
+            if (actor.getLoggedInSecurity() != null)
+                entry.setSecurityId(actor.getLoggedInSecurity().getSecurityNo());
+            entry.setAction(LogConst.IMPORT);
+            entry.setContent(LogConst.CON_CDS_IMPORT);
+            entry.setContentId(job.id());
+            entry.setIp(actor.getIp());
+            entry.setData("CDS_IMPORT_SUBMITTED run=" + job.id() + (dryRun ? " dryRun=true" : ""));
+            audit.persist(entry);
+        } catch (RuntimeException failure) {
+            LOG.error("CDS import submission audit row was not written ({})",
+                    failure.getClass().getSimpleName());
+        }
     }
 }

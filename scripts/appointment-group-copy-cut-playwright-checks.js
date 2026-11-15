@@ -12,6 +12,10 @@
  * Edit popup ▸ Cut (appointment/CutRecord) ▸ another slot (auto-paste) ▸ Add; Edit popup ▸
  * Print Card (appointment/appointmentviewrecordcard).
  *
+ * Add Group Appointment and Group Update are pressed twice, the second press 500 ms later while
+ * the first response is held back: the page's one-time token (FormSubmissionGuard) answers the
+ * repeat with the first save's own page (the popup closes) and books nothing twice.
+ *
  * Asserts the `appointment` rows after every action (provider, date, time, patient, reason,
  * notes, status), `appointmentArchive` rows for update/cancel/delete/cut, the pasted form
  * fields, the day sheet links after each opener refresh, the card's patient/date/provider text
@@ -26,6 +30,7 @@ const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const {bundleMessage, throwawayLoginFixture} = require('./lib/throwaway-login-fixture');
 const {runWorkflow, expectValue} = require('./lib/workflow-session');
+const {rapid, armSlowServer} = require('./lib/double-submit-helpers');
 
 const NEXT_DAY = 'a.redArrow:has(span.fa-forward-step)';
 // The group page's buttons are labelled from the bundle; the hidden groupappt value is fixed.
@@ -42,6 +47,9 @@ function toRow([id, provider, date, start, end, demographic, status, reason, not
 }
 
 const minutes = time => Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
+
+// The group page's own POSTs; its rendering POST from the popups is sent before this is armed.
+const GROUP_WRITE = /\/appointment\/appointmentgrouprecords(\?|$)/;
 
 async function waitClosed(page, label) {
   if (!page.isClosed()) await page.waitForEvent('close', {timeout: 20000}).catch(() => {});
@@ -171,6 +179,16 @@ async function workflow(s) {
     return popup;
   }
   const groupButton = (page, key) => page.locator(`form[name="groupappt"] input[type="button"][value="${GROUP_BUTTON[key]}"]`);
+  // A re-click while the first press is still out: the repeat must end as the first save did.
+  async function pressTwice(page, key, label) {
+    const disarm = await armSlowServer(context, GROUP_WRITE);
+    try {
+      await rapid('slowResubmit', groupButton(page, key));
+      await waitClosed(page, label);
+    } finally {
+      await disarm();
+    }
+  }
   const groupBox = (page, providerNo, column) =>
     page.locator(`tr:has(input[name^="provider_no"][value="${providerNo}"]) input[type="checkbox"][name^="${column}"]`);
 
@@ -201,8 +219,7 @@ async function workflow(s) {
     h.assert(await groupBox(popup, first, 'one').isChecked(), 'The clicked provider was not preselected for the group booking');
     h.assert(!(await groupBox(popup, second, 'one').isChecked()), 'The second provider was preselected');
     await groupBox(popup, second, 'one').check();
-    await groupButton(popup, 'add').click();
-    await waitClosed(popup, 'Add Group Appointment');
+    await pressTwice(popup, 'add', 'Add Group Appointment');
     const rows = ownedRows(`reason=${h.sqlString(`${marker} group`)}`);
     h.assert(rows.length === 2 && rows.map(r => r.provider).sort().join() === [...ownedProviders].sort().join(),
       'Group booking did not write exactly one appointment per selected provider');
@@ -219,8 +236,9 @@ async function workflow(s) {
     for (const providerNo of ownedProviders) {
       h.assert(await groupBox(popup, providerNo, 'one').isChecked(), 'Group Action did not preselect a matching group appointment');
     }
-    await groupButton(popup, 'update').click();
-    await waitClosed(popup, 'Group Update');
+    // Group Update replaces the appointments it names: a second press used to be refused as another
+    // user's change (HTTP 409), and the popup stayed open although the first press had saved.
+    await pressTwice(popup, 'update', 'Group Update');
     const rows = ownedRows(`reason=${h.sqlString(`${marker} group updated`)}`);
     h.assert(rows.length === 2 && rows.every(r => r.date === date && r.start === '10:00:00' && r.demographic === patient),
       'Group Update did not leave both providers with the updated appointment');

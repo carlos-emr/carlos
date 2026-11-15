@@ -56,8 +56,8 @@ class CaseManagementEmptyStateRegressionTest {
      */
     private static final String ENGLISH_NO_HISTORY =
             "casemgmt.showHistory.msgNoHistory=No history has been recorded for this issue.";
-    private static final String ENGLISH_NO_NOTES =
-            "casemgmt.viewNotes.msgNoNotes=No notes have been recorded for this section.";
+    /** The retired CPP-panel placeholder; an empty section is blank, so nothing may bring it back. */
+    private static final String RETIRED_NO_NOTES_KEY = "casemgmt.viewNotes.msgNoNotes";
 
     @Test
     @DisplayName("issue history popup should explain when no history exists")
@@ -69,27 +69,29 @@ class CaseManagementEmptyStateRegressionTest {
     }
 
     @Test
-    @DisplayName("CPP panel should explain when no notes exist")
-    void shouldRenderNotesEmptyState_whenNotesAreEmpty() throws IOException {
+    @DisplayName("CPP panel should stay blank when no notes exist")
+    void shouldRenderBlankNotesPanel_whenNotesAreEmpty() throws IOException {
         String jsp = Files.readString(VIEW_NOTES_JSP, StandardCharsets.UTF_8);
 
-        assertConditionalMessage(jsp, "Notes", "casemgmt.viewNotes.msgNoNotes");
+        // An empty section is one blank row, as in the navbar modules: no placeholder sentence.
         assertThat(jsp)
-                .contains("<li class=\"cpp-empty-state\">")
+                .doesNotContain(RETIRED_NO_NOTES_KEY)
+                .doesNotContain("cpp-empty-state")
+                .contains("<c:if test=\"${empty Notes}\"><li>&nbsp;</li></c:if>")
                 .contains("for (int i = 0; i < notes.size(); i++)")
                 .contains("String htmlNoteTxt = SafeEncode.forHtml(note.getNote() + addlData);");
     }
 
     @Test
-    @DisplayName("CPP panel empty state should remain visible in both panel layouts")
-    void shouldStyleNotesEmptyState_forCppPanels() throws IOException {
+    @DisplayName("CPP panels should keep their list styling without an empty-state rule")
+    void shouldStyleNotesPanels_withoutEmptyStateRule() throws IOException {
         String css = Files.readString(ENCOUNTER_STYLES, StandardCharsets.UTF_8);
         String layout = Files.readString(NEW_ENCOUNTER_LAYOUT, StandardCharsets.UTF_8);
 
         assertThat(css)
                 .contains("#cppBoxes .topBox-notes")
                 .contains("#rightNavBar .topBox-notes")
-                .contains("div.topBox-notes ul li.cpp-empty-state");
+                .doesNotContain("cpp-empty-state");
         assertThat(layout).contains("/css/encounterStyles.css");
     }
 
@@ -108,15 +110,13 @@ class CaseManagementEmptyStateRegressionTest {
                     // Spaces and tabs only: \s would swallow the line break after an empty
                     // value and let \S match the first character of the next property.
                     .containsPattern("(?m)^[ \\t]*casemgmt\\.showHistory\\.msgNoHistory[ \\t]*[=:][ \\t]*\\S")
-                    .containsPattern("(?m)^[ \\t]*casemgmt\\.viewNotes\\.msgNoNotes[ \\t]*[=:][ \\t]*\\S");
+                    .doesNotContain(RETIRED_NO_NOTES_KEY);
         }
 
         String english = Files.readString(
                 RESOURCES_DIRECTORY.resolve("oscarResources_en.properties"),
                 StandardCharsets.UTF_8);
-        assertThat(english)
-                .contains(ENGLISH_NO_HISTORY)
-                .contains(ENGLISH_NO_NOTES);
+        assertThat(english).contains(ENGLISH_NO_HISTORY);
     }
 
     @Test
@@ -138,8 +138,7 @@ class CaseManagementEmptyStateRegressionTest {
                     .as("empty-state messages for %s must not fall back to the English text", locale)
                     // The English sentence itself, so a copied value survives no formatting
                     // difference around the key or the separator.
-                    .doesNotContain(ENGLISH_NO_HISTORY.substring(ENGLISH_NO_HISTORY.indexOf('=') + 1))
-                    .doesNotContain(ENGLISH_NO_NOTES.substring(ENGLISH_NO_NOTES.indexOf('=') + 1));
+                    .doesNotContain(ENGLISH_NO_HISTORY.substring(ENGLISH_NO_HISTORY.indexOf('=') + 1));
         }
     }
 
