@@ -833,7 +833,7 @@
         "scripts/ci/lifecycle_baselines.py",
         "scripts/ci/test_lifecycle_baselines.py"
       ],
-      "implementation": "Execute actual clinical JavaScript and persisted workflows for the older-main form/measurement/prevention/rule changes; promote the HDL defect regressions once the product is fixed. Require distinct pinned beta5 and current-main beta6 installs on ON/BC; beta5 exercises V1.0.59.27–32 and CLI 1.3.0-to-1.3.1. A source-identical current-main install alone does not cover historical migration.",
+      "implementation": "Execute actual clinical JavaScript and persisted workflows for the older-main form/measurement/prevention/rule changes; promote the HDL defect regressions once the product is fixed. Require distinct pinned beta5 and current-main beta6 installs on ON/BC; beta5 exercises V1.0.59.27\u201332 and CLI 1.3.0-to-1.3.1. A source-identical current-main install alone does not cover historical migration.",
       "cases": "Framingham/UKPDS HDL equal/greater than total and stale-answer clearing; renal thresholds/source selection; WHtR and waist units; valid/impossible dates and leap/DST days; missing patient/catalog/rules; age/sex/hide filters; shared/private/null flowsheet scopes; selected preventions in print; duplicate linked diagnosis/drug and intact long lab values.",
       "acceptance": "Clinical calculations use the intended inputs, invalid input clears stale results, persisted dates/values are exact, and no missing-data case logs an error per prevention type.",
       "requiredChecks": [
@@ -7671,9 +7671,10 @@
         "CdsHistoryFidelityMariaDbIntegrationTest": 1,
         "CdsHistoryExactNarrativeUnitTest": 15,
         "CdsHistoryExtensionsMariaDbIntegrationTest": 1,
-        "CdsHistoryExtensionUnitTest": 12
+        "CdsHistoryExtensionUnitTest": 12,
+        "CdsMergedChartReaderUnitTest": 3
       },
-      "minimumCases": 1191,
+      "minimumCases": 1194,
       "requireCoverage": true,
       "requireClassIdentity": true,
       "runtimeConstraints": {
@@ -7718,7 +7719,7 @@
         "containerEvidence": "CARLOS_CDS_EVIDENCE_ROOT"
       },
       "requiredFamilies": {
-        "CdsExportAccessServiceUnitTest": 33,
+        "CdsExportAccessServiceUnitTest": 55,
         "CdsExportActivePlanServiceUnitTest": 10,
         "CdsExportAllergyFieldReconcilerUnitTest": 8,
         "CdsExportAllergyMapperUnitTest": 10,
@@ -7745,7 +7746,7 @@
         "CdsExportClinicalPackageServiceUnitTest": 12,
         "CdsExportClinicalZoneServiceUnitTest": 8,
         "CdsExportClinicalZoneUnitTest": 7,
-        "CdsExportCohortServiceUnitTest": 14,
+        "CdsExportCohortServiceUnitTest": 18,
         "CdsExportContactFieldReconcilerUnitTest": 24,
         "CdsExportContactRetainedAssemblerUnitTest": 10,
         "CdsExportCoverageValidatorUnitTest": 16,
@@ -7885,7 +7886,7 @@
         "CdsExportRetentionServiceUnitTest": 8,
         "CdsExportSchemaVisibilityMariaDbIntegrationTest": 2,
         "CdsExportSelectionFileServiceUnitTest": 5,
-        "CdsExportSelectionIntegrationTest": 20,
+        "CdsExportSelectionIntegrationTest": 28,
         "CdsExportServiceUnitTest": 14,
         "CdsExportSourceCatalogueUnitTest": 5,
         "CdsExportSourceRecipeUnitTest": 8,
@@ -7899,9 +7900,14 @@
         "CdsExportXmlComposerUnitTest": 15,
         "CdsExportXmlValidatorUnitTest": 19,
         "CdsExportZip64IntegrationTest": 1,
-        "CdsExportIssueMarkerMapperUnitTest": 6
+        "CdsExportIssueMarkerMapperUnitTest": 6,
+        "CdsExportMergedChartComposerUnitTest": 4,
+        "CdsExportGroupCaptureUnitTest": 2,
+        "CdsExportRetainedMergedChartRecordsUnitTest": 2,
+        "CdsExportMergedChartMariaDbIntegrationTest": 3,
+        "CdsExportChartAdoptionUnitTest": 10
       },
-      "minimumCases": 2306,
+      "minimumCases": 2361,
       "requireCoverage": true,
       "requireClassIdentity": true,
       "runtimeConstraints": {
@@ -7975,9 +7981,10 @@
         "MutatorActionGetRejectionContractUnitTest": 158,
         "QueryByExampleSqlValidatorUnitTest": 80,
         "ViewCds4ReportResults2ActionUnitTest": 5,
-        "CdsPreparedHistoryDefaultsUnitTest": 6
+        "CdsPreparedHistoryDefaultsUnitTest": 6,
+        "CdsMergedChartContractUnitTest": 12
       },
-      "minimumCases": 389,
+      "minimumCases": 401,
       "requireCoverage": true,
       "requireClassIdentity": true,
       "runtimeConstraints": {

@@ -308,7 +308,7 @@ public class CdsExportSelectionService {
         // Every selected patient is listed: the roster is streamed to protected storage and no
         // count refuses it.
         count[0] = Math.addExact(count[0], 1);
-        if (row.physicianNo() != null && row.physicianNo().length() > 16)
+        if (!CdsExportSelectionRowDto.validPhysician(row.physicianNo()))
             throw new IOException("CDS_EXPORT_SELECTION_SCOPE_REQUIRES_REVIEW");
         output.write(JSON.writeValueAsBytes(row));
         output.write('\n');

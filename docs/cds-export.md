@@ -4204,15 +4204,42 @@ final authorization, authenticated EOF and receipt failures sticky even when a c
 them. Other domains, independent whole-chart field coverage, review and delivery publication
 remain required before this becomes a qualified clinical engine.
 
-`demographic_merged` is captured through the existing owning DAO, including incoming,
-outgoing and deleted links. CARLOS merges keep clinical rows under their original patient
-owners; an exact-root query does not include all linked chart facts. The occurrence service
-therefore verifies the frozen merge scope before reading clinical values. Active, null or
-unknown deletion flags require explicit review; deleted history remains captured. Missing
-scope, foreign links, malformed ownership, failed authentication and late authority failures
-refuse output. A caught review cannot produce a complete document. Full linked-patient
-closure, authorization and original-owner reconciliation remain unfinished; this safeguard
-does not qualify merged-chart exports.
+Charts linked by Merge Records are exported as one patient file. Selection follows the
+active outgoing row with the greatest id; cycles use the smallest chart number in the
+cycle. Chains, forks, self-links and dangling historical links are reported rather than
+held for their shape. Selecting a merged-away chart brings its head and every member;
+selecting several members produces one file, under the head's physician folder.
+
+Every member passes the same opening, capture, closing and disclosure checks as a chart
+exported alone. A refusal for any member holds the whole group with
+`CDS_EXPORT_MERGED_CHART_ACCESS`; its protected ReadMe identifies the head and the refused
+member. Merge privilege rows are captured as source facts, never treated as permission.
+The members are captured in one repeatable-read snapshot. Composition reads one member at a
+time and spills section bytes to encrypted storage with fixed buffers. Member demographic
+documents are also staged and streamed into their carriers; temporary files are erased on
+success or failure. Selection preserves the full physical primary-physician column, even
+when the referenced provider no longer exists (the file goes in Unassigned). Their clinical records in every
+selected category are composed into the head's file, head first, including CPP extensions
+and note-free system issues. The head supplies the one Demographics element. Each other
+member's demographic document is preserved in `CARLOS.MergedChart.v1`; link history and
+merge privileges travel in `CARLOS.MergeLinks.v1` when NewCategory is selected. If it is
+excluded, all selected clinical records still export and the ReadMe explicitly names the
+omitted carriers.
+
+The group's membership is frozen for one attempt. A merge change during capture is
+reported as `MERGE_CHANGED_AFTER_SELECTION`; a newly linked chart is not disclosed until
+a new selection. The next attempt regroups. A saved file is adopted only when every member,
+the group and capture fingerprints, policy and parameters still agree; merge, unmerge,
+head or privilege changes rebuild it. Job counts count patient files; the ReadMe separately
+counts selected charts, maps selected members to their head and lists per-member record
+counts, link shapes, outside links and omissions. The event log records the merged members.
+
+On import into CARLOS, all member records belong to the receiving head. Source chart and
+merge records are validated before native writes and retained as protected source, without
+recreating members or privileges. A later export lists these historical carriers as kept
+import source instead of emitting their now-stale positions as current merge records.
+The retired `MERGED_PATIENT_SCOPE` reason remains readable for old job records but is no
+longer raised for a current group.
 
 The retained-preparation reader also verifies demographic preparations against their original
 source, options, ruleset, payload type and seal. It decodes the historical post-option values
@@ -4342,7 +4369,7 @@ Current edits and clears take effect; unchanged recorded provider and full sourc
 values require separately verified source-field pages. Post-option dates are not shifted again.
 Native patient-display names require an exact captured same-patient join. Storage audit fields
 receive explicit assessments. Source-only
-calendar records, aliases and merged patients remain review gates; native archive versions are
+calendar records and aliases remain review gates; charts linked by Merge Records use the group rules above; native archive versions are
 superseded history and deleted imported appointments are not exported (decision 17, above). A
 reason-list label chosen in CARLOS for an imported appointment whose purpose was not edited
 prefixes the preserved imported purpose (or the complete source purpose behind the source-view

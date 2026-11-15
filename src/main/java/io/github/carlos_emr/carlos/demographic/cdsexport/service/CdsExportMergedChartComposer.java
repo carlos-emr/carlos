@@ -27,13 +27,9 @@ import io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionCo
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportIdentityDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportStagedFileDto;
 import java.io.BufferedInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.ByteBuffer;
-import java.nio.charset.CharacterCodingException;
-import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -128,15 +124,15 @@ public final class CdsExportMergedChartComposer {
      * Where a merged chart's records are in the file, and its record.
      *
      * @param positions per section, the chart's first position and count (NewCategory included)
-     * @param record the chart's {@value CdsMergedChartContract#CHART_RECORD} record, or null when
-     *     NewCategory is not selected and none is written
+     * @param carrierWritten whether this chart's demographic carrier was written; its document
+     *     is streamed from protected storage and is not retained in the result
      * @param carried the chart's Demographics and native demographic occurrences, which are in its
      *     record (or, without NewCategory, not exported) instead of the file's sections
      */
     public record Member(
             int chart,
             SortedMap<CdsCategory, CdsMergedChartContract.Range> positions,
-            CdsMergedChartContract.ChartRecord record,
+            boolean carrierWritten,
             List<CdsExportIdentityDto> carried) {
         @Override
         public String toString() {
@@ -182,135 +178,161 @@ public final class CdsExportMergedChartComposer {
         if (parts.isEmpty()) invalid();
         int head = parts.getFirst().chart;
         var written = new EnumMap<CdsCategory, Long>(CdsCategory.class);
-        var positions = new ArrayList<TreeMap<CdsCategory, CdsMergedChartContract.Range>>();
-        var standalone = new ArrayList<ByteArrayOutputStream>();
-        var carried = new ArrayList<List<CdsExportIdentityDto>>();
-        var prefixes = new ArrayList<byte[]>();
-        var suffixes = new ArrayList<byte[]>();
-        var inputs = new ArrayList<InputStream>();
+        var sections = new EnumMap<CdsCategory, BufferedSpool>(CdsCategory.class);
+        var documents = new ArrayList<CdsExportStagedFileDto>();
+        var members = new ArrayList<Member>();
+        byte[] headPrefix = null, headSuffix = null;
+        Throwable primary = null;
         try {
-            for (var part : parts) {
-                checkpoint.run();
-                if (part.xml == null || part.occurrences.isEmpty()) invalid();
-                // The composer writes occurrences back to back, sections in order.
-                for (int index = 1; index < part.occurrences.size(); index++) {
-                    var previous = part.occurrences.get(index - 1);
-                    var range = part.occurrences.get(index);
-                    if (range.offset() != previous.offset() + previous.length()
-                            || range.category().ordinal() < previous.category().ordinal())
-                        invalid();
-                }
-                var input = new BufferedInputStream(store.open(part.xml), 65536);
-                inputs.add(input);
-                prefixes.add(exactly(input, part.occurrences.getFirst().offset(), checkpoint));
-                positions.add(new TreeMap<>());
-                standalone.add(new ByteArrayOutputStream());
-                carried.add(new ArrayList<>());
-            }
-            output.write(prefixes.getFirst());
-            int[] next = new int[parts.size()];
-            for (var category : CdsCategory.values()) {
-                for (int index = 0; index < parts.size(); index++) {
-                    var part = parts.get(index);
-                    long before = written.getOrDefault(category, 0L);
-                    long copied = 0;
-                    while (next[index] < part.occurrences.size()
-                            && part.occurrences.get(next[index]).category() == category) {
-                        checkpoint.run();
-                        var range = part.occurrences.get(next[index]++);
-                        var input = inputs.get(index);
-                        // A merged chart's own demographic records go into its standalone
-                        // document; everything else of it is the file's.
-                        byte[] start =
-                                exactly(
-                                        input,
-                                        Math.min(range.length(), NATIVE_DEMOGRAPHIC.length),
-                                        checkpoint);
-                        boolean demographic =
-                                index > 0
-                                        && (category == CdsCategory.DEMOGRAPHICS
-                                                || category == CdsCategory.NEW_CATEGORY
-                                                        && java.util.Arrays.equals(
-                                                                start, NATIVE_DEMOGRAPHIC));
-                        OutputStream target =
-                                demographic
-                                        ? (records ? standalone.get(index) : OutputStream.nullOutputStream())
-                                        : output;
-                        copy(input, start, range, target, checkpoint);
-                        if (!demographic) copied++;
-                        else carried.get(index).add(range.identity());
-                    }
-                    if (copied > 0) {
-                        written.put(category, before + copied);
-                        if (index > 0)
-                            positions
-                                    .get(index)
-                                    .put(category, new CdsMergedChartContract.Range(before + 1, copied));
-                    }
-                }
-            }
+            // One authenticated source is open at a time. Section spools preserve head/member
+            // order with fixed buffers; no document-sized array or per-member live stream remains.
             for (int index = 0; index < parts.size(); index++) {
-                if (next[index] != parts.get(index).occurrences.size()) invalid();
-                // To the authenticated end of the document.
-                suffixes.add(inputs.get(index).readAllBytes());
-            }
-            var members = new ArrayList<Member>();
-            for (int index = 1; index < parts.size(); index++) {
-                CdsMergedChartContract.ChartRecord record = null;
-                if (records) {
-                    var document = new ByteArrayOutputStream();
-                    document.write(prefixes.get(index));
-                    standalone.get(index).writeTo(document);
-                    document.write(suffixes.get(index));
-                    byte[] bytes = document.toByteArray();
-                    record =
-                            new CdsMergedChartContract.ChartRecord(
-                                    parts.get(index).chart,
-                                    head,
-                                    positions.get(index),
-                                    utf8(bytes),
-                                    CdsMergedChartContract.sha256(bytes));
-                    // A standalone CDS file of the chart's own Demographics, checked before it
-                    // is written.
-                    try {
-                        CdsMergedChartContract.verifyDocument(record);
-                    } catch (IllegalArgumentException malformed) {
-                        throw new IOException("CDS_EXPORT_MERGED_CHART_DOCUMENT_INVALID");
+                checkpoint.run();
+                var part = parts.get(index);
+                if (part.xml == null || part.occurrences.isEmpty()) invalid();
+                for (int occurrence = 1; occurrence < part.occurrences.size(); occurrence++) {
+                    var previous = part.occurrences.get(occurrence - 1);
+                    var range = part.occurrences.get(occurrence);
+                    if (range.offset() != Math.addExact(previous.offset(), previous.length())
+                            || range.category().ordinal() < previous.category().ordinal()) invalid();
+                }
+                var positions = new TreeMap<CdsCategory, CdsMergedChartContract.Range>();
+                var copied = new EnumMap<CdsCategory, Long>(CdsCategory.class);
+                var carried = new ArrayList<CdsExportIdentityDto>();
+                try (var input = new BufferedInputStream(store.open(part.xml), 65536);
+                        var demographic = new BufferedSpool(store, checkpoint)) {
+                    byte[] prefix = exactly(input, part.occurrences.getFirst().offset(), checkpoint);
+                    for (var range : part.occurrences) {
+                        checkpoint.run();
+                        byte[] start = exactly(input, Math.min(range.length(), NATIVE_DEMOGRAPHIC.length), checkpoint);
+                        boolean nativeDemographic = index > 0 && (range.category() == CdsCategory.DEMOGRAPHICS
+                                || range.category() == CdsCategory.NEW_CATEGORY && java.util.Arrays.equals(start, NATIVE_DEMOGRAPHIC));
+                        OutputStream target;
+                        if (nativeDemographic) {
+                            target = records ? demographic : OutputStream.nullOutputStream();
+                            carried.add(range.identity());
+                        } else {
+                            var spool = sections.get(range.category());
+                            if (spool == null) {
+                                spool = new BufferedSpool(store, checkpoint);
+                                sections.put(range.category(), spool);
+                            }
+                            target = spool;
+                            copied.merge(range.category(), 1L, Math::addExact);
+                        }
+                        copy(input, start, range, target, checkpoint);
+                    }
+                    // The source was already validated and its occurrence ranges cover every
+                    // section; the remaining bytes are only its closing envelope, through EOF.
+                    byte[] suffix = input.readAllBytes();
+                    for (var entry : copied.entrySet()) {
+                        long before = written.getOrDefault(entry.getKey(), 0L);
+                        if (index > 0) positions.put(entry.getKey(), new CdsMergedChartContract.Range(before + 1, entry.getValue()));
+                        written.put(entry.getKey(), Math.addExact(before, entry.getValue()));
+                    }
+                    if (index == 0) {
+                        headPrefix = prefix;
+                        headSuffix = suffix;
+                    } else {
+                        CdsExportStagedFileDto document = null;
+                        if (records) {
+                            document = store.stage("MERGED_DEMOGRAPHIC", targetDocument -> {
+                                targetDocument.write(prefix);
+                                demographic.transferTo(targetDocument);
+                                targetDocument.write(suffix);
+                            });
+                            documents.add(document);
+                            try (var check = store.open(document)) {
+                                CdsMergedChartContract.verifyDocument(part.chart, check, document.plaintextSha256());
+                            } catch (IllegalArgumentException malformed) {
+                                throw new IOException("CDS_EXPORT_MERGED_CHART_DOCUMENT_INVALID");
+                            }
+                        }
+                        members.add(new Member(part.chart, positions, records, List.copyOf(carried)));
                     }
                 }
-                members.add(
-                        new Member(
-                                parts.get(index).chart,
-                                positions.get(index),
-                                record,
-                                List.copyOf(carried.get(index))));
             }
+            output.write(Objects.requireNonNull(headPrefix));
+            for (var section : sections.values()) section.transferTo(output);
             if (records) {
-                long carriers = 0;
-                for (var member : members) {
-                    output.write(CdsExportMergedChartMapper.chartOccurrence(member.record()));
-                    carriers++;
+                for (int index = 0; index < members.size(); index++) {
+                    var member = members.get(index);
+                    CdsExportMergedChartMapper.writeChartOccurrence(output, member.chart(), head,
+                            member.positions(), documents.get(index), store, checkpoint);
                 }
+                long carriers = members.size();
                 if (links != null) {
                     output.write(CdsExportMergedChartMapper.linksOccurrence(links));
                     carriers++;
                 }
-                if (carriers > 0) written.merge(CdsCategory.NEW_CATEGORY, carriers, Long::sum);
+                if (carriers > 0) written.merge(CdsCategory.NEW_CATEGORY, carriers, Math::addExact);
             }
-            output.write(suffixes.getFirst());
+            output.write(Objects.requireNonNull(headSuffix));
             checkpoint.run();
             return new Result(written, members);
+        } catch (IOException | RuntimeException | Error failure) {
+            primary = failure;
+            throw failure;
         } finally {
-            IOException failure = null;
-            for (var input : inputs)
-                try {
-                    input.close();
-                } catch (IOException cleanup) {
-                    if (failure == null) failure = cleanup;
-                    else failure.addSuppressed(cleanup);
+            IOException cleanup = null;
+            for (var spool : sections.values()) {
+                try { spool.close(); }
+                catch (IOException failure) {
+                    if (cleanup == null) cleanup = failure; else cleanup.addSuppressed(failure);
                 }
-            if (failure != null) throw failure;
+            }
+            for (var document : documents) {
+                try { store.discardUnpublished(document); }
+                catch (IOException failure) {
+                    if (cleanup == null) cleanup = failure; else cleanup.addSuppressed(failure);
+                }
+            }
+            if (cleanup != null) {
+                if (primary != null) primary.addSuppressed(cleanup); else throw cleanup;
+            }
         }
+    }
+
+    /** Fixed-size plaintext buffers; overflow goes to the attempt's encrypted, authenticated spool. */
+    private static final class BufferedSpool extends OutputStream {
+        private final CdsExportSpoolService spool;
+        private final byte[] buffer = new byte[65536];
+        private int used;
+        private long chunks;
+
+        BufferedSpool(CdsExportStagingService store, Runnable checkpoint) {
+            spool = new CdsExportSpoolService(store, "MERGED_SECTION", checkpoint, 65536, 16);
+        }
+
+        @Override public void write(int value) throws IOException {
+            if (used == buffer.length) flush();
+            buffer[used++] = (byte) value;
+        }
+
+        @Override public void write(byte[] bytes, int offset, int length) throws IOException {
+            Objects.checkFromIndexSize(offset, length, bytes.length);
+            while (length > 0) {
+                if (used == buffer.length) flush();
+                int count = Math.min(length, buffer.length - used);
+                System.arraycopy(bytes, offset, buffer, used, count);
+                used += count; offset += count; length -= count;
+            }
+        }
+
+        @Override public void flush() throws IOException {
+            if (used == 0) return;
+            spool.append(Long.toString(chunks++), java.util.Arrays.copyOf(buffer, used));
+            used = 0;
+        }
+
+        void transferTo(OutputStream output) throws IOException {
+            flush();
+            try (var cursor = spool.open()) {
+                for (var entry = cursor.next(); entry != null; entry = cursor.next()) output.write(entry.value());
+            }
+        }
+
+        @Override public void close() throws IOException { spool.close(); }
     }
 
     /** Copies one occurrence whose first bytes were read, checking its SHA-256. */
@@ -335,7 +357,8 @@ public final class CdsExportMergedChartComposer {
             left -= read;
         }
         // Exactly the bytes the chart's EMITTED disposition was computed from.
-        if (!HexFormat.of().formatHex(digest.digest()).equals(range.sha256()))
+        if (!MessageDigest.isEqual(HexFormat.of().formatHex(digest.digest()).getBytes(StandardCharsets.US_ASCII),
+                range.sha256().getBytes(StandardCharsets.US_ASCII)))
             throw new IOException("CDS_EXPORT_MERGED_CHART_COPY_MISMATCH");
     }
 
@@ -346,19 +369,6 @@ public final class CdsExportMergedChartComposer {
         byte[] bytes = input.readNBytes((int) length);
         if (bytes.length != length) invalid();
         return bytes;
-    }
-
-    private static String utf8(byte[] bytes) throws IOException {
-        try {
-            return StandardCharsets.UTF_8
-                    .newDecoder()
-                    .onMalformedInput(CodingErrorAction.REPORT)
-                    .onUnmappableCharacter(CodingErrorAction.REPORT)
-                    .decode(ByteBuffer.wrap(bytes))
-                    .toString();
-        } catch (CharacterCodingException malformed) {
-            throw new IOException("CDS_EXPORT_MERGED_CHART_DOCUMENT_INVALID");
-        }
     }
 
     private static MessageDigest sha256() {

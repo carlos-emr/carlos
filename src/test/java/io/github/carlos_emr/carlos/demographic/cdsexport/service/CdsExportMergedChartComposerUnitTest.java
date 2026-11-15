@@ -88,7 +88,6 @@ class CdsExportMergedChartComposerUnitTest {
                         UUID.randomUUID().toString(),
                         1,
                         new SecretKeySpec(new byte[32], "AES"),
-                        8L << 20,
                         0,
                         () -> {});
     }
@@ -142,7 +141,8 @@ class CdsExportMergedChartComposerUnitTest {
                 .doesNotContainKey(CdsCategory.DEMOGRAPHICS);
         assertThat(member.carried()).hasSize(2);
         // The record's document is the merged chart's own standalone, schema-valid file.
-        var record = member.record();
+        assertThat(member.carrierWritten()).isTrue();
+        var record = carrier(output.toByteArray());
         assertThat(record.head()).isEqualTo(HEAD);
         CdsMergedChartContract.verifyDocument(record);
         assertThat(record.document())
@@ -179,7 +179,7 @@ class CdsExportMergedChartComposerUnitTest {
         assertThat(count(file, "<Demographics>")).isEqualTo(1);
         assertThat(file).contains("merged-note").doesNotContain("CARLOS.MergedChart.v1");
         assertThat(file).doesNotContain("CARLOS.MergeLinks.v1");
-        assertThat(result.members().getFirst().record()).isNull();
+        assertThat(result.members().getFirst().carrierWritten()).isFalse();
         // The head's own NewCategory record stays; the merged chart's native record goes nowhere.
         assertThat(result.occurrences()).containsEntry(CdsCategory.NEW_CATEGORY, 1L);
     }
@@ -213,8 +213,65 @@ class CdsExportMergedChartComposerUnitTest {
                 .hasMessage("CDS_EXPORT_MERGED_CHART_COPY_MISMATCH");
     }
 
+    @Test
+    void shouldStreamAndEraseLargeMemberSpools_withoutChangingUnicodeOrWhitespace() throws Exception {
+        String exact = " \t\r\n<>&😀".repeat(140_000);
+        String nativeJson = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(java.util.Map.of("value", exact));
+        var head = part(HEAD, "FAKE-Head", 1, "head-note");
+        var member = part(MERGED, "FAKE-Merged", 1, "member-note", nativeJson);
+        long before;
+        try (var files = Files.list(base.resolve("store"))) { before = files.count(); }
+        var output = new ByteArrayOutputStream();
+        new CdsExportMergedChartComposer().compose(store, output, List.of(head.part, member.part), links(), true, () -> {});
+        var carried = carrier(output.toByteArray());
+        CdsMergedChartContract.verifyDocument(carried);
+        var factory = javax.xml.parsers.DocumentBuilderFactory.newDefaultInstance();
+        factory.setNamespaceAware(true);
+        factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        factory.setAttribute(javax.xml.XMLConstants.ACCESS_EXTERNAL_DTD, "");
+        factory.setAttribute(javax.xml.XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+        // As in CdsXmlReaders: DTDs are prohibited; literal escaped text has no entity-size cap.
+        factory.setAttribute("jdk.xml.maxGeneralEntitySizeLimit", "0");
+        factory.setAttribute("jdk.xml.totalEntitySizeLimit", "0");
+        var document = factory.newDocumentBuilder().parse(new ByteArrayInputStream(carried.document().getBytes(StandardCharsets.UTF_8)));
+        String json = document.getElementsByTagNameNS("cds_dt", "Content").item(0).getTextContent();
+        assertThat(new com.fasterxml.jackson.databind.ObjectMapper().readTree(json).get("value").textValue()).isEqualTo(exact);
+        try (var files = Files.list(base.resolve("store"))) { assertThat(files.count()).isEqualTo(before); }
+        var broken = new java.io.OutputStream() {
+            @Override public void write(int value) throws IOException { throw new IOException("SYNTHETIC_OUTPUT_FAILURE"); }
+            @Override public void write(byte[] value, int offset, int length) throws IOException { throw new IOException("SYNTHETIC_OUTPUT_FAILURE"); }
+        };
+        assertThatThrownBy(() -> new CdsExportMergedChartComposer().compose(
+                store, broken, List.of(head.part, member.part), links(), true, () -> {}))
+                .hasMessage("SYNTHETIC_OUTPUT_FAILURE");
+        try (var files = Files.list(base.resolve("store"))) { assertThat(files.count()).isEqualTo(before); }
+    }
+
+    private static CdsMergedChartContract.ChartRecord carrier(byte[] bytes) throws Exception {
+        var factory = javax.xml.parsers.DocumentBuilderFactory.newDefaultInstance();
+        factory.setNamespaceAware(true);
+        factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        factory.setAttribute(javax.xml.XMLConstants.ACCESS_EXTERNAL_DTD, "");
+        factory.setAttribute(javax.xml.XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+        // As in CdsXmlReaders: DTDs are prohibited; literal escaped text has no entity-size cap.
+        factory.setAttribute("jdk.xml.maxGeneralEntitySizeLimit", "0");
+        factory.setAttribute("jdk.xml.totalEntitySizeLimit", "0");
+        var document = factory.newDocumentBuilder().parse(new ByteArrayInputStream(bytes));
+        var records = document.getElementsByTagNameNS("cds", "NewCategory");
+        for (int index = 0; index < records.getLength(); index++) {
+            var record = (org.w3c.dom.Element) records.item(index);
+            if (CdsMergedChartContract.CHART_RECORD.equals(record.getElementsByTagNameNS("cds", "CategoryName").item(0).getTextContent()))
+                return CdsMergedChartContract.chartRecord(record.getElementsByTagNameNS("cds_dt", "Content").item(0).getTextContent());
+        }
+        throw new AssertionError("Expected merged-chart carrier");
+    }
+
     /** A chart's document with Demographics, appointments and a native demographic record. */
     private Composed part(int chart, String name, int appointments, String note) throws Exception {
+        return part(chart, name, appointments, note, "{}");
+    }
+
+    private Composed part(int chart, String name, int appointments, String note, String nativeJson) throws Exception {
         var composed = new Composed(chart);
         String key =
                 CdsImportKeys.hash("carlos-export-patient-v1", "run", "sender", Integer.toString(chart));
@@ -251,7 +308,7 @@ class CdsExportMergedChartComposerUnitTest {
                                                                                     xml,
                                                                                     CdsNativeExtensionContract
                                                                                             .NATIVE_DEMOGRAPHIC_CATEGORY,
-                                                                                    "{}")));
+                                                                                    nativeJson)));
                                                 },
                                                 disposition -> {},
                                                 Long.MAX_VALUE,

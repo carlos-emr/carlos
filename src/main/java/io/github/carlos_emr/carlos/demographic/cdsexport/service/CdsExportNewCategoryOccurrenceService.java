@@ -224,6 +224,13 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                                                 checked,
                                                 retained,
                                                 control::checkpoint);
+                        // A merged-chart record another CARLOS wrote is not this chart's: it is
+                        // accounted here, named in the ReadMe and never written again.
+                        if (CdsExportRetainedMergedChartRecords.received(fields)) {
+                            for (var field : fields)
+                                if (!consumed.add(field.id())) invalid();
+                            continue;
+                        }
                         var content =
                                 new CdsExportRetainedSectionWriter()
                                         .prepareChanges(

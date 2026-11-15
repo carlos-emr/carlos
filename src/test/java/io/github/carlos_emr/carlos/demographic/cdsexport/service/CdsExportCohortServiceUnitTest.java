@@ -110,6 +110,26 @@ class CdsExportCohortServiceUnitTest {
     }
 
     @Test
+    void shouldPreservePhysicalPhysicianText_forStandaloneAndMergedCohortRows() throws Exception {
+        for (String value : List.of("P".repeat(250), "😀".repeat(250), "\t".repeat(250))) {
+            String physical = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(
+                    new io.github.carlos_emr.carlos.commn.dto.CdsExportSelectionRowDto(27, value));
+            var selected = selection(physical + "\n" + row(28, null), 2);
+            var sealed = cohorts.prepare(lease, selected, control);
+            when(ledger.cohort(lease)).thenReturn(sealed.member());
+            try (var cursor = cohorts.open(sealed, control)) {
+                assertThat(cursor.next().selection().physicianNo()).isEqualTo(value);
+                assertThat(cursor.next().patient()).isEqualTo(28);
+                assertThat(cursor.next()).isNull();
+                assertThat(cursor.complete()).isTrue();
+            }
+            var group = new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportMergeGroupDto(
+                    27, value, List.of(28), List.of(27), List.of(1), List.of());
+            assertThat(group.physicianNo()).isEqualTo(value);
+        }
+    }
+
+    @Test
     void shouldIssueOnlyTheExactSealedPatientSequence_andExpireEachScopeOnAdvanceOrClose()
             throws Exception {
         var selected = selection(row(27, "100") + row(28, null), 2);

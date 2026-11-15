@@ -23,5 +23,14 @@ package io.github.carlos_emr.carlos.commn.dto;
 
 /** Bounded scalar selection projection; no patient entity graph or status-based exclusion. */
 public record CdsExportSelectionRowDto(int demographicNo, String physicianNo) {
+    /** demographic.provider_no is varchar(250); selection keeps even orphaned native text. */
+    public static boolean validPhysician(String value) {
+        return value == null || value.codePointCount(0, value.length()) <= 250
+                && value.codePoints().noneMatch(cp -> cp >= 0xd800 && cp <= 0xdfff);
+    }
+
+    /** Worst-case JSON escaping of the physical column, plus the two scalar member names. */
+    public static final int MAX_SELECTION_LINE_BYTES = 2 * 250 * 6 + 128;
+
     @Override public String toString() { return "CdsExportSelectionRowDto[protected]"; }
 }

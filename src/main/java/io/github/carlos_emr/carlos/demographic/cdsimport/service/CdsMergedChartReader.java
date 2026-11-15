@@ -81,7 +81,7 @@ final class CdsMergedChartReader {
      * @param charts each merged chart's record
      * @param links the file's links record, or null when it has none
      */
-    record Carriers(List<CdsMergedChartContract.ChartRecord> charts, CdsMergedChartContract.LinksRecord links) {
+    record Carriers(List<ChartScope> charts, CdsMergedChartContract.LinksRecord links) {
         Carriers {
             charts = List.copyOf(charts);
         }
@@ -95,6 +95,13 @@ final class CdsMergedChartReader {
         public String toString() {
             return "CdsMergedChartReader.Carriers[protected]";
         }
+    }
+
+    /** Keep only member identities and ranges after each document has been checked. */
+    record ChartScope(int chart, int head,
+            java.util.SortedMap<CdsCategory, CdsMergedChartContract.Range> positions) {
+        ChartScope { positions = java.util.Collections.unmodifiableSortedMap(new java.util.TreeMap<>(positions)); }
+        @Override public String toString() { return "CdsMergedChartReader.ChartScope[protected]"; }
     }
 
     /** A merged-chart record of the file failed its check: the patient is refused for review. */
@@ -118,7 +125,7 @@ final class CdsMergedChartReader {
     Carriers read(Path manifest, String senderId) throws IOException, InvalidCarrier {
         verifySeal(manifest);
         var sections = new EnumMap<CdsCategory, Long>(CdsCategory.class);
-        var chartRecords = new ArrayList<CdsMergedChartContract.ChartRecord>();
+        var chartRecords = new ArrayList<ChartScope>();
         var linkRecords = new ArrayList<CdsMergedChartContract.LinksRecord>();
         boolean[] invalid = {false};
         try {
@@ -138,11 +145,11 @@ final class CdsMergedChartReader {
                                     throw capacity;
                                 return; // A longer name cannot equal either record's name.
                             }
-                            if (CdsMergedChartContract.CHART_RECORD.equals(category))
-                                chartRecords.add(
-                                        CdsMergedChartContract.chartRecord(
-                                                content(record, category)));
-                            else if (CdsMergedChartContract.LINKS_RECORD.equals(category))
+                            if (CdsMergedChartContract.CHART_RECORD.equals(category)) {
+                                var chart = CdsMergedChartContract.chartRecord(content(record, category));
+                                CdsMergedChartContract.verifyDocument(chart);
+                                chartRecords.add(new ChartScope(chart.chart(), chart.head(), chart.positions()));
+                            } else if (CdsMergedChartContract.LINKS_RECORD.equals(category))
                                 linkRecords.add(
                                         CdsMergedChartContract.linksRecord(
                                                 content(record, category)));
@@ -165,8 +172,6 @@ final class CdsMergedChartReader {
                 if (record.head() != head || record.chart() == head || !members.add(record.chart()))
                     throw new InvalidCarrier();
                 positions.add(record.positions());
-                // The chart's own schema-valid standalone document, with the digest it states.
-                CdsMergedChartContract.verifyDocument(record);
             }
             CdsMergedChartContract.requirePositions(sections, positions);
             var links = linkRecords.isEmpty() ? null : linkRecords.getFirst();
@@ -200,7 +205,8 @@ final class CdsMergedChartReader {
             byte[] buffer = new byte[65536];
             for (int read; (read = input.read(buffer)) >= 0; ) digest.update(buffer, 0, read);
         }
-        if (!CdsPaths.hex(digest.digest()).equals(sealed))
+        if (!MessageDigest.isEqual(CdsPaths.hex(digest.digest()).getBytes(java.nio.charset.StandardCharsets.US_ASCII),
+                sealed.getBytes(java.nio.charset.StandardCharsets.US_ASCII)))
             throw new CdsImportException("PARSED_METADATA_HASH_MISMATCH");
     }
 

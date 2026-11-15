@@ -107,7 +107,7 @@ public class CdsExportMergeGroupPlanner {
         var queried = new HashSet<Integer>();
         long listed = 0;
         try (var input = staging.open(inventory)) {
-            var lines = new CdsExportJsonLines(input, 1024, checkpoint);
+            var lines = new CdsExportJsonLines(input, CdsExportSelectionRowDto.MAX_SELECTION_LINE_BYTES, checkpoint);
             var batch = new ArrayList<Integer>(BATCH);
             com.fasterxml.jackson.databind.JsonNode node;
             while ((node = lines.next()) != null) {

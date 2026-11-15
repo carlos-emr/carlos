@@ -3851,9 +3851,19 @@
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsNativeIssuesDto.java",
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportIssueMarkerMapper.java",
         "src/main/java/io/github/carlos_emr/carlos/casemgmt/dao/CaseManagementIssueDAO.java",
-        "src/main/java/io/github/carlos_emr/carlos/casemgmt/dao/CaseManagementIssueDAOImpl.java"
+        "src/main/java/io/github/carlos_emr/carlos/casemgmt/dao/CaseManagementIssueDAOImpl.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsMergedChartContract.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsNativeExtensionContract.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMergedChartReader.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportMergeGroupPlanner.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportMergedChartComposer.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportMergedChartMapper.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportMergedChartReadMe.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedMergedChartRecords.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportMergePrivilegeSourceReader.java",
+        "src/main/java/io/github/carlos_emr/carlos/commn/dto/CdsExportSelectionRowDto.java"
       ],
-      "normalization": "Schema-defined logical whitespace only (plus separately audited reviewed scalar overlay when applicable); original values retain exact path, namespace, type, repetition and precision. Codes, residual Name/DataType/Content, source reviewer/created clocks and unsupported structured metadata are not reinterpreted as successful generic Notes. Category anchors can exist without projecting these facts. The CARLOS.Appointment.Source.v1 record of a CARLOS sender is retained here like every other NewCategory record and is additionally read for the Appointments element it names (appointment-calendar); it is never itself a native row. CARLOS.NativeIssues.v1 carries one note-free system marker as version 1 JSON (casemgmt_issue and issue objects). Each marker restores independently, preserving duplicate-row cardinality without a count-dependent receipt. A unique receiving catalogue code must match type and access role; its shared metadata is never edited. Restricted program identities require the selected receiving program. Flags, patient issue type and source change time are restored; catalogue metadata and all original bytes remain protected source. Malformed data and missing or changed mappings refuse explicitly. On re-export a previously restored carrier becomes CARLOS.NativeIssues.Source.v1 with unchanged payload; only current rows produce active carriers, so deleted or category-excluded markers cannot be resurrected.",
+      "normalization": "Schema-defined logical whitespace only (plus separately audited reviewed scalar overlay when applicable); original values retain exact path, namespace, type, repetition and precision. Codes, residual Name/DataType/Content, source reviewer/created clocks and unsupported structured metadata are not reinterpreted as successful generic Notes. Category anchors can exist without projecting these facts. The CARLOS.Appointment.Source.v1 record of a CARLOS sender is retained here like every other NewCategory record and is additionally read for the Appointments element it names (appointment-calendar); it is never itself a native row. CARLOS.NativeIssues.v1 carries one note-free system marker as version 1 JSON (casemgmt_issue and issue objects). Each marker restores independently, preserving duplicate-row cardinality without a count-dependent receipt. A unique receiving catalogue code must match type and access role; its shared metadata is never edited. Restricted program identities require the selected receiving program. Flags, patient issue type and source change time are restored; catalogue metadata and all original bytes remain protected source. Malformed data and missing or changed mappings refuse explicitly. On re-export a previously restored carrier becomes CARLOS.NativeIssues.Source.v1 with unchanged payload; only current rows produce active carriers, so deleted or category-excluded markers cannot be resurrected. CARLOS.MergedChart.v1 and CARLOS.MergeLinks.v1 describe a sending group whose clinical records are all imported onto the head. Before any native write, chart identifiers, unique memberships, bounded nonoverlapping occurrence ranges, embedded demographic document identity/schema and SHA-256, and link/privilege ownership are validated. Invalid carriers refuse the patient with CDS_MERGED_CHART_CARRIER_INVALID. Valid merge carriers are protected source only: no receiving member chart or merge/privilege row is created. Re-export accounts for these historical carriers in the ReadMe and reconciliation audit without presenting stale sending positions as current records. Active sender groups use the greatest outgoing link id, and the smallest chart in a cycle, as the deterministic head rule; every member must pass its own access checks. Export reads one member document at a time and writes fixed-size buffers to encrypted section spools; member demographic documents are staged, schema/digest checked and streamed into their JSON carriers. Temporary spools are erased on success or failure. Import retains only each already-validated member identity and ranges rather than every embedded document. Selection preserves the full physical demographic.provider_no value, including native spacing and characters, without treating it as an authorization identifier.",
       "normativeBasis": [
         "EMR Data Migration Implementation Guide v1.1 section 18.1 (NewCategory)",
         "EMR Data Migration Requirements v1.1 DP02.01",
@@ -3881,7 +3891,12 @@
         "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryProjectionIntegrationTest.java",
         "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportIssueMarkerMapperUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsNativeIssuesMariaDbIntegrationTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedSectionWriterUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedSectionWriterUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsMergedChartContractUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMergedChartReaderUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportMergedChartComposerUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedMergedChartRecordsUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportMergedChartMariaDbIntegrationTest.java"
       ],
       "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
     },
@@ -4188,7 +4203,7 @@
     "src/main/java/io/github/carlos_emr/carlos/commn/model/ProfessionalContact.java": "f20b8173073ba12f3da1b9dc2bc63708d5a2a9c2d45adf71c04396b85de8c5f1",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsAppointmentSourceContract.java": "ae72ee89e45114234a1ac7e5ee7a71f9af745b7eba75692794fef0f73c84c1ae",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsDemographicCarrierContract.java": "1089d17c94b69259458b0c5ef1c2714b9b5d4854ebe30019b6469f04b1cc88e4",
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsNativeExtensionContract.java": "565fab36dd29993adaf9400cfd51386b16e07f38cc8387b5be48e826a0024284",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsNativeExtensionContract.java": "ab6808ae185e9c9b1a61ec50efe238287e27dc20909a7a2733bc49e9b45fbeca",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsPatientStatusLabels.java": "72b2b720de7a371ac3a05a1754288f552b58080a9dc6856965a5e049c4766701",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsPreparedAllergyDefaults.java": "bcd4768cc2f6d342d625e78c1d33b3e0d05827cabddd0378d8e013c6947db632",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsPreparedHistoryDefaults.java": "8a70e8a839689f5a34f104920ab39fde1fa069f743483e64b26feefe44919407",
@@ -4272,7 +4287,16 @@
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryExtensionPersister.java": "371070d15dfc538ceaeef6b49216e97ada66e67978657b9eefe57f493ead363a",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryExtensionReader.java": "326d0089d35de06e4fb99c01254ed35b5ca183971428dd14cbca04c9cfc8b767",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsNativeChildSpool.java": "76684cb3ebcb756e1dd120fdb1fb90613def57852f814d18b8b0c854f8fe23e9",
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportPlanningService.java": "699a44d5af1a3d0cd7e531fba3b12af532aeda9b5654585c8a91a2f6a1577515",
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportLedgerService.java": "5a75b0f7efd00e9a9af76de11797ed221d354e7af941177e11adeb2cea40e962"
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportPlanningService.java": "2796ad9c68409842bf5ade13a295fc38b36e546428e847474a524b5e9abfb934",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportLedgerService.java": "5a75b0f7efd00e9a9af76de11797ed221d354e7af941177e11adeb2cea40e962",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsMergedChartContract.java": "ada17891e7f60163cb0d7df44c41d10cf0d03a9e548dbbe5b4920cbcfea0bbf1",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMergedChartReader.java": "4f1c56522f378c866c887cf9ef0a711335d1b0f72b5046810ad5de51b9f5d38b",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportMergeGroupPlanner.java": "1be04f5b499552df41c099c87bbec3e583e325019131372137e287fd0ebe1cc7",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportMergedChartComposer.java": "18bd41284db51fd388247f026d0b1d875513c330c605f901a80cffc55d114876",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportMergedChartMapper.java": "33ba91c51d098a98a7ee8e2424db3ad41f3cdd69fa582a84a01b86c8c95ce27a",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportMergedChartReadMe.java": "886d68925e23dbe79f865ac262a6293d2c37fc4fdc05b69b074fa937f25af927",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedMergedChartRecords.java": "3a43dee09ee1a7bfb8690a80b999becc2d9918b3e96bf07bbc1327021720a3de",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportMergePrivilegeSourceReader.java": "149cc5e446dc8585e1a675060abc9b541cac2227684ac21bb754bfb1289320f7",
+    "src/main/java/io/github/carlos_emr/carlos/commn/dto/CdsExportSelectionRowDto.java": "2377a866f37f75dac3d865e7475199353d00c2a5a337a42592d4bfda89c35812"
   }
 }

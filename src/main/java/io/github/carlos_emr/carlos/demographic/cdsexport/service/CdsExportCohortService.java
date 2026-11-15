@@ -901,7 +901,7 @@ public class CdsExportCohortService {
         }
 
         Rows(InputStream input, CdsExportCommand command, long expected, Runnable checkpoint) {
-            lines = new CdsExportJsonLines(input, 1024, checkpoint);
+            lines = new CdsExportJsonLines(input, CdsExportSelectionRowDto.MAX_SELECTION_LINE_BYTES, checkpoint);
             this.command = command;
             this.expected = expected;
         }
@@ -927,16 +927,7 @@ public class CdsExportCohortService {
                     || id.intValue() < 1
                     || id.intValue() <= previous
                     || !(physician.isNull() || physician.isTextual())
-                    || physician.isTextual()
-                            && (physician.textValue().length() > 16
-                                    || physician
-                                            .textValue()
-                                            .codePoints()
-                                            .anyMatch(
-                                                    cp ->
-                                                            Character.isISOControl(cp)
-                                                                    || cp >= 0xd800
-                                                                            && cp <= 0xdfff)))
+                    || physician.isTextual() && !CdsExportSelectionRowDto.validPhysician(physician.textValue()))
                 invalid();
             int patient = id.intValue();
             String provider = physician.isNull() ? null : physician.textValue();

@@ -120,6 +120,7 @@ class CdsExportMergedChartMariaDbIntegrationTest {
 
     private final List<Integer> patients = new ArrayList<>();
     private final List<Integer> imported = new ArrayList<>();
+    private final List<Integer> fixtureIssues = new ArrayList<>();
     private final List<String> importRuns = new ArrayList<>();
     private final String token = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
     private Path base, documents, keys;
@@ -128,6 +129,7 @@ class CdsExportMergedChartMariaDbIntegrationTest {
     private JdbcTemplate sql;
     private CdsExportRecipientFixture recipient;
     private String run;
+    private final List<String> exportRuns = new ArrayList<>();
 
     @BeforeEach
     void ownedDatabaseStorageAndPolicy() throws Exception {
@@ -174,6 +176,12 @@ class CdsExportMergedChartMariaDbIntegrationTest {
         settings.setProperty("cds.export.minimumFreeBytes", "0");
         settings.setProperty("cds.export.policyRoot", policy.toString());
         settings.setProperty("DOCUMENT_DIR", documents.toString());
+        // An imported chart's witnesses are sealed with the import's key, and its retained
+        // source is read from the import's staging root (see importer()).
+        settings.setProperty("cds.nativeBaseline.keyRoot", keys.toString());
+        settings.setProperty("cds.nativeBaseline.activeKey", "primary");
+        settings.setProperty(
+                "cds.import.stagingRoot", directory(base.resolve("import-runs")).toString());
         context = new AnnotationConfigApplicationContext();
         context.getEnvironment().setActiveProfiles("cds-export-cli");
         context.getEnvironment()
@@ -197,12 +205,6 @@ class CdsExportMergedChartMariaDbIntegrationTest {
     void eraseOwnedRowsAndFiles() throws Exception {
         try {
             if (sql != null) {
-                if (run != null) {
-                    sql.update("delete from cds_export_held_patient where run_id=?", run);
-                    sql.update("delete from cds_export_event where run_id=?", run);
-                    sql.update("delete from cds_export_attempt where run_id=?", run);
-                    sql.update("delete from cds_export_run where id=?", run);
-                }
                 // A run a failed assertion left stopped would keep the clinic in maintenance.
                 for (String importRun : importRuns)
                     if (List.of("INCOMPLETE", "RECONCILIATION_REQUIRED")
@@ -212,6 +214,12 @@ class CdsExportMergedChartMariaDbIntegrationTest {
                         } catch (Exception failed) {
                             throw new IOException("Import run left in maintenance", failed);
                         }
+                for (String exportRun : exportRuns) {
+                    sql.update("delete from cds_export_held_patient where run_id=?", exportRun);
+                    sql.update("delete from cds_export_event where run_id=?", exportRun);
+                    sql.update("delete from cds_export_attempt where run_id=?", exportRun);
+                    sql.update("delete from cds_export_run where id=?", exportRun);
+                }
                 eraseImports();
                 var charts = new ArrayList<>(patients);
                 charts.addAll(imported);
@@ -226,6 +234,7 @@ class CdsExportMergedChartMariaDbIntegrationTest {
                             "_demographic$" + patient);
                     eraseChart(patient);
                 }
+                for (int issue : fixtureIssues) sql.update("delete from issue where issue_id=?", issue);
                 sql.update("delete from secObjPrivilege where roleUserGroup=?", PROVIDER);
                 sql.update("delete from provider where provider_no=?", PROVIDER);
             }
@@ -246,7 +255,10 @@ class CdsExportMergedChartMariaDbIntegrationTest {
     void shouldImportEveryMergedChartsRecordsOntoOneChart_whenAMergedGroupMakesTheRoundTrip()
             throws Exception {
         seed(4);
-        for (int chart : List.of(HEAD, MEMBER, CHAINED)) records(chart);
+        for (int chart : List.of(HEAD, MEMBER, CHAINED)) {
+            records(chart);
+            historyRecords(chart);
+        }
         // The chart merged into the head, a chart merged into that one, an older merge naming a
         // chart outside the group that was undone, and the Merge Records page's privilege rows.
         link(MEMBER, HEAD, 0);
@@ -268,6 +280,8 @@ class CdsExportMergedChartMariaDbIntegrationTest {
         assertThat(count(xml, "Appointments")).isEqualTo(3);
         assertThat(count(xml, "AllergiesAndAdverseReactions")).isEqualTo(3);
         assertThat(count(xml, "Reports")).isEqualTo(3);
+        assertThat(count(xml, "FamilyHistory")).isEqualTo(3);
+        assertThat(categories(xml, "CARLOS.NativeIssues.v1")).isEqualTo(3);
         assertThat(
                         entries.keySet().stream()
                                 .filter(name -> name.contains("/Reports/"))
@@ -381,6 +395,18 @@ class CdsExportMergedChartMariaDbIntegrationTest {
                 .isEqualTo("FAKE-MERGED-" + token.toUpperCase(Locale.ROOT) + "-" + HEAD);
         assertThat(rows("appointment", chart)).isEqualTo(3);
         assertThat(rows("allergies", chart)).isEqualTo(3);
+        assertThat(rows("casemgmt_note", chart)).isEqualTo(3);
+        assertThat(sql.queryForList("select encounter_type from casemgmt_note where demographic_no=?",
+                String.class, chart)).containsOnly("Exact  merged encounter");
+        assertThat(sql.queryForList("select e.value from casemgmt_note_ext e join casemgmt_note n on n.note_id=e.note_id "
+                + "where n.demographic_no=? and e.key_val='Treatment'", String.class, chart))
+                .containsExactlyInAnyOrder("First 0", "Second 0", "First 1", "Second 1", "First 2", "Second 2");
+        assertThat(sql.queryForObject("select count(*) from casemgmt_note_ext e join casemgmt_note n on n.note_id=e.note_id "
+                + "where n.demographic_no=? and e.key_val='Start Date' and e.value='YYYY' and e.date_value='2001-07-23'",
+                Long.class, chart)).isEqualTo(3);
+        assertThat(sql.queryForObject("select count(*) from casemgmt_issue p join issue i on i.issue_id=p.issue_id "
+                + "where p.demographic_no=? and i.code=? and p.acute=1 and p.major=1 and p.type='general  ' "
+                + "and p.update_date='2025-01-02 03:04:05'", Long.class, chart, "CDSM" + token)).isEqualTo(3);
         assertThat(
                         new TreeSet<>(
                                 sql.queryForList(
@@ -420,6 +446,27 @@ class CdsExportMergedChartMariaDbIntegrationTest {
                         CdsMergedChartContract.CHART_RECORD,
                         CdsMergedChartContract.CHART_RECORD,
                         CdsMergedChartContract.LINKS_RECORD);
+
+        // Exported again from the receiving CARLOS, the chart is one chart: every record is
+        // there, and the records the sender wrote about its own charts are not written again.
+        var again = entries(export(List.of(chart), EnumSet.allOf(CdsCategory.class), true));
+        var againFiles = again.keySet().stream().filter(name -> name.endsWith(".xml")).toList();
+        assertThat(againFiles).hasSize(1);
+        String reexported = new String(again.get(againFiles.getFirst()), StandardCharsets.UTF_8);
+        assertThat(count(reexported, "Appointments")).isEqualTo(3);
+        assertThat(count(reexported, "AllergiesAndAdverseReactions")).isEqualTo(3);
+        assertThat(count(reexported, "Reports")).isEqualTo(3);
+        assertThat(count(reexported, "FamilyHistory")).isEqualTo(3);
+        assertThat(categories(reexported, "CARLOS.NativeIssues.v1")).isEqualTo(3);
+        assertThat(categories(reexported, "CARLOS.NativeIssues.Source.v1")).isEqualTo(3);
+        assertThat(categories(reexported, CdsMergedChartContract.CHART_RECORD)).isZero();
+        assertThat(categories(reexported, CdsMergedChartContract.LINKS_RECORD)).isZero();
+        assertThat(text(again, "ReadMe.txt"))
+                .contains(
+                        line(
+                                CdsExportSupportingFilesComposer.NOT_EXPORTED,
+                                CdsExportRetainedMergedChartRecords.NOT_EXPORTED_LABEL + ": 3"))
+                .doesNotContain(CdsExportMergedChartReadMe.CHARTS_SELECTED);
     }
 
     @Test
@@ -505,6 +552,7 @@ class CdsExportMergedChartMariaDbIntegrationTest {
                                                     CdsCategory.APPOINTMENTS,
                                                     CdsCategory.NEW_CATEGORY)))
                             .id();
+            exportRuns.add(run);
             assertStopped(facade.executeDelegated(OPERATOR, PROVIDER, run));
             assertThat(keptAndAdopted(1)).containsExactly(1L, 0L);
 
@@ -522,13 +570,29 @@ class CdsExportMergedChartMariaDbIntegrationTest {
             assertStopped(facade.executeDelegated(OPERATOR, PROVIDER, run));
             assertThat(keptAndAdopted(3)).containsExactly(1L, 0L);
 
+            // Unmerge changes the file's membership; selecting the former member now writes
+            // that chart alone. Re-merging and then reversing the head must each rebuild too.
+            sql.update("update demographic_merged set deleted=1 where demographic_no=? and deleted=0", patient(MEMBER));
+            facade.resumeDelegated(OPERATOR, PROVIDER, run);
+            assertStopped(facade.executeDelegated(OPERATOR, PROVIDER, run));
+            assertThat(keptAndAdopted(4)).containsExactly(1L, 0L);
+            link(MEMBER, HEAD, 0);
+            facade.resumeDelegated(OPERATOR, PROVIDER, run);
+            assertStopped(facade.executeDelegated(OPERATOR, PROVIDER, run));
+            assertThat(keptAndAdopted(5)).containsExactly(1L, 0L);
+            sql.update("update demographic_merged set deleted=1 where demographic_no=? and deleted=0", patient(MEMBER));
+            link(HEAD, MEMBER, 0);
+            facade.resumeDelegated(OPERATOR, PROVIDER, run);
+            assertStopped(facade.executeDelegated(OPERATOR, PROVIDER, run));
+            assertThat(keptAndAdopted(6)).containsExactly(1L, 0L);
+
             // The storage is fixed: the last attempt adopts the rebuilt file and publishes.
             Files.setPosixFilePermissions(
                     documents.resolve(filename(OTHER)), PosixFilePermissions.fromString("rw-------"));
             facade.resumeDelegated(OPERATOR, PROVIDER, run);
             var last = facade.executeDelegated(OPERATOR, PROVIDER, run);
             assertThat(last.state()).isEqualTo(CdsExportState.READY);
-            assertThat(keptAndAdopted(4).get(1)).isEqualTo(1L);
+            assertThat(keptAndAdopted(7).get(1)).isEqualTo(1L);
             var entries = entries(download(facade));
             assertThat(entries.keySet().stream().filter(name -> name.endsWith(".xml")))
                     .hasSize(2);
@@ -536,7 +600,7 @@ class CdsExportMergedChartMariaDbIntegrationTest {
                     .contains(
                             line(
                                     CdsExportMergedChartReadMe.LINKS,
-                                    "1 (active 1, deleted 0, outside this file 0)"));
+                                    "3 (active 1, deleted 2, outside this file 0)"));
         }
     }
 
@@ -546,6 +610,7 @@ class CdsExportMergedChartMariaDbIntegrationTest {
         var facade = context.getBean(CdsExportService.class);
         try (var spring = bridge()) {
             run = facade.acceptDelegated(OPERATOR, command(selected, categories)).id();
+            exportRuns.add(run);
             CdsExportJobDto job = facade.executeDelegated(OPERATOR, PROVIDER, run);
             assertThat(job.state()).isEqualTo(CdsExportState.READY);
             assertThat(job.heldBack()).isEqualTo(!complete);
@@ -575,7 +640,8 @@ class CdsExportMergedChartMariaDbIntegrationTest {
 
     private CdsExportCommand command(List<Integer> selected, Set<CdsCategory> categories) {
         return new CdsExportCommand(
-                "merged-" + token,
+                // One submission per job: a second job of the test is another submission.
+                "merged-" + token + "-" + exportRuns.size(),
                 PROVIDER,
                 null,
                 CdsLogicalProfile.ONTARIO_MD_5_2,
@@ -948,6 +1014,41 @@ class CdsExportMergedChartMariaDbIntegrationTest {
                 PROVIDER);
     }
 
+    /** Native CPP extensions and unlinked markers survive every member-to-head boundary. */
+    private void historyRecords(int index) {
+        int patient = patient(index);
+        int family = definition("FamHistory");
+        int marker = definition("CDSM" + token);
+        sql.update("insert into casemgmt_note(note_id,update_date,observation_date,demographic_no,provider_no,"
+                + "note,signed,signing_provider_no,program_no,reporter_caisi_role,reporter_program_team,history,"
+                + "locked,position,uuid,encounter_type) values(?,'2025-01-02 03:04:05','2025-01-02 03:04:05',"
+                + "?,?,?,1,?,'','1','0',?,'0',0,?,'Exact  merged encounter')",
+                patient, patient, PROVIDER, "FAKE merged CPP " + index, PROVIDER,
+                "FAKE merged CPP " + index, UUID.randomUUID().toString());
+        String issue = "insert into casemgmt_issue(demographic_no,issue_id,acute,certain,major,resolved,program_id,type,update_date) "
+                + "values(?,?,1,0,1,0,NULL,'general  ','2025-01-02 03:04:05')";
+        sql.update(issue, patient, family);
+        int link = sql.queryForObject("select id from casemgmt_issue where demographic_no=? and issue_id=?",
+                Integer.class, patient, family);
+        sql.update("insert into casemgmt_issue_notes(id,note_id) values(?,?)", link, patient);
+        sql.update(issue, patient, marker);
+        sql.update("insert into casemgmt_note_ext(note_id,key_val,value,date_value) values"
+                + "(?,'Treatment',?,NULL),(?,'Treatment',?,NULL),(?,'Start Date','YYYY','2001-07-23')",
+                patient, "First " + index, patient, "Second " + index, patient);
+    }
+
+    private int definition(String code) {
+        var found = sql.queryForList("select issue_id from issue where code=? and type='system'", Integer.class, code);
+        if (!found.isEmpty()) {
+            assertThat(found).hasSize(1);
+            return found.getFirst();
+        }
+        sql.update("insert into issue(code,description,role,type,sortOrderId) values(?,?,'all','system',0)", code, "FAKE " + code);
+        int id = sql.queryForObject("select issue_id from issue where code=? and type='system'", Integer.class, code);
+        fixtureIssues.add(id);
+        return id;
+    }
+
     /** A Merge Records link, as the Merge Records page writes it. */
     private void link(int merged, int into, int deleted) {
         sql.update(
@@ -982,6 +1083,10 @@ class CdsExportMergedChartMariaDbIntegrationTest {
     /** A chart's rows this test or its imports wrote. */
     private void eraseChart(int patient) {
         sql.update("delete from log where demographic_no=?", patient);
+        sql.update("delete from casemgmt_note_ext where note_id in (select note_id from casemgmt_note where demographic_no=?)", patient);
+        sql.update("delete from casemgmt_issue_notes where id in (select id from casemgmt_issue where demographic_no=?)", patient);
+        sql.update("delete from casemgmt_issue where demographic_no=?", patient);
+        sql.update("delete from casemgmt_note where demographic_no=?", patient);
         sql.update(
                 "delete from document where document_no in (select document_no from ctl_document"
                         + " where module='demographic' and module_id=?)",

@@ -142,6 +142,12 @@ public final class CdsMergedChartContract {
 
     private CdsMergedChartContract() {}
 
+    private static boolean sameDigest(String actual, String expected) {
+        return MessageDigest.isEqual(actual.getBytes(StandardCharsets.US_ASCII),
+                expected.getBytes(StandardCharsets.US_ASCII));
+    }
+
+
     // ------------------------------------------------------------------------------------------
     // Sender identifiers
     // ------------------------------------------------------------------------------------------
@@ -466,8 +472,7 @@ public final class CdsMergedChartContract {
                         ranges,
                         object.path("document").textValue(),
                         object.path("documentSha256").textValue());
-        if (!sha256(record.document().getBytes(StandardCharsets.UTF_8))
-                .equals(record.documentSha256())) throw invalid();
+        if (!sameDigest(sha256(record.document().getBytes(StandardCharsets.UTF_8)), record.documentSha256())) throw invalid();
         return record;
     }
 
@@ -731,33 +736,49 @@ public final class CdsMergedChartContract {
                         + " installs a resolver that always refuses")
     public static void verifyDocument(ChartRecord record) {
         byte[] bytes = record.document().getBytes(StandardCharsets.UTF_8);
-        if (!sha256(bytes).equals(record.documentSha256())) throw invalid();
-        var shape = new DocumentShape();
         try {
-            XMLReader reader = CdsXmlReaders.reader(256, 1024, 256, 128, 64);
-            ValidatorHandler schema = CdsWireSchema.newValidator();
-            schema.setContentHandler(shape);
-            schema.setErrorHandler(shape);
-            reader.setContentHandler(schema);
-            reader.setErrorHandler(shape);
-            var decoder =
-                    StandardCharsets.UTF_8
-                            .newDecoder()
-                            .onMalformedInput(CodingErrorAction.REPORT)
-                            .onUnmappableCharacter(CodingErrorAction.REPORT);
-            reader.parse(
-                    new InputSource(
-                            CdsXmlReaders.markupReader(
-                                    new InputStreamReader(new ByteArrayInputStream(bytes), decoder),
-                                    65_536,
-                                    IOException::new)));
-        } catch (SAXException | IOException | ParserConfigurationException failure) {
-            throw invalid();
+            verifyDocument(record.chart(), new ByteArrayInputStream(bytes), record.documentSha256());
+        } catch (IOException failure) { throw invalid(); }
+    }
+
+    /** Validates one streamed standalone document without retaining its clinical text. Caller owns input. */
+    public static void verifyDocument(int chart, java.io.InputStream input, String expectedDigest) throws IOException {
+        if (chart < 1 || expectedDigest == null || !expectedDigest.matches("[0-9a-f]{64}")) throw invalid();
+        MessageDigest digest;
+        try { digest = MessageDigest.getInstance("SHA-256"); }
+        catch (NoSuchAlgorithmException impossible) { throw new IllegalStateException(impossible); }
+        try (var checked = new java.security.DigestInputStream(new java.io.FilterInputStream(input) {
+            @Override public void close() { /* The caller closes and authenticates the input. */ }
+        }, digest)) {
+            var shape = new DocumentShape();
+            try {
+                XMLReader reader = CdsXmlReaders.reader(256, 1024, 256, 128, 64);
+                ValidatorHandler schema = CdsWireSchema.newValidator();
+                schema.setContentHandler(shape);
+                schema.setErrorHandler(shape);
+                reader.setContentHandler(schema);
+                reader.setErrorHandler(shape);
+                var decoder =
+                        StandardCharsets.UTF_8
+                                .newDecoder()
+                                .onMalformedInput(CodingErrorAction.REPORT)
+                                .onUnmappableCharacter(CodingErrorAction.REPORT);
+                reader.parse(
+                        new InputSource(
+                                CdsXmlReaders.markupReader(
+                                        new InputStreamReader(checked, decoder),
+                                        65_536,
+                                        IOException::new)));
+            } catch (SAXException | ParserConfigurationException failure) {
+                throw invalid();
+            }
+            checked.transferTo(java.io.OutputStream.nullOutputStream());
+            if (!sameDigest(HexFormat.of().formatHex(digest.digest()), expectedDigest)) throw invalid();
+            if (shape.patients != 1
+                    || shape.demographics != 1
+                    || !senderId(chart).equals(shape.vendorId)
+                    || shape.other) throw invalid();
         }
-        if (shape.patients != 1
-                || shape.demographics != 1
-                || !senderId(record.chart()).equals(shape.vendorId)
-                || shape.other) throw invalid();
     }
 
     /** What the document holds, read as it is validated. */

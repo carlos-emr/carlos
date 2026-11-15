@@ -364,6 +364,8 @@ public class CdsExportPatientDocumentService {
                                 // was not written because NewCategory was not selected: each is
                                 // an explicit OPERATIONAL decision here, not a hold and not a
                                 // silent omission. The package ReadMe states the counts.
+                                // Merged-chart records received from another CARLOS are kept as
+                                // import source, under their own rule.
                                 for (var withheld : expected.notSelected().entrySet())
                                     for (var table : withheld.getValue().entrySet())
                                         line(
@@ -374,6 +376,7 @@ public class CdsExportPatientDocumentService {
                                                         CdsExportFieldAssessmentDto.Outcome
                                                                 .OPERATIONAL,
                                                         expected.rule(withheld.getKey()),
+
                                                         table.getValue()));
                                 var coverage =
                                         new CdsExportCoverageValidator()

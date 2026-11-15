@@ -65,6 +65,8 @@ are added only after seal verification).
 
 | Marker | Type | Category | Import behaviour |
 | --- | --- | --- | --- |
+| `CARLOS.MergedChart.v1` | string (JSON) | NewCategory | A sending member's demographic document, digest, identity and section ranges. Validated before writes; every clinical record imports into the head. The member document remains protected source and does not create another receiving chart. |
+| `CARLOS.MergeLinks.v1` | string (JSON) | NewCategory | Sending chart membership, exact active/deleted/outside links and merge privileges. Validated and retained as source only; no merge link or access-control row is restored. |
 | `CARLOS.Allergy.Archived.v1` | boolean | Allergies | Restored as a native archived allergy only when `cds.import.mapping.restoreArchivedAllergies=true` (decision 9, default off). By default the allergy is imported active with warning `CDS_ALLERGY_ARCHIVED_SOURCE_MARKER`; when restored, `CDS_ALLERGY_ARCHIVED_SOURCE_RESTORED`. The decision is part of the run's ruleset and of each prepared allergy. |
 | `CARLOS.Allergy.AgeOfOnset.v1` | string | Allergies | Exact native age text (at most 4 characters). |
 | `CARLOS.Allergy.OnsetOfReaction.v1` | string | Allergies | Unknown, Immediate, Gradual or Slow, as the native onset code. |
@@ -557,3 +559,14 @@ date shifts refuse partial dates. Zero or unrepresentable calendar dates stay in
 the protected source with an explicit diagnostic and no invented native anchor.
 The same applies when JSON escaping makes a value exceed the preparation column's
 actual capacity. Unknown and operational extension keys remain source data.
+
+
+A CARLOS merged-chart file is imported onto one receiving chart. The importer checks the
+head and member identifiers, unique membership, section bounds and non-overlap, embedded
+demographic document schema and digest, and link/privilege ownership before planning native
+writes. A malformed carrier refuses that patient with `CDS_MERGED_CHART_CARRIER_INVALID`;
+other patients continue and the run remains incomplete for review. Valid files report
+`CDS_MERGED_CHARTS_IMPORTED` with the member count. On re-export, the sending merge records
+stay in protected import source and are named in the ReadMe, rather than presented as current
+positions. The receiving chart's current records, including issue markers and CPP values,
+are exported normally.

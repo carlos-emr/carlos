@@ -164,6 +164,68 @@ public final class CdsExportMergedChartMapper {
                 CdsMergedChartContract.json(record));
     }
 
+    /** Writes a member carrier directly from its authenticated staged document with fixed buffers. */
+    static void writeChartOccurrence(java.io.OutputStream output, int chart, int head,
+            Map<io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory, CdsMergedChartContract.Range> positions,
+            io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportStagedFileDto document,
+            CdsExportStagingService store, Runnable checkpoint) throws IOException {
+        String prefix = "<NewCategory><CategoryName>" + CdsMergedChartContract.CHART_RECORD
+                + "</CategoryName><CategoryDescription>" + CdsMergedChartContract.CHART_DESCRIPTION
+                + "</CategoryDescription><ResidualInfo><cdsd:DataElement><cdsd:Name>"
+                + CdsMergedChartContract.CHART_RECORD
+                + "</cdsd:Name><cdsd:DataType>string</cdsd:DataType><cdsd:Content>";
+        output.write(prefix.getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+        try (var input = store.open(document);
+                var reader = new java.io.InputStreamReader(input, java.nio.charset.StandardCharsets.UTF_8.newDecoder()
+                        .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                        .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT));
+                var json = new com.fasterxml.jackson.core.JsonFactory().createGenerator(new TokenXmlWriter(output, checkpoint))) {
+            json.writeStartObject();
+            json.writeNumberField("version", CdsMergedChartContract.VERSION);
+            json.writeStringField("chart", CdsMergedChartContract.senderId(chart));
+            json.writeStringField("head", CdsMergedChartContract.senderId(head));
+            json.writeObjectFieldStart("positions");
+            for (var entry : positions.entrySet()) {
+                json.writeObjectFieldStart(entry.getKey().wireName());
+                json.writeNumberField("first", entry.getValue().first());
+                json.writeNumberField("count", entry.getValue().count());
+                json.writeEndObject();
+            }
+            json.writeEndObject();
+            json.writeFieldName("document");
+            json.writeString(reader, -1);
+            json.writeStringField("documentSha256", document.plaintextSha256());
+            json.writeEndObject();
+        }
+        output.write("</cdsd:Content></cdsd:DataElement></ResidualInfo></NewCategory>"
+                .getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+    }
+
+    /** Compact JSON encoded as whitespace-stable XML text, including surrogate pairs across buffers. */
+    private static final class TokenXmlWriter extends java.io.Writer {
+        private final java.io.OutputStream output;
+        private final Runnable checkpoint;
+        TokenXmlWriter(java.io.OutputStream output, Runnable checkpoint) { this.output = output; this.checkpoint = checkpoint; }
+        @Override public void write(char[] chars, int offset, int length) throws IOException {
+            java.util.Objects.checkFromIndexSize(offset, length, chars.length);
+            checkpoint.run();
+            var text = new StringBuilder(length);
+            for (int i = offset; i < offset + length; i++) {
+                char value = chars[i];
+                if (value == ' ' || value < 0x20 || value >= 0x7f) {
+                    text.append("\\u");
+                    for (int shift = 12; shift >= 0; shift -= 4) text.append(Character.forDigit((value >>> shift) & 15, 16));
+                } else if (value == '<') text.append("&lt;");
+                else if (value == '>') text.append("&gt;");
+                else if (value == '&') text.append("&amp;");
+                else text.append(value);
+            }
+            output.write(text.toString().getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+        }
+        @Override public void flush() throws IOException { output.flush(); }
+        @Override public void close() throws IOException { flush(); }
+    }
+
     /** The NewCategory occurrence of the file's links record. */
     static byte[] linksOccurrence(CdsMergedChartContract.LinksRecord record) throws IOException {
         return occurrence(

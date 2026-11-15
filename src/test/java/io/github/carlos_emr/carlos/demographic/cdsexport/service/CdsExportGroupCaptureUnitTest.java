@@ -145,7 +145,6 @@ class CdsExportGroupCaptureUnitTest {
                                             run,
                                             1,
                                             new SecretKeySpec(new byte[32], "AES"),
-                                            8L << 20,
                                             0,
                                             call.getArgument(3));
                             return store;

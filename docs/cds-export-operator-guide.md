@@ -1278,3 +1278,20 @@ audited as `stream_failed`; both used to be reported and audited as a success.
 Each generated file is re-read with the JDK's predefined-entity ceilings
 lifted, so a large chart's escaped notes are no longer reported as failing the schema, and a
 file that cannot be re-read is reported as such rather than as a schema failure (#5845).
+
+
+## Charts linked by Merge Records
+
+Selecting a member exports its head and all linked members as one patient file, under the
+head's physician folder. Each member must pass its own access checks. If one fails, the
+whole group is held; review the protected ReadMe for the head and refused member. Counts
+in job status refer to patient files. The ReadMe also gives the selected-chart count,
+member-to-head mapping, per-member section counts and merge-link notes.
+
+A stopped job can keep and adopt an unchanged whole-group file. Merge, unmerge, head or
+privilege changes cause a rebuild on resume. Changes after an attempt's selection are
+reported; newly linked charts are considered on the next attempt. Cancel removes the kept
+files. Selecting NewCategory includes the exact member demographics and merge-link records;
+without it, the ReadMe names those omitted carriers while clinical sections still contain
+the selected records of every member. A receiving CARLOS puts all records on the head and
+keeps merge structure as protected source rather than recreating linked patient charts.

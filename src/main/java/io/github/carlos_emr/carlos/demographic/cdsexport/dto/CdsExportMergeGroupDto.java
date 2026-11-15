@@ -52,14 +52,7 @@ public record CdsExportMergeGroupDto(
         links = List.copyOf(links);
         shape = List.copyOf(shape);
         if (head < 1
-                || physicianNo != null
-                        && (physicianNo.length() > 16
-                                || physicianNo
-                                        .codePoints()
-                                        .anyMatch(
-                                                cp ->
-                                                        Character.isISOControl(cp)
-                                                                || cp >= 0xd800 && cp <= 0xdfff))
+                || !io.github.carlos_emr.carlos.commn.dto.CdsExportSelectionRowDto.validPhysician(physicianNo)
                 || !ascending(members, 1)
                 || members.contains(head)
                 || selected.isEmpty()
