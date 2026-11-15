@@ -26,12 +26,6 @@
       "disposition": "required installed retake; blocks release readiness"
     },
     {
-      "check": "prevention-brand-picker-units-routes",
-      "finding": 323,
-      "step": "every dose unit and route the catalogue prefills is shown by the Add Prevention form as given",
-      "disposition": "required installed retake; blocks release readiness"
-    },
-    {
       "check": "authz-read-admin-objects",
       "finding": 342,
       "step": "administration pages are refused without their menu object and served with it (lists every route that is not)",
@@ -215,6 +209,12 @@
       "finding": 148,
       "step": "the popup found no output-encoding defect",
       "disposition": "Source fix in this release line (0af51af0): casemgmt/showHistory.jsp encodes the heading and the patient name with the CARLOS HTML encoder. Manifest pin retired; retained as an active regression. Installed result on the packaged Ubuntu 26.04 Ontario install of the fix (2026-11-12): every step passed with the pin still present (reported unexpected-pass). Retaken after the retirement on the packaged Ubuntu 26.04 Ontario install of 291e630c (2026-11-12): every step passed as an ordinary PASS. A retake on the final release build is still required."
+    },
+    {
+      "check": "prevention-brand-picker-units-routes",
+      "finding": 323,
+      "step": "every dose unit and route the catalogue prefills is shown by the Add Prevention form as given",
+      "disposition": "Source fix for issue #5432: the Add Prevention form maps each catalogue route and dose unit to its own code (PreventionFormCodes) and shows any other value as given. Manifest pin retired and retained as an active regression. PASS on a local release/2026.08 server build (2026-11-11); a fresh installed PASS is still required."
     }
   ]
 }
