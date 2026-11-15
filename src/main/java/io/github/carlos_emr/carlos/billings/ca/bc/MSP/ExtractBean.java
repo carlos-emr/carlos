@@ -603,6 +603,10 @@ public class ExtractBean extends Object implements Serializable {
         }
         return retval;
     }
+    /**
+     * Rebuilds the claim the fixed-width formatter, the C02 checker and the WCB lines read. It must set
+     * every claim field they use: a field left out here is exported blank without any error.
+     */
     private static Billingmaster formatterClaim(io.github.carlos_emr.carlos.billings.ca.bc.data.BcBillingRows.ExtractClaimRow source, int billingNo) {
         Billingmaster result = new Billingmaster();
         result.setBillingNo(billingNo);
@@ -638,6 +642,8 @@ public class ExtractBean extends Object implements Serializable {
         result.setServiceEndTime(source.serviceEndTime());
         result.setBirthDate(source.birthDate());
         result.setCorrespondenceCode(source.correspondenceCode());
+        // P58: without it every exported claim carried twenty spaces instead of its comment.
+        result.setClaimComment(source.claimComment());
         result.setMvaClaimCode(source.mvaClaimCode());
         result.setIcbcClaimNo(source.icbcClaimNo());
         result.setOriginalClaim(source.originalClaim());

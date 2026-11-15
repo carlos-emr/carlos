@@ -115,7 +115,8 @@ class ImageRenderingStoredSignatureAccessUnitTest extends CarlosUnitTestBase {
     static Stream<Arguments> signaturePolicyCases() {
         return Stream.of(ModuleType.CONSULTATION, ModuleType.PRESCRIPTION, ModuleType.E_FORM).flatMap(module ->
                 Stream.of("demographic-exclusion", "chart-exclusion", "allowed", "module-only", "module-denied",
-                        "posted-open-for-excluded", "posted-excluded-for-open", "no-patient", "unknown-module", "stale-login")
+                        "posted-open-for-excluded", "posted-excluded-for-open", "no-patient", "unassigned-patient",
+                        "unknown-module", "stale-login")
                         .map(boundary -> Arguments.of(module, boundary)));
     }
 
@@ -138,7 +139,7 @@ class ImageRenderingStoredSignatureAccessUnitTest extends CarlosUnitTestBase {
         int patient = "posted-excluded-for-open".equals(boundary) ? 202 : 101;
         byte[] expected = patient == 101 ? privateBytes : otherBytes;
         DigitalSignature metadata = artifact("unknown-module".equals(boundary) ? ModuleType.getByName("FAKE_UNKNOWN") : module,
-                "no-patient".equals(boundary) ? null : patient, null);
+                "no-patient".equals(boundary) ? null : "unassigned-patient".equals(boundary) ? -1 : patient, null);
         DigitalSignature stored = artifact(module, patient, expected.clone());
         when(signatures.getDigitalSignatureMetadata(41)).thenReturn(metadata);
         when(signatures.getDigitalSignature(41)).thenReturn(stored);

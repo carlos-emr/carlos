@@ -36,7 +36,7 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.PreventionExt;
 
-public interface PreventionExtDao extends AbstractDao<PreventionExt> {
+public interface PreventionExtDao extends AbstractDao<PreventionExt>, CdsExportPreventionDataReadDao {
 
     public List<PreventionExt> findByPreventionId(Integer preventionId);
 

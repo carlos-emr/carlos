@@ -1,0 +1,33 @@
+{
+  "table": "native_document_files",
+  "engine": "TRUSTED_NATIVE_DOCUMENT_STORAGE",
+  "columns": [
+    {
+      "name": "content",
+      "type": "BINARY",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "document_no",
+      "type": "CANONICAL_DOCUMENT_ID",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "filename",
+      "type": "RELATIVE_NATIVE_FILENAME",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    }
+  ],
+  "primaryKeyColumns": [
+    "document_no"
+  ]
+}

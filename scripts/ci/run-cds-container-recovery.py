@@ -653,7 +653,8 @@ def main() -> None:
         require(isinstance(caps, dict) and type(caps.get("protocol")) is int and caps["protocol"] == 1
                 and type(caps.get("java")) is int and caps["java"] == 25 and caps.get("cliHeapMiB") == 512
                 and caps.get("submissionLookup") is True and isinstance(caps.get("operations"), list)
-                and len(caps["operations"]) == 5 and set(caps["operations"]) == {"import", "status", "resume", "cancel", "report"},
+                and len(caps["operations"]) == 6
+                and set(caps["operations"]) == {"import", "status", "resume", "cancel", "report", "abandon"},
                 "ACTUAL_LAUNCHER_CAPABILITIES_MISMATCH")
         save(args.evidence, "capabilities.json", {key: caps[key] for key in ("protocol", "java", "cliHeapMiB", "submissionLookup", "operations")})
         before = metrics(args, docker, "fixture")

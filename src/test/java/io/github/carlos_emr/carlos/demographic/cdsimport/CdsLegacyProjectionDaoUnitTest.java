@@ -39,26 +39,39 @@ import static org.mockito.Mockito.*;
 /** Missing migrated representations are corruption, never proof that an export can omit CDS data. */
 @Tag("unit")
 class CdsLegacyProjectionDaoUnitTest {
-    @Test void shouldRefuseMissingSourceRepresentation_afterItsActualReleaseMigration() {
+    @Test
+    void shouldRefuseMissingSourceRepresentation_afterItsActualReleaseMigration() {
         var dao = dao(Set.of("1.0.59.8.1"));
         assertThrows(CdsLegacyProjectionException.class, () -> dao.hasSourceFields(42, Set.of()));
-        assertThrows(CdsLegacyProjectionException.class, () -> dao.hasSourceFields(42, Set.of("CareElements")));
+        assertThrows(
+                CdsLegacyProjectionException.class,
+                () -> dao.hasSourceFields(42, Set.of("CareElements")));
     }
-    @Test void shouldRefuseMissingUnscopedRepresentation_afterItsActualReleaseMigration() {
+
+    @Test
+    void shouldRefuseMissingUnscopedRepresentation_afterItsActualReleaseMigration() {
         var dao = dao(Set.of("1.0.59.8.1"));
-        assertThrows(CdsLegacyProjectionException.class, () -> dao.hasAnySourceFields(Set.of("CareElements")));
+        assertThrows(
+                CdsLegacyProjectionException.class,
+                () -> dao.hasAnySourceFields(Set.of("CareElements")));
     }
-    @Test void shouldRefuseMissingLaboratoryRepresentation_afterItsActualReleaseMigration() {
+
+    @Test
+    void shouldRefuseMissingLaboratoryRepresentation_afterItsActualReleaseMigration() {
         var dao = dao(Set.of("1.0.59.10"));
         assertThrows(CdsLegacyProjectionException.class, () -> dao.hasTypedLaboratoryResults(42));
     }
-    @Test void shouldKeepOptionalRepresentationInactive_beforeItsMigrationWasApplied() {
+
+    @Test
+    void shouldKeepOptionalRepresentationInactive_beforeItsMigrationWasApplied() {
         var dao = dao(Set.of());
         assertFalse(dao.hasSourceFields(42, Set.of()));
         assertFalse(dao.hasAnySourceFields(Set.of("CareElements")));
         assertFalse(dao.hasTypedLaboratoryResults(42));
     }
-    @Test void shouldKeepLegacyExportsAvailable_whenOnlyTheMessengerMigrationIsInstalled() {
+
+    @Test
+    void shouldKeepLegacyExportsAvailable_whenOnlyTheMessengerMigrationIsInstalled() {
         var dao = dao(Set.of("1.0.59.8"));
         assertFalse(dao.hasSourceFields(42, Set.of()));
         assertFalse(dao.hasAnySourceFields(Set.of("CareElements")));
@@ -67,21 +80,39 @@ class CdsLegacyProjectionDaoUnitTest {
 
     private static CdsLegacyProjectionDao dao(Set<String> installedVersions) {
         var manager = mock(EntityManager.class);
-        when(manager.createNativeQuery(anyString())).thenAnswer(call -> {
-            String sql = call.getArgument(0);
-            Query query = mock(Query.class); Map<String, Object> parameters = new HashMap<>();
-            when(query.setParameter(anyString(), any())).thenAnswer(binding -> {
-                parameters.put(binding.getArgument(0), binding.getArgument(1)); return query;
-            });
-            when(query.setMaxResults(anyInt())).thenReturn(query);
-            when(query.getResultList()).thenAnswer(ignored -> {
-                if (sql.contains("information_schema.TABLES")) {
-                    return "flyway_schema_history".equals(parameters.get("table")) ? List.of("flyway_schema_history") : List.of();
-                }
-                return installedVersions.contains(parameters.get("version")) ? List.of(1) : List.of();
-            });
-            return query;
-        });
-        var dao = new CdsLegacyProjectionDao(); ReflectionTestUtils.setField(dao, "entityManager", manager); return dao;
+        when(manager.createNativeQuery(anyString()))
+                .thenAnswer(
+                        call -> {
+                            String sql = call.getArgument(0);
+                            Query query = mock(Query.class);
+                            Map<String, Object> parameters = new HashMap<>();
+                            when(query.setParameter(anyString(), any()))
+                                    .thenAnswer(
+                                            binding -> {
+                                                parameters.put(
+                                                        binding.getArgument(0),
+                                                        binding.getArgument(1));
+                                                return query;
+                                            });
+                            when(query.setMaxResults(anyInt())).thenReturn(query);
+                            when(query.getResultList())
+                                    .thenAnswer(
+                                            ignored -> {
+                                                if (sql.contains("information_schema.TABLES")) {
+                                                    return "flyway_schema_history"
+                                                                    .equals(parameters.get("table"))
+                                                            ? List.of("flyway_schema_history")
+                                                            : List.of();
+                                                }
+                                                return installedVersions.contains(
+                                                                parameters.get("version"))
+                                                        ? List.of(1)
+                                                        : List.of();
+                                            });
+                            return query;
+                        });
+        var dao = new CdsLegacyProjectionDao();
+        ReflectionTestUtils.setField(dao, "entityManager", manager);
+        return dao;
     }
 }

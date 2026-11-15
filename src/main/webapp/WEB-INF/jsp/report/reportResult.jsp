@@ -50,13 +50,23 @@
     // strict SQL-identifier regex. The query is executed with psql.getParamsArray() as
     // bind parameters — no user input is concatenated into the SQL string.
     RptFormQuery formQuery = new RptFormQuery();
-    ParameterizedSql psql = formQuery.getQueryStr(reportId, request);
+    Vector vecFieldCaption;
+    Vector vecFieldName;
+    Vector vecFieldValue;
+    try {
+        ParameterizedSql psql = formQuery.getQueryStr(reportId, request);
 
-    RptReportConfigData formConfig = new RptReportConfigData();
-    Vector[] vecField = formConfig.getAllFieldNameValue(SAVE_AS, reportId);
-    Vector vecFieldCaption = vecField[1];
-    Vector vecFieldName = vecField[0];
-    Vector vecFieldValue = (new RptReportCreator()).query(psql.getSql(), vecFieldCaption, psql.getParamsArray());
+        RptReportConfigData formConfig = new RptReportConfigData();
+        Vector[] vecField = formConfig.getAllFieldNameValue(SAVE_AS, reportId);
+        vecFieldCaption = vecField[1];
+        vecFieldName = vecField[0];
+        vecFieldValue = (new RptReportCreator()).query(psql.getSql(), vecFieldCaption, psql.getParamsArray());
+    } catch (Exception reportFailure) {
+        // The report still fails through the error page. When a configured_report.* limit stopped it,
+        // that page names the limit, so the user can narrow the report or ask for the limit to be raised.
+        io.github.carlos_emr.carlos.report.data.ReportLimitNotice.publish(request, reportFailure);
+        throw reportFailure;
+    }
 
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
