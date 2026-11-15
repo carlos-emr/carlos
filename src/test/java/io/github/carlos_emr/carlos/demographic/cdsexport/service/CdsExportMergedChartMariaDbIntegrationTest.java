@@ -1043,7 +1043,7 @@ class CdsExportMergedChartMariaDbIntegrationTest {
             assertThat(found).hasSize(1);
             return found.getFirst();
         }
-        sql.update("insert into issue(code,description,role,type,sortOrderId) values(?,?,'all','system',0)", code, "FAKE " + code);
+        sql.update("insert into issue(code,description,role,type,sortOrderId,update_date) values(?,?,'all','system',0,'2025-01-02 03:04:05')", code, "FAKE " + code);
         int id = sql.queryForObject("select issue_id from issue where code=? and type='system'", Integer.class, code);
         fixtureIssues.add(id);
         return id;
