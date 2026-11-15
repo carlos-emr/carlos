@@ -30,6 +30,7 @@ import io.github.carlos_emr.carlos.demographic.cds.contract.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl;
+import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException;
 import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import java.util.*;
 import org.junit.jupiter.api.*;
@@ -175,21 +176,25 @@ class CdsExportRetainedIndexServiceUnitTest {
 
     @Test
     void shouldRefuseAChartReleasedByAnAbandonedImport_byItsOwnCode() {
-        assertThatThrownBy(
-                        () ->
-                                CdsExportRetainedIndexService.requireExportableImportPatient(
-                                        "0", "ABANDONED"))
-                .isInstanceOf(java.io.IOException.class)
+        var abandoned = catchThrowable(
+                () -> CdsExportRetainedIndexService.requireExportableImportPatient("0", "ABANDONED"));
+        assertThat(abandoned).isInstanceOf(CdsExportMappingReviewException.class)
                 .hasMessage("CDS_EXPORT_ABANDONED_IMPORT_REQUIRES_REVIEW");
+        // The package must list this chart for review and continue with the others; a generic
+        // IOException instead fails the whole job as CDS_EXPORT_IO_FAILED before listing it.
+        assertThat(CdsExportClinicalPackageService.heldCode((Exception) abandoned))
+                .isEqualTo("CDS_EXPORT_ABANDONED_IMPORT_REQUIRES_REVIEW");
         assertThatThrownBy(
                         () ->
                                 CdsExportRetainedIndexService.requireExportableImportPatient(
                                         "1", "PARTIAL_COMMITTED"))
+                .isInstanceOf(CdsExportMappingReviewException.class)
                 .hasMessage("CDS_EXPORT_CAPTURED_IMPORT_HOLD_REQUIRES_REVIEW");
         assertThatThrownBy(
                         () ->
                                 CdsExportRetainedIndexService.requireExportableImportPatient(
                                         "0", "PARTIAL_COMMITTED"))
+                .isNotInstanceOf(CdsExportMappingReviewException.class)
                 .hasMessage("CDS_EXPORT_RETAINED_INDEX_REQUIRES_REVIEW");
         assertThatCode(
                         () -> {

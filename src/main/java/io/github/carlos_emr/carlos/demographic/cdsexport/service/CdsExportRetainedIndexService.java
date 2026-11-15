@@ -29,6 +29,7 @@ import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsPreparationSeal;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl;
+import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTargetReceiptService;
 import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import java.io.IOException;
@@ -558,9 +559,11 @@ public class CdsExportRetainedIndexService {
     public static void requireExportableImportPatient(String held, String state)
             throws IOException {
         if (!"0".equals(held))
-            throw new IOException("CDS_EXPORT_CAPTURED_IMPORT_HOLD_REQUIRES_REVIEW");
+            throw new CdsExportMappingReviewException(
+                    "CDS_EXPORT_CAPTURED_IMPORT_HOLD_REQUIRES_REVIEW");
         if ("ABANDONED".equals(state))
-            throw new IOException("CDS_EXPORT_ABANDONED_IMPORT_REQUIRES_REVIEW");
+            throw new CdsExportMappingReviewException(
+                    "CDS_EXPORT_ABANDONED_IMPORT_REQUIRES_REVIEW");
         if (!PUBLISHED.contains(state) && !UNWRITTEN.contains(state)) invalid();
     }
 
