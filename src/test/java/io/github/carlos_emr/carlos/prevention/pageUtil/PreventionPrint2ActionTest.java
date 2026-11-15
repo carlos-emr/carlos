@@ -12,6 +12,9 @@
  */
 package io.github.carlos_emr.carlos.prevention.pageUtil;
 
+import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
+import io.github.carlos_emr.carlos.commn.dao.PreventionDao;
+import io.github.carlos_emr.carlos.commn.dao.PreventionExtDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.prevention.pageUtil.PreventionPrintLoader.Entry;
@@ -263,6 +266,11 @@ class PreventionPrint2ActionTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should print nothing and say the preventions could not be read when a read fails")
     void shouldRenderUnreadableBanner_whenAPreventionReadFails() throws Exception {
+        // Logging the unreadable result initializes PreventionData's legacy DAO fields.
+        // Supply its dependencies so this case also works first in a fresh test JVM.
+        createAndRegisterMock(PreventionDao.class);
+        createAndRegisterMock(PreventionExtDao.class);
+        createAndRegisterMock(PartialDateDao.class);
         selection("42", "false", "Inf", "Td");
         when(printLoader.load(any(), anyString(), any(), anyBoolean()))
                 .thenThrow(new io.github.carlos_emr.carlos.prevention.dto.PreventionSourceUnavailableException(
