@@ -126,6 +126,8 @@ public class CdsImportRunDao extends AbstractDaoImpl<CdsImportRun>
                     categories.add(category);
                     for (String suffix : java.util.List.of("_FIELDS", "_CONTACT", "_CARE"))
                         categories.add(category + suffix);
+                    if (io.github.carlos_emr.carlos.demographic.cds.contract.CdsCppExtensionProjection
+                            .SECTIONS.contains(category)) categories.add(category + "_EXTENSION");
                 });
         // Every applied copy of the run is read: the importer writes as many copies as a course
         // has, so no number of them refuses the export (CDS_EXPORT_APPLIED_COPY_LIMIT stopped the

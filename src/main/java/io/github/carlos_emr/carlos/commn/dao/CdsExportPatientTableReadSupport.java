@@ -2091,6 +2091,8 @@ public final class CdsExportPatientTableReadSupport {
                     known.add(category + "_FIELDS");
                     known.add(category + "_CONTACT");
                     known.add(category + "_CARE");
+                    if (io.github.carlos_emr.carlos.demographic.cds.contract.CdsCppExtensionProjection
+                            .SECTIONS.contains(category)) known.add(category + "_EXTENSION");
                 }
             String scope =
                     plan == Plan.IMPORT_FIELDS
@@ -2428,6 +2430,8 @@ public final class CdsExportPatientTableReadSupport {
                 selected.add(category + "_FIELDS");
                 selected.add(category + "_CONTACT");
                 selected.add(category + "_CARE");
+                if (io.github.carlos_emr.carlos.demographic.cds.contract.CdsCppExtensionProjection
+                        .SECTIONS.contains(category)) selected.add(category + "_EXTENSION");
             }
         return List.copyOf(selected);
     }
