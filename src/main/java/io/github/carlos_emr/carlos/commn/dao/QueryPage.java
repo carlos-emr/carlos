@@ -51,7 +51,10 @@ public record QueryPage<T>(List<T> rows, long total, int page, int size) {
      * @throws IllegalArgumentException if the page is negative, the size is not positive or the query has no FROM
      * @throws ArithmeticException if the last page or row offset cannot be represented as an int
      */
-    @SuppressWarnings("unchecked")
+    // S2077 reviewed: the only callers are the specialist, client and billing-tray DAO builders.
+    // They supply fixed query fragments and literal sort allowlists; all search values are bound
+    // below. ServerTablePagingIntegrationTest exercises SQL-syntax values in JPQL and native SQL.
+    @SuppressWarnings({"unchecked", "java:S2077"})
     public static <T> QueryPage<T> load(EntityManager em, Query source, String text, int requestedPage,
             int pageSize, String order, boolean nativeSql, Class<T> type) {
         if (pageSize <= 0 || requestedPage < 0) throw new IllegalArgumentException("Invalid page");

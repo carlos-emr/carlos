@@ -287,7 +287,7 @@
                 </td>
             </tr>
             <tr>
-                <td align="right"><b><fmt:message key="demographic.contactForm.address"/></b></td>
+                <td align="right"><b><label for="pcontact.address"><fmt:message key="demographic.contactForm.address"/></label></b></td>
                 <td>
                     <textarea name="pcontact.address" id="pcontact.address" cols="50" rows="2">${carlos:forHtml(pcontact.address)}</textarea>
                 </td>

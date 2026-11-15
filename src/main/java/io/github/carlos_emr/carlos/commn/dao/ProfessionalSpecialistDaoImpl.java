@@ -72,6 +72,9 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
     }
 
     @Override
+    // S2077 reviewed: every appended predicate is a fixed literal, ordering is fixed, and all
+    // search values are bound. ServerTablePagingIntegrationTest verifies SQL syntax stays data.
+    @SuppressWarnings("java:S2077")
     public QueryPage<ProfessionalSpecialist> findDirectoryPage(String referralNo, String lastName, String firstName,
             String specialty, String address, boolean includeHidden, int page) {
         StringBuilder where = new StringBuilder(" FROM ProfessionalSpecialist x WHERE x.deleted = false");
