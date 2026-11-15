@@ -4503,6 +4503,11 @@
               "name": "shouldWriteAUnitAgain_whenItsLockWaitRunsOutBeforeItsDeadline",
               "container": "",
               "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldEnforceAndRestoreTheGuardedDeadline_withoutCommittingTheTransaction",
+              "container": "",
+              "check": "java-cds-transfer-export"
             }
           ]
         },
