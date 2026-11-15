@@ -29,6 +29,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.kie.api.KieBase;
 import org.kie.api.runtime.KieSession;
 
@@ -178,6 +180,28 @@ class TdPreventionRulesDroolsUnitTest {
     @Test
     void shouldNotRemind_whenAnOlderTdWasFollowedByARecentTdap() {
         assertThat(fireRules(adultWith("Td", 12, "Tdap", 2)).getWarnings()).doesNotContain(REPEAT_TD);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"DTaP", "DTaP-IPV", "DTaP-IPV-Hib", "DT-IPV", "DTaP-Hib", "DTaP-IPV-HB",
+            "DTaP-IPV-Hib-HB", "DTaP-HB-IPV-Hib"})
+    void shouldPostponeTheFirstTd_whenAnotherTetanusProductIsUnderTenYearsOld(String product) {
+        assertThat(fireRules(personWith(15, "Tdap-IPV", 11, product, 9)).getWarnings()).doesNotContain(NEEDS_TD);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"DTaP", "DTaP-IPV", "DTaP-IPV-Hib", "DT-IPV", "DTaP-Hib", "DTaP-IPV-HB",
+            "DTaP-IPV-Hib-HB", "DTaP-HB-IPV-Hib"})
+    void shouldPostponeTheRepeatTd_whenAnotherTetanusProductIsUnderTenYearsOld(String product) {
+        assertThat(fireRules(adultWith("Tdap", 40, "Td", 12, product, 9)).getWarnings()).doesNotContain(REPEAT_TD);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"DTaP", "DTaP-IPV", "DTaP-IPV-Hib", "DT-IPV", "DTaP-Hib", "DTaP-IPV-HB",
+            "DTaP-IPV-Hib-HB", "DTaP-HB-IPV-Hib"})
+    void shouldAllowBothTdIntervals_whenAnotherTetanusProductIsExactlyTenYearsOld(String product) {
+        assertThat(fireRules(personWith(15, "Tdap-IPV", 11, product, 10)).getWarnings()).contains(NEEDS_TD);
+        assertThat(fireRules(adultWith("Tdap", 40, "Td", 12, product, 10)).getWarnings()).contains(REPEAT_TD);
     }
 
     @Test

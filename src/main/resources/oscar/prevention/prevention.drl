@@ -203,6 +203,44 @@ function int monthsSinceLastDoseGiven(Prevention prev, String type) {
     return Math.max(months - 1, 0);
 }
 
+// These tetanus-containing products also postpone either Td reminder for ten years. The rules separately
+// retain their existing qualifying-history checks and the special treatment of refused/ineligible Tdap.
+function boolean childhoodTetanusDosesTenYearsOld(Prevention prev) {
+    String[] names = {"DTaP", "DTaP-IPV", "DTaP-IPV-Hib", "DT-IPV", "DTaP-Hib", "DTaP-IPV-HB",
+        "DTaP-IPV-Hib-HB", "DTaP-HB-IPV-Hib"};
+    for (String name : names) {
+        int months = prev.getHowManyMonthsSinceLast(name);
+        if (months != -1 && months < 120) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Only the most recent administered rotavirus dose's next date controls the third-dose reminder, including
+// mixed-product series. A next date retained on an older product does not override the second dose.
+function java.util.Date latestRotaNextDate(Prevention prev) {
+    String[] names = {"Rota", "Rota-1", "Rota-5"};
+    PreventionItem latest = null;
+    for (String name : names) {
+        java.util.Vector records = prev.getPreventionData(name);
+        for (int i = 0; i < records.size(); i++) {
+            PreventionItem record = (PreventionItem) records.get(i);
+            java.util.Date given = record.getDatePreformed();
+            if (isDoseGiven(record) && given != null
+                    && (latest == null || given.after(latest.getDatePreformed()))) {
+                latest = record;
+            }
+        }
+    }
+    return latest == null ? null : latest.getNextDate();
+}
+
+function boolean latestRotaNextDatePassed(Prevention prev) {
+    java.util.Date next = latestRotaNextDate(prev);
+    return next != null && java.util.Calendar.getInstance().getTime().after(next);
+}
+
 // A rotavirus refusal or "ineligible" record, under any of the three names, dated on or after the latest dose given:
 // a decline of the next dose. One dated before the doses (declined, then accepted) does not stop the reminder.
 function boolean rotaDeclinedSinceLastDose(Prevention prev) {
@@ -468,7 +506,7 @@ rule "Rota 3"
         eval( !prev.isPreventionNever("Rota") && !prev.isPreventionNever("Rota-1") && !prev.isPreventionNever("Rota-5") )
         // No refusal or "ineligible" record on or after the second dose: a decline of the third.
         eval( !rotaDeclinedSinceLastDose(prev) )
-        eval( !prev.isNextDateSet("Rota") && !prev.isNextDateSet("Rota-1") && !prev.isNextDateSet("Rota-5") )
+        eval( latestRotaNextDate(prev) == null )
         eval( prev.getNumberOfPreventionType("Rota") == 0 || prev.getCalendarDaysSinceLast("Rota") >= 28 )
         eval( prev.getNumberOfPreventionType("Rota-1") == 0 || prev.getCalendarDaysSinceLast("Rota-1") >= 28 )
         eval( prev.getNumberOfPreventionType("Rota-5") == 0 || prev.getCalendarDaysSinceLast("Rota-5") >= 28 )
@@ -487,9 +525,7 @@ rule "Rota 3.1"
         eval( dosesGiven(prev, "Rota-5") + dosesGiven(prev, "Rota") >= 1 )
         eval( !prev.isPreventionNever("Rota") && !prev.isPreventionNever("Rota-1") && !prev.isPreventionNever("Rota-5") )
         eval( !rotaDeclinedSinceLastDose(prev) )
-        eval( (prev.isNextDateSet("Rota") && prev.isPassedNextDate("Rota"))
-            || (prev.isNextDateSet("Rota-1") && prev.isPassedNextDate("Rota-1"))
-            || (prev.isNextDateSet("Rota-5") && prev.isPassedNextDate("Rota-5")) )
+        eval( latestRotaNextDatePassed(prev) )
         // Never before the 4-week minimum interval, whatever the next date says.
         eval( prev.getNumberOfPreventionType("Rota") == 0 || prev.getCalendarDaysSinceLast("Rota") >= 28 )
         eval( prev.getNumberOfPreventionType("Rota-1") == 0 || prev.getCalendarDaysSinceLast("Rota-1") >= 28 )
@@ -1005,6 +1041,7 @@ rule "Td 1"
         eval( prev.getHowManyMonthsSinceLast("Td-IPV") == -1 || prev.getHowManyMonthsSinceLast("Td-IPV") >= 120 )
         eval( prev.getAgeInMonthsLastPreventionTypeGiven("TdP-IPV-Hib") < 48 || prev.getHowManyMonthsSinceLast("TdP-IPV-Hib") >= 120 )
         eval( prev.getHowManyMonthsSinceLast("Tdap-IPV") == -1 || prev.getHowManyMonthsSinceLast("Tdap-IPV") >= 120 )
+        eval( childhoodTetanusDosesTenYearsOld(prev) )
     then
         prev.log("Td 1");
         prev.addWarning("Td", "Needs Td");
@@ -1023,6 +1060,7 @@ rule "Td 2"
         eval( prev.getHowManyMonthsSinceLast("Td-IPV") == -1 || prev.getHowManyMonthsSinceLast("Td-IPV") >= 120 )
         eval( prev.getHowManyMonthsSinceLast("TdP-IPV-Hib") == -1 || prev.getHowManyMonthsSinceLast("TdP-IPV-Hib") >= 120 )
         eval( prev.getHowManyMonthsSinceLast("Tdap-IPV") == -1 || prev.getHowManyMonthsSinceLast("Tdap-IPV") >= 120 )
+        eval( childhoodTetanusDosesTenYearsOld(prev) )
     then
         prev.log("Td 2");
         prev.addWarning("Td", "Needs repeat Td");

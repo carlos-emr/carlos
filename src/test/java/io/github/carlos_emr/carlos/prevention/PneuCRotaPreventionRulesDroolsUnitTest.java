@@ -31,6 +31,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.kie.api.KieBase;
 import org.kie.api.runtime.KieSession;
 
@@ -548,6 +550,27 @@ class PneuCRotaPreventionRulesDroolsUnitTest {
         @Test
         void shouldRemind_onceTheNextDateSetOnTheSecondDoseHasPassed() {
             Prevention prev = infantWithRotaRecords(4, rotaRecord("Rota-5", 70, false, null), rotaRecord("Rota-5", 35, false, -2));
+            assertThat(reminders(prev, NEEDS_THIRD_ROTA)).isEqualTo(1);
+        }
+
+        @ParameterizedTest
+        @CsvSource({"Rota-5,Rota-1", "Rota-1,Rota-5", "Rota,Rota-1", "Rota-1,Rota", "Rota-5,Rota", "Rota,Rota-5"})
+        void shouldWaitForTheLatestDoseNextDate_whenAnOlderProductHasAPassedDate(String older, String latest) {
+            Prevention prev = infantWithRotaRecords(4, rotaRecord(older, 70, false, -35), rotaRecord(latest, 35, false, 7));
+            assertThat(reminders(prev, NEEDS_THIRD_ROTA)).isZero();
+        }
+
+        @ParameterizedTest
+        @CsvSource({"Rota-5,Rota-1", "Rota-1,Rota-5", "Rota,Rota-1", "Rota-1,Rota", "Rota-5,Rota", "Rota,Rota-5"})
+        void shouldUseTheMinimumInterval_whenOnlyAnOlderProductHasAFutureDate(String older, String latest) {
+            Prevention prev = infantWithRotaRecords(4, rotaRecord(older, 70, false, 7), rotaRecord(latest, 35, false, null));
+            assertThat(reminders(prev, NEEDS_THIRD_ROTA)).isEqualTo(1);
+        }
+
+        @ParameterizedTest
+        @CsvSource({"Rota-5,Rota-1", "Rota-1,Rota-5", "Rota,Rota-1", "Rota-1,Rota", "Rota-5,Rota", "Rota,Rota-5"})
+        void shouldUseTheLatestPassedDate_whenAnOlderProductHasAFutureDate(String older, String latest) {
+            Prevention prev = infantWithRotaRecords(4, rotaRecord(older, 70, false, 7), rotaRecord(latest, 35, false, -2));
             assertThat(reminders(prev, NEEDS_THIRD_ROTA)).isEqualTo(1);
         }
 
