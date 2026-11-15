@@ -2612,24 +2612,25 @@ text-result refusal, statement ownership and bypass attempts.
 
 The package lifecycle gate keeps its published beta6/CLI 1.3.1 and beta5/CLI 1.3.0
 predecessors intact. Its unpublished 1.3.5 candidate is separately bound to the exact
-companion fallback commit and actual CI-built Debian bytes (370,472 bytes,
-SHA-256 `c9c951f86dc33cdf7b32bf82d2dee328fdf5f01b68e0014a56b14c2bb6eefa7f`,
-workflow 43642982526, artifact 14133465305). Two local `dpkg-buildpackage` runs of that
-commit in the digest-pinned `ubuntu:26.04` image reproduce the package byte for byte, and
-package smoke rebuilds and checks it in CI.
+companion fallback commit and independently built Debian bytes (370,400 bytes,
+SHA-256 `a68ee19ff85d4e1e624303097a317465f0e714495804172576d427c80227ba53`).
+Two local `dpkg-buildpackage` runs of that commit in the digest-pinned `ubuntu:26.04`
+image produce identical bytes. Companion CI workflow 43684366089 passes, and paired
+package smoke rebuilds and checks the pin in CI. The local digest is not attributed to
+an uninspected CI artifact.
 Source-built mode asserts no published tag or release-download URL. Lifecycle
 configuration must supply this exact candidate package; predecessor packages
 cannot substitute for it.
 
 The companion CLI PR also targets `release/2026.08`, starting at its compatible
 `84adfc5c237d4a536300a9d7e74e19599df23dcc` baseline. Its pinned runtime is
-`0ce67721e199547d468bafd33b3690f3977b3fc7` (unpublished 1.3.5, adding the export
+`6525c85234c29f9c9e3fb599865b599ec32c373f` (unpublished 1.3.5, adding the export
 command's run-id, exit-status and ticket-sweep fixes, `cds-import --abandon`, and no heap
 maximum of its own). After
 `release/2026.08` took main's OSCAR 19 beta8 line (#6167, carlos-ctl 1.3.3 at
 `09b97f95356d3c12f9972d96d10355e597cc7540`), the companion merged that line too, so the
-pair now uses schema manifest format 3 and ETL contract 6. The `carlos-emr` floor stays at
-carlos-ctl 1.3.3; no maintainer script uses the export or abandon commands.
+pair now uses schema manifest format 3 and ETL contract 6. The final `carlos-emr`
+package dependency requires carlos-ctl 1.3.5, matching the qualified companion.
 
 | Release migration | Purpose | Earlier unpublished develop numbering |
 | --- | --- | --- |
@@ -2643,10 +2644,11 @@ carlos-ctl 1.3.3; no maintainer script uses the export or abandon commands.
 | `V1.0.59.47` | `cds_laboratory_result` indexed by local report and patient, for the laboratory ownership check of imported charts; no row changes | — |
 | `V1.0.59.48` | `cds_import_unit` indexed by run, patient key and id (with the category), so the capture reads one imported chart's units in id order from the index; no row changes | — |
 | `V1.0.59.49` | `cds_export_attempt` gains the pointer to an attempt's sealed finished-chart checkpoint (newest member, plaintext SHA-256 and length, chart count) and its adopted-chart count, so a resumed export can adopt a stopped attempt's unchanged charts; nullable columns only, no row changes | — |
+| `V1.0.59.50` | Remove only the recognized 1 MiB preparation-payload check while preserving column capacity and existing rows; unrelated checks require explicit review | — |
 
 The earlier `V1.0.86` consent forward-merge repair does not apply to the retained
-release history and is excluded. The release catalogue contains 510 rulings for
-457 ON and 490 BC physical tables. Its appointment tables do not contain
+release history and is excluded. The release catalogue contains 512 rulings for
+459 ON and 492 BC physical tables. Its appointment tables do not contain
 develop's `locationCode`; unknown future columns still require explicit review.
 All importer receipts, recorded fingerprints and released migration bytes remain
 unchanged. Both directions retain separate authorization and admission.
@@ -3349,15 +3351,17 @@ Missing, duplicated, ambiguous or skipped suite evidence fails the gate. Only
 sanitized reports are uploaded. Older checkpoint narratives below are retained as
 historical component evidence, not statements of the current readiness state.
 
-The current pair forward-integrates the released billing compatibility change from
+The pair retains the released billing compatibility change from
 application commit `d40d2939afde9bea460b232fe78976b2820698ca` and CLI main
 `84adfc5c237d4a536300a9d7e74e19599df23dcc`. It preserves native billing
 creator authorization, original filenames, cross-table reservations, audit
-provenance and guarded download/regeneration. Schema manifests use format 2;
-properties and preflight retain format 1. The candidate requires CLI 1.3.3.
+provenance and guarded download/regeneration. That earlier billing checkpoint used
+schema manifest format 2; the current pair uses format 3 and ETL contract 6 as
+recorded above. Properties and preflight retain format 1. The final candidate
+requires CLI 1.3.5.
 The new `billing_filename_import` table is operational financial audit metadata,
-matching the existing billing-table disposition. All previous 516 source rulings
-remain unchanged; the current catalogue has 517 rulings (464 ON and 497 BC tables).
+matching the existing billing-table disposition. The current catalogue has 512
+explicit rulings for 459 ON and 492 BC physical tables.
 No original CDS import metadata is rebound or rewritten.
 
 ## Historical verification checkpoint
@@ -5833,8 +5837,8 @@ mutations were rejected. The original native fixture is retained, temporary gran
 and provider fields were restored, and no application classes were overlaid.
 Publication remained visibly unavailable through the unqualified engine boundary.
 
-Clinical capture has a separate whole-source coverage gate over all 517 table
-names in the exact shipped ON/BC physical contracts (464 ON, 497 BC). Explicit
+Clinical capture has a separate whole-source coverage gate over all 512 table
+rulings in the exact shipped ON/BC physical contracts (459 ON, 492 BC). Explicit
 rulings identify mapped sources, reference dictionaries, operational metadata and
 sources that must be empty until their adapter or exclusion is reviewed.
 Unclassified presence conservatively refuses the request across the database;
@@ -5993,138 +5997,81 @@ result) for:
 - peak RSS of the delegated non-root engine JVM (sampled `VmHWM` and the `wait4` receipt) and of
   the root `carlos-ctl` adapter.
 
-Each job also checks growth across its own series, independent of the fixed command cost:
-statements and privilege statements per extra note (`chart-128` to `chart-2048`) or per extra
-chart (`patients-1` to `patients-32`). The native per-chart budgets, 2,200 statements and 200
-privilege statements, are the regression detector for the clinic-scale cost fixed by the
-authorization passes and the capture schema pass (below): a return to one transaction per
-check costs 7,088 and 2,956 per chart. The per-note privilege budget, 1.0, is the regression
-detector for the census slowdown fixed by the per-patient authorization session (see "One
-authorization session per patient" above): with the session the authorization tables are read
-per patient, not per note, so any return to per-read checks exceeds it whatever the total
-statement budget absorbs: the measured growth is 0.02 (native) and 0.13 (imported) per note.
-The other budgets are about twice the measurements below; RSS cannot take that headroom inside the
-1536 MiB runtime, so its budget (1280 MiB, about 1.5 times the largest chart) bounds growth beyond
-the 512 MiB heap. Each budget and its derivation is documented beside `BUDGETS` in the harness.
+Each job checks growth across its own series, independently of fixed command cost:
+statements and privilege statements per extra note/result pair (`chart-128` to
+`chart-2048`) or per extra chart (`patients-1` to `patients-32`). The per-note privilege
+budget is 1.0: returning to an authorization read for every note must fail even if
+the total statement budget could absorb it.
 
-Measurements on the reference runtime (two CPUs of a shared four-core host); every listed case
-was a complete READY export whose package held exactly its notes and results. They are the
-revision before the authorization passes and the capture schema pass; what those change for
-the patients rows follows the table:
+The final independent measurements below use source
+`494f6e24cb2051cdf184043637a62bf48cb242ac` and the pinned CLI
+`6525c85234c29f9c9e3fb599865b599ec32c373f`. Each profile built its actual WAR and
+CLI Debian package, created a fresh MariaDB server, and ran sequentially on the
+quiet host after H2 and installed browser qualification finished. All 7,653
+production class files match the final native/permission qualification. Later
+test and documentation commits leave the production Java, resources, webapp,
+POM and companion pin unchanged. These are local measurements, independently
+corroborated by the four successful installed CI profiles, not numbers attributed
+to an uninspected CI artifact.
+
+Every listed case reached complete READY with no held patient. The recipient
+authenticated and decrypted every package, and the independent package check
+counted its exact patients, clinical notes and laboratory results. The runtime
+remains two CPUs and 1536 MiB with a 512 MiB engine heap. No budget or clinical
+limit was raised to obtain these results.
 
 | Case | Native: elapsed / statements / privilege / engine RSS | Imported: elapsed / statements / privilege / engine RSS |
 | --- | --- | --- |
-| patients-1 | 25 s / 7,952 / 3,213 / 538 MiB | 23 s / 7,899 / 3,167 / 535 MiB |
-| patients-8 | 56 s / 57,582 / 23,907 / 585 MiB | 55 s / 57,147 / 23,539 / 575 MiB |
-| patients-32 | 150 s / 227,495 / 94,851 / 578 MiB | 162 s / 225,979 / 93,387 / 603 MiB |
-| chart-128 | 30 s / 9,377 / 3,213 / 562 MiB | 37 to 45 s / 9,648 / 3,175 / 744 MiB |
-| chart-512 | 39 s / 13,664 / 3,221 / 783 MiB | 114 to 138 s / 15,578 / 3,223 / 781 MiB |
-| chart-2048 | 87 to 100 s / 30,971 / 3,253 / 831 MiB | fails (below) |
+| patients-1 | 45.1 s / 2,845 / 301 / 520 MiB | 36.0 s / 2,774 / 301 / 670 MiB |
+| patients-8 | 50.3 s / 11,465 / 603 / 535 MiB | 49.3 s / 11,192 / 603 / 536 MiB |
+| patients-32 | 115.6 s / 41,065 / 1,643 / 564 MiB | 110.7 s / 39,958 / 1,643 / 581 MiB |
+| chart-128 | 42.1 s / 4,311 / 301 / 573 MiB | 56.3 s / 4,728 / 309 / 618 MiB |
+| chart-512 | 57.9 s / 8,914 / 317 / 796 MiB | 164.2 s / 11,383 / 365 / 691 MiB |
+| chart-2048 | 159.6 s / 27,382 / 365 / 848 MiB | 520.0 s / 36,514 / 557 / 968 MiB |
 
-The `carlos-ctl` adapter peaked at 24 MiB. In these runs each extra chart cost about 7,050
-statements, 2,930 privilege statements and 4 to 4.5 s; each extra note and result costs 11.2
-statements and 0.02 privilege statements on a native chart (chart-128 to chart-2048) and 19.6 and
-0.29 on an imported one (chart-128 to chart-512). The imports of the three imported charts took
-45, 110 and 415 s.
+The root CLI adapter peaked at 26.2 MiB. Measured marginal growth:
 
-**Per-chart cost: before and after the passes.** A statement-class breakdown of the native
-patients series (statement digests classified in the server, `patients-1` to `patients-8`)
-shows where the 7,088 statements of each extra chart went:
+| Profile | Statements per extra chart | Privilege statements per extra chart | Statements per extra note/result pair | Privilege statements per extra note/result pair |
+| --- | --- | --- | --- | --- |
+| native | 1232.90 | 43.29 | 12.016 | 0.0333 |
+| imported | 1199.48 | 43.29 | 16.555 | 0.1292 |
 
-| Per extra one-note chart | Before | After (expected) | How it is established |
+The existing numerical budgets remain unchanged. In this table P is the number
+of charts and N is the number of note/result pairs across them:
+
+| Origin | Statement budget | Privilege-statement budget | Elapsed budget (seconds) |
 | --- | --- | --- | --- |
-| Authorization: reads of the authorization tables | 2,956 | about 100 | Before: `PRIVILEGE_READ`, measured. After: 15 transactions that read each table once (`CdsExportAuthorizationPassUnitTest` proves one read of each table per pass against 104 role and 186 security-object reads for the same gates; 14 of each for a chart with six later passes), plus the program and note-grant reads of each pass |
-| Authorization: identity rows and transaction control | about 1,470 (184 transactions: 368 provider and facility reads, about six control statements each) | about 135 (15 transactions) | Before: measured digests. After: derived from the transaction count |
-| Schema verification | about 1,840 (939 `information_schema` reads; about 400 probes by the readers and 505 by the source catalogue) | about 20 (two complete reads of 5 or 6 statements; the demographic and provider tables keep their own read) | Before: measured digests and the reader count. After: `CdsExportSchemaPassMariaDbIntegrationTest`, 6 statements per pass whatever the number of tables |
-| Capture reads, coordination locks, ledger and audit | about 820 | about 820 | Unchanged; the remainder of the measured total |
-| **Total** | **7,088** | **about 1,070** | |
+| native | 3000 + 2200 × P + 24 × N | 500 + 200 × P + 1 × N | 45 + 4 × P + 0.08 × N |
+| imported | 2000 + 14100 × P + 40 × N | 500 + 6000 × P + 1 × N | 40 + 9 × P + 0.45 × N |
 
-The column-visibility probe of each table now runs once per job instead of once per chart, so
-about 510 statements move from every chart to the fixed cost of a job. The after column is
-derived, not measured: this lane could not be run on the development host, and its first
-qualifying run replaces the expectation and the provisional budgets (2,200 statements, 200
-privilege statements and 4 s per extra native chart, about twice the expectation). Elapsed time
-was about 0.55 ms per statement end to end before, so about one second per extra chart is
-expected, and about three hours for 10,000 charts instead of twelve. Most of what remains is
-the capture itself: one count and one read for each of about 200 source tables, of which the
-120 data-summary tables are usually empty for a chart. Asking those tables in one statement, or
-not reading a table whose count in the same snapshot was zero, is the next reduction and is not
-done here.
+The same per-chart and per-note coefficients bound marginal statement growth;
+engine RSS must stay below 1280 MiB and CLI RSS below 48 MiB. These are CI regression
+budgets, not size or duration limits imposed on clinical exports. Imported per-chart
+budgets retain their earlier headroom; the native per-chart thresholds and both
+per-note checks independently detect the authorization and capture regressions.
 
-**Imported charts with the stored replay.** An imported chart's capture no longer has a size
-limit, and a capture too large for the in-memory replay is replayed from a staged member (below).
-With it each extra imported note and result costs 15.4 statements, 0.13 privilege statements and
-0.20 to 0.24 s (chart-128 to chart-512); the imported time budget is 0.45 s a note. Before it,
-chart-512 took 253 s on the reference host and 244 s in CI (17,080 statements, 864 MiB) and
-chart-128 41 s and 40.5 s (9,637 statements). The reference host is shared, and one run under
-heavier load measured every case, native and patient series included, about 1.6 times slower.
+The native per-chart measurement replaces the earlier estimate of about 1,070
+statements. Before batched authorization and schema passes, an additional chart
+cost about 7,088 statements and 2,956 privilege reads. The original pre-session
+large-chart probe exceeded a million statements before it was stopped; the
+`PRE_SESSION` regression data still require that behavior, and an additional
+authorization read per note, to fail the gate.
 
-**Imported 2048-note chart: the defect this lane found.** Measured before the fix, its export
-ended `FAILED` with `CDS_EXPORT_EXECUTION_FAILED` after about 144 s: a statement timeout (SQL
-state 70100) in `CdsExportPatientTableReadSupport.requireLocalLaboratoryAssociations`, called
-from `CdsLaboratoryResultDao.findCdsExportRowsAfter`. That check runs before every laboratory
-page, and `cds_laboratory_result` had no index on `nativeLabNo`: for each imported result of
-the patient, the check that no other imported result is bound to the same local report scanned
-the whole table. The cost therefore grew with the chart times the clinic's imported results
-(253 s imported against 39 s native at 512 results), for every imported chart, not only a
-large one.
+The imported 2,048-note case now completes under the default 512 MiB heap and
+passes the same package and resource checks. Earlier failures are historical:
+migration `V1.0.59.47` indexes local laboratory associations, `.48` orders retained
+units for key-first paging, and the streamed/spilled capture and retained-value
+paths remove the former count/replay limits. The old capture-timeout and heap
+failure paragraphs do not describe the final candidate.
 
-Migration `V1.0.59.47` adds the index (`nativeLabNo, demographicNo`), and the check that no
-other chart routes one of the patient's reports now starts from the patient's own routes and
-imported results instead of scanning every other chart's routes. On a synthetic clinic of
-300,000 lab routes and 50,000 imported results, for a patient with 2,048 of each, one check
-fell from 14.9 s to 13 ms for the bound-report test and from 127 ms to 9 ms for the shared-route
-test (MariaDB 11.8.8). The imported chart-2048 budget is still the one extrapolated from
-chart-128 and chart-512.
-
-**Imported 2048-note chart: no size refuses it, and what still stops it at the defaults.** The
-chart is 1,091,901 captured fields and 72.5 MiB of values: 191 fields for an imported note and
-342 for an imported laboratory result (102 and 238 of them the 17 columns of its
-`cds_import_field` rows, 28 its two `cds_import_unit` rows). `cds_import_field` is 61 percent of
-the fields and the sealed witnesses of `cds_import_unit` 64 percent of the bytes. After the
-association fix it ended `FAILED` with `CDS_EXPORT_IO_FAILED` at the capture's 1,000,000-field
-bound (116.6 s in CI), and the 512-note chart, at 273,213 fields past the 200,000-field replay
-bound, read its whole capture from the encrypted members for each of its 133 readers: 170 s of
-a 215 s export. Both bounds are gone (see "No limit on the capture"): the capture refuses no
-count, a capture too large for the session's memory replays from its stored replay member, and
-the retained index, the receipt comparison and the history rows are refused by no count. The
-512-note chart now takes 114 to 138 s. Two things stopped the 2048-note case under the lane's
-default settings on the local reference host. On the CI runner the same case passed at the
-default 512 MiB heap in 638.7 s before this change (chart-512 in 105.8 s, chart-128 in 34.6 s),
-so there the capture finished inside the 120 s it then had; time still grew faster than the
-chart. The first of the two is fixed; the lane has not been rerun end to end since, so its
-budget for this case is unchanged and its capture time after the fix is not yet measured:
-
-- Capture time (fixed). The capture ran in one read-only snapshot under
-  `cds.export.captureTimeoutSeconds` (default 120). This chart's capture took about 125 s, so
-  the job ended `FAILED` with `CDS_EXPORT_EXECUTION_FAILED` (a transaction timeout) at about
-  160 s. About 58 s of it was the page reads of `cds_import_unit`: each 32-row page was selected
-  through the patient's `(run_id, patient_key)` index and sorted by id, which read every
-  remaining unit row with its 6 KiB witness (4,131 rows examined a page, 257 pages, 228 ms each),
-  so that part grew with the square of the chart; `cds_import_dependency` pages cost 8 s the
-  same way. The capture now has no deadline, and a page reads its keys before its rows (see "No
-  deadline on a capture" and "Keys before rows"): migration `V1.0.59.48` orders one patient's
-  units by id, and a page of units examines about a hundred rows.
-- Heap. With the capture timeout raised to 600 s (before it was removed) the default 512 MiB heap is exhausted in the
-  laboratory section: the old generation stays at its 341 MiB with two to three full
-  collections a second and the export does not finish (it was stopped by hand after three
-  minutes of that). The
-  retained field values and the section contexts are held as Java objects; the index itself is
-  now 62 MiB packed. With `cds.export.cliHeapMiB=1024` and the 600 s capture timeout the same
-  export is READY and complete in 472 s (the old generation peaked at 649 MiB of 682 with six
-  full collections, the engine's RSS at 1,390 MiB, past the lane's 1280 MiB RSS budget); it is a
-  measurement, not a lane case, and its package was not opened to count its records. From 128
-  to 512 to 2,048 notes that is 37, 114 and 472 s: 0.20 and 0.23 s a note, about linear.
-
-The same lane on the revision before the per-patient authorization session (the five classes
-that commit changed, compiled from its parent and overlaid on an earlier packaged WAR of this
-branch) shows what the per-note budget catches. Its chart-128 export was stopped after 1,899 s,
-still capturing, at 1,068,468 statements and 659,491 privilege statements, against 136 s, 10,737
-and 3,249 for the whole export with the session on that same WAR. That is at least 5,000 authorization reads per note against a
-budget of 1.0, mostly `secObjPrivilege` and `secUserRole` reads, then the facility, admission,
-program membership and role reads of each note's program check. The harness unit tests keep
-these measured counters (`PRE_SESSION` in `scripts/ci/test_run_cds_export_scaling.py`) and
-require them, and a single extra read per note, to fail.
+Failed qualification attempts remain separate evidence. With H2, native tests
+and installed census work competing on this host, the earlier native chart
+series produced valid packages but exceeded elapsed budgets (117.2, 167.1 and
+312.4 seconds); it did not pass the performance gate. Another attempt stopped
+before export acceptance because umask 0077 made extracted code directories
+unreadable. The harness now explicitly makes only its nonsecret extracted WAR
+code readable, with regression tests preserving private-state permissions.
+Neither failure was converted to success or used to relax a budget.
 
 Public evidence is the same bounded artifact as the import lane's: counts, timings, kernel and
 cgroup counters, statement classes and digest hashes, package member counts and hashes. It never

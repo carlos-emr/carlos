@@ -757,6 +757,9 @@ Cancelling a stopped job that keeps charts erases them at once: **Cancel export*
 and `--cancel` prints `CDS_EXPORT_CHARTS_ERASED: the N finished chart(s) the stopped job kept
 were erased`. The job's recorded outcome and code stay as they were, and a later resume builds
 every chart again. A cancellation of a running job, and a READY package, behave as before.
+If another tab or worker changed the job after the page loaded, reload its entry from
+the saved-job list before using Resume or Cancel. A stale revision is refused; it does
+not authorize a control against a newer state.
 
 Kept charts occupy the export store until they are adopted, cancelled or seven days have passed:
 about their share of the finished package. A job stopped for `CDS_EXPORT_DISK_RESERVE` or
@@ -804,14 +807,17 @@ browser's report download) lists every held chart number with its safe code, how
 many there are, and every event of the job, and
 the encrypted package ReadMe lists the same patients for the recipient. Correct
 or review those charts and export them in a new job. A failure that concerns the
-whole job (storage, recipient policy, audit arrangement, limits, runtime change)
+whole job (storage, recipient policy, audit arrangement or runtime change)
 still stops it, and a job in which every patient was held produces no package.
 
 A chart released by an abandoned CDS import keeps only the part of its source committed before
 that import stopped. The exporter refuses it with `CDS_EXPORT_ABANDONED_IMPORT_REQUIRES_REVIEW`
 and never exports it as a completed import. CARLOS does not yet record a clinical reconciliation
 that could release such a chart for export (#6208), so the refusal persists;
-transfer that chart by other means.
+transfer that chart by other means. This is a patient hold, not a storage failure: a mixed
+selection still packages the eligible charts, lists the abandoned chart in the diagnostic
+report and recipient ReadMe, and exits `5`. Ordinary chart access remains available after
+the import has verified maintenance release; abandoning never removes committed notes.
 
 A provider record's format never holds a patient. A billing number (`ohip_no`) that is not
 exactly six digits (a BC MSP number, a placeholder, a longer number or one with spaces) is

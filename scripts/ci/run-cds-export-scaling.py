@@ -127,74 +127,34 @@ MARGINAL = {
     ),
 }
 
-# Budgets. Each is about twice what the qualifying runs measured (docs/cds-export.md,
-# "Installed export scaling lane", which lists every measurement), so an ordinary runner
-# difference cannot fail the gate while a change in how export work grows does. Statements are
-# server-global statements in the export's window minus this harness's own (exclusive server);
-# privilege statements are the digests that read the authorization tables (PRIVILEGE_READ
-# below). A case budget is linear: fixed command cost + per-chart cost + per-note cost, where a
-# "note" is one signed note and one laboratory result (every case grows both together).
+# Budgets are unchanged by the final qualification; see docs/cds-export.md,
+# "Installed export scaling lane", for measured cases, marginal growth and provenance.
+# Each case uses fixed command cost + per-chart cost + per-note cost, where a note
+# means one signed note and one laboratory result. Questions are server-global in
+# the exclusive export window, minus the harness's own statements. Privilege counts
+# come from the complete PRIVILEGE_READ digest class. Every package is independently
+# recipient-decrypted and its exact records counted before a case can pass.
 #
-# Measurements on the reference runtime (1536 MiB, two CPUs, 512 MiB CLI heap); every listed
-# case a complete READY export with exact package counts (docs/cds-export.md has the tables):
-#   native   patients-1/8/32   25 / 56 / 150 s      7,952 / 57,582 / 227,495 statements
-#                              3,213 / 23,907 / 94,851 privilege statements
-#            chart-128/512/2048  30 / 39 / 100 s    9,377 / 13,664 / 30,971 statements
-#                              3,213 / 3,221 / 3,253 privilege statements; engine RSS <= 831 MiB
-#   imported patients-1/8/32   23 / 55 / 162 s      7,899 / 57,147 / 225,979 statements
-#                              3,167 / 23,539 / 93,387 privilege statements
-#            chart-128/512     37-45 / 114-138 s    9,648 / 15,578 statements
-#                              3,175 / 3,223 privilege statements; engine RSS <= 781 MiB
-#                              (before the stored replay: 41 / 253 s, 9,622 / 17,131 statements;
-#                              CI at that revision 40.5 / 244.4 s, 9,637 / 17,080, 864 MiB)
-#   carlos-ctl adapter RSS 24 MiB
-# Growth: ~7,050 statements, ~2,930 privilege statements and ~4-4.5 s per extra chart; per extra
-# note 11.2 statements and 0.02 privilege statements native (chart-128 to chart-2048), 15.4 and
-# 0.13 imported (chart-128 to chart-512), and 0.20 to 0.24 s imported. The imported chart-2048
-# export did not complete under this lane's default settings on the local reference host
-# (docs/cds-export.md, "Imported 2048-note chart"): its capture took about 125 s against the
-# then 120 s capture timeout, and with that raised it exhausted the 512 MiB heap. With a
-# 1024 MiB heap and a 600 s capture timeout it was READY in 472 s (measured, not a lane case).
-# On the CI runner the case passed at 512 MiB in 638.7 s before the capture timeout was
-# removed. The capture now has no deadline and reads keys before rows; the lane has not been
-# rerun for this case since, so its budget stays the one extrapolated from the smaller imported
-# charts.
+# Final source 494f6e24cb2051cdf184043637a62bf48cb242ac, paired with CLI 6525c852:
+# native patients: 45.1 / 50.3 / 115.6 s; 2845 / 11465 / 41065 statements;
+#   301 / 603 / 1643 privilege statements; all complete READY, exact packages.
+# native charts: 42.1 / 57.9 / 159.6 s; 4311 / 8914 / 27382 statements;
+#   301 / 317 / 365 privilege statements; all complete READY, exact packages.
+# imported patients: 36.0 / 49.3 / 110.7 s; 2774 / 11192 / 39958 statements;
+#   301 / 603 / 1643 privilege statements; all complete READY, exact packages.
+# imported charts: 56.3 / 164.2 / 520.0 s; 4728 / 11383 / 36514 statements;
+#   309 / 365 / 557 privilege statements; all complete READY, exact packages.
 #
-# The per-note privilege budget is the regression detector for the census slowdown: before the
-# per-patient authorization session (CdsExportPatientAuthorization, CdsExportAccessService
-# .PatientGrants) every capture, mapping and emission step re-ran the chart, category and note
-# program/role privilege queries for each note, thousands of authorization reads per note (the
-# measured pre-session revision is in docs/cds-export.md). With the session authorization tables
-# are read per patient, not per note; the measured 0.02 (native) and 0.13 (imported) per note are
-# batched re-checks. Its budget, 1.0, is the point at which every note again costs an
-# authorization read, about 8 times the imported measurement: any per-read regression exceeds
-# it, however much the total statement budget absorbs.
+# The 1.0 marginal privilege-read budget detects a return to per-note authorization.
+# Before the per-patient sessions, the retained PRE_SESSION probe exceeded a million
+# statements. Before batched authorization/schema passes an extra native chart cost
+# 7,088 statements and 2,956 privilege reads, above the current 2,200/200 thresholds.
+# Imported per-chart budgets retain their earlier headroom. The largest imported
+# chart now passes at the default 512 MiB heap; old capture and heap failures are
+# historical, not an outstanding qualification claim.
 #
-# Native per-patient budgets after the authorization passes and the capture schema pass
-# (docs/cds-export.md, "One authorization session per patient" and "Installed export scaling
-# lane"). The measurements above are the revision before them: each extra one-note chart cost
-# 7,088 statements, of which 2,956 read the authorization tables in about 184 one-check
-# transactions, about 1,840 verified the physical schema one table at a time, and about 820 were
-# the capture's own reads and bookkeeping. With one opening and one closing pass per patient
-# session and one pass per later re-authorization (six per chart), the authorization tables are
-# read about 100 times per chart in 15 transactions (about 230 statements), and the schema is
-# read twice per chart as a whole (about 20 statements), so an extra chart is expected to cost
-# about 1,070 statements and 100 privilege statements. The column-visibility probe of each
-# table now runs once per job instead of once per chart (about 510 statements, in the fixed
-# cost). These per-patient figures are derived from that breakdown and from statement counts
-# proven in the Java tests (CdsExportAuthorizationPassUnitTest: one read of each authorization
-# table per pass instead of 104 and 186; CdsExportSchemaPassMariaDbIntegrationTest: six
-# statements per pass whatever the number of tables), not yet from a lane run: the budgets
-# below are about twice the expected values and are provisional until the first qualifying run
-# of this lane replaces the expectation with a measurement. Whatever that run shows, a return
-# to one transaction per check (7,088 and 2,956 per chart) is three and fifteen times over
-# them. The imported per-patient budgets are left at their earlier values.
-#
-# Service RSS cannot take 2x headroom inside the 1536 MiB runtime: the CLI heap is capped at
-# 512 MiB, so the budget (1280 MiB, about 1.5x) bounds growth beyond the heap and stays under the
-# cgroup. Time budgets are about twice the measured cases; the imported per-note time (0.45 s) is
-# twice the 0.20 to 0.24 s between chart-128 and chart-512. It was 1.1 s while a chart of that
-# size re-read its whole capture for every reader (253 s at chart-512).
+# Engine RSS is bounded at 1280 MiB inside the 1536 MiB/two-CPU runtime; root CLI RSS
+# is bounded at 48 MiB. These regression budgets do not cap clinical exports.
 BUDGETS = {
     "native": {
         "fixedStatements": 3000,

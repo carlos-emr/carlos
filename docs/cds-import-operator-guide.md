@@ -158,7 +158,11 @@ resume, except one that only retries a deferred or failed maintenance release. T
 charts are not completed imports. The CDS exporter refuses each of them with
 `CDS_EXPORT_ABANDONED_IMPORT_REQUIRES_REVIEW`: an abandoned partial import has no verifiable
 complete source, and CARLOS does not yet record a clinical reconciliation that could release a
-chart (#6208). The run's lineage, units and checkpoints are kept, so each
+chart (#6208). Exporting a mixed selection still packages its eligible charts and explicitly
+lists the abandoned chart as held, with exit `5`; the abandoned chart does not turn the
+whole export into an I/O failure. Ordinary chart access resumes after the maintenance
+release is verified, while all previously committed clinical rows remain unchanged.
+The run's lineage, units and checkpoints are kept, so each
 released chart stays bound to its source patient: a later import of that patient meets the
 earlier attempt and is refused (`PRIOR_IMPORT_MUST_RESUME`) rather than completing or replacing
 an abandoned partial import. Reconcile such a chart by hand in CARLOS.

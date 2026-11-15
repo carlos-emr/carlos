@@ -1,5 +1,5 @@
 {
-  "status": "IN_PROGRESS_CLINICAL_REVIEW",
+  "status": "IMPLEMENTATION_AND_LOCAL_QUALIFICATION_COMPLETE",
   "scope": "OntarioMD CDS 5.2 import/export coordinated on release/2026.08 with foreground/detached CLI and authenticated asynchronous browser jobs",
   "verifiedBaseline": {
     "javaChecks": 2747,
@@ -17,13 +17,17 @@
     "Canonical clinical export engine with explicit native/source reconciliation and review for unqualified facts",
     "Typed domain assembly, schema/ZIP/ZIP64/supporting-file checks, recipient encryption, authorized downloads and retention",
     "Foreground/detached CLI plus authenticated asynchronous browser acceptance, recovery, status and control",
-    "Fresh ON/BC and retained-data upgrades from the exact release base, packaged CLI/boot validation and unchanged prior migration history"
+    "Fresh ON/BC and retained-data upgrades from the exact release base, packaged CLI/boot validation and unchanged prior migration history",
+    "Native history revisions, multi-section CPP items and extension rows, system marker issues without notes, native laboratory/report sources and the source catalogue with 512 explicit rulings",
+    "CARLOS-to-CARLOS demographic, pharmacy/contact postal, encounter-type and CPP extension fidelity, with the new forward preparation-capacity migration",
+    "Merged-chart capture, deterministic malformed-group heads, group-wide authorization, kept-chart adoption, schema-valid streamed carriers and import into the head",
+    "Abandoned imports release their chart and maintenance hold while preserving committed rows; exports hold those charts with their explicit review code and continue with healthy charts"
   ],
   "integration": {
     "coreBase": "9ba62cab4b5538dcbfaa9377a3090dc79cc4a562",
     "upgradeSqlBaseline": "9ba62cab4b5538dcbfaa9377a3090dc79cc4a562",
     "releaseSqlUnchangedSinceUpgradeBaseline": true,
-    "cliHead": "0ce67721e199547d468bafd33b3690f3977b3fc7",
+    "cliHead": "6525c85234c29f9c9e3fb599865b599ec32c373f",
     "cliVersion": "1.3.5",
     "coreIntendedTarget": "release/2026.08",
     "cliIntendedTarget": "release/2026.08",
@@ -41,7 +45,8 @@
       "1.0.59.46",
       "1.0.59.47",
       "1.0.59.48",
-      "1.0.59.49"
+      "1.0.59.49",
+      "1.0.59.50"
     ],
     "localProofs": {
       "freshOnAndBc": true,
@@ -57,16 +62,16 @@
       "strictCustomSemgrepExecutionErrors": 0,
       "mappedSourceDescriptorsMatchRelease": true,
       "allExternalQualificationHelpersCompile": 11,
-      "historicalReceiptRestamping": false
+      "historicalReceiptRestamping": false,
+      "scope": "Historical release-base integration evidence. Current qualification checkpoints are listed separately and never restamp earlier receipts."
     },
     "mergeReadinessAuthority": "Current required checks and reviews on carlos#5706",
     "candidateCliPackage": {
-      "sha256": "c9c951f86dc33cdf7b32bf82d2dee328fdf5f01b68e0014a56b14c2bb6eefa7f",
-      "bytes": 370472,
-      "sourceCommit": "0ce67721e199547d468bafd33b3690f3977b3fc7",
-      "workflowRun": 43642982526,
-      "artifact": 14133465305,
-      "publication": false
+      "sha256": "a68ee19ff85d4e1e624303097a317465f0e714495804172576d427c80227ba53",
+      "bytes": 370400,
+      "sourceCommit": "6525c85234c29f9c9e3fb599865b599ec32c373f",
+      "publication": false,
+      "scope": "Two byte-identical local Ubuntu 26.04 package builds; paired-source package identity is enforced by core CI."
     }
   },
   "evidenceLimits": "Export admission remains disabled by default. Unsupported, changed or ambiguous clinical facts require explicit review. Recorded checkpoints are historical; only evidence bound to the exact current source/WAR qualifies it. No OntarioMD certification or PCON qualification is claimed.",
@@ -79,18 +84,462 @@
     "All reviewed importer/exporter/shared database suites execute without failures, errors, reruns or skips",
     "Retained-data release upgrades, case-folded schemas and actual installed CLI/browser/resource proofs match their source and WAR identities"
   ],
-  "completionBlockers": [
-    "Native case-management history/notes with every revision and clinical association",
-    "Native measurements, laboratory results and reports without import ownership",
-    "Selected-patient source catalogue scope and ordinary native prescription mappings",
-    "Remaining performance, permission seed and route proof findings",
-    "Required exact-head native, installed/browser/CLI, resource and scanner CI after the final changes"
-  ],
+  "completionBlockers": [],
   "latestFocusedReview": {
-    "cases": 656,
+    "head": "494f6e24cb2051cdf184043637a62bf48cb242ac",
+    "nativeRequiredSuites": 7,
+    "nativeCases": 109,
+    "permissionCases": 5,
     "failures": 0,
     "errors": 0,
     "skips": 0,
-    "scope": "Focused local verification; fresh MariaDB and final exact-head CI remain required"
+    "scope": "Actual MariaDB statement deadlines and rollback, maintenance admission, and non-root permission refusals against freshly built final production classes. An earlier timed fixture was replaced with a lock held until the retry callback; no production behavior was relaxed.",
+    "connectionPolicyCases": 35
+  },
+  "qualificationCheckpoints": [
+    {
+      "head": "41180d08cb5a0dcb42653bd11e5bb3ea3b3fa128",
+      "unitCases": 4882,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "installedExportBrowser": "kept, adopted, rebuilt, stopped-job cancellation and purge passed",
+      "installedImportBrowser": "live CSRFGuard XMLHttpRequest upload: two chunks, 5003283 source bytes, exact 5000000-byte native note; clinical/report/cleanup completion and maintenance release passed",
+      "ordinaryNativeCensus": "38 reconstructed cases exported with no holds, authenticated recipient decryption and all 38 patient XML files valid against pinned CDS 5.2; exact final-candidate replay remains required"
+    },
+    {
+      "head": "722612c1cc5ac975c231a7ad2d965e77e52c27d2",
+      "unitCases": 4882,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "installedWebappFilesVerified": 10728,
+      "installedHealthCheck": "passed",
+      "abandon": "Actual CLI cancel/abandon preserved all 269 committed notes, released chart/maintenance holds and recorded the release. After the held-chart classification fix, a mixed export packaged the healthy chart, explicitly held the abandoned chart, and returned incomplete-package exit 5. Normal master record and eChart access passed with a committed note visible and both navigation columns loaded."
+    },
+    {
+      "head": "ccf1fc0a23cca5adbfec67925240eb88b8529cad",
+      "nativeRequiredSuites": 439,
+      "nativeCases": 5659,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "installedCensus": {
+        "schemaValidRecipientCharts": 42,
+        "nativeExactValueCases": 38,
+        "importedThenEditedCases": 4,
+        "exactNativeNoteBytes": 5000000,
+        "noteSha256": "830ec3b75c5ebf21df44156cb4f8ec1eb5c0149744166337a776423e5a2ac417"
+      },
+      "scope": "Independent source-bound native and installed evidence; overlapping Java executions are not summed.",
+      "h2Cases": 41314,
+      "h2RoutedSkips": 474,
+      "h2StrictEvidenceAudit": "passed",
+      "h2ProductionClassBytesUnchanged": true,
+      "h2ExpectedAnnotatedFamilies": 3048,
+      "h2MissingAnnotatedFamilies": 0
+    },
+    {
+      "head": "977d70c50578787c0112574d95418c7bfc2e9e8b",
+      "installedWebappFilesVerified": 10728,
+      "installedHealthCheck": "passed",
+      "spotbugsSecurityFindingsInPrChangedFiles": 0,
+      "spotbugsFindingsOmittedForMissingSource": 0,
+      "scope": "Final production Java/resources/webapp package. Later commits change tests, harnesses and evidence documentation only.",
+      "installedCensus": {
+        "schemaValidRecipientCharts": 42,
+        "nativeExactValueCases": 38,
+        "importedThenEditedCases": 4,
+        "exactNativeNoteBytes": 5000000,
+        "noteSha256": "830ec3b75c5ebf21df44156cb4f8ec1eb5c0149744166337a776423e5a2ac417",
+        "scope": "Reconstructed synthetic matrix; the original removed auditor row list is not claimed recovered."
+      },
+      "installedBrowser": "passed: cold ordinary chart after abandon, kept/adopted/rebuilt and stopped-job cancel, live-CSRF chunked XHR upload",
+      "repeatedGuardDeadlineRefusals": 0,
+      "abandonFinalRecheck": {
+        "status": "PASSED",
+        "committedNotesUnchanged": 269,
+        "mixedExportExit": 5,
+        "recipientAuthenticatedDecryption": true,
+        "eligiblePatientXmlCount": 1,
+        "encryptedReadMeListsHeldPatientAndReason": true,
+        "proofSha256": "a2adb0807b5ddf5c90961fa45c70e10cfe29bf4deb955a7fda01dd8d0b140558",
+        "scope": "Fresh final-package mixed export after isolated performance qualification; installed health restored and verified."
+      }
+    }
+  ],
+  "coverageRefresh": {
+    "sourceCommit": "494f6e24cb2051cdf184043637a62bf48cb242ac",
+    "floors": 1592,
+    "nonexecutableExclusions": 11,
+    "higherHistoricalMetricsRetained": 432,
+    "requiredRefusalLinesRetained": 4,
+    "sourceFreshness": "passed",
+    "releaseWideCoverageAcceptance": false,
+    "unreviewedZeroFloors": 76,
+    "scope": "Class-ID-bound local union; full release-wide ratchet acceptance is separate and is not claimed. No floor was lowered and no zero-coverage waiver added."
+  },
+  "performanceQualification": {
+    "sourceCommit": "494f6e24cb2051cdf184043637a62bf48cb242ac",
+    "cliCommit": "6525c85234c29f9c9e3fb599865b599ec32c373f",
+    "status": "PASSED",
+    "profiles": {
+      "export-native-charts": {
+        "sourceCommit": "494f6e24cb2051cdf184043637a62bf48cb242ac",
+        "warSha256": "f35077d9350e6c0e752947b1a1633aeee278d6cd68f3cf491099403f3e014b43",
+        "productionClassesMatchFinalNative": true,
+        "productionClassCount": 7653,
+        "performanceProofSha256": "5c965aee8ade78f3bf9b17dcd263a8ecce0daeda171d1ed53ac3a9f589556bc6",
+        "budgets": {
+          "cliRssMiB": 48,
+          "fixedPrivilegeStatements": 500,
+          "fixedSeconds": 45,
+          "fixedStatements": 3000,
+          "marginalPrivilegeStatementsPerNote": 1.0,
+          "marginalPrivilegeStatementsPerPatient": 200,
+          "marginalStatementsPerNote": 24,
+          "marginalStatementsPerPatient": 2200,
+          "privilegeStatementsPerNote": 1.0,
+          "privilegeStatementsPerPatient": 200,
+          "secondsPerNote": 0.08,
+          "secondsPerPatient": 4,
+          "serviceRssMiB": 1280,
+          "statementsPerNote": 24,
+          "statementsPerPatient": 2200
+        },
+        "marginal": {
+          "budgets": {
+            "privilegeStatementsPerNote": 1.0,
+            "privilegeStatementsPerPatient": 200,
+            "statementsPerNote": 24,
+            "statementsPerPatient": 2200
+          },
+          "failures": [],
+          "values": {
+            "privilegeStatementsPerNote": 0.03333333333333333,
+            "privilegeStatementsPerPatient": null,
+            "statementsPerNote": 12.016145833333333,
+            "statementsPerPatient": null
+          }
+        },
+        "cases": [
+          {
+            "label": "chart-128",
+            "patients": 1,
+            "notes": 128,
+            "labs": 128,
+            "elapsedSeconds": 42.11925030999919,
+            "budgetedStatements": 4311,
+            "privilegeStatements": 301,
+            "serviceJvmPeakRssBytes": 600387584,
+            "cliPeakRssBytes": 27004928,
+            "failures": [],
+            "phase": "VERIFIED"
+          },
+          {
+            "label": "chart-512",
+            "patients": 1,
+            "notes": 512,
+            "labs": 512,
+            "elapsedSeconds": 57.89402823000273,
+            "budgetedStatements": 8914,
+            "privilegeStatements": 317,
+            "serviceJvmPeakRssBytes": 834195456,
+            "cliPeakRssBytes": 26673152,
+            "failures": [],
+            "phase": "VERIFIED"
+          },
+          {
+            "label": "chart-2048",
+            "patients": 1,
+            "notes": 2048,
+            "labs": 2048,
+            "elapsedSeconds": 159.57880481699976,
+            "budgetedStatements": 27382,
+            "privilegeStatements": 365,
+            "serviceJvmPeakRssBytes": 889110528,
+            "cliPeakRssBytes": 27049984,
+            "failures": [],
+            "phase": "VERIFIED"
+          }
+        ]
+      },
+      "export-native-patients": {
+        "sourceCommit": "494f6e24cb2051cdf184043637a62bf48cb242ac",
+        "warSha256": "b5f7366be46c4c25ee6a89b252292127ebbdef9c4d8314b22464f97d41503455",
+        "productionClassesMatchFinalNative": true,
+        "productionClassCount": 7653,
+        "performanceProofSha256": "46b2b787bb3a8b79a4cd13556ef1e22bf3edd5c8d844c0089c6ee62dc3a2872b",
+        "budgets": {
+          "cliRssMiB": 48,
+          "fixedPrivilegeStatements": 500,
+          "fixedSeconds": 45,
+          "fixedStatements": 3000,
+          "marginalPrivilegeStatementsPerNote": 1.0,
+          "marginalPrivilegeStatementsPerPatient": 200,
+          "marginalStatementsPerNote": 24,
+          "marginalStatementsPerPatient": 2200,
+          "privilegeStatementsPerNote": 1.0,
+          "privilegeStatementsPerPatient": 200,
+          "secondsPerNote": 0.08,
+          "secondsPerPatient": 4,
+          "serviceRssMiB": 1280,
+          "statementsPerNote": 24,
+          "statementsPerPatient": 2200
+        },
+        "marginal": {
+          "budgets": {
+            "privilegeStatementsPerNote": 1.0,
+            "privilegeStatementsPerPatient": 200,
+            "statementsPerNote": 24,
+            "statementsPerPatient": 2200
+          },
+          "failures": [],
+          "values": {
+            "privilegeStatementsPerNote": null,
+            "privilegeStatementsPerPatient": 43.29032258064516,
+            "statementsPerNote": null,
+            "statementsPerPatient": 1232.9032258064517
+          }
+        },
+        "cases": [
+          {
+            "label": "patients-1",
+            "patients": 1,
+            "notes": 1,
+            "labs": 1,
+            "elapsedSeconds": 45.142784212999686,
+            "budgetedStatements": 2845,
+            "privilegeStatements": 301,
+            "serviceJvmPeakRssBytes": 545284096,
+            "cliPeakRssBytes": 27181056,
+            "failures": [],
+            "phase": "VERIFIED"
+          },
+          {
+            "label": "patients-8",
+            "patients": 8,
+            "notes": 8,
+            "labs": 8,
+            "elapsedSeconds": 50.29983696499767,
+            "budgetedStatements": 11465,
+            "privilegeStatements": 603,
+            "serviceJvmPeakRssBytes": 561471488,
+            "cliPeakRssBytes": 26918912,
+            "failures": [],
+            "phase": "VERIFIED"
+          },
+          {
+            "label": "patients-32",
+            "patients": 32,
+            "notes": 32,
+            "labs": 32,
+            "elapsedSeconds": 115.63617854600307,
+            "budgetedStatements": 41065,
+            "privilegeStatements": 1643,
+            "serviceJvmPeakRssBytes": 591847424,
+            "cliPeakRssBytes": 26718208,
+            "failures": [],
+            "phase": "VERIFIED"
+          }
+        ]
+      },
+      "export-imported-charts": {
+        "sourceCommit": "494f6e24cb2051cdf184043637a62bf48cb242ac",
+        "warSha256": "9588d32a7e463bef09c7daa2fb922e3e1de1cdbba461984537cf1fa6f8ef8e9c",
+        "productionClassesMatchFinalNative": true,
+        "productionClassCount": 7653,
+        "performanceProofSha256": "dea3c513ef0f2bc65710681b078c3304a957e88e388b7ddd03ac550a87577441",
+        "budgets": {
+          "cliRssMiB": 48,
+          "fixedPrivilegeStatements": 500,
+          "fixedSeconds": 40,
+          "fixedStatements": 2000,
+          "marginalPrivilegeStatementsPerNote": 1.0,
+          "marginalPrivilegeStatementsPerPatient": 6000,
+          "marginalStatementsPerNote": 40,
+          "marginalStatementsPerPatient": 14100,
+          "privilegeStatementsPerNote": 1.0,
+          "privilegeStatementsPerPatient": 6000,
+          "secondsPerNote": 0.45,
+          "secondsPerPatient": 9,
+          "serviceRssMiB": 1280,
+          "statementsPerNote": 40,
+          "statementsPerPatient": 14100
+        },
+        "marginal": {
+          "budgets": {
+            "privilegeStatementsPerNote": 1.0,
+            "privilegeStatementsPerPatient": 6000,
+            "statementsPerNote": 40,
+            "statementsPerPatient": 14100
+          },
+          "failures": [],
+          "values": {
+            "privilegeStatementsPerNote": 0.12916666666666668,
+            "privilegeStatementsPerPatient": null,
+            "statementsPerNote": 16.555208333333333,
+            "statementsPerPatient": null
+          }
+        },
+        "cases": [
+          {
+            "label": "chart-128",
+            "patients": 1,
+            "notes": 128,
+            "labs": 128,
+            "elapsedSeconds": 56.34765572899778,
+            "budgetedStatements": 4728,
+            "privilegeStatements": 309,
+            "serviceJvmPeakRssBytes": 647856128,
+            "cliPeakRssBytes": 27156480,
+            "failures": [],
+            "phase": "VERIFIED"
+          },
+          {
+            "label": "chart-512",
+            "patients": 1,
+            "notes": 512,
+            "labs": 512,
+            "elapsedSeconds": 164.19927753400043,
+            "budgetedStatements": 11383,
+            "privilegeStatements": 365,
+            "serviceJvmPeakRssBytes": 724131840,
+            "cliPeakRssBytes": 26849280,
+            "failures": [],
+            "phase": "VERIFIED"
+          },
+          {
+            "label": "chart-2048",
+            "patients": 1,
+            "notes": 2048,
+            "labs": 2048,
+            "elapsedSeconds": 519.9989067909992,
+            "budgetedStatements": 36514,
+            "privilegeStatements": 557,
+            "serviceJvmPeakRssBytes": 1015259136,
+            "cliPeakRssBytes": 27009024,
+            "failures": [],
+            "phase": "VERIFIED"
+          }
+        ]
+      },
+      "export-imported-patients": {
+        "sourceCommit": "494f6e24cb2051cdf184043637a62bf48cb242ac",
+        "warSha256": "e0269c68bd0a6e4a7d11f779be90c61cfb133f1407c744dabd6f55cb228493eb",
+        "productionClassesMatchFinalNative": true,
+        "productionClassCount": 7653,
+        "performanceProofSha256": "4350fe0a809bafd198111e77fd484cae4e8ab49dea856240430474ee17b91a37",
+        "budgets": {
+          "cliRssMiB": 48,
+          "fixedPrivilegeStatements": 500,
+          "fixedSeconds": 40,
+          "fixedStatements": 2000,
+          "marginalPrivilegeStatementsPerNote": 1.0,
+          "marginalPrivilegeStatementsPerPatient": 6000,
+          "marginalStatementsPerNote": 40,
+          "marginalStatementsPerPatient": 14100,
+          "privilegeStatementsPerNote": 1.0,
+          "privilegeStatementsPerPatient": 6000,
+          "secondsPerNote": 0.45,
+          "secondsPerPatient": 9,
+          "serviceRssMiB": 1280,
+          "statementsPerNote": 40,
+          "statementsPerPatient": 14100
+        },
+        "marginal": {
+          "budgets": {
+            "privilegeStatementsPerNote": 1.0,
+            "privilegeStatementsPerPatient": 6000,
+            "statementsPerNote": 40,
+            "statementsPerPatient": 14100
+          },
+          "failures": [],
+          "values": {
+            "privilegeStatementsPerNote": null,
+            "privilegeStatementsPerPatient": 43.29032258064516,
+            "statementsPerNote": null,
+            "statementsPerPatient": 1199.483870967742
+          }
+        },
+        "cases": [
+          {
+            "label": "patients-1",
+            "patients": 1,
+            "notes": 1,
+            "labs": 1,
+            "elapsedSeconds": 35.977913770999294,
+            "budgetedStatements": 2774,
+            "privilegeStatements": 301,
+            "serviceJvmPeakRssBytes": 703062016,
+            "cliPeakRssBytes": 27238400,
+            "failures": [],
+            "phase": "VERIFIED"
+          },
+          {
+            "label": "patients-8",
+            "patients": 8,
+            "notes": 8,
+            "labs": 8,
+            "elapsedSeconds": 49.31504203199802,
+            "budgetedStatements": 11192,
+            "privilegeStatements": 603,
+            "serviceJvmPeakRssBytes": 561827840,
+            "cliPeakRssBytes": 27398144,
+            "failures": [],
+            "phase": "VERIFIED"
+          },
+          {
+            "label": "patients-32",
+            "patients": 32,
+            "notes": 32,
+            "labs": 32,
+            "elapsedSeconds": 110.66728957099986,
+            "budgetedStatements": 39958,
+            "privilegeStatements": 1643,
+            "serviceJvmPeakRssBytes": 609636352,
+            "cliPeakRssBytes": 27504640,
+            "failures": [],
+            "phase": "VERIFIED"
+          }
+        ]
+      }
+    },
+    "scope": "Independent sequential quiet-host exact-pipeline measurements; budgets unchanged; all twelve packages authenticated, decrypted and counted. Earlier failed attempts are retained separately."
+  },
+  "completionScope": "All five handover implementation batches, installed browser/CLI/census and abandon proofs, independent measured performance, operator records, Node inventory and source-bound coverage refresh are complete. Current-head CI and reviews on the PR remain the merge authority; this source document cannot certify its own future commit. No release-wide coverage acceptance or certification is claimed.",
+  "finalReview": {
+    "main": "e80736b851fd2966f561f8494049987aa6e12431",
+    "productionHead": "977d70c50578787c0112574d95418c7bfc2e9e8b",
+    "validatedCodeFindingsRemaining": 0,
+    "scope": "Production diff reviewed against current main and PR release base; final documentation checked against retained measurements and exact source identities."
+  },
+  "ciCheckpoint": {
+    "head": "0c82cd2d2bedcd6308dc779bb0ebd4deb78ca20b",
+    "pullRequestWorkflows": 24,
+    "result": "success",
+    "dco": "success",
+    "unresolvedReviewThreads": 0,
+    "scope": "Completed checkpoint before this final documentation commit; final-head results are recorded on PR 5706."
+  },
+  "nodeQualification": {
+    "runtime": "v22.23.4",
+    "timezone": "UTC",
+    "tests": 8057,
+    "failures": 0,
+    "skips": 0,
+    "reportSha256": "8dfeecf0d9d7cbde93ea14bc1f008610b278c0ffdd296a4fa9cb438b74971a3f",
+    "provenance": "Independent local full release runner, not a downloaded CI artifact",
+    "ciCorroboration": {
+      "head": "0c82cd2d2bedcd6308dc779bb0ebd4deb78ca20b",
+      "workflowRunId": 43694016095,
+      "jobId": 132750474183,
+      "jobResult": "success",
+      "decodedJobLog": "Node release tests: all cases passed",
+      "artifactId": 14153172855,
+      "artifactName": "strict-node-outcomes",
+      "artifactBytes": 286357,
+      "artifactContentsDownloaded": false
+    }
   }
 }
