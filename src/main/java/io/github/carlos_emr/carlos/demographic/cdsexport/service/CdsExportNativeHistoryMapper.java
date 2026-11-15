@@ -1474,7 +1474,7 @@ public final class CdsExportNativeHistoryMapper {
      * a time the column cannot hold). The stored value travels exactly in the revision details
      * either way, so no element is written for it rather than holding the patient.
      */
-    private static CdsExportDateDto storedClock(String value, ZoneId zone) throws IOException {
+    static CdsExportDateDto storedClock(String value, ZoneId zone) throws IOException {
         return calendarDay(value) == null ? null : clock(value, zone);
     }
 

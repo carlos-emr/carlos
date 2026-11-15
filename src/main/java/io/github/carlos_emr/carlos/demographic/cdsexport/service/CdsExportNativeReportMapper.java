@@ -288,8 +288,8 @@ public final class CdsExportNativeReportMapper {
                 Map.of("receivedDate", "ReceivedDateTime", "sent_date_time", "SentDateTime")
                         .entrySet()) {
             String value = source.get(entry.getKey());
-            if (value != null && !value.isEmpty())
-                dates.put(entry.getValue(), CdsExportNativeHistoryMapper.clock(value, zone));
+            var time = CdsExportNativeHistoryMapper.storedClock(value, zone);
+            if (time != null) dates.put(entry.getValue(), time);
         }
         // The report's event is the date the clinician recorded (observationdate), as the legacy
         // exporter wrote it. contentdatetime is the instant the file entered CARLOS
@@ -297,11 +297,11 @@ public final class CdsExportNativeReportMapper {
         // later: it is the receipt time, never the clinical event, and a difference between the
         // two is normal rather than a conflict. Both stay in the document source context.
         String observed = source.get("observationdate");
-        if (observed != null && !observed.isEmpty())
-            dates.put("EventDateTime", CdsExportNativeHistoryMapper.clock(observed, zone));
+        var eventTime = CdsExportNativeHistoryMapper.storedClock(observed, zone);
+        if (eventTime != null) dates.put("EventDateTime", eventTime);
         String filed = source.get("contentdatetime");
-        if (filed != null && !filed.isEmpty() && !dates.containsKey("ReceivedDateTime"))
-            dates.put("ReceivedDateTime", CdsExportNativeHistoryMapper.clock(filed, zone));
+        var filedTime = CdsExportNativeHistoryMapper.storedClock(filed, zone);
+        if (filedTime != null) dates.putIfAbsent("ReceivedDateTime", filedTime);
         for (var entry :
                 Map.of("source", "SourceAuthorPhysician", "sourceFacility", "SourceFacility")
                         .entrySet()) {
@@ -317,9 +317,11 @@ public final class CdsExportNativeReportMapper {
         CdsExportPublicProviderDto reviewer = null;
         CdsExportDateDto reviewDate = null;
         String reviewerId = source.get("reviewer"), reviewed = source.get("reviewdatetime");
-        if (reviewerId != null && !reviewerId.isEmpty() && !reviewerId.equals("0")) {
+        // A migrated reviewer number without a provider row stays exact in the document
+        // context; it cannot assert a named reviewer, and must not hold the chart.
+        if (reviewerId != null && !reviewerId.isEmpty() && !reviewerId.equals("0")
+                && providers.containsKey(reviewerId)) {
             var provider = providers.get(reviewerId);
-            if (provider == null) review("CDS_EXPORT_NATIVE_REPORT_REVIEWER_REQUIRED");
             var mapped =
                     new CdsExportPublicProviderMapper()
                             .map(provider, CdsExportPublicProviderMapper.Target.REPORT_REVIEWER);
@@ -333,8 +335,8 @@ public final class CdsExportNativeReportMapper {
             publicReviewer.put("lastName", reviewer.lastName());
             if (reviewer.ohipNumber() != null) publicReviewer.put("ohip", reviewer.ohipNumber());
             details.put("publicReviewer", publicReviewer);
-            if (reviewed != null && !reviewed.isEmpty()) {
-                var clock = CdsExportNativeHistoryMapper.clock(reviewed, zone);
+            var clock = CdsExportNativeHistoryMapper.storedClock(reviewed, zone);
+            if (clock != null) {
                 reviewDate =
                         new CdsExportDateDto(
                                 CdsExportDateDto.Precision.DATE, clock.lexical().substring(0, 10));

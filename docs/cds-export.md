@@ -2541,6 +2541,41 @@ witnesses, attempt rows and explicit privilege denials. Shared prevention reader
 also preserve a legacy row with a null demographic association. An unavailable
 source still fails explicitly instead of presenting an empty or incomplete chart.
 
+### Holds that remain in reports, laboratory results and HRM
+
+The report/laboratory sweep includes the native and retained report paths, document and inbox
+reviews, embedded laboratory documents, HRM, printed forms and data summaries. A missing
+provider row no longer holds a document or an acknowledged laboratory result: the exact
+reviewer number and review row travel in the source context, without inventing a name. This
+also applies to a first review added to an imported document. A zero or invalid stored report
+calendar date is omitted from the optional date element and remains exact in that context.
+An undated or zero-dated review cannot assert the required review date and travels in context
+only. Every acknowledgement is carried, including one without a comment, so the source
+reference and timestamp remain available even when no named review element can be written.
+The report mapper, inbox mapper, imported-document edit and assembled-report tests exercise
+these cases; a missing clinic zone with a valid review timestamp still fails explicitly.
+
+The remaining checks have the following scope; they are not limits on chart size or valid
+clinical text:
+
+| Check | Why it remains / reachable source |
+| --- | --- |
+| Missing, empty or unsafe document/HRM file | A resource or integrity failure, not an omitted document. `DocumentService.saveDocumentToDemographic` requires bytes and a filename; `DocumentManagerImpl.createDocument` validates and writes a generated filename before saving the row. Upload/scan writers likewise write the file. A deleted file, a broken mount or a modified path must not become a successful export with missing content. Nonempty stored HTML and opaque binary formats are exported. |
+| `CDS_EXPORT_DOCUMENT_PROGRAM_SCOPE`, later access changes | The exporter may not disclose a document that any exporting identity cannot read. Program membership is checked before capture, during mapping and before accepting output. |
+| `CDS_EXPORT_NATIVE_REPORT_PROGRAM_REQUIRES_REVIEW` | An invalid stored restriction or program identity; the normal restriction writer stores a boolean and the chosen integer program. An absent program is unrestricted by the chart's own rule. |
+| `CDS_EXPORT_NATIVE_REPORT_REVIEWER_REQUIRES_REVIEW` | A malformed captured provider/schema contract. The physical provider first and last names are non-null `varchar(30)`, within the 50-character wire fields; empty names are preserved, XML-illegal characters are displayed as U+FFFD, and non-OHIP numbers are not asserted as OHIP. Missing provider rows are carried as described above. |
+| `CDS_EXPORT_NATIVE_LAB_MESSAGE_REQUIRES_REVIEW` / `CDS_EXPORT_NATIVE_LAB_FIELDS_REQUIRES_REVIEW` | A stored message HAPI cannot parse/read, not an unsupported OBX value or missing optional metadata. The normal upload handlers parse messages before storage; generic structures and normalized segment separators are supported. The original message travels with the results. A multipatient message contributes only this patient's part. |
+| `CDS_EXPORT_NATIVE_LAB_COLLECTION_REQUIRED` | Neither a usable report/collection time nor the stored message's creation date exists. `hl7TextMessage.created` is non-null and assigned on every store; the fallback is documented in the laboratory section. Invalid out-of-band rows cannot claim an invented collection date. |
+| `CDS_EXPORT_HRM_REPORT_LINK_REQUIRES_REVIEW` | An ambiguous or noncanonical patient/report identity, or a child row not attributable to its report. `HRMReportParser.routeReportToDemographic` writes canonical integer identities. Missing-report links are listed; assigning another patient's report would be unsafe. |
+| `CDS_EXPORT_HRM_SIGN_OFF_STATUS_REQUIRES_REVIEW` | A value outside the 0/1 states written by the HRM parser, `HRMModifyDocument2Action` and `HrmProviderRoutingService`; it is not reached by an ordinary sign-off. |
+| `CDS_EXPORT_PRINTED_FORM_PRINTER_AMBIGUOUS` | Two installed adapters claim the same form family: a wiring error. Printer failures and a summary that PDF cannot represent use the complete HTML summary and preserve its record carrier. |
+| Capture/schema/receipt/ownership, source-format contradictions and authenticated-content checks | These guard attribution and integrity. A changed schema, damaged import ledger, contradictory sender Format, or missing authenticated payload cannot silently produce a successful incomplete export. A live source change is retried or explicitly stops the attempt under the existing resumable job rules. |
+
+Unlinked laboratory readings and legacy database-only document copies are listed in the
+ReadMe; they are not exported as visible chart content. Legacy locked notes retain their
+separate hold pending #6213. No reviewer/date fallback suppresses an I/O, authorization,
+configuration or authentication failure.
+
 ## Data summaries and listed tables
 
 **Catalogue.** `CdsExportSourceCatalogue.Disposition` has two dispositions beside

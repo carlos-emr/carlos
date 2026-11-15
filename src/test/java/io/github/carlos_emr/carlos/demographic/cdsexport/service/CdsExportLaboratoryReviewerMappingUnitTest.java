@@ -156,8 +156,8 @@ class CdsExportLaboratoryReviewerMappingUnitTest {
                 .isEqualTo("UNACKNOWLEDGED_INBOX_ROUTING_WORKFLOW");
         assertThat(rule(reviews, first, "timestamp"))
                 .isEqualTo("ACKNOWLEDGEMENT_TIME_IN_CLINIC_ZONE");
-        // A route without a comment adds nothing to the supporting record.
-        assertThat(reviews.carried()).isEmpty();
+        // Every acknowledgement keeps its exact route beside the public reviewer element.
+        assertThat(reviews.carried()).containsExactly(second, first);
         // Each provider row is accounted once, however many routes name it.
         assertThat(reviews.rows().stream().filter(row -> row.table().equals("provider")))
                 .hasSize(2);
@@ -205,6 +205,30 @@ class CdsExportLaboratoryReviewerMappingUnitTest {
     }
 
     @Test
+    void shouldCarryAnUndatedAcknowledgement_withItsExactTimestampAndProvider() throws Exception {
+        for (String timestamp : java.util.Arrays.asList(null, "0", "0.000000")) {
+            var original = route(15, "101", "A", null, null);
+            var fields = new LinkedHashMap<>(original.fields());
+            fields.put("timestamp", timestamp);
+            var undated = new CdsExportCapturedTextRowDto(original.table(), original.recordKey(), fields);
+            var result = reviews(List.of(undated));
+            assertThat(result.reviewers()).isEmpty();
+            assertThat(result.carried()).containsExactly(undated);
+            assertThat(result.providers()).containsKey("101");
+            new CdsExportNativeFieldAssessmentValidator()
+                    .requireRepresentable(result.rows(), result.fields(), () -> {});
+        }
+    }
+
+    @Test
+    void shouldRefuseAMissingClinicZone_forAnAcknowledgementWithAValidTime() {
+        var dated = route(15, "101", "A", "2026-07-10 16:45:00", null);
+        assertThatThrownBy(() -> CdsExportInboxReviewMapper.laboratory()
+                .map(List.of(dated), List.of(), providers(), null))
+                .hasMessage("CDS_EXPORT_NATIVE_HISTORY_ZONE_REQUIRED");
+    }
+
+    @Test
     void shouldWriteOneElement_forTheSameAcknowledgementRecordedTwice() throws Exception {
         var reviews =
                 reviews(
@@ -238,10 +262,14 @@ class CdsExportLaboratoryReviewerMappingUnitTest {
     }
 
     @Test
-    void shouldHoldOnlyThePatient_forAnUnknownReviewer() throws Exception {
-        assertThatThrownBy(
-                        () -> reviews(List.of(route(10, "999", "A", "2026-07-10 16:45:00", null))))
-                .hasMessage("CDS_EXPORT_NATIVE_REPORT_REVIEWER_REQUIRED");
+    void shouldCarryTheExactAcknowledgement_forAnUnknownReviewer() throws Exception {
+        var route = route(10, "999", "A", "2026-07-10 16:45:00", null);
+        var result = reviews(List.of(route));
+        assertThat(result.reviewers()).isEmpty();
+        assertThat(result.carried()).containsExactly(route);
+        assertThat(CdsExportInboxReviewMapper.carried(List.of(route))).containsExactly(route);
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(result.rows(), result.fields(), () -> {});
         // An unclaimed placeholder is never a reviewer, whatever its status.
         assertThat(
                         CdsExportInboxReviewMapper.laboratory()
@@ -296,11 +324,12 @@ class CdsExportLaboratoryReviewerMappingUnitTest {
                 comments -> {
                     assertThat(comments.result()).isEqualTo("d".repeat(64));
                     assertThat(comments.lab()).isEqualTo("91");
-                    assertThat(comments.routes()).containsExactly(commented);
+                    assertThat(comments.routes()).containsExactly(acknowledged, commented);
                 });
         assertThat(
                         CdsExportLaboratoryOccurrenceService.importedComments(
                                 index, Map.of("91", List.of(acknowledged))))
-                .isEmpty();
+                .singleElement().satisfies(comments ->
+                        assertThat(comments.routes()).containsExactly(acknowledged));
     }
 }

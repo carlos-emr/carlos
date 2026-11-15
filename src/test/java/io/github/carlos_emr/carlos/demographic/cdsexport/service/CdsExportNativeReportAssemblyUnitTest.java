@@ -935,13 +935,17 @@ class CdsExportNativeReportAssemblyUnitTest {
     }
 
     @Test
-    void shouldHoldOnlyThisPatient_forAReviewByAProviderWithNoRecord() throws Exception {
+    void shouldCarryTheOriginalReview_forAProviderWithNoRemainingRecord() throws Exception {
         add(91, uploaded(91, "20260305101400consult-letter.pdf", "application/pdf"), "A", PDF);
         extraReviewer(601, 91, "777", "2026-03-07 10:15:00");
-        assertThatThrownBy(this::assemble)
-                .isInstanceOf(CdsExportMappingReviewException.class)
-                .hasMessage("CDS_EXPORT_NATIVE_REPORT_REVIEWER_REQUIRED");
-        assertThat(attachments).isEmpty();
+        String xml = assemble();
+        assertThat(reports(xml)).hasSize(1);
+        assertThat(xml).contains("\"reviewerProviderNo\":\"777\"")
+                .doesNotContain("<ReportReviewed>");
+        assertThat(attachments).hasSize(1);
+        assertThat(receipts).hasSize(1);
+        assertThat(receipts.getFirst().fields().values()).noneMatch(
+                field -> field.outcome() == CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW);
     }
 
     @Test

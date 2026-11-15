@@ -39,12 +39,12 @@ import java.util.*;
  * ({@code ProviderLabRoutingDao.UNCLAIMED_PROVIDER}) or a blank provider is the unclaimed-inbox
  * placeholder. Only an acknowledgement by a real provider is a review: it becomes a reviewer
  * element with the provider's public name, OHIP number when it is a six-digit OHIP number, and
- * the acknowledgement time. Every other route is inbox workflow and is operational. Any other
- * status value holds the patient: its meaning is not known.
+ * the acknowledgement time. Every other known route is inbox workflow. Unknown statuses and acknowledgements
+ * whose provider or date cannot be represented travel whole in the source context.
  *
  * <p>A provider's acknowledgement or inbox comment is clinical text written about the report.
  * It is never dropped and never squeezed into a field the receiver shows as something else:
- * every route with a comment travels whole, with its provider, status and time, in the report's
+ * every acknowledgement and every route with a comment travels whole, with its provider, status and time, in the report's
  * source-context carrier (the native laboratory residual record or the document report's Notes),
  * and the route's other fields are then accounted as carried with it.
  *
@@ -68,8 +68,8 @@ final class CdsExportInboxReviewMapper {
     /** Inbox statuses that record workflow, not a review. */
     private static final Set<String> WORKFLOW = Set.of("", "N", "F", "X");
 
-    /** Rule of every field of a route that is carried whole with its comment. */
-    static final String CARRIED_RULE = "CARRIED_WHOLE_WITH_ITS_INBOX_REVIEW_COMMENT";
+    /** Rule of every field of a review or route carried whole in source context. */
+    static final String CARRIED_RULE = "EXACT_INBOX_REVIEW_IN_SOURCE_CONTEXT";
 
     /** Rule of every field of a route whose status is none CARLOS writes, carried whole. */
     static final String UNKNOWN_STATUS_RULE = "INBOX_ROUTE_OF_A_STATUS_CARLOS_DOES_NOT_WRITE_CARRIED_WHOLE";
@@ -177,7 +177,7 @@ final class CdsExportInboxReviewMapper {
             if (review != null) found.add(review);
             String comment = route.fields().get("comment");
             if (comment != null && !comment.isEmpty()
-                    || dateOnly && review != null
+                    || acknowledgement(route)
                     || unknownStatus(route)) carried.add(route);
         }
         for (var row : sorted(reviews)) {
@@ -217,14 +217,15 @@ final class CdsExportInboxReviewMapper {
     }
 
     /**
-     * The routes that travel whole in the source context, in row order: those with a comment,
-     * and those whose status is none CARLOS writes ({@link #unknownStatus}).
+     * The routes that travel whole in the source context, in row order: acknowledgements,
+     * those with a comment, and those whose status is none CARLOS writes ({@link #unknownStatus}).
      */
     static List<CdsExportCapturedTextRowDto> carried(List<CdsExportCapturedTextRowDto> routes) {
         var result = new ArrayList<CdsExportCapturedTextRowDto>();
         for (var route : sorted(routes)) {
             String comment = route.fields().get("comment");
-            if (comment != null && !comment.isEmpty() || unknownStatus(route)) result.add(route);
+            if (comment != null && !comment.isEmpty() || unknownStatus(route) || acknowledgement(route))
+                result.add(route);
         }
         return List.copyOf(result);
     }
@@ -244,6 +245,13 @@ final class CdsExportInboxReviewMapper {
                 && status != null
                 && !status.equals("A")
                 && !WORKFLOW.contains(status);
+    }
+
+    /** An acknowledgement keeps its exact provider reference even when that provider is gone. */
+    private static boolean acknowledgement(CdsExportCapturedTextRowDto route) {
+        String provider = route.fields().get("provider_no");
+        return "A".equals(route.fields().get("status"))
+                && provider != null && !provider.isBlank() && !provider.equals("0");
     }
 
     /** Every field of a carried route, as accounted by the record that carries it whole. */
@@ -393,6 +401,11 @@ final class CdsExportInboxReviewMapper {
                             fields,
                             used,
                             values);
+            if (result == null) {
+                for (String column : ROUTING_COLUMNS)
+                    state.set(column, Outcome.MAPPED, carrier, CARRIED_RULE);
+                return null;
+            }
             state.set("provider_no", Outcome.MAPPED, reviewer + "/Name", "ACKNOWLEDGING_PROVIDER");
             state.set("status", Outcome.MAPPED, reviewer, "ACKNOWLEDGED_INBOX_STATUS");
             state.set(
@@ -468,9 +481,13 @@ final class CdsExportInboxReviewMapper {
         }
         var state = new CdsExportNativeFieldAssessments(row, fields);
         String number = row.fields().get(provider), reviewed = row.fields().get(time);
-        // A review row attests a provider; one without a provider cannot be attributed.
-        if (number == null || number.isBlank() || number.equals("0"))
-            review("CDS_EXPORT_NATIVE_REPORT_REVIEWER_REQUIRED");
+        // A migrated review may name no remaining provider. Keep its exact row in the
+        // source context without attributing it to a different provider.
+        if (number == null || number.isBlank() || number.equals("0") || !providers.containsKey(number)) {
+            for (String column : row.fields().keySet())
+                state.set(column, Outcome.MAPPED, carrier, CARRIED_RULE);
+            return null;
+        }
         for (String column : List.of("id", document))
             state.operational(column, "LOCAL_DOCUMENT_REVIEW_IDENTITY_AND_DOCUMENT_LINK");
         if (reviewed == null || reviewed.isEmpty()) {
@@ -492,6 +509,11 @@ final class CdsExportInboxReviewMapper {
                         fields,
                         used,
                         values);
+        if (result == null) {
+            for (String column : row.fields().keySet())
+                state.set(column, Outcome.MAPPED, carrier, CARRIED_RULE);
+            return null;
+        }
         state.set(provider, Outcome.MAPPED, reviewer + "/Name", "DOCUMENT_REVIEWER");
         state.set(
                 time,
@@ -511,15 +533,22 @@ final class CdsExportInboxReviewMapper {
             Map<String, CdsExportCapturedTextRowDto> used,
             Map<String, CdsExportPublicProviderDto> values)
             throws IOException {
+        if (!providers.containsKey(number)) return null;
         var value = requireProvider(number, providers, fields, used, values);
-        if (reviewed == null || reviewed.isEmpty())
-            review("CDS_EXPORT_INBOX_REVIEW_TIME_REQUIRED");
-        return new Review(
-                number,
-                value,
-                instant
-                        ? CdsExportNativeHistoryMapper.instant(reviewed, zone)
-                        : CdsExportNativeHistoryMapper.clock(reviewed, zone));
+        if (reviewed == null || reviewed.isEmpty()) return null;
+        // Migrated zero dates cannot claim a calendar review. The exact row and public
+        // provider details still travel in source context; configuration/I/O failures propagate.
+        CdsExportDateDto time;
+        try {
+            time = instant
+                    ? CdsExportNativeHistoryMapper.instant(reviewed, zone)
+                    : CdsExportNativeHistoryMapper.storedClock(reviewed, zone);
+        } catch (CdsExportMappingReviewException invalidDate) {
+            if (!"CDS_EXPORT_NATIVE_HISTORY_DATE_REQUIRES_REVIEW".equals(invalidDate.getMessage()))
+                throw invalidDate;
+            return null;
+        }
+        return time == null ? null : new Review(number, value, time);
     }
 
     private CdsExportPublicProviderDto requireProvider(

@@ -226,6 +226,28 @@ class CdsExportImportedDocumentEditUnitTest {
     }
 
     @Test
+    void shouldCarryAnEditedReviewer_withNoRemainingProviderRecord() throws Exception {
+        var current = new TreeMap<>(imported());
+        current.put("reviewer", "777");
+        current.put("reviewdatetime", "2026-03-08 11:45:00");
+        var exported = export(current, false);
+        assertThat(exported.edit().reviewers()).isEmpty();
+        assertThat(exported.xml()).contains("Sending").doesNotContain("Ada");
+        assertThat(exported.supplementary().text()).contains("777", "2026-03-08 11:45:00");
+    }
+
+    @Test
+    void shouldCarryAnEditedZeroReviewDate_withoutAppendingAFalseCalendarReview() throws Exception {
+        var current = new TreeMap<>(imported());
+        current.put("reviewer", "101");
+        current.put("reviewdatetime", "0000-00-00 00:00:00");
+        var exported = export(current, false);
+        assertThat(exported.edit().reviewers()).isEmpty();
+        assertThat(exported.supplementary().text()).contains("0000-00-00 00:00:00", "publicReviewer", "Ada", "123456");
+        assertThat(exported.xml()).doesNotContain("0000-00-00");
+    }
+
+    @Test
     void shouldAppendTheEditPageReview_andCarryEveryOtherChangedColumn() throws Exception {
         // "Reviewed" on the edit page: the page stores the reviewer and time, posts "" for the
         // HTML the row did not have, and a type from its list ("CDS" is not offered).

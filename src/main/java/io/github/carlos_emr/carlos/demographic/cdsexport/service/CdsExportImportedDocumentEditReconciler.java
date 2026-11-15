@@ -340,9 +340,9 @@ final class CdsExportImportedDocumentEditReconciler {
             entry.put("rule", rule);
             columns.put(column, entry);
         }
-        if (columns.containsKey("reviewer") || columns.containsKey("reviewdatetime"))
-            reviewer(document, state, providers, zone, reviewers, rows, extra, columns);
         var context = new LinkedHashMap<String, Object>();
+        if (columns.containsKey("reviewer") || columns.containsKey("reviewdatetime"))
+            reviewer(document, state, providers, zone, reviewers, rows, extra, columns, context);
         context.put("document_no", row.get("document_no"));
         context.put("columns", columns);
         if (!supersededElements.isEmpty()) context.put("supersededElements", supersededElements);
@@ -364,7 +364,8 @@ final class CdsExportImportedDocumentEditReconciler {
             List<CdsExportNativeReportMapper.Reviewed> reviewers,
             List<CdsExportCapturedTextRowDto> rows,
             Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields,
-            Map<String, Object> columns)
+            Map<String, Object> columns,
+            Map<String, Object> context)
             throws IOException {
         String number = document.fields().get("reviewer");
         String reviewed = document.fields().get("reviewdatetime");
@@ -375,13 +376,27 @@ final class CdsExportImportedDocumentEditReconciler {
             return;
         }
         var provider = providers.get(number);
-        if (provider == null) review("CDS_EXPORT_NATIVE_REPORT_REVIEWER_REQUIRED");
+        if (provider == null) {
+            // Migrated reviewer references can outlive their provider. Preserve the edit
+            // exactly without inventing a name or withholding the document.
+            for (String column : List.of("reviewer", "reviewdatetime"))
+                if (columns.containsKey(column))
+                    state.set(column, Outcome.MAPPED, "Reports/Notes", CARRIED);
+            return;
+        }
         var mapped =
                 new CdsExportPublicProviderMapper()
                         .map(provider, CdsExportPublicProviderMapper.Target.REPORT_REVIEWER);
         if (!mapped.representable()) review("CDS_EXPORT_NATIVE_REPORT_REVIEWER_REQUIRES_REVIEW");
         rows.add(provider);
-        if (reviewed == null || reviewed.isEmpty()) {
+        var publicReviewer = new LinkedHashMap<String, String>();
+        publicReviewer.put("firstName", mapped.value().firstName());
+        publicReviewer.put("lastName", mapped.value().lastName());
+        if (mapped.value().ohipNumber() != null)
+            publicReviewer.put("ohip", mapped.value().ohipNumber());
+        context.put("publicReviewer", publicReviewer);
+        var clock = CdsExportNativeHistoryMapper.storedClock(reviewed, zone);
+        if (clock == null) {
             // The element requires a date; the undated reviewer travels in context only.
             mapped.fields()
                     .forEach(
@@ -395,11 +410,11 @@ final class CdsExportImportedDocumentEditReconciler {
                                                     "UNDATED_PUBLIC_REVIEWER_IN_SOURCE_CONTEXT")));
             state.set("reviewer", Outcome.MAPPED, "Reports/Notes", CARRIED);
             if (columns.containsKey("reviewdatetime"))
-                state.set("reviewdatetime", Outcome.ABSENT, "", CARRIED);
+                state.set("reviewdatetime", empty(reviewed) ? Outcome.ABSENT : Outcome.MAPPED,
+                        empty(reviewed) ? "" : "Reports/Notes", CARRIED);
             return;
         }
         fields.putAll(mapped.fields());
-        var clock = CdsExportNativeHistoryMapper.clock(reviewed, zone);
         reviewers.add(
                 new CdsExportNativeReportMapper.Reviewed(
                         mapped.value(),
@@ -447,7 +462,7 @@ final class CdsExportImportedDocumentEditReconciler {
                 if (value.length() < 10) return null;
                 String day = value.substring(0, 10);
                 try {
-                    java.time.LocalDate.parse(day);
+                    if (java.time.LocalDate.parse(day).getYear() < 1) return null;
                 } catch (java.time.DateTimeException invalid) {
                     return null;
                 }

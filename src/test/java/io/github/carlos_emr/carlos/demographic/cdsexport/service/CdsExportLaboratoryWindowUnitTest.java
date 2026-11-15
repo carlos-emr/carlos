@@ -432,11 +432,11 @@ class CdsExportLaboratoryWindowUnitTest extends CdsExportLaboratoryWindowFixture
         // A status CARLOS does not write travels whole like a comment (it held the chart).
         route(5, 3_011, "101", "Z", "2026-07-13 12:30:00", null);
         var whole = comments();
-        assertThat(whole).containsExactly("00000002/3002/1", "00000009/3009/1", "0000000b/3011/1");
+        assertThat(whole).containsExactly("00000002/3002/2", "00000009/3009/1", "0000000b/3011/2");
         assertThat(routePasses).isEqualTo(1);
         bounds = bounds.withWindow(3, 64L << 20);
         assertThat(comments()).isEqualTo(whole);
-        // Four routes are more than one window of three: the twelve results in four windows.
+        // Five routes are more than one window of three: the twelve results in four windows.
         assertThat(routePasses).isEqualTo(4);
     }
 }

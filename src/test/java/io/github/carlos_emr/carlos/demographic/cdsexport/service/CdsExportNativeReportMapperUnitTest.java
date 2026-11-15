@@ -167,17 +167,18 @@ class CdsExportNativeReportMapperUnitTest {
     }
 
     @Test
-    void shouldRefuseMissingReviewerLookups_archivedReportsAndUnqualifiedProgramRestrictions() {
-        assertThatThrownBy(
-                        () ->
-                                mapper.map(
-                                        27,
-                                        document(),
-                                        link(),
-                                        CdsExportNativeReportMapper.Content.file(PATH, "pdf"),
-                                        Map.of(),
-                                        ZoneId.of("America/Toronto")))
-                .hasMessage("CDS_EXPORT_NATIVE_REPORT_REVIEWER_REQUIRED");
+    void shouldCarryAMissingReviewerWithoutInventingAName_forAMigratedDocument() throws Exception {
+        var result = mapper.map(
+                27, document(), link(), CdsExportNativeReportMapper.Content.file(PATH, "pdf"),
+                Map.of(), ZoneId.of("America/Toronto"));
+        assertThat(result.reviewer()).isNull();
+        assertThat(result.text().get("Notes")).contains("\"reviewer\":\"" + document().fields().get("reviewer") + "\"");
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(result.rows(), result.fields(), () -> {});
+    }
+
+    @Test
+    void shouldRefuseDeletedReports_andUnqualifiedProgramRestrictions() {
         // A soft-deleted document is no longer a review case: the occurrence service accounts
         // for it as not exported and never maps it (review R6), so reaching the mapper is a
         // scope error. Any other status is shown by the chart and is exported (below).
@@ -450,6 +451,22 @@ class CdsExportNativeReportMapperUnitTest {
                         render(CdsCategory.REPORTS, body -> mapper.write(mapped, body)),
                         StandardCharsets.UTF_8);
         assertThat(xml).doesNotContain("<Media>").contains("\"report_media\":\"3\"");
+    }
+
+    @Test
+    void shouldCarryZeroReportDates_withoutInventingCalendarValues() throws Exception {
+        var source = document();
+        for (String column : java.util.List.of(
+                "receivedDate", "sent_date_time", "observationdate", "contentdatetime", "reviewdatetime"))
+            source = edit(source, column, "0000-00-00 00:00:00");
+        var result = map(source);
+        assertThat(result.dates()).isEmpty();
+        assertThat(result.reviewDate()).isNull();
+        assertThat(result.text().get("Notes"))
+                .contains("\"reviewdatetime\":\"0000-00-00 00:00:00\"", "publicReviewer");
+        String xml = new String(render(CdsCategory.REPORTS, body -> mapper.write(result, body)),
+                StandardCharsets.UTF_8);
+        assertThat(xml).doesNotContain("<ReportReviewed>", "<EventDateTime>", "<ReceivedDateTime>");
     }
 
     @Test
