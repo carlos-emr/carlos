@@ -172,7 +172,6 @@ class RxDeleteAllergy2ActionUnitTest extends CarlosUnitTestBase {
         when(mockRxPatient.deleteAllergy(42)).thenReturn(true);
         when(mockRxPatient.getDemographicNo()).thenReturn(123);
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("provider1");
-        when(mockAllergy.getAuditString()).thenReturn("audit");
 
         String result = action.execute();
 
@@ -180,6 +179,7 @@ class RxDeleteAllergy2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
         assertThat(mockRequest.getAttribute("demographicNo")).isEqualTo("123");
         verify(mockRxPatient).deleteAllergy(42);
+        // The allergy is named by its id; its description (clinical text) is not copied into the row.
         logActionMock.verify(() -> LogAction.addLog(
                 eq("provider1"),
                 eq("delete"),
@@ -187,7 +187,28 @@ class RxDeleteAllergy2ActionUnitTest extends CarlosUnitTestBase {
                 eq("42"),
                 any(String.class),
                 eq("123"),
-                eq("audit")));
+                isNull()));
+        verify(mockAllergy, never()).getAuditString();
+    }
+
+    @Test
+    @DisplayName("should audit a re-activation by id without the allergy description")
+    void shouldAuditReactivationWithoutDescription_whenAllergyIsActivated() throws Exception {
+        mockRequest.setParameter("ID", "42");
+        mockRequest.setParameter("demographicNo", "123");
+        mockRequest.setParameter("action", "activate");
+        openRxForPatient();
+        when(mockRxPatient.getAllergy(42)).thenReturn(mockAllergy);
+        when(mockRxPatient.getDemographicNo()).thenReturn(123);
+        when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("provider1");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        verify(mockRxPatient).activateAllergy(42);
+        logActionMock.verify(() -> LogAction.addLog(
+                eq("provider1"), eq("Activate"), eq("allergy"), eq("42"), any(String.class), eq("123"), isNull()));
+        verify(mockAllergy, never()).getAuditString();
     }
 
     @Test

@@ -36,7 +36,7 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicArchive;
 
-public interface DemographicArchiveDao extends AbstractDao<DemographicArchive> {
+public interface DemographicArchiveDao extends AbstractDao<DemographicArchive>, CdsExportPatientTableReadDao {
 
     public List<DemographicArchive> findByDemographicNo(Integer demographicNo);
 

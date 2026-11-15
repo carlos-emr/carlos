@@ -48,9 +48,16 @@ import static org.mockito.Mockito.*;
 @Tag("unit")
 class CdsMedicationRenewalActionUnitTest {
     @ParameterizedTest
-    @ValueSource(strings = {"represcribe", "represcribeMultiple", "repcbAllLongTerm",
-            "saveReRxDrugIdToStash", "represcribe2"})
-    void shouldRefuseClinicalUncertaintyInAllForms_withoutChangingExistingDraft(String operation) throws Exception {
+    @ValueSource(
+            strings = {
+                "represcribe",
+                "represcribeMultiple",
+                "repcbAllLongTerm",
+                "saveReRxDrugIdToStash",
+                "represcribe2"
+            })
+    void shouldRefuseClinicalUncertaintyInAllForms_withoutChangingExistingDraft(String operation)
+            throws Exception {
         var request = new MockHttpServletRequest();
         var response = new MockHttpServletResponse();
         request.setMethod("POST");
@@ -71,47 +78,68 @@ class CdsMedicationRenewalActionUnitTest {
         SecurityInfoManager security = mock(SecurityInfoManager.class);
         when(security.hasPrivilege(any(), anyString(), anyString(), isNull())).thenReturn(true);
         CaseManagementManager cases = mock(CaseManagementManager.class);
-        Drug nativeRow = new Drug(); nativeRow.setId(6); nativeRow.setLongTerm(true);
-        Drug importedRow = new Drug(); importedRow.setId(7); importedRow.setLongTerm(true);
-        when(cases.getPrescriptions(any(), eq(1), eq(true))).thenReturn(List.of(nativeRow, importedRow));
+        Drug nativeRow = new Drug();
+        nativeRow.setId(6);
+        nativeRow.setLongTerm(true);
+        Drug importedRow = new Drug();
+        importedRow.setId(7);
+        importedRow.setLongTerm(true);
+        when(cases.getPrescriptions(any(), eq(1), eq(true)))
+                .thenReturn(List.of(nativeRow, importedRow));
         try (var spring = mockStatic(SpringUtils.class);
-             var servlet = mockStatic(ServletActionContext.class);
-             var login = mockStatic(LoggedInInfo.class);
-             var access = mockStatic(RxRequestedPatientAccess.class);
-             var data = mockConstruction(RxPrescriptionData.class, (mock, context) -> {
-                 when(mock.getPrescription(6)).thenReturn(nativeSource);
-                 when(mock.getPrescription(7)).thenReturn(importedSource);
-                 when(mock.getPrescriptionIfPresent(6)).thenReturn(nativeSource);
-                 when(mock.getPrescriptionIfPresent(7)).thenReturn(importedSource);
-                 when(mock.newPrescription(anyString(), anyInt(), any(RxPrescriptionData.Prescription.class)))
-                         .thenCallRealMethod();
-             })) {
+                var servlet = mockStatic(ServletActionContext.class);
+                var login = mockStatic(LoggedInInfo.class);
+                var access = mockStatic(RxRequestedPatientAccess.class);
+                var data =
+                        mockConstruction(
+                                RxPrescriptionData.class,
+                                (mock, context) -> {
+                                    when(mock.getPrescription(6)).thenReturn(nativeSource);
+                                    when(mock.getPrescription(7)).thenReturn(importedSource);
+                                    when(mock.getPrescriptionIfPresent(6)).thenReturn(nativeSource);
+                                    when(mock.getPrescriptionIfPresent(7))
+                                            .thenReturn(importedSource);
+                                    when(mock.newPrescription(
+                                                    anyString(),
+                                                    anyInt(),
+                                                    any(RxPrescriptionData.Prescription.class)))
+                                            .thenCallRealMethod();
+                                })) {
             spring.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(security);
             spring.when(() -> SpringUtils.getBean(CaseManagementManager.class)).thenReturn(cases);
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
             servlet.when(ServletActionContext::getResponse).thenReturn(response);
-            login.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(new LoggedInInfo());
-            access.when(() -> RxRequestedPatientAccess.resolveForWrite(security, request, "_rx", "w"))
+            login.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request))
+                    .thenReturn(new LoggedInInfo());
+            access.when(
+                            () ->
+                                    RxRequestedPatientAccess.resolveForWrite(
+                                            security, request, "_rx", "w"))
                     .thenReturn(bean);
             var action = new RxRePrescribe2Action();
             action.setDrugList("6,7");
-            String outcome = switch (operation) {
-                case "represcribe" -> action.represcribe();
-                case "represcribeMultiple" -> action.represcribeMultiple();
-                case "repcbAllLongTerm" -> action.repcbAllLongTerm();
-                case "represcribe2" -> action.represcribe2();
-                default -> action.saveReRxDrugIdToStash();
-            };
+            String outcome =
+                    switch (operation) {
+                        case "represcribe" -> action.represcribe();
+                        case "represcribeMultiple" -> action.represcribeMultiple();
+                        case "repcbAllLongTerm" -> action.repcbAllLongTerm();
+                        case "represcribe2" -> action.represcribe2();
+                        default -> action.saveReRxDrugIdToStash();
+                    };
             assertEquals(ActionSupport.NONE, outcome);
             assertEquals(409, response.getStatus());
-            assertTrue(response.getErrorMessage().contains(CdsMedicationCompatibilityException.RENEWAL_CODE));
+            assertTrue(
+                    response.getErrorMessage()
+                            .contains(CdsMedicationCompatibilityException.RENEWAL_CODE));
             assertEquals(List.of(draft), bean.getStashList());
             assertEquals(List.of("99"), bean.getReRxDrugIdList());
             assertNull(request.getAttribute("listRxDrugs"));
-            if (operation.equals("represcribe") || operation.equals("represcribeMultiple")
+            if (operation.equals("represcribe")
+                    || operation.equals("represcribeMultiple")
                     || operation.equals("repcbAllLongTerm")) {
                 verify(data.constructed().get(0), never())
-                        .newPrescription(anyString(), anyInt(), any(RxPrescriptionData.Prescription.class));
+                        .newPrescription(
+                                anyString(), anyInt(), any(RxPrescriptionData.Prescription.class));
             }
         }
     }

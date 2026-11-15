@@ -384,14 +384,64 @@ function textColumns(sql) {
   }, {});
 }
 
-/** Tables that still hold a payload row, with the matching row count. */
+/*
+ * How large one sweep statement may be. Each statement reaches the mysql client as ONE command-line
+ * argument (lib/playwright-harness.js), and Linux refuses to start a program with an argument of
+ * 131,072 bytes or more (MAX_ARG_STRLEN; execve answers E2BIG, which the runner reports as "the database
+ * query failed"). A UNION over sixty tables stayed under that on the Ontario schema and went over it
+ * on the BC one, whose wide formBCAR* tables sort next to each other. So a statement is bounded by
+ * its size, at less than half the limit, and by a table count that keeps it inside the runner's 30s.
+ */
+const SWEEP_STATEMENT_BYTES = 60000;
+const SWEEP_STATEMENT_TABLES = 60;
+const UNION = ' UNION ALL ';
+
+/** COUNT of the rows of `table` that hold the payload in one of `cols`, labelled with the table. */
+function payloadCountSelect(table, cols) {
+  return `SELECT ${h.sqlString(table)}, COUNT(*) FROM \`${table}\` WHERE ${cols.map(c => `\`${c}\` ${LIKE}`).join(' OR ')}`;
+}
+
+/**
+ * The statements that count payload rows in every table of `columns` ({table: [text column]}), each a
+ * UNION no longer than `maxBytes` and over no more than `maxTables` SELECTs. A table too wide for one
+ * statement is counted in several SELECTs over parts of its columns.
+ */
+function payloadCountStatements(columns, { maxBytes = SWEEP_STATEMENT_BYTES, maxTables = SWEEP_STATEMENT_TABLES } = {}) {
+  const size = text => Buffer.byteLength(text, 'utf8');
+  const selects = [];
+  for (const [table, cols] of Object.entries(columns)) {
+    let part = [];
+    for (const column of cols) {
+      if (part.length && size(payloadCountSelect(table, [...part, column])) > maxBytes) { selects.push(payloadCountSelect(table, part)); part = []; }
+      part.push(column);
+    }
+    if (part.length) selects.push(payloadCountSelect(table, part));
+  }
+  const statements = [];
+  let current = [];
+  let bytes = 0;
+  for (const select of selects) {
+    const added = size(select) + (current.length ? size(UNION) : 0);
+    if (current.length && (bytes + added > maxBytes || current.length >= maxTables)) {
+      statements.push(current.join(UNION));
+      current = [];
+      bytes = 0;
+    }
+    bytes += size(select) + (current.length ? size(UNION) : 0);
+    current.push(select);
+  }
+  if (current.length) statements.push(current.join(UNION));
+  return statements;
+}
+
+/**
+ * Tables that still hold a payload row, with the matching row count. For a table counted in parts
+ * (see payloadCountStatements) a row matching in two parts counts twice; callers read presence.
+ */
 function payloadTables(sql, columns = textColumns(sql)) {
-  const tables = Object.keys(columns);
   const found = {};
-  // One UNION per slice keeps each statement well inside the runner's 30s and output limits.
-  for (let i = 0; i < tables.length; i += 60) {
-    const union = tables.slice(i, i + 60).map(t => `SELECT ${h.sqlString(t)}, COUNT(*) FROM \`${t}\` WHERE ${columns[t].map(c => `\`${c}\` ${LIKE}`).join(' OR ')}`).join(' UNION ALL ');
-    for (const [table, count] of sql.rows(union)) if (count !== '0') found[table] = Number(count);
+  for (const statement of payloadCountStatements(columns)) {
+    for (const [table, count] of sql.rows(statement)) if (count !== '0') found[table] = (found[table] || 0) + Number(count);
   }
   return found;
 }
@@ -570,6 +620,8 @@ module.exports.Seeder = Seeder;
 module.exports.freeProviderNo = freeProviderNo;
 module.exports.sweepPayloadRows = sweepPayloadRows;
 module.exports.payloadTables = payloadTables;
+module.exports.payloadCountStatements = payloadCountStatements;
+module.exports.SWEEP_STATEMENT_BYTES = SWEEP_STATEMENT_BYTES;
 module.exports.PATIENT_TABLES = PATIENT_TABLES;
 module.exports.MARK = MARK;
 

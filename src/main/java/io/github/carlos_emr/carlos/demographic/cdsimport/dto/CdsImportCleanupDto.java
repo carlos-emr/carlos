@@ -25,11 +25,20 @@ import java.util.List;
 import java.util.Map;
 
 /** Bounded artifact catalogue. Byte counts are logical path bytes, not allocated disk blocks; null means unmeasured uncertain content. */
-public record CdsImportCleanupDto(String state, Map<String, Count> retained, Map<String, Count> removed,
-        List<String> safeCodes, boolean currentReportExcluded, long removedDirectories) {
-    public record Count(long artifacts, Long logicalBytes) { }
+public record CdsImportCleanupDto(
+        String state,
+        Map<String, Count> retained,
+        Map<String, Count> removed,
+        List<String> safeCodes,
+        boolean currentReportExcluded,
+        long removedDirectories) {
+    public record Count(long artifacts, Long logicalBytes) {}
+
     public CdsImportCleanupDto {
-        retained=Map.copyOf(retained); removed=Map.copyOf(removed); safeCodes=List.copyOf(safeCodes);
-        if (retained.size()>32 || removed.size()>32 || safeCodes.size()>32) throw new IllegalArgumentException("CLEANUP_CATALOGUE_LIMIT");
+        retained = Map.copyOf(retained);
+        removed = Map.copyOf(removed);
+        safeCodes = List.copyOf(safeCodes);
+        if (retained.size() > 32 || removed.size() > 32 || safeCodes.size() > 32)
+            throw new IllegalArgumentException("CLEANUP_CATALOGUE_LIMIT");
     }
 }

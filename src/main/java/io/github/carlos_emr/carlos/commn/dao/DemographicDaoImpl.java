@@ -95,6 +95,137 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
  */
 @Transactional
 public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEventPublisherAware, DemographicDao {
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column> readCdsExportReceiptColumns() {
+        return CdsExportNativeMetadataReadSupport.read(entityManager(), CdsExportNativeMetadataReadSupport.Table.DEMOGRAPHIC);
+    }
+
+
+    @Override
+    @Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public List<io.github.carlos_emr.carlos.commn.dto.CdsExportSelectionRowDto> findCdsExportRosterAfter(
+            List<String> physicianNos, Integer afterDemographicNo, int limit) {
+        if (physicianNos == null || physicianNos.isEmpty() || physicianNos.size() > 100
+                || physicianNos.stream().anyMatch(value -> value == null || !value.matches("[A-Za-z0-9_-]{1,16}"))
+                || limit < 1 || limit > 500) throw new IllegalArgumentException("CDS_EXPORT_SELECTION_QUERY_INVALID");
+        // A page of a large clinic's roster waits for its answer and is sent again when the server
+        // ends it at its deadline, in the same snapshot; the socket timeout never cuts it off.
+        var query = CdsExportStatementWaitReadSupport.waiting(entityManager(), entityManager().createQuery("select new io.github.carlos_emr.carlos.commn.dto.CdsExportSelectionRowDto"
+                + "(d.demographicNo,d.providerNo) from Demographic d where d.providerNo in :physicians"
+                + (afterDemographicNo == null ? "" : " and d.demographicNo>:after")
+                + " order by d.demographicNo", io.github.carlos_emr.carlos.commn.dto.CdsExportSelectionRowDto.class))
+                .setParameter("physicians", List.copyOf(physicianNos)).setMaxResults(limit);
+        if (afterDemographicNo != null) query.setParameter("after", afterDemographicNo);
+        @SuppressWarnings("unchecked")
+        List<io.github.carlos_emr.carlos.commn.dto.CdsExportSelectionRowDto> page = query.getResultList();
+        return page;
+    }
+
+    @Override
+    @Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public List<io.github.carlos_emr.carlos.commn.dto.CdsExportSelectionRowDto> findCdsExportSelectedPatients(
+            List<Integer> demographicNos) {
+        if (demographicNos == null || demographicNos.isEmpty() || demographicNos.size() > 500
+                || demographicNos.stream().anyMatch(value -> value == null || value < 1)
+                || new java.util.HashSet<>(demographicNos).size() != demographicNos.size()) {
+            throw new IllegalArgumentException("CDS_EXPORT_SELECTION_QUERY_INVALID");
+        }
+        @SuppressWarnings("unchecked")
+        List<io.github.carlos_emr.carlos.commn.dto.CdsExportSelectionRowDto> page = CdsExportStatementWaitReadSupport.waiting(entityManager(),
+                entityManager().createQuery("select new io.github.carlos_emr.carlos.commn.dto.CdsExportSelectionRowDto"
+                + "(d.demographicNo,d.providerNo) from Demographic d where d.demographicNo in :patients"
+                + " order by d.demographicNo", io.github.carlos_emr.carlos.commn.dto.CdsExportSelectionRowDto.class))
+                .setParameter("patients", List.copyOf(demographicNos)).setMaxResults(demographicNos.size()).getResultList();
+        return page;
+    }
+
+    /**
+     * Pinned scalar projection from this one table. CAST AS BINARY prevents the JDBC driver
+     * from silently replacing malformed text before strict UTF-8 decoding. The physical
+     * contract pins these columns to UTF-8/ASCII. The caller must separately verify that
+     * installed source schema and associated rows qualify for the complete capture.
+     */
+    @Override
+    @Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    // Projection identifiers are fixed application columns; the patient value is bound separately.
+    @SuppressWarnings("java:S2077")
+    public io.github.carlos_emr.carlos.commn.dto.CdsExportDemographicRowDto findCdsExportRawDemographic(int demographicNo) {
+        if (demographicNo < 1 || !TransactionSynchronizationManager.isActualTransactionActive()
+                || !TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
+            throw new IllegalStateException("CDS_EXPORT_READ_CAPTURE_TRANSACTION_REQUIRED");
+        }
+        var columns = io.github.carlos_emr.carlos.commn.dto.CdsExportDemographicRowDto.COLUMNS;
+        String projection = columns.stream().map(column -> "CAST(d.`" + column + "` AS BINARY)")
+                .collect(java.util.stream.Collectors.joining(","));
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = CdsExportStatementWaitReadSupport.waiting(entityManager(), entityManager().createNativeQuery("select d.demographic_no," + projection
+                + " from demographic d where d.demographic_no=:patient", Object[].class))
+                .setParameter("patient", demographicNo).setMaxResults(1).getResultList();
+        if (rows.isEmpty()) return null;
+        Object[] row = rows.getFirst();
+        if (row.length != columns.size() + 1 || !(row[0] instanceof Number id) || id.longValue() != demographicNo) {
+            throw new IllegalStateException("CDS_EXPORT_DEMOGRAPHIC_CAPTURE_INVALID");
+        }
+        var values = new java.util.LinkedHashMap<String, String>();
+        for (int index = 0; index < columns.size(); index++) {
+            Object raw = row[index + 1]; String value = null;
+            if (raw != null) {
+                if (!(raw instanceof byte[] bytes) || bytes.length > 65_536) {
+                    throw new IllegalStateException("CDS_EXPORT_DEMOGRAPHIC_CAPTURE_INVALID");
+                }
+                try {
+                    value = java.nio.charset.StandardCharsets.UTF_8.newDecoder()
+                            .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                            .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
+                            .decode(java.nio.ByteBuffer.wrap(bytes)).toString();
+                } catch (java.nio.charset.CharacterCodingException malformed) {
+                    throw new IllegalStateException("CDS_EXPORT_DEMOGRAPHIC_ENCODING_INVALID");
+                }
+            }
+            values.put(columns.get(index), value);
+        }
+        return new io.github.carlos_emr.carlos.commn.dto.CdsExportDemographicRowDto(demographicNo, values);
+    }
+
+    /** Pins the physical table before checking its complete columns and transaction-capable engine. */
+    @Override
+    @Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto readCdsExportDemographicSchema() {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || !TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
+            throw new IllegalStateException("CDS_EXPORT_READ_CAPTURE_TRANSACTION_REQUIRED");
+        }
+        // Zero rows acquire the table metadata lock and require visibility of every physical
+        // column. SELECT 1 alone permits column-only grants to hide a future clinical field.
+        // Every statement here waits for its answer: the metadata lock, above all, can be held
+        // for as long as another session's schema change takes.
+        CdsExportStatementWaitReadSupport.waiting(entityManager(), entityManager().createNativeQuery("select d.* from demographic d limit 0", Object[].class)).getResultList();
+        @SuppressWarnings("unchecked")
+        List<String> engines = CdsExportStatementWaitReadSupport.waiting(entityManager(), entityManager().createNativeQuery("select ENGINE from information_schema.TABLES "
+                + "where TABLE_SCHEMA=DATABASE() and TABLE_NAME='demographic' and TABLE_TYPE='BASE TABLE'", String.class))
+                .setMaxResults(2).getResultList();
+        if (engines.size() != 1) throw new IllegalStateException("CDS_EXPORT_SOURCE_SCHEMA_REQUIRES_REVIEW");
+        @SuppressWarnings("unchecked")
+        List<Object[]> columns = CdsExportStatementWaitReadSupport.waiting(entityManager(), entityManager().createNativeQuery("select COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE,"
+                + "CHARACTER_SET_NAME,COLLATION_NAME,NULLIF(GENERATION_EXPRESSION,'') from information_schema.COLUMNS "
+                + "where TABLE_SCHEMA=DATABASE() and TABLE_NAME='demographic'", Object[].class))
+                .setMaxResults(4097).getResultList();
+        if (columns.isEmpty() || columns.size() > 4096) throw new IllegalStateException("CDS_EXPORT_SOURCE_SCHEMA_REQUIRES_REVIEW");
+        var captured = new java.util.ArrayList<io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto.Column>();
+        for (var column : columns) {
+            if (column.length != 6) throw new IllegalStateException("CDS_EXPORT_SOURCE_SCHEMA_REQUIRES_REVIEW");
+            captured.add(new io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto.Column(
+                    (String) column[0], (String) column[1], (String) column[2], (String) column[3], (String) column[4], (String) column[5]));
+        }
+        captured.sort(java.util.Comparator.comparing(io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto.Column::name));
+        @SuppressWarnings("unchecked")
+        List<String> primaryKey = CdsExportStatementWaitReadSupport.waiting(entityManager(), entityManager().createNativeQuery("select COLUMN_NAME from information_schema.KEY_COLUMN_USAGE "
+                + "where TABLE_SCHEMA=DATABASE() and TABLE_NAME='demographic' and CONSTRAINT_NAME='PRIMARY' order by ORDINAL_POSITION", String.class))
+                .setMaxResults(17).getResultList();
+        CdsExportStatementWaitReadSupport.waiting(entityManager(), entityManager().createNativeQuery("select d.* from demographic d limit 0", Object[].class)).getResultList();
+        return new io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto("demographic", engines.getFirst(), captured, primaryKey);
+    }
 
     @Override
     // S2077: field/predicate variants are fixed, sort must match the exact column/direction allowlist,

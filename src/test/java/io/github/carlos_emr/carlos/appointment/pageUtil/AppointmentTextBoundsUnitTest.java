@@ -17,6 +17,7 @@ import io.github.carlos_emr.carlos.commn.OtherIdManager;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.event.EventService;
+import io.github.carlos_emr.carlos.managers.ScheduleManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -42,6 +43,7 @@ class AppointmentTextBoundsUnitTest extends CarlosUnitTestBase {
  private final OscarAppointmentDao appointments=mock(OscarAppointmentDao.class);
  private final AppointmentArchiveDao archives=mock(AppointmentArchiveDao.class);
  private final EventService events=mock(EventService.class);
+ private final ScheduleManager schedule=mock(ScheduleManager.class);
  private final LoggedInInfo info=mock(LoggedInInfo.class);
  private final AtomicReference<Appointment> written=new AtomicReference<>();
  private MockHttpServletRequest request;
@@ -63,6 +65,10 @@ class AppointmentTextBoundsUnitTest extends CarlosUnitTestBase {
   registerMock(AppointmentArchiveDao.class,archives);registerMock(WaitingListDao.class,mock(WaitingListDao.class));
   registerMock(EventService.class,events);registerMock(PlatformTransactionManager.class,new Transactions());
   registerMock(OtherIdDAO.class,mock(OtherIdDAO.class));
+  // The update goes through the manager's locked, versioned edit; stand in for its archive-edit-merge sequence.
+  registerMock(ScheduleManager.class,schedule);
+  when(schedule.updateAppointment(eq(info),eq(61),any(),any())).thenAnswer(x->{archives.archiveAppointment(existing);
+   java.util.function.Consumer<Appointment> edit=x.getArgument(3);edit.accept(existing);appointments.merge(existing);return existing;});
   servlet=mockStatic(ServletActionContext.class);servlet.when(ServletActionContext::getRequest).thenAnswer(x->request);servlet.when(ServletActionContext::getResponse).thenAnswer(x->response);
   sessions=mockStatic(LoggedInInfo.class);sessions.when(()->LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class))).thenReturn(info);
   otherIds=mockStatic(OtherIdManager.class);waitingLists=mockStatic(WaitingList.class);WaitingList waiting=mock(WaitingList.class);when(waiting.getFound()).thenReturn(false);waitingLists.when(WaitingList::getInstance).thenReturn(waiting);

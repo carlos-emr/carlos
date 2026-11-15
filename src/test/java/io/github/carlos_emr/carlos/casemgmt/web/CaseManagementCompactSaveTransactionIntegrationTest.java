@@ -722,6 +722,64 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
         assertThat(after.drafts()).containsExactlyElementsOf(otherDrafts(before));
     }
 
+    /**
+     * Finding 361: the compact save lists every issue of the editor, linked or not. Only an issue
+     * whose own values the save changes is written and gets a new update_date.
+     */
+    @ParameterizedTest
+    @CsvSource({"true,false", "false,false", "true,true", "false,true"})
+    void shouldWriteTheListedIssueRowOnlyWhenItChanges_forACompactSave(boolean linked, boolean changed) throws Exception {
+        // The staged editor copy resolves the stored, unresolved issue unless the editor left it alone.
+        if (!changed) form.getIssueCheckList().getFirst().getIssue().setResolved(false);
+        if (!linked) request.removeParameter("issue0");
+        Snapshot before = snapshot();
+        long start = System.currentTimeMillis();
+
+        assertThat(action.ajaxsave()).isEqualTo("issueList_ajax");
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertListedIssueWrite(before, start, linked, changed);
+    }
+
+    /** Finding 361: the full Save writes the listed issue only when the editor changed its flags. */
+    @ParameterizedTest
+    @CsvSource({"true,true,false", "false,true,false", "true,false,false", "true,true,true", "false,true,true"})
+    void shouldWriteTheListedIssueRowOnlyWhenItChanges_forAFullSave(boolean modern, boolean linked, boolean changed) throws Exception {
+        CheckBoxBean checkbox = prepareFullIssueSave(modern, false);
+        if (!changed) {
+            // The stored issue is chronic, uncertain, not major and unresolved.
+            checkbox.getIssueDisplay().setAcute("chronic");
+            checkbox.getIssueDisplay().setCertain("uncertain");
+            checkbox.getIssueDisplay().setMajor("not major");
+            checkbox.getIssueDisplay().setResolved("unresolved");
+        }
+        // A modern enabled checkbox the user unchecks is absent from Form.serialize.
+        if (!linked) request.removeParameter("issueCheckList[0].checked");
+        Snapshot before = snapshot();
+        long start = System.currentTimeMillis();
+
+        assertThat(action.save()).isEqualTo("view");
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertListedIssueWrite(before, start, linked, changed);
+    }
+
+    private void assertListedIssueWrite(Snapshot before, long start, boolean linked, boolean changed) {
+        Snapshot after = snapshot();
+        assertThat(after.notes()).hasSize(2);
+        if (changed) assertThat(after.issues()).isNotEqualTo(before.issues());
+        else assertThat(after.issues()).isEqualTo(before.issues());
+        tx().executeWithoutResult(status -> {
+            CaseManagementIssue stored = entityManager.find(CaseManagementIssue.class, caseIssueId);
+            assertThat(stored.isResolved()).isEqualTo(changed);
+            if (changed) assertThat(stored.getUpdate_date().getTime()).isGreaterThanOrEqualTo(start - 1000);
+            else assertThat(stored.getUpdate_date().getTime()).isEqualTo(1_700_000_000_000L);
+            assertThat(caseManagementNoteDAO.getNote(form.getCaseNote().getId()).getIssues())
+                    .extracting(CaseManagementIssue::getId)
+                    .containsExactlyElementsOf(linked ? List.of(caseIssueId) : List.of());
+        });
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void shouldPreserveLegacyNullIssueProgram_forANewGlobalChartIssue(boolean modern) throws Exception {

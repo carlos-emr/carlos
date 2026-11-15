@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.commn.dao.PreventionDao;
 import io.github.carlos_emr.carlos.commn.dao.PreventionExtDao;
 import io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO;
 import io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionSourceUnavailableException;
 import io.github.carlos_emr.carlos.managers.DHIRSubmissionManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -63,6 +64,31 @@ public class PreventionData {
 
     private PreventionData() {
         // prevent instantiation
+    }
+
+    private static PreventionSourceUnavailableException sourceUnavailable(Exception failure) {
+        if (failure instanceof PreventionSourceUnavailableException alreadyReported) {
+            // One reader calling another (the extension lookup reads each record by id): the
+            // failure was wrapped and logged where it happened, so it is passed on as it is.
+            return alreadyReported;
+        }
+        log.error("{} {}", PreventionSourceUnavailableException.MESSAGE,
+                io.github.carlos_emr.carlos.utility.LogSafe.exceptionTrace(failure));
+        return new PreventionSourceUnavailableException(failure);
+    }
+
+    /**
+     * Records which caller answered a failed prevention read with its "could not be read" result,
+     * and for which chart. The failure and its stack trace are logged once where the read failed
+     * (see {@link PreventionSourceUnavailableException}), so this line carries identifiers only.
+     *
+     * @param caller        a fixed name for the page, report or service that shows the result
+     * @param demographicNo the chart the read was for, or {@code null} when the caller has none
+     */
+    public static void logUnreadable(String caller, Object demographicNo) {
+        log.warn("{} shown as unreadable by {} for demographicNo={}", PreventionSourceUnavailableException.MESSAGE,
+                io.github.carlos_emr.carlos.utility.LogSafe.sanitize(caller),
+                io.github.carlos_emr.carlos.utility.LogSafe.sanitizeObject(demographicNo));
     }
 
     private static PreventionDateDTO dateOf(Prevention prevention) {
@@ -284,8 +310,12 @@ public class PreventionData {
                     list.add(hash);
                 }
             }
+        } catch (PreventionDatePrecisionException unsafeDate) {
+            // A date that needs review is a refusal of its own, as in getPreventionById: it must
+            // reach callers that handle it, not be reported as an unavailable source.
+            throw unsafeDate;
         } catch (Exception e) {
-            log.error(e.getMessage(), e);
+            throw sourceUnavailable(e);
         }
         return list;
     }
@@ -369,14 +399,45 @@ public class PreventionData {
         return rows;
     }
 
-	@Nonnull
+    /**
+     * Lists the patient's preventions of one type, or of every type when {@code preventionType}
+     * is {@code null}, for a caller who may read the chart.
+     *
+     * <p>The patient is looked up first, for the date of birth and, through
+     * {@link DemographicManager}, for the caller's right to read the chart. That lookup can end
+     * in two ways that must not be confused:
+     * <ul>
+     * <li><b>The caller may not read the chart</b> (a {@link SecurityException} for a missing
+     * {@code _demographic} privilege, or a
+     * {@link io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException}): the result
+     * is an empty list, as it has always been. A denial is not an error page and is never
+     * answered with data. It is logged as a warning with the chart number only, without a stack
+     * trace: it is an expected outcome, not a fault.</li>
+     * <li><b>The lookup itself failed</b> (the database, for example): the read is refused with
+     * {@link PreventionSourceUnavailableException}, like a failed read of the preventions. This
+     * used to return an empty list too, which reads as "this patient has no preventions".</li>
+     * </ul>
+     *
+     * @param loggedInInfo the logged-in user
+     * @param preventionType the prevention type's name, or {@code null} for every type
+     * @param demographicId the patient's demographic number
+     * @return the preventions, oldest first; empty when there are none or the caller may not
+     *         read the chart; never {@code null}
+     * @throws PreventionSourceUnavailableException if the patient or the preventions could not
+     *         be read; the caller must show that preventions could not be read
+     * @throws PreventionDatePrecisionException if a record's date needs review
+     */
+    @Nonnull
     public static ArrayList<Map<String, Object>> getPreventionData(LoggedInInfo loggedInInfo, String preventionType, Integer demographicId) {
         Date dob;
         try {
             dob = getDemographicDateOfBirth(loggedInInfo, demographicId);
-        } catch (Exception e) {
-            log.error(e.getMessage(), e);
+        } catch (SecurityException | io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException denied) {
+            log.warn("Prevention read refused for demographicNo={}: the caller may not read the chart ({})",
+                    io.github.carlos_emr.carlos.utility.LogSafe.sanitizeObject(demographicId), denied.getClass().getSimpleName());
             return new ArrayList<Map<String, Object>>();
+        } catch (Exception e) {
+            throw sourceUnavailable(e);
         }
         return listForCheckedPatient(preventionType, demographicId, dob);
     }
@@ -445,7 +506,7 @@ public class PreventionData {
         } catch (PreventionDatePrecisionException unsafeDate) {
             throw unsafeDate;
         } catch (Exception e) {
-            log.error(e.getMessage(), e);
+            throw sourceUnavailable(e);
         }
         return list;
     }
@@ -544,6 +605,8 @@ public class PreventionData {
             Prevention prevention = preventionDao.find(preventionId);
             if (prevention != null) {
                 Map<String, String> ext = getPreventionKeyValues(prevention.getId().toString());
+                // Use the complete projection already loaded, without touching a detached lazy collection.
+                boolean imported = ext.containsKey("cdsDatePrecision");
 
                 h = new HashMap<String, Object>();
                 String providerName = null;
@@ -562,14 +625,14 @@ public class PreventionData {
                 String creatorName = ProviderData.getProviderName(prevention.getCreatorProviderNo());
 
                 addToHashIfNotNull(h, "id", prevention.getId().toString());
-                addToHashIfNotNull(h, "demographicNo", prevention.getDemographicId().toString());
+                addToHashIfNotNull(h, "demographicNo", prevention.getDemographicId() == null ? null : prevention.getDemographicId().toString());
                 addToHashIfNotNull(h, "provider_no", prevention.getProviderNo());
                 addToHashIfNotNull(h, "providerName", providerName);
                 addToHashIfNotNull(h, "creationDate", UtilDateUtilities.DateToString(prevention.getCreationDate(), "yyyy-MM-dd"));
                 addToHashIfNotNull(h, "preventionDate", preventionDate);
-                addToHashIfNotNull(h, "prevention_date_asDate", !prevention.isCdsImported() || date.isExact() ? prevention.getPreventionDate() : null);
+                addToHashIfNotNull(h, "prevention_date_asDate", !imported || date.isExact() ? prevention.getPreventionDate() : null);
                 h.put("prevention_date_info", date);
-                h.put("cds_imported", prevention.isCdsImported());
+                h.put("cds_imported", imported);
                 addToHashIfNotNull(h, "preventionType", prevention.getPreventionType());
                 addToHashIfNotNull(h, "deleted", prevention.isDeleted() ? "1" : "0");
                 addToHashIfNotNull(h, "refused", prevention.isRefused() ? "1" : prevention.isIneligible() ? "2" : prevention.isCompletedExternally() ? "3" : "0");
@@ -582,48 +645,50 @@ public class PreventionData {
 
                 addToHashIfNotNull(h, "brandSnomedId", ext.get("brandSnomedId"));
 
+                // preventionsExt.val is nullable (OSCAR 19 migrations store NULL name, lot or
+                // reason): every filled-value test is null-safe so a NULL never fails the read.
                 if (ext.containsKey("result")) { //This is a preventive Test
                     addToHashIfNotNull(h, "result", ext.get("result"));
-                    summary += "\nResult: " + ext.get("result");
-                    if (ext.containsKey("reason") && !ext.get("reason").equals("")) {
+                    summary += "\nResult: " + StringUtils.defaultString(ext.get("result"));
+                    if (StringUtils.isNotEmpty(ext.get("reason"))) {
                         addToHashIfNotNull(h, "reason", ext.get("reason"));
                         summary += "\nReason: " + ext.get("reason");
                     }
                 } else { //This is an immunization
-                    if (ext.containsKey("name") && !ext.get("name").equals("")) {
+                    if (StringUtils.isNotEmpty(ext.get("name"))) {
                         addToHashIfNotNull(h, "name", ext.get("name"));
                         summary += "\nName: " + ext.get("name");
                     }
-                    if (ext.containsKey("location") && !ext.get("location").equals("")) {
+                    if (StringUtils.isNotEmpty(ext.get("location"))) {
                         addToHashIfNotNull(h, "location", ext.get("location"));
                         summary += "\nLocation: " + ext.get("location");
                     }
-                    if (ext.containsKey("expiryDate") && !ext.get("expiryDate").equals("")) {
+                    if (StringUtils.isNotEmpty(ext.get("expiryDate"))) {
                         addToHashIfNotNull(h, "expiryDate", ext.get("expiryDate"));
                         summary += "\nExpiryDate: " + ext.get("expiryDate");
                     }
-                    if (ext.containsKey("route") && !ext.get("route").equals("")) {
+                    if (StringUtils.isNotEmpty(ext.get("route"))) {
                         addToHashIfNotNull(h, "route", ext.get("route"));
                         summary += "\nRoute: " + ext.get("route");
                     }
-                    if (ext.containsKey("dose") && !ext.get("dose").equals("")) {
+                    if (StringUtils.isNotEmpty(ext.get("dose"))) {
                         addToHashIfNotNull(h, "dose", ext.get("dose"));
                         summary += "\nDose: " + ext.get("dose");
                     }
-                    if (ext.containsKey("lot") && !ext.get("lot").equals("")) {
+                    if (StringUtils.isNotEmpty(ext.get("lot"))) {
                         addToHashIfNotNull(h, "lot", ext.get("lot"));
                         summary += "\nLot: " + ext.get("lot");
                     }
-                    if (ext.containsKey("manufacture") && !ext.get("manufacture").equals("")) {
+                    if (StringUtils.isNotEmpty(ext.get("manufacture"))) {
                         addToHashIfNotNull(h, "manufacture", ext.get("manufacture"));
                         summary += "\nManufacturer: " + ext.get("manufacture");
                     }
-                    if (ext.containsKey("din") && !ext.get("din").equals("")) {
+                    if (StringUtils.isNotEmpty(ext.get("din"))) {
                         addToHashIfNotNull(h, "din", ext.get("din"));
                         summary += "\nDIN: " + ext.get("din");
                     }
                 }
-                if (ext.containsKey("comments") && !ext.get("comments").equals("")) {
+                if (StringUtils.isNotEmpty(ext.get("comments"))) {
                     addToHashIfNotNull(h, "comments", ext.get("comments"));
                     summary += "\nComments: " + ext.get("comments");
                 }
@@ -642,7 +707,7 @@ public class PreventionData {
         } catch (PreventionDatePrecisionException unsafeDate) {
             throw unsafeDate;
         } catch (Exception e) {
-            log.error(e.getMessage(), e);
+            throw sourceUnavailable(e);
         }
         return h;
     }

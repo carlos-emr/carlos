@@ -359,7 +359,10 @@ class EFormRenderCompletenessReportUnitTest {
                 // Producer, thrower and pass-through — not surfaces.
                 "src/main/java/io/github/carlos_emr/carlos/eform/util/EFormBrowserPdfService.java",
                 "src/main/java/io/github/carlos_emr/carlos/utility/EformContentUnavailableException.java",
-                "src/main/java/io/github/carlos_emr/carlos/managers/EformDataManagerImpl.java");
+                "src/main/java/io/github/carlos_emr/carlos/managers/EformDataManagerImpl.java",
+                // The CDS export renders with no approval, ever: an omission makes the eForm's
+                // rendering unavailable (its data summary carries a note); nothing is offered.
+                "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportEformRenderService.java");
         try (Stream<Path> files = java.nio.file.Files.walk(Path.of("src/main/java"))) {
             List<String> consumers = files
                     .filter(path -> path.toString().endsWith(".java"))

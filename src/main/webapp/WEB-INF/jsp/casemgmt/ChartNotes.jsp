@@ -62,6 +62,7 @@
 <%@taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib prefix="source" tagdir="/WEB-INF/tags" %>
 
 
 <%@page import="java.util.List, java.util.Set, java.util.Iterator, java.text.SimpleDateFormat, java.util.Date" %>
@@ -329,6 +330,10 @@
         <button type="button" id="quickChart" onclick="return viewFullChart(fullChart !== 'true');"><fmt:message key="encounter.fullChart.msg"/></button>
         <button type="button" id="notesFilterToggle" aria-controls="filter" aria-expanded="false"
                 onclick="return showFilter();"><fmt:message key="encounter.Filter.title"/></button>
+        <%-- CDS source links, for a patient with imported CDS clinical notes or additional categories
+             only; the tag emits no markup for anyone else. They share this row's free space, so the
+             notes below start at the same place for every patient. --%>
+        <source:cdsChartSourceLinks demographicNo="<%= demographicNo %>"/>
         <div id="filter" style="display:none;margin-top: 5px; margin-left: 5px;margin-right: 5px;">
             <input type="button" value="Hide" onclick="return filter(false);"/>
             <input type="button" value="<fmt:message key="encounter.resetFilter.title"/>"

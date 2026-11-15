@@ -423,12 +423,13 @@
                 setup();
                 jQuery("table[id^='tblDocs']").DataTable({
                     ordering: true,
-                    columnDefs: [{orderable: false, targets: [0, 8]}],
+                    // Columns: select, content, description, creator, responsible, observed, created, actions.
+                    columnDefs: [{orderable: false, targets: [0, 7]}],
                     lengthMenu: [
                         [-1, 10, 20, 50, 100, 200],
                         ['All', 10, 20, 50, 100, 200]
                     ],
-                    order: [[6, 'desc']],
+                    order: [[5, 'desc']],
                     "language": {
                         "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json"
                     }
@@ -599,9 +600,6 @@
                                     <fmt:message key="dms.documentReport.msgDocDesc"/>
                                 </th>
                                 <th>
-                                    <fmt:message key="dms.documentReport.msgType"/>
-                                </th>
-                                <th>
                                     <fmt:message key="dms.documentReport.msgCreator"/>
                                 </th>
                                 <th>
@@ -621,24 +619,6 @@
                             <%
                                 for (int i2 = 0; i2 < category.size(); i2++) {
                                     EDoc curdoc = (EDoc) category.get(i2);
-                                    //content type (take everything following '/')
-                                    int slash = 0;
-                                    String contentType = "";
-                                    if (curdoc.getContentType() == null || curdoc.getContentType().isEmpty()) {
-                                        contentType = "ukn";
-                                    } else if ((slash = curdoc.getContentType().indexOf('/')) != -1) {
-                                        contentType = curdoc.getContentType().substring(slash + 1);
-                                    } else {
-                                        contentType = curdoc.getContentType();
-                                    }
-                                    // remove punctuation
-                                    contentType = contentType.replaceAll("\\p{Punct}", "");
-
-                                    // truncate to save space
-                                    if (contentType.length() > 3) {
-                                        contentType = contentType.substring(0, 3);
-                                    }
-
                                     String dStatus = "";
                                     if ((curdoc.getStatus() + "").compareTo("H") == 0) {
                                         dStatus = "html";
@@ -673,13 +653,6 @@
                                         <carlos:encode value='<%= curdoc.getDescription() %>' context="html"/>
                                     </a>
                                 </td>
-                                <td>
-                                    <div style="overflow:hidden; text-overflow: ellipsis;"
-                                         title="<carlos:encode value='<%= contentType %>' context="htmlAttribute"/>">
-                                        <carlos:encode value='<%= contentType %>' context="html"/>
-                                    </div>
-                                </td>
-
                                 <td><carlos:encode value='<%= curdoc.getCreatorName() %>' context="html"/>
                                 </td>
                                 <td><carlos:encode value='<%= curdoc.getResponsibleName() %>' context="html"/>

@@ -38,6 +38,9 @@
     Features:
     - Bootstrap 5 responsive table with sortable columns
     - Fetches one extra match to suppress empty final pages; submitting filters resets the offset
+    - Leaves out the rows of patients the user may not read, with a notice above the table, and
+      keeps the page boundaries where they are; a list that could not be loaded is reported as an
+      error instead of being shown as an empty list (issue #5775)
     - Filter by team, date range (referral or appointment date), and completion status
     - Filter by Consultant (type-ahead over specialists referenced by consult requests, served by
       encounter/consultation/searchConsultants) and by Provider (the patient's MRP). Both values
@@ -270,6 +273,18 @@
         // Patients with a Nothing Done referral older than a week -> the name the row shows. One entry
         // per patient however many referrals qualify: the Add Tickler form is single-patient.
         Map<String, String> overdueTicklerPatients = new LinkedHashMap<String, String>();
+
+        // Loaded here, before the table is written, so that the two outcomes that are not a plain
+        // list can be said above it (issue #5775): the list could not be loaded, which must not look
+        // like a team with no consultations, and rows left out because the user may not read the
+        // patient's record. limit + 1 fetches the lookahead row behind the Next button.
+        EctViewConsultationRequestsUtil theRequests = new EctViewConsultationRequestsUtil();
+        boolean consultationListLoaded = theRequests.estConsultationPageByTeam(
+                LoggedInInfo.getLoggedInInfoFromSession(request),
+                new ConsultationListFilterDto(team, includeCompleted, startDate, endDate, orderby, desc,
+                        searchDate, offset, limit + 1, consultantId, filterProviderNo,
+                        restrictToSiteOrTeam ? providerMap.keySet() : null,
+                        bMultisites && restrictToSiteOrTeam ? new java.util.HashSet<>(mgrSite) : null), limit);
     %>
 
 
@@ -768,6 +783,16 @@
                 <% } %>
             </div>
 
+            <% if (!consultationListLoaded) { %>
+            <div class="alert alert-danger" role="alert" id="consultationListLoadFailed">
+                <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgListLoadFailed"/>
+            </div>
+            <% } else if (theRequests.hasRestrictedRows()) { %>
+            <div class="alert alert-warning" role="status" id="consultationListRestrictedRows">
+                <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgRestrictedRowsOmitted"/>
+            </div>
+            <% } %>
+
             <!-- Consultation Results Table -->
             <div class="table-responsive">
                 <table class="table table-hover table-sm table-bordered consult-table">
@@ -832,13 +857,6 @@
                     </thead>
                     <tbody>
                         <%
-                            EctViewConsultationRequestsUtil theRequests;
-                            theRequests = new EctViewConsultationRequestsUtil();
-                            theRequests.estConsultationVecByTeam(LoggedInInfo.getLoggedInInfoFromSession(request),
-                                    new ConsultationListFilterDto(team, includeCompleted, startDate, endDate, orderby, desc,
-                                            searchDate, offset, limit + 1, consultantId, filterProviderNo,
-                                            restrictToSiteOrTeam ? providerMap.keySet() : null,
-                                            bMultisites && restrictToSiteOrTeam ? new java.util.HashSet<>(mgrSite) : null));
                             boolean overdue;
                             UserPropertyDAO pref = (UserPropertyDAO) WebApplicationContextUtils.getWebApplicationContext(pageContext.getServletContext()).getBean(UserPropertyDAO.class);
                             String user = (String) session.getAttribute("user");
@@ -989,7 +1007,9 @@
                         <i class="fas fa-chevron-left me-1"></i><fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgPrev"/>
                     </button><%
                         }
-                        if (theRequests.ids.size() > limit) {
+                        // Not ids.size(): rows left out for patients the user may not read do not
+                        // end the list.
+                        if (theRequests.hasMoreRows()) {
                     %><button type="button" class="btn btn-secondary btn-sm ms-1" onclick="gotoPage(true);">
                         <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgNext"/><i class="fas fa-chevron-right ms-1"></i>
                     </button><%

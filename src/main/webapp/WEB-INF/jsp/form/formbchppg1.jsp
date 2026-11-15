@@ -72,6 +72,7 @@
 //get project_home
     String project_home = request.getContextPath().substring(1);
 
+    boolean preventionsUnreadable = false;
     boolean bView = false;
     if (request.getParameter("view") != null && request.getParameter("view").equals("1")) bView = true;
 
@@ -99,7 +100,17 @@
 
 
         // fill the vaccines
-        ArrayList<Map<String, Object>> vaccines = PreventionData.getPreventionData(LoggedInInfo.getLoggedInInfoFromSession(request), demoNo);
+        // The form is filled in from the chart once. If the preventions cannot be read the dates
+        // stay blank and the page says so above the form: a blank date would otherwise read as
+        // "never given" and be saved that way.
+        ArrayList<Map<String, Object>> vaccines;
+        try {
+            vaccines = PreventionData.getPreventionData(LoggedInInfo.getLoggedInInfoFromSession(request), demoNo);
+        } catch (io.github.carlos_emr.carlos.prevention.dto.PreventionSourceUnavailableException unavailable) {
+            vaccines = new ArrayList<Map<String, Object>>();
+            preventionsUnreadable = true;
+            PreventionData.logUnreadable("BC health passport form page 1", demoNo);
+        }
         int fluCount = 0;
         int pnuCount = 0;
         int tdCount = 0;
@@ -482,6 +493,10 @@
         <center>3 doses* &#64; 0, 1 &amp; 6 months</center>
     </div>
 
+    <% if (preventionsUnreadable) { %>
+    <div class="prevention-unreadable" role="alert"
+         style="color:#842029; background:#f8d7da; border:1px solid #f5c2c7; padding:6px 10px; margin:4px;"><fmt:message key="prevention.unreadable.formPrefill"/></div>
+    <% } %>
     <form action="${pageContext.request.contextPath}/form/formname" method="post">
     <input type="hidden" name="c_lastVisited" value="pg1"/>
         <input type="hidden" name="demographic_no"

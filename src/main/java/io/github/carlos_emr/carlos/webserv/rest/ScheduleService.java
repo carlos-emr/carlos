@@ -109,9 +109,6 @@ public class ScheduleService extends AbstractServiceImpl {
 
     public static final String APPOINTMENT_WRITE_MODE_HEADER = "X-Carlos-Appointment-Write-Mode";
 
-    @jakarta.ws.rs.core.Context
-    private jakarta.ws.rs.core.HttpHeaders httpHeaders;
-
     private static final String MISSING_FILTER_DEFINITION_SENTINEL = "<missing filterDefinition>";
     private static final String MISSING_FILTER_KEY_SENTINEL = "<missing filterClassName>";
     private static final String MISSING_PROVIDER_SENTINEL = "<missing provider>";
@@ -601,9 +598,15 @@ public class ScheduleService extends AbstractServiceImpl {
 
     }
 
-    /** Explicit echo compatibility never silently opts a guarded caller out of conflict detection. */
+    /**
+     * Explicit echo compatibility never silently opts a guarded caller out of conflict detection.
+     *
+     * <p>The header is read from the request being served, not from an injected {@code @Context}
+     * field: on the deployed, proxied resource such a field is never populated, and every request
+     * then looked as if it carried no header (see {@link AbstractServiceImpl#getRequestHeader}).</p>
+     */
     private String appointmentWriteVersion(AppointmentTo1 submitted) {
-        List<String> modes = httpHeaders == null ? null : httpHeaders.getRequestHeader(APPOINTMENT_WRITE_MODE_HEADER);
+        List<String> modes = getRequestHeader(APPOINTMENT_WRITE_MODE_HEADER);
         String version = submitted.getEditVersion();
         if (modes == null) return version; // Preserve the existing token-aware/no-token behavior.
         if (modes.size() != 1) throw new jakarta.ws.rs.BadRequestException("Invalid appointment write mode");
