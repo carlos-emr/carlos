@@ -887,10 +887,20 @@ value="<%= h.get("name")%>"/>
     }else{
     String prevType = (String) h2.get("prevention_type");
     long startPrevType = System.currentTimeMillis();
-    ArrayList<Map<String,Object>> alist = PreventionData.getPreventionData(loggedInInfo, prevType, Integer.parseInt(demographic_no));
-    // Reverse to display newest first (matching measurements/drugs display order)
-    // The query returns ASC order for Prevention page compatibility
-    Collections.reverse(alist);
+    // A failed read is shown as such in this section. A section with no rows would read as
+    // "this patient has never had it", on screen and on the browser print of this page.
+    ArrayList<Map<String,Object>> alist;
+    boolean preventionUnreadable = false;
+    try {
+        alist = PreventionData.getPreventionData(loggedInInfo, prevType, Integer.parseInt(demographic_no));
+        // Reverse to display newest first (matching measurements/drugs display order)
+        // The query returns ASC order for Prevention page compatibility
+        Collections.reverse(alist);
+    } catch (io.github.carlos_emr.carlos.prevention.dto.PreventionSourceUnavailableException unavailable) {
+        alist = new ArrayList<Map<String,Object>>();
+        preventionUnreadable = true;
+        PreventionData.logUnreadable("flowsheet", Integer.valueOf(demographic_no));
+    }
 
 %>
 
@@ -907,6 +917,11 @@ value="<%= h.get("name")%>"/>
             <br/>
         </p>
     </div>
+    <% if (preventionUnreadable) { %>
+    <div class="prevention-unreadable" role="alert" style="color:#842029; font-weight:bold; padding:2px 4px;">
+        <p><fmt:setBundle basename="oscarResources"/><fmt:message key="prevention.unreadable.message"/></p>
+    </div>
+    <% } %>
     <%
         out.flush();
         int prevCount = 0;

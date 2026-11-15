@@ -501,11 +501,31 @@ function printHrm(hrmReportId) {
     window.location = contextpath + "/hospitalReportManager/PrintHRMReport?segmentId=" + hrmReportId + "&hrmReportId=" + hrmReportId;
 }
 
+// The latest Set Description attempt per report. A reply to an older attempt is ignored, so a slow
+// "saved" for earlier text cannot replace the message about the text now in the box. (var, not
+// const: a page that includes this file twice must not fail on a redeclaration.)
+var descriptionAttempts = {};
+
 function setDescription(reportId) {
+    const attempt = (descriptionAttempts[reportId] || 0) + 1;
+    descriptionAttempts[reportId] = attempt;
     let description = jQuery("#descriptionField_" + reportId + "_hrm").val();
+    // HRMDocument.description is a utf8mb4 VARCHAR(255) and the server stores the text as typed:
+    // it counts code points, as Array.from does, so an emoji is one character. The page publishes
+    // the limit and its localized message on the box; HRMModifyDocument2Action refuses a longer
+    // description too, and that is the check that holds. This only keeps the typed text in view.
+    let field = document.getElementById("descriptionField_" + reportId + "_hrm");
+    let limit = field && typeof field.getAttribute === 'function' ? Number(field.getAttribute('data-max-code-points')) : 0;
+    if (limit > 0 && typeof description === 'string' && Array.from(description).length > limit) {
+        showHrmStatus("descriptionstatus" + reportId,
+            field.getAttribute('data-too-long-message') || "The description is too long.");
+        return;
+    }
     hrmModify({method: "setDescription", reportId: reportId, description: description},
         function (result) {
-            showHrmStatus("descriptionstatus" + reportId, result.message);
+            if (descriptionAttempts[reportId] === attempt) {
+                showHrmStatus("descriptionstatus" + reportId, result.message);
+            }
         });
 }
 

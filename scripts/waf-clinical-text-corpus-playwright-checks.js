@@ -431,6 +431,9 @@ function rows(s, ctx) {
           return captured;
         } finally { await closeAll([edit, list]); }
       },
+      // The edit form names the version of the task it was rendered from; the UI's own save changed that version, so a
+      // replay carrying it would be refused as stale (HTTP 409). Replays drop it and take the unversioned path.
+      aim: () => ({ overrides: { ticklerVersion: null } }),
       watermark: () => { mark = highWater(s, 'tickler_comments', 'id')(); },
       landing: tableLanding(s, { table: 'tickler_comments', idColumn: 'id', scope: () => `tickler_no=${fixture.id}`, fields, mark: () => mark }),
     });

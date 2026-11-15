@@ -37,7 +37,8 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
 /** Converts only an owner-scoped complete upload token into shared import options; no server path parameter exists. */
-@Component("submitCdsImport2Action") @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+@Component("submitCdsImport2Action")
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class SubmitCdsImport2Action extends ActionSupport {
     private final transient SecurityInfoManager securityInfoManager;
     private final transient CdsWebService web;
@@ -47,46 +48,133 @@ public class SubmitCdsImport2Action extends ActionSupport {
     private boolean mergeExisting, dryRun, synthetic;
     private boolean matchProviderNames = true;
     private int timeshiftInDays;
-    public SubmitCdsImport2Action(CdsWebService web, CdsUploadSubmissionService submissions, SecurityInfoManager securityInfoManager) {
+
+    public SubmitCdsImport2Action(
+            CdsWebService web,
+            CdsUploadSubmissionService submissions,
+            SecurityInfoManager securityInfoManager) {
         this.securityInfoManager = securityInfoManager;
-        this.web = web; this.submissions = submissions;
+        this.web = web;
+        this.submissions = submissions;
     }
-    @Override public String execute() throws Exception {
+
+    @Override
+    public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
         if (!"POST".equals(request.getMethod())) {
-            response.setHeader("Allow", "POST"); response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED); return NONE;
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
         }
-        LoggedInInfo loggedInInfo = request.getSession(false) == null ? null
-                : LoggedInInfo.getLoggedInInfoFromSession(request.getSession(false));
+        LoggedInInfo loggedInInfo =
+                request.getSession(false) == null
+                        ? null
+                        : LoggedInInfo.getLoggedInInfoFromSession(request.getSession(false));
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", (String) null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", (String) null)
-                && !securityInfoManager.hasPrivilege(loggedInInfo, "_cds_import", "w", (String) null)) {
+                && !securityInfoManager.hasPrivilege(
+                        loggedInInfo, "_cds_import", "w", (String) null)) {
             throw new SecurityException("missing required sec object (_cds_import)");
         }
         try {
             var actor = web.authorize(request);
-            web.parameters(request, Set.of("uploadId", "providerNo", "programId", "facilityId", "sourceNamespace", "sourceProfile",
-                    "mergeExisting", "dryRun", "matchProviderNames", "timeshiftInDays", "courseId", "synthetic"));
-            var command = new CdsUploadImportCommand(uploadId, providerNo, programId, facilityId,
-                    sourceNamespace, sourceProfile, mergeExisting, dryRun, matchProviderNames, timeshiftInDays, courseId, synthetic);
+            web.parameters(
+                    request,
+                    Set.of(
+                            "uploadId",
+                            "providerNo",
+                            "programId",
+                            "facilityId",
+                            "sourceNamespace",
+                            "sourceProfile",
+                            "mergeExisting",
+                            "dryRun",
+                            "matchProviderNames",
+                            "timeshiftInDays",
+                            "courseId",
+                            "synthetic"));
+            var command =
+                    new CdsUploadImportCommand(
+                            uploadId,
+                            providerNo,
+                            programId,
+                            facilityId,
+                            sourceNamespace,
+                            sourceProfile,
+                            mergeExisting,
+                            dryRun,
+                            matchProviderNames,
+                            timeshiftInDays,
+                            courseId,
+                            synthetic);
             var job = submissions.submit(actor, command);
             web.json(response, 202, Map.of("ok", true, "accepted", true, "job", web.job(job)));
-        } catch (Exception failure) { web.failure(response, failure); }
+        } catch (Exception failure) {
+            web.failure(response, failure);
+        }
         return NONE;
     }
-    @StrutsParameter public void setUploadId(String value) { uploadId = value; }
-    @StrutsParameter public void setProviderNo(String value) { providerNo = value; }
-    @StrutsParameter public void setProgramId(Integer value) { programId = value; }
-    @StrutsParameter public void setFacilityId(Integer value) { facilityId = value; }
-    @StrutsParameter public void setSourceNamespace(String value) { sourceNamespace = value; }
-    @StrutsParameter public void setSourceProfile(String value) { sourceProfile = value; }
-    @StrutsParameter public void setMergeExisting(boolean value) { mergeExisting = value; }
-    @StrutsParameter public void setDryRun(boolean value) { dryRun = value; }
-    @StrutsParameter public void setMatchProviderNames(boolean value) { matchProviderNames = value; }
-    @StrutsParameter public void setTimeshiftInDays(int value) { timeshiftInDays = value; }
-    @StrutsParameter public void setCourseId(Integer value) { courseId = value; }
-    @StrutsParameter public void setSynthetic(boolean value) { synthetic = value; }
+
+    @StrutsParameter
+    public void setUploadId(String value) {
+        uploadId = value;
+    }
+
+    @StrutsParameter
+    public void setProviderNo(String value) {
+        providerNo = value;
+    }
+
+    @StrutsParameter
+    public void setProgramId(Integer value) {
+        programId = value;
+    }
+
+    @StrutsParameter
+    public void setFacilityId(Integer value) {
+        facilityId = value;
+    }
+
+    @StrutsParameter
+    public void setSourceNamespace(String value) {
+        sourceNamespace = value;
+    }
+
+    @StrutsParameter
+    public void setSourceProfile(String value) {
+        sourceProfile = value;
+    }
+
+    @StrutsParameter
+    public void setMergeExisting(boolean value) {
+        mergeExisting = value;
+    }
+
+    @StrutsParameter
+    public void setDryRun(boolean value) {
+        dryRun = value;
+    }
+
+    @StrutsParameter
+    public void setMatchProviderNames(boolean value) {
+        matchProviderNames = value;
+    }
+
+    @StrutsParameter
+    public void setTimeshiftInDays(int value) {
+        timeshiftInDays = value;
+    }
+
+    @StrutsParameter
+    public void setCourseId(Integer value) {
+        courseId = value;
+    }
+
+    @StrutsParameter
+    public void setSynthetic(boolean value) {
+        synthetic = value;
+    }
 }

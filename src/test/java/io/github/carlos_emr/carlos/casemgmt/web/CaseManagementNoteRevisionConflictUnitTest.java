@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import org.hibernate.exception.SnapshotIsolationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -200,6 +201,23 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         ArgumentCaptor<CaseManagementNote> submitted = ArgumentCaptor.forClass(CaseManagementNote.class);
         verify(manager).saveCppNoteRevision(submitted.capture(), any(), any(), any(), any());
         assertThat(submitted.getValue().getObservation_date()).isNull();
+    }
+
+    @Test
+    void shouldAuditTheCompactSaveWithoutTheNoteText_whenAjaxSaveSucceeds() throws Exception {
+        when(manager.saveCompactNoteRevision(any(), any(), anyList(), any())).thenAnswer(call -> {
+            CaseManagementNote saved = ((CaseManagementNote) call.getArgument(1)).copyForRevision();
+            saved.setId(600L);
+            return new CaseManagementManager.CompactSaveResult(saved, call.getArgument(2));
+        });
+
+        assertThat(action.ajaxsave()).isEqualTo("issueList_ajax");
+
+        logActionMock.verify(() -> LogAction.addLog("999998", LogConst.UPDATE, LogConst.CON_CME_NOTE, "600",
+                request.getRemoteAddr(), "101", "uuid=" + note.getUuid() + "; signed=false; issues=0"));
+        logActionMock.verify(() -> LogAction.addLog(anyString(), anyString(), anyString(), anyString(), anyString(),
+                anyString(), org.mockito.ArgumentMatchers.argThat((String data) -> data.contains("Unsaved draft")
+                        || data.contains("Original"))), never());
     }
 
     @Test
@@ -668,6 +686,9 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         assertThat(action.issueNoteSave()).isNull();
         logActionMock.verify(() -> LogAction.addLog(eq("999998"), anyString(), anyString(), eq("600"),
                 anyString(), eq("101"), anyString()));
+        // The audit row describes the saved revision; the CPP text and the issue stay in the chart.
+        logActionMock.verify(() -> LogAction.addLog(eq("999998"), anyString(), anyString(), eq("600"),
+                anyString(), eq("101"), eq("uuid=" + note.getUuid() + "; signed=false; issues=1")));
 
         assertThat(response.getContentAsString().trim()).isEqualTo("600");
         assertThat(form.getIssueCheckList()).singleElement()

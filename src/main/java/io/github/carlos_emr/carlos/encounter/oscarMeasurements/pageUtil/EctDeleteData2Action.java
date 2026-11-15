@@ -36,6 +36,8 @@ import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementsDeletedDao;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.commn.model.MeasurementsDeleted;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -124,9 +126,14 @@ public class EctDeleteData2Action extends ActionSupport {
                 authorized.add(m);
             }
 
+            String auditProvider = loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo();
             for (Measurement m : authorized) {
                 measurementsDeletedDao.persist(new MeasurementsDeleted(m));
                 measurementDao.remove(m.getId());
+                // One audit row per reading removed, filed under its patient and named by its id (the
+                // archived copy keeps it as originalId). Never the reading or its comment.
+                LogAction.addLog(auditProvider, LogConst.DELETE, LogConst.CON_MEASUREMENT, String.valueOf(m.getId()),
+                        request.getRemoteAddr(), String.valueOf(m.getDemographicId()));
             }
         }
 

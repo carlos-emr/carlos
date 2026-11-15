@@ -742,6 +742,14 @@
                 alert("<fmt:message key="dms.incomingDocs.missingDocumentDescription"/>");
                 return false;
             }
+            // document.docdesc counts code points (utf8mb4), as Array.from does, so an emoji is one
+            // character. ManageDocument2Action refuses a longer description too; that is the check that holds.
+            if (Array.from(docDescObj.value.replace(/^[\x00-\x20]+|[\x00-\x20]+$/g, '')).length > <%= io.github.carlos_emr.carlos.commn.model.Document.DESCRIPTION_MAX_LENGTH %>) {
+                <fmt:message key="dms.error.descriptionTooLong" var="msgDescriptionTooLongText"/>
+                alert('${carlos:forJavaScript(msgDescriptionTooLongText)}');
+                docDescObj.focus();
+                return false;
+            }
 
 
             if (!validDate("observationDate")) {
@@ -1186,9 +1194,12 @@
                                 </td>
                             </tr>
                             <tr>
-                                <td colspan="2"><fmt:message key="dms.incomingDocs.description"/>:</td>
+                                <td colspan="2"><label for="documentDescription"><fmt:message key="dms.incomingDocs.description"/>:</label></td>
                             </tr>
                             <tr>
+                                <%-- No maxlength: a browser clips a paste to maxlength in UTF-16 units before any check
+                                     runs. checkDocument() and ManageDocument2Action refuse a description longer than
+                                     Document.DESCRIPTION_MAX_LENGTH code points. --%>
                                 <td colspan="2"><input tabIndex="<%=tabIndex++%>" type="text" style="width:100%;"
                                                        id="documentDescription" name="documentDescription" value=""
                                                        onfocus="setDescriptionIfEmpty();"/></td>

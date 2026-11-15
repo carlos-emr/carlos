@@ -944,20 +944,23 @@
         <Class name="io.github.carlos_emr.carlos.decision.DesAntenatalPlannerRisks_99_12"/>
         <Method name="getRiskName"/>
     </Match>
+    <!-- The legacy CDS export re-reads its own XML through XmlUtils.createSecure*
+         (secure processing, no external DTD/schema; DOCTYPE refused). The parsing moved
+         from validateExport, now a wrapper, into checkExport (#5845). -->
     <Match>
         <Bug pattern="XXE_DOCUMENT"/>
         <Class name="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicExportAction42Action"/>
-        <Method name="validateExport"/>
+        <Method name="checkExport"/>
     </Match>
     <Match>
         <Bug pattern="XXE_SCHEMA_FACTORY"/>
         <Class name="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicExportAction42Action"/>
-        <Method name="validateExport"/>
+        <Method name="checkExport"/>
     </Match>
     <Match>
         <Bug pattern="XXE_VALIDATOR"/>
         <Class name="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicExportAction42Action"/>
-        <Method name="validateExport"/>
+        <Method name="checkExport"/>
     </Match>
     <Match>
         <Bug pattern="XXE_DOCUMENT"/>

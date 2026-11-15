@@ -120,11 +120,12 @@ public final class RxDeleteAllergy2Action extends ActionSupport {
         if (action != null && action.equals("activate")) {
             patient.activateAllergy(id);
             String ip = request.getRemoteAddr();
-            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), "Activate", LogConst.CON_ALLERGY, "" + id, ip, "" + patient.getDemographicNo(), allergy.getAuditString());
+            // Named by id only: the allergy description is clinical text and is not copied into the audit log.
+            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), "Activate", LogConst.CON_ALLERGY, "" + id, ip, "" + patient.getDemographicNo(), null);
         } else {
             patient.deleteAllergy(id);
             String ip = request.getRemoteAddr();
-            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.DELETE, LogConst.CON_ALLERGY, "" + id, ip, "" + patient.getDemographicNo(), allergy.getAuditString());
+            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.DELETE, LogConst.CON_ALLERGY, "" + id, ip, "" + patient.getDemographicNo(), null);
         }
 
         // Echo the patient actually written, not the raw request value.

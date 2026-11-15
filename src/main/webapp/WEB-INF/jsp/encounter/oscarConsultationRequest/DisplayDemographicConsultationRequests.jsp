@@ -38,6 +38,9 @@
   Security:
   - Requires _con read rights
 
+  A list that could not be loaded is reported above the table; it is never shown as an empty
+  list (issue #5775).
+
   @since 2002-11-08
 --%>
 
@@ -96,7 +99,10 @@
 
     EctViewConsultationRequestsUtil theRequests;
     theRequests = new EctViewConsultationRequestsUtil();
-    theRequests.estConsultationVecByDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demo);
+    // False leaves the lists empty. Kept, so that the page says the list could not be loaded
+    // instead of showing this patient as having no consultations (issue #5775).
+    boolean consultationListLoaded = theRequests.estConsultationVecByDemographic(
+            LoggedInInfo.getLoggedInInfoFromSession(request), demo);
 %>
 
 <%-- Set the resource bundle once for the entire page --%>
@@ -234,6 +240,12 @@
     <p class="text-muted" style="margin:5px 0 10px;">
         <fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgClickLink"/>
     </p>
+
+    <% if (!consultationListLoaded) { %>
+    <div class="alert alert-danger" role="alert" id="consultationListLoadFailed">
+        <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgListLoadFailed"/>
+    </div>
+    <% } %>
 
     <table id="consultTable" class="table table-sm table-striped table-hover" style="width:100%;">
         <thead>

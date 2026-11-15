@@ -316,6 +316,8 @@ class RptDownloadCSVServletTest {
             assertThat(response.getStatus()).isEqualTo(500);
             assertThat(response.getErrorMessage()).isEqualTo("Unable to generate report");
             assertThat(response.getContentAsString()).isEmpty();
+            // An ordinary failure is not a limit refusal: the error page shows no limit notice.
+            assertThat(request.getAttribute("carlosReportLimitKey")).isNull();
         }
     }
 
@@ -333,6 +335,53 @@ class RptDownloadCSVServletTest {
         new RptDownloadCSVServlet().service(request, response);
         assertThat(response.getStatus()).isEqualTo(413);
         assertThat(response.getContentAsString()).isEmpty();
+        // The refusal names the download limit, for the log and for the error page.
+        assertThat(response.getErrorMessage()).startsWith("This report is larger than 5 MB, the most a report download may hold.")
+                .contains("configured_report.max_csv_mb");
+        assertThat(request.getAttribute("carlosReportLimitKey")).isEqualTo("report.configured.limitCsv");
+        assertThat(request.getAttribute("carlosReportLimitValue")).isEqualTo(5);
+        assertThat(request.getAttribute("carlosReportLimitSetting")).isEqualTo("configured_report.max_csv_mb");
+    }
+
+    @Test
+    void shouldDownloadLargerCsv_whenDownloadLimitIsRaised() throws Exception {
+        // About 7.5 MiB of UTF-8: refused under the default 5 MiB, downloaded once an operator raises the limit.
+        String value = "\u20ac".repeat(RptDownloadCSVServlet.MAX_CSV_EXPORT_BYTES / 2);
+        var row = new ConfiguredReportQuery.Row(java.util.Map.of("last_name", value), List.of(value));
+        configuredQueryMock.when(() -> ConfiguredReportQuery.read(
+                        org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(Object[].class)))
+                .thenReturn(new ConfiguredReportQuery.Result(List.of("last_name"), List.of(row)));
+        var request = baseRequest(); request.getSession(true);
+        request.setParameter("demoReport", "true"); request.setParameter("last_name", "on");
+        addFilter(request, 1, "demographic.demographic_no=42", "unused", "");
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        CarlosProperties.getInstance().setProperty("configured_report.max_csv_mb", "8");
+        try {
+            new RptDownloadCSVServlet().service(request, response);
+        } finally {
+            CarlosProperties.getInstance().remove("configured_report.max_csv_mb");
+        }
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentAsByteArray().length).isGreaterThan(RptDownloadCSVServlet.MAX_CSV_EXPORT_BYTES);
+        assertThat(request.getAttribute("carlosReportLimitKey")).isNull();
+    }
+
+    @Test
+    void shouldNameTheLimitOnTheErrorPage_whenReportQueryIsRefused() throws Exception {
+        configuredQueryMock.when(() -> ConfiguredReportQuery.read(
+                        org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(Object[].class)))
+                .thenThrow(new ConfiguredReportQuery.LimitExceededException(ConfiguredReportQuery.Limit.ROWS, 10_000));
+        var request = baseRequest(); request.getSession(true);
+        request.setParameter("demoReport", "true"); request.setParameter("last_name", "on");
+        addFilter(request, 1, "demographic.demographic_no=42", "unused", "");
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        new RptDownloadCSVServlet().service(request, response);
+        // Still a failed download with nothing partial; the error page now says which limit stopped it.
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(response.getContentAsString()).isEmpty();
+        assertThat(request.getAttribute("carlosReportLimitKey")).isEqualTo("report.configured.limitRows");
+        assertThat(request.getAttribute("carlosReportLimitValue")).isEqualTo(10_000);
+        assertThat(request.getAttribute("carlosReportLimitSetting")).isEqualTo("configured_report.max_rows");
     }
 
     @Test

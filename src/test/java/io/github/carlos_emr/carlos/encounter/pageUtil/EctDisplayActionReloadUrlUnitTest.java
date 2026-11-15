@@ -130,6 +130,24 @@ class EctDisplayActionReloadUrlUnitTest {
     }
 
     @Test
+    @DisplayName("The chart context the caller posts beside the URL is emitted once")
+    void shouldEmitChartContextOnce_whenCallerPostsItBesideTheUrl() {
+        // A refresh posts chartContext in the body while the reload URL already carries it in
+        // its query, so the next render sees the same value twice. Emitting both grew the URL,
+        // and with it every onclick the module prints, by one copy per refresh.
+        Map<String, String[]> map = new LinkedHashMap<>();
+        map.put("demographicNo", new String[]{"42", "42"});
+        map.put("chartContext", new String[]{"token-a", "token-a"});
+
+        String first = EctDisplayAction.buildReloadUrl(URI, map);
+
+        assertThat(first).isEqualTo("/carlos/encounter/displayTickler?demographicNo=42&chartContext=token-a");
+
+        map.put("chartContext", new String[]{"token-a", "token-a", "token-a"});
+        assertThat(EctDisplayAction.buildReloadUrl(URI, map)).isEqualTo(first);
+    }
+
+    @Test
     @DisplayName("Multi-valued parameters keep every value")
     void shouldRepeatKey_forMultiValuedParameters() {
         Map<String, String[]> map = new LinkedHashMap<>();
