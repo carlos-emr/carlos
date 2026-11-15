@@ -19,4 +19,4 @@ tag=1.3.5
 # including after the tag is published, so keep it synchronized with the tag.
 # The release build never uses the fallback: fetch-carlos-ctl.sh downloads
 # the tag's published asset or fails.
-fallback=0ce67721e199547d468bafd33b3690f3977b3fc7
+fallback=6525c85234c29f9c9e3fb599865b599ec32c373f
