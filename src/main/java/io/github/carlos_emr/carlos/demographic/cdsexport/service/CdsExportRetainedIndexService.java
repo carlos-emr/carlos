@@ -520,7 +520,7 @@ public class CdsExportRetainedIndexService {
     }
 
     private static String base(String category) {
-        for (String suffix : List.of("_FIELDS", "_CONTACT", "_CARE"))
+        for (String suffix : List.of("_FIELDS", "_CONTACT", "_CARE", "_EXTENSION"))
             if (category.endsWith(suffix))
                 return category.substring(0, category.length() - suffix.length());
         return category;

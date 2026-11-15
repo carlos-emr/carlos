@@ -61,11 +61,12 @@
           "review": {
             "evidence": [
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryExtensionUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
             "fieldGroups": [
-              "source-only-AlertsAndSpecialNeeds"
+              "history-cpp-extension-values"
             ]
           }
         },
@@ -75,11 +76,12 @@
           "review": {
             "evidence": [
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryExtensionUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
             "fieldGroups": [
-              "source-only-AlertsAndSpecialNeeds"
+              "history-cpp-extension-values"
             ]
           }
         },
@@ -89,11 +91,12 @@
           "review": {
             "evidence": [
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryExtensionUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
             "fieldGroups": [
-              "source-only-AlertsAndSpecialNeeds"
+              "history-cpp-extension-values"
             ]
           }
         }
@@ -1768,11 +1771,12 @@
           "review": {
             "evidence": [
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryExtensionUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
             "fieldGroups": [
-              "source-only-PastHealth"
+              "history-cpp-extension-values"
             ]
           }
         },
@@ -1782,11 +1786,12 @@
           "review": {
             "evidence": [
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryExtensionUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
             "fieldGroups": [
-              "source-only-PastHealth"
+              "history-cpp-extension-values"
             ]
           }
         },
@@ -1796,11 +1801,12 @@
           "review": {
             "evidence": [
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryExtensionUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
             "fieldGroups": [
-              "source-only-PastHealth"
+              "history-cpp-extension-values"
             ]
           }
         }
@@ -1872,11 +1878,12 @@
           "review": {
             "evidence": [
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryExtensionUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
             "fieldGroups": [
-              "source-only-ProblemList"
+              "history-cpp-extension-values"
             ]
           }
         },
@@ -1886,11 +1893,12 @@
           "review": {
             "evidence": [
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryExtensionUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
             "fieldGroups": [
-              "source-only-ProblemList"
+              "history-cpp-extension-values"
             ]
           }
         },
@@ -1900,11 +1908,12 @@
           "review": {
             "evidence": [
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryExtensionUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
             "fieldGroups": [
-              "source-only-ProblemList"
+              "history-cpp-extension-values"
             ]
           }
         }
@@ -2350,11 +2359,12 @@
           "review": {
             "evidence": [
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryExtensionUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
             "fieldGroups": [
-              "source-only-RiskFactors"
+              "history-cpp-extension-values"
             ]
           }
         },
@@ -2364,11 +2374,12 @@
           "review": {
             "evidence": [
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryExtensionUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
             "fieldGroups": [
-              "source-only-RiskFactors"
+              "history-cpp-extension-values"
             ]
           }
         },
@@ -2378,11 +2389,12 @@
           "review": {
             "evidence": [
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryExtensionUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
             "fieldGroups": [
-              "source-only-RiskFactors"
+              "history-cpp-extension-values"
             ]
           }
         }
@@ -3800,7 +3812,7 @@
       "category": "AlertsAndSpecialNeeds",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:AlertsAndSpecialNeeds/cds:EndDate/dt:FullDate",
-      "reviewGroup": "source-only-AlertsAndSpecialNeeds",
+      "reviewGroup": "history-cpp-extension-values",
       "variants": [
         {
           "choiceArms": [
@@ -3872,7 +3884,7 @@
       "category": "AlertsAndSpecialNeeds",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:AlertsAndSpecialNeeds/cds:EndDate/dt:YearMonth",
-      "reviewGroup": "source-only-AlertsAndSpecialNeeds",
+      "reviewGroup": "history-cpp-extension-values",
       "variants": [
         {
           "choiceArms": [
@@ -3945,7 +3957,7 @@
       "category": "AlertsAndSpecialNeeds",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:AlertsAndSpecialNeeds/cds:EndDate/dt:YearOnly",
-      "reviewGroup": "source-only-AlertsAndSpecialNeeds",
+      "reviewGroup": "history-cpp-extension-values",
       "variants": [
         {
           "choiceArms": [
@@ -20679,7 +20691,7 @@
       "category": "FamilyHistory",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:FamilyHistory/cds:AgeAtOnset",
-      "reviewGroup": "source-only-FamilyHistory",
+      "reviewGroup": "history-cpp-extension-values",
       "variants": [
         {
           "choiceArms": [],
@@ -20975,7 +20987,7 @@
       "category": "FamilyHistory",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:FamilyHistory/cds:LifeStage",
-      "reviewGroup": "source-only-FamilyHistory",
+      "reviewGroup": "history-cpp-extension-values",
       "variants": [
         {
           "choiceArms": [],
@@ -21218,7 +21230,7 @@
       "category": "FamilyHistory",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:FamilyHistory/cds:Relationship",
-      "reviewGroup": "source-only-FamilyHistory",
+      "reviewGroup": "history-cpp-extension-values",
       "variants": [
         {
           "choiceArms": [],
@@ -21743,7 +21755,7 @@
       "category": "FamilyHistory",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:FamilyHistory/cds:Treatment",
-      "reviewGroup": "source-only-FamilyHistory",
+      "reviewGroup": "history-cpp-extension-values",
       "variants": [
         {
           "choiceArms": [],
@@ -30217,7 +30229,7 @@
       "category": "PastHealth",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:PastHealth/cds:LifeStage",
-      "reviewGroup": "source-only-PastHealth",
+      "reviewGroup": "history-cpp-extension-values",
       "variants": [
         {
           "choiceArms": [],
@@ -30678,7 +30690,7 @@
       "category": "PastHealth",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:PastHealth/cds:ProblemStatus",
-      "reviewGroup": "source-only-PastHealth",
+      "reviewGroup": "history-cpp-extension-values",
       "variants": [
         {
           "choiceArms": [],
@@ -31203,7 +31215,7 @@
       "category": "PastHealth",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:PastHealth/cds:ResolvedDate/dt:FullDate",
-      "reviewGroup": "source-only-PastHealth",
+      "reviewGroup": "history-cpp-extension-values",
       "variants": [
         {
           "choiceArms": [
@@ -31275,7 +31287,7 @@
       "category": "PastHealth",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:PastHealth/cds:ResolvedDate/dt:YearMonth",
-      "reviewGroup": "source-only-PastHealth",
+      "reviewGroup": "history-cpp-extension-values",
       "variants": [
         {
           "choiceArms": [
@@ -31348,7 +31360,7 @@
       "category": "PastHealth",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:PastHealth/cds:ResolvedDate/dt:YearOnly",
-      "reviewGroup": "source-only-PastHealth",
+      "reviewGroup": "history-cpp-extension-values",
       "variants": [
         {
           "choiceArms": [
@@ -31897,7 +31909,7 @@
       "category": "ProblemList",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:ProblemList/cds:LifeStage",
-      "reviewGroup": "source-only-ProblemList",
+      "reviewGroup": "history-cpp-extension-values",
       "variants": [
         {
           "choiceArms": [],
@@ -32285,7 +32297,7 @@
       "category": "ProblemList",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:ProblemList/cds:ProblemDescription",
-      "reviewGroup": "source-only-ProblemList",
+      "reviewGroup": "history-cpp-extension-values",
       "variants": [
         {
           "choiceArms": [],
@@ -32431,7 +32443,7 @@
       "category": "ProblemList",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:ProblemList/cds:ProblemStatus",
-      "reviewGroup": "source-only-ProblemList",
+      "reviewGroup": "history-cpp-extension-values",
       "variants": [
         {
           "choiceArms": [],
@@ -32738,7 +32750,7 @@
       "category": "ProblemList",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:ProblemList/cds:ResolutionDate/dt:FullDate",
-      "reviewGroup": "source-only-ProblemList",
+      "reviewGroup": "history-cpp-extension-values",
       "variants": [
         {
           "choiceArms": [
@@ -32810,7 +32822,7 @@
       "category": "ProblemList",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:ProblemList/cds:ResolutionDate/dt:YearMonth",
-      "reviewGroup": "source-only-ProblemList",
+      "reviewGroup": "history-cpp-extension-values",
       "variants": [
         {
           "choiceArms": [
@@ -32883,7 +32895,7 @@
       "category": "ProblemList",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:ProblemList/cds:ResolutionDate/dt:YearOnly",
-      "reviewGroup": "source-only-ProblemList",
+      "reviewGroup": "history-cpp-extension-values",
       "variants": [
         {
           "choiceArms": [
@@ -36395,7 +36407,7 @@
       "category": "RiskFactors",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:RiskFactors/cds:AgeOfOnset",
-      "reviewGroup": "source-only-RiskFactors",
+      "reviewGroup": "history-cpp-extension-values",
       "variants": [
         {
           "choiceArms": [],
@@ -36455,7 +36467,7 @@
       "category": "RiskFactors",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:RiskFactors/cds:EndDate/dt:FullDate",
-      "reviewGroup": "source-only-RiskFactors",
+      "reviewGroup": "history-cpp-extension-values",
       "variants": [
         {
           "choiceArms": [
@@ -36527,7 +36539,7 @@
       "category": "RiskFactors",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:RiskFactors/cds:EndDate/dt:YearMonth",
-      "reviewGroup": "source-only-RiskFactors",
+      "reviewGroup": "history-cpp-extension-values",
       "variants": [
         {
           "choiceArms": [
@@ -36600,7 +36612,7 @@
       "category": "RiskFactors",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:RiskFactors/cds:EndDate/dt:YearOnly",
-      "reviewGroup": "source-only-RiskFactors",
+      "reviewGroup": "history-cpp-extension-values",
       "variants": [
         {
           "choiceArms": [
@@ -36673,7 +36685,7 @@
       "category": "RiskFactors",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:RiskFactors/cds:ExposureDetails",
-      "reviewGroup": "source-only-RiskFactors",
+      "reviewGroup": "history-cpp-extension-values",
       "variants": [
         {
           "choiceArms": [],
@@ -36746,7 +36758,7 @@
       "category": "RiskFactors",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:RiskFactors/cds:LifeStage",
-      "reviewGroup": "source-only-RiskFactors",
+      "reviewGroup": "history-cpp-extension-values",
       "variants": [
         {
           "choiceArms": [],
@@ -38827,6 +38839,43 @@
         ],
         "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
       },
+      "history-cpp-extension-values": {
+        "destination": "casemgmt_note_ext key_val/value/date_value rows, attached to the imported CPP note, plus the complete protected source fields.",
+        "disposition": "native-and-source",
+        "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
+        "implementation": [
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsCppExtensionProjection.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsHistoryExtensionNativeDto.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryExtensionChildren.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryExtensionPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryExtensionReader.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsNativeChildSpool.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportNativeService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportPlanningService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportLedgerService.java"
+        ],
+        "normalization": "Known CPP extension rows (Start Date, Resolution Date, Procedure Date, Age at Onset, Treatment, Problem Status, Exposure Details, Relationship, Life Stage, Problem Description and Procedure) are restored from the current CARLOS.NativeHistory.v1 revision. The reader streams one row at a time, preserves duplicate cardinality and SQL null versus empty text, and derives one protected native child unit per row with independent preparation, receipt and checkpoint. The parent source digest, committed prerequisite receipt and target note patient must all match before a write. The shared CDS projection is compared with the current XML: edited standard fields take precedence over stale carried rows, with CDS_HISTORY_EXTENSION_CARRIER_NOT_APPLIED. Standard fields from other senders also populate extension rows, with YYYY/YYYY-MM precision markers for partial dates. Operational and unknown extension keys remain source data. Unrepresentable native calendar values and values exceeding the actual preparation-column capacity retain their complete source values with explicit diagnostics; no clipping or invented date is used. Synthetic shifts apply only to full dates; shifting partial native dates is refused.",
+        "normativeBasis": [
+          "EMR Data Migration Implementation Guide v1.1 section 14 (ClinicalNotes)",
+          "EMR Data Migration Requirements v1.1 DP02.01",
+          "Pinned XML Schema declaration/facets in generated row"
+        ],
+        "original": "Immutable accepted XML bytes are retained. Each original XML character value/attribute (XML line-end/entity processing already applied) or decoded binary is separately addressed by indexed XPath, namespace, ordinal and type in cds_import_field; large values use hash-bound spool offsets. Logical whitespace/corrections are separate. Source category view and original-value download remain protected.",
+        "reader": [
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalSourceService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/web/ViewCdsSourceFields2Action.java",
+          "src/main/webapp/WEB-INF/jsp/demographic/cdsSourceFields.jsp",
+          "src/main/java/io/github/carlos_emr/carlos/casemgmt/model/CaseManagementNote.java",
+          "src/main/java/io/github/carlos_emr/carlos/casemgmt/dao/CaseManagementNoteDAOImpl.java"
+        ],
+        "testScope": "Named tests cover representative projections, refusal and reader semantics. The separate all-choice corpus proves every listed structural path reaches the real schema validator/parser; it does not claim a native round-trip assertion per leaf.",
+        "tests": [
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryExtensionUnitTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryExtensionsMariaDbIntegrationTest.java"
+        ],
+        "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
+      },
       "history-encounter-type": {
         "destination": "casemgmt_note.encounter_type for an exact CARLOS EncounterUtil choice; otherwise the complete source value is retained, with custom native restoration from verified CARLOS revision context.",
         "disposition": "native-and-source",
@@ -38855,7 +38904,7 @@
         "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
       },
       "history-native-residual-extensions": {
-        "destination": "Exact recognized CARLOS CPP residual markers project archive state to casemgmt_note.archived and an authored narrative (PersonalHistory, or a CPP item whose text did not fit its description element) to casemgmt_note.note. The exact patient Alert of CARLOS.PatientAlert.v1 projects to the Reminders note's casemgmt_note.note in place of an AlertDescription that shows U+FFFD, once proven against that element. The exact stored text of a CPP item or encounter note carried in CARLOS.NativeHistory.v1 revision details projects to casemgmt_note.note in place of text that shows U+FFFD, once proven against that text. Unrecognized residual names remain complete protected source values. The CPP section tags a CARLOS sender lists as sections of a CPP item's last CARLOS.NativeHistory.v1 (an item its chart files under two or more CPP sections, written once under the first) project to one casemgmt_issue and one casemgmt_issue_notes link per other section tag, beside the record's own section's. The current revision encounterType restores casemgmt_note.encounter_type when its NoteType projection agrees with the XML element.",
+        "destination": "Exact recognized CARLOS CPP residual markers project archive state to casemgmt_note.archived and an authored narrative (PersonalHistory, or a CPP item whose text did not fit its description element) to casemgmt_note.note. The exact patient Alert of CARLOS.PatientAlert.v1 projects to the Reminders note's casemgmt_note.note in place of an AlertDescription that shows U+FFFD, once proven against that element. The exact stored text of a CPP item or encounter note carried in CARLOS.NativeHistory.v1 revision details projects to casemgmt_note.note in place of text that shows U+FFFD, once proven against that text. Unrecognized residual names remain complete protected source values. The CPP section tags a CARLOS sender lists as sections of a CPP item's last CARLOS.NativeHistory.v1 (an item its chart files under two or more CPP sections, written once under the first) project to one casemgmt_issue and one casemgmt_issue_notes link per other section tag, beside the record's own section's. The current revision encounterType restores casemgmt_note.encounter_type when its NoteType projection agrees with the XML element. Current clinical CPP extensions also populate their own casemgmt_note_ext rows.",
         "disposition": "native-and-source",
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
@@ -38866,9 +38915,18 @@
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsNativePreparationService.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistorySectionsReader.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryEncounterReader.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryEncounterReader.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsCppExtensionProjection.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsHistoryExtensionNativeDto.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryExtensionChildren.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryExtensionPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryExtensionReader.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsNativeChildSpool.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportNativeService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportPlanningService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportLedgerService.java"
         ],
-        "normalization": "Only CARLOS.History.Archived.v1 (boolean), CARLOS.History.PersonalNarrative.v1 (string, raw) and CARLOS.History.Narrative.v1 (string, whitespace-free escaped encoding decoded by CdsNativeExtensionContract.decodeNarrative) are interpreted; CARLOS.History.NarrativeText.v1, the exporter's whitespace-collapsed PersonalHistory copy for other receivers, is not interpreted and stays a protected source value; a narrative carrier is used only when the description element is absent, the encoded one in preference to the raw one, and a malformed encoding blocks projection. One complete Name/DataType/Content group is required per known marker; malformed, duplicated, conflicting or wrong-category markers block projection. The archive carrier is limited to six CPP categories; the raw narrative carrier is limited to PersonalHistory and the encoded one to the six CPP categories. Missing archive defaults false only after verification of the original preparation seal and never changes its stored bytes. Structured-only PersonalHistory keeps its explicit source-view reference; large authored narratives retain complete source text with a bounded native reference and durable warning. Imported archive state produces an explicit vendor-context warning; source participants/reviewers never become a native signature. CARLOS.PatientAlert.v1 (string, JSON object {\"version\":1,\"alert\":text} decoded by CdsNativeExtensionContract.decodePatientAlert) is limited to AlertsAndSpecialNeeds; it is used only when AlertDescription is absent or equals the carried text with each character XML 1.0 cannot carry replaced by U+FFFD (CdsNativeExtensionContract.xmlElementText, the rule the exporter writes by) and the text is within the native note bound; otherwise the element is imported unchanged with warning CDS_PATIENT_ALERT_CARRIER_NOT_APPLIED and nothing is guessed. A CPP item's text or an encounter note's revision body that shows U+FFFD is replaced by the stored text a CARLOS sender carries in the revision details (exactNarrative, or narrative for the current revision of a CPP item; the last CARLOS.NativeHistory.v1 of a CPP item, read as a stream, keeping only the current revision's text; for ClinicalNotes the details after \"[CARLOS source note details]\" in the text, each body placed by its bodyLength under the sender's revision heading), only when the element is exactly that text with each character XML 1.0 cannot carry replaced by U+FFFD (CdsNativeExtensionContract.isElementTextOf); otherwise the element is imported unchanged with warning CDS_HISTORY_EXACT_NARRATIVE_NOT_APPLIED. The restore precedes the native note size check. The sections member (CdsNativeExtensionContract.HISTORY_SECTIONS, at the root of the last CARLOS.NativeHistory.v1 of a CPP item, or at the root of its nativeHistory object for an imported item the sender edited) is read as a stream keeping only that list (CdsHistorySectionsReader); it must be two to six distinct CPP section tags including the record's own, otherwise nothing beyond the record's own section is linked and warning CDS_HISTORY_SECTIONS_NOT_APPLIED is recorded. Each other tag is linked when the receiving issue catalogue holds it exactly once, otherwise it is left out with warning CDS_HISTORY_SECTION_NOT_RESTORED; the prepared item names the linked tags (additionalIssueCodes, omitted when empty and defaulted empty only after verification of the original preparation seal), and the unit receipt names each tag's patient issue and link (casemgmt_issue#tag, casemgmt_issue_notes#tag). Encounter types are bounded by the native varchar(100) character capacity. The current revision is streamed; missing current values never inherit an older type. Custom types restore only when the exported NoteType projection equals the current element; disagreement or malformed details produce an explicit diagnostic. An exact native EncounterUtil choice in NoteType remains authoritative when carried metadata is stale. Missing prepared encounterType defaults null after seal verification.",
+        "normalization": "Only CARLOS.History.Archived.v1 (boolean), CARLOS.History.PersonalNarrative.v1 (string, raw) and CARLOS.History.Narrative.v1 (string, whitespace-free escaped encoding decoded by CdsNativeExtensionContract.decodeNarrative) are interpreted; CARLOS.History.NarrativeText.v1, the exporter's whitespace-collapsed PersonalHistory copy for other receivers, is not interpreted and stays a protected source value; a narrative carrier is used only when the description element is absent, the encoded one in preference to the raw one, and a malformed encoding blocks projection. One complete Name/DataType/Content group is required per known marker; malformed, duplicated, conflicting or wrong-category markers block projection. The archive carrier is limited to six CPP categories; the raw narrative carrier is limited to PersonalHistory and the encoded one to the six CPP categories. Missing archive defaults false only after verification of the original preparation seal and never changes its stored bytes. Structured-only PersonalHistory keeps its explicit source-view reference; large authored narratives retain complete source text with a bounded native reference and durable warning. Imported archive state produces an explicit vendor-context warning; source participants/reviewers never become a native signature. CARLOS.PatientAlert.v1 (string, JSON object {\"version\":1,\"alert\":text} decoded by CdsNativeExtensionContract.decodePatientAlert) is limited to AlertsAndSpecialNeeds; it is used only when AlertDescription is absent or equals the carried text with each character XML 1.0 cannot carry replaced by U+FFFD (CdsNativeExtensionContract.xmlElementText, the rule the exporter writes by) and the text is within the native note bound; otherwise the element is imported unchanged with warning CDS_PATIENT_ALERT_CARRIER_NOT_APPLIED and nothing is guessed. A CPP item's text or an encounter note's revision body that shows U+FFFD is replaced by the stored text a CARLOS sender carries in the revision details (exactNarrative, or narrative for the current revision of a CPP item; the last CARLOS.NativeHistory.v1 of a CPP item, read as a stream, keeping only the current revision's text; for ClinicalNotes the details after \"[CARLOS source note details]\" in the text, each body placed by its bodyLength under the sender's revision heading), only when the element is exactly that text with each character XML 1.0 cannot carry replaced by U+FFFD (CdsNativeExtensionContract.isElementTextOf); otherwise the element is imported unchanged with warning CDS_HISTORY_EXACT_NARRATIVE_NOT_APPLIED. The restore precedes the native note size check. The sections member (CdsNativeExtensionContract.HISTORY_SECTIONS, at the root of the last CARLOS.NativeHistory.v1 of a CPP item, or at the root of its nativeHistory object for an imported item the sender edited) is read as a stream keeping only that list (CdsHistorySectionsReader); it must be two to six distinct CPP section tags including the record's own, otherwise nothing beyond the record's own section is linked and warning CDS_HISTORY_SECTIONS_NOT_APPLIED is recorded. Each other tag is linked when the receiving issue catalogue holds it exactly once, otherwise it is left out with warning CDS_HISTORY_SECTION_NOT_RESTORED; the prepared item names the linked tags (additionalIssueCodes, omitted when empty and defaulted empty only after verification of the original preparation seal), and the unit receipt names each tag's patient issue and link (casemgmt_issue#tag, casemgmt_issue_notes#tag). Encounter types are bounded by the native varchar(100) character capacity. The current revision is streamed; missing current values never inherit an older type. Custom types restore only when the exported NoteType projection equals the current element; disagreement or malformed details produce an explicit diagnostic. An exact native EncounterUtil choice in NoteType remains authoritative when carried metadata is stale. Missing prepared encounterType defaults null after seal verification. Known CPP extension rows (Start Date, Resolution Date, Procedure Date, Age at Onset, Treatment, Problem Status, Exposure Details, Relationship, Life Stage, Problem Description and Procedure) are restored from the current CARLOS.NativeHistory.v1 revision. The reader streams one row at a time, preserves duplicate cardinality and SQL null versus empty text, and derives one protected native child unit per row with independent preparation, receipt and checkpoint. The parent source digest, committed prerequisite receipt and target note patient must all match before a write. The shared CDS projection is compared with the current XML: edited standard fields take precedence over stale carried rows, with CDS_HISTORY_EXTENSION_CARRIER_NOT_APPLIED. Standard fields from other senders also populate extension rows, with YYYY/YYYY-MM precision markers for partial dates. Operational and unknown extension keys remain source data. Unrepresentable native calendar values and values exceeding the actual preparation-column capacity retain their complete source values with explicit diagnostics; no clipping or invented date is used. Synthetic shifts apply only to full dates; shifting partial native dates is refused.",
         "normativeBasis": [
           "EMR Data Migration Implementation Guide v1.1 sections 4-8, 16 and 18.1.1 (CPP and nonstandard residual concepts)",
           "EMR Data Migration Requirements v1.1 DP02.01",
@@ -38891,12 +38949,14 @@
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistorySectionsReaderUnitTest.java",
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryProjectionIntegrationTest.java",
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryExactNarrativeUnitTest.java",
-          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryFidelityMariaDbIntegrationTest.java"
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryFidelityMariaDbIntegrationTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryExtensionUnitTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryExtensionsMariaDbIntegrationTest.java"
         ],
         "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
       },
       "history-observation": {
-        "destination": "CaseManagementNote.observation_date for a representable exact date/timestamp; casemgmt_note_ext cdsDatePrecision/cdsDateOriginal/cdsDateField preserve source meaning.",
+        "destination": "CaseManagementNote.observation_date for a representable exact date/timestamp; casemgmt_note_ext cdsDatePrecision/cdsDateOriginal/cdsDateField preserve source meaning. Current clinical CPP extensions also populate their own casemgmt_note_ext rows.",
         "disposition": "native-and-source",
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
@@ -38904,9 +38964,18 @@
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalDto.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsHistoryNativeDto.java",
           "src/main/java/io/github/carlos_emr/carlos/casemgmt/model/CaseManagementNoteExt.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsTargetReceiptService.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsTargetReceiptService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsCppExtensionProjection.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsHistoryExtensionNativeDto.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryExtensionChildren.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryExtensionPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryExtensionReader.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsNativeChildSpool.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportNativeService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportPlanningService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportLedgerService.java"
         ],
-        "normalization": "Full dates use a clinic-zone day storage anchor with precision/original/field metadata. Year/month and absent dates keep observation_date null. Section fields are StartDate (FamilyHistory/RiskFactors), OnsetDate (ProblemList), DateActive (AlertsAndSpecialNeeds), and OnsetOrEventDate (PastHealth), with ProcedureDate used only when onset is absent. End/resolution dates are independent source fields. Original source bytes remain unchanged; the native issue-code reader sorts unknown dates last without dropping notes. Precision extension rows are included in native receipts.",
+        "normalization": "Full dates use a clinic-zone day storage anchor with precision/original/field metadata. Year/month and absent dates keep observation_date null. Section fields are StartDate (FamilyHistory/RiskFactors), OnsetDate (ProblemList), DateActive (AlertsAndSpecialNeeds), and OnsetOrEventDate (PastHealth), with ProcedureDate used only when onset is absent. End/resolution dates are independent source fields. Original source bytes remain unchanged; the native issue-code reader sorts unknown dates last without dropping notes. Precision extension rows are included in native receipts. Known CPP extension rows (Start Date, Resolution Date, Procedure Date, Age at Onset, Treatment, Problem Status, Exposure Details, Relationship, Life Stage, Problem Description and Procedure) are restored from the current CARLOS.NativeHistory.v1 revision. The reader streams one row at a time, preserves duplicate cardinality and SQL null versus empty text, and derives one protected native child unit per row with independent preparation, receipt and checkpoint. The parent source digest, committed prerequisite receipt and target note patient must all match before a write. The shared CDS projection is compared with the current XML: edited standard fields take precedence over stale carried rows, with CDS_HISTORY_EXTENSION_CARRIER_NOT_APPLIED. Standard fields from other senders also populate extension rows, with YYYY/YYYY-MM precision markers for partial dates. Operational and unknown extension keys remain source data. Unrepresentable native calendar values and values exceeding the actual preparation-column capacity retain their complete source values with explicit diagnostics; no clipping or invented date is used. Synthetic shifts apply only to full dates; shifting partial native dates is refused.",
         "normativeBasis": [
           "EMR Data Migration Implementation Guide v1.1 section 14 (ClinicalNotes)",
           "EMR Data Migration Requirements v1.1 DP02.01",
@@ -38928,7 +38997,9 @@
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCoreProjectionUnitTest.java",
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryVisibilityMariaDbIntegrationTest.java",
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsTemporalUnitTest.java",
-          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryProjectionIntegrationTest.java"
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryProjectionIntegrationTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryExtensionUnitTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryExtensionsMariaDbIntegrationTest.java"
         ],
         "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
       },
@@ -39990,7 +40061,7 @@
       }
     },
     "scope": "Reachable leaf/attribute/choice contract of the two pinned wire XSDs, shared by explicitly selected PCON-2024-02 and OntarioMD-5.2 logical profiles; documentary review is not certification of all CDS-S logical requirements. Reviewed path groups distinguish native projections from protected generic source preservation. Native projection eligibility can be conditional, as described. On 2026-11-05, Codex independently reviewed the FrmSetupForm2Action reader update for PR #5602: the ongoing-concerns prefill changed, while the reviewed medication dose, pharmacy-instruction and timing mappings and their getDrugList/medicationLine reader behavior remain unchanged. On 2026-11-10, the shared CPP archive and authored PersonalHistory residual contract, sealed-payload defaults and receiving importer were reviewed together with native export round-trip evidence. This documents conditional CARLOS extensions, not standard receiver support for those extensions.",
-    "sha256": "422244b37d2718bdb927e1b85f553580369c977a2a2f629ca59b0b2262d3722f"
+    "sha256": "ba2672cdbfa461c9dbf8807f123ab5b9a826f2bde3d2f5169f46e0bbb50b4604"
   },
   "root": "cds:OmdCds",
   "schemas": [

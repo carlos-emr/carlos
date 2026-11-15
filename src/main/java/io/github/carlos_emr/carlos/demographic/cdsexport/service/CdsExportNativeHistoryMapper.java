@@ -1300,27 +1300,8 @@ public final class CdsExportNativeHistoryMapper {
             Map<String, CdsExportDateDto> dates,
             Set<String> overflow)
             throws IOException {
-        String datePath =
-                switch (key) {
-                    case "Start Date" ->
-                            switch (category) {
-                                case FAMILY_HISTORY, RISK_FACTORS -> "StartDate";
-                                case PAST_HEALTH -> "OnsetOrEventDate";
-                                case PROBLEM_LIST -> "OnsetDate";
-                                case ALERTS_AND_SPECIAL_NEEDS -> "DateActive";
-                                default -> null;
-                            };
-                    case "Resolution Date" ->
-                            switch (category) {
-                                case PAST_HEALTH -> "ResolvedDate";
-                                case PROBLEM_LIST -> "ResolutionDate";
-                                case RISK_FACTORS, ALERTS_AND_SPECIAL_NEEDS -> "EndDate";
-                                default -> null;
-                            };
-                    case "Procedure Date" ->
-                            category == CdsCategory.PAST_HEALTH ? "ProcedureDate" : null;
-                    default -> null;
-                };
+        String datePath = io.github.carlos_emr.carlos.demographic.cds.contract
+                .CdsCppExtensionProjection.path(category.wireName(), key);
         var shown = new LinkedHashSet<CdsExportDateDto>();
         for (var row : rows) {
             // A date row stores the date and its precision marker; with no date it names nothing.
@@ -1351,35 +1332,8 @@ public final class CdsExportNativeHistoryMapper {
         for (var row : rows)
             if (row.value() != null && !row.value().isEmpty()) values.add(row.value());
         if (values.isEmpty()) return;
-        String target =
-                switch (key) {
-                    case "Age at Onset" ->
-                            category == CdsCategory.FAMILY_HISTORY
-                                    ? "AgeAtOnset"
-                                    : category == CdsCategory.RISK_FACTORS ? "AgeOfOnset" : null;
-                    case "Treatment" -> category == CdsCategory.FAMILY_HISTORY ? "Treatment" : null;
-                    case "Problem Status" ->
-                            Set.of(CdsCategory.PAST_HEALTH, CdsCategory.PROBLEM_LIST)
-                                            .contains(category)
-                                    ? "ProblemStatus"
-                                    : null;
-                    case "Exposure Details" ->
-                            category == CdsCategory.RISK_FACTORS ? "ExposureDetails" : null;
-                    case "Relationship" ->
-                            category == CdsCategory.FAMILY_HISTORY ? "Relationship" : null;
-                    case "Life Stage" ->
-                            Set.of(
-                                                    CdsCategory.FAMILY_HISTORY,
-                                                    CdsCategory.PAST_HEALTH,
-                                                    CdsCategory.PROBLEM_LIST,
-                                                    CdsCategory.RISK_FACTORS)
-                                            .contains(category)
-                                    ? "LifeStage"
-                                    : null;
-                    case "Problem Description" ->
-                            category == CdsCategory.PROBLEM_LIST ? "ProblemDescription" : null;
-                    default -> null;
-                };
+        String target = io.github.carlos_emr.carlos.demographic.cds.contract
+                .CdsCppExtensionProjection.path(category.wireName(), key);
         if (target == null) {
             // A CPP field with no element in this section (Medical History's Treatment and
             // Procedure, ...) is written, labelled, as a value too long for its element is.
@@ -1404,25 +1358,8 @@ public final class CdsExportNativeHistoryMapper {
 
     /** Whether the CPP element {@code target} holds {@code value} exactly. */
     private static boolean fits(String target, String value) {
-        // The editor's select (N, I, C, T, A) is LifeStage's list. The REST notes service stores
-        // the value it is sent (NotesService), so any other value is written, labelled, in the
-        // item's Notes, as a value too long for its element is.
-        if (target.equals("LifeStage")) return Set.of("N", "I", "C", "T", "A").contains(value);
-        int maximum =
-                switch (target) {
-                    case "Treatment", "ProblemDescription" -> 250;
-                    case "ExposureDetails" -> 120;
-                    default -> 50;
-                };
-        boolean fits = CdsExportNativeFieldAssessments.legal(value, maximum);
-        // AgeAtOnset is an xs:nonNegativeInteger and AgeOfOnset an xs:positiveInteger, but the CPP
-        // editor's Age at Onset is free text ("childhood", "40s", a risk factor's "0").
-        if (target.equals("AgeAtOnset") || target.equals("AgeOfOnset"))
-            fits &=
-                    value.matches("[0-9]+")
-                            && !(target.equals("AgeOfOnset")
-                                    && new java.math.BigInteger(value).signum() == 0);
-        return fits;
+        return io.github.carlos_emr.carlos.demographic.cds.contract
+                .CdsCppExtensionProjection.fits(target, value);
     }
 
     /** One element's text; each element has one source, so a second value is an integrity fault. */

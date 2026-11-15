@@ -358,6 +358,8 @@ public class CdsImportPlanningService {
                                 validateChildren(state, record, "_CONTACT", xml);
                             if (record.section().equals("CareElements"))
                                 validateChildren(state, record, "_CARE", xml);
+                            if (CdsHistoryExtensionChildren.supports(record))
+                                validateChildren(state, record, "_EXTENSION", xml);
                             if (record.section().equals("Reports")) {
                                 String reference = fields.firstText(record, "FilePath", 250);
                                 if (reference != null && !reference.isBlank()) {
@@ -623,11 +625,12 @@ public class CdsImportPlanningService {
                                                     }
                                                 });
                                         if (record.section().equals("Demographics")
-                                                || record.section().equals("CareElements")) {
+                                                || record.section().equals("CareElements")
+                                                || CdsHistoryExtensionChildren.supports(record)) {
                                             String suffix =
                                                     record.section().equals("Demographics")
                                                             ? "_CONTACT"
-                                                            : "_CARE";
+                                                            : record.section().equals("CareElements") ? "_CARE" : "_EXTENSION";
                                             nativeService.forEachNativeChild(
                                                     record,
                                                     suffix,
@@ -1487,6 +1490,7 @@ public class CdsImportPlanningService {
                                 "CDS_SECURE_XML_PARSER_UNAVAILABLE",
                                 "CDS_SPOOL_CLOSE_FAILED",
                                 "CDS_SPOOL_IO_FAILED",
+                                "CDS_DERIVED_SPOOL_BUSY",
                                 "CDS_XML_READ_FAILED",
                                 "OWNER_FENCED",
                                 "IMPORT_CANCELLED",

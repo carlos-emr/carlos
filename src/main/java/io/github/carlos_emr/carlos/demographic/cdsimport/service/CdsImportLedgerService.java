@@ -3693,11 +3693,12 @@ public class CdsImportLedgerService {
     static boolean isHelperCategory(String category) {
         return category.endsWith("_FIELDS")
                 || category.endsWith("_CONTACT")
-                || category.endsWith("_CARE");
+                || category.endsWith("_CARE")
+                || category.endsWith("_EXTENSION");
     }
 
     static String clinicalCategory(String category) {
-        for (String suffix : List.of("_FIELDS", "_CONTACT", "_CARE"))
+        for (String suffix : List.of("_FIELDS", "_CONTACT", "_CARE", "_EXTENSION"))
             if (category.endsWith(suffix))
                 return category.substring(0, category.length() - suffix.length());
         return category;

@@ -132,6 +132,7 @@ public class CdsImportNativeService {
         CdsImportLedgerService.requireNoTransaction();
         fields.verifyRecord(record);
         switch (record.section()) {
+            case "HistoryExtension" -> histories.validateExtension(record, command);
             case "MedicationsAndTreatments" -> {
                 var value = normalization.medication(record, command);
                 validateNativeDate(value.written(), "PrescriptionWrittenDate");
@@ -175,6 +176,7 @@ public class CdsImportNativeService {
         CdsImportLedgerService.requireNoTransaction();
         if (unit.category().endsWith("_FIELDS")) return;
         switch (record.section()) {
+            case "HistoryExtension" -> histories.prepareExtension(run, epoch, unit.unitKey(), record, command);
             case "Demographics" ->
                     demographics.prepare(run, epoch, unit.unitKey(), record, command);
             case "Appointments" ->
@@ -286,6 +288,9 @@ public class CdsImportNativeService {
             return sourceFields.write(run, epoch, unit.unitKey(), record);
         Map<String, String> written;
         switch (record.section()) {
+            case "HistoryExtension" -> written = histories.writeExtension(run, epoch, unit.unitKey(),
+                    target, record, command, entityManager, receipts,
+                    diagnostic -> notice(run, epoch, unit, "WARNING", diagnostic.code(), diagnostic.field()));
             case "MedicationsAndTreatments" -> {
                 var prepared =
                         preparation.load(
@@ -478,6 +483,8 @@ public class CdsImportNativeService {
             fields.forEachSubrecord(record, "Contact", configuration.limits(), children);
         else if ("_CARE".equals(suffix) && "CareElements".equals(record.section()))
             fields.forEachSubrecord(record, "*", configuration.limits(), children);
+        else if ("_EXTENSION".equals(suffix) && CdsHistoryExtensionChildren.supports(record))
+            new CdsHistoryExtensionChildren(fields).forEach(record, configuration.limits(), children);
         else throw new CdsImportException("NATIVE_CHILD_KIND_INVALID");
     }
 

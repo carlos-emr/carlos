@@ -425,5 +425,7 @@
   "io.github.carlos_emr.carlos.utility.CdsImportKeysUnitTest",
   "io.github.carlos_emr.carlos.utility.ContextStartupListenerUnitTest",
   "io.github.carlos_emr.carlos.webserv.CdsDocumentWsUnitTest",
-  "CdsHistoryFidelityMariaDbIntegrationTest"
+  "CdsHistoryFidelityMariaDbIntegrationTest",
+  "CdsHistoryExtensionUnitTest",
+  "CdsHistoryExtensionsMariaDbIntegrationTest"
 ]

@@ -4752,6 +4752,12 @@
           "cases": [
             "shouldStoreTheSameEncounterType_afterCarlosExportAndImport"
           ]
+        },
+        "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsHistoryExtensionsMariaDbIntegrationTest": {
+          "check": "java-cds-native",
+          "cases": [
+            "shouldRestoreEveryDuplicateExtensionRow_withIndependentVerifiedReceipts"
+          ]
         }
       },
       "runtimeConstraints": {
@@ -6684,9 +6690,10 @@
         "CdsAppointmentStorageMariaDbIntegrationTest": 1,
         "CdsDemographicStorageMariaDbIntegrationTest": 1,
         "CdsNativeIssuesMariaDbIntegrationTest": 1,
-        "CdsHistoryFidelityMariaDbIntegrationTest": 1
+        "CdsHistoryFidelityMariaDbIntegrationTest": 1,
+        "CdsHistoryExtensionsMariaDbIntegrationTest": 1
       },
-      "minimumCases": 93,
+      "minimumCases": 94,
       "requireCoverage": true,
       "requireClassIdentity": true,
       "runtimeConstraints": {
@@ -7635,9 +7642,11 @@
         "CdsNativeIssuesMariaDbIntegrationTest": 1,
         "CdsNativeIssuesImportServiceUnitTest": 9,
         "CdsHistoryFidelityMariaDbIntegrationTest": 1,
-        "CdsHistoryExactNarrativeUnitTest": 15
+        "CdsHistoryExactNarrativeUnitTest": 15,
+        "CdsHistoryExtensionsMariaDbIntegrationTest": 1,
+        "CdsHistoryExtensionUnitTest": 12
       },
-      "minimumCases": 1178,
+      "minimumCases": 1191,
       "requireCoverage": true,
       "requireClassIdentity": true,
       "runtimeConstraints": {

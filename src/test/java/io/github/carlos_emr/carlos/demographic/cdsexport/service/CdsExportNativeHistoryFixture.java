@@ -149,4 +149,20 @@ public final class CdsExportNativeHistoryFixture {
         return CdsExportNativeHistoryMapperUnitTest.render(mapped.value());
     }
 
+    /** Current native extension rows, including duplicate keys, through the actual XML projection. */
+    public static byte[] extensionDocument(CdsCategory category, String tag, List<Map<String, String>> rows)
+            throws Exception {
+        var extensions = new ArrayList<CdsExportHistoryFieldReconciler.Row>();
+        long id = 101;
+        for (var supplied : rows) {
+            var values = new LinkedHashMap<>(supplied);
+            values.put("note_id", "91");
+            extensions.add(CdsExportNativeHistoryMapperUnitTest.row(Plan.CASE_NOTE_EXT, id++, values));
+        }
+        var current = CdsExportNativeHistoryMapperUnitTest.note(91, "Synthetic CPP item", tag, extensions);
+        var mapped = new CdsExportNativeHistoryMapper().map(27, category, List.of(current),
+                CdsExportNativeHistoryMapperUnitTest.providers(), ZoneId.of("America/Toronto"));
+        return CdsExportNativeHistoryMapperUnitTest.render(mapped.value());
+    }
+
 }

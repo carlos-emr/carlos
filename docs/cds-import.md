@@ -544,3 +544,16 @@ NoteType agrees with the current XML element. A changed element takes precedence
 unrecognized standard types and unapplied carried types remain in the protected
 source with a diagnostic. Earlier revisions never supply a missing current type.
 Prepared records sealed before this field existed retain their original bytes.
+
+
+The CPP editor's clinical extension values are restored to `casemgmt_note_ext`,
+including duplicate legacy rows. Each row has its own dependent import unit,
+receipt and resume checkpoint; the number of rows does not enlarge a single
+receipt. The receiving note must belong to the bound patient and its parent unit
+must still have a valid receipt. Current CDS fields take precedence over stale
+CARLOS carrier values, with a diagnostic when a carried value is not applied.
+Partial dates retain their precision marker and the carried stored date. Synthetic
+date shifts refuse partial dates. Zero or unrepresentable calendar dates stay in
+the protected source with an explicit diagnostic and no invented native anchor.
+The same applies when JSON escaping makes a value exceed the preparation column's
+actual capacity. Unknown and operational extension keys remain source data.

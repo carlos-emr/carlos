@@ -637,7 +637,14 @@ class CdsExportDemographicSupportingMapperUnitTest {
         rows.get("Contact")
                 .add(
                         CdsExportPersonalContactMapperUnitTest.changed(
-                                CdsExportPersonalContactMapperUnitTest.contact(9), "address", "1 Side Rd"));
+                                CdsExportPersonalContactMapperUnitTest.changed(
+                                        CdsExportPersonalContactMapperUnitTest.contact(9), "address", "1 Side Rd"),
+                                "postal", "K1A 0B1"));
+        rows.get("DemographicContact")
+                .add(CdsExportProfessionalContactMapperUnitTest.association(-3, 10, "Family Doctor"));
+        rows.get("Contact")
+                .add(CdsExportProfessionalContactMapperUnitTest.changed(
+                        CdsExportProfessionalContactMapperUnitTest.contact(10), "postal", "K2A 0B2"));
         var result = assemble(ALL);
         assertThat(result.fields().values())
                 .noneMatch(field -> field.outcome() == Outcome.REQUIRES_REVIEW);
@@ -667,6 +674,14 @@ class CdsExportDemographicSupportingMapperUnitTest {
             assertThat(json.get("demographic").get(carried.getKey()).textValue())
                     .isEqualTo(carried.getValue());
         assertThat(json.get("roster").get("roster_status").textValue()).isEqualTo("FS");
+        // Contact addresses have no CDS element: both kinds retain the display separator in
+        // the exact native carrier, including the physician whose name is projected separately.
+        var contactPostal = new TreeMap<String, String>();
+        json.get("related").forEach(row -> {
+            if ("Contact".equals(row.get("table").textValue()))
+                contactPostal.put(row.get("id").textValue(), row.get("fields").get("postal").textValue());
+        });
+        assertThat(contactPostal).containsExactlyInAnyOrderEntriesOf(Map.of("9", "K1A 0B1", "10", "K2A 0B2"));
         var related = new HashSet<String>();
         json.get("related")
                 .forEach(

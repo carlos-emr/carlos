@@ -120,6 +120,7 @@ public class CdsHistoryPersister {
     private final CaseManagementIssueDAO patientIssues;
     private final IssueDAO issues;
     private final CaseManagementNoteExtDAO extensions;
+    private final CdsHistoryExtensionPersister cppExtensions;
 
     public CdsHistoryPersister(
             CdsFieldParser fields,
@@ -140,6 +141,7 @@ public class CdsHistoryPersister {
         this.patientIssues = Objects.requireNonNull(patientIssues);
         this.issues = Objects.requireNonNull(issues);
         this.extensions = Objects.requireNonNull(extensions);
+        this.cppExtensions = new CdsHistoryExtensionPersister(fields, preparation, extensions);
     }
 
     /**
@@ -284,6 +286,21 @@ public class CdsHistoryPersister {
     /** The native note bound in UTF-16 units: a text of more units cannot fit in fewer bytes. */
     private static int units(long limit) {
         return (int) Math.min(limit, Integer.MAX_VALUE - 1L);
+    }
+
+    void validateExtension(CdsRecordDto record, CdsImportCommand command) throws IOException {
+        cppExtensions.normalize(record, command);
+    }
+
+    void prepareExtension(String run, long epoch, String unit, CdsRecordDto record,
+            CdsImportCommand command) throws IOException {
+        cppExtensions.prepare(run, epoch, unit, record, command);
+    }
+
+    Map<String, String> writeExtension(String run, long epoch, String unit, int patient,
+            CdsRecordDto record, CdsImportCommand command, jakarta.persistence.EntityManager manager,
+            CdsTargetReceiptService receipts, Consumer<CdsClinicalDiagnosticDto> notices) throws IOException {
+        return cppExtensions.write(run, epoch, unit, patient, record, command, manager, receipts, notices);
     }
 
     public void validate(CdsRecordDto record, CdsImportCommand command) {
