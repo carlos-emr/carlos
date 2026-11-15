@@ -216,9 +216,11 @@ public final class CdsExportNativeReportMapper {
         String program = restrictedProgram(source);
         if (program != null && !readableProgram.test(program))
             review(CdsExportDocumentSourceReader.PROGRAM_HOLD);
-        if (source.get("cds_content_precision") != null
-                && !source.get("cds_content_precision").isEmpty())
-            review("CDS_EXPORT_NATIVE_REPORT_IMPORTED_PRECISION_REQUIRES_REVIEW");
+        // A content precision on a document no applied import accounts for (the REST document
+        // API stores whatever precision its caller sends) is exported as the chart shows the
+        // document: the chart shows contentdatetime when there is one and the precision only in
+        // its place (EDoc.getContentDateTimeDisplay). The importer stores no content time for a
+        // partial date, so none is invented; the precision stays exact in Notes with its row.
         var text = new LinkedHashMap<String, String>();
         var dates = new LinkedHashMap<String, CdsExportDateDto>();
         var fields = new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
