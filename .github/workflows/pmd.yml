@@ -69,7 +69,7 @@ env:
 jobs:
   pmd:
     name: PMD Static Analysis
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     if: github.actor != 'dependabot[bot]'
     steps:

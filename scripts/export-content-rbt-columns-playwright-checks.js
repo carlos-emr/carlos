@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 /*
- * Report by Template: result table, CSV and XLS for a query whose columns are NOT plain table columns.
+ * Report by Template: result table, CSV and XLSX for a query whose columns are NOT plain table columns.
  * User path: Schedule ▸ Administration ▸ Reports ▸ Report by Template (the admin #myFrame iframe) ▸ Add Template
- * (upload) ▸ Template Library ▸ template ▸ Run Query ▸ Export to CSV / Export to XLS.
+ * (upload) ▸ Template Library ▸ template ▸ Run Query ▸ Export to CSV / Export to XLSX.
  * report-by-template proves the happy path with four plain columns. Real templates alias columns
  * (SELECT COUNT(*) AS visits), join two tables that share a column name, and return NULLs, dates, decimals and
  * multi-line text, so this is what a clinic's report actually has to survive.
@@ -11,7 +11,7 @@
  * Asserts, against the same SELECT run in SQL: the result table's header is the aliases the SELECT chose; two
  * columns with the same name (provider last_name, patient last_name) show their own values; NULL, DATE, DATETIME,
  * DECIMAL, multi-line, accented and quoted values read as SQL returns them; the CSV parses to the same header and
- * row; the XLS workbook, decoded cell by cell, holds the same values at the same column indexes. The checks are collected in order, so the first
+ * row; the XLSX workbook, decoded cell by cell, holds the same values at the same column indexes. The checks are collected in order, so the first
  * wrong construct fails the step that names it.
  * Fixtures: the owned FAKE-PW patient (names set to accented text) and one marker-titled template; cleanup deletes
  * only the marker template and asserts it gone. Nothing else is written.
@@ -122,14 +122,14 @@ async function workflow(s) {
   });
 
   let xls;
-  await s.step('the XLS workbook holds the same values in the same order', async () => {
+  await s.step('the XLSX workbook holds the same values in the same order', async () => {
     const file = await x.saveDownload(admin, scratch, () => frame.locator('input[name="getXLS"]').click());
-    // Decode the .xls sheet (BIFF8) and compare each expected cell by its column index.
-    const sheet = x.xlsCells(file.bytes);
-    h.assert(sheet.length === 2, `The XLS sheet has ${sheet.length} rows, expected a header and one row`);
+    // Decode the .xlsx sheet (OOXML) and compare each expected cell by its column index.
+    const sheet = x.xlsxCells(file.bytes);
+    h.assert(sheet.length === 2, `The XLSX sheet has ${sheet.length} rows, expected a header and one row`);
     xls = { header: sheet[0], row: sheet[1] };
     const want = expectedRow();
-    h.assert(xls.row.length === want.length, `The XLS row has ${xls.row.length} cells, the SELECT returns ${want.length}`);
+    h.assert(xls.row.length === want.length, `The XLSX row has ${xls.row.length} cells, the SELECT returns ${want.length}`);
     const wrong = [];
     want.forEach((value, i) => {
       const cell = xls.row[i];
@@ -137,10 +137,10 @@ async function workflow(s) {
       const same = cell.type === 'number' ? value.trim() !== '' && Number(value) === cell.value : cell.value.replace(/\r\n/g, '\n') === value.trim();
       if (!same) wrong.push(`column ${i + 1} (${header[i]})`);
     });
-    h.assert(!wrong.length, `The XLS row differs from the SQL row in ${wrong.join(', ')}`);
+    h.assert(!wrong.length, `The XLSX row differs from the SQL row in ${wrong.join(', ')}`);
   });
 
-  await s.step('the table shows each of the two columns named last_name with its own value, the headings are the aliases, and the XLS keeps text cells as text', async () => {
+  await s.step('the table shows each of the two columns named last_name with its own value, the headings are the aliases, and the XLSX keeps text cells as text', async () => {
     const problems = [];
     const want = expectedRow();
     const cells = table.rows[0].map(c => c.trim());
@@ -154,15 +154,15 @@ async function workflow(s) {
     }
     const sheetHeader = xls.header.map(cell => String(cell.value));
     if (JSON.stringify(sheetHeader) !== JSON.stringify(header)) {
-      problems.push(`the XLS is headed ${JSON.stringify(sheetHeader)} instead of ${JSON.stringify(header)}`);
+      problems.push(`the XLSX is headed ${JSON.stringify(sheetHeader)} instead of ${JSON.stringify(header)}`);
     }
     for (const [name, value] of [['fee', 1234.5], ['visits', 1]]) {
       const cell = xls.row[header.indexOf(name)];
-      if (cell.type !== 'number' || cell.value !== value) problems.push(`the XLS must keep ${name} numeric for calculations`);
+      if (cell.type !== 'number' || cell.value !== value) problems.push(`the XLSX must keep ${name} numeric for calculations`);
     }
     for (const [name, value] of [['chart_no', '00123'], ['reference_no', '12345678901234567']]) {
       const cell = xls.row[header.indexOf(name)];
-      if (cell.type !== 'text' || cell.value !== value) problems.push(`the XLS stores ${name} ${value} as a number, not as the text the query returned (GenerateOutFiles2Action parses every cell with Double.parseDouble: leading zeros and digits beyond 15 are lost)`);
+      if (cell.type !== 'text' || cell.value !== value) problems.push(`the XLSX stores ${name} ${value} as a number, not as the text the query returned (GenerateOutFiles2Action parses every cell with Double.parseDouble: leading zeros and digits beyond 15 are lost)`);
     }
     h.assert(!problems.length, `Report by Template exports wrong content: ${problems.join('; ')}`);
   });

@@ -55,7 +55,7 @@
   @since 2003
 --%>
 
-<%@ page import="io.github.carlos_emr.carlos.util.*" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachmentStaging" %>
 

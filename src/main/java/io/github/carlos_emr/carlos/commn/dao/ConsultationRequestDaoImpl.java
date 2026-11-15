@@ -1,4 +1,5 @@
 /**
+ * Modifications by CARLOS Contributors, 2026.
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * <p>
  * Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
@@ -41,6 +42,7 @@ import java.util.Locale;
 import java.util.Objects;
 
 import jakarta.persistence.Query;
+import io.github.carlos_emr.carlos.consultation.dto.ConsultationListRow;
 
 import io.github.carlos_emr.carlos.commn.NativeSql;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
@@ -108,12 +110,37 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
                 searchDate, offset, limit, null, null));
     }
 
+    private static final String LIST_ROW_SELECTION = "new io.github.carlos_emr.carlos.consultation.dto.ConsultationListRow(cr.id, cr.status, cr.demographicId, d.alias, cr.providerNo, cr.serviceId, service.serviceId, service.serviceDesc, specialist.id, specialist.lastName, specialist.firstName, p.providerNo, p.lastName, p.firstName, cr.urgency, cr.siteName, cr.sendTo, cr.referralDate, cr.appointmentDate, cr.appointmentTime, cr.followUpDate, cr.patientWillBook)";
+
     @Override
     public List<ConsultationRequest> getConsults(ConsultationListFilterDto filter) {
+        Query query = consultationListQuery(filter, "cr");
+        return query == null ? List.of() : query.getResultList();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public List<ConsultationListRow> getConsultationListRows(ConsultationListFilterDto filter) {
+        Query query = consultationListQuery(filter, LIST_ROW_SELECTION);
+        return query == null ? List.of() : query.getResultList();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public List<ConsultationListRow> getConsultationListRows(Integer demographicNo) {
+        return entityManager.createQuery("SELECT " + LIST_ROW_SELECTION
+                + " FROM ConsultationRequest cr LEFT JOIN cr.professionalSpecialist specialist"
+                + " LEFT JOIN ConsultationServices service ON cr.serviceId = service.serviceId"
+                + " LEFT JOIN Demographic d ON cr.demographicId = d.demographicNo"
+                + " LEFT JOIN Provider p ON d.providerNo = p.providerNo WHERE cr.demographicId = :demographicNo",
+                ConsultationListRow.class).setParameter("demographicNo", demographicNo).getResultList();
+    }
+
+    private Query consultationListQuery(ConsultationListFilterDto filter, String selection) {
         Objects.requireNonNull(filter, "filter");
         if ((filter.visibleProviderNos() != null && filter.visibleProviderNos().isEmpty())
                 || (filter.visibleSiteNames() != null && filter.visibleSiteNames().isEmpty())) {
-            return List.of();
+            return null;
         }
         String team = filter.team();
         boolean showCompleted = filter.showCompleted();
@@ -128,11 +155,10 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
         String mrpProviderNo = filter.mrpProviderNo() == null ? null : filter.mrpProviderNo().trim();
         boolean filterByMrp = mrpProviderNo != null && !mrpProviderNo.isEmpty();
 
-        	StringBuilder sql = new StringBuilder("SELECT cr " +
+        StringBuilder sql = new StringBuilder("SELECT " + selection + " " +
 					"FROM ConsultationRequest cr " +
                     "LEFT JOIN cr.professionalSpecialist specialist " +
                     "LEFT JOIN ConsultationServices service ON cr.serviceId = service.serviceId " +
-                    "LEFT JOIN ConsultationRequestExt ext ON cr.id = ext.requestId AND ext.key = 'ereferral_service' " +
 					"LEFT JOIN Demographic d on cr.demographicId = d.demographicNo " +
 					"LEFT JOIN Provider p on d.providerNo = p.providerNo WHERE 1=1 ");
 
@@ -227,7 +253,7 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
         int myLimit = limit != null ? limit : DEFAULT_CONSULT_REQUEST_RESULTS_LIMIT;
         query.setMaxResults(Math.min(myLimit, MAX_LIST_RETURN_SIZE));
 
-        return query.getResultList();
+        return query;
     }
 
 

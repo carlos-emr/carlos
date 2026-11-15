@@ -59,6 +59,8 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const {
   EXIT_SKIP,
   SkipCheck,
@@ -187,10 +189,10 @@ async function openEdit(context, recorder, ticklerNo, label) {
   return page;
 }
 
-async function postEditForm(page, fields) {
+async function postEditForm(page, fields, acceptLanguage) {
   // A classic form POST through the browser session, with the CSRF token CSRFGuard injected
   // into the page's real form, so what is exercised is the action's own gate, not CSRF.
-  return page.evaluate(async ({ ctx, fields }) => {
+  return page.evaluate(async ({ ctx, fields, acceptLanguage }) => {
     const token = document.querySelector('input[name="CSRF-TOKEN"]');
     const body = new URLSearchParams(fields);
     if (token && token.value) {
@@ -200,13 +202,16 @@ async function postEditForm(page, fields) {
       method: 'POST',
       body,
       credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        ...(acceptLanguage ? { 'Accept-Language': acceptLanguage } : {}),
+      },
     });
     return { status: response.status, text: await response.text() };
-  }, { ctx: config.baseUrl.pathname, fields });
+  }, { ctx: config.baseUrl.pathname, fields, acceptLanguage });
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('tickler-attachments',async({cancellation})=>{
   const recorder = createRecorder();
   const browser = await launchBrowser(config);
   const providerNo = db.value(`SELECT provider_no FROM security WHERE user_name=${sqlString(config.testUser)} LIMIT 1`);
@@ -215,28 +220,43 @@ async function postEditForm(page, fields) {
   cleanupRows();
   try {
     const context = await newContext(browser, config);
+    cancellation?.throwIfCancelled();
     const landingPage = await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
     await landingPage.close();
+    cancellation?.throwIfCancelled();
 
     // 1. Add with attachments -----------------------------------------------------------
     const addPage = await context.newPage();
+    cancellation?.throwIfCancelled();
     wirePage(addPage, 'tickler-add', recorder);
     await gotoApp(addPage, config.baseUrl, `/tickler/ViewAddTickler?updateParent=true&bFirstDisp=false&demographic_no=${encodeURIComponent(demographicNo)}`, 'load');
+    cancellation?.throwIfCancelled();
     await addPage.locator('form[name="serviceform"]').waitFor({ state: 'visible', timeout: 30000 });
+    cancellation?.throwIfCancelled();
     await selectTicklerAssignee(addPage, providerNo);
+    cancellation?.throwIfCancelled();
     await addPage.locator('textarea[name="ticklerMessage"]').fill(message);
+    cancellation?.throwIfCancelled();
     await openPicker(addPage);
+    cancellation?.throwIfCancelled();
     const picked = await checkFirstOfEachKind(addPage);
+    cancellation?.throwIfCancelled();
     if (!picked.D || !picked.L) {
       throw new SkipCheck(`patient ${demographicNo} has no document and lab to attach; load the demo dataset`);
     }
     await saveAndClosePicker(addPage);
+    cancellation?.throwIfCancelled();
     const expectedCount = Object.keys(picked).length;
     assert((await addPage.locator('#attachmentCount').innerText()).trim() === String(expectedCount),
       `add form badge did not show ${expectedCount} attachments`);
+    cancellation?.throwIfCancelled();
     assert(await addPage.locator('#attachmentsSubmitted').inputValue() === '1', 'picker did not set the submitted marker');
+    cancellation?.throwIfCancelled();
     await submitAddForm(addPage);
+    cancellation?.throwIfCancelled();
     await addPage.close();
+    cancellation?.throwIfCancelled();
 
     const rows = ticklerRows();
     assert(rows.length === 1, `expected one created tickler, found ${rows.length}`);
@@ -254,31 +274,43 @@ async function postEditForm(page, fields) {
 
     // 2. Edit: names listed, pre-checked, detach the document ----------------------------
     let editPage = await openEdit(context, recorder, ticklerNo, 'tickler-edit');
+    cancellation?.throwIfCancelled();
     assert((await editPage.locator('#attachmentCount').innerText()).trim() === String(expectedCount),
       'edit form badge did not show the stored attachment count');
+    cancellation?.throwIfCancelled();
     assert(await editPage.locator('#attachmentNames li').count() === expectedCount, 'edit form did not list every attachment by name');
+    cancellation?.throwIfCancelled();
     assert(await editPage.locator(`#delegate_docNo${picked.D}`).count() === 1, 'document delegate input missing on edit form');
+    cancellation?.throwIfCancelled();
     const storedLabType = live.find((row) => row.doctype === 'L').labType;
     // Lab ids are only unique per source, so the delegate id and the picker checkbox id carry
     // the source (delegate_labNoHL7123 / labNoHL7123) and the value carries it as "HL7:123".
     assert(await editPage.locator(`#delegate_labNo${storedLabType}${picked.L}`).inputValue() === `${storedLabType}:${picked.L}`,
       'lab delegate input does not carry the lab source');
+    cancellation?.throwIfCancelled();
     // Sender warning follows the selected recipient and does not imply that assigning a
     // tickler grants access to its attachments.
     const assignee = editPage.locator('#assignedToProviders');
     const originalAssignee = await assignee.inputValue();
+    cancellation?.throwIfCancelled();
     const otherAssignee = await assignee.locator('option').evaluateAll((options, sender) =>
       options.map(option => option.value).find(value => value && value !== sender), providerNo);
+    cancellation?.throwIfCancelled();
     if (otherAssignee) {
       await assignee.selectOption(otherAssignee);
+    cancellation?.throwIfCancelled();
       assert(await editPage.locator('#attachmentAssigneeWarning').isVisible(),
         'a sender assigning attachments to another provider received no access warning');
+    cancellation?.throwIfCancelled();
       if (await assignee.locator(`option[value="${providerNo}"]`).count()) {
         await assignee.selectOption(providerNo);
+    cancellation?.throwIfCancelled();
         assert(!(await editPage.locator('#attachmentAssigneeWarning').isVisible()),
           'the warning remained when the sender assigned the tickler to themself');
+    cancellation?.throwIfCancelled();
       }
       await assignee.selectOption(originalAssignee);
+    cancellation?.throwIfCancelled();
     }
 
     // A recipient without lab read rights must see that an attachment exists, but its lab
@@ -295,21 +327,31 @@ async function postEditForm(page, fields) {
       try {
         db.execute(`UPDATE secObjPrivilege SET privilege='d' WHERE objectName IN (${labObjects}) AND roleUserGroup IN (${roleList})`);
         const restrictedPage = await openEdit(context, recorder, ticklerNo, 'tickler-edit-restricted-lab');
+    cancellation?.throwIfCancelled();
         const labGroup = restrictedPage.locator('#attachmentGroup_labNo');
         assert(await labGroup.locator('li.restricted').count() === 1,
           'a lab-restricted recipient was not told an attachment exists');
+    cancellation?.throwIfCancelled();
         assert(await labGroup.locator('input[value], li[data-delegate-id]').count() === 0,
           'the restricted lab group exposed an attachment identifier');
+    cancellation?.throwIfCancelled();
         assert(await restrictedPage.locator('.tickler-attachments input[name="labNo"]').count() === 0,
           'the restricted lab identifier was serialized into the form');
+    cancellation?.throwIfCancelled();
         assert((await restrictedPage.locator('#attachmentCount').innerText()).trim() === String(expectedCount),
           'the attachment count excluded the restricted lab');
+    cancellation?.throwIfCancelled();
         await openPicker(restrictedPage);
+    cancellation?.throwIfCancelled();
         await saveAndClosePicker(restrictedPage);
+    cancellation?.throwIfCancelled();
         assert((await restrictedPage.locator('#attachmentCount').innerText()).trim() === String(expectedCount),
           'closing the picker lost the restricted attachment count');
+    cancellation?.throwIfCancelled();
         await submitEditForm(restrictedPage);
+    cancellation?.throwIfCancelled();
         await restrictedPage.close();
+    cancellation?.throwIfCancelled();
         assert(liveRows(ticklerNo).some((row) => row.doctype === 'L' && row.documentNo === picked.L),
           'saving the restricted form detached the lab');
       } finally {
@@ -319,14 +361,22 @@ async function postEditForm(page, fields) {
       console.log('SKIP restricted lab check: test provider has no direct or role-based _lab grant to lower');
     }
     await openPicker(editPage);
+    cancellation?.throwIfCancelled();
     const docBox = editPage.locator(`#attachDocumentsForm #docNo${picked.D}`);
     assert(await docBox.isChecked(), 'stored document was not pre-checked in the picker');
+    cancellation?.throwIfCancelled();
     assert(await editPage.locator(`#attachDocumentsForm #labNo${storedLabType}${picked.L}`).isChecked(), 'stored lab was not pre-checked in the picker');
+    cancellation?.throwIfCancelled();
     await docBox.uncheck();
+    cancellation?.throwIfCancelled();
     await saveAndClosePicker(editPage);
+    cancellation?.throwIfCancelled();
     assert((await editPage.locator('#attachmentCount').innerText()).trim() === String(expectedCount - 1), 'badge did not drop after detaching');
+    cancellation?.throwIfCancelled();
     await submitEditForm(editPage);
+    cancellation?.throwIfCancelled();
     await editPage.close();
+    cancellation?.throwIfCancelled();
 
     live = liveRows(ticklerNo);
     assert(live.length === expectedCount - 1 && !live.some((row) => row.doctype === 'D'),
@@ -335,21 +385,33 @@ async function postEditForm(page, fields) {
 
     // 2a. Re-attaching revives the detached row instead of adding a second one ------------
     editPage = await openEdit(context, recorder, ticklerNo, 'tickler-edit-reattach');
+    cancellation?.throwIfCancelled();
     await openPicker(editPage);
+    cancellation?.throwIfCancelled();
     await editPage.locator(`#attachDocumentsForm #docNo${picked.D}`).check();
+    cancellation?.throwIfCancelled();
     await saveAndClosePicker(editPage);
+    cancellation?.throwIfCancelled();
     await submitEditForm(editPage);
+    cancellation?.throwIfCancelled();
     await editPage.close();
+    cancellation?.throwIfCancelled();
     const documentRows = attachmentRows(ticklerNo).filter((row) => row.doctype === 'D');
     assert(documentRows.length === 1 && documentRows[0].deleted === '' && documentRows[0].providerNo === providerNo,
       `re-attaching the document did not revive its row: ${JSON.stringify(documentRows)}`);
     // Detach it again so the remaining steps see the same stored set as before.
     editPage = await openEdit(context, recorder, ticklerNo, 'tickler-edit-redetach');
+    cancellation?.throwIfCancelled();
     await openPicker(editPage);
+    cancellation?.throwIfCancelled();
     await editPage.locator(`#attachDocumentsForm #docNo${picked.D}`).uncheck();
+    cancellation?.throwIfCancelled();
     await saveAndClosePicker(editPage);
+    cancellation?.throwIfCancelled();
     await submitEditForm(editPage);
+    cancellation?.throwIfCancelled();
     await editPage.close();
+    cancellation?.throwIfCancelled();
     live = liveRows(ticklerNo);
     assert(live.length === expectedCount - 1 && attachmentRows(ticklerNo).filter((row) => row.doctype === 'D').length === 1,
       `second detach left more than one document row: ${JSON.stringify(attachmentRows(ticklerNo))}`);
@@ -360,6 +422,7 @@ async function postEditForm(page, fields) {
     // un-checked. Simulated with an injected delegate the picker cannot know; the page is
     // closed without saving.
     editPage = await openEdit(context, recorder, ticklerNo, 'tickler-edit-unlisted');
+    cancellation?.throwIfCancelled();
     await editPage.evaluate(() => {
       const panel = document.querySelector('.tickler-attachments');
       const input = document.createElement('input');
@@ -375,43 +438,69 @@ async function postEditForm(page, fields) {
       item.textContent = 'PW unlisted eForm';
       document.getElementById('attachmentNames_eFormNo').appendChild(item);
     });
+    cancellation?.throwIfCancelled();
     const delegatesWithUnlisted = await editPage.locator('.delegateAttachment').count();
+    cancellation?.throwIfCancelled();
     await openPicker(editPage);
+    cancellation?.throwIfCancelled();
     assert(await editPage.locator('#delegate_eFormNo987654321[data-unlisted="1"]').count() === 1, 'the picker did not mark the unlisted delegate');
+    cancellation?.throwIfCancelled();
     await saveAndClosePicker(editPage);
+    cancellation?.throwIfCancelled();
     assert(await editPage.locator('#delegate_eFormNo987654321').count() === 1, 'Save and Close dropped an attachment the picker does not list');
+    cancellation?.throwIfCancelled();
     assert(await editPage.locator('#attachmentNames li.unlisted', { hasText: 'PW unlisted eForm' }).count() === 1, 'Save and Close dropped the unlisted attachment name');
+    cancellation?.throwIfCancelled();
     assert(await editPage.locator('.delegateAttachment').count() === delegatesWithUnlisted, 'Save and Close changed the delegate count without any change in the picker');
+    cancellation?.throwIfCancelled();
     assert(await editPage.locator('#attachmentsSubmitted').inputValue() === '1', 'Save and Close did not set the submitted marker');
+    cancellation?.throwIfCancelled();
     await editPage.close();
+    cancellation?.throwIfCancelled();
 
     // 3. Edit without the picker leaves attachments alone ---------------------------------
     editPage = await openEdit(context, recorder, ticklerNo, 'tickler-edit-plain');
+    cancellation?.throwIfCancelled();
     // A picker whose load fails must not replace the selection: open it with the endpoint
     // blocked, close the empty dialog, and check that nothing was dropped or marked submitted.
     const pickerRoute = '**/previewDocs?method=fetchTicklerDocuments*';
     await editPage.route(pickerRoute, (route) => route.abort());
+    cancellation?.throwIfCancelled();
     const delegatesBefore = await editPage.locator('.delegateAttachment').count();
+    cancellation?.throwIfCancelled();
     await editPage.locator('#manageAttachmentsBtn').click();
+    cancellation?.throwIfCancelled();
     await editPage.locator('.ui-dialog .save-and-close-button').waitFor({ state: 'visible', timeout: 30000 });
+    cancellation?.throwIfCancelled();
     await editPage.locator('.ui-dialog .save-and-close-button').click();
+    cancellation?.throwIfCancelled();
     await editPage.locator('.ui-dialog').waitFor({ state: 'hidden', timeout: 30000 });
+    cancellation?.throwIfCancelled();
     await editPage.unroute(pickerRoute);
+    cancellation?.throwIfCancelled();
     assert(await editPage.locator('.delegateAttachment').count() === delegatesBefore, 'closing a picker that failed to load dropped delegates');
+    cancellation?.throwIfCancelled();
     assert(await editPage.locator('#attachmentsSubmitted').inputValue() === '', 'closing a picker that failed to load set the submitted marker');
+    cancellation?.throwIfCancelled();
     await editPage.locator('#priority').selectOption('High');
+    cancellation?.throwIfCancelled();
     await submitEditForm(editPage);
+    cancellation?.throwIfCancelled();
     await editPage.close();
+    cancellation?.throwIfCancelled();
     assert(liveRows(ticklerNo).length === expectedCount - 1, 'a plain edit changed the stored attachments');
 
     // 4. Lists ----------------------------------------------------------------------------
     const listPage = await context.newPage();
+    cancellation?.throwIfCancelled();
     wirePage(listPage, 'tickler-list', recorder);
     const listJson = await listPage.request.get(
       `${config.baseUrl.href}/tickler/ListTicklers?demographicNo=${encodeURIComponent(demographicNo)}&status=A&start=0&length=500`,
     );
+    cancellation?.throwIfCancelled();
     assert(listJson.status() === 200, `ListTicklers returned ${listJson.status()}`);
     const listRow = (await listJson.json()).data.find((row) => row.id === Number(ticklerNo));
+    cancellation?.throwIfCancelled();
     assert(listRow, 'created tickler missing from ListTicklers JSON');
     assert(listRow.links.length === expectedCount - 1, `ListTicklers carried ${listRow.links.length} links, expected ${expectedCount - 1}`);
     assert(listRow.links.every((link) => !link.restricted && typeof link.id === 'number'), `a readable link was serialised without its id or as restricted: ${JSON.stringify(listRow.links)}`);
@@ -419,30 +508,42 @@ async function postEditForm(page, fields) {
     assert(labLink && labLink.tableName === live.find((row) => row.doctype === 'L').labType,
       `lab link did not carry its viewer code: ${JSON.stringify(listRow.links)}`);
     await gotoApp(listPage, config.baseUrl, `/tickler/ViewTicklerMain?ticklerview=A&demoview=${encodeURIComponent(demographicNo)}`, 'networkidle');
+    cancellation?.throwIfCancelled();
     await listPage.locator('#ticklerResults tbody tr', { hasText: stamp }).first().waitFor({ state: 'visible', timeout: 30000 });
+    cancellation?.throwIfCancelled();
     // An encounter form whose id is claimed by more than one form table renders as an unlinked
     // paperclip rather than a link to the wrong form; count both shapes, and require that the
     // lab (always addressable) is a real link.
     const listTableRow = listPage.locator('#ticklerResults tbody tr', { hasText: stamp }).first();
     const listLinks = await listTableRow.locator('a[href^="javascript:reportWindow"], i.fa-paperclip[title]').count();
+    cancellation?.throwIfCancelled();
     assert(listLinks === expectedCount - 1, `tickler list rendered ${listLinks} attachment markers, expected ${expectedCount - 1} (picked ${JSON.stringify(picked)})`);
     assert(await listTableRow.locator('a[href*="segmentID="]').count() >= 1, 'tickler list did not link the lab attachment');
+    cancellation?.throwIfCancelled();
     await gotoApp(listPage, config.baseUrl, `/tickler/ViewTicklerDemoMain?demoview=${encodeURIComponent(demographicNo)}&ticklerview=A`, 'networkidle');
+    cancellation?.throwIfCancelled();
     const demoRow = listPage.locator('tr', { hasText: stamp }).first();
     const demoLinks = await demoRow.locator('a, span').filter({ hasText: /^ATT$/ }).count();
+    cancellation?.throwIfCancelled();
     assert(demoLinks === expectedCount - 1, `patient tickler view rendered ${demoLinks} ATT markers, expected ${expectedCount - 1}`);
     assert(await demoRow.locator('a[href*="segmentID="]').count() >= 1, 'patient tickler view did not link the lab attachment');
+    cancellation?.throwIfCancelled();
     await listPage.close();
+    cancellation?.throwIfCancelled();
 
     // 5. Crafted requests -----------------------------------------------------------------
     const guardPage = await openEdit(context, recorder, ticklerNo, 'tickler-guard');
+    cancellation?.throwIfCancelled();
     const serviceDate = db.value(`SELECT DATE(service_date) FROM tickler WHERE tickler_no=${Number(ticklerNo)}`);
     if (otherPatientDocument) {
       const refused = await postEditForm(guardPage, {
         method: 'editTickler', ticklerNo, status: 'A', priority: 'High', assignedToProviders: providerNo,
         xml_appointment_date: serviceDate, attachmentsSubmitted: '1', docNo: otherPatientDocument,
       });
+    cancellation?.throwIfCancelled();
       assert(!/tickler-edit-ok/.test(refused.text), 'edit action accepted another patient\'s document');
+      assert(refused.status === 400, `foreign document refusal returned HTTP ${refused.status}, expected 400`);
+      assert(/id="tickler-edit-attachments-refused"/.test(refused.text), 'foreign document refusal omitted the user-facing message');
       assert(!liveRows(ticklerNo).some((row) => row.doctype === 'D'), 'another patient\'s document was attached');
     } else {
       console.log('SKIP crafted foreign-document POST: no other patient document in this database');
@@ -461,7 +562,9 @@ async function postEditForm(page, fields) {
       newMessage: `${stamp} rejected comment must roll back`,
       xml_appointment_date: serviceDate, attachmentsSubmitted: '1', labNo: `${wrongSource}:${storedLab.documentNo}`,
     });
+    cancellation?.throwIfCancelled();
     assert(!/tickler-edit-ok/.test(wrongSourceRefused.text), 'edit action accepted a lab id under the wrong source');
+    assert(wrongSourceRefused.status === 400, `wrong-source lab refusal returned HTTP ${wrongSourceRefused.status}, expected 400`);
     assert(editState() === beforeRejectedEdit, 'rejected attachment edit saved fields, history or comment');
     assert(liveRows(ticklerNo).some((row) => row.doctype === 'L' && row.labType === storedLab.labType && row.documentNo === storedLab.documentNo),
       `stored lab was disturbed by the refused wrong-source POST: ${JSON.stringify(attachmentRows(ticklerNo))}`);
@@ -473,19 +576,93 @@ async function postEditForm(page, fields) {
       method: 'editTickler', ticklerNo, status: 'A', priority: 'High', assignedToProviders: providerNo,
       xml_appointment_date: serviceDate, attachmentsSubmitted: '1', labNo: `DOC:${storedDocument.documentNo}`,
     });
+    cancellation?.throwIfCancelled();
     assert(!/tickler-edit-ok/.test(docSourceRefused.text), 'edit action accepted a document id submitted as a DOC lab');
+    assert(docSourceRefused.status === 400, `malformed lab refusal returned HTTP ${docSourceRefused.status}, expected 400`);
     assert(!liveRows(ticklerNo).some((row) => row.doctype === 'L' && row.labType === 'DOC'),
       `a DOC-sourced lab row was stored: ${JSON.stringify(attachmentRows(ticklerNo))}`);
-    const getStatus = await guardPage.evaluate(async (ctx) => {
+
+    for (const [language, expectedLang, expectedText] of [
+      ['de-DE', 'en', 'One or more items were refused'],
+      ['de-DE,fr-CA;q=0.9', 'fr-CA', 'Un ou plusieurs'],
+    ]) {
+      const localizedRefusal = await postEditForm(guardPage, {
+        method: 'editTickler', ticklerNo, status: 'A', priority: 'High', assignedToProviders: providerNo,
+        xml_appointment_date: serviceDate, attachmentsSubmitted: '1', labNo: `DOC:${storedDocument.documentNo}`,
+      }, language);
+      assert(localizedRefusal.status === 400, `localized refusal returned HTTP ${localizedRefusal.status}`);
+      assert(localizedRefusal.text.includes(`<html lang="${expectedLang}">`), 'refusal language tag did not follow bundle fallback');
+      assert(localizedRefusal.text.includes(expectedText), 'refusal message did not match its declared language');
+    }
+
+    // Submit the real edit form into its hidden iframe. A refusal must keep every typed
+    // value and the selection available for correction, then allow a successful retry.
+    const unsavedComment = `${stamp} retained comment after refusal`;
+    await guardPage.locator('#newMessage').fill(unsavedComment);
+    await guardPage.locator('#priority').selectOption('Low');
+    await guardPage.locator('#status').selectOption('C');
+    await openPicker(guardPage);
+    await guardPage.locator(`#attachDocumentsForm #docNo${storedDocument.documentNo}`).check();
+    await saveAndClosePicker(guardPage);
+    const beforeRefusalForm = await guardPage.locator('form[name="serviceform"]').evaluate((form) =>
+      Array.from(new FormData(form).entries()));
+    await guardPage.evaluate((labNo) => {
+      const form = document.forms.serviceform;
+      form.elements.attachmentsSubmitted.value = '1';
+      const forged = document.createElement('input');
+      forged.type = 'hidden';
+      forged.name = 'labNo';
+      forged.value = labNo;
+      forged.id = 'forged-lab-probe';
+      form.appendChild(forged);
+    }, `DOC:${storedDocument.documentNo}`);
+    const beforeUiRefusal = editState();
+    const beforeUiAttachments = JSON.stringify(attachmentRows(ticklerNo));
+    const refusalResponse = guardPage.waitForResponse((response) =>
+      response.url().endsWith('/tickler/EditTickler') && response.request().method() === 'POST');
+    await guardPage.locator('input[name="updateTickler"]').click();
+    const iframeStatus = (await refusalResponse).status();
+    assert(iframeStatus === 400, `iframe attachment refusal returned HTTP ${iframeStatus}, expected 400`);
+    await guardPage.locator('#error .tickler-validation-message').waitFor({ state: 'visible' });
+    const refusalText = await guardPage.locator('#error').innerText();
+    assert(refusalText.includes('One or more items were refused'), 'attachment refusal message was not shown in the edit form');
+    assert(await guardPage.locator('input[name="updateTickler"]').isEnabled(), 'refusal left the save button disabled');
+    assert(editState() === beforeUiRefusal, 'iframe refusal saved tickler fields, history or comment');
+    assert(JSON.stringify(attachmentRows(ticklerNo)) === beforeUiAttachments, 'iframe refusal changed stored attachments');
+    await guardPage.locator('#forged-lab-probe').evaluate((input) => input.remove());
+    await guardPage.locator('#attachmentsSubmitted').evaluate((input, value) => { input.value = value; },
+      beforeRefusalForm.find(([name]) => name === 'attachmentsSubmitted')[1]);
+    const afterRefusalForm = await guardPage.locator('form[name="serviceform"]').evaluate((form) =>
+      Array.from(new FormData(form).entries()));
+    assert(JSON.stringify(afterRefusalForm) === JSON.stringify(beforeRefusalForm), 'refusal lost entered form values or attachment selections');
+    // Revalidate the corrected attachment selection while saving the retained values.
+    await guardPage.locator('#attachmentsSubmitted').evaluate((input) => { input.value = '1'; });
+    await submitEditForm(guardPage);
+    assert(db.value(`SELECT CONCAT(status, '|', priority) FROM tickler WHERE tickler_no=${Number(ticklerNo)}`) === 'C|Low',
+      'corrected retry did not save the retained status and priority');
+    const expectedAfterRetry = JSON.parse(beforeUiAttachments).map((row) =>
+      row.doctype === 'D' && row.documentNo === storedDocument.documentNo ? { ...row, deleted: '' } : row);
+    assert(JSON.stringify(attachmentRows(ticklerNo)) === JSON.stringify(expectedAfterRetry),
+      'corrected retry did not add the newly selected document while preserving the other attachments');
+    assert(db.value(`SELECT COUNT(*) FROM tickler_comments WHERE tickler_no=${Number(ticklerNo)} AND message=${sqlString(unsavedComment)}`) === '1',
+      'corrected retry did not save the retained comment exactly once');
+    await guardPage.close();
+    const verbPage = await openEdit(context, recorder, ticklerNo, 'tickler-verb-guard');
+    const getStatus = await verbPage.evaluate(async (ctx) => {
       const response = await fetch(`${ctx}/tickler/EditTickler?method=editTickler&ticklerNo=1`, { credentials: 'same-origin' });
       return response.status;
     }, config.baseUrl.pathname);
+    cancellation?.throwIfCancelled();
     assert(getStatus === 405, `GET to the edit action returned ${getStatus}, expected 405`);
-    const badPicker = await guardPage.request.get(`${config.baseUrl.href}/previewDocs?method=fetchTicklerDocuments&demographicNo=abc`);
+    const badPicker = await verbPage.request.get(`${config.baseUrl.href}/previewDocs?method=fetchTicklerDocuments&demographicNo=abc`);
+    cancellation?.throwIfCancelled();
     assert(badPicker.status() === 400, `picker endpoint returned ${badPicker.status()} for a non-numeric demographic, expected 400`);
-    const picker = await guardPage.request.get(`${config.baseUrl.href}/previewDocs?method=fetchTicklerDocuments&demographicNo=${encodeURIComponent(demographicNo)}`);
+    const picker = await verbPage.request.get(`${config.baseUrl.href}/previewDocs?method=fetchTicklerDocuments&demographicNo=${encodeURIComponent(demographicNo)}`);
+    cancellation?.throwIfCancelled();
     assert(picker.status() === 200 && /attachDocumentsForm/.test(await picker.text()), 'picker endpoint did not render the picker for the patient');
-    await guardPage.close();
+    cancellation?.throwIfCancelled();
+    await verbPage.close();
+    cancellation?.throwIfCancelled();
 
     // 6. An item re-filed to another patient since it was attached -----------------------
     // The lab's routing is moved to another patient underneath the stored row: the Edit
@@ -499,12 +676,16 @@ async function postEditForm(page, fields) {
       movedLabFixture = { labNo: movedLab.documentNo, labType: movedLab.labType, otherPatient, routingIds };
       db.execute(`UPDATE patientLabRouting SET demographic_no=${Number(otherPatient)} WHERE id IN (${routingIds.join(',')}) AND lab_no=${Number(movedLab.documentNo)} AND lab_type=${sqlString(movedLab.labType)} AND demographic_no=${Number(demographicNo)}`);
       const movedPage = await openEdit(context, recorder, ticklerNo, 'tickler-edit-moved');
+    cancellation?.throwIfCancelled();
       assert(await movedPage.locator(`#delegate_labNo${movedLab.labType}${movedLab.documentNo}`).count() === 0,
         'edit form still lists a lab re-filed to another patient');
+    cancellation?.throwIfCancelled();
       const movedJson = await movedPage.request.get(
-        `${config.baseUrl.href}/tickler/ListTicklers?demographicNo=${encodeURIComponent(demographicNo)}&status=A&start=0&length=500`,
+        `${config.baseUrl.href}/tickler/ListTicklers?demographicNo=${encodeURIComponent(demographicNo)}&status=C&start=0&length=500`,
       );
+    cancellation?.throwIfCancelled();
       const movedRow = (await movedJson.json()).data.find((row) => row.id === Number(ticklerNo));
+    cancellation?.throwIfCancelled();
       assert(movedRow && !movedRow.links.some((link) => link.tableName === movedLab.labType && link.tableId === Number(movedLab.documentNo)),
         `ListTicklers still carries a lab re-filed to another patient: ${JSON.stringify(movedRow && movedRow.links)}`);
       assert(liveRows(ticklerNo).some((row) => row.doctype === 'L'), 'reading the tickler changed its stored rows');
@@ -512,10 +693,12 @@ async function postEditForm(page, fields) {
         method: 'editTickler', ticklerNo, status: 'A', priority: 'High', assignedToProviders: providerNo,
         xml_appointment_date: serviceDate, attachmentsSubmitted: '1', labNo: `${movedLab.labType}:${movedLab.documentNo}`,
       });
+    cancellation?.throwIfCancelled();
       assert(/tickler-edit-ok/.test(staleSave.text), `resubmitting a moved lab failed the edit: HTTP ${staleSave.status}`);
       assert(!liveRows(ticklerNo).some((row) => row.doctype === 'L'), 'a lab re-filed to another patient stayed attached after a save');
       assert(attachmentRows(ticklerNo).some((row) => row.doctype === 'L' && row.deleted === 'Y'), 'the moved lab row was not soft-deleted');
       await movedPage.close();
+    cancellation?.throwIfCancelled();
       restoreMovedLab();
     } else {
       console.log('SKIP re-filed item step: only one patient in this database');
@@ -525,6 +708,7 @@ async function postEditForm(page, fields) {
     assert(pageErrors.length === 0, `pages reported uncaught errors: ${JSON.stringify(pageErrors)}`);
 
     await context.close();
+    cancellation?.throwIfCancelled();
     console.log(`PASS tickler attachments: ${expectedCount} attached through the picker (${Object.keys(picked).join('')}), one detached, re-attached (row revived) and detached again, unlisted item kept, failed picker load and plain edit untouched, lists rendered, crafted requests (foreign document, wrong lab source, DOC lab source, GET, bad picker id) refused, re-filed lab left out and detached on save`);
   } catch (error) {
     if (error instanceof SkipCheck) {
@@ -542,4 +726,4 @@ async function postEditForm(page, fields) {
     db.dispose();
     await browser.close();
   }
-})();
+});

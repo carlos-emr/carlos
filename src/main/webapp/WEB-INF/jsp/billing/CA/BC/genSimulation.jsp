@@ -51,7 +51,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.DateRange" %>
 
 
-<%@ page import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.billing.ca.bc.MSP.*, java.net.*"
+<%@ page import="java.util.*, io.github.carlos_emr.*"
          errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ include file="/WEB-INF/jsp/admin/dbconnection.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>

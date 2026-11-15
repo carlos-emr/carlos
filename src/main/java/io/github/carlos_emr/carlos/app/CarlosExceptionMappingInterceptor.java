@@ -172,18 +172,17 @@ public class CarlosExceptionMappingInterceptor extends ExceptionMappingIntercept
 
     private static void logIncident(String incidentId, Exception e, Classification classification,
                                     ActionInvocation invocation, HttpServletRequest request) {
-        String actionName = LogSafe.sanitize(invocation.getProxy().getActionName());
+        var actionConfig = invocation.getProxy().getConfig();
+        String actionName = actionConfig == null ? "n/a" : LogSafe.sanitize(actionConfig.getClassName());
         String method = request == null ? "n/a" : LogSafe.sanitize(request.getMethod());
-        // Path only: the query string is where identifiers, and sometimes clinical text, travel.
-        String path = request == null ? "n/a" : LogSafe.sanitizeUri(request.getRequestURI());
         String provider = LogSafe.sanitize(providerNo(request));
         String exceptionType = e.getClass().getName();
 
         if (classification == Classification.HANDLED) {
             // An expected condition rendered with fixed public guidance. One line keeps the
             // incident id tied to the original exception type without exposing its message.
-            LOGGER.warn("Handled {} [incident {}] in action {} ({} {}) provider={}",
-                    exceptionType, incidentId, actionName, method, path, provider);
+            LOGGER.warn("Handled {} [incident {}] in action {} ({}) provider={}",
+                    exceptionType, incidentId, actionName, method, provider);
         } else if (classification == Classification.REFUSAL) {
             // There is nothing a trace would add to "this provider lacks this privilege", and the
             // message itself is not logged as-is: most refusals carry the fixed
@@ -191,11 +190,11 @@ public class CarlosExceptionMappingInterceptor extends ExceptionMappingIntercept
             // from a filename or a resource name, which is PHI here. Only the security object,
             // validated to a bare identifier, reaches the log; anything else is withheld.
             String refusal = refusalDetail(e);
-            LOGGER.warn("Authorization refused [incident {}] {} in action {} ({} {}) provider={}: {}",
-                    incidentId, exceptionType, actionName, method, path, provider, refusal);
+            LOGGER.warn("Authorization refused [incident {}] {} in action {} ({}) provider={}: {}",
+                    incidentId, exceptionType, actionName, method, provider, refusal);
         } else {
-            LOGGER.error("Unhandled {} [incident {}] in action {} ({} {}) provider={}{}",
-                    exceptionType, incidentId, actionName, method, path, provider, LogSafe.exceptionTrace(e));
+            LOGGER.error("Unhandled {} [incident {}] in action {} ({}) provider={}{}",
+                    exceptionType, incidentId, actionName, method, provider, LogSafe.exceptionTrace(e));
         }
     }
 

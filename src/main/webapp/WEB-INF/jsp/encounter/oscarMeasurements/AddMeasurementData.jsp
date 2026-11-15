@@ -59,10 +59,10 @@
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.*" %>
-<%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="org.springframework.web.context.WebApplicationContext" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.*,io.github.carlos_emr.carlos.commn.model.FlowSheetCustomization,io.github.carlos_emr.carlos.commn.model.Validations" %>
+<%@page import="java.util.*, io.github.carlos_emr.carlos.providers.data.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.*" %>
+
+
+<%@page import="io.github.carlos_emr.carlos.commn.dao.*, io.github.carlos_emr.carlos.commn.model.Validations" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypeBeanHandler" %>
@@ -78,7 +78,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");

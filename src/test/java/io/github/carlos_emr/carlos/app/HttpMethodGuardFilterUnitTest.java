@@ -112,6 +112,31 @@ class HttpMethodGuardFilterUnitTest {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD"})
+    void shouldBlockEditorSave_forSafeMethods(String method) throws Exception {
+        when(request.getMethod()).thenReturn(method);
+        when(request.getRequestURI()).thenReturn("/carlos/eform/editForm");
+
+        filter.doFilter(request, response, chain);
+
+        verify(response).sendError(eq(HttpServletResponse.SC_METHOD_NOT_ALLOWED), anyString());
+        verify(chain, never()).doFilter(request, response);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD", "POST"})
+    void shouldPreserveEditorAccess_forViewAndPost(String method) throws Exception {
+        when(request.getMethod()).thenReturn(method);
+        when(request.getRequestURI()).thenReturn("POST".equals(method)
+                ? "/carlos/eform/editForm" : "/carlos/eform/efmformmanageredit");
+
+        filter.doFilter(request, response, chain);
+
+        verify(chain).doFilter(request, response);
+        verify(response, never()).sendError(anyInt(), anyString());
+    }
+
     @Nested
     @DisplayName("GET requests to read-only actions")
     class ReadOnlyActions {
@@ -835,6 +860,21 @@ class HttpMethodGuardFilterUnitTest {
 
             verify(response).sendError(anyInt(), anyString());
             verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
+        @DisplayName("should pass through GET to the Report by Template download, a read of a kept result")
+        void shouldPassThrough_forGetToReportByTemplateDownload() throws Exception {
+            // GenerateOutFiles2Action only reads the result kept for the session (registered as a read gate in
+            // MutatorActionGetRejectionContractUnitTest); it answers 405 itself to methods other than GET/POST.
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/oscarReport/reportByTemplate/generateOutFilesAction");
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
         }
 
         @Test

@@ -10,13 +10,14 @@
  * lastUpdateUser) and the _eChart$<id> secObjPrivilege row; the merge search and
  * the head's Master Record showing the duplicate as a tail; the schedule search
  * returning only the head; the unmerge marking the row deleted and parking the
- * privilege in the recycle bin; a self-merge, a forged head outside the selection
- * and a GET refused with no row, and forged requests that would create a merge cycle (#3880)
- * refused with no row. Fixtures: two owned FAKE- patients seeded by SQL (and a
- * third, never selected, as the forged head);
+ * privilege in the recycle bin; missing source/target IDs, a self-merge, a forged
+ * head outside the selection, a GET and cycle-forming requests (#3880) refused
+ * with no row. Fixtures: owned FAKE- patients seeded by SQL and a reserved,
+ * deleted patient ID for the missing-record probes;
  * cleanup removes their merge, privilege, recycle-bin and demographic rows and
  * asserts they are gone. Implements coverage plan §2.4 demographic-merge.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const {clickOpensPopupOrNavigates, clickAndAwaitReload, csrfTokenPresent} = require('./lib/playwright-ui');
 const {revealAuditLink} = require('./lib/playwright-link-audit');
@@ -39,50 +40,62 @@ function assertMergeDialogs(dialogs, outcomeText, label) {
   `${label}: expected the merge confirm followed by the "${outcomeText}" alert, saw ${JSON.stringify(texts)}`);
 }
 
-async function workflow(s) {
+async function workflow(s, {prepare, afterMerge, afterUnmerge, beforeCleanup} = {}) {
   const {sql, marker, provider, context, recorder} = s;
+  for(const hook of [prepare,afterMerge,afterUnmerge,beforeCleanup])h.assert(hook===undefined||typeof hook==='function','Invalid merge acceptance observer');
   const ids = [];
-  s.cleanup(() => {
+  const missingIds = [];
+  s.cleanup(async () => {
+    if(beforeCleanup)await beforeCleanup();
     // A committed insert whose LAST_INSERT_ID() reply was lost still carries the per-run
     // marker as its last name, so recover owned patients by marker as well as by id.
-    for (const [id] of sql.rows(`SELECT demographic_no FROM demographic WHERE last_name=${h.sqlString(marker)}`)) {
+    for (const [id] of sql.rows('SELECT demographic_no FROM demographic WHERE last_name=?', [marker])) {
       if (/^[1-9]\d*$/.test(id) && !ids.includes(id)) ids.push(id);
     }
     if (!ids.length) return;
-    const list = ids.join(',');
-    h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no IN (${list})
-      AND last_name=${h.sqlString(marker)}`) === String(ids.length), 'Merge patient fixture ownership changed');
-    // Children first: demographic_merged.merged_to is a foreign key to demographic.
-    sql.execute(`DELETE FROM demographic_merged WHERE demographic_no IN (${list}) OR merged_to IN (${list})`);
-    for (const id of ids) {
-      sql.execute(`DELETE FROM secObjPrivilege WHERE roleUserGroup='_all' AND objectName=${h.sqlString(`_eChart$${id}`)}`);
-      sql.execute(`DELETE FROM recyclebin WHERE table_name='secObjPrivilege' AND keyword=${h.sqlString(`_all|_eChart$${id}`)}`);
+    const allIds = [...ids, ...missingIds];
+    const list = allIds.map(() => '?').join(',');
+    h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no IN (${ids.map(() => '?').join(',')})
+      AND last_name=?`, [...ids, marker]) === String(ids.length), 'Merge patient fixture ownership changed');
+    if (missingIds.length) {
+      h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no IN (${missingIds.map(() => '?').join(',')})`, missingIds) === '0',
+        'A missing merge fixture ID was reused');
     }
-    sql.execute(`DELETE FROM demographic WHERE demographic_no IN (${list}) AND last_name=${h.sqlString(marker)}`);
+    // Children first: demographic_merged.merged_to is a foreign key to demographic.
+    sql.execute(`DELETE FROM demographic_merged WHERE demographic_no IN (${list}) OR merged_to IN (${list})`, [...allIds, ...allIds]);
+    for (const id of allIds) {
+      sql.execute("DELETE FROM secObjPrivilege WHERE roleUserGroup='_all' AND objectName=?", [`_eChart$${id}`]);
+      sql.execute("DELETE FROM recyclebin WHERE table_name='secObjPrivilege' AND keyword=?", [`_all|_eChart$${id}`]);
+    }
+    sql.execute(`DELETE FROM demographic WHERE demographic_no IN (${list}) AND last_name=?`, [...allIds, marker]);
     const remaining = [
       `(SELECT COUNT(*) FROM demographic_merged WHERE demographic_no IN (${list}) OR merged_to IN (${list}))`,
-      `(SELECT COUNT(*) FROM secObjPrivilege WHERE objectName IN (${ids.map(id => h.sqlString(`_eChart$${id}`)).join(',')}))`,
-      `(SELECT COUNT(*) FROM recyclebin WHERE keyword IN (${ids.map(id => h.sqlString(`_all|_eChart$${id}`)).join(',')}))`,
+      `(SELECT COUNT(*) FROM secObjPrivilege WHERE objectName IN (${list}))`,
+      `(SELECT COUNT(*) FROM recyclebin WHERE keyword IN (${list}))`,
       `(SELECT COUNT(*) FROM demographic WHERE demographic_no IN (${list}))`,
     ];
-    h.assert(sql.value(`SELECT ${remaining.join('+')}`) === '0', 'Owned merge fixtures were not removed');
+    h.assert(sql.value(`SELECT ${remaining.join('+')}`, [...allIds, ...allIds,
+      ...allIds.map(id => `_eChart$${id}`), ...allIds.map(id => `_all|_eChart$${id}`), ...allIds]) === '0',
+    'Owned merge fixtures were not removed');
   });
-  const seed = firstName => sql.value(`INSERT INTO demographic
+  const seed = firstName => sql.insertId(`INSERT INTO demographic
     (last_name,first_name,year_of_birth,month_of_birth,date_of_birth,sex,patient_status,
      provider_no,hc_type,province,roster_status,lastUpdateDate)
-    VALUES (${h.sqlString(marker)},${h.sqlString(firstName)},'1980','01','02','F','AC',
-      ${h.sqlString(provider)},'ON','ON','NR',NOW()); SELECT LAST_INSERT_ID()`);
+    VALUES (?,?,'1980','01','02','F','AC',?,'ON','ON','NR',NOW())`, [marker, firstName, provider]);
   const head = seed('Primary');
   h.assert(/^[1-9]\d*$/.test(head), 'The head patient fixture was not created');
   ids.push(head);
   const dup = seed('Duplicate');
   h.assert(/^[1-9]\d*$/.test(dup), 'The duplicate patient fixture was not created');
   ids.push(dup);
-  const owned = `demographic_no IN (${head},${dup}) OR merged_to IN (${head},${dup})`;
-  const mergeRows = () => sql.value(`SELECT COUNT(*) FROM demographic_merged WHERE ${owned}`);
-  const liveRows = () => sql.value(`SELECT COUNT(*) FROM demographic_merged WHERE (${owned}) AND deleted=0`);
+  const patients={head,duplicate:dup};
+  if(prepare)await prepare(patients);
+  const owned = 'demographic_no IN (?,?) OR merged_to IN (?,?)';
+  const ownedParams = [head, dup, head, dup];
+  const mergeRows = () => sql.value(`SELECT COUNT(*) FROM demographic_merged WHERE ${owned}`, ownedParams);
+  const liveRows = () => sql.value(`SELECT COUNT(*) FROM demographic_merged WHERE (${owned}) AND deleted=0`, ownedParams);
   const privilegeRows = () => sql.value(`SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup='_all'
-    AND objectName=${h.sqlString(`_eChart$${dup}`)}`);
+    AND objectName=?`, [`_eChart$${dup}`]);
 
   // Schedule ▸ Administration ▸ Data Management ▸ Merge Patient Records: the shell
   // loads the page into an iframe under #dynamic-content, so the frame is driven and
@@ -134,18 +147,52 @@ async function workflow(s) {
     h.assert(mergeRows() === '0', 'Owned records already carry merge history');
   });
 
+  await s.step('missing source and target records reject the complete selection without merge or privilege writes', async () => {
+    // Reserve an auto-increment ID, then remove only our marked fixture: the probe
+    // cannot accidentally name another patient's chart or depend on a magic ID.
+    const missing = seed('Missing');
+    h.assert(/^[1-9]\d*$/.test(missing), 'The missing patient fixture was not created');
+    ids.push(missing);
+    sql.execute('DELETE FROM demographic WHERE demographic_no=? AND last_name=?', [missing, marker]);
+    h.assert(sql.value('SELECT COUNT(*) FROM demographic WHERE demographic_no=?', [missing]) === '0',
+      'The missing patient fixture still exists');
+    ids.splice(ids.indexOf(missing), 1);
+    missingIds.push(missing);
+    const token = await csrfTokenPresent(merge);
+    const endpoint = h.appUrl(s.config.baseUrl, '/admin/MergeRecords');
+    for (const [target, selected] of [
+      [head, [head, missing, dup]],
+      [head, [head, dup, missing]],
+      [missing, [missing, head, dup]],
+    ]) {
+      const body = new URLSearchParams({'CSRF-TOKEN': token, mergeAction: 'merge', provider_no: provider, head: target});
+      for (const record of selected) body.append('records', record);
+      const result = await context.request.post(endpoint, {data: body.toString(), maxRedirects: 0,
+        headers: {'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': token}});
+      h.assert(result.status() === 302 && /outcome=failure/.test(result.headers().location || ''),
+        `A merge selecting a missing patient returned HTTP ${result.status()} instead of the failure outcome`);
+      h.assert(mergeRows() === '0'
+        && sql.value('SELECT COUNT(*) FROM demographic_merged WHERE demographic_no=? OR merged_to=?', [missing, missing]) === '0',
+      'A merge selecting a missing patient wrote a merge row');
+      h.assert(sql.value('SELECT COUNT(*) FROM secObjPrivilege WHERE objectName IN (?,?,?)',
+        [head, dup, missing].map(id => `_eChart$${id}`)) === '0',
+      'A merge selecting a missing patient granted a chart privilege');
+    }
+  });
+
   await s.step('merging the duplicate into the head writes one live demographic_merged row and the chart privilege', async () => {
     await rowFor('Primary').locator('input[name="records"]').check();
     await rowFor('Duplicate').locator('input[name="records"]').check();
     await rowFor('Primary').locator('input[name="head"]').check();
     h.assert(await submitMerge('Merge Selected Records', MERGED, 'merge') === 'success', 'The merge did not land on its success outcome');
-    h.assert(sql.value(`SELECT COUNT(*) FROM demographic_merged WHERE demographic_no=${dup} AND merged_to=${head}
-      AND deleted=0 AND lastUpdateUser=${h.sqlString(provider)}`) === '1', 'The merge did not write the duplicate -> head row');
+    h.assert(sql.value(`SELECT COUNT(*) FROM demographic_merged WHERE demographic_no=? AND merged_to=?
+      AND deleted=0 AND lastUpdateUser=?`, [dup, head, provider]) === '1', 'The merge did not write the duplicate -> head row');
     h.assert(mergeRows() === '1', 'The merge wrote more than one row for the owned pair');
     h.assert(sql.value(`SELECT privilege FROM secObjPrivilege WHERE roleUserGroup='_all'
-      AND objectName=${h.sqlString(`_eChart$${dup}`)}`) === '|or|', 'The merge did not grant the merged chart read privilege');
+      AND objectName=?`, [`_eChart$${dup}`]) === '|or|', 'The merge did not grant the merged chart read privilege');
   });
 
+  if(afterMerge)await afterMerge(patients);
   await s.step('the merged record is shown as a tail of its head on the merge search and the Master Record', async () => {
     await search();
     h.assert(await rows().count() === 2, 'The merge search lost a record after the merge');
@@ -169,6 +216,8 @@ async function workflow(s) {
     const shown = (await results.locator('a[title="Master Demographic File"]').allTextContents())
       .map(text => text.trim()).filter(text => ids.includes(text));
     h.assert(shown.length === 1 && shown[0] === head, 'The patient search did not collapse the merged pair to its head record');
+    await results.waitForLoadState('networkidle');
+    await results.close();
   });
 
   await s.step('a crafted POST that would create a merge cycle is refused without a row (#3880)', async () => {
@@ -195,8 +244,8 @@ async function workflow(s) {
     h.assert(mergedSource.status() === 302 && /outcome=failure/.test(mergedSource.headers().location || ''),
       `Merging an already-merged record returned HTTP ${mergedSource.status()} instead of the failure outcome`);
     h.assert(mergeRows() === before && liveRows() === '1'
-      && sql.value(`SELECT COUNT(*) FROM demographic_merged WHERE demographic_no=${dup} AND merged_to=${head} AND deleted=0`) === '1'
-      && sql.value(`SELECT COUNT(*) FROM demographic_merged WHERE demographic_no IN (${head},${third}) OR merged_to IN (${dup},${third})`) === '0',
+      && sql.value('SELECT COUNT(*) FROM demographic_merged WHERE demographic_no=? AND merged_to=? AND deleted=0', [dup, head]) === '1'
+      && sql.value('SELECT COUNT(*) FROM demographic_merged WHERE demographic_no IN (?,?) OR merged_to IN (?,?)', [head, third, dup, third]) === '0',
     'A refused cycle-forming merge wrote or changed a merge row');
     // The head still resolves: the merge search still collapses the pair under its head.
     await search();
@@ -210,11 +259,11 @@ async function workflow(s) {
     h.assert(await merge.locator('form[name="mergeform"] input[name="head"]').count() === 0, 'The merged-records list offers a Main Record radio');
     await rowFor('Duplicate').locator('input[name="records"]').check();
     h.assert(await submitMerge('UnMerge Selected Records', UNMERGED, 'unmerge') === 'successUnMerge', 'The unmerge did not land on its success outcome');
-    h.assert(sql.value(`SELECT COUNT(*) FROM demographic_merged WHERE demographic_no=${dup} AND merged_to=${head}
-      AND deleted=1 AND lastUpdateUser=${h.sqlString(provider)}`) === '1' && liveRows() === '0', 'The unmerge did not mark the merge row deleted');
+    h.assert(sql.value(`SELECT COUNT(*) FROM demographic_merged WHERE demographic_no=? AND merged_to=?
+      AND deleted=1 AND lastUpdateUser=?`, [dup, head, provider]) === '1' && liveRows() === '0', 'The unmerge did not mark the merge row deleted');
     h.assert(privilegeRows() === '0', 'The unmerge left the merged chart privilege in place');
     h.assert(sql.value(`SELECT COUNT(*) FROM recyclebin WHERE table_name='secObjPrivilege'
-      AND keyword=${h.sqlString(`_all|_eChart$${dup}`)} AND provider_no=${h.sqlString(provider)}`) === '1',
+      AND keyword=? AND provider_no=?`, [`_all|_eChart$${dup}`, provider]) === '1',
     'The unmerge did not park the removed privilege in the recycle bin');
     await search();
     for (const name of ['Primary', 'Duplicate']) {
@@ -222,6 +271,7 @@ async function workflow(s) {
     }
   });
 
+  if(afterUnmerge)await afterUnmerge(patients);
   await s.step('merging a record with itself is refused and writes nothing', async () => {
     const before = mergeRows();
     await rowFor('Primary').locator('input[name="records"]').check();
@@ -247,11 +297,11 @@ async function workflow(s) {
       headers: {'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': token}});
     h.assert(forged.status() === 302 && /outcome=failure/.test(forged.headers().location || ''),
       `A merge towards a head outside the selection returned HTTP ${forged.status()} instead of the failure outcome`);
-    const unsafeGet = await context.request.get(endpoint, {maxRedirects: 0,
+    const unsafeGet = await authenticatedProbe({context, config: s.config}, endpoint, {maxRedirects: 0,
       params: {mergeAction: 'merge', provider_no: provider, head, records: dup}});
     h.assert(unsafeGet.status() === 405 && unsafeGet.headers().allow === 'POST', 'MergeRecords must reject GET with Allow: POST');
     h.assert(mergeRows() === before && liveRows() === '0'
-      && sql.value(`SELECT COUNT(*) FROM demographic_merged WHERE demographic_no=${outsider} OR merged_to=${outsider}`) === '0',
+      && sql.value('SELECT COUNT(*) FROM demographic_merged WHERE demographic_no=? OR merged_to=?', [outsider, outsider]) === '0',
     'A refused merge probe wrote a merge row');
     h.assert(privilegeRows() === '0', 'A refused merge probe granted a chart privilege');
   });

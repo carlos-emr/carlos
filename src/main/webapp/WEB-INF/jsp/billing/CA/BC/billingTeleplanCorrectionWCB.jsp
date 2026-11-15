@@ -32,7 +32,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -48,20 +48,20 @@
     }
 %>
 
-<%@page import="io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.*" %>
-<%@page import="java.util.*,java.io.*,io.github.carlos_emr.carlos.billing.ca.bc.MSP.*,io.github.carlos_emr.carlos.billing.ca.bc.administration.*,java.sql.*" %>
+<%@page import="io.github.carlos_emr.*" %>
+<%@page import="java.util.*, java.sql.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.ClinicLocation" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@ page import="io.github.carlos_emr.carlos.billing.CA.model.BillingDetail" %>
+
 <%@ page import="io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao" %>
-<%@ page import="io.github.carlos_emr.carlos.entities.Billingmaster" %>
+
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanC12" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanC12Dao" %>

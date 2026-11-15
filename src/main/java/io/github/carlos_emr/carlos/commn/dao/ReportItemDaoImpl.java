@@ -41,4 +41,10 @@ public class ReportItemDaoImpl extends AbstractDaoImpl<ReportItem> implements Re
     public ReportItemDaoImpl() {
         super(ReportItem.class);
     }
+
+    @Override
+    public java.util.List<ReportItem> findByStatus(int status) {
+        return entityManager.createQuery("select x from ReportItem x where x.status=:status order by x.id", ReportItem.class)
+                .setParameter("status", status).getResultList();
+    }
 }

@@ -91,6 +91,8 @@ class DocumentReportStatusAuthorizationUnitTest extends CarlosUnitTestBase {
             when(patients.findByLabNoAndLabType(42, "DOC")).thenReturn(List.of(current)); return document;
         });
         try (var data = mockStatic(CommonLabResultData.class)) {
+            data.when(() -> CommonLabResultData.updateReportStatusWithOlderVersionsDetailed(42, "991830", 'A', "owned test comment", "DOC", false, null))
+                    .thenReturn(new CommonLabResultData.ReportChainUpdate(0, List.of(42)));
             invoke(false); assertThat(response.getStatus()).isEqualTo(200);
             logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLog("991830",
                     io.github.carlos_emr.carlos.log.LogConst.ACK, io.github.carlos_emr.carlos.log.LogConst.CON_HL7_LAB,
@@ -131,8 +133,9 @@ class DocumentReportStatusAuthorizationUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest @ValueSource(booleans = {false, true})
     void authorizedRoutingRunsUnderLockAndCommitsBeforeSuccess(boolean comment) throws Exception {
         try (var data = mockStatic(CommonLabResultData.class)) {
-            data.when(() -> CommonLabResultData.updateReportStatusWithOlderVersions(42, "991830", 'A', "owned test comment", "DOC", false, null))
-                    .thenAnswer(call -> {assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue(); return 1;});
+            data.when(() -> CommonLabResultData.updateReportStatusWithOlderVersionsDetailed(42, "991830", 'A', "owned test comment", "DOC", false, null))
+                    .thenAnswer(call -> {assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
+                        return new CommonLabResultData.ReportChainUpdate(1, java.util.List.of(42));});
             data.when(() -> CommonLabResultData.updateReportStatus(42, "991830", 'A', "owned test comment", "DOC"))
                     .thenAnswer(call -> {assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue(); return true;});
             invoke(comment);

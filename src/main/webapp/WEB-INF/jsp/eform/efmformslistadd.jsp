@@ -46,13 +46,13 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c"%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -157,10 +157,13 @@
 			});
         </script>
         <style>
+            html {
+                overscroll-behavior: none;
+            }
+
             :root *:not(h2, .h2) {
                 font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
                 font-size: 12px;
-                overscroll-behavior: none;
                 -webkit-font-smoothing: antialiased;
                 -moz-osx-font-smoothing: grayscale;
             }

@@ -64,7 +64,9 @@ async function workflow(s) {
     card = added[0].split('_')[1];
     for (const field of ['quantity', 'repeats']) {
       const box = rx.locator(`#${field}_${card}`);
-      h.assert(await box.isDisabled() && (await box.inputValue()) === '0', `The note card's ${field} box is not disabled at 0`);
+      h.assert(await box.isDisabled(), `The note card's ${field} box is enabled`);
+      const value = await box.inputValue();
+      h.assert(value === '0', `The note card's ${field} box has value ${JSON.stringify(value)}, expected 0`);
     }
   });
 

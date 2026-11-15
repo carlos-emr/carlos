@@ -13,19 +13,19 @@
   @since 2026-10-04 (date-field submission correction, issue #4155)
 --%>
 <%@ page import="java.util.*" %>
-<%@ page import="java.text.SimpleDateFormat" %>
-<%@ page import="java.util.Date" %>
-<%@ page import="org.apache.commons.lang3.StringUtils" %>
+
+
+
 <%@ page import="io.github.carlos_emr.AppointmentMainBean" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.Gender" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.ProvinceNames" %>
-<%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.Util" %>
+
 <%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.PatientConsentManager" %>
+
 <%@ page import="io.github.carlos_emr.carlos.managers.ProgramManager2" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
@@ -38,10 +38,10 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
 
-<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+
+
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
+
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>

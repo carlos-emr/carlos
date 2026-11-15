@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.integration.hl7.handlers;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -1268,7 +1270,7 @@ public class PhsStarHandler extends BasePhsStarHandler {
     private String readProgramMappingFile(String service, String patientType, String location) {
         String filename = CarlosProperties.getInstance().getProperty("phs_star.program_file");
         if (filename == null) {
-            logger.warn("Cannot lookup program. Config file not found - " + filename);
+            logger.warn("Cannot lookup program. Config file not found");
             return null;
         }
         InputStream is = null;
@@ -1282,7 +1284,7 @@ public class PhsStarHandler extends BasePhsStarHandler {
                 try {
                     doc = parser.build(is);
                 } catch (Exception e) {
-                    logger.error("Error", e);
+                    logger.error("Error: {}", LogSafe.exceptionTrace(e));
                     return null;
                 }
 
@@ -1303,13 +1305,13 @@ public class PhsStarHandler extends BasePhsStarHandler {
                 }
             }
         } catch (Exception e) {
-            logger.error("error", e);
+            logger.error("error: {}", LogSafe.exceptionTrace(e));
         } finally {
             if (is != null) {
                 try {
                     is.close();
                 } catch (IOException e) {
-                    logger.error("error", e);
+                    logger.error("error: {}", LogSafe.exceptionTrace(e));
                 }
             }
         }

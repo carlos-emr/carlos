@@ -26,6 +26,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.billing.web.BillingFormServiceCodeInput;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingFormConfigurationService;
 import io.github.carlos_emr.carlos.commn.model.CtlBillingService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -93,37 +94,21 @@ public class ManageBillingFormService2Action extends ActionSupport {
         // every code in the affected group (which leaves the codes
         // visually unordered with no operator banner).
         List<String> orderParseFailures = new ArrayList<>();
-        for (int j = 1; j < 4; j++) {
-            String groupName = Objects.toString(request.getParameter("group" + j), "");
-            for (int i = 0; i < 20; i++) {
-                String serviceCode = request.getParameter("group" + j + "_service" + i);
-                if (serviceCode == null || serviceCode.isEmpty()) {
+        for (BillingFormServiceCodeInput input : BillingFormServiceCodeInput.read(request)) {
+            String orderStr = input.order();
+            int serviceOrder = 0;
+            if (orderStr != null && !orderStr.isEmpty()) {
+                try {
+                    serviceOrder = Integer.parseInt(orderStr);
+                } catch (NumberFormatException e) {
+                    MiscUtils.getLogger().warn(
+                            "Invalid serviceOrder value [{}] for group{}_service{} — aborting save",
+                            LogSafe.sanitize(orderStr), input.groupIndex(), input.rowIndex(), e);
+                    orderParseFailures.add(input.parameterName() + "=" + orderStr);
                     continue;
                 }
-                String orderStr = request.getParameter("group" + j + "_service" + i + "_order");
-                int serviceOrder = 0;
-                if (orderStr != null && !orderStr.isEmpty()) {
-                    try {
-                        serviceOrder = Integer.parseInt(orderStr);
-                    } catch (NumberFormatException e) {
-                        MiscUtils.getLogger().warn(
-                                "Invalid serviceOrder value [{}] for group{}_service{} — aborting save",
-                                LogSafe.sanitize(orderStr), j, i, e);
-                        orderParseFailures.add("group" + j + "_service" + i + "=" + orderStr);
-                        continue;
-                    }
-                }
-
-                CtlBillingService cbs = new CtlBillingService();
-                cbs.setServiceTypeName(type);
-                cbs.setServiceType(typeid);
-                cbs.setServiceCode(serviceCode);
-                cbs.setServiceGroupName(groupName);
-                cbs.setServiceGroup("Group" + j);
-                cbs.setStatus("A");
-                cbs.setServiceOrder(serviceOrder);
-                replacement.add(cbs);
             }
+            replacement.add(input.toRow(typeid, type, serviceOrder));
         }
 
         if (!orderParseFailures.isEmpty()) {

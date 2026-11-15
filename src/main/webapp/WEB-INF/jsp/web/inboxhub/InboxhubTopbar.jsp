@@ -59,7 +59,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     @since 2025-02-12
 --%>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ page contentType="text/html;charset=UTF-8" pageEncoding="UTF-8" language="java" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>

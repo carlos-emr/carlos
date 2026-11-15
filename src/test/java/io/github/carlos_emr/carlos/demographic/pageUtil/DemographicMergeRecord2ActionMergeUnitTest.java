@@ -21,10 +21,13 @@
  */
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
+import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicMergedDao;
 import io.github.carlos_emr.carlos.commn.dao.RecycleBinDao;
 import io.github.carlos_emr.carlos.commn.dao.SecObjPrivilegeDao;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicMerged;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -32,6 +35,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.spring.StrutsSpringObjectFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -40,15 +44,26 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.AbstractPlatformTransactionManager;
+import org.springframework.transaction.support.DefaultTransactionStatus;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -64,15 +79,35 @@ class DemographicMergeRecord2ActionMergeUnitTest extends CarlosUnitTestBase {
     private final MockHttpServletResponse response = new MockHttpServletResponse();
     private final SecurityInfoManager security = mock(SecurityInfoManager.class);
     private final DemographicMergedDao dao = mock(DemographicMergedDao.class);
+    private final DemographicDao demographicDao = mock(DemographicDao.class);
+    private final SecObjPrivilegeDao privilegeDao = mock(SecObjPrivilegeDao.class);
+    private final RecycleBinDao recycleBinDao = mock(RecycleBinDao.class);
     private final LoggedInInfo info = mock(LoggedInInfo.class);
     private final Map<Integer, DemographicMerged> mergeRows = new HashMap<>();
+    private final RecordingTransactionManager transactions = new RecordingTransactionManager();
+
+    private static final class RecordingTransactionManager extends AbstractPlatformTransactionManager {
+        int commits;
+        int rollbacks;
+
+        @Override protected Object doGetTransaction() { return new Object(); }
+        @Override protected void doBegin(Object transaction, TransactionDefinition definition) { }
+        @Override protected void doCommit(DefaultTransactionStatus status) { commits++; }
+        @Override protected void doRollback(DefaultTransactionStatus status) { rollbacks++; }
+    }
 
     @BeforeEach
     void setUp() {
         registerMock(SecurityInfoManager.class, security);
         registerMock(DemographicMergedDao.class, dao);
-        registerMock(SecObjPrivilegeDao.class, mock(SecObjPrivilegeDao.class));
-        registerMock(RecycleBinDao.class, mock(RecycleBinDao.class));
+        registerMock(SecObjPrivilegeDao.class, privilegeDao);
+        registerMock(RecycleBinDao.class, recycleBinDao);
+        for (int id : List.of(10, 11, 12)) {
+            when(demographicDao.findForUpdate(id)).thenAnswer(invocation -> {
+                assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
+                return new Demographic();
+            });
+        }
         when(info.getLoggedInProviderNo()).thenReturn("999998");
         when(security.hasPrivilege(info, "_demographic", "w", null)).thenReturn(true);
         request.setMethod("POST");
@@ -103,7 +138,7 @@ class DemographicMergeRecord2ActionMergeUnitTest extends CarlosUnitTestBase {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
             servlet.when(ServletActionContext::getResponse).thenReturn(response);
             loggedIn.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(info);
-            return new DemographicMergeRecord2Action().execute();
+            return new DemographicMergeRecord2Action(security, demographicDao, transactions).execute();
         }
     }
 
@@ -112,6 +147,112 @@ class DemographicMergeRecord2ActionMergeUnitTest extends CarlosUnitTestBase {
         assertThat(merge("10", "10", "11", "12")).isEqualTo("success");
 
         verify(dao, times(2)).persist(any());
+        assertThat(transactions.commits).isEqualTo(1);
+        assertThat(transactions.rollbacks).isZero();
+    }
+
+    @Test
+    void shouldBuildFreshInjectedActions_throughTheStrutsSpringFactory() throws Exception {
+        try (var context = new AnnotationConfigApplicationContext()) {
+            context.registerBean(SecurityInfoManager.class, () -> security);
+            context.registerBean(DemographicDao.class, () -> demographicDao);
+            context.registerBean(PlatformTransactionManager.class, () -> transactions);
+            context.register(DemographicMergeRecord2Action.class);
+            context.refresh();
+            var factory = new StrutsSpringObjectFactory();
+            factory.setApplicationContext(context);
+
+            Object first = factory.buildBean(DemographicMergeRecord2Action.SPRING_BEAN_NAME, Map.of(), false);
+            Object second = factory.buildBean(DemographicMergeRecord2Action.SPRING_BEAN_NAME, Map.of(), false);
+
+            assertThat(first).isInstanceOf(DemographicMergeRecord2Action.class).isNotSameAs(second);
+        }
+    }
+
+    @Test
+    void shouldRejectWithoutStartingATransaction_whenWritePrivilegeIsMissing() {
+        when(security.hasPrivilege(info, "_demographic", "w", null)).thenReturn(false);
+
+        assertThatThrownBy(() -> merge("10", "10", "11")).isInstanceOf(SecurityException.class);
+
+        verifyNoInteractions(demographicDao, dao, privilegeDao, recycleBinDao);
+        assertThat(transactions.commits).isZero();
+        assertThat(transactions.rollbacks).isZero();
+    }
+
+    @Test
+    void shouldLockTheWholeSelection_beforeReadingMergeState() {
+        assertThat(merge("10", "12", "10", "11")).isEqualTo("success");
+
+        var order = inOrder(demographicDao, dao);
+        order.verify(demographicDao).findForUpdate(10);
+        order.verify(demographicDao).findForUpdate(11);
+        order.verify(demographicDao).findForUpdate(12);
+        order.verify(dao).findCurrentByDemographicNo(12);
+    }
+
+    @Test
+    void shouldRollBackTheBatch_whenALaterMergeWriteFails() {
+        int[] writes = {0};
+        doAnswer(invocation -> {
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
+            if (++writes[0] == 2) {
+                throw new DataIntegrityViolationException("Synthetic second-write failure");
+            }
+            return null;
+        }).when(dao).persist(any());
+
+        assertThatThrownBy(() -> merge("10", "10", "11", "12"))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        assertThat(writes[0]).isEqualTo(2);
+        assertThat(transactions.rollbacks).isEqualTo(1);
+        assertThat(transactions.commits).isZero();
+    }
+
+    @Test
+    void shouldRollBackTheBatch_whenItsAuditWriteFails() {
+        logActionMock.when(() -> LogAction.addLogStrict(any(LoggedInInfo.class), anyString(), anyString(),
+                anyString(), anyString(), anyString()))
+                .thenThrow(new DataIntegrityViolationException("Synthetic audit failure"));
+
+        assertThatThrownBy(() -> merge("10", "10", "11"))
+                .isInstanceOf(DataIntegrityViolationException.class);
+
+        verify(dao).persist(any());
+        verify(privilegeDao).persist(any());
+        assertThat(transactions.rollbacks).isEqualTo(1);
+        assertThat(transactions.commits).isZero();
+    }
+
+    @ParameterizedTest
+    @CsvSource({"10, 99, 11", "10, 11, 99", "99, 10, 11"})
+    void shouldRejectWithoutWrites_whenAnySelectedPatientDoesNotExist(String head, String first, String last) {
+        assertThat(merge(head, head, first, last)).isEqualTo("failure");
+        assertThat(request.getAttribute("mergeoutcome")).isEqualTo("failure");
+
+        verify(dao, never()).persist(any());
+        verifyNoInteractions(privilegeDao, recycleBinDao);
+        logActionMock.verifyNoInteractions();
+    }
+
+    @ParameterizedTest
+    @CsvSource({"10, 0", "10, -1", "0, 11", "-1, 11"})
+    void shouldRejectWithoutWrites_whenAnySelectedIdIsNotPositive(String head, String source) {
+        assertThat(merge(head, head, source)).isEqualTo("failure");
+
+        verify(dao, never()).persist(any());
+        verifyNoInteractions(privilegeDao, recycleBinDao);
+    }
+
+    @Test
+    void shouldKeepTheCaisiFailureOutcome_whenASelectedPatientDoesNotExist() {
+        request.setParameter("caisiSearch", "yes");
+
+        assertThat(merge("10", "10", "11", "99")).isEqualTo("caisiSearch");
+        assertThat(request.getAttribute("mergeoutcome")).isEqualTo("failure");
+
+        verify(dao, never()).persist(any());
+        verifyNoInteractions(privilegeDao, recycleBinDao);
     }
 
     @Test
@@ -133,7 +274,7 @@ class DemographicMergeRecord2ActionMergeUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldRejectWholeRequest_beforeWritingAnything_whenLaterRecordIsMerged() {
+    void shouldRejectWholeRequest_whenALaterRecordIsAlreadyMerged() {
         alreadyMerged(12, 20);
 
         assertThat(merge("10", "10", "11", "12")).isEqualTo("failure");

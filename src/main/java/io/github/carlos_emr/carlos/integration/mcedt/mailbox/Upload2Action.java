@@ -28,6 +28,8 @@
  */
 package io.github.carlos_emr.carlos.integration.mcedt.mailbox;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import ca.ontario.health.edt.*;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -195,7 +197,7 @@ public class Upload2Action extends ActionSupport implements UploadedFilesAware {
                 return SUCCESS;
 
             } catch (Exception e) {
-                logger.error("Unable to upload to MCEDT", e);
+                logger.error("Unable to upload to MCEDT: {}", LogSafe.exceptionTrace(e));
 
                 String errorMessage = McedtMessageCreator.exceptionToString(e);
                 addActionError(getText("uploadAction.upload.failure", new String[]{errorMessage}));
@@ -231,7 +233,7 @@ public class Upload2Action extends ActionSupport implements UploadedFilesAware {
                 ActionUtils.setUploadResourceId(request, new BigInteger("-1"));
                 return SUCCESS;
             } catch (Exception e) {
-                logger.error("Unable to submit", e);
+                logger.error("Unable to submit: {}", LogSafe.exceptionTrace(e));
 
                 String errorMessage = McedtMessageCreator.exceptionToString(e);
                 addActionError(getText("uploadAction.submit.failure", new String[]{errorMessage}));
@@ -321,12 +323,12 @@ public class Upload2Action extends ActionSupport implements UploadedFilesAware {
                 addActionError(getText("uploadAction.submit.failure", new String[]{McedtMessageCreator.stringListToString(failSubmits)}));
 
         } catch (IOException e) {
-            logger.error("An IO Exception has occured while moving the files to the sent folder at " + new Date(), e);
+            logger.error("I/O failure moving files to the sent folder: {}", LogSafe.exceptionTrace(e));
 
             String errorMessage = McedtMessageCreator.exceptionToString(e);
             addActionError(getText("uploadAction.upload.submit.failure", new String[]{errorMessage}));
         } catch (Exception e) {
-            logger.error("Unable to Upload/Submit file", e);
+            logger.error("Unable to Upload/Submit file: {}", LogSafe.exceptionTrace(e));
 
             String errorMessage = McedtMessageCreator.exceptionToString(e);
             addActionError(getText("uploadAction.upload.submit.failure", new String[]{errorMessage}));
@@ -345,7 +347,7 @@ public class Upload2Action extends ActionSupport implements UploadedFilesAware {
             }
 
         } catch (Exception e) {
-            logger.error("Unable to Delete file", e);
+            logger.error("Unable to Delete file: {}", LogSafe.exceptionTrace(e));
 
             String errorMessage = McedtMessageCreator.exceptionToString(e);
             addActionError(getText("uploadAction.upload.submit.failure", new String[]{errorMessage}));
@@ -379,13 +381,13 @@ public class Upload2Action extends ActionSupport implements UploadedFilesAware {
                 outputStream.close();
                 addActionMessage(getText("uploadAction.upload.add.success", new String[]{this.getFileName() + " is succesfully added to the uploads list!"}));
             } catch (IOException e) {
-                logger.error("An error has occured with the addUpload file at " + new Date(), e);
+                logger.error("An error has occured with the addUpload file at  {}" + new Date(), LogSafe.exceptionTrace(e));
 
                 String errorMessage = McedtMessageCreator.exceptionToString(e);
                 addActionError(getText("uploadAction.upload.add.failure", new String[]{errorMessage}));
                 return "failure";
             } catch (Exception e) {
-                logger.error("Unable to Add file upload", e);
+                logger.error("Unable to Add file upload: {}", LogSafe.exceptionTrace(e));
 
                 String errorMessage = McedtMessageCreator.exceptionToString(e);
                 addActionError(getText("uploadAction.upload.add.failure", new String[]{errorMessage}));
@@ -410,7 +412,7 @@ public class Upload2Action extends ActionSupport implements UploadedFilesAware {
             fis.close();
             result.setContent(data);
         } catch (Exception e) {
-            logger.error("Unable to read upload file", e);
+            logger.error("Unable to read upload file: {}", LogSafe.exceptionTrace(e));
 
             throw new RuntimeException("Unable to read upload file", e);
         }
@@ -436,7 +438,7 @@ public class Upload2Action extends ActionSupport implements UploadedFilesAware {
                     result.setContent(data);
                     results.add(result);
                 } catch (Exception e) {
-                    logger.error("Unable to read upload file", e);
+                    logger.error("Unable to read upload file: {}", LogSafe.exceptionTrace(e));
 
                     throw new RuntimeException("Unable to read upload file", e);
                 }

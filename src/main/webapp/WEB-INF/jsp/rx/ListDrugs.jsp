@@ -38,17 +38,17 @@
 
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@ page import="io.github.carlos_emr.CarlosProperties,io.github.carlos_emr.carlos.log.*" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo,io.github.carlos_emr.carlos.commn.dao.DrugReasonDao,io.github.carlos_emr.carlos.commn.model.DrugReason" %>
 <%@page import="io.github.carlos_emr.carlos.util.*,java.util.*,io.github.carlos_emr.carlos.commn.model.Drug,io.github.carlos_emr.carlos.commn.dao.*" %>
 <%@page import="io.github.carlos_emr.carlos.managers.CodingSystemManager" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>

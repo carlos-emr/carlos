@@ -30,10 +30,10 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ page import="java.util.*,java.io.*,io.github.carlos_emr.carlos.lab.ca.all.util.KeyPairGen" %>
+<%@ page import="java.io.*, io.github.carlos_emr.carlos.lab.ca.all.util.KeyPairGen" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
@@ -183,7 +183,7 @@
                                 <%
                                         } else {
                                 %>
-                                    <font color="red"><carlos:encode value='<%= message %>' context="html"/></font>
+                                    <span style="color: red;"><carlos:encode value='<%= message %>' context="html"/></span>
                                 <%
                                         }
                                     }
@@ -206,11 +206,11 @@
             <td>
                 <table>
                     <tr>
-                        <td>Your service name:</td>
+                        <td><label for="name">Your service name:</label></td>
                         <td><input type="text" id="name" name="name"></td>
                     </tr>
                     <tr>
-                        <td>Lab type:</td>
+                        <td><label for="selection">Lab type:</label></td>
                         <td><select name="type" id="selection" onClick="selectOther()">
                             <option value="ALPHA">ALPHA</option>
                             <option value="CML">CML</option>
@@ -239,7 +239,7 @@
                         </select></td>
                     </tr>
                     <tr id="OTHER" style="visibility: hidden;">
-                        <td>Please specify the other message type:</td>
+                        <td><label for="otherType">Please specify the other message type:</label></td>
                         <td><input type="text" id="otherType" name="otherType"></td>
                     </tr>
                 </table>

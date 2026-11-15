@@ -17,6 +17,7 @@
  * seeded for another provider). Cleanup deletes only marker rows and asserts they are gone.
  * Implements docs/ui-tests/playwright-coverage-plan-2026.08.md §3.6 report-query-by-example.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const fs = require('node:fs');
 const path = require('node:path');
 const h = require('./lib/playwright-harness');
@@ -173,8 +174,7 @@ async function workflow(s) {
     h.assert(/^[1-9]\d*$/.test(favouriteId), 'The favourite did not reach the database');
     h.assert(sql.value(`SELECT COUNT(*) FROM reportByExamplesFavorite WHERE name=${h.sqlString(favouriteName)}`) === '1', 'The favourite was stored more than once');
     h.assert(sql.value(`SELECT query FROM reportByExamplesFavorite WHERE id=${favouriteId}`) === query, 'The favourite stored a different query text');
-    const rejected = await context.request.get(h.appUrl(config.baseUrl, '/oscarReport/RptByExamplesFavorite'),
-      {params: {toDelete: 'true', id: favouriteId}, maxRedirects: 0});
+    const rejected = await authenticatedProbe({context, config}, h.appUrl(config.baseUrl, '/oscarReport/RptByExamplesFavorite'), {params: {toDelete: 'true', id: favouriteId}, maxRedirects: 0});
     h.assert(rejected.status() === 405 && rejected.headers().allow === 'POST', 'GET of the favourite mutator was not rejected with Allow: POST');
     h.assert(sql.value(`SELECT COUNT(*) FROM reportByExamplesFavorite WHERE id=${favouriteId}`) === '1', 'A rejected GET deleted the favourite');
     const reloaded = admin.waitForEvent('framenavigated', {predicate: candidate => candidate === frame, timeout: TIMEOUT});

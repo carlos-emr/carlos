@@ -31,15 +31,7 @@
 --%>
 
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="
-      java.util.*,
-      java.io.*,
-      java.net.*,
-      org.apache.commons.io.FileUtils,
-      org.owasp.encoder.Encode,
-      io.github.carlos_emr.CarlosProperties,
-      io.github.carlos_emr.carlos.util.FileSortByDate
-" %>
+<%@ page import="java.util.*, java.io.*, java.net.*, org.apache.commons.io.FileUtils, io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.util.FileSortByDate" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>

@@ -41,6 +41,8 @@ import io.github.carlos_emr.carlos.commn.model.EFormData;
 
 public interface EFormDataDao extends AbstractDao<EFormData> {
 
+    List<EFormListingRow> findLegacyPatientFormsInGroup(Boolean current, int demographicNo, String group, String sort);
+
     public static final String SORT_NAME = "form_name";
     public static final String SORT_SUBJECT = "subject";
 

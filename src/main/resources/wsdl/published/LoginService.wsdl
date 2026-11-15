@@ -1,0 +1,149 @@
+<?xml version='1.0' encoding='UTF-8'?><wsdl:definitions xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:tns="http://ws.oscarehr.org/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:ns1="http://schemas.xmlsoap.org/soap/http" name="LoginWsService" targetNamespace="http://ws.oscarehr.org/">
+  <wsdl:types>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:ns0="http://ws.oscarehr.org/" attributeFormDefault="unqualified" elementFormDefault="unqualified" targetNamespace="http://ws.oscarehr.org/">
+  <xsd:complexType name="login">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="arg0" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="arg1" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="login2">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="arg0" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="arg1" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="login2Response">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="return" type="ns0:loginResultTransfer2"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="loginResponse">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="return" type="ns0:loginResultTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="loginResultTransfer">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="securityId" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="securityTokenKey" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="loginResultTransfer2">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="provider" type="ns0:providerTransfer"/>
+      <xsd:element minOccurs="0" name="securityId" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="securityTokenKey" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="providerTransfer">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="address" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="billingNo" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="comments" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="dob" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="email" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="firstName" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="hsoNo" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="lastName" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="ohipNo" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="phone" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="practitionerNo" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="practitionerNoType" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="providerActivity" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="providerNo" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="providerType" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="rmaNo" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="sex" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="signedConfidentiality" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="specialty" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="status" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="team" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="title" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="workPhone" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:element name="login" type="ns0:login"/>
+  <xsd:element name="login2" type="ns0:login2"/>
+  <xsd:element name="login2Response" type="ns0:login2Response"/>
+  <xsd:element name="loginResponse" type="ns0:loginResponse"/>
+  <xsd:element name="NotAuthorisedException" type="ns0:NotAuthorisedException"/>
+  <xsd:element name="providerTransfer" type="ns0:providerTransfer"/>
+  <xsd:complexType name="NotAuthorisedException">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="message" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+</xsd:schema>
+  </wsdl:types>
+  <wsdl:message name="login">
+    <wsdl:part element="tns:login" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="login2">
+    <wsdl:part element="tns:login2" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="login2Response">
+    <wsdl:part element="tns:login2Response" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="NotAuthorisedException">
+    <wsdl:part element="tns:NotAuthorisedException" name="NotAuthorisedException">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="loginResponse">
+    <wsdl:part element="tns:loginResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:portType name="LoginWs">
+    <wsdl:operation name="login">
+      <wsdl:input message="tns:login" name="login">
+    </wsdl:input>
+      <wsdl:output message="tns:loginResponse" name="loginResponse">
+    </wsdl:output>
+      <wsdl:fault message="tns:NotAuthorisedException" name="NotAuthorisedException">
+    </wsdl:fault>
+    </wsdl:operation>
+    <wsdl:operation name="login2">
+      <wsdl:input message="tns:login2" name="login2">
+    </wsdl:input>
+      <wsdl:output message="tns:login2Response" name="login2Response">
+    </wsdl:output>
+      <wsdl:fault message="tns:NotAuthorisedException" name="NotAuthorisedException">
+    </wsdl:fault>
+    </wsdl:operation>
+  </wsdl:portType>
+  <wsdl:binding name="LoginWsServiceSoapBinding" type="tns:LoginWs">
+    <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <wsdl:operation name="login">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="login">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="loginResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+      <wsdl:fault name="NotAuthorisedException">
+        <soap:fault name="NotAuthorisedException" use="literal"/>
+      </wsdl:fault>
+    </wsdl:operation>
+    <wsdl:operation name="login2">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="login2">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="login2Response">
+        <soap:body use="literal"/>
+      </wsdl:output>
+      <wsdl:fault name="NotAuthorisedException">
+        <soap:fault name="NotAuthorisedException" use="literal"/>
+      </wsdl:fault>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:service name="LoginWsService">
+    <wsdl:port binding="tns:LoginWsServiceSoapBinding" name="LoginWsPort">
+      <soap:address location="http://127.0.0.1:18080/carlos/ws/LoginService"/>
+    </wsdl:port>
+  </wsdl:service>
+</wsdl:definitions>

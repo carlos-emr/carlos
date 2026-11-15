@@ -76,7 +76,7 @@ public class SiteDaoImpl extends AbstractDaoImpl<Site> implements SiteDao {
                 query.setParameter(2, old.getName());
                 query.executeUpdate();
 
-                query = entityManager.createNativeQuery("update appointment set location = ?1 where location = ?2");
+                query = entityManager.createNativeQuery("update appointment set location = ?1, updatedatetime = greatest(current_timestamp, coalesce(timestampadd(second, 1, updatedatetime), current_timestamp)) where location = ?2");
                 query.setParameter(1, s.getName());
                 query.setParameter(2, old.getName());
                 query.executeUpdate();

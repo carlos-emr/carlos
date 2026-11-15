@@ -34,24 +34,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.PatientLabRouting" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao" %>
-<%@ page import="java.util.*,
-                 java.sql.*,
-                 io.github.carlos_emr.carlos.db.*,
-                 io.github.carlos_emr.carlos.lab.ca.all.*,
-                 io.github.carlos_emr.carlos.lab.ca.all.util.*,
-                 io.github.carlos_emr.carlos.utility.SpringUtils,
-                 io.github.carlos_emr.carlos.lab.ca.all.parsers.*,
-                 io.github.carlos_emr.carlos.lab.LabRequestReportLink,
-                 io.github.carlos_emr.carlos.mds.data.ReportStatus,
-                 io.github.carlos_emr.carlos.log.*,
-                 io.github.carlos_emr.CarlosProperties,
-                 org.apache.commons.codec.binary.Base64,
-                 io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao,
-                 io.github.carlos_emr.carlos.commn.model.Hl7TextInfo,
-                 io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO,
-                 io.github.carlos_emr.carlos.commn.model.UserProperty,
-                 javax.swing.text.rtf.RTFEditorKit,
-                 java.io.ByteArrayInputStream" %>
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.carlos.lab.ca.all.*, io.github.carlos_emr.carlos.utility.SpringUtils, io.github.carlos_emr.carlos.lab.ca.all.parsers.*, io.github.carlos_emr.carlos.lab.LabRequestReportLink, io.github.carlos_emr.carlos.mds.data.ReportStatus, io.github.carlos_emr.carlos.log.*, io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao, io.github.carlos_emr.carlos.commn.model.Hl7TextInfo, io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO, io.github.carlos_emr.carlos.commn.model.UserProperty, javax.swing.text.rtf.RTFEditorKit, java.io.ByteArrayInputStream" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Tickler" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
@@ -63,7 +46,7 @@
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.AcknowledgementData" %>
 <%@ page import="java.net.URLEncoder" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.EmbeddedLabDocumentLoader" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.service.LabPdfPreviewSettings" %>
@@ -73,10 +56,10 @@
 <fmt:setLocale value="<%= LocaleUtils.resolveBundleLocale(request) %>"/>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProperties" %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -173,7 +156,9 @@
         }
     }
 
-    String multiLabId = Hl7textResultsData.getMatchingLabs(segmentID);
+    Hl7textResultsData.DisplayLabVersions displayVersions = Hl7textResultsData.getMatchingLabsForDisplay(segmentID);
+    String multiLabId = displayVersions.labIds();
+    boolean cmlVersionChainUnavailable = !displayVersions.reliable();
 
     MessageHandler handler = Factory.getHandler(segmentID);
     // Inline preview of PDFs embedded in HL7 ED results (#3977): read the lab display
@@ -406,6 +391,10 @@
     };
 </script>
 <div id="labdoc_<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>">
+    <% if (cmlVersionChainUnavailable) { %>
+    <div class="alert alert-warning" role="alert" data-carlos-cml-chain="unavailable"><fmt:message key="cml.versionChain.unavailable"/></div>
+    <fieldset disabled style="border:0;margin:0;padding:0;">
+    <% } %>
     <!-- form forwarding of the lab -->
     <form name="reassignForm_<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>" method="post">
         <input type="hidden" name="flaggedLabs" value="<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>"/>
@@ -1405,4 +1394,5 @@ bgcolor="#003399">
         </table>
     </form>
 
+    <% if (cmlVersionChainUnavailable) { %></fieldset><% } %>
 </div>

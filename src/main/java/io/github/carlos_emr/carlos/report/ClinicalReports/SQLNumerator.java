@@ -30,18 +30,16 @@
 
 package io.github.carlos_emr.carlos.report.ClinicalReports;
 
-import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.report.data.ConfiguredReportQuery;
 
 /**
  * The class should evaluate a query that has a count returned.  If the count is = 0 then false is returned if >0 is returned true
@@ -108,19 +106,13 @@ public class SQLNumerator implements Numerator {
             Object[] params = buildParams(sql, processString, demographicNo);
             String paramSql = parameterizedSqlForProcessString();
             MiscUtils.getLogger().debug("SQL Statement: " + sql);
-            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
-                    LegacyJdbcQuery.trustedReportSelectSql(paramSql), params)) {
-                while (rs.next()) {
-                    int count = rs.getInt(identifier);
-                    if (count > 0) {
-
-                        evalTrue = true;
-                    }
-                }
+            for (var row : ConfiguredReportQuery.read(paramSql, params).rows()) {
+                if (row.integer(identifier) > 0) evalTrue = true;
             }
             MiscUtils.getLogger().debug("demo " + demographicNo + " eval: " + evalTrue);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("Clinical report numerator query failed", e);
+            throw new IllegalStateException("Clinical report could not be completed; narrow the filters or retry", e);
         }
 
         return evalTrue;
@@ -140,22 +132,19 @@ public class SQLNumerator implements Numerator {
             Object[] params = buildParams(sql, processString, demographicNo);
             String paramSql = parameterizedSqlForProcessString();
             MiscUtils.getLogger().debug("SQL Statement: " + sql);
-            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
-                    LegacyJdbcQuery.trustedReportSelectSql(paramSql), params)) {
-                if (rs.next()) {
-                    evalTrue = true;
-                    if (outputfields != null) {
-                        outputValues = new Hashtable();
-                        for (int i = 0; i < outputfields.length; i++) {
-                            outputValues.put(outputfields[i], Misc.getString(rs, outputfields[i]));
-                        }
-                        outputValues.put("_evaluation", Boolean.valueOf(evalTrue));
-                    }
+            var rows = ConfiguredReportQuery.readFirst(paramSql, params).rows();
+            if (!rows.isEmpty()) {
+                evalTrue = true;
+                if (outputfields != null) {
+                    outputValues = new Hashtable();
+                    for (String field : outputfields) outputValues.put(field, rows.get(0).text(field));
+                    outputValues.put("_evaluation", Boolean.TRUE);
                 }
             }
             MiscUtils.getLogger().debug("demo " + demographicNo + " eval: " + evalTrue);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("Clinical report numerator query failed", e);
+            throw new IllegalStateException("Clinical report could not be completed; narrow the filters or retry", e);
         }
 
         return evalTrue;
