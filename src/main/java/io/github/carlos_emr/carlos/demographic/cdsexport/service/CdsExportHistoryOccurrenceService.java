@@ -24,7 +24,6 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl;
-import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException;
 import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException;
 import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import java.io.IOException;
@@ -1154,9 +1153,12 @@ public class CdsExportHistoryOccurrenceService {
                 // facts in every revision's native context. The legacy exporter excluded these
                 // and never exported a bare issue.
                 if (!categories.isEmpty()) continue;
-                // Without a note there is nothing clinical to carry and no honest wire home.
-                throw new CdsExportMappingReviewException(
-                        "CDS_EXPORT_NATIVE_SYSTEM_ISSUE_WITHOUT_NOTE_REQUIRES_REVIEW");
+                // A marker that files no note has no item to travel with. It is written as no
+                // CDS item: the chart's native issue record carries its rows exactly
+                // (CdsExportIssueMarkerMapper, see markers()), and a CARLOS importer restores it.
+                // It held the patient (CDS_EXPORT_NATIVE_SYSTEM_ISSUE_WITHOUT_NOTE_REQUIRES_REVIEW).
+                definitions.add(definition);
+                continue;
             }
             // A diagnosis linked to a CPP item is that item's coded diagnosis (FamilyHistory,
             // PastHealth, ProblemList) or part of its native issue context: a standalone problem
@@ -1181,6 +1183,30 @@ public class CdsExportHistoryOccurrenceService {
                         .thenComparing(Occurrence::table)
                         .thenComparing(Occurrence::nativeId));
         checkpoint.run();
+        return List.copyOf(result);
+    }
+
+    /**
+     * The patient issues of system markers (a CPP section tag, OMeds, TicklerNote, ...) that no
+     * captured note revision links, in id order: {@link #plan} gives them no history occurrence,
+     * and the chart's native issue record carries them (CdsExportIssueMarkerMapper). Decided from
+     * the chart-wide facts, so the same whether the chart is held whole or read in windows.
+     */
+    static List<String> markers(CdsExportHistoryCurrentContext context, Runnable checkpoint)
+            throws IOException {
+        var linked = new HashSet<String>();
+        for (long note : context.noteIds()) {
+            checkpoint.run();
+            linked.addAll(context.linkedIssues(note));
+        }
+        var result = new ArrayList<String>();
+        for (String id : context.patientIssueIds()) {
+            checkpoint.run();
+            String definition = context.definitionOf(id);
+            if (definition == null || !context.hasDefinition(definition)) invalid();
+            if (context.systemDefinition(definition) && !linked.contains(id)) result.add(id);
+        }
+        result.sort(Comparator.comparingLong(Long::parseLong));
         return List.copyOf(result);
     }
 

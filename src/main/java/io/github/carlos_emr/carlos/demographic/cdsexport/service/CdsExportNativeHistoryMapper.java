@@ -1067,7 +1067,7 @@ public final class CdsExportNativeHistoryMapper {
     }
 
     /** A program value that scopes a record; SQL NULL, empty and {@code 0} carry no program. */
-    private static boolean scopedProgram(String program) {
+    static boolean scopedProgram(String program) {
         return program != null && !program.isEmpty() && !program.equals("0");
     }
 

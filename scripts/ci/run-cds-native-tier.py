@@ -54,6 +54,7 @@ CLASSES = (
     'CdsImportCoordinatorMariaDbIntegrationTest',
     'CdsClinicalStorageMariaDbIntegrationTest', 'CdsAppointmentStorageMariaDbIntegrationTest',
     'CdsHistoryVisibilityMariaDbIntegrationTest', 'CdsDemographicStorageMariaDbIntegrationTest',
+    'CdsNativeIssuesMariaDbIntegrationTest',
     'CdsReportStorageMariaDbIntegrationTest',
     'CdsHrmRepairAdmissionMariaDbIntegrationTest',
     'CdsReviewAcceptanceMariaDbIntegrationTest',

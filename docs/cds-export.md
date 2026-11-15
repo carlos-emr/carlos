@@ -5039,15 +5039,33 @@ the stored number travels in the revision details (`providerNo`, `signingProvide
 `NATIVE_PROVIDER_NUMBER_WITHOUT_PROVIDER_RECORD_CARRIED`). A sending CARLOS provider number is
 local to the sender and is never restored, as a primary physician's is not.
 
+A CPP section tag or another system marker (`OMeds`, `TicklerNote`, ...) with no note is
+carried and restored. Administration's default encounter issues can create these rows when an
+encounter opens. Each current marker has one `CARLOS.NativeIssues.v1` NewCategory record with
+`CARLOS.Issues.v1` string content: `{"version":1,"casemgmt_issue":{...},"issue":{...}}`.
+All stored patient and catalogue columns except local identities travel exactly; omitted members
+mean SQL NULL. JSON escapes preserve XML-illegal characters and whitespace. No ProblemList or
+ClinicalNotes item is invented. Another EMR need not interpret this CARLOS extension.
+
+The marker inventory is independent of emission and visits the captured rows in windows. All
+history categories and NewCategory must be selected so the exporter can prove that no note files
+the marker. Otherwise the marker is listed in the patient's ReadMe as not exported. Each emitted
+marker is checked against its complete row witnesses and fresh category/program authorization.
+There is no marker-count ceiling: each record has its own small import unit and target receipt.
+Merged members therefore contribute their own records without any last-record selection.
+
+On re-export, a prior carrier whose import receipt names a restored marker is preserved under
+`CARLOS.NativeIssues.Source.v1`, with its payload unchanged and the CategoryName replacement
+accounted in the field receipt. Current native rows alone produce restorable carriers. This also
+applies when history categories are excluded, so a deleted or excluded marker cannot return from
+an earlier carrier. The importer binds each marker to one compatible receiving catalogue code,
+requires the same type and access role, remaps restricted programs to the explicitly selected
+receiving program, and preserves flags, type and change time. It never edits the shared catalogue.
+Missing or ambiguous catalogue mappings, missing restricted-program mappings, malformed content
+and catalogue changes between preparation and write fail explicitly before a partial row is saved.
+
 What still holds a chart in the native history and issue mapping, and why:
 
-- A CPP section tag or other system marker (OMeds, TicklerNote, ...) that files no note
-  (`CDS_EXPORT_NATIVE_SYSTEM_ISSUE_WITHOUT_NOTE_REQUIRES_REVIEW`). Reachable: Administration's
-  default encounter issues create the patient issue of every code an administrator lists, with no
-  note, when an encounter opens (`EctIncomingEncounter2Action.assignDefaultIssues`, with
-  `wl_default_issue`), and a marker code can be listed. It is not settled: the marker states
-  nothing clinical and has no item to travel with, and a ProblemList item for it would file an
-  invented note in a receiving CARLOS.
 - A patient issue of a program the exporting identities do not work in that no exported note
   links (`CDS_EXPORT_NATIVE_ISSUE_PROGRAM_REQUIRES_REVIEW`): an authorization outcome, as a
   prevention or document of another program is (`PREVENTION_PROGRAM_SCOPE`,

@@ -272,4 +272,94 @@ class CdsHistoryProjectionIntegrationTest extends CaseManagementNoteDaoBaseInteg
                 directory, "fixture", "999998", 1, null, "synthetic", "omd-5.2", false, false,
                 false, 0, null, false);
     }
+    @Test
+    void shouldRestoreTheSameMarkerRowsAndClock_afterExportImportAndReexport() throws Exception {
+        var definition = createIssue("CDSMarkerFixture", "Exact  marker\t");
+        definition.setType("system");
+        definition.setRole("all");
+        definition.setPriority(null);
+        issueDAO.saveIssue(definition);
+        var source = new io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue();
+        source.setDemographic_no(27);
+        source.setIssue_id(definition.getId());
+        source.setType("general  ");
+        source.setAcute(true);
+        source.setMajor(true);
+        source.setCertain(false);
+        source.setResolved(false);
+        source.setProgram_id(null);
+        source.setUpdate_date(java.sql.Timestamp.valueOf("2026-09-01 12:34:56"));
+        caseManagementIssueDAO.insertCdsMarker(source);
+        hibernateTemplate.flush();
+        entityManager.clear();
+        var before = markerRow(source.getId());
+        var catalogue = catalogueRow(definition.getId());
+        var xml = io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNativeHistoryFixture
+                .markerDocument(before, catalogue);
+        var records = new java.util.ArrayList<io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto>();
+        new CdsXmlParser().parse(java.nio.file.Files.write(directory.resolve("marker.xml"), xml),
+                directory.resolve("marker-parsed"),
+                io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsInputLimitsDto.defaults(),
+                () -> false, records::add);
+        var record = records.stream().filter(r -> r.section().equals("NewCategory")).findFirst().orElseThrow();
+        var preparation = mock(CdsNativePreparationService.class);
+        var prepared = new AtomicReference<io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsNativeIssuesDto>();
+        doAnswer(call -> { prepared.set(call.getArgument(5)); return null; }).when(preparation)
+                .store(anyString(), anyLong(), anyString(), anyString(), any(), any());
+        when(preparation.load(anyString(), anyLong(), anyString(), anyString(), any(),
+                eq(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsNativeIssuesDto.class)))
+                .thenAnswer(call -> prepared.get());
+        var writer = new CdsNativeIssuesImportService(new CdsFieldParser(), preparation,
+                caseManagementIssueDAO, issueDAO);
+        var command = new CdsImportCommand(directory, "marker-round-trip", "999998", null,
+                null, "synthetic-fixture", "omd-5.2", false, false, false, 0, null, false);
+        writer.prepare("run", 1, "unit", record, command, null, "marker.xml");
+        var references = writer.write("run", 1, "unit", 974234, record, command);
+        hibernateTemplate.flush();
+        entityManager.clear();
+        var after = markerRow(Long.parseLong(references.get("casemgmt_issue")));
+        assertThat(after.get("id")).isNotEqualTo(before.get("id"));
+        assertThat(after.get("demographic_no")).isEqualTo("974234");
+        var expected = new java.util.LinkedHashMap<>(before);
+        expected.put("id", after.get("id"));
+        expected.put("demographic_no", "974234");
+        assertThat(after).containsExactlyInAnyOrderEntriesOf(expected);
+        assertThat(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNativeHistoryFixture
+                .markerDocument(after, catalogueRow(definition.getId()))).isEqualTo(xml);
+        assertThat(caseManagementIssueDAO.getIssuesByDemographic("974234"))
+                .filteredOn(issue -> issue.getId().equals(Long.valueOf(references.get("casemgmt_issue"))))
+                .hasSize(1);
+    }
+
+    private java.util.Map<String, String> markerRow(long id) {
+        var row = caseManagementIssueDAO.findById(id);
+        var values = new java.util.LinkedHashMap<String, String>();
+        values.put("id", row.getId().toString());
+        values.put("demographic_no", row.getDemographic_no().toString());
+        values.put("issue_id", Long.toString(row.getIssue_id()));
+        values.put("type", row.getType());
+        values.put("acute", row.isAcute() ? "1" : "0");
+        values.put("certain", row.isCertain() ? "1" : "0");
+        values.put("major", row.isMajor() ? "1" : "0");
+        values.put("resolved", row.isResolved() ? "1" : "0");
+        values.put("program_id", row.getProgram_id() == null ? null : row.getProgram_id().toString());
+        values.put("update_date", new java.sql.Timestamp(row.getUpdate_date().getTime()).toString());
+        return values;
+    }
+
+    private java.util.Map<String, String> catalogueRow(long id) {
+        var row = issueDAO.findCandidatesByCode("CDSMarkerFixture").getFirst();
+        assertThat(row.getId()).isEqualTo(id);
+        var values = new java.util.LinkedHashMap<String, String>();
+        values.put("issue_id", row.getId().toString());
+        values.put("code", row.getCode());
+        values.put("description", row.getDescription());
+        values.put("role", row.getRole());
+        values.put("type", row.getType());
+        values.put("priority", row.getPriority());
+        values.put("sortOrderId", row.getSortOrderId().toString());
+        values.put("update_date", new java.sql.Timestamp(row.getUpdate_date().getTime()).toString());
+        return values;
+    }
+
 }

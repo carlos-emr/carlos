@@ -107,6 +107,10 @@ public interface CaseManagementIssueDAO extends io.github.carlos_emr.carlos.comm
      */
     public void saveIssue(CaseManagementIssue issue);
 
+    /** Inserts a new CDS-restored marker with its source change time; never updates an existing row. */
+    void insertCdsMarker(CaseManagementIssue issue);
+
+
     public List<CaseManagementIssue> getAllCertainIssues();
 
     public List<Integer> getIssuesByProgramsSince(Date date, List<Program> programs);

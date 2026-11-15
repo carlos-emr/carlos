@@ -22,21 +22,11 @@
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionContract;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsFieldDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputException;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsPaths;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.UncheckedIOException;
-import java.nio.file.Files;
-import java.nio.file.LinkOption;
-import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -61,7 +51,6 @@ import java.util.Set;
  * seal), and the document is read as a stream, so only the note is ever held.
  */
 final class CdsDemographicResidualReader {
-    private static final ObjectMapper JSON = new ObjectMapper();
     private final CdsFieldParser fields;
 
     CdsDemographicResidualReader(CdsFieldParser fields) {
@@ -210,96 +199,12 @@ final class CdsDemographicResidualReader {
      * parse, or null when there is none.
      */
     private CdsRecordDto last(CdsRecordDto demographics) throws IOException {
-        Path folder = demographics.valuesFile().toAbsolutePath().getParent();
-        if (folder == null) return null;
-        Path manifest = folder.resolve("records.jsonl"), seal = folder.resolve("parse.seal");
-        if (!Files.isRegularFile(manifest, LinkOption.NOFOLLOW_LINKS)
-                || !Files.isRegularFile(seal, LinkOption.NOFOLLOW_LINKS)) return null;
-        String sealed =
-                JSON.readTree(CdsImportJobService.boundedFile(seal, 65536))
-                        .path("recordsSha256")
-                        .asText();
-        MessageDigest digest = CdsPaths.sha256();
-        try (InputStream input = Files.newInputStream(manifest, LinkOption.NOFOLLOW_LINKS)) {
-            byte[] buffer = new byte[65536];
-            for (int read; (read = input.read(buffer)) >= 0; ) digest.update(buffer, 0, read);
-        }
-        if (!CdsPaths.hex(digest.digest()).equals(sealed))
-            throw new CdsImportException("PARSED_METADATA_HASH_MISMATCH");
-        CdsRecordDto[] last = {null};
-        try {
-            fields.forEachRecord(
-                    manifest,
-                    listed -> {
-                        if (!listed.section().equals("NewCategory")) return;
-                        // Reviewed corrections are accepted once for the whole patient file.
-                        CdsRecordDto record =
-                                listed.corrections() == null && demographics.corrections() != null
-                                        ? listed.withCorrections(demographics.corrections())
-                                        : listed;
-                        try {
-                            if (named(record)) last[0] = record;
-                        } catch (IOException failure) {
-                            throw new UncheckedIOException(failure);
-                        }
-                    });
-        } catch (UncheckedIOException failure) {
-            throw failure.getCause();
-        }
-        return last[0];
+        return new CdsPatientSourceRecordReader(fields)
+                .last(demographics, CdsNativeExtensionContract.NATIVE_DEMOGRAPHIC_CATEGORY);
     }
 
-    private boolean named(CdsRecordDto record) throws IOException {
-        try {
-            return CdsNativeExtensionContract.NATIVE_DEMOGRAPHIC_CATEGORY.equals(
-                    fields.firstToken(record, "CategoryName", 64));
-        } catch (CdsInputException capacity) {
-            if (!capacity.code().equals("CDS_TARGET_TEXT_CAPACITY_EXCEEDED")) throw capacity;
-            return false; // A longer name cannot equal the exact category name.
-        }
-    }
-
-    /**
-     * @return the Content field of the record's one {@code CARLOS.Demographic.v1} string
-     *     element, or null when it has none, several, or one of another shape
-     */
     private CdsFieldDto content(CdsRecordDto record) throws IOException {
-        Map<String, Map<String, CdsFieldDto>> elements = new HashMap<>();
-        boolean[] malformed = {false};
-        fields.forEachField(
-                record,
-                field -> {
-                    if (!Set.of("cds", "cds_dt").contains(field.namespace())) return;
-                    int slash = field.path().lastIndexOf('/');
-                    if (slash < 0) return;
-                    String parent = field.path().substring(0, slash);
-                    if (!CdsFieldParser.unindexed(parent).equals("ResidualInfo/DataElement"))
-                        return;
-                    String leaf = CdsFieldParser.unindexed(field.path().substring(slash + 1));
-                    if (!Set.of("Name", "DataType", "Content").contains(leaf)) return;
-                    if (!field.kind().equals("TEXT")
-                            || elements.computeIfAbsent(parent, ignored -> new HashMap<>())
-                                            .putIfAbsent(leaf, field)
-                                    != null) malformed[0] = true;
-                });
-        if (malformed[0]) return null;
-        CdsFieldDto found = null;
-        for (var element : elements.values()) {
-            var descriptor = element.get("Name");
-            if (descriptor == null) continue;
-            try {
-                if (!CdsNativeExtensionContract.NATIVE_DEMOGRAPHIC.equals(
-                        fields.readToken(record, descriptor, 64))) continue;
-                if (found != null
-                        || !element.keySet().equals(Set.of("Name", "DataType", "Content"))
-                        || !CdsNativeExtensionContract.STRING_TYPE.equals(
-                                fields.readToken(record, element.get("DataType"), 7))) return null;
-                found = element.get("Content");
-            } catch (CdsInputException capacity) {
-                if (!capacity.code().equals("CDS_TARGET_TEXT_CAPACITY_EXCEEDED")) throw capacity;
-                // A longer name or type is not this element's.
-            }
-        }
-        return found;
+        return new CdsPatientSourceRecordReader(fields)
+                .content(record, CdsNativeExtensionContract.NATIVE_DEMOGRAPHIC);
     }
 }

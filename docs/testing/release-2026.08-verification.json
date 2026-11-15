@@ -4736,6 +4736,12 @@
               "check": "java-cds-transfer-export"
             }
           ]
+        },
+        "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsNativeIssuesMariaDbIntegrationTest": {
+          "check": "java-cds-native",
+          "cases": [
+            "shouldPreserveEveryStoredMarkerColumn_throughAnActualMariaDbRoundTrip"
+          ]
         }
       },
       "runtimeConstraints": {
@@ -6666,9 +6672,10 @@
         "CdsImportLedgerMariaDbIntegrationTest": 1,
         "CdsTargetReceiptMariaDbIntegrationTest": 5,
         "CdsAppointmentStorageMariaDbIntegrationTest": 1,
-        "CdsDemographicStorageMariaDbIntegrationTest": 1
+        "CdsDemographicStorageMariaDbIntegrationTest": 1,
+        "CdsNativeIssuesMariaDbIntegrationTest": 1
       },
-      "minimumCases": 91,
+      "minimumCases": 92,
       "requireCoverage": true,
       "requireClassIdentity": true,
       "runtimeConstraints": {
@@ -7546,7 +7553,7 @@
         "CdsFieldControlUnitTest": 4,
         "CdsFieldCorrectionUnitTest": 10,
         "CdsHistoricalSnapshotUnitTest": 10,
-        "CdsHistoryProjectionIntegrationTest": 1,
+        "CdsHistoryProjectionIntegrationTest": 3,
         "CdsHistoryVisibilityMariaDbIntegrationTest": 1,
         "CdsHrmRepairAdmissionMariaDbIntegrationTest": 11,
         "CdsIdentityAuthorityUnitTest": 18,
@@ -7613,7 +7620,9 @@
         "CdsWebErrorProjectionUnitTest": 6,
         "CdsXmlParserLargeInputUnitTest": 9,
         "CdsXmlParserUnitTest": 14,
-        "CdsXmlTransportControlUnitTest": 7
+        "CdsXmlTransportControlUnitTest": 7,
+        "CdsNativeIssuesMariaDbIntegrationTest": 1,
+        "CdsNativeIssuesImportServiceUnitTest": 9
       },
       "minimumCases": 1177,
       "requireCoverage": true,
@@ -7735,7 +7744,7 @@
         "CdsExportEnrolmentProjectionServiceUnitTest": 12,
         "CdsExportExecutionServiceUnitTest": 13,
         "CdsExportFreshAuthorizationIntegrationTest": 1,
-        "CdsExportHistoryCurrentContextUnitTest": 22,
+        "CdsExportHistoryCurrentContextUnitTest": 30,
         "CdsExportHistoryFieldReconcilerUnitTest": 20,
         "CdsExportHistoryOccurrenceServiceUnitTest": 9,
         "CdsExportHistoryRetainedSourceUnitTest": 16,
@@ -7822,7 +7831,7 @@
         "CdsExportRetainedProfessionalContactReconcilerUnitTest": 16,
         "CdsExportRetainedReceiptFieldComparisonUnitTest": 3,
         "CdsExportRetainedReceiptVerificationServiceUnitTest": 6,
-        "CdsExportRetainedSectionWriterUnitTest": 12,
+        "CdsExportRetainedSectionWriterUnitTest": 14,
         "CdsExportRetainedSourceScopeUnitTest": 6,
         "CdsExportRetentionServiceUnitTest": 8,
         "CdsExportSchemaVisibilityMariaDbIntegrationTest": 2,
@@ -7840,7 +7849,8 @@
         "CdsExportWebActionsUnitTest": 46,
         "CdsExportXmlComposerUnitTest": 15,
         "CdsExportXmlValidatorUnitTest": 19,
-        "CdsExportZip64IntegrationTest": 1
+        "CdsExportZip64IntegrationTest": 1,
+        "CdsExportIssueMarkerMapperUnitTest": 6
       },
       "minimumCases": 2306,
       "requireCoverage": true,

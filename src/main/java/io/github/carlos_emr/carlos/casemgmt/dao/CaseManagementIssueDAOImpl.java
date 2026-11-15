@@ -208,6 +208,15 @@ public class CaseManagementIssueDAOImpl extends AbstractJpaDao implements CaseMa
         write(issue);
     }
 
+    @Override
+    public void insertCdsMarker(CaseManagementIssue issue) {
+        if (issue == null || issue.getId() != null || issue.getDemographic_no() == null
+                || issue.getDemographic_no() < 1 || issue.getIssue_id() < 1
+                || issue.getUpdate_date() == null || !issue.getNotes().isEmpty())
+            throw new IllegalArgumentException("CDS_NATIVE_ISSUE_INSERT_INVALID");
+        entityManager().persist(issue);
+    }
+
     /**
      * Inserts a new issue stamped now, or writes an existing one without moving its date.
      *

@@ -146,7 +146,13 @@ public class CdsImportNativeService {
                     immunizations.validate(normalization.immunization(record, command));
             case "Demographics" -> demographics.validate(record, command);
             case "Appointments" -> appointments.validate(record, command);
-            case "CareElements", "NewCategory" -> {
+            case "NewCategory" -> {
+                if (categories.containsKey("NewCategory"))
+                    category("NewCategory").validate(record, command, snapshot, xmlRelative);
+                else if (new CdsNativeIssuesReader(fields).read(record).marker() != null)
+                    throw new CdsImportException("CDS_NATIVE_ISSUE_ADAPTER_MISSING");
+            }
+            case "CareElements" -> {
                 /* Bounded child units and source-field units carry their logical values. */
             }
             default -> {
@@ -388,8 +394,10 @@ public class CdsImportNativeService {
                                                     "WARNING",
                                                     diagnostic.code(),
                                                     diagnostic.field()));
-            case "CareElements", "NewCategory" ->
-                    written = Map.of("demographic", target.toString());
+            case "CareElements" -> written = Map.of("demographic", target.toString());
+            case "NewCategory" -> written = categories.containsKey("NewCategory")
+                    ? category("NewCategory").write(run, epoch, unit.unitKey(), target, record, command)
+                    : Map.of("demographic", target.toString());
             default ->
                     written =
                             HISTORIES.contains(record.section())
@@ -417,7 +425,8 @@ public class CdsImportNativeService {
                                                     record,
                                                     command);
         }
-        if (!"CareElements".equals(record.section()) && !"NewCategory".equals(record.section()))
+        if (!"CareElements".equals(record.section())
+                && (!"NewCategory".equals(record.section()) || written.size() > 1))
             audit(run, unit, command, actor, target);
         return receipts.capture(written, run, unit.unitKey());
     }

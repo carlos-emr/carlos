@@ -83,6 +83,7 @@ are added only after seal verification).
 | `CARLOS.Prevention.Source.v1` | string (JSON) | Immunizations | Restores the free-text "Other" administering provider, the reminder date (#6198) and the sender's own prevention type when the carrier's status matches RefusedFlag; refused when malformed or duplicated. The rest stays protected source. |
 | `CARLOS.Prevention.Source.v1` | string (JSON) | PastHealth | Not interpreted: retained as protected source data like any other residual. |
 | `CARLOS.Appointment.Source.v1` | string (JSON) | NewCategory `CARLOS.NativeAppointment.v1` | Read for the Appointments element it names (see "CARLOS appointment source record"): restores the exact stored end, the complete notes and the scheduler context once the record proves itself; otherwise reported and not used. Always also retained as protected source data. |
+| `CARLOS.Issues.v1` | string (JSON) | NewCategory `CARLOS.NativeIssues.v1` | One note-free system marker per record. Restores the patient issue's flags, type and change time; binds its code to a unique compatible receiving catalogue entry and maps a restricted program to the selected receiving program. No note is created. Malformed carriers or unresolved mappings refuse the patient explicitly. `CARLOS.NativeIssues.Source.v1` preserves earlier payloads as source only and never restores a marker. |
 
 The two `Source.v1` carriers hold a complete native row (SQL NULL kept distinct from empty)
 as one JSON object, every space escaped so `xs:token` normalization cannot alter it. The

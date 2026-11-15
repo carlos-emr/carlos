@@ -42,6 +42,7 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
     private final CdsExportLaboratoryOccurrenceService laboratories;
     private final CdsExportPrescriptionOccurrenceService prescriptions;
     private final CdsExportAppointmentOccurrenceService appointments;
+    private final CdsExportHistoryInventoryService histories;
 
     /**
      * Without appointment source records: a capture that holds appointments is refused when the
@@ -57,7 +58,10 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
         this(values, verification, captures, care, laboratories, prescriptions, null);
     }
 
-    @org.springframework.beans.factory.annotation.Autowired
+    /**
+     * Without the chart's native issue record: a chart with a system marker that files no note is
+     * refused when the document's expected occurrences are reconciled. Test fixtures only.
+     */
     public CdsExportNewCategoryOccurrenceService(
             CdsExportRetainedValuesService values,
             CdsExportRetainedReceiptVerificationService verification,
@@ -66,7 +70,29 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
             CdsExportLaboratoryOccurrenceService laboratories,
             CdsExportPrescriptionOccurrenceService prescriptions,
             CdsExportAppointmentOccurrenceService appointments) {
+        this(
+                values,
+                verification,
+                captures,
+                care,
+                laboratories,
+                prescriptions,
+                appointments,
+                null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public CdsExportNewCategoryOccurrenceService(
+            CdsExportRetainedValuesService values,
+            CdsExportRetainedReceiptVerificationService verification,
+            CdsExportNativeCaptureService captures,
+            CdsExportCareOccurrenceService care,
+            CdsExportLaboratoryOccurrenceService laboratories,
+            CdsExportPrescriptionOccurrenceService prescriptions,
+            CdsExportAppointmentOccurrenceService appointments,
+            CdsExportHistoryInventoryService histories) {
         this.appointments = appointments;
+        this.histories = histories;
         this.values = Objects.requireNonNull(values);
         this.verification = Objects.requireNonNull(verification);
         this.captures = Objects.requireNonNull(captures);
@@ -201,10 +227,11 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                         var content =
                                 new CdsExportRetainedSectionWriter()
                                         .prepareChanges(
-                                                fields, streams, List.of(), control::checkpoint);
+                                                fields, streams, markerSourceChanges(index.references().get(address), fields),
+                                                control::checkpoint);
                         var all = new HashSet<>(content.retainedFields());
                         all.addAll(content.replacedFields());
-                        if (!content.replacedFields().isEmpty() || all.size() != fields.size())
+                        if (all.size() != fields.size())
                             invalid();
                         for (String field : all) if (!consumed.add(field)) invalid();
                         var identity =
@@ -275,6 +302,11 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                         counts[0]++;
                         counts[2]++;
                     }
+                    long markerCount = issueMarkers(
+                            lease, patient, patientKey, tables, source, bounds, control,
+                            index.sourceManifestSha256(), streams, xml, output);
+                    counts[0] = Math.addExact(counts[0], markerCount);
+                    counts[2] = Math.addExact(counts[2], markerCount);
                     // Window by window, never the whole chart's measurements at once.
                     care.forEachNativeSource(
                             lease,
@@ -604,6 +636,88 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
     }
 
     /**
+     * Whether an export with these categories and captured tables carries the chart's native
+     * issue record: NewCategory with the seven history categories, whose capture holds the
+     * patient issues, their catalogue entries and the notes' links to them.
+     */
+    static boolean carriesIssues(Set<CdsCategory> categories, Set<String> tables) {
+        return categories.contains(CdsCategory.NEW_CATEGORY)
+                && categories.containsAll(CdsExportNoteSourceReader.CATEGORIES)
+                && tables.containsAll(Set.of("casemgmt_issue", "casemgmt_issue_notes", "issue"));
+    }
+
+    /**
+     * One current marker per record, each independently authorized and receipted. Retained
+     * carriers become source-only, including when history sections were not selected, so
+     * deleted or excluded markers cannot be restored from stale source records.
+     */
+    private long issueMarkers(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            String patientKey,
+            Set<String> tables,
+            CdsExportPatientCaptureDto source,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control,
+            String manifest,
+            CdsExportRetainedSectionWriter.Values streams,
+            CdsExportXmlComposer.SectionEmitter xml,
+            CdsExportClinicalOccurrenceService.Receipts output)
+            throws IOException {
+        if (histories == null
+                || !carriesIssues(lease.document().command().categories(), tables)) return 0;
+        long[] count = {0};
+        histories.forEachMarker(lease, patient, tables, source, bounds, control, marker -> {
+            var section = CdsExportNativeHistoryMapper.issueCategory(marker.definition());
+            control.authorizeCategory(patient.patient(), section, false);
+            var granted = new LinkedHashSet<String>();
+            var mapped = CdsExportIssueMarkerMapper.map(
+                    patient.patient(), marker,
+                    program -> {
+                        if (!control.issueProgramReadable(patient.patient(), section, program))
+                            return false;
+                        granted.add(program);
+                        return true;
+                    }, control::checkpoint);
+            new CdsExportNativeFieldAssessmentValidator()
+                    .requireRepresentable(mapped.rows(), mapped.fields(), control::checkpoint);
+            String id = marker.issue().value().fields().get("id");
+            var identity = new CdsExportIdentityDto(patientKey, category(),
+                    CdsImportKeys.hash("carlos-native-occurrence-v1", "casemgmt_issue", id));
+            streams.requireActive();
+            control.authorizeCategory(patient.patient(), category(), false);
+            xml.emit(new CdsExportXmlComposer.Section(identity,
+                    body -> CdsExportIssueMarkerMapper.write(mapped.json(), body)));
+            output.accept(new CdsExportClinicalOccurrenceService.Receipt(identity, manifest,
+                    "casemgmt_issue", id, null, mapped.fields(), Set.of(), Set.of()));
+            control.authorizeCategory(patient.patient(), section, false);
+            for (String program : granted)
+                if (!control.issueProgramReadable(patient.patient(), section, program))
+                    throw new SecurityException("CDS_EXPORT_ACCESS_CHANGED");
+            control.authorizeCategory(patient.patient(), category(), false);
+            count[0] = Math.incrementExact(count[0]);
+        });
+        return count[0];
+    }
+
+    /** Preserve the earlier sender's complete payload without treating it as a current marker. */
+    static List<CdsExportRetainedSectionWriter.Change> markerSourceChanges(
+            List<CdsExportRetainedIndexDto.Reference> refs,
+            List<io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportRetainedFieldDto> fields)
+            throws IOException {
+        if (refs == null || refs.size() <= 1) return List.of();
+        if (!restoredIssues(refs)) invalid();
+        var names = fields.stream()
+                .filter(field -> field.sourcePath().endsWith("/CategoryName[1]"))
+                .map(io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportRetainedFieldDto::id)
+                .collect(java.util.stream.Collectors.toSet());
+        if (names.size() != 1) invalid();
+        return List.of(new CdsExportRetainedSectionWriter.Change("CategoryName[1]", names,
+                xml -> xml.text(io.github.carlos_emr.carlos.demographic.cds.contract
+                        .CdsNativeExtensionContract.NATIVE_ISSUES_SOURCE_CATEGORY)));
+    }
+
+    /**
      * NewCategory has no separate native clinical projection: its demographic receipt proves
      * association, not field precedence. Every applied NewCategory unit of the chart is
      * returned, however many: an address for each unit the retained index already holds.
@@ -631,9 +745,10 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
             if (!address.matches("[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}:[0-9a-f]{64}")
                     || !seen.add(address)
                     || refs == null
-                    || refs.size() != 1
+                    || refs.isEmpty()
                     || !"demographic".equals(refs.getFirst().table())
                     || !Integer.toString(patient).equals(refs.getFirst().id())
+                    || !restoredIssues(refs)
                     || proof == null
                     || !refs.equals(
                             proof.stream()
@@ -641,21 +756,30 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                                             CdsExportRetainedReceiptVerificationDto.CheckedReference
                                                     ::expected)
                                     .toList())) invalid();
-            if (proof.stream()
-                    .anyMatch(
-                            ref ->
-                                    ref.reason()
-                                                    != CdsExportRetainedReceiptVerificationDto
-                                                            .Reason.UNCHANGED_ROW
-                                            && ref.reason()
-                                                    != CdsExportRetainedReceiptVerificationDto
-                                                            .Reason.CHANGED_ROW))
+            // The demographic row proves the association. A marker issue the unit restored from
+            // its native issue record may since have changed or gone: its
+            // retained copy becomes source-only before current markers are emitted.
+            var association = proof.getFirst().reason();
+            if (association != CdsExportRetainedReceiptVerificationDto.Reason.UNCHANGED_ROW
+                    && association != CdsExportRetainedReceiptVerificationDto.Reason.CHANGED_ROW)
                 throw new CdsExportReviewException(CdsExportReviewException.Reason.UNMAPPED_DATA);
             selected.add(address);
         }
         selected.sort(String::compareTo);
         checkpoint.run();
         return List.copyOf(selected);
+    }
+
+    /**
+     * Whether a NewCategory unit's references after its demographic one are only the marker
+     * issues a CARLOS importer restores from a native issue record of a patient file
+     * ({@code casemgmt_issue#<code>}); every other NewCategory unit names the demographic row
+     * alone.
+     */
+    static boolean restoredIssues(List<CdsExportRetainedIndexDto.Reference> refs) {
+        for (int i = 1; i < refs.size(); i++)
+            if (!"casemgmt_issue".equals(refs.get(i).table())) return false;
+        return true;
     }
 
     private static Set<String> demographicColumns() {

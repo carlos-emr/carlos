@@ -151,6 +151,18 @@ public final class CdsNativeExtensionContract {
             java.util.List.of(
                     "SocHistory", "FamHistory", "MedHistory", "Concerns", "RiskFactors", "Reminders");
 
+    /** One current note-free system marker per NewCategory record. */
+    public static final String NATIVE_ISSUES_CATEGORY = "CARLOS.NativeIssues.v1";
+
+    /** Earlier marker carrier preserved for provenance, never restored as a current row. */
+    public static final String NATIVE_ISSUES_SOURCE_CATEGORY = "CARLOS.NativeIssues.Source.v1";
+
+    /**
+     * String residual containing {@code {"version":1,"casemgmt_issue":{...},"issue":{...}}}.
+     * Every non-identity column travels as stored; omitted members mean SQL NULL.
+     */
+    public static final String NATIVE_ISSUES = "CARLOS.Issues.v1";
+
     /** CategoryName of the NewCategory record that carries a chart's native demographic values. */
     public static final String NATIVE_DEMOGRAPHIC_CATEGORY = "CARLOS.NativeDemographic.v1";
 

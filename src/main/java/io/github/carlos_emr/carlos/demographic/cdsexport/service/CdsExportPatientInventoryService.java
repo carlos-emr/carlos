@@ -85,6 +85,13 @@ public class CdsExportPatientInventoryService {
      */
     public static final String OTHER_PATIENTS_REPORT_LABEL =
             "Laboratory report naming several patients, none of them this patient";
+
+    /**
+     * ReadMe label: system markers that file no note (a CPP section tag, OMeds, ...), carried only
+     * by the chart's native issue record (CdsExportIssueMarkerMapper).
+     */
+    public static final String ISSUE_MARKER_NOT_EXPORTED_LABEL =
+            "Chart issues no CDS item carries" + NOT_SELECTED;
     private final CdsExportRetainedIndexService indices;
     private final CdsExportNativeRowReceiptReader rows;
     private final CdsExportHistoryInventoryService histories;
@@ -355,6 +362,19 @@ public class CdsExportPatientInventoryService {
                                 occurrence.nativeId()));
             }
             if (!notes.equals(classified)) review();
+            // Current note-free markers have one restorable carrier each; prior carriers
+            // are retained as source-only records and cannot resurrect deleted markers.
+            boolean carryMarkers = CdsExportNewCategoryOccurrenceService.carriesIssues(
+                    lease.document().command().categories(), tables);
+            histories.forEachMarker(lease, patient, tables, source, bounds, control, marker -> {
+                String markerId = marker.issue().value().fields().get("id");
+                if (carryMarkers)
+                    add(expected, nativeIdentity(patientKey, CdsCategory.NEW_CATEGORY,
+                            "casemgmt_issue", markerId));
+                else
+                    withhold(notSelected, ISSUE_MARKER_NOT_EXPORTED_LABEL,
+                            "casemgmt_issue", markerId);
+            });
         } else if (!notes.isEmpty()) invalid();
         // The native demographic NewCategory record and the patient alert: each is one
         // occurrence when the patient has a value it carries (CdsExportDemographicSupportingMapper,

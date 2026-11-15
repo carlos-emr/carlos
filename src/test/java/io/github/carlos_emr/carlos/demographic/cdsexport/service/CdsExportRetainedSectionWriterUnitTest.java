@@ -46,6 +46,36 @@ class CdsExportRetainedSectionWriterUnitTest {
     private final CdsExportRetainedSectionWriter writer = new CdsExportRetainedSectionWriter();
 
     @Test
+    void shouldPreserveEveryEarlierMarkerField_whileMakingOnlyItsCategorySourceOnly() throws Exception {
+        var records = parse(Files.write(directory.resolve("marker.xml"),
+                CdsExportNativeHistoryFixture.markerDocument(41, null)), "marker-source");
+        var sections = new ArrayList<CdsExportXmlComposer.Section>();
+        var expected = scalars(records);
+        for (var record : records) {
+            var captured = capture(record);
+            var category = CdsCategory.fromWireName(record.section());
+            if (category == CdsCategory.NEW_CATEGORY) {
+                var refs = List.of(
+                        new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportRetainedIndexDto.Reference(
+                                "demographic", "27", CAPTURE),
+                        new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportRetainedIndexDto.Reference(
+                                "casemgmt_issue", "41", CAPTURE));
+                var changes = CdsExportNewCategoryOccurrenceService.markerSourceChanges(refs, captured.fields);
+                var prepared = writer.prepareChanges(captured.fields, captured, changes, () -> {});
+                assertThat(prepared.replacedFields()).containsExactlyInAnyOrderElementsOf(changes.getFirst().expectedPriorFields());
+                assertThat(prepared.retainedFields().size() + prepared.replacedFields().size())
+                        .isEqualTo(captured.fields.size());
+                sections.add(section(category, prepared.content()));
+            } else sections.add(section(category, writer.prepare(captured.fields, captured, () -> {})));
+        }
+        expected.replaceAll((key, value) -> value.equals(CdsNativeExtensionContract.NATIVE_ISSUES_CATEGORY)
+                ? CdsNativeExtensionContract.NATIVE_ISSUES_SOURCE_CATEGORY : value);
+        var output = compose(sections, Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.NEW_CATEGORY));
+        assertThat(scalars(parse(Files.write(directory.resolve("marker-reexport.xml"), output), "marker-receiving")))
+                .containsExactlyInAnyOrderEntriesOf(expected);
+    }
+
+    @Test
     void shouldRoundTripEveryPinnedChoiceFixture_inSchemaOrderWithEveryScalarAndAttribute()
             throws Exception {
         for (int fixture = 1; fixture <= 4; fixture++) {

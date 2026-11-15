@@ -435,17 +435,27 @@ class CdsExportHistoryCurrentContextUnitTest {
     }
 
     @Test
-    void shouldHoldAnUnlinkedCppTag_insteadOfInventingAProblem() throws Exception {
-        // This patient issue used to become a "Family History as part of cpp" ProblemList entry
-        // coded system:FamHistory. A filing marker with no note has nothing clinical to carry.
+    void shouldCarryAnUnlinkedCppTag_withoutInventingAProblem() throws Exception {
         add(Plan.CASE_ISSUES, 42, Map.of("demographic_no", "27", "issue_id", "51"));
         prepare();
         var current = read(1L << 20);
-        assertThatThrownBy(
-                        () ->
-                                CdsExportHistoryOccurrenceService.plan(
-                                        index(HASH, "91", false), inventory(91), current, () -> {}))
-                .hasMessage("CDS_EXPORT_NATIVE_SYSTEM_ISSUE_WITHOUT_NOTE_REQUIRES_REVIEW");
+        var planned = CdsExportHistoryOccurrenceService.plan(
+                index(HASH, "91", false), inventory(91), current, () -> {});
+        assertThat(planned).hasSize(1);
+        assertThat(planned.getFirst().category()).isEqualTo(CdsCategory.FAMILY_HISTORY);
+        assertThat(CdsExportHistoryOccurrenceService.markers(current, () -> {})).containsExactly("42");
+    }
+
+    @Test
+    void shouldInventoryAllNoteFreeSystemMarkers_andExcludeLinkedIssuesAndDiagnoses() throws Exception {
+        add(Plan.CASE_ISSUES, 42, Map.of("demographic_no", "27", "issue_id", "52"));
+        add(Plan.ISSUE_CATALOGUE, 52, Map.of("code", "TicklerNote", "type", "system"));
+        add(Plan.CASE_ISSUES, 43, Map.of("demographic_no", "27", "issue_id", "53"));
+        add(Plan.ISSUE_CATALOGUE, 53, Map.of("code", "250", "type", "icd9"));
+        add(Plan.CASE_ISSUES, 44, Map.of("demographic_no", "27", "issue_id", "51"));
+        prepare();
+        assertThat(CdsExportHistoryOccurrenceService.markers(read(1L << 20), () -> {}))
+                .containsExactly("42", "44");
     }
 
     @Test

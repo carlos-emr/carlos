@@ -39802,14 +39802,21 @@
         "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
       },
       "source-only-NewCategory": {
-        "destination": "cds_import_field original/logical value or protected content reference, in its source category; no claimed discrete native destination for these fields.",
-        "disposition": "source-only",
+        "destination": "cds_import_field original/logical value or protected content reference, in its source category; no claimed discrete native destination for these fields. The recognized CARLOS.NativeIssues.v1 / CARLOS.Issues.v1 carrier additionally restores exactly one casemgmt_issue row; generic NewCategory values remain source-only.",
+        "disposition": "native-and-source",
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSourceFieldService.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsNativeIssuesImportService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsNativeIssuesReader.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsPatientSourceRecordReader.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsNativeIssuesDto.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportIssueMarkerMapper.java",
+          "src/main/java/io/github/carlos_emr/carlos/casemgmt/dao/CaseManagementIssueDAO.java",
+          "src/main/java/io/github/carlos_emr/carlos/casemgmt/dao/CaseManagementIssueDAOImpl.java"
         ],
-        "normalization": "Schema-defined logical whitespace only (plus separately audited reviewed scalar overlay when applicable); original values retain exact path, namespace, type, repetition and precision. Codes, residual Name/DataType/Content, source reviewer/created clocks and unsupported structured metadata are not reinterpreted as successful generic Notes. Category anchors can exist without projecting these facts. The CARLOS.Appointment.Source.v1 record of a CARLOS sender is retained here like every other NewCategory record and is additionally read for the Appointments element it names (appointment-calendar); it is never itself a native row.",
+        "normalization": "Schema-defined logical whitespace only (plus separately audited reviewed scalar overlay when applicable); original values retain exact path, namespace, type, repetition and precision. Codes, residual Name/DataType/Content, source reviewer/created clocks and unsupported structured metadata are not reinterpreted as successful generic Notes. Category anchors can exist without projecting these facts. The CARLOS.Appointment.Source.v1 record of a CARLOS sender is retained here like every other NewCategory record and is additionally read for the Appointments element it names (appointment-calendar); it is never itself a native row. CARLOS.NativeIssues.v1 carries one note-free system marker as version 1 JSON (casemgmt_issue and issue objects). Each marker restores independently, preserving duplicate-row cardinality without a count-dependent receipt. A unique receiving catalogue code must match type and access role; its shared metadata is never edited. Restricted program identities require the selected receiving program. Flags, patient issue type and source change time are restored; catalogue metadata and all original bytes remain protected source. Malformed data and missing or changed mappings refuse explicitly. On re-export a previously restored carrier becomes CARLOS.NativeIssues.Source.v1 with unchanged payload; only current rows produce active carriers, so deleted or category-excluded markers cannot be resurrected.",
         "normativeBasis": [
           "EMR Data Migration Implementation Guide v1.1 section 18.1 (NewCategory)",
           "EMR Data Migration Requirements v1.1 DP02.01",
@@ -39825,7 +39832,12 @@
         "tests": [
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/CdsXmlParserUnitTest.java",
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/assembler/CdsSourceFieldsViewModelAssemblerUnitTest.java",
-          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsNativeIssuesImportServiceUnitTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryProjectionIntegrationTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportIssueMarkerMapperUnitTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsNativeIssuesMariaDbIntegrationTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedSectionWriterUnitTest.java"
         ],
         "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
       },
@@ -39947,7 +39959,7 @@
       }
     },
     "scope": "Reachable leaf/attribute/choice contract of the two pinned wire XSDs, shared by explicitly selected PCON-2024-02 and OntarioMD-5.2 logical profiles; documentary review is not certification of all CDS-S logical requirements. Reviewed path groups distinguish native projections from protected generic source preservation. Native projection eligibility can be conditional, as described. On 2026-11-05, Codex independently reviewed the FrmSetupForm2Action reader update for PR #5602: the ongoing-concerns prefill changed, while the reviewed medication dose, pharmacy-instruction and timing mappings and their getDrugList/medicationLine reader behavior remain unchanged. On 2026-11-10, the shared CPP archive and authored PersonalHistory residual contract, sealed-payload defaults and receiving importer were reviewed together with native export round-trip evidence. This documents conditional CARLOS extensions, not standard receiver support for those extensions.",
-    "sha256": "e912bb9e2783be71d0dad8fcf5bd07e20e7d742efcd986f6fc74167171829eaf"
+    "sha256": "2bfa31aab475624372e22abff252f6bb314bd8c4aa897f5c66fa7a19750447b2"
   },
   "root": "cds:OmdCds",
   "schemas": [

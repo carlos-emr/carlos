@@ -67,4 +67,61 @@ public class CdsExportHistoryInventoryService {
         return CdsExportHistoryOccurrenceService.plan(
                 index, inventory, context, control::checkpoint);
     }
+
+    /**
+     * The chart's system markers that file no note ({@link
+     * CdsExportHistoryOccurrenceService#markers}), each with its patient issue and catalogue
+     * rows checked against their whole witnesses, in id order. A chart read in windows loads
+     * them window by window, releasing each window after its markers are consumed.
+     */
+    @FunctionalInterface
+    public interface Markers {
+        void accept(CdsExportIssueMarkerMapper.Marker marker) throws IOException;
+    }
+
+    public void forEachMarker(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> tables,
+            CdsExportPatientCaptureDto source,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control,
+            Markers output)
+            throws IOException {
+        var context =
+                CdsExportHistoryCurrentContext.read(
+                        captures, witnesses, lease, patient, tables, source, bounds, control);
+        var ids = CdsExportHistoryOccurrenceService.markers(context, control::checkpoint);
+        if (!context.windowed()) {
+            for (String id : ids) output.accept(marker(context, id));
+            return;
+        }
+        var sizes = new CdsExportSectionWindowPlanner.Sizes(bounds.window());
+        for (int from = 0; from < ids.size(); ) {
+            int start = from;
+            var window =
+                    CdsExportSectionWindowPlanner.loadNext(
+                            sizes,
+                            ids.size() - start,
+                            (length, budget) ->
+                                    context.window(
+                                            Set.of(),
+                                            Set.copyOf(ids.subList(start, start + length)),
+                                            List.of(),
+                                            budget));
+            for (String id : ids.subList(start, start + window.length()))
+                output.accept(marker(window.value(), id));
+            from = start + window.length();
+        }
+    }
+
+    private static CdsExportIssueMarkerMapper.Marker marker(
+            CdsExportHistoryCurrentContext rows, String id) throws IOException {
+        var issue = rows.original("casemgmt_issue", id);
+        if (issue == null) throw new IOException("CDS_EXPORT_HISTORY_CURRENT_CONTEXT_INVALID");
+        var definition = rows.original("issue", issue.value().fields().get("issue_id"));
+        if (definition == null)
+            throw new IOException("CDS_EXPORT_HISTORY_CURRENT_CONTEXT_INVALID");
+        return new CdsExportIssueMarkerMapper.Marker(issue, definition);
+    }
 }

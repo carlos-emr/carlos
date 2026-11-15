@@ -85,4 +85,54 @@ public final class CdsExportNativeHistoryFixture {
         var mapped = new CdsExportNativeHistoryMapper().mapIssue(27, issue, definition);
         return CdsExportNativeHistoryMapperUnitTest.render(mapped.value());
     }
+    /** A complete native system marker, with every non-identity value supplied as stored. */
+    public static CdsExportIssueMarkerMapper.Marker marker(long id, String program) {
+        var patient = new LinkedHashMap<String, String>();
+        patient.put("demographic_no", "27");
+        patient.put("issue_id", "51");
+        patient.put("acute", "1");
+        patient.put("certain", "0");
+        patient.put("major", "1");
+        patient.put("resolved", "0");
+        patient.put("type", "general  ");
+        patient.put("program_id", program);
+        patient.put("update_date", "2026-09-01 12:34:56.0");
+        var catalogue = new LinkedHashMap<String, String>();
+        catalogue.put("code", "OMeds");
+        catalogue.put("description", "Medication  marker\t");
+        catalogue.put("role", "all");
+        catalogue.put("type", "system");
+        catalogue.put("priority", null);
+        catalogue.put("sortOrderId", "0");
+        catalogue.put("update_date", "2020-01-02 00:00:00.0");
+        return new CdsExportIssueMarkerMapper.Marker(
+                CdsExportNativeHistoryMapperUnitTest.row(Plan.CASE_ISSUES, id, patient),
+                CdsExportNativeHistoryMapperUnitTest.row(Plan.ISSUE_CATALOGUE, 51, catalogue));
+    }
+
+    /** The schema-validated carrier produced by the actual marker mapper and XML writer. */
+    public static byte[] markerDocument(long id, String program) throws Exception {
+        var mapped = CdsExportIssueMarkerMapper.map(27, marker(id, program), ignored -> true, () -> {});
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(mapped.rows(), mapped.fields(), () -> {});
+        return CdsExportNativeHistoryMapperUnitTest.render(CdsCategory.NEW_CATEGORY,
+                xml -> CdsExportIssueMarkerMapper.write(mapped.json(), xml));
+    }
+
+    /** Emits rows read back from the database, for physical native import round trips. */
+    public static byte[] markerDocument(Map<String, String> patient, Map<String, String> catalogue)
+            throws Exception {
+        var marker = new CdsExportIssueMarkerMapper.Marker(
+                CdsExportNativeHistoryMapperUnitTest.row(Plan.CASE_ISSUES,
+                        Long.parseLong(patient.get("id")), patient),
+                CdsExportNativeHistoryMapperUnitTest.row(Plan.ISSUE_CATALOGUE,
+                        Long.parseLong(catalogue.get("issue_id")), catalogue));
+        var mapped = CdsExportIssueMarkerMapper.map(Integer.parseInt(patient.get("demographic_no")),
+                marker, ignored -> true, () -> {});
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(mapped.rows(), mapped.fields(), () -> {});
+        return CdsExportNativeHistoryMapperUnitTest.render(CdsCategory.NEW_CATEGORY,
+                xml -> CdsExportIssueMarkerMapper.write(mapped.json(), xml));
+    }
+
 }
