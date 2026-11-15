@@ -1,0 +1,615 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.demographic.cdsexport.service;
+
+import static org.assertj.core.api.Assertions.*;
+import static io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNativeHistoryMapperUnitTest.*;
+import io.github.carlos_emr.carlos.demographic.cds.contract.*;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.*;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
+import io.github.carlos_emr.carlos.utility.CdsImportKeys;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.time.ZoneId;
+import java.util.*;
+import org.junit.jupiter.api.*;
+
+@Tag("unit")
+@Tag("cds-export")
+class CdsExportHistoryNativeReconcilerUnitTest {
+    private static final String HASH = "a".repeat(64), RUN = "11111111-1111-4111-8111-111111111111";
+
+    private final Map<String, String> retainedValues = new HashMap<>();
+
+    private CdsExportRetainedFieldDto field(CdsCategory category, String path, String value)
+            throws Exception {
+        var type =
+                CdsWireSchema.schemaModel()
+                        .element("cds", "OmdCds")
+                        .child("cds", "PatientRecord")
+                        .child("cds", category.wireName());
+        String namespace = "cds";
+        for (String part : path.split("/")) {
+            String name = part.substring(0, part.indexOf('['));
+            var expanded =
+                    type.childNames().stream()
+                            .filter(n -> n.local().equals(name))
+                            .findFirst()
+                            .orElseThrow();
+            namespace = expanded.namespace();
+            type = type.child(namespace, name);
+        }
+        String id = CdsImportKeys.hash(path);
+        retainedValues.put(id, value);
+        return new CdsExportRetainedFieldDto(
+                id,
+                RUN,
+                HASH,
+                HASH,
+                category,
+                "/OmdCds[1]/PatientRecord[1]/" + category.wireName() + "[1]/" + path,
+                1,
+                namespace,
+                "{" + type.getTypeNamespace() + "}" + type.getTypeName(),
+                null,
+                value.length() <= 32768 ? value : null,
+                value.length() <= 32768 ? value : null,
+                value.length() <= 32768
+                        ? null
+                        : new CdsExportRetainedFieldDto.Payload(
+                                "/synthetic/retained-value",
+                                HASH,
+                                0,
+                                value.getBytes(StandardCharsets.UTF_8).length));
+    }
+
+    private final CdsExportRetainedSectionWriter.Values streams =
+            new CdsExportRetainedSectionWriter.Values() {
+                public Reader text(CdsExportRetainedFieldDto field) {
+                    return new StringReader(retainedValues.get(field.id()));
+                }
+
+                public InputStream binary(CdsExportRetainedFieldDto field) throws IOException {
+                    throw new IOException("UNEXPECTED_BINARY");
+                }
+            };
+
+    private CdsExportRetainedSectionWriter.Prepared reconcile(
+            CdsCategory category, String tag, List<CdsExportRetainedFieldDto> fields)
+            throws Exception {
+        return reconcile(category, tag, fields, "Current edited narrative", false);
+    }
+
+    private CdsExportRetainedSectionWriter.Prepared reconcile(
+            CdsCategory category,
+            String tag,
+            List<CdsExportRetainedFieldDto> fields,
+            String currentBody,
+            boolean archived)
+            throws Exception {
+        var original = note(91, "Original imported narrative", tag, List.of());
+        var current = note(92, currentBody, tag, List.of());
+        if (archived) {
+            var values = new LinkedHashMap<>(current.note().value().fields());
+            values.put("archived", "1");
+            current =
+                    new CdsExportHistoryFieldReconciler.Current(
+                            row(
+                                    io.github.carlos_emr.carlos.commn.dao
+                                            .CdsExportPatientTableReadSupport.Plan.CASE_NOTES,
+                                    92,
+                                    values),
+                            current.extensions(),
+                            current.links(),
+                            current.patientIssues(),
+                            current.definitions());
+        }
+        var nativeHistory =
+                new CdsExportNativeHistoryMapper()
+                        .map(
+                                27,
+                                category,
+                                List.of(original, current),
+                                providers(),
+                                ZoneId.of("America/Toronto"));
+        var prepared =
+                new CdsHistoryNativeDto(
+                        "Original imported narrative",
+                        tag,
+                        null,
+                        null,
+                        "17",
+                        null,
+                        null,
+                        List.of());
+        var sourceIds = new HashSet<String>();
+        fields.forEach(f -> sourceIds.add(f.id()));
+        var source = new CdsExportHistoryRetainedSource.Result(sourceIds, Map.of(), List.of());
+        var result =
+                new CdsExportHistoryNativeReconciler()
+                        .reconcile(
+                                27,
+                                category,
+                                RUN + ":" + HASH,
+                                HASH,
+                                prepared,
+                                original.note().witness().state(),
+                                current,
+                                fields,
+                                source,
+                                nativeHistory,
+                                streams,
+                                () -> {});
+        return new CdsExportRetainedSectionWriter()
+                .prepareChanges(fields, streams, result.changes(), () -> {});
+    }
+
+    @Test
+    void shouldStreamTheEntireRetainedNarrative_whenTheImportedNativeNoteWasOnlyAPlaceholder()
+            throws Exception {
+        String narrative =
+                "Complete retained clinical text café 😀\n".repeat(18000)
+                        + "END_OF_COMPLETE_ORIGINAL_SOURCE";
+        var fields =
+                List.of(field(CdsCategory.CLINICAL_NOTES, "MyClinicalNotesContent[1]", narrative));
+        var result = reconcile(CdsCategory.CLINICAL_NOTES, null, fields);
+        String xml =
+                new String(
+                        render(CdsCategory.CLINICAL_NOTES, result.content()),
+                        StandardCharsets.UTF_8);
+        assertThat(xml)
+                .contains(
+                        narrative,
+                        "Current edited narrative",
+                        "[Current CARLOS native note revisions and source context]");
+        assertThat(result.replacedFields()).containsExactly(fields.getFirst().id());
+    }
+
+    @Test
+    void shouldStateAnArchivedImportedNote_beforeTheOriginalImportedText() throws Exception {
+        var fields =
+                List.of(
+                        field(
+                                CdsCategory.CLINICAL_NOTES,
+                                "MyClinicalNotesContent[1]",
+                                "Original imported narrative"));
+        var result =
+                reconcile(
+                        CdsCategory.CLINICAL_NOTES, null, fields, "Original imported narrative",
+                        true);
+        String xml =
+                new String(
+                        render(CdsCategory.CLINICAL_NOTES, result.content()),
+                        StandardCharsets.UTF_8);
+        String content =
+                xml.substring(
+                        xml.indexOf("<MyClinicalNotesContent>")
+                                + "<MyClinicalNotesContent>".length());
+        assertThat(content)
+                .startsWith(CdsExportNativeHistoryMapper.ARCHIVED_CLINICAL_NOTE_STATEMENT);
+        assertThat(content.indexOf(CdsExportNativeHistoryMapper.ARCHIVED_CLINICAL_NOTE_STATEMENT, 1))
+                .as("stated once")
+                .isEqualTo(-1);
+    }
+
+    @Test
+    void shouldStateAnArchivedImportedProblem_firstInItsNotes() throws Exception {
+        // The archive marker in the residual is read only by CARLOS; any other receiver must be
+        // told in the item itself that it is not current.
+        var withNotes =
+                List.of(
+                        field(
+                                CdsCategory.PROBLEM_LIST,
+                                "ProblemDiagnosisDescription[1]",
+                                "Original imported narrative"),
+                        field(CdsCategory.PROBLEM_LIST, "Notes[1]", "mild intermittent"));
+        String xml =
+                new String(
+                        render(
+                                CdsCategory.PROBLEM_LIST,
+                                reconcile(
+                                                CdsCategory.PROBLEM_LIST,
+                                                "Concerns",
+                                                withNotes,
+                                                "Original imported narrative",
+                                                true)
+                                        .content()),
+                        StandardCharsets.UTF_8);
+        assertThat(xml)
+                .contains(
+                        "<Notes>"
+                                + CdsExportNativeHistoryMapper.ARCHIVED_ITEM_STATEMENT
+                                + "\n\nmild intermittent</Notes>",
+                        "<ProblemDiagnosisDescription>Original imported narrative<");
+        var withoutNotes =
+                List.of(
+                        field(
+                                CdsCategory.PROBLEM_LIST,
+                                "ProblemDiagnosisDescription[1]",
+                                "Original imported narrative"));
+        assertThat(
+                        new String(
+                                render(
+                                        CdsCategory.PROBLEM_LIST,
+                                        reconcile(
+                                                        CdsCategory.PROBLEM_LIST,
+                                                        "Concerns",
+                                                        withoutNotes,
+                                                        "Original imported narrative",
+                                                        true)
+                                                .content()),
+                                StandardCharsets.UTF_8))
+                .contains("<Notes>" + CdsExportNativeHistoryMapper.ARCHIVED_ITEM_STATEMENT + "</Notes>");
+    }
+
+    @Test
+    void shouldNotPresentTheImportedDiagnosis_asCurrentAfterALongNativeEdit() throws Exception {
+        String revised =
+                ("COPD GOLD 3 confirmed on spirometry; the earlier asthma diagnosis was revised. ")
+                        .repeat(5);
+        var fields =
+                List.of(
+                        field(
+                                CdsCategory.PROBLEM_LIST,
+                                "ProblemDiagnosisDescription[1]",
+                                "Original imported narrative"),
+                        field(CdsCategory.PROBLEM_LIST, "Notes[1]", "mild intermittent"));
+        var result = reconcile(CdsCategory.PROBLEM_LIST, "Concerns", fields, revised, false);
+        String xml =
+                new String(
+                        render(CdsCategory.PROBLEM_LIST, result.content()),
+                        StandardCharsets.UTF_8);
+        assertThat(xml)
+                .doesNotContain("<ProblemDiagnosisDescription>")
+                .contains(
+                        "mild intermittent",
+                        "[Current native narrative]",
+                        revised.strip(),
+                        CdsNativeExtensionContract.HISTORY_NARRATIVE);
+        // A CARLOS importer restores the current text, not the old description.
+        assertThat(xml).contains(CdsNativeExtensionContract.encodeNarrative(revised));
+        // The superseded description is accounted for, and kept in the residual context.
+        assertThat(result.replacedFields()).contains(fields.getFirst().id());
+        assertThat(xml).contains("originalImportedProjection");
+        // A short edit replaces the description and removes nothing else.
+        var shortEdit =
+                reconcile(CdsCategory.PROBLEM_LIST, "Concerns", fields, "COPD GOLD 3", false);
+        assertThat(
+                        new String(
+                                render(CdsCategory.PROBLEM_LIST, shortEdit.content()),
+                                StandardCharsets.UTF_8))
+                .contains(
+                        "<ProblemDiagnosisDescription>COPD GOLD 3</ProblemDiagnosisDescription>",
+                        "mild intermittent")
+                .doesNotContain(CdsNativeExtensionContract.HISTORY_NARRATIVE);
+    }
+
+    @Test
+    void shouldLeaveWholePartsOutOfNotes_andCarryThemExactly() throws Exception {
+        // Before: an imported item edited in CARLOS held the chart when its imported Notes and
+        // the current narrative passed Notes together
+        // (CDS_EXPORT_HISTORY_COMBINED_NARRATIVE_CAPACITY).
+        String imported = "Imported family note. " + "i".repeat(20_000);
+        String revised = "Revised in CARLOS. " + "c".repeat(20_000);
+        var fields =
+                List.of(
+                        field(
+                                CdsCategory.FAMILY_HISTORY,
+                                "ProblemDiagnosisProcedureDescription[1]",
+                                "Original imported narrative"),
+                        field(CdsCategory.FAMILY_HISTORY, "Notes[1]", imported));
+        var result = reconcile(CdsCategory.FAMILY_HISTORY, "FamHistory", fields, revised, false);
+        String xml =
+                new String(
+                        render(CdsCategory.FAMILY_HISTORY, result.content()),
+                        StandardCharsets.UTF_8);
+        // Together they pass 32,000: the imported Notes stay whole, and the current narrative,
+        // the last part, is left out of Notes and travels whole in its carrier.
+        var notes = java.util.regex.Pattern.compile("(?s)<Notes>(.*?)</Notes>").matcher(xml);
+        assertThat(notes.find()).isTrue();
+        assertThat(notes.group(1)).isEqualTo(imported);
+        assertThat(xml).contains(CdsNativeExtensionContract.encodeNarrative(revised));
+        // Imported Notes that alone pass the element make way for the archive statement and are
+        // carried exactly in the residual; before, such an item held the chart
+        // (CDS_EXPORT_HISTORY_SOURCE_NARRATIVE_CAPACITY past 64,000 characters).
+        String gap = "Imported " + "g".repeat(32_500);
+        var long1 =
+                List.of(
+                        field(
+                                CdsCategory.FAMILY_HISTORY,
+                                "ProblemDiagnosisProcedureDescription[1]",
+                                "Original imported narrative"),
+                        field(CdsCategory.FAMILY_HISTORY, "Notes[1]", gap));
+        var archived =
+                reconcile(
+                        CdsCategory.FAMILY_HISTORY,
+                        "FamHistory",
+                        long1,
+                        "Original imported narrative",
+                        true);
+        String archivedXml =
+                new String(
+                        render(CdsCategory.FAMILY_HISTORY, archived.content()),
+                        StandardCharsets.UTF_8);
+        assertThat(archivedXml)
+                .contains(
+                        "<Notes>"
+                                + CdsExportNativeHistoryMapper.ARCHIVED_ITEM_STATEMENT
+                                + "</Notes>",
+                        "importedNotes");
+        var residual =
+                new com.fasterxml.jackson.databind.ObjectMapper()
+                        .readTree(
+                                CdsExportNativeHistoryMapperUnitTest.residual(
+                                        render(CdsCategory.FAMILY_HISTORY, archived.content()),
+                                        "CARLOS.NativeHistory.v1"));
+        assertThat(residual.get("importedNotes").asText()).isEqualTo(gap);
+        assertThat(archived.replacedFields()).contains(long1.get(1).id());
+    }
+
+    @Test
+    void shouldExportUnchangedImportedTextInTheDictionaryGap_andCarryItOnceCarlosWritesNotes()
+            throws Exception {
+        // Owner decision (#56) for a text64K (ProblemList Notes) and a text1K (AlertDescription
+        // and Notes of an alert): imported text between the dictionary's length and the schema's
+        // is exported exactly as imported while nobody changes it. Once CARLOS writes the Notes
+        // (here the archive statement) they keep the dictionary length by the native rule: whole
+        // parts only, and the imported Notes are carried exactly in the residual.
+        for (var entry :
+                Map.of(
+                                CdsCategory.PROBLEM_LIST,
+                                List.of("Concerns", "ProblemDiagnosisDescription[1]"),
+                                CdsCategory.ALERTS_AND_SPECIAL_NEEDS,
+                                List.of("Reminders", "AlertDescription[1]"))
+                        .entrySet()) {
+            var category = entry.getKey();
+            String tag = entry.getValue().get(0), description = entry.getValue().get(1);
+            int dictionary = CdsExportNativeHistoryMapper.notesLimit(category),
+                    schema = CdsExportDictionaryLength.schema(dictionary);
+            for (int length : new int[] {dictionary + 1, schema}) {
+                String imported = "n".repeat(length);
+                // An alert's description is a text1K too; a problem's is not.
+                String shown =
+                        category == CdsCategory.ALERTS_AND_SPECIAL_NEEDS
+                                ? "d".repeat(length)
+                                : "Original imported narrative";
+                var fields =
+                        List.of(
+                                field(category, description, shown),
+                                field(category, "Notes[1]", imported));
+                String unchanged =
+                        new String(
+                                render(
+                                        category,
+                                        reconcile(
+                                                        category,
+                                                        tag,
+                                                        fields,
+                                                        "Original imported narrative",
+                                                        false)
+                                                .content()),
+                                StandardCharsets.UTF_8);
+                assertThat(unchanged).contains("<Notes>" + imported + "</Notes>", shown);
+                var archived =
+                        reconcile(category, tag, fields, "Original imported narrative", true);
+                byte[] rendered = render(category, archived.content());
+                assertThat(new String(rendered, StandardCharsets.UTF_8))
+                        .contains(
+                                "<Notes>"
+                                        + CdsExportNativeHistoryMapper.ARCHIVED_ITEM_STATEMENT
+                                        + "</Notes>",
+                                shown);
+                var residual =
+                        new com.fasterxml.jackson.databind.ObjectMapper()
+                                .readTree(
+                                        CdsExportNativeHistoryMapperUnitTest.residual(
+                                                rendered, "CARLOS.NativeHistory.v1"));
+                assertThat(residual.get("importedNotes").asText()).isEqualTo(imported);
+            }
+        }
+    }
+
+    @Test
+    void shouldReplaceAnImportedNarrativeCarrier_whenTheEditFitsTheDescription()
+            throws Exception {
+        String imported = "Original imported narrative";
+        var fields =
+                List.of(
+                        field(CdsCategory.FAMILY_HISTORY, "Notes[1]", imported),
+                        field(
+                                CdsCategory.FAMILY_HISTORY,
+                                "ResidualInfo[1]/DataElement[1]/Name[1]",
+                                CdsNativeExtensionContract.HISTORY_NARRATIVE),
+                        field(
+                                CdsCategory.FAMILY_HISTORY,
+                                "ResidualInfo[1]/DataElement[1]/DataType[1]",
+                                "string"),
+                        field(
+                                CdsCategory.FAMILY_HISTORY,
+                                "ResidualInfo[1]/DataElement[1]/Content[1]",
+                                CdsNativeExtensionContract.encodeNarrative(imported)));
+        var result = reconcile(CdsCategory.FAMILY_HISTORY, "FamHistory", fields, "Short", false);
+        String xml =
+                new String(
+                        render(CdsCategory.FAMILY_HISTORY, result.content()),
+                        StandardCharsets.UTF_8);
+        // A stale carrier would make a CARLOS importer restore the old text.
+        assertThat(xml)
+                .contains("Short", "[Superseded imported narrative]\n" + imported)
+                .doesNotContain(CdsNativeExtensionContract.HISTORY_NARRATIVE);
+        assertThat(result.replacedFields()).contains(fields.get(3).id());
+    }
+
+    @Test
+    void shouldReplaceTheRawPersonalCarrier_withTheEncodedCurrentNarrative() throws Exception {
+        String edited = "Lives alone.\n  Walks   daily";
+        var fields =
+                List.of(
+                        field(
+                                CdsCategory.PERSONAL_HISTORY,
+                                "ResidualInfo[1]/DataElement[1]/Name[1]",
+                                CdsNativeExtensionContract.HISTORY_PERSONAL_NARRATIVE),
+                        field(
+                                CdsCategory.PERSONAL_HISTORY,
+                                "ResidualInfo[1]/DataElement[1]/DataType[1]",
+                                "string"),
+                        field(
+                                CdsCategory.PERSONAL_HISTORY,
+                                "ResidualInfo[1]/DataElement[1]/Content[1]",
+                                "Original imported narrative"));
+        var result = reconcile(CdsCategory.PERSONAL_HISTORY, "SocHistory", fields, edited, false);
+        String xml =
+                new String(
+                        render(CdsCategory.PERSONAL_HISTORY, result.content()),
+                        StandardCharsets.UTF_8);
+        assertThat(xml)
+                .contains(CdsNativeExtensionContract.encodeNarrative(edited))
+                .doesNotContain(CdsNativeExtensionContract.HISTORY_PERSONAL_NARRATIVE);
+        assertThat(result.replacedFields())
+                .containsExactlyInAnyOrderElementsOf(fields.stream().map(f -> f.id()).toList());
+    }
+
+    @Test
+    void shouldRetainUnrelatedLongVendorNames_whileAddingKnownNativeHistoryMarkers()
+            throws Exception {
+        String vendorName = "Unrelated.Vendor." + "x".repeat(20000);
+        var fields =
+                List.of(
+                        field(
+                                CdsCategory.FAMILY_HISTORY,
+                                "ProblemDiagnosisProcedureDescription[1]",
+                                "Original imported narrative"),
+                        field(
+                                CdsCategory.FAMILY_HISTORY,
+                                "ResidualInfo[1]/DataElement[1]/Name[1]",
+                                vendorName),
+                        field(
+                                CdsCategory.FAMILY_HISTORY,
+                                "ResidualInfo[1]/DataElement[1]/DataType[1]",
+                                "string"),
+                        field(
+                                CdsCategory.FAMILY_HISTORY,
+                                "ResidualInfo[1]/DataElement[1]/Content[1]",
+                                "Vendor content"));
+        var result = reconcile(CdsCategory.FAMILY_HISTORY, "FamHistory", fields);
+        assertThat(
+                        new String(
+                                render(CdsCategory.FAMILY_HISTORY, result.content()),
+                                StandardCharsets.UTF_8))
+                .contains(
+                        vendorName, "Vendor content", CdsNativeExtensionContract.HISTORY_ARCHIVED);
+    }
+
+    @Test
+    void shouldKeepOriginalReviewerDetails_whileSerializingAllNativeRevisionsInOneNote()
+            throws Exception {
+        var fields =
+                List.of(
+                        field(
+                                CdsCategory.CLINICAL_NOTES,
+                                "MyClinicalNotesContent[1]",
+                                "Original imported narrative"),
+                        field(
+                                CdsCategory.CLINICAL_NOTES,
+                                "NoteReviewer[1]/Name[1]/FirstName[1]",
+                                "Reviewer"),
+                        field(
+                                CdsCategory.CLINICAL_NOTES,
+                                "NoteReviewer[1]/Name[1]/LastName[1]",
+                                "Fixture"),
+                        field(
+                                CdsCategory.CLINICAL_NOTES,
+                                "NoteReviewer[1]/DateTimeNoteReviewed[1]/YearOnly[1]",
+                                "2020"));
+        var result = reconcile(CdsCategory.CLINICAL_NOTES, null, fields);
+        String xml =
+                new String(
+                        render(CdsCategory.CLINICAL_NOTES, result.content()),
+                        StandardCharsets.UTF_8);
+        assertThat(xml)
+                .contains(
+                        "Original imported narrative",
+                        "Current edited narrative",
+                        "Reviewer",
+                        "2020");
+        assertThat(result.retainedFields()).hasSize(3);
+        assertThat(result.replacedFields()).containsExactly(fields.getFirst().id());
+    }
+
+    @Test
+    void
+            shouldRetainUnprojectedOriginalCppFields_andAppendNativeMetadataWithoutReplacingResidualInfo()
+                    throws Exception {
+        var fields =
+                List.of(
+                        field(
+                                CdsCategory.FAMILY_HISTORY,
+                                "ProblemDiagnosisProcedureDescription[1]",
+                                "Original imported narrative"),
+                        field(CdsCategory.FAMILY_HISTORY, "Relationship[1]", "Mother"),
+                        field(
+                                CdsCategory.FAMILY_HISTORY,
+                                "ResidualInfo[1]/DataElement[1]/Name[1]",
+                                "Original.Vendor.Value"),
+                        field(
+                                CdsCategory.FAMILY_HISTORY,
+                                "ResidualInfo[1]/DataElement[1]/DataType[1]",
+                                "string"),
+                        field(
+                                CdsCategory.FAMILY_HISTORY,
+                                "ResidualInfo[1]/DataElement[1]/Content[1]",
+                                "Original clinical supplement"));
+        var result = reconcile(CdsCategory.FAMILY_HISTORY, "FamHistory", fields);
+        String xml =
+                new String(
+                        render(CdsCategory.FAMILY_HISTORY, result.content()),
+                        StandardCharsets.UTF_8);
+        assertThat(xml)
+                .contains(
+                        "Current edited narrative",
+                        // The imported projection travels in the token-typed residual, where
+                        // spaces are escaped so none collapse.
+                        "Original\\u0020imported\\u0020narrative",
+                        "Mother",
+                        "Original clinical supplement",
+                        "Original.Vendor.Value",
+                        "CARLOS.NativeHistory.v1");
+        assertThat(result.retainedFields()).hasSize(4);
+        assertThat(result.replacedFields()).containsExactly(fields.getFirst().id());
+    }
+
+    @Test
+    void shouldCreateTheResidualCarrier_whenTheOriginalCppHadNone() throws Exception {
+        var fields =
+                List.of(
+                        field(
+                                CdsCategory.FAMILY_HISTORY,
+                                "ProblemDiagnosisProcedureDescription[1]",
+                                "Original imported narrative"));
+        var result = reconcile(CdsCategory.FAMILY_HISTORY, "FamHistory", fields);
+        assertThat(
+                        new String(
+                                render(CdsCategory.FAMILY_HISTORY, result.content()),
+                                StandardCharsets.UTF_8))
+                .contains("CARLOS.NativeHistory.v1", "Current edited narrative");
+    }
+}

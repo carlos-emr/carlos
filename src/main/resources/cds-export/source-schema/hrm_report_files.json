@@ -1,0 +1,41 @@
+{
+  "table": "hrm_report_files",
+  "engine": "TRUSTED_NATIVE_DOCUMENT_STORAGE",
+  "columns": [
+    {
+      "name": "content",
+      "type": "BINARY",
+      "nullable": "YES",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "hrm_document_id",
+      "type": "CANONICAL_HRM_DOCUMENT_ID",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "report_file",
+      "type": "STORED_HRM_REPORT_FILE",
+      "nullable": "YES",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "state",
+      "type": "HRM_REPORT_FILE_STATE",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    }
+  ],
+  "primaryKeyColumns": [
+    "hrm_document_id"
+  ]
+}

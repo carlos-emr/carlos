@@ -186,6 +186,13 @@ public class DemographicData {
         return demographicCust == null ? "" : DemographicCust.patientNotesText(demographicCust.getNotes());
     }
 
+    /** The patient alert shown on the master record (demographiccust.cust3), or "" when none. */
+    public String getDemographicAlert(String demographicNo) {
+        DemographicCust demographicCust = demographicCustDao.find(Integer.parseInt(demographicNo));
+        String alert = demographicCust == null ? null : demographicCust.getAlert();
+        return alert == null ? "" : alert;
+    }
+
     public Demographic getDemographic(LoggedInInfo loggedInInfo, String DemographicNo) {
         Demographic demographic = demographicManager.getDemographic(loggedInInfo, DemographicNo);
         return demographic;

@@ -52,6 +52,8 @@ public class LabRoutingLookupDao extends AbstractDaoImpl<Demographic> {
      */
     // The column must match PROVIDER_COLUMNS exactly; all identifier values are bound parameters.
     @SuppressWarnings("java:S2077")
+    // FindSecBugs IMPROPER_UNICODE: The folded column is checked against a finite ASCII allowlist before SQL composition; identifier values remain bound parameters.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "the folded column must match the finite ASCII PROVIDER_COLUMNS allowlist; identifiers are bound parameters, not folded trust decisions")
     public List<String> findProviders(String column, String identifier, boolean ontario,
                                       Integer limit, boolean orderByLength) {
         String selected = column == null ? "ohip_no" : column.trim().toLowerCase(Locale.ROOT);
@@ -95,16 +97,14 @@ public class LabRoutingLookupDao extends AbstractDaoImpl<Demographic> {
      * @throws NullPointerException if either name is null
      * @throws ArrayIndexOutOfBoundsException if a specified DOB lacks three components
      */
+    // FindSecBugs IMPROPER_UNICODE: UNKNOWN is a legacy missing-value marker, not an identity or authorization comparison; changing this fold would change established lab routing semantics.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive UNKNOWN checks preserve legacy missing-value semantics; they do not compare identities or authorize access, and every lookup value is bound")
     public List<Patient> findHl7Patients(String lastName, String firstName, String sex, String dob,
                                        String hin, boolean ignoreNames) {
         // Legacy HL7 matching rejects null names before it can broaden a name-prefix query.
         java.util.Objects.requireNonNull(lastName, "HL7 patient surname");
         java.util.Objects.requireNonNull(firstName, "HL7 patient given name");
-        String health = hin;
-        if ("UNKNOWN".equalsIgnoreCase(health)) health = "";
-        if (health != null && health.length() == 12 && StringUtils.isNumeric(health.substring(0, 10))) {
-            health = health.substring(0, 10);
-        }
+        String health = hl7HealthNumber(hin);
         String year = "%", month = "%", day = "%";
         boolean hasDob = dob != null && !dob.isEmpty() && !dob.equalsIgnoreCase("UNKNOWN");
         if (hasDob) {
@@ -133,6 +133,27 @@ public class LabRoutingLookupDao extends AbstractDaoImpl<Demographic> {
             params.addAll(List.of(year, month, day, sex + "%"));
         }
         return patients(sql.toString(), params);
+    }
+
+    /**
+     * The health number {@link #findHl7Patients} compares with {@code demographic.hin}: empty for
+     * the {@code UNKNOWN} sentinel, and a 12-character number whose first ten characters are
+     * digits without its last two (the version code, which is ignored). The CDS export finds a
+     * chart's own part of a stored message that names several patients by the same rule
+     * ({@code CdsExportNativeLaboratoryParser}).
+     *
+     * @param hin the health number as the message sent it, possibly null
+     * @return the number compared, null or empty when there is none
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of the internal UNKNOWN sentinel; it only removes a placeholder and never grants a patient match by itself.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of the internal UNKNOWN sentinel; it only removes a placeholder and never grants a patient match by itself")
+    public static String hl7HealthNumber(String hin) {
+        String health = hin;
+        if ("UNKNOWN".equalsIgnoreCase(health)) health = "";
+        if (health != null && health.length() == 12 && StringUtils.isNumeric(health.substring(0, 10))) {
+            health = health.substring(0, 10);
+        }
+        return health;
     }
 
     /**

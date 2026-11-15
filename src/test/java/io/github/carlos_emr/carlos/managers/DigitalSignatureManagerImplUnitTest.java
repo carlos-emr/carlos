@@ -164,4 +164,57 @@ class DigitalSignatureManagerImplUnitTest {
             assertThat(result.getSignatureImage()).isEqualTo(plaintext);
         }
     }
+
+    @Test
+    @DisplayName("should read a stored value as decrypted, legacy plaintext or unreadable")
+    void shouldReadEachStoredForm_throughTheOneDecryptionPath() {
+        byte[] ciphertext = {(byte) 0xAA, (byte) 0xBB, (byte) 0xCC};
+        byte[] plaintext = {0x10, 0x20, 0x30};
+        try (MockedStatic<EncryptionUtils> encryption = mockStatic(EncryptionUtils.class)) {
+            encryption.when(() -> EncryptionUtils.decrypt(ciphertext)).thenReturn(plaintext);
+            encryption.when(() -> EncryptionUtils.decrypt(PNG_MAGIC))
+                    .thenThrow(new RuntimeException("not ciphertext"));
+            byte[] opaque = {0x01, 0x02, 0x03, 0x04, 0x05};
+            encryption.when(() -> EncryptionUtils.decrypt(opaque))
+                    .thenThrow(new RuntimeException("key unavailable"));
+
+            var decrypted = DigitalSignatureManagerImpl.readStoredImage(ciphertext);
+            assertThat(decrypted.form()).isEqualTo(DigitalSignatureManagerImpl.StoredImageForm.DECRYPTED);
+            assertThat(decrypted.image()).isEqualTo(plaintext);
+
+            var legacy = DigitalSignatureManagerImpl.readStoredImage(PNG_MAGIC);
+            assertThat(legacy.form()).isEqualTo(DigitalSignatureManagerImpl.StoredImageForm.LEGACY_PLAINTEXT);
+            assertThat(legacy.image()).isEqualTo(PNG_MAGIC);
+
+            var unreadable = DigitalSignatureManagerImpl.readStoredImage(opaque);
+            assertThat(unreadable.form()).isEqualTo(DigitalSignatureManagerImpl.StoredImageForm.UNREADABLE);
+            assertThat(unreadable.image()).isNull();
+            assertThat(unreadable.failure()).hasMessage("key unavailable");
+        }
+    }
+
+    @Test
+    @DisplayName("should decrypt a value the signature key encrypted, as the chart and the export read it")
+    void shouldDecryptAStoredSignature_withTheConfiguredKey() throws Exception {
+        var props = io.github.carlos_emr.CarlosProperties.getInstance();
+        boolean had = props.containsKey(EncryptionUtils.SECRET_KEY_ENV_VAR);
+        Object previousKey = props.get(EncryptionUtils.SECRET_KEY_ENV_VAR);
+        var specField = EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
+        specField.setAccessible(true);
+        Object previousSpec = specField.get(null);
+        try {
+            props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, EncryptionUtils.generateSecretKey());
+            EncryptionUtils.prepareSecretKeySpec();
+            byte[] stored = EncryptionUtils.encrypt(PNG_MAGIC);
+
+            var read = DigitalSignatureManagerImpl.readStoredImage(stored);
+
+            assertThat(read.form()).isEqualTo(DigitalSignatureManagerImpl.StoredImageForm.DECRYPTED);
+            assertThat(read.image()).isEqualTo(PNG_MAGIC);
+        } finally {
+            if (had) props.put(EncryptionUtils.SECRET_KEY_ENV_VAR, previousKey);
+            else props.remove(EncryptionUtils.SECRET_KEY_ENV_VAR);
+            specField.set(null, previousSpec);
+        }
+    }
 }
