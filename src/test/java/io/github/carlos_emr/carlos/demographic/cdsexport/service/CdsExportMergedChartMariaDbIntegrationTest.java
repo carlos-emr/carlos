@@ -373,12 +373,12 @@ class CdsExportMergedChartMariaDbIntegrationTest {
                 .isZero();
 
         var importRun = importFile(protectedFile(source.resolve("package.zip"), zip), NAMESPACE);
+        Integer chart = target(importRun);
+        if (chart != null) imported.add(chart);
         assertThat(runState(importRun))
                 .as("Import run with patient state %s and diagnostic codes %s", patientState(importRun), diagnostics(importRun))
                 .isEqualTo("COMPLETE");
-        Integer chart = target(importRun);
         assertThat(chart).isNotNull();
-        imported.add(chart);
         assertThat(diagnostics(importRun))
                 .contains("CDS_MERGED_CHARTS_IMPORTED")
                 .doesNotContain("CDS_MERGED_CHART_CARRIER_INVALID");

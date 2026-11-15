@@ -40076,7 +40076,7 @@
       }
     },
     "scope": "Reachable leaf/attribute/choice contract of the two pinned wire XSDs, shared by explicitly selected PCON-2024-02 and OntarioMD-5.2 logical profiles; documentary review is not certification of all CDS-S logical requirements. Reviewed path groups distinguish native projections from protected generic source preservation. Native projection eligibility can be conditional, as described. On 2026-11-05, Codex independently reviewed the FrmSetupForm2Action reader update for PR #5602: the ongoing-concerns prefill changed, while the reviewed medication dose, pharmacy-instruction and timing mappings and their getDrugList/medicationLine reader behavior remain unchanged. On 2026-11-10, the shared CPP archive and authored PersonalHistory residual contract, sealed-payload defaults and receiving importer were reviewed together with native export round-trip evidence. This documents conditional CARLOS extensions, not standard receiver support for those extensions.",
-    "sha256": "c7954f6bf4e38f3b9e48426646d24fc20a136a9b109f119fd2affc2944a0eb28"
+    "sha256": "baa93a733ecd39ec0d165aa8e6f4b6362b6eaf428c5f1ab800ab50172d1b1e79"
   },
   "root": "cds:OmdCds",
   "schemas": [

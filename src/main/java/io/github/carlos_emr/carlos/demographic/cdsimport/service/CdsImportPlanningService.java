@@ -1252,13 +1252,26 @@ public class CdsImportPlanningService {
                 || !value.path("sha256").asText().equals(sealed.path("valuesSha256").asText()))
             throw new CdsImportException("VALUE_METADATA_HASH_MISMATCH");
         Path location = metadata.getParent().resolve(value.path("valuesFile").asText());
-        if (!location.equals(work.record().valuesFile())
+        var record = work.record();
+        boolean derived = "HistoryExtension".equals(record.section())
+                && record.corrections() == null
+                && record.valuesFile().equals(metadata.getParent().resolve("native-extension-values.bin"))
+                && record.fieldsFile().equals(metadata.getParent().resolve("native-extension-fields.jsonl"));
+        if ((!location.equals(record.valuesFile()) && !derived)
                 || Files.size(location) != value.path("length").asLong(-1)) {
             throw new CdsImportException("VALUE_SPOOL_PUBLICATION_CONFLICT");
         }
         String expected = value.path("sha256").asText();
         long length = value.path("length").asLong();
         publishArtifact(runId, epoch, location, expected, length, shared);
+        if (derived) {
+            // Children use a shared append-only spool, not the immutable XML value file.
+            // The sealed unit binds its metadata slice and every value digest. Verify only
+            // that slice, so publication stays linear across any number of CPP extensions.
+            // Their source XML is still published above; derived values are never retained
+            // as source fields or trusted merely because another child was verified.
+            fields.verifyRecord(record);
+        }
         var corrections = work.record().corrections();
         if (corrections != null) {
             Path manifest = corrections.manifestFile();

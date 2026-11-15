@@ -4030,7 +4030,7 @@
               "check": "java-cds-transfer-export"
             },
             {
-              "name": "shouldHoldThePatient_whenALaboratoryFiledResultNamesNoReportTheLaboratoryPathExports",
+              "name": "shouldListALaboratoryFiledResultWhoseReportIsNotRoutedToTheChart_insteadOfHoldingIt",
               "container": "",
               "check": "java-cds-transfer-export"
             },
@@ -7608,7 +7608,7 @@
         "CdsImportAttemptBudgetUnitTest": 9,
         "CdsImportCleanupServiceUnitTest": 7,
         "CdsImportCoordinatorMariaDbIntegrationTest": 14,
-        "CdsImportExecutionControlUnitTest": 23,
+        "CdsImportExecutionControlUnitTest": 26,
         "CdsImportFailureEvidenceServiceUnitTest": 6,
         "CdsImportFileVerificationServiceUnitTest": 8,
         "CdsImportJobServiceUnitTest": 10,

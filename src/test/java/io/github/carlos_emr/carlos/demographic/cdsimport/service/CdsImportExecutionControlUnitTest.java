@@ -843,6 +843,41 @@ class CdsImportExecutionControlUnitTest {
         verify(owner, times(cancellation ? 2 : 1)).control("run");
     }
 
+    @Test
+    void shouldVerifyEachDerivedSliceAgainstItsSealedUnit_whenCppChildrenShareAValueSpool(
+            @org.junit.jupiter.api.io.TempDir Path temp) throws Exception {
+        var f = planning(temp, 0);
+        var source = publication(f, temp);
+        CdsRecordDto first;
+        CdsRecordDto second;
+        try (var spool = new CdsNativeChildSpool(source.record(), CdsInputLimitsDto.defaults())) {
+            first = spool.append(source.record(), 1, java.util.Map.of("Value", "first"));
+            second = spool.append(source.record(), 2, java.util.Map.of("Value", "second"));
+        }
+        var firstWork = derivedWork(source, first);
+        var secondWork = derivedWork(source, second);
+        f.planner.publishValues("run", 7, firstWork);
+        f.planner.publishValues("run", 7, secondWork);
+        // A later slice never makes an earlier slice's proof stale. Each slice still has
+        // to match its own field/value digests on every execution and after resumption.
+        byte[] bytes = Files.readAllBytes(first.valuesFile());
+        bytes[0] ^= 1;
+        Files.write(first.valuesFile(), bytes);
+        f.planner.publishValues("run", 7, secondWork);
+        assertThatThrownBy(() -> f.planner.publishValues("run", 7, firstWork))
+                .hasMessageContaining("CDS_SPOOL_VALUE_HASH_MISMATCH");
+        var wrongLocation = new CdsRecordDto(first.section(), first.ordinal(), first.sourceXPath(),
+                first.fieldsFile(), first.fieldsOffset(), first.fieldsLength(),
+                first.valuesFile().resolveSibling("unrelated.bin"), first.sha256(), first.fieldCount());
+        assertThatThrownBy(() -> f.planner.publishValues("run", 7, derivedWork(source, wrongLocation)))
+                .hasMessage("VALUE_SPOOL_PUBLICATION_CONFLICT");
+    }
+
+    private static CdsImportWorkDto derivedWork(CdsImportWorkDto source, CdsRecordDto record) {
+        return new CdsImportWorkDto(record, source.snapshot(), source.xmlRelative(), source.xmlSha256(),
+                source.parseResultFile(), source.actor(), source.command());
+    }
+
     private static CdsImportWorkDto publication(Planning f, Path temp) throws Exception {
         var records = new ArrayList<CdsRecordDto>();
         Path folder = temp.resolve("publication");
