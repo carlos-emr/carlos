@@ -222,7 +222,7 @@ class CdsExportPrescriptionOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldStopBeforeReadingWhenMedicationAccessHasBeenRevoked() throws Exception {
+    void shouldStopBeforeReading_whenMedicationAccessHasBeenRevoked() throws Exception {
         var f = captured(true, true);
         doThrow(new SecurityException("synthetic revoked scope"))
                 .when(f.fixture.control)
@@ -358,7 +358,7 @@ class CdsExportPrescriptionOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldKeepLinkedAndStandaloneScriptHistoryAsIndependentlyAccountedClinicalContext()
+    void shouldAccountForScriptHistoryIndependently_withLinkedAndStandaloneScripts()
             throws Exception {
         var parent = parent(27);
         var drug =

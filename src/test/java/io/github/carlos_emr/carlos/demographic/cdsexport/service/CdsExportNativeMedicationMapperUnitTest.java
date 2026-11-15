@@ -1457,7 +1457,7 @@ class CdsExportNativeMedicationMapperUnitTest {
     }
 
     @Test
-    void shouldNotGuessAnOutsidePrescribersNameParts() throws Exception {
+    void shouldKeepTheOutsidePrescriberName_withoutGuessingItsParts() throws Exception {
         var fields = source();
         fields.put("outside_provider_name", "Dr. Authored Full Name");
         fields.put("outside_provider_ohip", "123456");

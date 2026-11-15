@@ -360,7 +360,7 @@ class CdsExportChartAdoptionUnitTest {
     }
 
     @Test
-    void shouldLetTheNewestEarlierAttemptThatReachedAPatientDecide() throws Exception {
+    void shouldUseTheNewestEarlierAttempt_whenItReachedThePatient() throws Exception {
         var oldest =
                 new Kept(1, PARAMETERS).chart(3, true, "1".repeat(64)).chart(8, true, "2".repeat(64));
         var newer = new Kept(2, PARAMETERS).held(3).chart(4, true, "3".repeat(64));

@@ -469,7 +469,7 @@ class CdsExportLedgerIntegrationTest {
     }
 
     @Test
-    void shouldKeepAnOrphanedAttemptsCharts_untilItsOwnCeiling_whenTheJobIsClaimedAgain() {
+    void shouldKeepAnOrphanedAttemptsCharts_untilItsOwnCeilingWhenTheJobIsClaimedAgain() {
         var job = ledger.accept(document("recipient"));
         var orphan = ledger.claim(job.id(), COMPATIBLE);
         ledger.recordCheckpoint(orphan, pointer('1', 6), 0);

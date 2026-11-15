@@ -742,7 +742,7 @@ class CdsExportAccessServiceUnitTest {
 
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"100", "200"})
-    void shouldRequireBothDelegatedIdentitiesForEveryDistinctBatchGrant(String denied) {
+    void shouldRequireBothDelegatedIdentities_forEveryDistinctBatchGrant(String denied) {
         var command = noteCommand("200");
         var actor = access.webActor(session, command);
         var batch =

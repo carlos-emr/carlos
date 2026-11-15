@@ -1501,7 +1501,7 @@ class CdsExportNativeHistoryMapperUnitTest {
     }
 
     @Test
-    void shouldNameTheAttachedDocument_atTheHeadOfTheClinicalNote_andCarryTheLinkExactly()
+    void shouldNameTheAttachedDocumentAndCarryTheExactLink_atTheHeadOfTheClinicalNote()
             throws Exception {
         // ManageDocument2Action.saveDocNote: the note recording a filed document and its link.
         var result =

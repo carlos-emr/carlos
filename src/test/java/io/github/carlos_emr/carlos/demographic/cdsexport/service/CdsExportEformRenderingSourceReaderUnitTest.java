@@ -261,7 +261,7 @@ class CdsExportEformRenderingSourceReaderUnitTest {
     }
 
     @Test
-    void shouldKeepTheDataSummaryFallback_whenTheSecondAttemptFailsToo_withANoteSayingSo()
+    void shouldKeepTheDataSummaryFallbackWithAnExplanation_whenTheSecondAttemptAlsoFails()
             throws Exception {
         var source = mock(CdsExportEformRenderReadDao.class);
         when(source.current(27))

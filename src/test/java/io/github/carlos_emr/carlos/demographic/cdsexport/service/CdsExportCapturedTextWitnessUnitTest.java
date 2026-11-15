@@ -86,7 +86,7 @@ class CdsExportCapturedTextWitnessUnitTest {
     }
 
     @Test
-    void shouldStillRefuseAnExtensionValueTheWitnessDoesNotProve() {
+    void shouldRefuseAnExtensionValue_whenTheWitnessDoesNotProveIt() {
         var row = row("demographicExt", extension());
         var changed = new LinkedHashMap<>(extension());
         changed.put("value", "555-0199");

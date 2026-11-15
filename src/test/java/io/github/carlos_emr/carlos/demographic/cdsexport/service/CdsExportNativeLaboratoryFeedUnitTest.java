@@ -543,7 +543,7 @@ class CdsExportNativeLaboratoryFeedUnitTest {
     }
 
     @Test
-    void shouldExportAStandardEdValue_andATextPayload_asReportsWithoutHoldingThePatient()
+    void shouldExportReportsWithoutHoldingThePatient_withStandardEdAndTextPayloads()
             throws Exception {
         byte[] pdf = "%PDF-1.4\n% synthetic\n".getBytes(StandardCharsets.US_ASCII);
         String encoded = java.util.Base64.getEncoder().encodeToString(pdf);

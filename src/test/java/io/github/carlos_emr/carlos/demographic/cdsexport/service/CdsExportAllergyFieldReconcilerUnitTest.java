@@ -266,7 +266,7 @@ class CdsExportAllergyFieldReconcilerUnitTest {
     }
 
     @Test
-    void shouldLeaveAnUnchangedImportedAllergyWithoutACurrentSourceContext() throws Exception {
+    void shouldOmitTheCurrentSourceContext_whenAnImportedAllergyIsUnchanged() throws Exception {
         var result = reconcile(fixture(baseline(), true, source()), List.of());
         assertThat(result.mapping().nativeRowRepresentable()).isTrue();
         assertThat(result.currentPaths()).isEmpty();
