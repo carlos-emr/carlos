@@ -491,11 +491,25 @@ class CdsExportStatementWaitMariaDbIntegrationTest {
         String ownedUrl = url.replace("/cds_export_test", "/" + owned);
         var sendings = new int[1];
         try (var holder = DriverManager.getConnection(ownedUrl, account, secret)) {
-            var releaser = holdLeaseRow(holder, 2_500);
+            // Retain the lock until the first sending has actually timed out. A timer
+            // started before opening its transaction could expire before its SELECT
+            // reached MariaDB on a busy runner, exercising no retry at all.
+            holder.setAutoCommit(false);
+            try (var lock = holder.createStatement();
+                    var rows = lock.executeQuery(
+                            "select renewals from `lease` where id = 1 for update")) {
+                assertThat(rows.next()).isTrue();
+            }
             CdsExportStatementWaitReadSupport.writing(
                     writes(),
                     status -> {
-                        sendings[0]++;
+                        if (++sendings[0] == 2) {
+                            try {
+                                holder.commit();
+                            } catch (java.sql.SQLException failed) {
+                                throw new IllegalStateException("Could not release the fixture lock", failed);
+                            }
+                        }
                         em.createNativeQuery("insert into `journal` values ('stop')")
                                 .executeUpdate();
                         // InnoDB gives up the lock wait after 1 s (error 1205), long before the
@@ -508,10 +522,9 @@ class CdsExportStatementWaitMariaDbIntegrationTest {
                                         "update `lease` set renewals = renewals + 1 where id = 1")
                                 .executeUpdate();
                     });
-            releaser.join();
         }
         // Lock waits that ran out had their sendings rolled back; a later one got the lock.
-        assertThat(sendings[0]).isGreaterThanOrEqualTo(2);
+        assertThat(sendings[0]).isEqualTo(2);
         assertThat(count("journal")).isEqualTo(1);
         assertThat(renewals()).isEqualTo(1);
         assertThat(pooled()).containsExactly(60_000, 0.0d);
