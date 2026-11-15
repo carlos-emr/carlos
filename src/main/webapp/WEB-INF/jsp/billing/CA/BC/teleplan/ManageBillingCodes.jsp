@@ -46,12 +46,12 @@
     }
 %>
 
-<%@page import="io.github.carlos_emr.*,io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.billing.ca.bc.Teleplan.*,java.math.BigDecimal,io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.commn.model.*" %>
+<%@page import="io.github.carlos_emr.*, java.util.*, java.math.BigDecimal, io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao,io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.commn.model.*" %>
 <%BillingServiceDao billingServiceDao = (BillingServiceDao) SpringUtils.getBean(BillingServiceDao.class); %>
 

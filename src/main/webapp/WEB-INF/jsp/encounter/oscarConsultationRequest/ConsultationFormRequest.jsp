@@ -57,18 +57,18 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
+
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
-<%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
+
 <!-- end -->
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 
 <%@page import="java.util.ArrayList, java.util.List, java.util.*, io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.lab.ca.on.*" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager,io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote,io.github.carlos_emr.carlos.casemgmt.model.Issue,io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO,org.springframework.web.context.support.*,org.springframework.web.context.*" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager, io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote, io.github.carlos_emr.carlos.casemgmt.model.Issue, io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO, org.springframework.web.context.support.*" %>
 
 <%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
@@ -95,16 +95,16 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ConsultationRequestExtDao" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.ConsultationManager" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.PathValidationUtils" %>
 <%@ page import="java.io.File" %>
-<%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
+
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType" %>
-<%@ page import="io.github.carlos_emr.carlos.demographic.data.EctInformation" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CppTextLoader" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.RxInformation" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.LabResultData" %>
@@ -300,9 +300,12 @@
             CommonLabResultData commonLabResultData = new CommonLabResultData();
             List<LabResultData> attachedLabs = commonLabResultData.populateLabResultsData(loggedInInfo, demo, requestId, CommonLabResultData.ATTACHED);
             ConsultationManager consultationManager = SpringUtils.getBean(ConsultationManager.class);
-            List<EctFormData.PatientForm> attachedForms = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(requestId), Integer.parseInt(demo));
+            // Share the stored relationships between the visible panels and the omission notice.
+            List<ConsultDocs> storedForms = consultationManager.getAttachedDocumentsByType(loggedInInfo, Integer.parseInt(requestId), ConsultDocs.DOCTYPE_FORM);
+            List<ConsultDocs> storedHRMDocuments = consultationManager.getAttachedDocumentsByType(loggedInInfo, Integer.parseInt(requestId), ConsultDocs.DOCTYPE_HRM);
+            List<EctFormData.PatientForm> attachedForms = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(requestId), Integer.parseInt(demo), storedForms);
             List<EFormData> attachedEForms = consultationManager.getAttachedEForms(requestId);
-            ArrayList<HashMap<String, ? extends Object>> attachedHRMDocuments = consultationManager.getAttachedHRMDocuments(loggedInInfo, demo, requestId);
+            ArrayList<HashMap<String, ? extends Object>> attachedHRMDocuments = consultationManager.getAttachedHRMDocuments(loggedInInfo, demo, requestId, storedHRMDocuments);
 
             Collections.sort(attachedLabs);
             List<LabResultData> attachedLabsSortedByVersions = new ArrayList<>();
@@ -341,6 +344,10 @@
             pageContext.setAttribute("attachedForms", attachedForms);
             pageContext.setAttribute("attachedEForms", attachedEForms);
             pageContext.setAttribute("attachedHRMDocuments", attachedHRMDocuments);
+            request.setAttribute(io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationAttachmentsNotIncluded.REQUEST_ATTRIBUTE,
+                io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationAttachmentsNotIncluded.describe(
+                    storedForms, storedHRMDocuments, attachedForms, attachedHRMDocuments,
+                    io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request)));
 
         }
     %>
@@ -2437,8 +2444,18 @@ if (userAgent != null) {
 
                         if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_MEDICATIONS", "true"))) {
                             if (props.getProperty("currentMedications", "").equalsIgnoreCase("otherMedications")) {
-                                EctInformation EctInfo = new EctInformation(loggedInInfo, demo);
-                                thisForm.setCurrentMedications(EctInfo.getFamilyHistory());
+                                if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, Integer.valueOf(demo))) {
+                                    throw new SecurityException("Patient record access denied");
+                                }
+                                if (securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", demo)
+                                        && securityInfoManager.hasPrivilege(loggedInInfo, "_eChart", "r", demo)
+                                        && securityInfoManager.hasPrivilege(loggedInInfo, "_casemgmt.notes", "r", demo)) {
+                                    String otherMedications = new CppTextLoader(SpringUtils.getBean(CaseManagementManager.class), securityInfoManager)
+                                            .load(request, loggedInInfo, demo, CaseManagementManager.IssueType.OMEDS);
+                                    thisForm.setCurrentMedications(otherMedications);
+                                } else {
+                                    request.setAttribute("consultationCppUnavailable", Boolean.TRUE);
+                                }
                             } else {
                                 thisForm.setCurrentMedications(RxInfo.getCurrentMedication(demo));
                             }
@@ -2552,6 +2569,7 @@ if (userAgent != null) {
                     </div>
 
                     <div class="card mb-2 consult-attachments">
+                        <%@ include file="/WEB-INF/jsp/encounter/oscarConsultationRequest/attachmentsNotIncludedNotice.jspf" %>
                         <div class="card-body p-2">
                                 <table id="attachedDocumentTable" style="border:none;background:transparent;">
                                     <tr>
@@ -3413,6 +3431,9 @@ if (userAgent != null) {
                                 </div>
                         </div>
                                 <div class="collapse show" id="collapseMedications">
+                                <c:if test="${requestScope.consultationCppUnavailable}">
+                                    <output class="alert alert-warning d-block"><fmt:message key="encounter.oscarConsultationRequest.cppPrefillUnavailable"/></output>
+                                </c:if>
                                 <textarea rows="6" id="currentMedications" class="form-control"
                                                name="currentMedications"><carlos:encode value='<%= thisForm.getCurrentMedications() %>' context="html"/></textarea>
                                 </div>

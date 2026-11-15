@@ -35,7 +35,7 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.DemographicMerged;
 
-public interface DemographicMergedDao extends AbstractDao<DemographicMerged> {
+public interface DemographicMergedDao extends AbstractDao<DemographicMerged>, CdsExportPatientTableReadDao {
 
     public List<DemographicMerged> findCurrentByMergedTo(int demographicNo);
 
@@ -43,5 +43,19 @@ public interface DemographicMergedDao extends AbstractDao<DemographicMerged> {
 
     public List<DemographicMerged> findByDemographicNo(int demographicNo);
 
+    /** Current links only; historical lookup remains available to existing consumers. */
+    default List<DemographicMerged> findActiveByParentAndChildIds(Integer parentId, Integer childId) {
+        return findByParentAndChildIds(parentId, childId).stream().filter(link -> link.getDeleted() == 0).toList();
+    }
+
     public List<DemographicMerged> findByParentAndChildIds(Integer parentId, Integer childId);
+
+    /**
+     * CDS export grouping read: every active link ({@code deleted} 0) whose either chart is one of
+     * {@code charts} (1 to 500 distinct positive chart numbers), in {@code id} order. The caller
+     * owns the read-only snapshot and the current authorization; whether each chart exists is
+     * read separately.
+     */
+    List<io.github.carlos_emr.carlos.commn.dto.CdsExportMergeLinkRowDto> findCdsExportActiveMergeLinks(
+            List<Integer> charts);
 }

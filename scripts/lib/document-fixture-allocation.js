@@ -15,6 +15,10 @@
 const assert = require('node:assert/strict');
 
 const MAX_DOCUMENT_ID = 2147483647;
+// ProviderLabRoutingDao.PROVIDER_LINKING_RULES_LOCK (Integer.MIN_VALUE) is
+// a global coordination lock, never a document identity. Keep the exception
+// scoped to this exact table/column/value; every other negative key still fails.
+const PROVIDER_LINKING_RULES_LOCK = '-2147483648';
 function identifier(value) {
   assert(typeof value === 'string' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(value), 'Unfamiliar document reference identifier');
   return '`' + value + '`';
@@ -56,8 +60,9 @@ function planDocumentFixtureId(sql) {
   add('document', 'document_no');
   add('providerLabRouting', 'lab_no', "lab_type='DOC'");
   add('patientLabRouting', 'lab_no', "lab_type='DOC'");
-  // This table has no lab_type discriminator, so all existing lock identities count.
-  add('providerLabRoutingLock', 'lab_no');
+  // There is no lab_type discriminator. Reserve every real identity, excluding
+  // only the application's global sentinel before both validation and unsigned MAX.
+  add('providerLabRoutingLock', 'lab_no', `BINARY CAST(lab_no AS CHAR) <> '${PROVIDER_LINKING_RULES_LOCK}'`);
   add('casemgmt_note_link', 'table_id', 'table_name=5');
   let maximumReference = 0;
   const references = [];
@@ -85,4 +90,4 @@ function assertSplitFixtureId(sourceId, splitId) {
     'Split reused an identity at or below the reserved source range');
 }
 
-module.exports = {MAX_DOCUMENT_ID, documentReferenceColumns, planDocumentFixtureId, assertSplitFixtureId};
+module.exports = {MAX_DOCUMENT_ID, PROVIDER_LINKING_RULES_LOCK, documentReferenceColumns, planDocumentFixtureId, assertSplitFixtureId};

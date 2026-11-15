@@ -128,7 +128,8 @@
 - Tomcat 11 supplies Servlet 6.1, Pages 4.0, Expression Language 6.0 and Annotations 3.0 and
   always loads those packages from its own `lib/`, so `pom.xml` keeps them `provided`, even when a
   library asks for one at compile scope (#5416: EL 5.0.1 shipped beside Tomcat's EL 6.0). JSTL is
-  the exception: Tomcat has none, so its API and the Glassfish implementation stay `compile`.
+  the exception: Tomcat has none, so the directly declared `jakarta.servlet.jsp.jstl-api`
+  and Glassfish implementation stay `compile`.
 - `ContainerApiPackagingUnitTest` (dependency graph) and `scripts/check-war-container-apis.py`
   (the built WAR, run by `debian/rules`) enforce this from
   `scripts/fixtures/tomcat-container-packages.json`. The `jspc` profile compiles with Tomcat 11's
@@ -523,9 +524,11 @@ token into the form and claim it in the action before validation. Answer a repea
 rendering with the first save's own result page, and map `submissionRefused` to
 `/WEB-INF/jsp/common/formSubmissionRefused.jsp` for the 409 cases. An edit form that posts every
 field must refuse a form rendered from an older version rather than overwrite the newer record;
-`DemographicEditVersion` with `DemographicDao.findForUpdate()` is the reference. Browser checks
-that deliberately replay a captured POST must drop `carlosFormSubmission` and
-`demographicVersion`. See `docs/form-submission-guard.md`.
+`DemographicEditVersion` with `DemographicDao.findForUpdate()` is the reference; the Edit
+Appointment form carries `appointmentVersion` (`AppointmentEditConflict`) and the Edit Tickler
+form `ticklerVersion` (`TicklerEditVersion`). Browser checks that deliberately replay a captured
+POST must drop `carlosFormSubmission`, `demographicVersion`, `appointmentVersion` and
+`ticklerVersion`. See `docs/form-submission-guard.md`.
 
 ## Layer Names — class naming policy
 
@@ -537,6 +540,9 @@ Sanctioned suffixes for new code:
 Forbidden in new code: `*Prep`, `*Manager`, `*Helper`, `*Utils`, compound suffixes except the sanctioned `*ImportService` file-import workflow suffix. DAOs may not inject other DAOs (cross-DAO orchestration goes in a `*Service`).
 
 Full policy + decision rules + retired-suffix migration guidance: **`docs/architecture/layer-names.md`**.
+CDS transfer readers, mappers, field reconcilers, planners, classifiers, resource
+factories, immutable registries and static DAO read support follow the narrowly
+defined additional roles in that policy's "CDS transfer components" section.
 
 ## Healthcare Domain Context
 
@@ -652,13 +658,18 @@ dao.searchNotes("111", "%diabetes%");
 Note: This is standard SQL behavior, NOT a production bug. Callers provide wildcards from the UI layer.
 
 **4. DAO Methods May Override Test Data**
-Some DAO `save*()` methods override fields like `update_date` with `new Date()`. When testing date-based queries, re-set the date after saving:
+Some DAO `save*()` methods override fields like `update_date` with `new Date()`, and some entities stamp
+dates in `@PrePersist`/`@PreUpdate` callbacks. Always check the DAO and the entity before assuming test
+data is persisted as-is. `CaseManagementIssue` (finding 361): the DAO stamps new issues, never writes the
+date a caller's copy of an existing issue carries, and the entity's `@PreUpdate` stamps every UPDATE, so
+re-setting the date after `saveIssue` and flushing does not work. Give the fixture its date on INSERT:
 ```java
-caseManagementIssueDAO.saveIssue(cmi);  // Overwrites update_date with now()
-cmi.setUpdate_date(desiredDate);         // Re-set to test-specific date
-hibernateTemplate.flush();               // Persist the corrected date
+cmi.setUpdate_date(pastDate);   // an INSERT runs no @PreUpdate
+entityManager.persist(cmi);     // or hibernateTemplate.save(cmi)
+entityManager.flush();
 ```
-Always check the DAO implementation before assuming test data is persisted as-is.
+To move an existing issue's date in a test, use a bulk JPQL/SQL `update` (no entity callbacks). See
+`docs/test/test-writing-guide.md` and `CaseManagementIssueUpdateDateIntegrationTest`.
 
 **5. SpringUtils Identity Across Multiple Contexts**
 When running the full test suite, classes with `@TestPropertySource` create separate Spring contexts. `SpringUtils.getBean()` may return instances from a different context than `@Autowired` injection. Do NOT assert instance identity (`isSameAs`/`isEqualTo`). Instead assert type:
@@ -674,6 +685,10 @@ assertThat(springUtilsDao).isInstanceOf(autowiredDao.getClass());
 DAO method names can be misleading. For example, `getProviders(boolean active)` returns providers filtered by that status — `getProviders(false)` returns INACTIVE providers, not ALL providers. Always read the DAO implementation before writing test assertions.
 
 ## Code Quality Standards
+
+**Library choices for new code**: Follow [Library conventions](docs/architecture/library-conventions.md)
+for common JDK and library APIs, including the HTTP-client decision and legacy compatibility
+exceptions. These conventions do not authorize rewriting existing call sites.
 
 **Security (CodeQL Integration)**:
 - Null-safe CARLOS encoder for all JSP outputs — prefer `<carlos:encode>` tag or `${carlos:forXxx()}` EL functions (see [OWASP Encoding](#owasp-encoding--xss-prevention))
@@ -738,7 +753,7 @@ public Example2Action(SomeManager someManager) {
 
 **Standards & Protocols**:
 - **HL7 v2/v3**: Full message processing with MSH, PID, OBX, ORC, OBR segment handlers
-- **FHIR R4**: HAPI FHIR 6.10.5 with resource filters and healthcare provider context
+- **FHIR DSTU3**: HAPI FHIR 8.12.1; core follows HAPI (6.9.12 minimum enforced), Saxon-HE remains 11.6, and outbound JSON retains the legacy blank-primitive contract
 - **SNOMED CT**: Clinical terminology with core dataset loading
 - **ICD-9/ICD-10**: Diagnosis coding systems fully integrated
 - **ATC Codes**: Anatomical Therapeutic Chemical classification for medications

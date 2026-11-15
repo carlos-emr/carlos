@@ -46,7 +46,7 @@
 
 <%@page contentType="application/octet-stream" %>
 <%@page
-        import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.report.ClinicalReports.*" %>
+        import="java.util.*, io.github.carlos_emr.carlos.report.ClinicalReports.*" %>
 <%@ page import="io.github.carlos_emr.carlos.report.ClinicalReports.ReportEvaluator" %>
 <%
 

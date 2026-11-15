@@ -13,8 +13,10 @@
  *      no appointment row is resurrected and no second archive row is written;
  *   3. session B cancels the appointment from its edit popup, then session A (popup opened BEFORE the
  *      cancel) changes the reason and clicks Update Appt: the cancellation must survive. The edit form
- *      posts the whole record, AppointmentUpdateRecord2Action has no findForUpdate / updatedatetime
- *      comparison, so A's stale status silently un-cancels the appointment.
+ *      posts the whole record, so it carries the version it was rendered from (appointmentVersion) and
+ *      AppointmentUpdateRecord2Action compares it under the row lock: A's stale form is refused whole
+ *      with HTTP 409 and the conflict page (nothing of it is stored, the reason included), which offers
+ *      to reopen the current appointment. Without that comparison A's stale status un-cancels it.
  * Fixtures: two owned appointments (marker reason, provider of the test login, 401 days ahead) seeded
  * by SQL for the owned FAKE- patient; cleanup deletes the appointment, appointmentArchive and
  * other_id(appt_mc_number) rows it owns and asserts them gone. Wave-7 sweep "concurrency".
@@ -168,17 +170,28 @@ async function workflow(s) {
     ]);
     await expectValue(sql, apptStatus(cancelId), 'C', 'Session B\'s cancellation did not reach the database');
     await aEdit.locator('#reason').fill(`${marker} edited by session A`);
-    await Promise.all([
+    const mark = failureMark(s.recorder);
+    const [response] = await Promise.all([
       aEdit.waitForResponse(r => r.request().method() === 'POST' && /\/appointment\/UpdateRecord$/.test(new URL(r.url()).pathname), { timeout: TIMEOUT }),
       aEdit.locator('#updateButton').click(),
     ]);
-    await expectValue(sql, `SELECT reason FROM appointment WHERE appointment_no=${cancelId}`, `${marker} edited by session A`,
-      'Session A\'s own edit (the reason) was not stored');
     const status = sql.value(apptStatus(cancelId));
     h.assert(status === 'C',
       `Session A's stale Update Appt silently un-cancelled the appointment (status is now '${status}'). The edit form posts the whole record and `
       + 'AppointmentUpdateRecord2Action neither locks the row (findForUpdate, as AppointmentStatusTransitionService does) nor compares the posted '
       + 'updatedatetime, so the later save wins without any warning.');
+    // The form carries the version it was rendered from (appointmentVersion). A stale form is refused whole: HTTP 409 and the
+    // conflict page, with none of its fields stored (not even the reason session A changed), and an offer to reopen the appointment.
+    h.assert(response.status() === 409, `The stale Update Appt answered HTTP ${response.status()} instead of refusing it with 409`);
+    await aEdit.locator('#appointmentEditConflict').waitFor({ state: 'visible', timeout: TIMEOUT });
+    await aEdit.waitForTimeout(500);
+    consumeExpectedFailure(s.recorder, mark, { status: 409, path: /\/appointment\/UpdateRecord$/ });
+    h.assert(sql.value(`SELECT reason FROM appointment WHERE appointment_no=${cancelId}`) === `${marker} cancel race`,
+      'The refused stale Update Appt still stored part of its form (the reason): a refusal must write nothing');
+    const reopen = aEdit.locator('#appointmentEditConflictReopen');
+    h.assert(await reopen.count() === 1 && new URL(await reopen.getAttribute('href'), aEdit.url()).searchParams.get('appointment_no') === String(cancelId),
+      'The conflict page does not offer to reopen the appointment it refused to overwrite');
+    await aEdit.close().catch(() => {});
   });
 }
 

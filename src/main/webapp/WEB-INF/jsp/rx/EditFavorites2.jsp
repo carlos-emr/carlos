@@ -47,7 +47,7 @@
 
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
 <html>
@@ -219,6 +219,7 @@
 
     </head>
     <body>
+<p><a href="<%= request.getContextPath() %>/rx/favoriteGroups?demographicNo=<%= bean.getDemographicNo() %>"><fmt:message key="oscarRx.groups.title"/></a></p>
     <form action="${pageContext.request.contextPath}/rx/updateFavorite2" method="post">
         <input type="hidden" name="demographicNo" value="${bean.demographicNo}"/>
         <input type="hidden" name="favoriteId" id="favoriteId"/>

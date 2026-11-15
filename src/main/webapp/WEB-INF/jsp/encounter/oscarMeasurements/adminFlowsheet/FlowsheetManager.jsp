@@ -45,10 +45,10 @@
 %>
 
 
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 

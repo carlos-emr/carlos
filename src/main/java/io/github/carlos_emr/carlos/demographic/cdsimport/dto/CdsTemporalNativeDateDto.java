@@ -28,8 +28,12 @@ import java.io.Serializable;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import jakarta.xml.bind.annotation.XmlType;
+import jakarta.xml.bind.annotation.adapters.XmlAdapter;
+import jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 /** Native date precision, independent of CDS provenance; original XML remains separate source evidence. */
+@XmlJavaTypeAdapter(CdsTemporalNativeDateDto.JaxbAdapter.class)
 public final class CdsTemporalNativeDateDto implements Serializable {
     private static final long serialVersionUID = 1L;
     private final String precision;
@@ -93,5 +97,48 @@ public final class CdsTemporalNativeDateDto implements Serializable {
     /** Null Date already means unknown in the old optional field; partial anchors must never escape. */
     public void requireDateOnlySafe() {
         if (value != null && !isExact()) throw new CdsTemporalPrecisionException();
+    }
+
+    /** JAXB construction stays separate from the immutable, validated application value. */
+    public static final class JaxbAdapter extends XmlAdapter<JaxbValue, CdsTemporalNativeDateDto> {
+        /**
+         * Reconstructs the immutable date using the same validation as the JSON creator.
+         *
+         * @param value the {@link JaxbValue} carrier, or {@code null}
+         * @return the validated date value, or {@code null} for a null carrier
+         * @throws CdsTemporalPrecisionException if the precision or interval fields are inconsistent
+         * @throws io.github.carlos_emr.carlos.commn.model.CdsClinicalException if the value is invalid for its precision
+         */
+        @Override
+        public CdsTemporalNativeDateDto unmarshal(JaxbValue value) {
+            return value == null ? null : fromJson(value.precision, value.value,
+                    value.intervalStart, value.intervalEnd);
+        }
+
+        /**
+         * Preserves the four-field date representation used by XML and JAXB-aware JSON mappers.
+         *
+         * @param value the immutable date value, or {@code null}
+         * @return a {@link JaxbValue} carrier, or {@code null} for a null date
+         */
+        @Override
+        public JaxbValue marshal(CdsTemporalNativeDateDto value) {
+            if (value == null) return null;
+            JaxbValue xml = new JaxbValue();
+            xml.precision = value.precision;
+            xml.value = value.value;
+            xml.intervalStart = value.intervalStart;
+            xml.intervalEnd = value.intervalEnd;
+            return xml;
+        }
+    }
+
+    /** No-argument transport carrier for JAXB; it also preserves the REST mapper's JSON shape. */
+    @XmlType(name = "cdsTemporalNativeDate")
+    public static final class JaxbValue {
+        public String precision;
+        public String value;
+        public String intervalStart;
+        public String intervalEnd;
     }
 }

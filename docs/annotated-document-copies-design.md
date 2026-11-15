@@ -92,7 +92,7 @@ Created through `EDoc` + `EDocUtil.addDocumentSQL(EDoc)`, the same path `SplitDo
 | Field | Value | Note |
 |---|---|---|
 | `docfilename` | `document_<millis>_annotated.pdf` | Mirrors the existing `document_<millis>.dat` convention. Validated with `PathValidationUtils.validateGeneratedFileName` and `validateGeneratedChildPath`. |
-| `docdesc` | `<source docdesc> (annotated)` | Suffix is a hardcoded English literal (`AnnotatedDocumentService.ANNOTATED_SUFFIX`), deliberately NOT localized: `docdesc` is stored once on a shared clinical record, so resolving a bundle at write time would bake the saving provider's locale into it permanently. |
+| `docdesc` | `<source docdesc> (annotated)` | Suffix is a hardcoded English literal (`AnnotatedDocumentService.ANNOTATED_SUFFIX`), deliberately NOT localized: `docdesc` is stored once on a shared clinical record, so resolving a bundle at write time would bake the saving provider's locale into it permanently. The column holds 255 characters (code points); when the source description leaves no room, the source part is shortened (`DocumentDescription.fitWithSuffix`) so the suffix is always kept whole, never cut off by the database. |
 | `doctype`, `docClass`, `docSubClass` | copied from source | The copy files where the original files. |
 | `contenttype` | `application/pdf` | |
 | `numberofpages` | from the composed PDF | Asserted equal to the source. |

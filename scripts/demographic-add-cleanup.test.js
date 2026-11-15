@@ -30,7 +30,7 @@ const script = fs.readFileSync(path.join(__dirname, 'demographic-add-playwright-
 const cleanup = script.slice(script.indexOf('function cleanupSyntheticPatient()'), script.indexOf('// The password file'));
 
 function fixture({ capturedId = '3009', parentOwned = true } = {}) {
-  const tables = new Set(['admission', 'demographicArchive', 'demographiccust', 'demographic']);
+  const tables = new Set(['admission', 'demographicArchive', 'demographiccust', 'demographicExtArchive', 'demographicExt', 'demographic']);
   const queries = [];
   const context = { assert, mysqlDefaults: {}, createdDemographicNo: capturedId,
     fixtureLastName: 'PLAYWRIGHT-ADD-123456', fixtureFirstName: 'Check', sql(query) {
@@ -43,6 +43,8 @@ function fixture({ capturedId = '3009', parentOwned = true } = {}) {
       assert(match, 'A cleanup delete must target only this owned patient');
       if (match[1] === 'demographic') {
         assert.equal(tables.has('demographiccust'), false, 'The owned custom-data child must be removed before its parent');
+        assert.equal(tables.has('demographicExtArchive'), false, 'The extension archive must be removed before its parent');
+        assert.equal(tables.has('demographicExt'), false, 'The extension data must be removed before its parent');
         assert(query.includes("last_name='PLAYWRIGHT-ADD-123456'"));
       }
       tables.delete(match[1]);
@@ -63,6 +65,6 @@ test('changed patient identity refuses every deletion', () => {
 });
 test('a failure before any save deletes no unrelated data', () => {
   const result = fixture({ capturedId: null, parentOwned: false });
-  assert.equal(result.tables.size, 4);
+  assert.equal(result.tables.size, 6);
   assert.equal(result.queries.filter((query) => query.startsWith('DELETE')).length, 0);
 });

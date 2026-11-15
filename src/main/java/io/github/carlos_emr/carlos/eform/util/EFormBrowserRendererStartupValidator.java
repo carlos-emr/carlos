@@ -86,10 +86,10 @@ public class EFormBrowserRendererStartupValidator {
         } catch (PDFGenerationException | RuntimeException e) {
             // This lifecycle boundary is deliberately advisory. Catch unexpected runtime failures
             // as well as the probe's declared exception so an ordinary renderer fault cannot abort
-            // the Spring context. Do not log the throwable: Selenium failures may contain local
+            // the Spring context. Do not log the throwable: render-browser failures may contain local
             // paths or URLs, so retain only redacted diagnostic text.
             logger.warn("eForm browser renderer is NOT ready; CARLOS startup will continue, but eForm "
-                            + "print/fax/archive will fail until the renderer is fixed. type={} error={}",
+                            + "print/fax/archive and measurement graphs will fail until the renderer is fixed. type={} error={}",
                     e.getClass().getName(),
                     RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())));
         }

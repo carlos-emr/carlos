@@ -22,7 +22,13 @@
 package io.github.carlos_emr.carlos.report;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Date;
@@ -65,5 +71,50 @@ class UsageReportSupportUnitTest {
     void shouldPreserveNull_whenDateIsAbsent() {
         assertThat(UsageReportSupport.exclusiveEnd(null)).isNull();
         assertThat(UsageReportSupport.inclusiveEnd(null)).isNull();
+    }
+
+    @Test
+    void shouldCountOntarioInvoicePatients_whenBillingRegionIsOntario() {
+        BillingONCHeader1Dao invoices = mock(BillingONCHeader1Dao.class);
+        Date start = new Date(0L);
+        Date end = new Date(86_399_999L);
+        when(invoices.getNumberOfDemographicsWithInvoicesForProvider("101", start, end, true)).thenReturn(4);
+
+        assertThat(UsageReportSupport.billedPatientCount(true, invoices, "101", start, end)).isEqualTo(4);
+        verify(invoices).getNumberOfDemographicsWithInvoicesForProvider("101", start, end, true);
+    }
+
+    /** billing_on_cheader1 exists only in the Ontario schema: asking a BC database for it answered HTTP 500. */
+    @Test
+    void shouldNotQueryOntarioInvoices_whenBillingRegionIsNotOntario() {
+        BillingONCHeader1Dao invoices = mock(BillingONCHeader1Dao.class);
+
+        assertThat(UsageReportSupport.billedPatientCount(false, invoices, "101", new Date(0L), new Date(1L))).isNull();
+        verifyNoInteractions(invoices);
+    }
+
+    /** What the report page calls: the region comes from the installation's billregion property. */
+    @ParameterizedTest
+    @ValueSource(strings = {"BC", "AB", ""})
+    @ResourceLock("io.github.carlos_emr.CarlosProperties")
+    void shouldReportBillingAsNotAvailable_forNonOntarioBillregion(String region) {
+        BillingONCHeader1Dao invoices = mock(BillingONCHeader1Dao.class);
+        CarlosProperties properties = CarlosProperties.getInstance();
+        String previous = properties.getProperty("billregion");
+        try {
+            properties.setProperty("billregion", region);
+            assertThat(UsageReportSupport.billedPatientCount(invoices, "101", new Date(0L), new Date(1L))).isNull();
+            verifyNoInteractions(invoices);
+
+            properties.setProperty("billregion", "ON");
+            when(invoices.getNumberOfDemographicsWithInvoicesForProvider("101", new Date(0L), new Date(1L), true)).thenReturn(0);
+            assertThat(UsageReportSupport.billedPatientCount(invoices, "101", new Date(0L), new Date(1L))).isZero();
+        } finally {
+            if (previous == null) {
+                properties.remove("billregion");
+            } else {
+                properties.setProperty("billregion", previous);
+            }
+        }
     }
 }

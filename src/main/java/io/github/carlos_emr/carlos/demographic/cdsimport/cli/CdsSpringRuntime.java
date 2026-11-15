@@ -50,11 +50,17 @@ public final class CdsSpringRuntime implements CdsCliRuntime {
     private final String resolvedRunId;
     private final CdsDelegationVerifier.Delegation delegation;
     private final java.util.TimeZone previousTimeZone;
+    /** An abandon is authorized for the run's scope, also for a run started in the browser. */
+    private final boolean abandonOperation;
 
-    public CdsSpringRuntime(CdsCliConfiguration configuration, CdsCliArguments arguments,
-            CdsDelegationVerifier.Delegation delegation) throws Exception {
+    public CdsSpringRuntime(
+            CdsCliConfiguration configuration,
+            CdsCliArguments arguments,
+            CdsDelegationVerifier.Delegation delegation)
+            throws Exception {
         this.delegation = delegation;
-        previousTimeZone=java.util.TimeZone.getDefault();
+        abandonOperation = "abandon".equals(arguments.operation());
+        previousTimeZone = java.util.TimeZone.getDefault();
         CdsCliLogging.configure();
         // Legacy native helpers still obtain properties and focused DAOs through
         // their standard singleton bridges. Set production selection before any
@@ -64,23 +70,29 @@ public final class CdsSpringRuntime implements CdsCliRuntime {
         // Match the package-owned JDBC defaults loaded by applicationContext.xml;
         // an explicit operator property retains precedence. Ordinary WARs ship
         // the empty defaults file, Debian replaces it with its MariaDB default.
-        try (InputStream input=CdsSpringRuntime.class.getResourceAsStream("/jdbc-defaults.properties")) {
-            if (input==null) throw new CdsCliBootstrapException(null);
-            byte[] bytes=input.readNBytes(65537);
-            if (bytes.length>65536) throw new CdsCliBootstrapException(null);
+        try (InputStream input =
+                CdsSpringRuntime.class.getResourceAsStream("/jdbc-defaults.properties")) {
+            if (input == null) throw new CdsCliBootstrapException(null);
+            byte[] bytes = input.readNBytes(65537);
+            if (bytes.length > 65536) throw new CdsCliBootstrapException(null);
             effective.load(new java.io.ByteArrayInputStream(bytes));
         }
         effective.putAll(configuration.properties());
         effective.setProperty("cds.import.worker.enabled", "false");
+        effective.setProperty("cds.export.worker.enabled", "false");
         // Native calendar/date helpers must use the same configured zone as
         // the instance. This dedicated one-shot JVM has no unrelated workers;
         // capability probes never create it or alter process timezone state.
-        String zone=effective.getProperty("cds.import.clinicalZone", "").trim();
-        if (!zone.isEmpty()) java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone(java.time.ZoneId.of(zone)));
+        String zone = effective.getProperty("cds.import.clinicalZone", "").trim();
+        if (!zone.isEmpty())
+            java.util.TimeZone.setDefault(
+                    java.util.TimeZone.getTimeZone(java.time.ZoneId.of(zone)));
         context = new AnnotationConfigApplicationContext();
         try {
             context.getEnvironment().setActiveProfiles("cds-import-cli");
-            context.getEnvironment().getPropertySources().addFirst(new PropertiesPropertySource("cdsCli", effective));
+            context.getEnvironment()
+                    .getPropertySources()
+                    .addFirst(new PropertiesPropertySource("cdsCli", effective));
             context.registerBean("cdsImportProperties", Properties.class, () -> effective);
             context.register(CdsCliSpringConfiguration.class);
             context.refresh();
@@ -88,22 +100,37 @@ public final class CdsSpringRuntime implements CdsCliRuntime {
             service = context.getBean(CdsImportService.class);
             CdsImportAccessService access = context.getBean(CdsImportAccessService.class);
             if (arguments.submissionKey() != null) {
-                var resolved = context.getBean(CdsImportSubmissionService.class)
-                        .resolve(delegation.operator(), arguments.provider(), arguments.submissionKey());
-                command = resolved.command(); actor = resolved.actor(); resolvedRunId = resolved.runId();
+                var resolved =
+                        context.getBean(CdsImportSubmissionService.class)
+                                .resolve(
+                                        delegation.operator(),
+                                        arguments.provider(),
+                                        arguments.submissionKey());
+                command = resolved.command();
+                actor = resolved.actor();
+                resolvedRunId = resolved.runId();
             } else {
                 resolvedRunId = arguments.runId();
-                if ("import".equals(arguments.operation())) command = arguments.command(delegation.nonce());
+                if ("import".equals(arguments.operation()))
+                    command = arguments.command(delegation.nonce());
                 else {
-                    command = context.getBean(CdsImportJobService.class).load(arguments.runId()).command();
-                    if (!command.providerNo().equals(arguments.provider())) throw new SecurityException("CDS_PROVIDER_BINDING_DENIED");
+                    command =
+                            context.getBean(CdsImportJobService.class)
+                                    .load(arguments.runId())
+                                    .command();
+                    if (!command.providerNo().equals(arguments.provider()))
+                        throw new SecurityException("CDS_PROVIDER_BINDING_DENIED");
                 }
                 actor = access.delegatedActor(delegation.operator(), command);
             }
         } catch (Throwable failure) {
-            try { context.close(); }
-            catch (RuntimeException cleanupFailure) { failure.addSuppressed(cleanupFailure); }
-            finally { java.util.TimeZone.setDefault(previousTimeZone); }
+            try {
+                context.close();
+            } catch (RuntimeException cleanupFailure) {
+                failure.addSuppressed(cleanupFailure);
+            } finally {
+                java.util.TimeZone.setDefault(previousTimeZone);
+            }
             if (failure instanceof Error fatal) throw fatal;
             if (failure instanceof SecurityException denied) throw denied;
             if (failure instanceof CdsImportException incomplete) throw incomplete;
@@ -111,20 +138,82 @@ public final class CdsSpringRuntime implements CdsCliRuntime {
         }
     }
 
-    @Override public String resolveRunId(String requested) { return resolvedRunId; }
-    @Override public String accept() throws Exception { return service.accept(actor, command).id(); }
-    @Override public void observe(String runId, String operation) throws Exception {
-        service.observe(actor, runId, operation, delegation.operatorUid(), delegation.nonce());
+    @Override
+    public String resolveRunId(String requested) {
+        return resolvedRunId;
     }
-    @Override public void execute(String runId, boolean resume) throws Exception {
-        if (resume) service.resumeAndWait(actor, runId); else service.runAccepted(actor, runId);
-    }
-    @Override public void cancel(String runId) throws Exception { service.cancel(actor, runId); }
-    @Override public Map<String, Object> summary(String runId) throws Exception { return service.summary(actor, runId); }
 
-    @Override public Map<String, Object> reports(String runId) throws Exception {
+    @Override
+    public String accept() throws Exception {
+        return service.accept(actor, command).id();
+    }
+
+    @Override
+    public void observe(String runId, String operation) throws Exception {
+        if (abandonOperation && "abandon".equals(operation))
+            service.observeAbandon(actor, runId, delegation.operatorUid(), delegation.nonce());
+        else service.observe(actor, runId, operation, delegation.operatorUid(), delegation.nonce());
+    }
+
+    @Override
+    public void execute(String runId, boolean resume) throws Exception {
+        if (resume) service.resumeAndWait(actor, runId);
+        else service.runAccepted(actor, runId);
+    }
+
+    @Override
+    public void cancel(String runId) throws Exception {
+        service.cancel(actor, runId);
+    }
+
+    @Override
+    public void abandon(String runId, String confirmation, String reason) throws Exception {
+        // The facade authorizes this root-delegated actor for the run's scope first (also for a
+        // run started in the browser); the abandon service checks the provider again under its
+        // lock.
+        service.authorizeAbandon(actor, runId);
+        context.getBean(
+                        io.github.carlos_emr.carlos.demographic.cdsimport.service
+                                .CdsImportAbandonService.class)
+                .abandon(runId, actor, confirmation, reason);
+    }
+
+    @Override
+    public Map<String, Object> summary(String runId) throws Exception {
+        return abandonOperation ? service.abandonSummary(actor, runId) : service.summary(actor, runId);
+    }
+
+    @Override
+    public Map<String, Object> failureEvidence(String runId) throws Exception {
+        // Newest first, so a run with any number of diagnostics names its latest stopping cause.
+        var latest = service.latestStoppingDiagnostic(actor, runId);
+        if (latest == null || !stopping(latest)) return null;
+        Map<String, Object> technical = new LinkedHashMap<>();
+        technical.put("code", latest.code());
+        technical.put("stage", latest.stage());
+        technical.put("evidence", service.diagnosticEvidence(actor, runId, latest.id()));
+        return technical;
+    }
+
+    /**
+     * An unresolved diagnostic that carries protected failure evidence of what stopped the run:
+     * a blocking execution or preflight error, or the evidence a run that stopped before its seal
+     * records. A finding a later attempt already resolved is not the stopping cause.
+     */
+    static boolean stopping(
+            io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportDiagnosticDto row) {
+        if (row.resolved() || row.protectedDetailLocation() == null) return false;
+        if ("IMPORT_FAILURE_EVIDENCE".equals(row.code()) && "OBSERVABILITY".equals(row.stage()))
+            return true;
+        return row.blocking()
+                && "ERROR".equals(row.severity())
+                && ("EXECUTION".equals(row.stage()) || "PREFLIGHT".equals(row.stage()));
+    }
+
+    @Override
+    public Map<String, Object> reports(String runId) throws Exception {
         Map<String, Object> selected = new LinkedHashMap<>();
-        for (String type : new String[]{"event", "error", "receipt", "units"}) {
+        for (String type : new String[] {"event", "error", "receipt", "units"}) {
             // The facade authorizes and verifies selected manifests and file
             // hashes. Only these generated protected locations are advertised;
             // report contents and original source paths never go to general logs.
@@ -133,11 +222,25 @@ public final class CdsSpringRuntime implements CdsCliRuntime {
             try (InputStream input = new DigestInputStream(Files.newInputStream(path), digest)) {
                 input.transferTo(java.io.OutputStream.nullOutputStream());
             }
-            selected.put(type, Map.of("protectedPath", path.toString(), "bytes", Files.size(path),
-                    "sha256", HexFormat.of().formatHex(digest.digest())));
+            selected.put(
+                    type,
+                    Map.of(
+                            "protectedPath",
+                            path.toString(),
+                            "bytes",
+                            Files.size(path),
+                            "sha256",
+                            HexFormat.of().formatHex(digest.digest())));
         }
         return Map.of("event", "PROTECTED_REPORTS", "runId", runId, "reports", selected);
     }
 
-    @Override public void close() { try {context.close(); } finally {java.util.TimeZone.setDefault(previousTimeZone); } }
+    @Override
+    public void close() {
+        try {
+            context.close();
+        } finally {
+            java.util.TimeZone.setDefault(previousTimeZone);
+        }
+    }
 }

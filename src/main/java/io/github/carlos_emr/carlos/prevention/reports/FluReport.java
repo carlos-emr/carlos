@@ -50,6 +50,7 @@ import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBean;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBeanHandler;
 import io.github.carlos_emr.carlos.prevention.PreventionData;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionSourceUnavailableException;
 import io.github.carlos_emr.carlos.prevention.pageUtil.PreventionReportDisplay;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
@@ -67,6 +68,7 @@ public class FluReport implements PreventionReport {
 
     public Hashtable<String, Object> runReport(LoggedInInfo loggedInInfo, ArrayList<ArrayList<String>> list, Date asofDate) {
         int inList = 0;
+        int unreadable = 0;
         double done = 0;
         ArrayList<PreventionReportDisplay> returnReport = new ArrayList<PreventionReportDisplay>();
 
@@ -74,7 +76,17 @@ public class FluReport implements PreventionReport {
             ArrayList<String> fieldList = list.get(i);
             Integer demo = Integer.valueOf(fieldList.get(0));
 
-            ArrayList<Map<String, Object>> prevs = PreventionData.getExactPreventionData(loggedInInfo, "Flu", demo);
+            ArrayList<Map<String, Object>> prevs;
+            try {
+                prevs = PreventionData.getExactPreventionData(loggedInInfo, "Flu", demo);
+            } catch (PreventionSourceUnavailableException unavailable) {
+                // One unreadable chart must neither abort the report nor vanish from it: the
+                // patient is listed as "could not be read" and counted for the page's notice.
+                returnReport.add(PreventionReportDisplay.unreadable(demo));
+                PreventionData.logUnreadable("Flu prevention report", demo);
+                unreadable++;
+                continue;
+            }
 
 
             ArrayList<Map<String, Object>> noFutureItems = removeFutureItems(prevs, asofDate);
@@ -183,7 +195,7 @@ public class FluReport implements PreventionReport {
             if (asofDate.before(endOfYear) && asofDate.after(beginingOfYear)) {
                 letterProcessing(prd, cutoffDate);
             } else {
-                EctMeasurementsDataBeanHandler measurementData = new EctMeasurementsDataBeanHandler(prd.demographicNo, "FLUF");
+                EctMeasurementsDataBeanHandler measurementData = new EctMeasurementsDataBeanHandler(prd.demographicNo, "FLUF", false);
                 Collection<EctMeasurementsDataBean> fluFollowupData = measurementData.getMeasurementsDataVector();
                 if (fluFollowupData.size() > 0) {
                     EctMeasurementsDataBean fluData = fluFollowupData.iterator().next();
@@ -209,6 +221,7 @@ public class FluReport implements PreventionReport {
         h.put("up2date", "" + Math.round(done));
         h.put("percent", percentStr);
         h.put("returnReport", returnReport);
+        h.put(UNREADABLE_COUNT, "" + unreadable);
         h.put("inEligible", "" + inList);
         h.put("eformSearch", "Flu");
         h.put("followUpType", "FLUF");
@@ -317,10 +330,11 @@ public class FluReport implements PreventionReport {
     private static final String LETTER1 = "L1";
     private static final String PHONE1 = "P1";
 
+    /** Chooses the seasonal recall contact from recorded follow-ups without fetching unused source-lab links. */
     private String letterProcessing(PreventionReportDisplay prd, Date cuttoffDate) {
         if (prd != null) {
             if ("No Info".equals(prd.state) || "due".equals(prd.state) || "Overdue".equals(prd.state)) {
-                EctMeasurementsDataBeanHandler measurementData = new EctMeasurementsDataBeanHandler(prd.demographicNo, "FLUF");
+                EctMeasurementsDataBeanHandler measurementData = new EctMeasurementsDataBeanHandler(prd.demographicNo, "FLUF", false);
                 Collection<EctMeasurementsDataBean> fluFollowupData = measurementData.getMeasurementsDataVector();
                 if (fluFollowupData.size() == 0) {
                     prd.nextSuggestedProcedure = LETTER1;
@@ -344,7 +358,7 @@ public class FluReport implements PreventionReport {
                     }
                 }
             } else if ("Refused".equals(prd.state)) {
-                EctMeasurementsDataBeanHandler measurementData = new EctMeasurementsDataBeanHandler(prd.demographicNo, "FLUF");
+                EctMeasurementsDataBeanHandler measurementData = new EctMeasurementsDataBeanHandler(prd.demographicNo, "FLUF", false);
                 Collection<EctMeasurementsDataBean> fluFollowupData = measurementData.getMeasurementsDataVector();
                 if (fluFollowupData.size() > 0) {
                     EctMeasurementsDataBean fluData = fluFollowupData.iterator().next();
@@ -354,7 +368,7 @@ public class FluReport implements PreventionReport {
             } else if ("Ineligible".equals(prd.state)) {
                 // Do nothing
             } else if ("Up to date".equals(prd.state)) {
-                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, "FLUF");
+                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, "FLUF", false);
                 Collection<EctMeasurementsDataBean> followupData = measurementDataHandler.getMeasurementsDataVector();
                 if (followupData.size() > 0) {
                     EctMeasurementsDataBean measurementData = followupData.iterator().next();

@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBean;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBeanHandler;
 import io.github.carlos_emr.carlos.prevention.PreventionData;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionSourceUnavailableException;
 import io.github.carlos_emr.carlos.prevention.pageUtil.PreventionReportDisplay;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
@@ -66,6 +67,7 @@ public class PapReport implements PreventionReport {
 
     public Hashtable runReport(LoggedInInfo loggedInInfo, ArrayList list, Date asofDate) {
         int inList = 0;
+        int unreadable = 0;
         double done = 0, doneWithGrace = 0;
         ArrayList<PreventionReportDisplay> returnReport = new ArrayList<PreventionReportDisplay>();
 
@@ -74,7 +76,17 @@ public class PapReport implements PreventionReport {
             ArrayList<String> fieldList = (ArrayList<String>) list.get(i);
             Integer demo = Integer.valueOf(fieldList.get(0));
             //search   prevention_date prevention_type  deleted   refused
-            ArrayList<Map<String, Object>> prevs = PreventionData.getExactPreventionData(loggedInInfo, "PAP", demo);
+            ArrayList<Map<String, Object>> prevs;
+            try {
+                prevs = PreventionData.getExactPreventionData(loggedInInfo, "PAP", demo);
+            } catch (PreventionSourceUnavailableException unavailable) {
+                // One unreadable chart must neither abort the report nor vanish from it: the
+                // patient is listed as "could not be read" and counted for the page's notice.
+                returnReport.add(PreventionReportDisplay.unreadable(demo));
+                PreventionData.logUnreadable("PAP prevention report", demo);
+                unreadable++;
+                continue;
+            }
 
             ArrayList<Map<String, Object>> noFutureItems = removeFutureItems(prevs, asofDate);
             PreventionReportDisplay prd = new PreventionReportDisplay();
@@ -205,6 +217,7 @@ public class PapReport implements PreventionReport {
         h.put("percent", percentStr);
         h.put("percentWithGrace", percentWithGraceStr);
         h.put("returnReport", returnReport);
+        h.put(UNREADABLE_COUNT, "" + unreadable);
         h.put("inEligible", "" + inList);
         h.put("eformSearch", "Pap");
         h.put("followUpType", "PAPF");
@@ -275,10 +288,11 @@ public class PapReport implements PreventionReport {
     private static final String LETTER2 = "L2";
     private static final String PHONE1 = "P1";
 
+    /** Chooses the next screening recall contact from follow-up values and dates; source-lab links are unused. */
     private String letterProcessing(PreventionReportDisplay prd, String measurementType, Date asofDate) {
         if (prd != null) {
             if (prd.state.equals("No Info") || prd.state.equals("due") || prd.state.equals("Overdue")) {
-                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, measurementType);
+                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, measurementType, false);
                 Collection followupData = measurementDataHandler.getMeasurementsDataVector();
 
                 if (followupData.size() == 0) {
@@ -344,7 +358,7 @@ public class PapReport implements PreventionReport {
                     return prd.nextSuggestedProcedure;
                 }
             } else if (prd.state.equals("Refused")) {
-                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, measurementType);
+                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, measurementType, false);
                 Collection followupData = measurementDataHandler.getMeasurementsDataVector();
                 if (followupData.size() > 0) {
                     EctMeasurementsDataBean measurementData = (EctMeasurementsDataBean) followupData.iterator().next();
@@ -355,7 +369,7 @@ public class PapReport implements PreventionReport {
             } else if (prd.state.equals("Ineligible")) {
                 prd.nextSuggestedProcedure = "----";
             } else if (prd.state.equals("Up to date")) {
-                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, measurementType);
+                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, measurementType, false);
                 Collection followupData = measurementDataHandler.getMeasurementsDataVector();
                 if (followupData.size() > 0) {
                     EctMeasurementsDataBean measurementData = (EctMeasurementsDataBean) followupData.iterator().next();

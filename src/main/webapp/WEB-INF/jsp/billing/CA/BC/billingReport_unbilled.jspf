@@ -80,7 +80,6 @@
         String billingUrl = request.getContextPath() + "/billing?billRegion=BC&billForm="
             + URLEncoder.encode(oscarVariables.getProperty("default_view", ""), java.nio.charset.StandardCharsets.UTF_8)
             + "&hotclick=&appointment_no=" + apptNo
-            + "&demographic_name=" + URLEncoder.encode(java.util.Objects.toString(demoName, ""), java.nio.charset.StandardCharsets.UTF_8)
             + "&status=" + URLEncoder.encode(java.util.Objects.toString(apptStatus, ""), java.nio.charset.StandardCharsets.UTF_8)
             + "&demographic_no=" + demoNo
             + "&user_no=" + URLEncoder.encode(java.util.Objects.toString(userno, ""), java.nio.charset.StandardCharsets.UTF_8)

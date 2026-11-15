@@ -1,4 +1,4 @@
-// src/main/java/oscar/login/AppOAuth1Config.java
+/* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 package io.github.carlos_emr.carlos.login;
 
 import java.util.Arrays;
@@ -8,7 +8,8 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * Configuration class for OAuth 1.0a applications.
+ * Inbound OAuth 1.0a verifier configuration.
+ * The app-package AppAuthConfig describes outbound third-party endpoints and has a separate public API.
  */
 public class AppOAuth1Config {
     private static final Logger logger = MiscUtils.getLogger();
@@ -48,52 +49,24 @@ public class AppOAuth1Config {
             return null;
         }
         
-        String configXml = doc.toString();
-        if (configXml.trim().isEmpty()) {
+        if (!(doc instanceof org.w3c.dom.Document) && doc.toString().trim().isEmpty()) {
             return null;
         }
-        
-        AppOAuth1Config config = new AppOAuth1Config();
         
         try {
-            // Parse XML-like configuration format
-            config.setConsumerKey(extractXmlValue(configXml, "consumerKey"));
-            config.setConsumerSecret(extractXmlValue(configXml, "consumerSecret"));
-            config.setBaseUrl(extractXmlValue(configXml, "baseUrl"));
-            config.setCallbackURI(extractXmlValue(configXml, "callbackURI"));
-            config.setApplicationURI(extractXmlValue(configXml, "applicationURI"));
-            
-            // Parse scopes if present
-            String scopesStr = extractXmlValue(configXml, "scopes");
-            if (scopesStr != null && !scopesStr.trim().isEmpty()) {
-                config.setScopes(Arrays.asList(scopesStr.split(",")));
-            }
-            
+            var root = io.github.carlos_emr.carlos.utility.OAuthConfigXml.root(doc);
+            AppOAuth1Config config = new AppOAuth1Config();
+            config.setConsumerKey(io.github.carlos_emr.carlos.utility.OAuthConfigXml.trimmedText(root, "consumerKey"));
+            config.setConsumerSecret(io.github.carlos_emr.carlos.utility.OAuthConfigXml.trimmedText(root, "consumerSecret"));
+            config.setBaseUrl(io.github.carlos_emr.carlos.utility.OAuthConfigXml.trimmedText(root, "baseUrl"));
+            config.setCallbackURI(io.github.carlos_emr.carlos.utility.OAuthConfigXml.trimmedText(root, "callbackURI"));
+            config.setApplicationURI(io.github.carlos_emr.carlos.utility.OAuthConfigXml.trimmedText(root, "applicationURI"));
+            String scopesStr = io.github.carlos_emr.carlos.utility.OAuthConfigXml.trimmedText(root, "scopes");
+            if (scopesStr != null && !scopesStr.isEmpty()) config.setScopes(Arrays.asList(scopesStr.split(",")));
             return config;
-        } catch (Exception e) {
-            logger.error("Error parsing OAuth config document: {}", e.getMessage(), e);
+        } catch (IllegalArgumentException invalid) {
+            logger.warn("OAuth configuration XML could not be parsed");
             return null;
         }
-    }
-    
-    /**
-     * Extracts value from simple XML-like format: <tag>value</tag>
-     */
-    private static String extractXmlValue(String xml, String tagName) {
-        String startTag = "<" + tagName + ">";
-        String endTag = "</" + tagName + ">";
-        
-        int startIndex = xml.indexOf(startTag);
-        if (startIndex == -1) {
-            return null;
-        }
-        
-        int valueStart = startIndex + startTag.length();
-        int endIndex = xml.indexOf(endTag, valueStart);
-        if (endIndex == -1) {
-            return null;
-        }
-        
-        return xml.substring(valueStart, endIndex).trim();
     }
 }

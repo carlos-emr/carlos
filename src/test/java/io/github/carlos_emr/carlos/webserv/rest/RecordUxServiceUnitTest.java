@@ -30,6 +30,7 @@ import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
 import io.github.carlos_emr.carlos.managers.PreventionManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -113,6 +114,7 @@ class RecordUxServiceUnitTest extends CarlosUnitTestBase {
         };
 
         injectDependency(service, "securityInfoManager", mockSecurityInfoManager);
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, DEMOGRAPHIC_NO)).thenReturn(true);
     }
 
     @Test
@@ -153,6 +155,23 @@ class RecordUxServiceUnitTest extends CarlosUnitTestBase {
         SummaryTo1 result = service.getFullSummmary(DEMOGRAPHIC_NO, SummaryTo1.FAMILYHISTORY_CODE);
 
         assertThat(result).isSameAs(expected);
+    }
+
+    @Test
+    void shouldReturnClinicalSummary_withoutFormattingRecordsOrLoggingContext() {
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_eChart"), eq("r"), anyInt())).thenReturn(true);
+        SummaryTo1 expected = new SummaryTo1() {
+            @Override public String toString() { throw new AssertionError("clinical summary dump"); }
+        };
+        Summary summaryBean = mock(Summary.class);
+        when(summaryBean.getSummary(loggedInInfo, DEMOGRAPHIC_NO, SummaryTo1.FAMILYHISTORY_CODE))
+                .thenReturn(expected);
+        springUtilsMock.when(() -> SpringUtils.getBean(anyString())).thenReturn(summaryBean);
+        try (var logs = LogCapture.forLogger(RecordUxService.class)) {
+            assertThat(service.getSummary(DEMOGRAPHIC_NO, "right")).isEmpty();
+            assertThat(service.getFullSummmary(DEMOGRAPHIC_NO, SummaryTo1.FAMILYHISTORY_CODE)).isSameAs(expected);
+            assertThat(logs.messages()).containsExactly("Getting record summary", "Record summary prepared");
+        }
     }
 
     @ParameterizedTest

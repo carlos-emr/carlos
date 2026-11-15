@@ -51,13 +51,13 @@
     <%response.sendRedirect(request.getContextPath() + "/logoutPage");%>
 </security:oscarSec>
 
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
-<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+
+
 
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Episode" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="java.util.List" %>
 

@@ -26,9 +26,13 @@ row lock and therefore waits for admitted JDBC, Hibernate and background transac
 or roll back. New ordinary clinical work refuses once the advisory owner is entering. Neither
 pool abandoned-connection reclamation nor a heartbeat controls ownership.
 
-Both the maintenance and coordinator physical sessions set and verify a `wait_timeout` that
-covers `cds.import.maxDurationMillis` plus the bounded network-unwind interval. Shared file-read
-polling checks the maintenance advisory lock at the same cadence as coordinator ownership.
+Both the maintenance and coordinator physical sessions set and verify a `wait_timeout` of the
+import's stall window (`cds.import.maxDurationMillis`) plus the bounded network-unwind interval. A
+worker that keeps making progress uses both sessions every few seconds while it reads and at
+every clinical unit (never inside a unit's transaction); one that stalls leaves them silent, and the server closes them and
+releases the advisory locks exactly as for a dead process, so a resume can take over. Shared
+file-read polling checks the maintenance advisory lock at the same cadence as coordinator
+ownership.
 A changed owner connection or unavailable heartbeat fences the work; a failed observation
 never becomes a cached success or permission to take over.
 
@@ -50,12 +54,25 @@ ledger and source-derived login tables have an exact SQL allowlist. Joins/subque
 tables still require admission. Vendor unwrap, multiple SQL statements, callable routines,
 unreviewed functions and implicit-commit SQL are refused while the guard is installed.
 
+The export wait adapter may prepare exactly `SET SESSION max_statement_time = ?`.
+It sets or restores a bound statement deadline without committing the transaction or
+changing its isolation, admission locks, or autocommit. Global settings, expressions,
+additional assignments, and additional statements remain refused. Reads of
+`information_schema.SESSION_STATUS` expose server counters, including the number of
+expired statements; joining those counters to a clinical table still requires admission.
+`CdsExportStatementWaitMariaDbIntegrationTest` exercises the actual guarded connection,
+deadline expiry and restoration, and rollback of an earlier write, so a rejected adapter
+cannot silently leave the export's unit deadline disabled.
+An admission refusal (`SQLState 45000`) while arming the deadline also propagates to
+the caller; it is never treated as a server lacking the optional deadline capability.
+
 SQL keyword and allowlist-token classification folds ASCII letters only. The classifier must not turn a Unicode lookalike into `VERSION`, a known built-in function, or an allowlisted ledger table. Function names pass an explicit ASCII boundary before the shared reporting helper, whose own case conversion would otherwise reintroduce the ambiguity. This restriction applies to recognized security tokens: Unicode values and ordinary Unicode identifiers still go through the existing complete-statement parser and admission rules. The original SQL is executed unchanged after admission; it is never rewritten into the classification spelling.
 
 `Owner.close()` stops new unit admission, drains old units and releases the advisory connection.
 It retains durable maintenance by default, including after failure or process/connection loss.
 Only an explicit `allowReopen()` after successful clinical reconciliation and backlog/care-owner
-policy can reopen, and a remaining chart hold vetoes reopening. A successor first drains old units
+policy, or after an operator's audited abandon has released a stopped run's holds, can reopen,
+and a remaining chart hold vetoes reopening. A successor first drains old units
 and advances the owner generation. The HTTP filter keeps login, static assets and authenticated
 import/recovery routes available; clinical chart/API/print/download routes receive a safe 503.
 It does not grant import privileges.
@@ -84,7 +101,10 @@ absolute JSON file with this shape:
 ```
 
 The file and every ancestor must be root-owned, have no symlinks, and deny group/other writes.
-Keep it outside staging/upload roots and mount it read-only for the application. The SHA-256
+Keep it outside staging/upload roots and mount it read-only for the application. It is read as
+a stream and may approve any number of triggers; nothing about the clinic's catalogue is counted
+(every target table is pinned and every trigger on one is read, however many there are and however
+long its body). The SHA-256
 covers twelve fields, in order: trigger schema, name, event object table, event manipulation,
 action timing, action statement, SQL mode, definer, client character set, connection collation,
 database collation and action order. Encode each nullable field as UTF-8 preceded by its signed
@@ -120,8 +140,9 @@ SQL compatibility.
 It only accepts explicitly named disposable CDS test databases, verifies MariaDB 32K pages,
 snapshot isolation and the repository collation, applies the actual V1 baseline plus the complete
 province/common Flyway chain, validates checksums/no pending migrations, and checks native and
-admission InnoDB tables. Use the WAR Flyway/MySQL jars on its classpath. A `jdbc:mariadb:` selector
-is translated to `jdbc:mysql:` to exercise the WAR's actual Connector/J driver.
+admission InnoDB tables. Use the WAR's Flyway libraries (including `flyway-mysql`)
+and MariaDB Connector/J on its classpath. The bootstrap uses the `jdbc:mariadb:`
+selector directly to exercise the WAR's actual driver.
 
 Mount a service-readable copy of `.devcontainer/development/config/shared/my.cnf` as
 `/etc/mysql/my.cnf` before initializing the empty database volume. A workspace copy with mode

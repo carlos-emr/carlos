@@ -237,6 +237,49 @@ class DocumentAttachmentManagerImplLabsNotIncludedUnitTest extends CarlosUnitTes
     }
 
     @Test
+    void shouldDiscloseUnavailableFormAndHiddenReport_whenBuildingPreviewOrFaxPacket() throws Exception {
+        listAttachedLabs();
+        when(consultationManager.getAttachedDocumentsByType(loggedInInfo, REQUEST,
+                io.github.carlos_emr.carlos.commn.model.ConsultDocs.DOCTYPE_FORM))
+                .thenReturn(List.of(new io.github.carlos_emr.carlos.commn.model.ConsultDocs(REQUEST, 701,
+                        io.github.carlos_emr.carlos.commn.model.ConsultDocs.DOCTYPE_FORM, "999998")));
+        when(consultationManager.getAttachedDocumentsByType(loggedInInfo, REQUEST,
+                io.github.carlos_emr.carlos.commn.model.ConsultDocs.DOCTYPE_HRM))
+                .thenReturn(List.of(new io.github.carlos_emr.carlos.commn.model.ConsultDocs(REQUEST, 801,
+                        io.github.carlos_emr.carlos.commn.model.ConsultDocs.DOCTYPE_HRM, "999998")));
+
+        manager.renderConsultationFormWithAttachments(request, new MockHttpServletResponse());
+
+        assertThat(packet.get()).hasSize(2);
+        assertThat(pdfText(noticeBytes.get())).contains("Attachments not included", "clinical form", "An attachment is unavailable")
+                .doesNotContain("701", "801", "HRM");
+        assertThat(request.getAttribute(
+                io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationAttachmentsNotIncluded.REQUEST_ATTRIBUTE))
+                .isInstanceOf(List.class);
+        verifyNoMoreInteractions(labManager);
+    }
+
+    @Test
+    void shouldDeleteConsultationLetter_whenOmissionLookupFails() throws Exception {
+        listAttachedLabs();
+        Path root = Files.createDirectories(Path.of(System.getProperty("java.io.tmpdir"),
+                PathValidationUtils.APPLICATION_TEMP_ROOT_NAME));
+        Path letter = Files.createTempFile(root, "consultation-letter", ".pdf");
+        when(consultationManager.renderConsultationForm(request)).thenReturn(letter);
+        when(consultationManager.getAttachedDocumentsByType(loggedInInfo, REQUEST,
+                io.github.carlos_emr.carlos.commn.model.ConsultDocs.DOCTYPE_FORM))
+                .thenThrow(new IllegalStateException("lookup failed"));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        try {
+            assertThatThrownBy(() -> manager.renderConsultationFormWithAttachments(request, response))
+                    .isInstanceOf(IllegalStateException.class);
+            assertThat(letter).doesNotExist();
+        } finally {
+            Files.deleteIfExists(letter);
+        }
+    }
+
+    @Test
     @DisplayName("should add no page and name nothing when every attached lab is HL7")
     void shouldAddNoNoticePage_whenEveryLabIsHl7() throws Exception {
         listAttachedLabs(hl7Lab("10"));

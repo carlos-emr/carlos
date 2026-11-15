@@ -291,7 +291,9 @@ public final class RxAddAllergy2Action extends ActionSupport {
         AllergySaveTokens.markSaved(request.getSession(), saveToken);
 
         String ip = request.getRemoteAddr();
-        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_ALLERGY, "" + allergy.getAllergyId(), ip, "" + patient.getDemographicNo(), allergy.getAuditString());
+        // The row names the allergy by id. The allergen and reaction are clinical text and stay in the
+        // allergies table (archived rows are kept there), never in the audit log.
+        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_ALLERGY, "" + allergy.getAllergyId(), ip, "" + patient.getDemographicNo(), null);
         if (archiveId != null) {
             LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ARCHIVE, LogConst.CON_ALLERGY, String.valueOf(archiveId), ip, "" + patient.getDemographicNo(), null);
         }

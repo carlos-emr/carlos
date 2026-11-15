@@ -25,6 +25,7 @@ const path = require('node:path');
 const { createHash } = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { hrmReportLink } = require('./lib/hrm-report-list');
 
 /** A schema-valid (ontariomd_hrm 1.1.2) text report, modelled on the shipped demo fixture. */
 function hrmXml(lastName, reportNo, text) {
@@ -133,7 +134,7 @@ async function workflow(s) {
   let viewer;
   const openReport = async label => {
     if (viewer && !viewer.isClosed()) await viewer.close();
-    viewer = await s.popup(list, list.locator(`#tblHRM a[onclick*="Display?id=${reportId}'"]`), label);
+    viewer = await s.popup(list, hrmReportLink(list, reportId), label);
     await viewer.locator(`#hrmdoc_${reportId}`).waitFor({ state: 'attached' });
     return viewer;
   };

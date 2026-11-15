@@ -60,6 +60,8 @@
  * raw markup both passed every automated check before anyone looked at the output.
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const fs = require('node:fs');
@@ -194,15 +196,16 @@ function launchOptions() {
   return getLaunchOptions(config.chromePath);
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('eform-corpus-soak',async context=>{
+  await (async({cancellation})=>{
   if (!config.corpusDir) {
     console.error('EFORM_CORPUS_DIR is required — point it at a directory of eForm .zip packages.');
-    process.exit(2);
+    {process.exitCode=2;return;}
   }
   const zips = fs.readdirSync(config.corpusDir).filter((f) => f.toLowerCase().endsWith('.zip')).sort();
   if (zips.length === 0) {
     console.error(`No .zip packages found in ${config.corpusDir}`);
-    process.exit(2);
+    {process.exitCode=2;return;}
   }
   // Never overwrite evidence or silently replay an interrupted import run.
   fs.mkdirSync(config.outDir, { recursive: false, mode: 0o700 });
@@ -211,7 +214,7 @@ function launchOptions() {
   proof.validatePackages(packages);
   const imports = new Map();
 
-  const browser = await chromium.launch(launchOptions());
+  const browser = await chromium.launch({...(launchOptions()),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   const results = [];
   try {
     const context = await browser.newContext({
@@ -219,6 +222,7 @@ function launchOptions() {
       viewport: { width: 1400, height: 1100 },
       acceptDownloads: true,
     });
+    cancellation?.throwIfCancelled();
     // The toolbar hands the generated PDF back as base64 in a hidden input and then clears it, so
     // latch the value on DOMContentLoaded before downloadEForm() wipes it.
     await context.addInitScript(() => {
@@ -227,17 +231,25 @@ function launchOptions() {
         if (el && el.value) window.__carlosCapturedPdf = el.value;
       });
     });
+    cancellation?.throwIfCancelled();
 
     const page = await context.newPage();
+    cancellation?.throwIfCancelled();
     await gotoApp(page, config.baseUrl, '/');
+    cancellation?.throwIfCancelled();
     await page.fill('input[name="username"]', config.testUser);
+    cancellation?.throwIfCancelled();
     await page.fill('input[name="password"]', config.testPassword);
+    cancellation?.throwIfCancelled();
     await page.fill('input[name="pin"]', config.testPin);
+    cancellation?.throwIfCancelled();
     await clickAndAwaitReload(page, 'button[type="submit"], input[type="submit"]', {
       label: 'corpus login',
     });
+    cancellation?.throwIfCancelled();
 
     const manager = await context.newPage();
+    cancellation?.throwIfCancelled();
     async function managerRows() {
       await gotoApp(manager, config.baseUrl, '/eform/efmformmanager');
       await manager.locator('#eformTbl').waitFor({ state: 'attached' });
@@ -248,9 +260,11 @@ function launchOptions() {
       return proof.managerRows(rows, config.baseUrl);
     }
     let before = await managerRows();
+    cancellation?.throwIfCancelled();
     // Reject all existing names before the first upload, not after a partial corpus import.
     proof.preflight(packages, before, config.skipImport);
     const importer = await context.newPage();
+    cancellation?.throwIfCancelled();
     try {
       for (let index = 0; index < packages.length; index++) {
         const item = packages[index];
@@ -263,11 +277,13 @@ function launchOptions() {
           continue;
         }
         await gotoApp(importer, config.baseUrl, '/eform/partials/import');
+    cancellation?.throwIfCancelled();
         const uploadedBytes = fs.readFileSync(path.join(config.corpusDir, item.zip));
         if (crypto.createHash('sha256').update(uploadedBytes).digest('hex') !== item.sha256) {
           throw new Error('ZIP changed after corpus preflight: ' + item.zip);
         }
         await importer.locator('#zippedForm').setInputFiles({ name: item.zip, mimeType: 'application/zip', buffer: uploadedBytes });
+    cancellation?.throwIfCancelled();
         // Durable intent before POST; an interrupted/unknown outcome is never retried automatically.
         proof.receipt(config.outDir, `${index}-pending`, pending);
         const [response] = await Promise.all([
@@ -276,8 +292,11 @@ function launchOptions() {
             && new URL(r.url()).pathname === new URL(appUrl(config.baseUrl, '/eform/manageEForm')).pathname),
           importer.locator('input[type="submit"][name="subm"]').click(),
         ]);
+    cancellation?.throwIfCancelled();
         const body = await response.text();
+    cancellation?.throwIfCancelled();
         const after = await managerRows();
+    cancellation?.throwIfCancelled();
         const fid = proof.importedId(before, after, item.formName, response.status(), body);
         proof.receipt(config.outDir, `${index}-imported`, { ...pending, fid, status: response.status() });
         imports.set(item.zip, fid);
@@ -298,6 +317,7 @@ function launchOptions() {
       result.zipSha256 = packages.find(item => item.zip === zip).sha256;
 
       const form = await context.newPage();
+    cancellation?.throwIfCancelled();
       form.on('console', (m) => {
         if (m.type() === 'error') result.consoleErrors.push(m.text().slice(0, 160));
       });
@@ -312,17 +332,21 @@ function launchOptions() {
         await gotoApp(form, config.baseUrl,
             `/eform/efmformadd_data?fid=${encodeURIComponent(result.fid)}`
             + `&demographic_no=${encodeURIComponent(config.demographicNo)}`);
+    cancellation?.throwIfCancelled();
         await form.waitForLoadState('networkidle', { timeout: config.networkIdleTimeoutMs }).catch(() => {});
+    cancellation?.throwIfCancelled();
         await form.evaluate(() => {
           const subject = document.getElementById('remote_eform_subject');
           if (subject) subject.value = 'corpus soak';
         });
+    cancellation?.throwIfCancelled();
         // A published form can require a clinic decision before the browser permits its Save
         // button to submit. Without this check the harness waits two minutes for a PDF from a form
         // that never saved, then misreports the form's own validation as a Carlos render failure.
         const invalidInputs = await form.locator('input:invalid, select:invalid, textarea:invalid')
           .evaluateAll((elements) => elements.map((element) => element.name || element.id || element.tagName)
             .filter(Boolean).slice(0, 8));
+    cancellation?.throwIfCancelled();
         if (invalidInputs.length) {
           throw new Error(`FORM REQUIRES INPUT: ${invalidInputs.join(', ')}`);
         }
@@ -333,18 +357,25 @@ function launchOptions() {
           form.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
           form.click('#remoteSubmitButton'),
         ]);
+    cancellation?.throwIfCancelled();
         await form.waitForLoadState('networkidle', { timeout: config.networkIdleTimeoutMs }).catch(() => {});
+    cancellation?.throwIfCancelled();
         result.fdid = await form.locator('#fdid').inputValue().catch(() => null);
+    cancellation?.throwIfCancelled();
 
         await form.click('#remoteDownloadButton');
+    cancellation?.throwIfCancelled();
         await form.waitForFunction(() => !!window.__carlosCapturedPdf
           || !!document.querySelector('.missing-content-card'), null, { timeout: config.renderTimeoutMs });
+    cancellation?.throwIfCancelled();
         const capturedPdf = await form.evaluate(() => window.__carlosCapturedPdf);
+    cancellation?.throwIfCancelled();
         if (!capturedPdf) {
           // The application's explicit completeness refusal is a result, not a browser timeout.
           // Record its issue report without approving omissions or weakening the render gate.
           result.outcome = 'PDF WITHHELD';
           result.renderIssues = await form.locator('.missing-content-card .card-body > ul > li').allTextContents();
+    cancellation?.throwIfCancelled();
         } else {
           const pdf = Buffer.from(capturedPdf, 'base64');
           const safeName = `${result.fid}_${formName.replace(/[^A-Za-z0-9]+/g, '_').slice(0, 60)}`;
@@ -365,6 +396,7 @@ function launchOptions() {
       console.log(JSON.stringify(result));
     }
     await manager.close();
+    cancellation?.throwIfCancelled();
   } finally {
     await browser.close();
   }
@@ -387,8 +419,9 @@ function launchOptions() {
       console.log(`  ${entry.image}\t${entry.form}`);
     }
   }
-})().catch((error) => {
+})(context).catch((error) => {
   console.error('FAIL eForm corpus soak');
   console.error(error.stack || error.message);
-  process.exit(1);
+  {process.exitCode=1;return;}
+});
 });

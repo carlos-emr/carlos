@@ -29,6 +29,8 @@
 
 package io.github.carlos_emr.carlos.form.pageUtil;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import java.io.IOException;
 import java.net.URLDecoder;
 import java.sql.SQLException;
@@ -87,7 +89,7 @@ public class FormForward2Action extends ActionSupport {
                     + FormShortcutRouteResolver.resolve(demographicNo, strFrm, formId, appointmentNo, provNo);
             response.sendRedirect(redirect);
         } catch (SQLException e) {
-            logger.error("Failed to resolve form shortcut path", e);
+            logger.error("Failed to resolve form shortcut path: {}", LogSafe.exceptionTrace(e));
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to resolve form path");
         } catch (IllegalArgumentException e) {
             if (logger.isWarnEnabled()) {

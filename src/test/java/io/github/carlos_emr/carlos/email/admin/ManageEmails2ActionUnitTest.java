@@ -28,6 +28,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -51,22 +54,28 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-/** Manage Emails resend stages its attachments under its own window's patient-bound key (#4425). */
+/** Manage Emails dispatches status updates and stages patient-bound resend attachments. */
 @Tag("unit")
 @Tag("security")
 @Tag("email")
-@DisplayName("ManageEmails2Action resend")
+@DisplayName("ManageEmails2Action")
 class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
 
     private EmailComposeManager emailComposeManager;
+    private EmailManager emailManager;
+    private SecurityInfoManager securityInfoManager;
     private DocumentAttachmentManager documentAttachmentManager;
     private MockedStatic<ServletActionContext> servletActionContext;
     private final MockHttpSession session = new MockHttpSession();
@@ -74,14 +83,15 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         emailComposeManager = mock(EmailComposeManager.class);
+        emailManager = mock(EmailManager.class);
         documentAttachmentManager = mock(DocumentAttachmentManager.class);
         DemographicManager demographicManager = mock(DemographicManager.class);
-        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        securityInfoManager = mock(SecurityInfoManager.class);
         registerMock(EmailComposeManager.class, emailComposeManager);
         registerMock(DocumentAttachmentManager.class, documentAttachmentManager);
         registerMock(DemographicManager.class, demographicManager);
         registerMock(SecurityInfoManager.class, securityInfoManager);
-        registerMock(EmailManager.class, mock(EmailManager.class));
+        registerMock(EmailManager.class, emailManager);
         registerMock(FormsManager.class, mock(FormsManager.class));
         registerMock(PdfPreviewCapabilityService.class, mock(PdfPreviewCapabilityService.class));
         when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(true);
@@ -121,6 +131,122 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
         String result = new ManageEmails2Action().execute();
         assertThat(result).isEqualTo("compose");
         return request;
+    }
+
+    @Test
+    @DisplayName("should dispatch the Resolve POST to the status update instead of rendering the manager")
+    void shouldResolveEmail_whenDispatchedFromExecute() {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        EmailLog resolved = new EmailLog();
+        resolved.setStatus(EmailLog.EmailStatus.RESOLVED);
+        when(emailManager.updateEmailStatus(loggedInInfo, 7003, EmailLog.EmailStatus.RESOLVED, null))
+                .thenReturn(resolved);
+        MockHttpServletResponse response = resolve("7003", loggedInInfo);
+
+        verify(emailManager).updateEmailStatus(loggedInInfo, 7003, EmailLog.EmailStatus.RESOLVED, null);
+        verifyNoInteractions(emailComposeManager);
+        assertThat(response.getStatus()).isEqualTo(200);
+    }
+
+    @Test
+    @DisplayName("should return a JSON not-found error for a missing email log")
+    void shouldRejectResolve_whenLogDoesNotExist() throws Exception {
+        MockHttpServletResponse response = resolve("7004", new LoggedInInfo());
+
+        assertThat(response.getStatus()).isEqualTo(404);
+        assertThat(response.getContentType()).startsWith("application/json");
+        assertThat(response.getContentAsString()).contains("Email log not found");
+        verifyNoInteractions(emailComposeManager);
+    }
+
+    @Test
+    @DisplayName("should report a conflict when the email cannot transition to resolved")
+    void shouldRejectResolve_whenEmailIsNotFailed() throws Exception {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        EmailLog sent = new EmailLog();
+        sent.setStatus(EmailLog.EmailStatus.SUCCESS);
+        when(emailManager.updateEmailStatus(loggedInInfo, 7003, EmailLog.EmailStatus.RESOLVED, null)).thenReturn(sent);
+
+        MockHttpServletResponse response = resolve("7003", loggedInInfo);
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getContentAsString()).contains("Only failed emails can be resolved");
+    }
+
+    @Test
+    @DisplayName("should check write privilege in the action before dispatching any update")
+    void shouldDenyResolve_whenActionWritePrivilegeMissing() {
+        when(securityInfoManager.hasPrivilege(any(), eq("_email"), eq(SecurityInfoManager.WRITE), any())).thenReturn(false);
+
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        assertThatThrownBy(() -> resolve("7003", loggedInInfo))
+                .isInstanceOf(SecurityException.class).hasMessage("missing required sec object (_email)");
+        verifyNoInteractions(emailManager);
+    }
+
+    @Test
+    @DisplayName("should deny dispatch before reaching a manager when email read privilege is missing")
+    void shouldDenyDispatch_whenActionReadPrivilegeMissing() {
+        when(securityInfoManager.hasPrivilege(any(), eq("_email"), eq(SecurityInfoManager.READ), any())).thenReturn(false);
+
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        assertThatThrownBy(() -> resolve("7003", loggedInInfo))
+                .isInstanceOf(SecurityException.class).hasMessage("missing required sec object (_email)");
+        verifyNoInteractions(emailManager, emailComposeManager);
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"invalid", "7003 OR 1=1", "2147483648"})
+    @DisplayName("should reject invalid Resolve IDs without updating an email")
+    void shouldRejectResolve_whenLogIdIsInvalid(String logId) throws Exception {
+        MockHttpServletResponse response = resolve(logId, new LoggedInInfo());
+
+        verifyNoInteractions(emailManager);
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getContentAsString()).contains("Invalid email log id");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD", "PUT", "DELETE"})
+    @DisplayName("should refuse Resolve outside a CSRF-protected POST")
+    void shouldRejectResolve_whenMethodIsNotPost(String method) {
+        MockHttpServletResponse response = resolve(method, "7003", new LoggedInInfo());
+
+        verifyNoInteractions(emailManager);
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+    }
+
+    @Test
+    @DisplayName("should propagate the manager's privilege refusal instead of reporting success")
+    void shouldRejectResolve_whenManagerDeniesWritePrivilege() {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        doThrow(new SecurityException("missing required sec object (_email)"))
+                .when(emailManager).updateEmailStatus(loggedInInfo, 7003, EmailLog.EmailStatus.RESOLVED, null);
+
+        assertThatThrownBy(() -> resolve("7003", loggedInInfo)).isInstanceOf(SecurityException.class);
+        verifyNoInteractions(emailComposeManager);
+    }
+
+    private MockHttpServletResponse resolve(String logId, LoggedInInfo loggedInInfo) {
+        return resolve("POST", logId, loggedInInfo);
+    }
+
+    private MockHttpServletResponse resolve(String method, String logId, LoggedInInfo loggedInInfo) {
+        MockHttpServletRequest request = new MockHttpServletRequest(method, "/admin/ManageEmails");
+        request.setSession(session);
+        LoggedInInfo.setLoggedInInfoIntoSession(session, loggedInInfo);
+        request.setParameter("method", "setResolved");
+        if (logId != null) {
+            request.setParameter("logId", logId);
+        }
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
+
+        assertThat(new ManageEmails2Action().execute()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+        return response;
     }
 
     @Test

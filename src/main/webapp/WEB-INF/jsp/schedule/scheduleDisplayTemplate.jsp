@@ -31,14 +31,14 @@
 
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
-<%@ page import="java.sql.*, java.util.*" %>
+<%@ page import="java.util.*" %>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ScheduleTemplate" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateCodeDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode" %>
-<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%

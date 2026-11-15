@@ -46,14 +46,14 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptSearchData,java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptDemographicColumnNames" %>
 <%@ page import="io.github.carlos_emr.carlos.report.pageUtil.RptDemographicReport2Form" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%!
     // Helper method to check if a value exists in an array

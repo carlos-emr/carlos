@@ -48,9 +48,9 @@
 <%@ page import="java.io.File" %>
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.*" %>
-<%@ page import="io.github.carlos_emr.carlos.eform.data.*" %>
+
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="org.apache.logging.log4j.Logger" %>
+
 <!--
 eForm Generator version 7.4 (C) Peter Hutten-Czapski 2014-2023
 based on the origional stand alone eform generator by Shelter Lee

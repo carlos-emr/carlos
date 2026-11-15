@@ -50,13 +50,13 @@
         response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
 <%@page import="java.util.*, io.github.carlos_emr.carlos.demographic.data.*" %>
-<%@page import="io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*,io.github.carlos_emr.*,io.github.carlos_emr.oscarClinic.*" %>
+<%@page import="io.github.carlos_emr.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.PropertyDao" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.SystemPreferences" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Property" %>
 <%@ page import="io.github.carlos_emr.carlos.entities.BillHistory" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager" %>
@@ -69,7 +69,7 @@
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>

@@ -33,3 +33,7 @@ test('validateMysqlHost refuses non-loopback hosts without ALLOW_NON_LOCAL_MYSQL
 test('validateMysqlHost allows a non-loopback host only with the explicit opt-in', () => {
   assert.equal(validateMysqlHost('db.example.com', { ALLOW_NON_LOCAL_MYSQL_HOST: 'true' }), 'db.example.com');
 });
+
+test('empty MySQL hosts are refused even with explicit non-local opt-in',()=>{
+  for(const host of ['',undefined,'   '])assert.throws(()=>validateMysqlHost(host,{ALLOW_NON_LOCAL_MYSQL_HOST:'true'}),/must not be empty/);
+});

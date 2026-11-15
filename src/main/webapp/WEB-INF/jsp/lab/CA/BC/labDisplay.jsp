@@ -45,11 +45,11 @@
 %>
 
 <%@ page
-        import="java.util.*, io.github.carlos_emr.carlos.mds.data.*,io.github.carlos_emr.carlos.lab.ca.bc.PathNet.*,io.github.carlos_emr.carlos.lab.ca.on.CML.*" %>
+        import="java.util.*, io.github.carlos_emr.carlos.mds.data.*, io.github.carlos_emr.carlos.lab.ca.bc.PathNet.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
 
@@ -62,7 +62,7 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.bc.PathNet.PathnetLabTest" %>
 <%@ page import="io.github.carlos_emr.carlos.mds.data.ReportStatus" %>
