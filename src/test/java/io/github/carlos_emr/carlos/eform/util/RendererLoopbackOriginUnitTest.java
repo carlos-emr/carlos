@@ -143,6 +143,11 @@ class RendererLoopbackOriginUnitTest {
                 .isEqualTo("http://127.0.0.1:18080/carlos");
         assertThat(EFormBrowserPdfService.buildRequestlessBaseUrl(80, "", null))
                 .isEqualTo("http://127.0.0.1");
+        assertThat(EFormBrowserPdfService.buildRequestlessBaseUrl(
+                        18080, null, "/".repeat(100_000) + "carlos/internal" + "/".repeat(100_000)))
+                .isEqualTo("http://127.0.0.1:18080/carlos/internal");
+        assertThat(EFormBrowserPdfService.buildRequestlessBaseUrl(18080, null, "///"))
+                .isEqualTo("http://127.0.0.1:18080");
         assertThat(RendererLoopbackOrigin.connectorPort(null)).isEqualTo(-1);
     }
 

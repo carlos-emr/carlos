@@ -97,7 +97,8 @@ public class CdsExportHistoryInventoryService {
             return;
         }
         var sizes = new CdsExportSectionWindowPlanner.Sizes(bounds.window());
-        for (int from = 0; from < ids.size(); ) {
+        int from = 0;
+        while (from < ids.size()) {
             int start = from;
             var window =
                     CdsExportSectionWindowPlanner.loadNext(

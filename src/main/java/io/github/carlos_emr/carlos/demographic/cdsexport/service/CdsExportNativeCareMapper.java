@@ -289,11 +289,7 @@ public final class CdsExportNativeCareMapper {
     private static String instructionUnit(String instruction) {
         if (instruction == null) return "";
         String text =
-                instruction
-                        .strip()
-                        .toLowerCase(Locale.ROOT)
-                        .replaceFirst("\\s*\\(.*$", "")
-                        .replaceFirst("\\s*range:.*$", "")
+                assertionInstruction(instruction)
                         .replaceFirst("^waist circum(?:ference)?\\s+", "")
                         .replaceFirst("^in\\s+", "")
                         .strip();
@@ -320,12 +316,34 @@ public final class CdsExportNativeCareMapper {
     /** The instruction without CARLOS's flowsheet hint ("(...) Range:... Interval:..."). */
     private static String assertionInstruction(String instruction) {
         if (instruction == null) return "";
-        return instruction
-                .strip()
-                .toLowerCase(Locale.ROOT)
-                .replaceFirst("\\s*\\(.*$", "")
-                .replaceFirst("\\s*range:.*$", "")
-                .strip();
+        String text = instruction.strip().toLowerCase(Locale.ROOT);
+        return withoutInstructionHint(withoutInstructionHint(text, "("), "range:").strip();
+    }
+
+    /** Removes a hint on the final line without repeatedly scanning long whitespace runs. */
+    private static String withoutInstructionHint(String value, String hint) {
+        int end = value.length();
+        // Preserve the original final-line semantics, including Java's optional final terminator.
+        if (end > 0 && instructionLineBreak(value.charAt(end - 1))) {
+            char terminator = value.charAt(--end);
+            if (terminator == '\n' && end > 0 && value.charAt(end - 1) == '\r') end--;
+        }
+        int start = end;
+        while (start > 0 && !instructionLineBreak(value.charAt(start - 1))) start--;
+        int marker = value.indexOf(hint, start);
+        if (marker < 0 || marker >= end) return value;
+        while (marker > 0 && instructionHintSpace(value.charAt(marker - 1))) marker--;
+        return value.substring(0, marker) + value.substring(end);
+    }
+
+    private static boolean instructionLineBreak(char value) {
+        return value == '\n' || value == '\r' || value == '\u0085'
+                || value == '\u2028' || value == '\u2029';
+    }
+
+    private static boolean instructionHintSpace(char value) {
+        return value == ' ' || value == '\t' || value == '\n' || value == '\r'
+                || value == '\f' || value == '\u000b';
     }
 
     // FindSecBugs REDOS: Whole-value match of a signless or plus-signed decimal; digits and the dot are disjoint and no group is repeated, so matching is linear.

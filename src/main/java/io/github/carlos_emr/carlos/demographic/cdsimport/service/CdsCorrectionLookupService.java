@@ -81,7 +81,7 @@ public class CdsCorrectionLookupService {
         return CdsImportKeys.hash("CDS_REVIEW_XML_V1", xmlRelative, acceptedXmlSha256);
     }
 
-    public CdsCorrectionSetDto find(
+    public @org.jspecify.annotations.Nullable CdsCorrectionSetDto find(
             String runId, String xmlRelative, String acceptedXmlSha256, Path parsedDirectory)
             throws IOException {
         String source = sourceKey(xmlRelative, acceptedXmlSha256);

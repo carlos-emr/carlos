@@ -383,9 +383,14 @@ class CdsExportPrescriptionOccurrenceServiceUnitTest {
                         java.nio.charset.StandardCharsets.UTF_8);
         // Residual Content is an xs:token: the JSON carries every space escaped, so a
         // schema-aware reader cannot collapse a run of spaces in the printed text.
-        String content =
-                xml.substring(xml.indexOf("CARLOS.Prescription.v1"))
-                        .replaceAll("(?s).*?<cdsd:Content>(.*?)</cdsd:Content>.*", "$1");
+        int category = xml.indexOf("CARLOS.Prescription.v1");
+        assertThat(category).isNotNegative();
+        int opening = xml.indexOf("<cdsd:Content>", category);
+        assertThat(opening).isGreaterThan(category);
+        int start = opening + "<cdsd:Content>".length();
+        int end = xml.indexOf("</cdsd:Content>", start);
+        assertThat(end).isGreaterThan(start);
+        String content = xml.substring(start, end);
         assertThat(content).startsWith("{").doesNotContain(" ");
     }
 

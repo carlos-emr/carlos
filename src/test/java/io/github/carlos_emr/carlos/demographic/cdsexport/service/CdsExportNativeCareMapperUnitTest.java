@@ -472,6 +472,17 @@ class CdsExportNativeCareMapperUnitTest {
             assertThat(mapped.values()).containsValue(value.get(4));
             render(CdsCategory.CARE_ELEMENTS, body -> mapper.writeCare(mapped, body));
         }
+        assertThat(map("WT", "70", "kg" + " ".repeat(100_000) + "(nnn)").element())
+                .isEqualTo("Weight");
+        assertThat(map("WT", "70", "kg" + " ".repeat(100_000) + "range:0-300").element())
+                .isEqualTo("Weight");
+        assertThat(map("WT", "70", "kg" + " ".repeat(100_000) + "unknown").element())
+                .isNull();
+        // A multiline clinical instruction is not silently reduced to a familiar unit.
+        for (String separator : List.of("\n", "\r", "\r\n", "\u0085", "\u2028", "\u2029")) {
+            assertThat(map("WT", "70", "kg (hint" + separator + "different instruction)").element())
+                    .isNull();
+        }
         // A posture or free-text instruction says nothing about weight units.
         assertThat(map("WT", "70", "standing, shoes off").element()).isNull();
         // An explicit non-mmHg pressure unit is never relabelled.

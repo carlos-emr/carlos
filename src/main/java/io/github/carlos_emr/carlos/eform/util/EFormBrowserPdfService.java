@@ -3084,7 +3084,10 @@ public class EFormBrowserPdfService implements org.springframework.web.context.S
         String context = contextPath;
         if (context == null) {
             String home = projectHome == null ? "" : projectHome.strip();
-            context = home.isEmpty() ? "" : "/" + home.replaceAll("^/+", "").replaceAll("/+$", "");
+            int start = 0, end = home.length();
+            while (start < end && home.charAt(start) == '/') start++;
+            while (end > start && home.charAt(end - 1) == '/') end--;
+            context = home.isEmpty() ? "" : "/" + home.substring(start, end);
         }
         return buildLocalBaseUrl("http", connectorPort, context);
     }

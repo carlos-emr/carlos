@@ -814,28 +814,32 @@ public class CdsImportReviewService {
                         target.xml().relativeName(),
                         target.xml().sha256(),
                         target.folder());
-        CdsCorrectionSetDto draft =
-                transaction.execute(
-                        status -> {
-                            var row = reviews.latestDraft(review.run(), key);
-                            var active = reviews.latestCorrection(review.run(), key);
-                            // A stale inactive proposal cannot replace a newer published set.
-                            if (row != null
-                                    && active != null
-                                    && row.getReviewVersion() <= active.getReviewVersion())
-                                return null;
-                            return row == null
-                                    ? null
-                                    : new CdsCorrectionSetDto(
-                                            Path.of(row.getManifestLocation()),
-                                            row.getManifestSha256(),
-                                            row.getSourceXmlSha256());
-                        });
-        if (draft != null) CdsPaths.within(draft.manifestFile(), source);
+        java.util.Optional<CdsCorrectionSetDto> draft =
+                java.util.Objects.requireNonNull(
+                        transaction.execute(
+                                status -> {
+                                    var row = reviews.latestDraft(review.run(), key);
+                                    var active = reviews.latestCorrection(review.run(), key);
+                                    // A stale inactive proposal cannot replace a newer published set.
+                                    if (row != null
+                                            && active != null
+                                            && row.getReviewVersion() <= active.getReviewVersion())
+                                        return java.util.Optional.<CdsCorrectionSetDto>empty();
+                                    return row == null
+                                            ? java.util.Optional.<CdsCorrectionSetDto>empty()
+                                            : java.util.Optional.of(
+                                                    new CdsCorrectionSetDto(
+                                                            Path.of(row.getManifestLocation()),
+                                                            row.getManifestSha256(),
+                                                            row.getSourceXmlSha256()));
+                                }));
         // Drafts remain inactive. Publication below additionally requires every
         // carried unvalidated scalar to belong to this reviewer or be explicitly
         // re-entered by them; another operator's proposal never gains approval silently.
-        if (draft != null) prior = draft;
+        if (draft.isPresent()) {
+            prior = draft.get();
+            CdsPaths.within(prior.manifestFile(), source);
+        }
         Path directory = revision.resolve("corrections");
         ArrayNode entries = JSON.createArrayNode();
         if (prior != null) {
