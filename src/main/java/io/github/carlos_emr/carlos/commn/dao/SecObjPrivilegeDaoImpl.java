@@ -47,6 +47,50 @@ public class SecObjPrivilegeDaoImpl extends AbstractDaoImpl<SecObjPrivilege> imp
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto readCdsExportMergePrivilegeSchema() {
+        return CdsExportPatientTableReadSupport.mergePrivilegeSchema(entityManager);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public List<io.github.carlos_emr.carlos.commn.dto.CdsExportMergePrivilegeRowDto> findCdsExportMergePrivileges(int patient) {
+        if (patient < 1) throw new IllegalArgumentException("CDS_EXPORT_MERGE_QUERY_INVALID");
+        // The row is found by the same comparison CARLOS uses (the columns' collation); its
+        // stored bytes are read as they are, so no driver substitution can change a value.
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = CdsExportPatientTableReadSupport.query(entityManager,
+                        "select CAST(p.`roleUserGroup` AS BINARY), CAST(p.`objectName` AS BINARY),"
+                                + " CAST(p.`privilege` AS BINARY), CAST(p.`priority` AS BINARY),"
+                                + " CAST(p.`provider_no` AS BINARY) from `secObjPrivilege` p"
+                                + " where p.`roleUserGroup`=:role and p.`objectName`=:object")
+                .setParameter("role", io.github.carlos_emr.carlos.demographic.cds.contract.CdsMergedChartContract.PRIVILEGE_ROLE)
+                .setParameter("object", io.github.carlos_emr.carlos.demographic.cds.contract.CdsMergedChartContract.PRIVILEGE_OBJECT_PREFIX + patient)
+                .getResultList();
+        var result = new java.util.ArrayList<io.github.carlos_emr.carlos.commn.dto.CdsExportMergePrivilegeRowDto>(rows.size());
+        for (Object[] row : rows) {
+            if (row == null || row.length != 5) throw new IllegalStateException("CDS_EXPORT_NATIVE_SCALAR_INVALID");
+            result.add(new io.github.carlos_emr.carlos.commn.dto.CdsExportMergePrivilegeRowDto(
+                    text(row[0]), text(row[1]), text(row[2]), text(row[3]), text(row[4])));
+        }
+        return result;
+    }
+
+    /** Strict UTF-8 text of a stored value read as bytes; SQL NULL stays null. */
+    private static String text(Object value) {
+        if (value == null) return null;
+        if (!(value instanceof byte[] bytes)) throw new IllegalStateException("CDS_EXPORT_NATIVE_SCALAR_INVALID");
+        try {
+            return java.nio.charset.StandardCharsets.UTF_8.newDecoder()
+                    .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
+                    .decode(java.nio.ByteBuffer.wrap(bytes)).toString();
+        } catch (java.nio.charset.CharacterCodingException malformed) {
+            throw new IllegalStateException("CDS_EXPORT_NATIVE_SCALAR_INVALID");
+        }
+    }
+
+    @Override
     public List<SecObjPrivilege> findByRoleUserGroupAndObjectName(String roleUserGroup, String objectName) {
         String sql = "select s FROM SecObjPrivilege s WHERE s.id.roleUserGroup = ?1 AND  s.id.objectName = ?2";
 

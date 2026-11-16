@@ -129,6 +129,45 @@ class PreventionDataExtLookupUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should read a migrated vaccine whose extension values are SQL NULL")
+    void shouldReadThePrevention_whenExtensionValuesAreSqlNull() {
+        // OSCAR 19 migrations store NULL name, lot and comments; the null-unsafe equals("") turned
+        // the read into PREVENTION_SOURCE_UNAVAILABLE and the view page into an error (review F7).
+        var prevention = new io.github.carlos_emr.carlos.commn.model.Prevention();
+        ReflectionTestUtils.setField(prevention, "id", 5);
+        prevention.setDemographicId(27);
+        prevention.setProviderNo("-1");
+        prevention.setPreventionType("Td");
+        prevention.setPreventionDate(new java.util.Date(0));
+        prevention.setCreatorProviderNo("999998");
+        when(preventionDao.find((Object) Integer.valueOf(5))).thenReturn(prevention);
+        List<PreventionExt> rows = new java.util.ArrayList<>();
+        for (String key : List.of("name", "lot", "comments", "providerName")) {
+            PreventionExt row = new PreventionExt();
+            row.setPreventionId(5);
+            row.setKeyval(key);
+            row.setVal(null);
+            rows.add(row);
+        }
+        when(preventionExtDao.findByPreventionId(5)).thenReturn(rows);
+        var providers = mock(io.github.carlos_emr.carlos.commn.dao.ProviderDataDao.class);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.ProviderDataDao.class, providers);
+        var dhir = mock(io.github.carlos_emr.carlos.managers.DHIRSubmissionManager.class);
+        when(dhir.findByPreventionId(5)).thenReturn(List.of());
+        registerMock(io.github.carlos_emr.carlos.managers.DHIRSubmissionManager.class, dhir);
+        Object originalPartialDates = ReflectionTestUtils.getField(PreventionData.class, "partialDateDao");
+        ReflectionTestUtils.setField(PreventionData.class, "partialDateDao", mock(PartialDateDao.class));
+        try {
+            Map<String, Object> found = PreventionData.getPreventionById("5");
+
+            assertThat(found).isNotNull().containsEntry("id", "5").doesNotContainKeys("name", "lot", "comments");
+            assertThat((String) found.get("summary")).doesNotContain("null");
+        } finally {
+            ReflectionTestUtils.setField(PreventionData.class, "partialDateDao", originalPartialDates);
+        }
+    }
+
+    @Test
     @DisplayName("should refuse a value that is not an id without logging it")
     void shouldRefuseNonNumericId_withoutLoggingTheValue() {
         try (LogCapture logs = LogCapture.forLogger(PreventionData.class)) {

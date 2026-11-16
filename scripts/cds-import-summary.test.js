@@ -240,6 +240,17 @@ test('clinical progress counts verified prior records without treating an upload
   assert.match(client.uploadPresentation('COMPLETE',true),/Fichier reçu/);
 });
 
+test('each unsubmitted upload states when it is removed, in English and French', () => {
+  const removedAt=Date.UTC(2026,10,16,15,30);
+  const at=french=>new Date(removedAt).toLocaleString(french?'fr-CA':'en-CA');
+  assert.equal(client.uploadRemoval({state:'OPEN',removedAt}),
+    'Removed at '+at(false)+' unless submitted or resumed before then');
+  assert.equal(client.uploadRemoval({state:'COMPLETE',removedAt},true),
+    'Supprimé le '+at(true)+' s’il n’est ni soumis ni repris d’ici là');
+  for(const upload of [{state:'SUBMITTED',removedAt:null},{state:'RETIRED'},{state:'OPEN',removedAt:'soon'},null])
+    assert.equal(client.uploadRemoval(upload),'','a submitted upload is never removed for idleness');
+});
+
 test('terminal report or cleanup failures require attention rather than an endless finishing state', () => {
   for(const changed of [{reportDeliveryFailed:true,reportState:'FAILED',reportsDelivered:false},
     {cleanupState:'FAILED',cleanupComplete:false},{maintenanceReleaseState:'RELEASE_FAILED',cleanupComplete:false}]) {
@@ -322,4 +333,13 @@ test('older job markup or a browser without the scrolling method still preserves
     const result=await client.readOpenedJobStatus(id,async()=>({job:{id}}),()=>id,()=>heading);
     assert.equal(result.job.id,id);
   }
+});
+
+test('only a coded refusal settles a submission; any other failure leaves it unconfirmed', () => {
+  const failed = (status, code) => Object.assign(new Error(code || 'IMPORT_RESPONSE_FAILED'), {status, code});
+  assert.equal(client.refusedBeforeAcceptance(failed(409, 'SUBMISSION_CONFLICT')), true);
+  assert.equal(client.refusedBeforeAcceptance(failed(403, 'IMPORT_DELEGATION_DENIED')), true);
+  for (const error of [failed(408, 'UPLOAD_CHUNK_STALLED'), failed(429, 'UPLOAD_IO_BUSY'), failed(503, 'IMPORT_UNAVAILABLE'),
+    failed(400), new Error('AbortError'), new Error('IMPORT_RESPONSE_UNAVAILABLE_HTTP_504'), null])
+    assert.equal(client.refusedBeforeAcceptance(error), false);
 });

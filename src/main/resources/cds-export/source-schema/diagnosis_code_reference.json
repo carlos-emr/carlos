@@ -1,0 +1,60 @@
+{
+  "table": "diagnosis_code_reference",
+  "engine": "TRUSTED_PUBLIC_REFERENCE",
+  "columns": [
+    {
+      "name": "code",
+      "type": "reference_text_v1",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "coding_system",
+      "type": "reference_text_v1",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "description",
+      "type": "reference_text_v1",
+      "nullable": "YES",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "reference_code",
+      "type": "reference_text_v1",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "reference_id",
+      "type": "reference_text_v1",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "reference_table",
+      "type": "reference_text_v1",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    }
+  ],
+  "primaryKeyColumns": [
+    "coding_system",
+    "code",
+    "reference_table",
+    "reference_id"
+  ]
+}

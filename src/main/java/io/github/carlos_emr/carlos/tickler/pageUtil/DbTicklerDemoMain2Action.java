@@ -29,6 +29,10 @@
 
 package io.github.carlos_emr.carlos.tickler.pageUtil;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -52,8 +56,10 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * <p>Handles bulk status updates for patient-level tickler listings. When checkbox values
  * are present, the action loops over each selected tickler ID, determines the target
  * {@link Tickler.STATUS} from the first character of {@code submit_form}, and delegates to
- * {@link TicklerManager#updateStatus}. Control is then redirected to {@code ticklerMain.jsp}
- * carrying the original view parameters.
+ * {@link TicklerManager#updateStatusIfCurrent} with the status the row showed when the list was
+ * rendered ({@link TicklerRenderedStatus}); a task another user changed in the meantime is not
+ * overwritten. Control is then redirected to {@code ticklerMain.jsp} carrying the original view
+ * parameters.
  *
  * <p>When no checkboxes are submitted the action redirects immediately to
  * {@code ticklerMain.jsp} with the current view parameters unchanged.
@@ -127,13 +133,21 @@ public final class DbTicklerDemoMain2Action extends ActionSupport {
             }
         }
 
+        // What each ticked row showed when the list was rendered. A task someone else has changed
+        // since is left as it is and named on the list this action redirects to; the other ticked
+        // tasks are still applied.
+        Map<Integer, Tickler.STATUS> rendered = TicklerRenderedStatus.read(request);
+        List<Integer> refused = new ArrayList<>();
         int failCount = 0;
         for (String ticklerIdStr : checkboxes) {
             try {
                 Tickler t = ticklerManager.getTickler(loggedInInfo, Integer.parseInt(ticklerIdStr));
                 if (t != null) {
-                    ticklerManager.updateStatus(loggedInInfo, t.getId(),
-                            loggedInInfo.getLoggedInProviderNo(), status);
+                    TicklerManager.StatusChange change = ticklerManager.updateStatusIfCurrent(loggedInInfo, t.getId(),
+                            loggedInInfo.getLoggedInProviderNo(), rendered.get(t.getId()), status);
+                    if (change == TicklerManager.StatusChange.STALE) {
+                        refused.add(t.getId());
+                    }
                 }
             } catch (NumberFormatException e) {
                 MiscUtils.getLogger().error("Invalid tickler checkbox value: {}", LogSafe.sanitize(ticklerIdStr), e);
@@ -143,6 +157,8 @@ public final class DbTicklerDemoMain2Action extends ActionSupport {
                 failCount++;
             }
         }
+
+        TicklerRenderedStatus.rememberRefused(request.getSession(), refused);
 
         if (failCount > 0) {
             redirectUrl += "&failCount=" + failCount;

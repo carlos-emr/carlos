@@ -8,10 +8,14 @@
  * user name > click the user name > Update Record (admin/SecurityUpdate) / Delete Record.
  * Session A opens the edit page of a login; session B opens the same page, sets "Force password reset" to true and
  * saves; session A, still holding the page it loaded before that, ticks the expiry flag and saves.
- * Asserted: B's force-reset lands (control), A's own update is accepted, and B's force-reset survives.
- * securityupdate.jsp copies every posted control onto the row (forcePasswordReset included) with no
- *      comparison against what the form was rendered from, so the stale "false" silently clears the
- *      security setting an administrator just made.
+ * Asserted: B's force-reset lands (control), and B's force-reset survives A's stale save.
+ * The save used to copy every posted control onto the row (forcePasswordReset included) with no
+ *      comparison against what the form was rendered from, so the stale "false" silently cleared the
+ *      security setting an administrator just made (ledger finding 355). The form now carries the version it
+ *      was rendered from (securityVersion); SecurityRecordUpdateService compares it under the row lock and
+ *      refuses A's stale form whole: HTTP 409 and the conflict page, none of its fields stored (not even the
+ *      expiry flag A ticked), and an offer to reopen the record. Reopened, the record shows B's reset and A's
+ *      change saves from it.
  * (Delete-while-editing cannot be driven: Delete Record itself fails with the known detached-remove defect, ISSUES L20.)
  * The edit page's known missing stylesheet (admin/bcArStyle.css, L19) is consumed explicitly.
  * Fixtures: one marker-named provider with a security row (password hash / PIN copied from the test login),
@@ -22,7 +26,7 @@ const { randomInt } = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
-const { openSecondSession, failureMark, consumeKnownConsole } = require('./lib/concurrency-support');
+const { openSecondSession, failureMark, consumeKnownConsole, consumeExpectedFailure } = require('./lib/concurrency-support');
 const { openSection, navigateFrame, searchByUserName } = require('./security-record-admin-playwright-checks');
 
 const TIMEOUT = 20000;
@@ -94,6 +98,7 @@ async function workflow(s) {
   const record = seed('k');
   const row = () => sql.value(`SELECT CONCAT(forcePasswordReset,'|',b_ExpireSet) FROM security WHERE security_no=${record.securityNo}`);
   const b = await openSecondSession(s, { label: 'second-session', openMaster: false });
+  let refused = null; // session A's edit page, left on the conflict page by the stale save
 
   await s.step('session A\'s stale Update Record does not undo session B\'s force-password-reset', async () => {
     const a = await openEditPage(s.context, s.schedule, s.recorder, 'security-admin-a2', record.userName);
@@ -102,13 +107,45 @@ async function workflow(s) {
     await navigateFrame(other.admin, other.frame, other.frame.locator('input[name="subbutton"]'));
     h.assert(row() === '1|0', 'Session B\'s force-password-reset did not reach the database');
     await a.frame.locator('input[name="b_ExpireSet"]').check();
+    const mark = failureMark(s.recorder);
+    const response = a.admin.waitForResponse(r => r.request().method() === 'POST'
+      && /\/admin\/SecurityUpdate$/.test(new URL(r.url()).pathname), { timeout: TIMEOUT });
     await navigateFrame(a.admin, a.frame, a.frame.locator('input[name="subbutton"]'));
-    h.assert(/Security Record Updated Successfully/.test(await a.frame.locator('h2').first().innerText()), 'Session A\'s own update was not accepted');
+    const status = (await response).status();
     const [force, expire] = row().split('|');
     h.assert(force === '1',
       `Session A's stale Update Record (expiry flag now ${expire}) silently cleared the force-password-reset session B had just set (forcePasswordReset=${force}). `
-      + 'securityupdate.jsp copies every posted control onto the row with no comparison against the state the form was rendered from, so the later save wins '
+      + 'The save copies every posted control onto the row; without comparing the form\'s securityVersion with the locked row, the later save wins '
       + 'without a warning to either administrator.');
+    // A stale form is refused whole: HTTP 409 and the conflict page, with none of its fields stored (not even the
+    // expiry flag session A ticked), and an offer to reopen the record as it is now.
+    h.assert(status === 409, `The stale Update Record answered HTTP ${status} instead of refusing it with 409`);
+    h.assert(expire === '0', 'The refused stale Update Record still stored part of its form (the expiry flag): a refusal must write nothing');
+    await a.frame.locator('#securityEditConflict').waitFor({ state: 'visible', timeout: TIMEOUT });
+    h.assert(!/Security Record Updated Successfully/.test(await a.frame.locator('body').innerText()),
+      'The refused stale Update Record still reported success');
+    consumeExpectedFailure(s.recorder, mark, { status: 409, path: /\/admin\/SecurityUpdate$/ });
+    const reopen = a.frame.locator('#securityEditConflictReopen');
+    h.assert(await reopen.count() === 1
+      && new URL(await reopen.getAttribute('href'), a.frame.url()).searchParams.get('keyword') === record.securityNo,
+    'The conflict page does not offer to reopen the login it refused to overwrite');
+    refused = { ...a, reopen };
+  });
+
+  await s.step('the reopened record shows session B\'s reset and session A\'s change then saves', async () => {
+    const a = refused;
+    h.assert(a, 'The stale-save step did not leave its conflict page to reopen from');
+    const mark = failureMark(s.recorder);
+    await navigateFrame(a.admin, a.frame, a.reopen);
+    consumeKnownConsole(s.recorder, mark, /bcArStyle\.css/);
+    h.assert(await a.frame.locator('input[name="user_name"]').inputValue() === record.userName, 'The reopened edit page shows another login');
+    h.assert(await a.frame.locator('select[name="forcePasswordReset"]').inputValue() === '1',
+      'The reopened edit page does not show the force-password-reset session B saved');
+    await a.frame.locator('input[name="b_ExpireSet"]').check();
+    await navigateFrame(a.admin, a.frame, a.frame.locator('input[name="subbutton"]'));
+    h.assert(/Security Record Updated Successfully/.test(await a.frame.locator('h2').first().innerText()),
+      'Session A\'s update from the reopened record was not accepted');
+    h.assert(row() === '1|1', `Session A's update from the reopened record stored ${row()} instead of keeping B's reset and adding the expiry flag (1|1)`);
   });
 }
 

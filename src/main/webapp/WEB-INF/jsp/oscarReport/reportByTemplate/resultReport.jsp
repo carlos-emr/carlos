@@ -33,6 +33,7 @@
 <%@ page
         import="java.util.*, io.github.carlos_emr.carlos.report.reportByTemplate.*" %>
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportObjectGeneric" %>
+<%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportCsvDownloads" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 
@@ -42,6 +43,8 @@
 
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin,_report" rights="r" reverse="<%=true%>">
@@ -96,21 +99,29 @@
         Integer sequenceLength = (Integer) request.getAttribute("sequenceLength");
         List<String> sqlList = new ArrayList<String>();
         List<String> htmlList = new ArrayList<String>();
-        List<String> csvList = new ArrayList<String>();
+        // Which queries' CSV went over the CSV limit and is held back (#5849, D260).
+        List<Boolean> csvWithheldList = new ArrayList<Boolean>();
+        // The CSV stays on the server (ReportCsvDownloads): the page gets only the result's token and which
+        // queries (by index) can be downloaded, never the CSV itself.
+        Object csvDownloadFlags = request.getAttribute(ReportCsvDownloads.DOWNLOADS_ATTRIBUTE);
+        List<?> csvDownloads = csvDownloadFlags instanceof List ? (List<?>) csvDownloadFlags : Collections.emptyList();
+        String csvDownloadToken = (String) request.getAttribute(ReportCsvDownloads.TOKEN_ATTRIBUTE);
 
         if (curreport.isSequence()) {
             for (int x = 0; x < sequenceLength; x++) {
                 sqlList.add((String) request.getAttribute("sql-" + x));
                 htmlList.add((String) request.getAttribute("resultsethtml-" + x));
-                csvList.add((String) request.getAttribute("csv-" + x));
+                csvWithheldList.add(Boolean.TRUE.equals(request.getAttribute("csvWithheld-" + x)));
             }
         } else {
             sqlList.add((String) request.getAttribute("sql"));
             htmlList.add((String) request.getAttribute("resultsethtml"));
-            csvList.add((String) request.getAttribute("csv"));
+            csvWithheldList.add(Boolean.TRUE.equals(request.getAttribute("csvWithheld")));
         }
 
         pageContext.setAttribute("htmlList", htmlList);
+        pageContext.setAttribute("csvWithheldList", csvWithheldList);
+        pageContext.setAttribute("sequenced", curreport.isSequence());
 
     %>
 
@@ -124,11 +135,23 @@
     </h3>
 
     <c:if test="${not empty errormsg}">
-        <div class="alert alert-warning" role="alert">${carlos:forHtml(errormsg)}</div>
+        <div class="alert alert-warning" role="alert">
+        <%-- A limit refusal names its limit in the user's language (#5849) and, while an administrator can still
+             raise that limit, the carlos.properties setting to change; other errors keep their English text. --%>
+        <c:choose>
+            <c:when test="${not empty errormsgKey}"><fmt:message key="${errormsgKey}"><fmt:param value="${errormsgArg}"/></fmt:message><c:if test="${not empty errormsgSetting}"> <fmt:message key="report.limit.administratorCanRaise"><fmt:param value="${errormsgSetting}"/></fmt:message></c:if></c:when>
+            <c:otherwise>${carlos:forHtml(errormsg)}</c:otherwise>
+        </c:choose>
+        </div>
     </c:if>
 
     <div class="reportBorderDiv row">
-        <c:forEach items="${ htmlList }" var="htmlOut">
+        <c:forEach items="${ htmlList }" var="htmlOut" varStatus="query">
+            <%-- Shown above a result whose CSV went over the CSV limit, so its downloads are held back (#5849, D260).
+                 In a sequence it names the query, as the export buttons below do. --%>
+            <c:if test="${csvWithheldList[query.index]}">
+                <div class="alert alert-info" role="status"><c:if test="${sequenced}"><strong><fmt:message key="report.byTemplate.queryNumber"><fmt:param value="${query.count}"/></fmt:message>:</strong> </c:if><fmt:message key="report.byTemplate.csvWithheld"><fmt:param value="${csvWithheldMb}"/></fmt:message><c:if test="${not empty csvWithheldSetting}"> <fmt:message key="report.limit.administratorCanRaise"><fmt:param value="${csvWithheldSetting}"/></fmt:message></c:if></div>
+            </c:if>
             <c:choose>
                 <c:when test="${ not fn:startsWith(htmlOut, '<table') }">
                     <div class="alert alert-danger">
@@ -151,16 +174,22 @@
             <input type="button" class="btn btn-primary" value="Print" onclick="window.print();">
 
             <%
-                for (int x = 0; x < csvList.size(); x++) {
-                    if (csvList.get(x) == null || csvList.get(x).isEmpty()) continue;
+                for (int x = 0; csvDownloadToken != null && x < csvDownloads.size(); x++) {
+                    if (!Boolean.TRUE.equals(csvDownloads.get(x))) continue;
+                    pageContext.setAttribute("queryNumber", x + 1);
+                    pageContext.setAttribute("queryIndex", x);
             %>
 
+            <%-- The export posts only the token of the result kept on the server, the query's index and the
+                 template (for the "run the report again" link once the result has expired). --%>
             <form style="display:inline;" action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/generateOutFilesAction" method="post">
-                <%if (x > 1) { %>
-                <label><%=(x + 1)%>
-                </label>
-                <%}%>
-                <input type="hidden" class="btn btn-secondary" name="csv" value="<carlos:encode value='<%= csvList.get(x) %>' context="htmlAttribute"/>">
+                <%-- Every export in a sequence names its query; a query whose CSV is held back has none (#5849). --%>
+                <c:if test="${sequenced}">
+                <span class="align-middle"><fmt:message key="report.byTemplate.queryNumber"><fmt:param value="${queryNumber}"/></fmt:message></span>
+                </c:if>
+                <input type="hidden" name="resultToken" value="${carlos:forHtmlAttribute(csvDownloadToken)}">
+                <input type="hidden" name="resultIndex" value="${carlos:forHtmlAttribute(queryIndex)}">
+                <input type="hidden" name="templateid" value="${carlos:forHtmlAttribute(reportobject.templateId)}">
                 <input type="submit" class="btn btn-secondary" name="getCSV" value="Export to CSV">
                 <input type="submit" class="btn btn-secondary" name="getXLS" value="Export to XLSX">
             </form>
