@@ -56,6 +56,10 @@ public final class KeyPairGen {
 
     /**
      * Create a key pair for the specified service and store it in the database
+     *
+     * <p>For a client service, call {@link #createClientKeys(String, String)} instead: this
+     * method stores the client key without checking that the CARLOS key exists, and a stored
+     * key takes its service name for good (issue #6009).</p>
      */
     public static String createKeys(String name, String type) {
         byte[] pubKey;
@@ -141,5 +145,103 @@ public final class KeyPairGen {
             PublicKey publicKeyObject = publicKeyDao.find(name);
             return (publicKeyObject != null);
         }
+    }
+
+    /**
+     * Outcome of {@link #createClientKeys(String, String)}.
+     *
+     * @since 2026-11-09
+     */
+    public enum ClientKeyStatus {
+        /** The client key pair was stored, and both keys the client needs are in the result. */
+        CREATED,
+        /** The CARLOS ("oscar") key pair has not been created yet. Nothing was stored. */
+        CARLOS_KEY_MISSING,
+        /** The CARLOS key could not be read, or the client key pair could not be generated or stored. */
+        FAILED
+    }
+
+    /**
+     * Result of {@link #createClientKeys(String, String)}. The two keys are set only when
+     * {@code status} is {@link ClientKeyStatus#CREATED}.
+     *
+     * @param status           what happened
+     * @param clientPrivateKey the client service's base64 private key, or {@code null}
+     * @param carlosPublicKey  the CARLOS base64 public key the client encrypts uploads with, or {@code null}
+     * @since 2026-11-09
+     */
+    public record ClientKeys(ClientKeyStatus status, String clientPrivateKey, String carlosPublicKey) {
+
+        /**
+         * Keys go with {@code CREATED} and only with it: a {@code CREATED} result without them
+         * would have the page write "null" into the client's key file.
+         *
+         * @throws IllegalArgumentException if the status is missing or does not match the keys
+         */
+        public ClientKeys {
+            if (status == null) {
+                throw new IllegalArgumentException("A client key result needs a status");
+            }
+            boolean created = status == ClientKeyStatus.CREATED;
+            if (created != (clientPrivateKey != null) || created != (carlosPublicKey != null)) {
+                throw new IllegalArgumentException("Only a CREATED result carries keys, and it carries both");
+            }
+        }
+
+        /** Leaves the private key out, so a logged or debugged result never prints it. */
+        @Override
+        public String toString() {
+            return "ClientKeys[status=" + status + "]";
+        }
+    }
+
+    /**
+     * Create and store the key pair for a client service (a lab or eData uploader), but only when
+     * the CARLOS ("oscar") key pair already exists.
+     *
+     * <p>The client needs two keys: its own private key and the CARLOS public key. The CARLOS key
+     * is read first, and nothing is generated or stored without it. A stored client key takes its
+     * service name for good: a retry with the same name is refused as a duplicate, and the Key
+     * Manager cannot delete a key. Storing the client key before finding the CARLOS key missing
+     * therefore left a name that could be neither retried nor removed (issue #6009).</p>
+     *
+     * @param name the client service name; must not be {@code "oscar"}, which names the CARLOS key pair
+     * @param type the lab type the service uploads
+     * @return the outcome, never {@code null}; on {@link ClientKeyStatus#CREATED} it carries the client's
+     *         private key and the CARLOS public key
+     * @throws IllegalArgumentException if {@code name} is {@code "oscar"}
+     * @since 2026-11-09
+     */
+    public static ClientKeys createClientKeys(String name, String type) {
+        if ("oscar".equals(name)) {
+            throw new IllegalArgumentException("The 'oscar' service name is the CARLOS key pair, not a client service");
+        }
+
+        OscarKey carlosKey;
+        try {
+            OscarKeyDao oscarKeyDao = (OscarKeyDao) SpringUtils.getBean(OscarKeyDao.class);
+            carlosKey = oscarKeyDao.find("oscar");
+        } catch (RuntimeException e) {
+            // A lookup failure is not a missing key: telling the admin to create a key pair that
+            // may already exist would send them the wrong way.
+            logger.error("Could not read the CARLOS key pair", e);
+            return new ClientKeys(ClientKeyStatus.FAILED, null, null);
+        }
+        if (carlosKey == null) {
+            return new ClientKeys(ClientKeyStatus.CARLOS_KEY_MISSING, null, null);
+        }
+        String carlosPublicKey = carlosKey.getPublicKey();
+        if (carlosPublicKey == null || carlosPublicKey.isBlank()) {
+            // The row exists, so it cannot be created again from the page; handing the client an
+            // empty public key would only move the failure to its first upload.
+            logger.error("The CARLOS key pair is stored without a public key");
+            return new ClientKeys(ClientKeyStatus.FAILED, null, null);
+        }
+
+        String clientPrivateKey = createKeys(name, type);
+        if (clientPrivateKey == null) {
+            return new ClientKeys(ClientKeyStatus.FAILED, null, null);
+        }
+        return new ClientKeys(ClientKeyStatus.CREATED, clientPrivateKey, carlosPublicKey);
     }
 }
