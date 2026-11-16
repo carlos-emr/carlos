@@ -52,17 +52,18 @@ async function workflow(s) {
   const {sql, marker, config} = s;
   // createKey.jsp accepts letters, digits, '.', '_' and '-'; the marker is FAKE-PW<hex>.
   const service = `${marker}.lab`;
-  const owned = `service=${h.sqlString(service)}`;
+  const owned = 'service = ?';
+  const ownedParams = [service];
   const contextPath = new URL(config.baseUrl).pathname.replace(/\/+$/, '');
   // The public key of the CARLOS key pair this run had the page create, read back as soon as
   // that request returns (the preflight found none). Cleanup removes only that pair: a CARLOS
   // key pair it cannot match may be in use, so it is left in place and the cleanup fails.
   let createdCarlosKey = null;
   s.cleanup(() => {
-    sql.execute(`DELETE FROM publicKeys WHERE ${owned}`);
-    h.assert(sql.value(`SELECT COUNT(*) FROM publicKeys WHERE ${owned}`) === '0', 'The owned client key row was not removed');
+    sql.execute(`DELETE FROM publicKeys WHERE ${owned}`, ownedParams);
+    h.assert(sql.value(`SELECT COUNT(*) FROM publicKeys WHERE ${owned}`, ownedParams) === '0', 'The owned client key row was not removed');
     if (createdCarlosKey !== null) {
-      sql.execute(`DELETE FROM oscarKeys WHERE name='oscar' AND pubKey=${h.sqlString(createdCarlosKey)}`);
+      sql.execute("DELETE FROM oscarKeys WHERE name='oscar' AND pubKey = ?", [createdCarlosKey]);
     }
     h.assert(sql.value(CARLOS_KEY) === '0', createdCarlosKey === null
       ? 'A CARLOS key pair this run cannot show it created is present; it is left in place'
@@ -72,7 +73,7 @@ async function workflow(s) {
   const page = await s.context.newPage();
   const shot = name => h.screenshot(page, config.screenshotDir, `keygen-6009-${name}`);
   const message = async () => (await page.locator('#fail').innerText()).trim();
-  const clientRows = () => sql.value(`SELECT COUNT(*) FROM publicKeys WHERE ${owned}`);
+  const clientRows = () => sql.value(`SELECT COUNT(*) FROM publicKeys WHERE ${owned}`, ownedParams);
 
   async function fillForm(name) {
     await page.locator('#name').fill(name);
@@ -149,7 +150,7 @@ async function workflow(s) {
     h.assert(file.service === service && file.clientPrivate && file.carlosPublic,
       'keyPair.key does not carry the service name, the client private key and the CARLOS public key');
     h.assert(clientRows() === '1', 'The retry did not store exactly one client key');
-    const [type, storedPublic, storedPrivate] = sql.rows(`SELECT type,pubKey,privateKey FROM publicKeys WHERE ${owned}`)[0];
+    const [type, storedPublic, storedPrivate] = sql.rows(`SELECT type,pubKey,privateKey FROM publicKeys WHERE ${owned}`, ownedParams)[0];
     h.assert(type === 'CML', 'The client key was not stored with the chosen lab type');
     h.assert(file.clientPrivate === storedPrivate.replace(/\s+/g, ''), 'The downloaded client private key is not the stored one');
     const privateKey = crypto.createPrivateKey({key: der(file.clientPrivate), format: 'der', type: 'pkcs8'});
@@ -159,12 +160,12 @@ async function workflow(s) {
   });
 
   await s.step('a further attempt with that name is refused as a duplicate and changes nothing', async () => {
-    const before = sql.value(`SELECT privateKey FROM publicKeys WHERE ${owned}`);
+    const before = sql.value(`SELECT privateKey FROM publicKeys WHERE ${owned}`, ownedParams);
     const shown = await submitForPage(service);
     await shot('4-duplicate-refused');
     h.assert(shown === `Failed: Key pair has already been created for the service '${service}'`,
       `The duplicate was not refused as already created: "${shown}"`);
-    h.assert(clientRows() === '1' && sql.value(`SELECT privateKey FROM publicKeys WHERE ${owned}`) === before,
+    h.assert(clientRows() === '1' && sql.value(`SELECT privateKey FROM publicKeys WHERE ${owned}`, ownedParams) === before,
       'The refused duplicate changed the stored client key');
   });
 }
