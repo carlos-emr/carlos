@@ -190,8 +190,6 @@
     }
 %>
 
-<html>
-
     <%
 
         String team = (String) request.getAttribute("teamVar");
@@ -288,6 +286,7 @@
     %>
 
 
+<html>
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
@@ -599,6 +598,9 @@
     </head>
 
     <body>
+        <% if (theRequests.hasRestrictedRows()) { %>
+        <div class="alert alert-warning" role="status"><fmt:message key="consultation.list.restricted"/></div>
+        <% } %>
     <% if (showScheduleNav) { %>
         <jsp:include page="/WEB-INF/jsp/provider/mainMenu.jsp"/>
     <% } %>
@@ -910,15 +912,15 @@
                                 overdue = false;
 
                                 if (timeperiod != null) {
-                                    if ((status.equals("1") || status.equals("2") || status.equals("3")) && dateGreaterThan(date, Calendar.MONTH, countback)) {
+                                    if (("1".equals(status) || "2".equals(status) || "3".equals(status)) && dateGreaterThan(date, Calendar.MONTH, countback)) {
                                         overdue = true;
                                     }
                                 } else {
-                                    if ((status.equals("1") || status.equals("3")) && dateGreaterThan(date, Calendar.DAY_OF_YEAR, -7)) {
+                                    if (("1".equals(status) || "3".equals(status)) && dateGreaterThan(date, Calendar.DAY_OF_YEAR, -7)) {
                                         overdue = true;
                                     }
 
-                                    if (status.equals("2") && dateGreaterThan(date, Calendar.DAY_OF_YEAR, -30)) {
+                                    if ("2".equals(status) && dateGreaterThan(date, Calendar.DAY_OF_YEAR, -30)) {
                                         overdue = true;
                                     }
                                 }
@@ -931,15 +933,15 @@
                             onclick="popupOscarRx(700,960,'<carlos:encode value='<%= viewUrl %>' context="javaScriptAttribute"/>')"
                             onkeypress="if(event.key==='Enter'){popupOscarRx(700,960,'<carlos:encode value='<%= viewUrl %>' context="javaScriptAttribute"/>');}">
                             <td class="consult-status-<carlos:encode value='<%= status %>' context="htmlAttribute"/>">
-                                <% if (status.equals("1")) { %>
+                                <% if ("1".equals(status)) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgND"/>
-                                <% } else if (status.equals("2")) { %>
+                                <% } else if ("2".equals(status)) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgSR"/>
-                                <% } else if (status.equals("3")) { %>
+                                <% } else if ("3".equals(status)) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgPR"/>
-                                <% } else if (status.equals("4")) { %>
+                                <% } else if ("4".equals(status)) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgDONE"/>
-                                <% } else if (status.equals("5")) { %>
+                                <% } else if ("5".equals(status)) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgBC"/>
                                 <%}%>
                             </td>
