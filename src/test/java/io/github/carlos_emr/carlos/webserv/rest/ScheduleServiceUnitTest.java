@@ -572,14 +572,15 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should deny appointment history when caller lacks appointment read privilege")
     void shouldDenyAppointmentHistory_whenCallerLacksReadPrivilege() {
-        when(securityInfoManager.hasPrivilege(any(), eq("_appointment"), eq("r"), eq(99))).thenReturn(false);
+        when(securityInfoManager.hasPrivilege(any(), eq("_appointment"), eq("r"), (String) isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_appointment"), eq("r"), eq("99"))).thenReturn(false);
 
         assertThatThrownBy(() -> service.findExistAppointments(99))
                 .isInstanceOf(WebApplicationException.class)
                 .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
                         .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
 
-        verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_appointment"), eq("r"), eq(99));
+        verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_appointment"), eq("r"), eq("99"));
         verify(appointmentManager, never()).getAppointmentHistoryWithoutDeleted(any(), anyInt(), anyInt(), anyInt());
         verify(billingONCHeader1Dao, never()).findByDemoNoWithItems(anyInt(), anyInt(), anyInt());
     }
@@ -615,7 +616,11 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should return appointment history when caller has appointment read privilege")
     void shouldReturnAppointmentHistory_whenCallerHasReadPrivilege() {
-        when(securityInfoManager.hasPrivilege(any(), eq("_appointment"), eq("r"), eq(7))).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_appointment"), eq("r"), (String) isNull())).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 7)).thenReturn(true);
+        when(securityInfoManager.hasPrivilegeReadOnly(loggedInInfo,"_billing","r",(String)null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilegeReadOnly(loggedInInfo,"_billing","r","7")).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_appointment"), eq("r"), eq("7"))).thenReturn(true);
         when(appointmentManager.getAppointmentHistoryWithoutDeleted(any(), eq(7), anyInt(), anyInt()))
                 .thenReturn(Collections.emptyList());
         when(billingONCHeader1Dao.findByDemoNoWithItems(eq(7), anyInt(), anyInt()))
@@ -625,7 +630,7 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
 
         assertThat(response).isNotNull();
         assertThat(response.getAppointments()).isEmpty();
-        verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_appointment"), eq("r"), eq(7));
+        verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_appointment"), eq("r"), eq("7"));
         verify(appointmentManager).getAppointmentHistoryWithoutDeleted(any(), eq(7), anyInt(), anyInt());
         verify(billingONCHeader1Dao).findByDemoNoWithItems(eq(7), eq(0), eq(OscarAppointmentDao.MAX_LIST_RETURN_SIZE));
     }

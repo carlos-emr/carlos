@@ -84,7 +84,7 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
 
     @AfterEach
     void restoreResourceRoot() {
-        synchronized (ConvertToEdoc.class) {
+        synchronized (java.util.Objects.requireNonNull(org.springframework.test.util.ReflectionTestUtils.getField(ConvertToEdoc.class, "RENDER_LOCK"))) {
             org.springframework.test.util.ReflectionTestUtils.setField(ConvertToEdoc.class, "realPath", originalRealPath);
         }
     }

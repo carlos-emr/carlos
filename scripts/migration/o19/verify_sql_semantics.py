@@ -3050,7 +3050,8 @@ def _unranked_duplicate_pairs() -> int:
 def _consent_migrations() -> list[Path]:
     # A forward merge retains both published and develop migration histories.
     # Exercise their complete order so a later repair cannot silently undo an earlier one.
-    found = sorted(CONSENT_MIGRATION_DIR.glob(CONSENT_MIGRATION_GLOB),
+    found = sorted([*CONSENT_MIGRATION_DIR.glob(CONSENT_MIGRATION_GLOB),
+                    *CONSENT_MIGRATION_DIR.glob("V*__hide_consent_live_demographic_projection.sql")],
                    key=lambda path: tuple(int(part) for part in
                                           path.name.split("__", 1)[0][1:].split(".")))
     if not found:

@@ -14,12 +14,6 @@
       "disposition": "required installed retake; blocks release readiness"
     },
     {
-      "check": "admin-api-keygen",
-      "finding": 163,
-      "step": "a GET of Create Key that names a service is refused and registers no key pair",
-      "disposition": "required installed retake; blocks release readiness"
-    },
-    {
       "check": "prevention-dose-route-amendment",
       "finding": 322,
       "step": "a dose saved with no unit reopens with that dose and survives an unchanged save",

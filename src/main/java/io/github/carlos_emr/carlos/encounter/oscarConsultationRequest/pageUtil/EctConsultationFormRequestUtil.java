@@ -251,8 +251,8 @@ public class EctConsultationFormRequestUtil {
         if (requestId <= 0) {
             return false;
         }
-        boolean verdict = true;
         ConsultationRequest cr = consultationRequestDao.findWithAssociations(requestId);
+        boolean verdict = cr != null;
 		
         Map<String, String> extensions = new HashMap<>();
         if (cr != null) {
@@ -303,6 +303,7 @@ public class EctConsultationFormRequestUtil {
             professionalSpecialist = teamContact == null
                     ? cr.getProfessionalSpecialist()
                     : healthCareTeamConsultant(loggedInInfo, teamContact);
+            if (professionalSpecialist != null) populateSpecialistContactDetails(professionalSpecialist);
 
 
 			Date appointmentTime = cr.getAppointmentTime();

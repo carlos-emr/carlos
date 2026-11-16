@@ -132,6 +132,7 @@ public class Startup implements ServletContextListener {
             }
 
             if (!hasDatabaseConfiguration(deploymentProperties)) {
+                String externalSource = p.getExternalConfigurationLocation();
                 // The deployment supplied no usable DB config, so /WEB-INF/ is still the source of truth.
                 try {
                     logger.info("looking up  /WEB-INF/{}", propName);
@@ -146,6 +147,10 @@ public class Startup implements ServletContextListener {
                         }
                         p.setProperty(key, value);
                     }
+                    // A key-only external file still owns persisted startup settings when the
+                    // database configuration comes from WEB-INF. Keep that provenance without
+                    // re-reading either configuration source or overwriting the fallback values.
+                    if (externalSource != null) p.applyExternalConfiguration(new Properties(), externalSource);
                     logger.info("loading properties from /WEB-INF/{}", propName);
                 } catch (java.io.FileNotFoundException e) {
                     /*
@@ -370,7 +375,9 @@ public class Startup implements ServletContextListener {
              * credentials. Fail fast rather than booting with no key, which would defer the
              * failure to the first credential save (an opaque runtime error for clinicians).
              */
-            throw new IllegalStateException("Unable to generate and persist a new encryption key at startup", e);
+            throw new IllegalStateException("Unable to generate and persist a new encryption key at startup ("
+                    + EncryptionUtils.SECRET_KEY_ENV_VAR + " at " + p.getExternalConfigurationLocation()
+                    + "). Check file access before restarting.", e);
         }
 
         if (mayOrphanData) {

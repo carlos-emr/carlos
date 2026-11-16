@@ -227,3 +227,14 @@ existing rollout-policy thread remain required under #5720. `releaseReady` must
 remain false while any required item is incomplete. Candidate-bound build, package,
 browser, comparison and CI results belong to the associated PR; historical
 receipts are never promoted to a new source revision.
+
+### Release 2026.08 integration into develop
+
+Develop's `locationCode` lookup metadata remains available to Java/JSON callers and is captured
+in native CDS appointment records. It is excluded from JAXB XML: independently pinned Glassfish
+and MOXy clients reject even an optional new element when validating against their original
+schemas. SOAP keeps the booking-time location label in `location`, and the frozen XML corpus and
+published schedule schema remain unchanged. The published demographic WSDL reflects develop's
+existing exclusion of `getConsentedDemographicIdsAfter`, described in
+[SOAP RBAC hardening](soap-rbac-hardening.md). The retained Java helper keeps release's bounded
+patient visibility filtering; it is not a SOAP operation.

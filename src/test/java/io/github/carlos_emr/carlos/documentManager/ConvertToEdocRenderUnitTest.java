@@ -96,7 +96,7 @@ class ConvertToEdocRenderUnitTest extends CarlosUnitTestBase {
 
     @AfterEach
     void restore() {
-        synchronized (ConvertToEdoc.class) {
+        synchronized (java.util.Objects.requireNonNull(org.springframework.test.util.ReflectionTestUtils.getField(ConvertToEdoc.class, "RENDER_LOCK"))) {
             ReflectionTestUtils.setField(ConvertToEdoc.class, "realPath", originalRealPath);
         }
         if (originalCatalinaBase == null) {
@@ -107,7 +107,7 @@ class ConvertToEdocRenderUnitTest extends CarlosUnitTestBase {
     }
 
     private static void setRealPath(String value) {
-        synchronized (ConvertToEdoc.class) {
+        synchronized (java.util.Objects.requireNonNull(org.springframework.test.util.ReflectionTestUtils.getField(ConvertToEdoc.class, "RENDER_LOCK"))) {
             ReflectionTestUtils.setField(ConvertToEdoc.class, "realPath", value);
         }
     }

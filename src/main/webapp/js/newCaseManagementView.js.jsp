@@ -28,6 +28,9 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+
 <%--
     Purpose: provide the encounter editor's client-side behavior.
     Features: note editing, layout, clinical text insertion and prescription paste coordination.

@@ -11,6 +11,14 @@
       "expression": null
     },
     {
+      "name": "colour",
+      "type": "varchar(7)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
       "name": "createdBy",
       "type": "varchar(8)",
       "nullable": "NO",
@@ -32,6 +40,14 @@
       "nullable": "NO",
       "charset": null,
       "collation": null,
+      "expression": null
+    },
+    {
+      "name": "icon",
+      "type": "varchar(64)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
       "expression": null
     },
     {

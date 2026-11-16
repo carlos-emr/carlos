@@ -99,6 +99,14 @@
       "expression": null
     },
     {
+      "name": "locationCode",
+      "type": "int(11)",
+      "nullable": "YES",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
       "name": "name",
       "type": "varchar(255)",
       "nullable": "YES",

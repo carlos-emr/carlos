@@ -31,6 +31,7 @@
 <!DOCTYPE html>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ page import="java.util.*" %>
+<%@ page import="org.springframework.util.StringUtils" %>
 <%@ page import="java.util.ResourceBundle" %>
 <%@ page import="java.text.MessageFormat" %>
 <%@ page import="io.github.carlos_emr.*" %>

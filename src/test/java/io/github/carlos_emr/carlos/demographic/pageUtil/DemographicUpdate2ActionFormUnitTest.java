@@ -55,7 +55,7 @@ import static org.mockito.Mockito.*;
 @Tag("unit")
 @Tag("web")
 @Tag("demographic")
-class DemographicUpdate2ActionTest extends CarlosWebTestBase {
+class DemographicUpdate2ActionFormUnitTest extends CarlosWebTestBase {
 
     private static final String TEST_PROVIDER = "999998";
     @Mock
@@ -88,7 +88,7 @@ class DemographicUpdate2ActionTest extends CarlosWebTestBase {
     }
 
     @ParameterizedTest
-    @CsvSource({"pronouns,Pronouns,A", "gender,Gender,A", "pronouns,Pronouns,😀", "gender,Gender,😀"})
+    @CsvSource({"pronouns,Pronoun,A", "gender,Gender,A", "pronouns,Pronoun,😀", "gender,Gender,😀"})
     void shouldRejectOverlongFields_whenPostedWithoutBrowserValidation(String field, String label, String character) throws Exception {
         allowPrivilege("_demographic", "w");
         replaceSpringUtilsBean(DemographicDao.class, mockDemographicDao);
@@ -103,7 +103,8 @@ class DemographicUpdate2ActionTest extends CarlosWebTestBase {
         assertThat(mockResponse.getStatus()).isEqualTo(400);
         assertThat(mockRequest.getAttribute("fieldLengthValidationErrors"))
                 .isEqualTo(List.of(label + " exceeds maximum length of 25 characters."));
-        assertThat("pronouns".equals(field) ? demographic.getPronoun() : demographic.getGender()).isEqualTo(invalid);
+        assertThat(mockRequest.getParameter(field)).isEqualTo(invalid);
+        assertThat("pronouns".equals(field) ? demographic.getPronoun() : demographic.getGender()).isEmpty();
         verify(mockDemographicDao, never()).save(any(Demographic.class));
     }
 
@@ -311,7 +312,7 @@ class DemographicUpdate2ActionTest extends CarlosWebTestBase {
             assertThat(mockResponse.getStatus()).isEqualTo(400);
             @SuppressWarnings("unchecked")
             List<String> errors = (List<String>) mockRequest.getAttribute("fieldLengthValidationErrors");
-            assertThat(errors).containsExactly("Preferred name exceeds maximum length of 70 characters.");
+            assertThat(errors).containsExactly("Name Used exceeds maximum length of 70 characters.");
             verify(mockDemographicDao, never()).save(any(Demographic.class));
         }
     }

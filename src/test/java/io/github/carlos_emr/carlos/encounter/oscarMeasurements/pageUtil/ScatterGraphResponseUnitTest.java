@@ -42,6 +42,7 @@ class ScatterGraphResponseUnitTest extends CarlosUnitTestBase {
         request.setParameter("mInstrc", "Lab");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), login);
         when(security.hasPrivilege(login, "_measurement", "r", "101")).thenReturn(true);
+        when(security.hasPrivilege(login, "_demographic", "r", "101")).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(login, 101)).thenReturn(true);
         Date day = new Date(1_705_276_800_000L);
         var reading = new Measurement();

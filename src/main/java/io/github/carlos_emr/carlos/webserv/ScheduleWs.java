@@ -172,6 +172,7 @@ public class ScheduleWs extends AbstractWs {
     }
 
     public AppointmentTransfer[] getAppointmentsUpdatedAfterDate(Date updatedAfterThisDateExclusive, int itemsToReturn, boolean useGMTTime) {
+        requirePrivilege(APPOINTMENT_OBJECT, "r");
         Date after = updatedAfterThisDateExclusive; int limit = itemsToReturn;
         var actor = getLoggedInInfo();
         var selection = ScheduleSyncHeaders.select(actor, "current", after, limit, useGMTTime);
@@ -195,6 +196,7 @@ public class ScheduleWs extends AbstractWs {
      * caller including admin and break Integrator archive sync on a stock install.</p>
      */
     public AppointmentArchiveTransfer[] getAppointmentArchivesUpdatedAfterDate(Date updatedAfterThisDateExclusive, int itemsToReturn, boolean useGMTTime) {
+        requirePrivilege(APPOINTMENT_OBJECT, "r");
         Date after = updatedAfterThisDateExclusive; int limit = itemsToReturn;
         var actor = getLoggedInInfo();
         var selection = ScheduleSyncHeaders.select(actor, "archive", after, limit, useGMTTime);

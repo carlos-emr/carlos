@@ -133,6 +133,8 @@ class EFormSignatureViewForPdfGenerationServletUnitTest extends CarlosUnitTestBa
 
             DigitalSignatureManager manager = mock(DigitalSignatureManager.class);
             when(manager.getDigitalSignature(42)).thenReturn(signature);
+            signature.setModuleType(io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType.E_FORM);
+            when(manager.getDigitalSignatureMetadata(42)).thenReturn(signature);
             registerMock(DigitalSignatureManager.class, manager);
             // The letter's signature pad inserts <img src='...&digitalSignatureId=42&r=...'>. The
             // editor serializes the '&' as '&amp;', and saveRTL() escapes the serialized letter once

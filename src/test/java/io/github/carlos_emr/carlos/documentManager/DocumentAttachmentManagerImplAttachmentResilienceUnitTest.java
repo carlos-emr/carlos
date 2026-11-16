@@ -151,6 +151,7 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
         hrmDocumentDao = mock(HRMDocumentDao.class);
 
         registerMock(HRMDocumentDao.class, hrmDocumentDao);
+        registerMock(ConsultationManager.class, consultationManager);
         registerMock(PatientLabRoutingDao.class, mock(PatientLabRoutingDao.class));
         registerMock(ProviderLabRoutingDao.class, mock(ProviderLabRoutingDao.class));
         registerMock(QueueDocumentLinkDao.class, mock(QueueDocumentLinkDao.class));
@@ -804,6 +805,10 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
         ConsultDocs missingFile = attachedRow(1, 12, ConsultDocs.DOCTYPE_HRM);
         ConsultDocs removedReport = attachedRow(2, 13, ConsultDocs.DOCTYPE_HRM);
         stubConsultAttachments(List.of(missingFile, removedReport), List.of());
+        HashMap<String, Object> available = new HashMap<>();
+        available.put("id", 13);
+        when(consultationManager.getAttachedHRMDocuments(loggedInInfo, "1", "9"))
+                .thenReturn(new ArrayList<>(List.of(available)));
 
         try (MockedStatic<CarlosProperties> ignored = documentDirectoryAt(documentDir)) {
             manager.attachToConsult(loggedInInfo, DocumentType.HRM, new String[0], "999998", 9, 1);
@@ -812,6 +817,8 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
             assertThat(removedReport.getDeleted()).isEqualTo("Y");
             verify(consultDocsDao).merge(removedReport);
             assertThat(warnings(manager.getUnavailableConsultAttachmentWarnings(9))).containsExactly(HRM_12_FILE_UNAVAILABLE);
+            when(consultationManager.getAttachedHRMDocuments(loggedInInfo, "1", "9"))
+                    .thenReturn(new ArrayList<>());
             assertThat(warnings(renderConsultationWarnings())).containsExactly(HRM_12_FILE_UNAVAILABLE);
         }
     }

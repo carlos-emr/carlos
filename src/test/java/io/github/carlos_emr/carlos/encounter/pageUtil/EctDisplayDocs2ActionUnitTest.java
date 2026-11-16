@@ -42,8 +42,9 @@ class EctDisplayDocs2ActionUnitTest {
         when(security.hasPrivilege(viewer, "_edoc", "r", null)).thenReturn(true);
         if (storedValue != null) {
             UserProperty property = new UserProperty();
+            property.setName(UserProperty.ECHART_GROUP_DOCUMENTS_BY_TYPE);
             property.setValue(storedValue);
-            when(preferences.getProp("viewer", UserProperty.ECHART_GROUP_DOCUMENTS_BY_TYPE)).thenReturn(property);
+            when(preferences.getProviderPropertiesByNames(eq("viewer"), anyList())).thenReturn(java.util.Map.of(UserProperty.ECHART_GROUP_DOCUMENTS_BY_TYPE, storedValue));
         }
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.getSession().setAttribute(LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY", viewer);
@@ -62,6 +63,7 @@ class EctDisplayDocs2ActionUnitTest {
              MockedStatic<EDocUtil> docs = mockStatic(EDocUtil.class)) {
             spring.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(security);
             spring.when(() -> SpringUtils.getBean(UserPropertyDAO.class)).thenReturn(preferences);
+            spring.when(() -> SpringUtils.getBean(io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferenceResolver.class)).thenReturn(new io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferenceResolver(preferences, null));
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
             docs.when(() -> EDocUtil.listDocs(viewer, "demographic", "1", null,
                     EDocUtil.PRIVATE, EDocUtil.EDocSort.OBSERVATIONDATE, "active")).thenReturn(documents);
@@ -71,7 +73,7 @@ class EctDisplayDocs2ActionUnitTest {
 
             assertThat(action.getInfo(bean, request, dao)).isTrue();
 
-            boolean grouped = storedValue != null && "true".equals(storedValue.trim());
+            boolean grouped = io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreference.GROUP_DOCUMENTS_BY_TYPE.resolve(storedValue);
             assertThat(dao.isFiledInFolders()).isEqualTo(grouped);
             assertThat(dao.numItems()).isEqualTo(3);
             assertThat(dao.getItem(0).getTitle()).isEqualTo("Newest");
@@ -80,7 +82,7 @@ class EctDisplayDocs2ActionUnitTest {
             assertThat(dao.getItem(0).getFolder()).isEqualTo(grouped ? "lab" : "");
             assertThat(dao.getItem(1).getFolder()).isEqualTo(grouped ? "consult" : "");
             assertThat(dao.getItem(2).getFolder()).isEqualTo(grouped ? "encounter.LeftNavBar.docs.otherFolder" : "");
-            verify(preferences).getProp("viewer", UserProperty.ECHART_GROUP_DOCUMENTS_BY_TYPE);
+            verify(preferences).getProviderPropertiesByNames(eq("viewer"), anyList());
         }
     }
 

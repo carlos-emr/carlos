@@ -116,6 +116,7 @@ class ManageEmails2ActionResendUnitTest extends EmailWorkflowUnitTestBase {
         when(emailComposeManager.getAllSenderAccounts()).thenReturn(List.of());
 
         request = new MockHttpServletRequest("POST", "/admin/ManageEmails");
+        response = new MockHttpServletResponse();
         request.setSession(new MockHttpSession());
         LoggedInInfo login = mock(LoggedInInfo.class);
         when(login.getLoggedInProviderNo()).thenReturn("999998");

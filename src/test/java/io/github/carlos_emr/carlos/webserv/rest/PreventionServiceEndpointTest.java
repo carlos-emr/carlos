@@ -66,7 +66,13 @@ class PreventionServiceEndpointTest extends CarlosRestTestBase {
 
     @Override
     protected Object getServiceBean() {
-        return new PreventionService(mockPreventionManager, new PreventionDateService(partialDateDao), projections);
+        var service = new PreventionService(mockPreventionManager, new PreventionDateService(partialDateDao), projections);
+        var security = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+        org.mockito.Mockito.when(security.hasPrivilege(org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.eq("_prevention"), org.mockito.ArgumentMatchers.eq("r"),
+                org.mockito.ArgumentMatchers.anyInt())).thenReturn(true);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "securityInfoManager", security);
+        return service;
     }
 
     @Test

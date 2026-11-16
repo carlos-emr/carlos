@@ -58,6 +58,8 @@ class EctDisplayRequestIsolationUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUp() {
+        var displayPreferences = createAndRegisterMock(io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferenceResolver.class);
+        when(displayPreferences.resolve(any())).thenReturn(io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferences.defaults());
         security = createAndRegisterMock(SecurityInfoManager.class);
         demographics = createAndRegisterMock(DemographicManager.class);
         templates = createAndRegisterMock(EncounterTemplateDao.class);

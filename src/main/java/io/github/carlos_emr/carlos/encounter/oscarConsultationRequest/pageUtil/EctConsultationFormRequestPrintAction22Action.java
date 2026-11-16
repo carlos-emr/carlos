@@ -23,13 +23,11 @@ package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.FileOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
-import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -315,9 +313,9 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         }
     }
 
-    private InputStream renderImageAttachment(String documentPath, EDoc document) throws IOException, DocumentException {
+    private InputStream renderImageAttachment(File documentFile, EDoc document) throws IOException, DocumentException {
         try (PdfBuffer output = new PdfBuffer()) {
-            request.setAttribute("imagePath", documentPath + document.getFileName());
+            request.setAttribute("imagePath", documentFile.getPath());
             request.setAttribute("imageTitle", document.getDescription());
             new ImagePDFCreator(request, output).printPdf();
             return output.openInputStream();
@@ -420,13 +418,9 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         File validatedFile = resolveReadableDocumentAttachmentFile(documentDirectory, doc);
 
         if (doc.isImage()) {
-            try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
-                request.setAttribute("imagePath", validatedFile.getPath());
-                request.setAttribute("imageTitle", doc.getDescription());
-                ImagePDFCreator imagePDFCreator = new ImagePDFCreator(request, outputStream);
-                imagePDFCreator.printPdf();
-                addRenderedByteAttachment(alist, streams, outputStream);
-            }
+            InputStream rendered = renderImageAttachment(validatedFile, doc);
+            streams.add(rendered);
+            alist.add(rendered);
         } else if (doc.isPDF()) {
             alist.add(validatedFile.getPath());
         } else {
@@ -466,51 +460,14 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
 
     private void appendLabAttachment(ArrayList<Object> alist, ArrayList<InputStream> streams, LabResultData lab)
             throws PDFGenerationException {
-        File tempLabPDF = null;
         try {
-            tempLabPDF = PathValidationUtils.createSecureTempFile("lab-", ".pdf");
-
-            // Defense-in-depth: verify temp file is in an allowed temp directory.
-            if (!PathValidationUtils.isInAllowedTempDirectory(tempLabPDF)) {
-                logger.error("Temp file not in allowed temp directory");
-                throw new SecurityException("Temp file created outside allowed temp directory");
-            }
-
-            try (
-                    // tempLabPDF comes from PathValidationUtils.createSecureTempFile and passes the allowed-temp check.
-                    // nosemgrep: carlos.httpservlet-path-traversal
-                    FileOutputStream fileOutputStream = new FileOutputStream(tempLabPDF);
-                    ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream()
-            ) {
-                request.setAttribute("segmentID", lab.segmentID);
-                LabPDFCreator labPDFCreator = new LabPDFCreator(request, fileOutputStream);
-                labPDFCreator.printPdf();
-                labPDFCreator.addEmbeddedDocuments(tempLabPDF, byteOutputStream);
-                addRenderedByteAttachment(alist, streams, byteOutputStream);
-            }
+            InputStream rendered = renderLabAttachment(lab);
+            streams.add(rendered);
+            alist.add(rendered);
         } catch (SecurityException e) {
             throw e;
         } catch (IOException | RuntimeException e) {
             throw unavailableAttachment(ATTACHMENT_TYPE_LAB, lab.segmentID, e);
-        } finally {
-            deleteTemporaryLabPDF(tempLabPDF);
-        }
-    }
-
-    private void deleteTemporaryLabPDF(File tempLabPDF) {
-        if (tempLabPDF == null) {
-            return;
-        }
-        try {
-            Files.delete(tempLabPDF.toPath());
-        } catch (NoSuchFileException e) {
-            if (logger.isDebugEnabled()) {
-                logger.debug("Temporary lab PDF was already removed");
-            }
-        } catch (IOException e) {
-            if (logger.isWarnEnabled()) {
-                logger.warn("Could not remove temporary lab PDF ({})", e.getClass().getSimpleName());
-            }
         }
     }
 
@@ -522,23 +479,17 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
                 throw unavailableAttachment(ATTACHMENT_TYPE_HRM, hrmDocumentId, MISSING_ATTACHMENT_METADATA);
             }
             try {
-                ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-                HRMPDFCreator hrmPdf = new HRMPDFCreator(outputStream, (Integer) hrmDocumentId, loggedInInfo);
-                hrmPdf.printPdf();
-                addRenderedByteAttachment(alist, streams, outputStream);
+                InputStream rendered = renderHrmAttachment(loggedInInfo, attachedHRMDocument);
+                streams.add(rendered);
+                alist.add(rendered);
             } catch (SecurityException e) {
                 throw e;
-            } catch (RuntimeException e) {
+            } catch (IOException | PDFGenerationException | RuntimeException e) {
                 throw unavailableAttachment(ATTACHMENT_TYPE_HRM, hrmDocumentId, e);
             }
         }
     }
 
-    private void addRenderedByteAttachment(ArrayList<Object> alist, ArrayList<InputStream> streams, ByteArrayOutputStream outputStream) {
-        ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStream.toByteArray());
-        streams.add(inputStream);
-        alist.add(inputStream);
-    }
 
     private String documentId(EDoc doc) {
         return String.valueOf(doc.getDocId());

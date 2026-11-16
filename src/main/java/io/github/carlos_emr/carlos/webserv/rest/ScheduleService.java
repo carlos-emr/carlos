@@ -340,6 +340,7 @@ public class ScheduleService extends AbstractServiceImpl {
     @Consumes("application/json")
     @Produces("application/json")
     public SchedulingResponse findExistAppointments(@PathParam("demographicNo") Integer demographicNo) {
+        if (demographicNo == null || demographicNo <= 0) throw new jakarta.ws.rs.BadRequestException("Invalid patient identifier");
         LoggedInInfo actor = getLoggedInInfo();
         if (!securityInfoManager.hasPrivilege(actor, "_appointment", "r", (String) null)) {
             throw new jakarta.ws.rs.ForbiddenException();

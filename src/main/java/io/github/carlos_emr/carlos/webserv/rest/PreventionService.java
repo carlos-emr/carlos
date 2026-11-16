@@ -128,6 +128,7 @@ public class PreventionService extends AbstractServiceImpl {
     @Path("/active/precision")
     @Produces(MediaType.APPLICATION_JSON)
     public PreventionResponse getCurrentPreventionsWithPrecision(@QueryParam("demographicNo") Integer demographicNo) {
+        requirePreventionReadPrivilege(demographicNo);
         List<Prevention> preventions = preventionManager.getPreventionsByDemographicNo(getLoggedInInfo(), demographicNo);
         projections.requireRestSupported(demographicNo, java.util.Set.of("Immunizations"));
         return response(preventions, true);
@@ -137,6 +138,7 @@ public class PreventionService extends AbstractServiceImpl {
     @Path("/immunizations/{demographicNo}/precision")
     @Produces(MediaType.APPLICATION_JSON)
     public PreventionResponse getImmunizationsWithPrecision(@PathParam("demographicNo") Integer demographicNo) {
+        requirePreventionReadPrivilege(demographicNo);
         List<Prevention> preventions = preventionManager.getImmunizationsByDemographic(getLoggedInInfo(), demographicNo);
         projections.requireRestSupported(demographicNo, java.util.Set.of("Immunizations"));
         return response(preventions, true);

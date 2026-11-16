@@ -295,6 +295,13 @@ public class CarlosProperties extends Properties {
         }
     }
 
+    /** Returns the successfully loaded external source, excluding bundled resources. */
+    public String getExternalConfigurationLocation() {
+        synchronized (CONFIGURATION_FILE_LOCK) {
+            return loadedPropertiesFile == null ? null : loadedPropertiesLocation;
+        }
+    }
+
     /**
      * Reports a final loaded {@code AbandonOldChart} value ignored by the mandatory modern-chart
      * policy (#4793), immediately before the startup cutover guard persists the safe setting.

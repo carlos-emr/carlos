@@ -60,6 +60,9 @@ class PrescriptionPdfServletUnitTest extends CarlosUnitTestBase {
         registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
         registerMock(ProviderDao.class, mock(ProviderDao.class));
         registerMock(DemographicManager.class, mock(DemographicManager.class));
+        registerMock(PrescriptionPdfComposer.class, new PrescriptionPdfComposer(mock(PrescriptionDao.class),
+                mock(DigitalSignatureManager.class), mock(SecurityInfoManager.class),
+                mock(ProviderDao.class), mock(DemographicManager.class)));
     }
 
     @ParameterizedTest
@@ -120,8 +123,8 @@ class PrescriptionPdfServletUnitTest extends CarlosUnitTestBase {
 
         servlet().service(request, response);
 
-        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_GONE);
+        assertThat(response.getContentAsString()).contains("fax-failure", "Reload it, then fax again.");
     }
 
     @Test
@@ -134,7 +137,8 @@ class PrescriptionPdfServletUnitTest extends CarlosUnitTestBase {
 
         servlet().service(request, response);
 
-        assertThat(response.getContentAsString()).contains("fax-failure", "not signed");
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_GONE);
+        assertThat(response.getContentAsString()).contains("fax-failure", "Reload it, then fax again.");
         assertThat(response.getErrorMessage()).isNull();
     }
 

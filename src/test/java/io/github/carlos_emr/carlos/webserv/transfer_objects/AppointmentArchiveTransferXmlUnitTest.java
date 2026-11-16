@@ -13,6 +13,29 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("xml")
 @org.junit.jupiter.api.parallel.ResourceLock("java.util.TimeZone")
 class AppointmentArchiveTransferXmlUnitTest extends CarlosUnitTestBase {
+    @org.junit.jupiter.api.Test
+    void shouldKeepLocationLookupMetadataInJson_withoutChangingPublishedXml() throws Exception {
+        for (Class<?> type : java.util.List.of(AppointmentTransfer.class, AppointmentArchiveTransfer.class)) {
+            Object value = type.getConstructor().newInstance();
+            type.getMethod("setLocationCode", Integer.class).invoke(value, 7);
+            type.getMethod("setLocation", String.class).invoke(value, "Booking-time location");
+            var json = new com.fasterxml.jackson.databind.ObjectMapper().valueToTree(value);
+            assertThat(json.path("locationCode").intValue()).isEqualTo(7);
+            assertThat(json.path("location").textValue()).isEqualTo("Booking-time location");
+            var xml = new java.io.StringWriter();
+            var context = jakarta.xml.bind.JAXBContext.newInstance(type);
+            marshal(context, type, value, xml);
+            assertThat(xml.toString()).contains("<location>Booking-time location</location>").doesNotContain("locationCode");
+        }
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static void marshal(jakarta.xml.bind.JAXBContext context, Class type, Object value,
+            java.io.StringWriter writer) throws Exception {
+        context.createMarshaller().marshal(new jakarta.xml.bind.JAXBElement(
+                new javax.xml.namespace.QName("urn:carlos:jaxb-compatibility", "value"), type, value), writer);
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"default", "populated"})
     void shouldRetainArchivedAppointmentFields_whenReadingAndWritingLegacyXml(String sample) throws Exception {

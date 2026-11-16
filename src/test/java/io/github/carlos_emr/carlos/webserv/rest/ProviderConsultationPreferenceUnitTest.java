@@ -106,7 +106,9 @@ class ProviderConsultationPreferenceUnitTest extends CarlosUnitTestBase {
         var settings = new ProviderSettings();
         settings.setConsultationTimePeriodWarning(submitted);
 
-        manager.updateProviderSettings(mock(LoggedInInfo.class), "999998", settings);
+        var actor = mock(LoggedInInfo.class);
+        when(actor.getLoggedInProviderNo()).thenReturn("999998");
+        manager.updateProviderSettings(actor, "999998", settings);
 
         var stored = ArgumentCaptor.forClass(Property.class);
         verify(properties, atLeastOnce()).merge(stored.capture());

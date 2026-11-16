@@ -198,10 +198,13 @@ class CdsExportDemographicCaptureContractUnitTest {
                             == io.github.carlos_emr.carlos.commn.dao
                                     .CdsExportPatientTableReadSupport.Plan.PREVENTION_SCOPE;
             String scope = preventionMetadata ? "preventions_scope" : plan.table();
-            assertThat(
-                            new CdsExportSourceSchemaValidator()
-                                    .verify(scope, actual, java.util.Set.copyOf(plan.columns())))
-                    .matches("[0-9a-f]{64}");
+            String verified;
+            try {
+                verified = new CdsExportSourceSchemaValidator().verify(scope, actual, java.util.Set.copyOf(plan.columns()));
+            } catch (java.io.IOException failure) {
+                throw new AssertionError("Source schema differs for " + province + ": " + scope, failure);
+            }
+            assertThat(verified).matches("[0-9a-f]{64}");
             var expectedProjection =
                     columns.stream()
                             .map(

@@ -209,7 +209,7 @@ class DiseaseRegistryServiceUnitTest extends CarlosUnitTestBase {
     @DisplayName("should persist new entry when caller has DxRegistry write privilege")
     @Tag("create")
     void shouldPersistNewEntry_whenCallerHasWritePrivilege() {
-        when(mockSecurityInfoManager.hasPrivilege(any(), eq(DX_REGISTRY), eq("w"), eq(123))).thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq(DX_REGISTRY), eq("w"), eq("123"))).thenReturn(true);
         when(mockDxresearchDao.activeEntryExists(123, "icd9", "250")).thenReturn(false);
 
         IssueTo1 issue = new IssueTo1();
@@ -219,14 +219,14 @@ class DiseaseRegistryServiceUnitTest extends CarlosUnitTestBase {
 
         assertThat(response.getStatus()).isEqualTo(Response.Status.OK.getStatusCode());
         verify(mockDxresearchDao).persist(any(Dxresearch.class));
-        verify(mockSecurityInfoManager).hasPrivilege(any(), eq(DX_REGISTRY), eq("w"), eq(123));
+        verify(mockSecurityInfoManager).hasPrivilege(any(), eq(DX_REGISTRY), eq("w"), eq("123"));
     }
 
     @Test
     @DisplayName("should not persist duplicate entry when an active entry already exists")
     @Tag("create")
     void shouldNotPersistDuplicate_whenActiveEntryAlreadyExists() {
-        when(mockSecurityInfoManager.hasPrivilege(any(), eq(DX_REGISTRY), eq("w"), eq(123))).thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq(DX_REGISTRY), eq("w"), eq("123"))).thenReturn(true);
         when(mockDxresearchDao.activeEntryExists(123, "icd9", "250")).thenReturn(true);
 
         IssueTo1 issue = new IssueTo1();
@@ -256,14 +256,14 @@ class DiseaseRegistryServiceUnitTest extends CarlosUnitTestBase {
     @DisplayName("should return disease registry when caller has DxRegistry read privilege")
     @Tag("read")
     void shouldReturnDiseaseRegistry_whenCallerHasReadPrivilege() {
-        when(mockSecurityInfoManager.hasPrivilege(any(), eq(DX_REGISTRY), eq("r"), eq(123))).thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq(DX_REGISTRY), eq("r"), eq("123"))).thenReturn(true);
         when(mockDxresearchDao.getByDemographicNo(123)).thenReturn(Collections.<Dxresearch>emptyList());
 
         Response response = service.getDiseaseRegistry(123);
 
         assertThat(response.getStatus()).isEqualTo(Response.Status.OK.getStatusCode());
         verify(mockDxresearchDao).getByDemographicNo(123);
-        verify(mockSecurityInfoManager).hasPrivilege(any(), eq(DX_REGISTRY), eq("r"), eq(123));
+        verify(mockSecurityInfoManager).hasPrivilege(any(), eq(DX_REGISTRY), eq("r"), eq("123"));
     }
 
     @Test
@@ -283,15 +283,15 @@ class DiseaseRegistryServiceUnitTest extends CarlosUnitTestBase {
     @DisplayName("should scope the add privilege check to the requested patient")
     @Tag("create")
     void shouldScopeAddPrivilegeCheck_toRequestedPatient() {
-        when(mockSecurityInfoManager.hasPrivilege(any(), eq(DX_REGISTRY), eq("w"), eq(123))).thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq(DX_REGISTRY), eq("w"), eq("123"))).thenReturn(false);
 
         IssueTo1 issue = new IssueTo1();
         issue.setType("icd9");
         issue.setCode("250");
 
         assertThatThrownBy(() -> service.addToDiseaseRegistry(123, issue))
-            .isInstanceOf(SecurityException.class)
-            .hasMessage("missing required sec object (_newCasemgmt.DxRegistry)");
+            .isInstanceOf(jakarta.ws.rs.ForbiddenException.class)
+            .hasMessage("Patient module access denied");
 
         // A module-wide (demographicNo == null) check would have let this through.
         verify(mockSecurityInfoManager, never()).hasPrivilege(any(), anyString(), anyString(), isNull());
@@ -303,11 +303,11 @@ class DiseaseRegistryServiceUnitTest extends CarlosUnitTestBase {
     @DisplayName("should scope the disease registry read privilege check to the requested patient")
     @Tag("read")
     void shouldScopeDiseaseRegistryPrivilegeCheck_toRequestedPatient() {
-        when(mockSecurityInfoManager.hasPrivilege(any(), eq(DX_REGISTRY), eq("r"), eq(123))).thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq(DX_REGISTRY), eq("r"), eq("123"))).thenReturn(false);
 
         assertThatThrownBy(() -> service.getDiseaseRegistry(123))
-            .isInstanceOf(SecurityException.class)
-            .hasMessage("missing required sec object (_newCasemgmt.DxRegistry)");
+            .isInstanceOf(jakarta.ws.rs.ForbiddenException.class)
+            .hasMessage("Patient module access denied");
 
         verify(mockSecurityInfoManager, never()).hasPrivilege(any(), anyString(), anyString(), isNull());
         verify(mockDxresearchDao, never()).getByDemographicNo(anyInt());

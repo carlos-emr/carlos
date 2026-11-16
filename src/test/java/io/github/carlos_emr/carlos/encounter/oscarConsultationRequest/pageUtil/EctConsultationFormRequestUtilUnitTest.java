@@ -210,6 +210,7 @@ class EctConsultationFormRequestUtilUnitTest extends CarlosUnitTestBase {
     @DisplayName("should load request with associations when estimating request fields")
     void shouldLoadRequestWithAssociations_whenEstimatingRequestFields() {
         ConsultationRequest request = new ConsultationRequest();
+        org.springframework.test.util.ReflectionTestUtils.setField(request, "id", 456);
         request.setDemographicId(123);
         request.setServiceId(10);
         request.setPatientWillBook(false);
@@ -220,7 +221,7 @@ class EctConsultationFormRequestUtilUnitTest extends CarlosUnitTestBase {
 
         when(mockConsultRequestDao.findWithAssociations(456)).thenReturn(request);
         when(mockDemographicManager.getDemographic(mockLoggedInInfo, 123)).thenReturn(demographic);
-        when(mockFaxClientLogDao.findClientLogbyRequestId(456)).thenReturn(Collections.emptyList());
+        when(mockFaxClientLogDao.findConsultationFaxRows(456)).thenReturn(Collections.emptyList());
 
         boolean requestFound = consultationFormRequestUtil.estRequestFromId(mockLoggedInInfo, "456");
 
@@ -276,6 +277,7 @@ class EctConsultationFormRequestUtilUnitTest extends CarlosUnitTestBase {
 
     private ConsultationRequest stubRequestForForm() {
         ConsultationRequest request = new ConsultationRequest();
+        org.springframework.test.util.ReflectionTestUtils.setField(request, "id", 456);
         request.setDemographicId(123);
         request.setServiceId(10);
         Demographic demographic = new Demographic();
@@ -283,7 +285,7 @@ class EctConsultationFormRequestUtilUnitTest extends CarlosUnitTestBase {
         demographic.setLastName("Patient");
         when(mockConsultRequestDao.findWithAssociations(456)).thenReturn(request);
         org.mockito.Mockito.lenient().when(mockDemographicManager.getDemographic(mockLoggedInInfo, 123)).thenReturn(demographic);
-        org.mockito.Mockito.lenient().when(mockFaxClientLogDao.findClientLogbyRequestId(456)).thenReturn(Collections.emptyList());
+        org.mockito.Mockito.lenient().when(mockFaxClientLogDao.findConsultationFaxRows(456)).thenReturn(Collections.emptyList());
         return request;
     }
 
@@ -339,7 +341,7 @@ class EctConsultationFormRequestUtilUnitTest extends CarlosUnitTestBase {
         request.setReferralDate(new java.util.Date(0));
         request.setProfessionalSpecialist(specialist);
         request.setDemographicContact(link);
-        when(mockConsultRequestDao.find(77)).thenReturn(request);
+        when(mockConsultRequestDao.findWithAssociations(77)).thenReturn(request);
         return request;
     }
 

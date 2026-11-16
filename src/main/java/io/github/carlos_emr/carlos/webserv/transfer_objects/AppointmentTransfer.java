@@ -163,11 +163,14 @@ public final class AppointmentTransfer {
 
     /**
      * Gets the Location List item the appointment was booked with; {@link #getLocation()} holds
-     * that item's label as it was at booking. Read-only for SOAP clients.
+     * that item's label as it was at booking. The location label is the published SOAP contract; the lookup id is Java/JSON metadata.
      *
      * @return Integer the LookupListItem id, or null when no item was chosen
      * @since 2026-11-04
      */
+    // Existing strict SOAP clients validate against schemas without this lookup metadata.
+    // Keep the booking-time label in location and retain the lookup id for Java/JSON callers.
+    @jakarta.xml.bind.annotation.XmlTransient
     public Integer getLocationCode() {
         return locationCode;
     }

@@ -344,7 +344,7 @@ class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(allergyCaptor.getValue().getStartDate()).isNull();
         logActionMock.verify(() -> LogAction.addLog(
                 eq("provider1"), eq(LogConst.ADD), eq(LogConst.CON_ALLERGY),
-                any(String.class), any(String.class), eq("123"), any(String.class)));
+                any(String.class), any(String.class), eq("123"), isNull()));
         verify(mockRxPatient, never()).deleteAllergy(anyInt());
     }
 

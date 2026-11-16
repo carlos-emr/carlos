@@ -34,16 +34,6 @@
       <xsd:element maxOccurs="unbounded" minOccurs="0" name="return" type="xsd:int"/>
     </xsd:sequence>
   </xsd:complexType>
-  <xsd:complexType name="getConsentedDemographicIdsAfter">
-    <xsd:sequence>
-      <xsd:element minOccurs="0" name="lastUpdate" type="xsd:dateTime"/>
-    </xsd:sequence>
-  </xsd:complexType>
-  <xsd:complexType name="getConsentedDemographicIdsAfterResponse">
-    <xsd:sequence>
-      <xsd:element maxOccurs="unbounded" minOccurs="0" name="return" type="xsd:int"/>
-    </xsd:sequence>
-  </xsd:complexType>
   <xsd:complexType name="getDemographic">
     <xsd:sequence>
       <xsd:element minOccurs="0" name="arg0" type="xsd:int"/>
@@ -241,8 +231,6 @@
   <xsd:element name="getActiveDemographicsAfterResponse" type="ns0:getActiveDemographicsAfterResponse"/>
   <xsd:element name="getAdmittedDemographicIdsByProgramProvider" type="ns0:getAdmittedDemographicIdsByProgramProvider"/>
   <xsd:element name="getAdmittedDemographicIdsByProgramProviderResponse" type="ns0:getAdmittedDemographicIdsByProgramProviderResponse"/>
-  <xsd:element name="getConsentedDemographicIdsAfter" type="ns0:getConsentedDemographicIdsAfter"/>
-  <xsd:element name="getConsentedDemographicIdsAfterResponse" type="ns0:getConsentedDemographicIdsAfterResponse"/>
   <xsd:element name="getDemographic" type="ns0:getDemographic"/>
   <xsd:element name="getDemographic2" type="ns0:getDemographic2"/>
   <xsd:element name="getDemographic2Response" type="ns0:getDemographic2Response"/>
@@ -264,20 +252,12 @@
   </xsd:simpleType>
 </xsd:schema>
   </wsdl:types>
-  <wsdl:message name="getConsentedDemographicIdsAfterResponse">
-    <wsdl:part element="tns:getConsentedDemographicIdsAfterResponse" name="parameters">
-    </wsdl:part>
-  </wsdl:message>
   <wsdl:message name="getDemographic2Response">
     <wsdl:part element="tns:getDemographic2Response" name="parameters">
     </wsdl:part>
   </wsdl:message>
   <wsdl:message name="getActiveDemographicsAfter2">
     <wsdl:part element="tns:getActiveDemographicsAfter2" name="parameters">
-    </wsdl:part>
-  </wsdl:message>
-  <wsdl:message name="getConsentedDemographicIdsAfter">
-    <wsdl:part element="tns:getConsentedDemographicIdsAfter" name="parameters">
     </wsdl:part>
   </wsdl:message>
   <wsdl:message name="getDemographicsResponse">
@@ -367,12 +347,6 @@
       <wsdl:output message="tns:getActiveDemographicsAfter2Response" name="getActiveDemographicsAfter2Response">
     </wsdl:output>
     </wsdl:operation>
-    <wsdl:operation name="getConsentedDemographicIdsAfter">
-      <wsdl:input message="tns:getConsentedDemographicIdsAfter" name="getConsentedDemographicIdsAfter">
-    </wsdl:input>
-      <wsdl:output message="tns:getConsentedDemographicIdsAfterResponse" name="getConsentedDemographicIdsAfterResponse">
-    </wsdl:output>
-    </wsdl:operation>
     <wsdl:operation name="getDemographics">
       <wsdl:input message="tns:getDemographics" name="getDemographics">
     </wsdl:input>
@@ -436,15 +410,6 @@
         <soap:body use="literal"/>
       </wsdl:input>
       <wsdl:output name="getActiveDemographicsAfter2Response">
-        <soap:body use="literal"/>
-      </wsdl:output>
-    </wsdl:operation>
-    <wsdl:operation name="getConsentedDemographicIdsAfter">
-      <soap:operation soapAction="" style="document"/>
-      <wsdl:input name="getConsentedDemographicIdsAfter">
-        <soap:body use="literal"/>
-      </wsdl:input>
-      <wsdl:output name="getConsentedDemographicIdsAfterResponse">
         <soap:body use="literal"/>
       </wsdl:output>
     </wsdl:operation>

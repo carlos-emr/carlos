@@ -247,9 +247,13 @@ class SafeDiagnosticSinksUnitTest extends CarlosUnitTestBase {
         when(security.isAllowedAccessToPatientRecord(info, 23)).thenReturn(true);
         injectDependency(service, "securityInfoManager", security);
         injectDependency(service, "caseManagementMgr", manager);
+        when(manager.isClientInProgramDomain(org.mockito.ArgumentMatchers.anyList(), org.mockito.ArgumentMatchers.anyList())).thenReturn(true);
         var ticklers = mock(io.github.carlos_emr.carlos.managers.TicklerManager.class);
         when(ticklers.getTicklerDemographicNo(info,31)).thenReturn(23);
         injectDependency(service,"noteTicklerManager",ticklers);
+        var ticklerRows = mock(io.github.carlos_emr.carlos.commn.dao.TicklerDao.class);
+        when(ticklerRows.findByTicklerNoDemo(31, 23)).thenReturn(List.of(new io.github.carlos_emr.carlos.commn.model.Tickler()));
+        injectDependency(service, "ticklerDao", ticklerRows);
         var program = new ProgramProvider();
         program.setProgramId(7L);
         program.setRoleId(1L);

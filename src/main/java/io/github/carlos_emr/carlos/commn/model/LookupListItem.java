@@ -74,6 +74,8 @@ public class LookupListItem extends AbstractModel<Integer> {
         this.lookupListId = source.lookupListId;
         this.value = source.value;
         this.label = source.label;
+        this.icon = source.icon;
+        this.colour = source.colour;
         this.active = source.active;
         this.displayOrder = source.displayOrder;
         this.createdBy = source.createdBy;

@@ -76,6 +76,7 @@ class DocumentManagerImplDescriptionUnitTest extends CarlosUnitTestBase {
             DocumentManagerImpl manager = new DocumentManagerImpl();
             injectDependency(manager, "securityInfoManager", securityInfoManager);
             injectDependency(manager, "documentDao", documentDao);
+            injectDependency(manager, "outboundEmailArchiveDao", mock(io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao.class));
             injectDependency(manager, "ctlDocumentDao", mock(CtlDocumentDao.class));
             injectDependency(manager, "patientLabRoutingDao", mock(PatientLabRoutingDao.class));
             injectDependency(manager, "providerLabRoutingDao", mock(ProviderLabRoutingDao.class));

@@ -422,6 +422,7 @@ class SaveSignatureUpload2ActionUnitTest extends CarlosUnitTestBase {
             mockRequest.setParameter("source", "IPAD");
             mockRequest.setParameter("signatureImage", dataUri);
             mockRequest.setParameter("saveToDB", "true");
+            mockRequest.setParameter("demographicNo", "111");
         }
 
         @Test
@@ -474,6 +475,7 @@ class SaveSignatureUpload2ActionUnitTest extends CarlosUnitTestBase {
                 servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
                 servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(mockResponse);
                 primeIpadUpload();
+                mockRequest.removeParameter("demographicNo");
                 if (patient != null) {
                     mockRequest.setParameter("demographicNo", patient);
                 }

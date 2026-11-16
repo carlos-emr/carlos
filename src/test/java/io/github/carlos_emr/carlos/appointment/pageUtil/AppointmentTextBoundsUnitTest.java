@@ -296,6 +296,8 @@ class AppointmentTextBoundsUnitTest extends CarlosUnitTestBase {
  }
  @Test void largestSignedIntegerRedisplayIdentityIsAccepted()throws Exception{
   request.setParameter("demographic_no","2147483647");
+  when(security.hasPrivilege(info,"_appointment","w","2147483647")).thenReturn(true);
+  when(security.isAllowedAccessToPatientRecord(info,Integer.MAX_VALUE)).thenReturn(true);
   refused(true,"resources","R".repeat(256));
   assertThat(lastResult).isEqualTo(ActionSupport.INPUT);
  }

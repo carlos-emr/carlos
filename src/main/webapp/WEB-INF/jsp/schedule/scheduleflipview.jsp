@@ -52,7 +52,6 @@
                                              otherwise to the schedule
     - demographic_no   (String, optional) — patient to carry into a booking; kept across
                                              month and provider navigation
-    - demographic_name (String, optional) — that patient's display name
 
     Session: LOGGED_IN_PROVIDER_PREFERENCE (ProviderPreference) supplies the day's start and
              end hour, the slot length and the provider's group.
@@ -139,10 +138,9 @@
     String curProviderName = currentProvider != null
             ? currentProvider.getFormattedName()
             : curProvider_no;
-    // The patient being booked (from the waiting list). Month and provider links carry both values on,
-    // so the patient is still attached when a slot is picked after navigating.
+    // Carry the waiting-list patient identifier through month and provider navigation.
+    // The booking page resolves the patient display name after authorization.
     String curDemoNo = request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "";
-    String curDemoName = request.getParameter("demographic_name") != null ? request.getParameter("demographic_name") : "";
 
     String originalPage = request.getParameter("originalpage") != null ? request.getParameter("originalpage") : "schedule";
     String originalPagePath = request.getContextPath() + "/provider/providercontrol";
@@ -218,7 +216,7 @@
 
         <script type="text/javascript">
             function changePro(providerno) {
-                var destination = "${pageContext.request.contextPath}/schedule/FlipView?originalpage=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(originalPage))%>&provider_no=" + encodeURIComponent(providerno) + "&startDate=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(startDate))%><%= curDemoNo.isEmpty() ? "" : "&demographic_no=" + SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoNo)) + "&demographic_name=" + SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoName)) %>";<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+                var destination = "${pageContext.request.contextPath}/schedule/FlipView?originalpage=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(originalPage))%>&provider_no=" + encodeURIComponent(providerno) + "&startDate=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(startDate))%><%= curDemoNo.isEmpty() ? "" : "&demographic_no=" + SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoNo)) %>";<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                 self.location.href = destination;
             }
 
@@ -330,13 +328,13 @@
                 </div>
                 <nav class="btn-group" aria-label="<fmt:message key="schedule.scheduleflipview.monthNavigation"/>">
                     <a class="btn btn-outline-primary"
-                       href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;startDate=<carlos:encode value='<%= inform.format(lastMonth.getTime()) %>' context="uriComponent"/><% if (!curDemoNo.isEmpty()) { %>&amp;demographic_no=<carlos:encode value='<%= curDemoNo %>' context="uriComponent"/>&amp;demographic_name=<carlos:encode value='<%= curDemoName %>' context="uriComponent"/><% } %>"
+                       href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;startDate=<carlos:encode value='<%= inform.format(lastMonth.getTime()) %>' context="uriComponent"/><% if (!curDemoNo.isEmpty()) { %>&amp;demographic_no=<carlos:encode value='<%= curDemoNo %>' context="uriComponent"/><% } %>"
                        title="<fmt:message key="schedule.scheduleflipview.msgLastMonth"/>">
                         <span class="fa-solid fa-chevron-left" aria-hidden="true"></span>
                         <fmt:message key="schedule.scheduleflipview.btnLastMonth"/>
                     </a>
                     <a class="btn btn-outline-primary"
-                       href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;startDate=<carlos:encode value='<%= inform.format(nextMonth.getTime()) %>' context="uriComponent"/><% if (!curDemoNo.isEmpty()) { %>&amp;demographic_no=<carlos:encode value='<%= curDemoNo %>' context="uriComponent"/>&amp;demographic_name=<carlos:encode value='<%= curDemoName %>' context="uriComponent"/><% } %>"
+                       href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;startDate=<carlos:encode value='<%= inform.format(nextMonth.getTime()) %>' context="uriComponent"/><% if (!curDemoNo.isEmpty()) { %>&amp;demographic_no=<carlos:encode value='<%= curDemoNo %>' context="uriComponent"/><% } %>"
                        title="<fmt:message key="schedule.scheduleflipview.msgNextmonth"/>">
                         <fmt:message key="schedule.scheduleflipview.btnNextMonth"/>
                         <span class="fa-solid fa-chevron-right" aria-hidden="true"></span>
@@ -556,12 +554,12 @@
          accessible name as the header one is duplicate noise for screen-reader navigation. --%>
     <div class="availability-footer-nav mt-3">
         <a class="btn btn-outline-primary"
-           href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;startDate=<carlos:encode value='<%= inform.format(lastMonth.getTime()) %>' context="uriComponent"/><% if (!curDemoNo.isEmpty()) { %>&amp;demographic_no=<carlos:encode value='<%= curDemoNo %>' context="uriComponent"/>&amp;demographic_name=<carlos:encode value='<%= curDemoName %>' context="uriComponent"/><% } %>">
+           href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;startDate=<carlos:encode value='<%= inform.format(lastMonth.getTime()) %>' context="uriComponent"/><% if (!curDemoNo.isEmpty()) { %>&amp;demographic_no=<carlos:encode value='<%= curDemoNo %>' context="uriComponent"/><% } %>">
             <span class="fa-solid fa-chevron-left" aria-hidden="true"></span>
             <fmt:message key="schedule.scheduleflipview.btnLastMonth"/>
         </a>
         <a class="btn btn-outline-primary"
-           href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;startDate=<carlos:encode value='<%= inform.format(nextMonth.getTime()) %>' context="uriComponent"/><% if (!curDemoNo.isEmpty()) { %>&amp;demographic_no=<carlos:encode value='<%= curDemoNo %>' context="uriComponent"/>&amp;demographic_name=<carlos:encode value='<%= curDemoName %>' context="uriComponent"/><% } %>">
+           href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;startDate=<carlos:encode value='<%= inform.format(nextMonth.getTime()) %>' context="uriComponent"/><% if (!curDemoNo.isEmpty()) { %>&amp;demographic_no=<carlos:encode value='<%= curDemoNo %>' context="uriComponent"/><% } %>">
             <fmt:message key="schedule.scheduleflipview.btnNextMonth"/>
             <span class="fa-solid fa-chevron-right" aria-hidden="true"></span>
         </a>

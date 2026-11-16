@@ -123,6 +123,8 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
     private MockedConstruction<CommonLabResultData> commonLabResultDataConstruction;
     private MockedConstruction<ConsultationPDFCreator> consultationPdfCreatorConstruction;
 
+    @org.junit.jupiter.api.io.TempDir private Path documentDirectory;
+    private String previousDocumentDirectory;
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
     private LoggedInInfo loggedInInfo;
@@ -139,6 +141,8 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
 
     @BeforeEach
     void setUp() {
+        previousDocumentDirectory = io.github.carlos_emr.CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        io.github.carlos_emr.CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDirectory.toString());
         request = new MockHttpServletRequest("POST", "/encounter/PrintConsultation");
         request.setParameter("reqId", "42");
         request.setParameter("demographicNo", "1");
@@ -213,6 +217,8 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
 
     @AfterEach
     void tearDown() {
+        if (previousDocumentDirectory == null) io.github.carlos_emr.CarlosProperties.getInstance().remove("DOCUMENT_DIR");
+        else io.github.carlos_emr.CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", previousDocumentDirectory);
         ReflectionTestUtils.setField(
                 EctConsultationFormRequestPrintAction22Action.class, "faxManager", originalStaticFaxManager);
         if (consultationPdfCreatorConstruction != null) {
@@ -271,6 +277,10 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
 
         EDoc image = mock(EDoc.class);
         when(image.getDocId()).thenReturn("10");
+        Path imageRoot = Path.of(io.github.carlos_emr.CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
+        Files.createDirectories(imageRoot);
+        Path imageFile = Files.createTempFile(imageRoot, "consult-image-", ".png");
+        when(image.getFileName()).thenReturn(imageFile.getFileName().toString());
         when(image.isPrintable()).thenReturn(true);
         when(image.isImage()).thenReturn(true);
         eDocUtilMock.when(() -> EDocUtil.listDocs(any(), eq("1"), eq("42"), anyBoolean()))
@@ -336,6 +346,8 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
             assertThat(labFiles).hasSize(1);
             assertThat(labFiles.getFirst()).doesNotExist();
             assertThat(labFiles.getFirst().getParent()).doesNotExist();
+        } finally {
+            Files.deleteIfExists(imageFile);
         }
     }
 
@@ -729,7 +741,8 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
             if (renderFails) {
                 assertThat(logs.events()).anySatisfy(event -> {
                     assertThat(event.getLevel()).isEqualTo(org.apache.logging.log4j.Level.ERROR);
-                    assertThat(event.getThrown()).isInstanceOf(IOException.class).hasMessage(primaryMessage);
+                    assertThat(event.getThrown()).isInstanceOf(PDFGenerationException.class)
+                            .hasMessageContaining("Attached LAB 30", "IOException");
                 });
             }
         } finally {

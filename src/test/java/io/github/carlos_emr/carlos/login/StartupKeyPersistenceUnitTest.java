@@ -73,7 +73,9 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
     private String originalUserHome;
     private String originalOverride;
     private Path userHome;
+    private String contextName = "carlos";
     private boolean configurationCaptured;
+    private MockedStatic<EncryptedDataCountLoader> encryptedDataCounts;
 
     /**
      * Captures process-wide state before creating an isolated home and override selection.
@@ -94,6 +96,11 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
         userHome = Files.createDirectory(tempDir.resolve("home"));
         System.setProperty("user.home", userHome.toString());
         System.clearProperty(OVERRIDE);
+        var counter = mock(EncryptedDataCountLoader.class);
+        when(counter.load()).thenReturn(new EncryptedDataCountLoader.Result(java.util.Map.of(), List.of()));
+        encryptedDataCounts = mockStatic(EncryptedDataCountLoader.class);
+        encryptedDataCounts.when(() -> EncryptedDataCountLoader.fromProperties(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(counter);
     }
 
     /**
@@ -103,6 +110,7 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
      */
     @AfterEach
     void restoreConfiguration() throws Exception {
+        if (encryptedDataCounts != null) encryptedDataCounts.closeOnDemand();
         if (!configurationCaptured) {
             return;
         }
@@ -235,11 +243,7 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
         }
 
         assertThatThrownBy(this::startApplication)
-                .hasMessageContaining("/carlos.properties")
-                .hasMessageContaining(KEY)
-                .hasMessageContaining("-Dcarlos_override_properties=")
-                .hasMessageContaining("Restore the original key")
-                .hasMessageContaining("https://github.com/carlos-emr/carlos/blob/release/2026.08/docs/startup-encryption-key.md");
+                .hasMessageContaining("Configuration file carlos.properties not found in user home or WEB-INF; refusing to start.");
         assertThat(userHome.resolve("carlos.properties")).doesNotExist();
         assertThat(properties.getProperty(KEY)).isEqualTo(key);
         assertThat(keySpecField.get(null)).isNull();
@@ -248,6 +252,7 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldRefuseRollbackUnsafeStartup_whenOnlyClasspathConfigurationWasLoaded() throws Exception {
         String resource = "/WEB-INF/startup-configured-encryption-key.properties";
+        contextName = "startup-configured-encryption-key";
         byte[] originalResource;
         try (var input = getClass().getResourceAsStream(resource)) {
             originalResource = input.readAllBytes();
@@ -274,13 +279,13 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
     void shouldKeepWarResourceUnchanged_whenWebInfConfigurationHasNoKey() throws Exception {
         CarlosProperties properties = reloadProperties();
         String resource = "/WEB-INF/startup-key-persistence.properties";
+        contextName = "startup-key-persistence";
         properties.clear();
         properties.readFromFile(resource);
 
         assertThatThrownBy(this::startApplication)
-                .hasMessageContaining(resource)
-                .hasMessageContaining(KEY)
-                .hasMessageContaining("-Dcarlos_override_properties=");
+                .hasMessageContaining("Unable to generate and persist a new encryption key")
+                .rootCause().hasMessageContaining(resource, "refusing to generate an unpersisted encryption key", "-Dcarlos_override_properties=");
         assertThat(userHome.resolve("carlos.properties")).doesNotExist();
         assertThat(properties.getProperty("db_name")).isEqualTo("startup_test");
         assertThat(properties.getProperty(KEY)).isEmpty();
@@ -299,7 +304,7 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
                     .thenThrow(new NoSuchAlgorithmException("AES unavailable"));
             assertThatThrownBy(this::startApplication)
                     .hasCauseInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("AES unavailable");
+                    .hasRootCauseMessage("AES unavailable");
             encryption.verify(EncryptionUtils::generateSecretKey);
         }
 
@@ -351,7 +356,7 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldReuseOneKey_whenProcessesStartConcurrently() throws Exception {
         Path override = writeConfiguration(tempDir.resolve("shared.properties"), "");
-        Path root = Files.createDirectories(tempDir.resolve("webapps/carlos"));
+        Path root = Files.createDirectories(tempDir.resolve("webapps").resolve(contextName));
         Path start = tempDir.resolve("start");
         List<Process> workers = new ArrayList<>();
         List<Path> homes = new ArrayList<>();
@@ -457,7 +462,7 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
      * @throws Exception if the fixture file cannot be written
      */
     private Path writeConfiguration(Path path, String key) throws Exception {
-        Files.writeString(path, "db_name=startup_test\nBASE_DOCUMENT_DIR=" + tempDir.resolve("documents") + "\n"
+        Files.writeString(path, "db_name=startup_test\ndb_username=startup_test_user\ndb_uri=127.0.0.1:3306\ndb_driver=org.mariadb.jdbc.Driver\nBASE_DOCUMENT_DIR=" + tempDir.resolve("documents") + "\n"
                 + (key == null ? "" : KEY + "=" + key + "\n"));
         return path;
     }
@@ -468,7 +473,7 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
      * @throws Exception if webapp setup or application startup fails
      */
     private void startApplication() throws Exception {
-        Path root = Files.createDirectories(tempDir.resolve("webapps/carlos"));
+        Path root = Files.createDirectories(tempDir.resolve("webapps").resolve(contextName));
         ServletContext context = mock(ServletContext.class);
         when(context.getResource("/")).thenReturn(root.toUri().toURL());
         new Startup().contextInitialized(new ServletContextEvent(context));

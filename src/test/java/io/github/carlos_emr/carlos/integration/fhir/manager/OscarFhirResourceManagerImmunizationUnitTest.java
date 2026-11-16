@@ -58,6 +58,9 @@ class OscarFhirResourceManagerImmunizationUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should attach extensions from the manager before mapping a detached prevention")
     void shouldAttachPreventionExts_whenMappingImmunizationById() {
+        createAndRegisterMock(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class);
+        registerMock(io.github.carlos_emr.carlos.prevention.PreventionDateService.class,
+                new io.github.carlos_emr.carlos.prevention.PreventionDateService(mock(io.github.carlos_emr.carlos.commn.dao.PartialDateDao.class)));
         PreventionManager preventionManager = createAndRegisterMock(PreventionManager.class);
         OscarFhirConfigurationManager configurationManager = mock(OscarFhirConfigurationManager.class);
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);

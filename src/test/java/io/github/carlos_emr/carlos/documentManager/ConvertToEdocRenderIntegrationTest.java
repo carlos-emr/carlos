@@ -81,7 +81,7 @@ class ConvertToEdocRenderIntegrationTest extends CarlosTestBase {
 
     @AfterEach
     void restoreSettings() {
-        synchronized (ConvertToEdoc.class) {
+        synchronized (java.util.Objects.requireNonNull(org.springframework.test.util.ReflectionTestUtils.getField(ConvertToEdoc.class, "RENDER_LOCK"))) {
             ReflectionTestUtils.setField(ConvertToEdoc.class, "realPath", originalRealPath);
         }
         if (originalEformImagesDir == null) {

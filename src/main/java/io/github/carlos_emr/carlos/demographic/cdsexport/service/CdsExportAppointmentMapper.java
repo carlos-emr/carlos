@@ -87,7 +87,7 @@ public final class CdsExportAppointmentMapper {
      * AppointmentPurpose/AppointmentNotes.
      */
     private static final List<String> SCHEDULER_CONTEXT =
-            List.of("style", "billing", "location", "resources", "urgency", "type", "bookingSource");
+            List.of("style", "billing", "location", "locationCode", "resources", "urgency", "type", "bookingSource");
 
     /**
      * An element's schema-valid text and, when that is not the complete value, the complete
@@ -670,7 +670,7 @@ public final class CdsExportAppointmentMapper {
         item.operational("id", "CAPTURED_REASON_CODE_ITEM_IDENTITY");
         item.operational("lookupListId", "CAPTURED_REASON_LIST_MEMBERSHIP");
         item.operational("value", "REASON_CODE_ITEM_VALUE_NOT_SHOWN_ON_SCHEDULE");
-        for (String column : List.of("active", "displayOrder", "createdBy", "dateCreated"))
+        for (String column : List.of("active", "colour", "icon", "displayOrder", "createdBy", "dateCreated"))
             item.operational(column, "CAPTURED_REASON_LIST_CONFIGURATION");
         String label = row.fields().get("label");
         if (label == null) {

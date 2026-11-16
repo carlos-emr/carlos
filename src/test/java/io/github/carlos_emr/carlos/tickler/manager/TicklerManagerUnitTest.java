@@ -598,15 +598,15 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
         }
 
         @Test
-        @DisplayName("should apply an unversioned change the lists offer")
-        void shouldApplyChange_whenNoRenderedStatusAndTransitionIsOffered() {
+        @DisplayName("should refuse a change when the rendered status is absent")
+        void shouldRefuseChange_whenNoRenderedStatusIsSupplied() {
             Tickler tickler = stored(85, Tickler.STATUS.C);
 
             var change = ticklerManager.updateStatusIfCurrent(mockLoggedInInfo, 85, TEST_PROVIDER,
                     null, Tickler.STATUS.D);
 
-            assertThat(change).isEqualTo(io.github.carlos_emr.carlos.managers.TicklerManager.StatusChange.APPLIED);
-            assertThat(tickler.getStatus()).isEqualTo(Tickler.STATUS.D);
+            assertThat(change).isEqualTo(io.github.carlos_emr.carlos.managers.TicklerManager.StatusChange.STALE);
+            assertThat(tickler.getStatus()).isEqualTo(Tickler.STATUS.C);
         }
 
         @ParameterizedTest

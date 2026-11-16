@@ -134,6 +134,18 @@ class DocumentAttachUnavailableConsultUnitTest extends CarlosUnitTestBase {
     @EnumSource(value = DocumentType.class, names = {"FORM", "HRM"})
     void shouldAvoidAvailabilityLookup_whenSelectionIsUnchanged(DocumentType type) {
         stored(type);
+        var forms = mock(FormsManager.class);
+        var hrms = mock(HRMDocumentToDemographicDao.class);
+        if (type == DocumentType.FORM) {
+            when(forms.getEncounterFormsbyDemographicNumber(info, 1, true, false))
+                    .thenReturn(List.of(new EctFormData.PatientForm("formAnnual", "Annual", 7, 1)));
+        } else {
+            var link = new io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic();
+            link.setDemographicNo(1); link.setHrmDocumentId(7);
+            when(hrms.findByHrmDocumentId(7)).thenReturn(List.of(link));
+        }
+        registerMock(AttachmentSelectionAccess.class, new AttachmentSelectionAccess(security,
+                mock(DocumentDao.class), mock(EFormDataDao.class), hrms, forms));
         attach.verifyConsultAttachments(new String[]{"7"}, type, 42);
         attach.attachToConsult(new String[]{"7"}, type, "999998", 42);
         verifyNoInteractions(manager);

@@ -87,6 +87,9 @@ public class AllergyService extends AbstractServiceImpl {
 
     private AllergyResponse active(Integer demographicNo, boolean precisionAware) {
         if (demographicNo == null || demographicNo < 1) throw new jakarta.ws.rs.BadRequestException("demographicNo is required");
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_allergy", "r", demographicNo)) {
+            throw new io.github.carlos_emr.carlos.commn.exception.AccessDeniedException("_allergy", "r");
+        }
         List<Allergy> allergies = allergyManager.getActiveAllergies(getLoggedInInfo(), demographicNo);
         legacyProjection.requireRestSupported(demographicNo, java.util.Set.of("AllergiesAndAdverseReactions"));
         List<AllergyTo1> allergiesT = new AllergyConverter(dates, precisionAware)

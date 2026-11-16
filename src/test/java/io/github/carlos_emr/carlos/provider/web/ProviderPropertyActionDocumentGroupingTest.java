@@ -36,10 +36,11 @@ class ProviderPropertyActionDocumentGroupingTest {
         try (MockedStatic<SpringUtils> spring = mockStatic(SpringUtils.class)) {
             spring.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(security);
             spring.when(() -> SpringUtils.getBean(UserPropertyDAO.class)).thenReturn(dao);
+            spring.when(() -> SpringUtils.getBean(io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferencePersister.class)).thenReturn(new io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferencePersister(dao));
 
             ProviderPropertyAction.updateOrCreateProviderProperties(request);
 
-            if (submitted == null) {
+            if (submitted == null || submitted.isBlank()) {
                 verify(dao, never()).saveProp(eq("viewer"), eq(UserProperty.ECHART_GROUP_DOCUMENTS_BY_TYPE), anyString());
             } else {
                 verify(dao).saveProp("viewer", UserProperty.ECHART_GROUP_DOCUMENTS_BY_TYPE, submitted);

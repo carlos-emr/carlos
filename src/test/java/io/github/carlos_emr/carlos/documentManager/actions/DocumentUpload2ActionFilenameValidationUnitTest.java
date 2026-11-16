@@ -284,12 +284,14 @@ class DocumentUpload2ActionFilenameValidationUnitTest extends CarlosUnitTestBase
     @Test
     void shouldReportLostIncomingSource_withoutPublishingOrReplacingExistingFiles() throws Exception {
         DocumentUpload2Action action = incomingDocsAction("FAKE-PRIVATE-NAME.pdf");
+        request.setParameter("destFolder", "Fax");
         tempDestinationDirectory = Files.createTempDirectory("incoming-failure-target").toFile();
         tempDestinationFile = tempDestinationDirectory.toPath().resolve("existing.pdf").toFile();
         Files.writeString(tempDestinationFile.toPath(), "SYNTHETIC prior scan");
         try (MockedStatic<IncomingDocUtil> incoming = mockStatic(IncomingDocUtil.class);
                 LogCapture logs = LogCapture.forLogger(DocumentUpload2Action.class)) {
-            incoming.when(() -> IncomingDocUtil.getAndCreateIncomingDocumentFilePath("1", null)).thenAnswer(call -> {
+            incoming.when(() -> IncomingDocUtil.isAllowedIncomingDocFolder("Fax")).thenReturn(true);
+            incoming.when(() -> IncomingDocUtil.getAndCreateIncomingDocumentFilePath("1", "Fax")).thenAnswer(call -> {
                 Files.delete(tempUploadFile.toPath()); // a temp-cleanup race after the initial validation
                 return tempDestinationDirectory.getPath();
             });

@@ -130,7 +130,9 @@ class CdsDocumentPrecisionUnitTest {
         Object previous =
                 org.springframework.test.util.ReflectionTestUtils.getField(
                         EDocUtil.class, "documentDao");
-        try {
+        try (var spring = org.mockito.Mockito.mockStatic(io.github.carlos_emr.carlos.utility.SpringUtils.class)) {
+            spring.when(() -> io.github.carlos_emr.carlos.utility.SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao.class))
+                    .thenReturn(mock(io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao.class));
             org.springframework.test.util.ReflectionTestUtils.setField(
                     EDocUtil.class, "documentDao", dao);
             EDocUtil.editDocumentSQL(metadata, false);

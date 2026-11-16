@@ -1371,8 +1371,8 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
             documents.verifyNoInteractions();
         }
 
-        Hashtable<String, String> errors = (Hashtable<String, String>) request.getAttribute("docerrors");
-        assertThat(errors).containsExactly(entry("desctoolong", "dms.error.descriptionTooLong"));
+        java.util.Map<String, String> errors = (java.util.Map<String, String>) request.getAttribute("docerrors");
+        assertThat(errors).containsExactly(entry("descmissing", "dms.error.descriptionTooLong"));
         logActionMock.verifyNoInteractions();
         assertThat(response.getRedirectedUrl()).isNull();
     }
@@ -1444,8 +1444,8 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
             documents.verifyNoInteractions();
         }
 
-        Hashtable<String, String> errors = (Hashtable<String, String>) request.getAttribute("docerrors");
-        assertThat(errors).containsExactly(entry("desctoolong", "dms.error.descriptionTooLong"));
+        java.util.Map<String, String> errors = (java.util.Map<String, String>) request.getAttribute("docerrors");
+        assertThat(errors).containsExactly(entry("descmissing", "dms.error.descriptionTooLong"));
         assertThat(request.getAttribute("editDocumentNo")).isEqualTo("123");
         assertThat(transactions.begun).isZero();
         logActionMock.verifyNoInteractions();

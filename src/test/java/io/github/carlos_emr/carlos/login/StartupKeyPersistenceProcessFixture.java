@@ -23,9 +23,6 @@ package io.github.carlos_emr.carlos.login;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.EncryptionUtils;
-import jakarta.servlet.ServletContext;
-import jakarta.servlet.ServletContextEvent;
-import java.lang.reflect.Proxy;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
@@ -36,7 +33,7 @@ public final class StartupKeyPersistenceProcessFixture {
     }
 
     /**
-     * Loads configuration, waits for its peer, then boots and encrypts a synthetic credential.
+     * Loads configuration, waits for its peer, then initializes the persisted startup settings and encrypts a synthetic credential.
      *
      * @param args String[] override, home, webapp root, ready marker, start marker and ciphertext path
      * @throws Exception if configuration, startup, coordination or encryption fails
@@ -53,14 +50,12 @@ public final class StartupKeyPersistenceProcessFixture {
             }
             Thread.sleep(10);
         }
-        ServletContext context = (ServletContext) Proxy.newProxyInstance(
-                StartupKeyPersistenceProcessFixture.class.getClassLoader(), new Class<?>[]{ServletContext.class},
-                (proxy, method, arguments) -> switch (method.getName()) {
-                    case "getResource" -> Path.of(args[2]).toUri().toURL();
-                    case "getClassLoader" -> StartupKeyPersistenceProcessFixture.class.getClassLoader();
-                    default -> null;
-                });
-        new Startup().contextInitialized(new ServletContextEvent(context));
+        // Exercise the cross-process file locks without requiring a live deployment database.
+        // Startup's encrypted-data refusal is covered separately by StartupEncryptionKeyGuardUnitTest.
+        var properties = CarlosProperties.getInstance();
+        properties.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, properties.getOrCreateEncryptionKey());
+        properties.ensureModernChartRollbackSafety();
+        EncryptionUtils.prepareSecretKeySpec();
         Files.writeString(Path.of(args[5]), EncryptionUtils.encrypt("concurrent-startup-credential"));
     }
 }

@@ -71,10 +71,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("EmailManager encrypted message PDF")
 class EmailManagerEncryptionUnitTest extends CarlosUnitTestBase {
 
-    private static final String FAILURE_MESSAGE = "Encrypted message could not be converted to PDF";
+    private static final String FAILURE_MESSAGE = "Failed to render encrypted message attachment";
 
     @Mock private SecurityInfoManager securityInfoManager;
     @Mock private EmailConfigDaoImpl emailConfigDao;
+    @Mock private io.github.carlos_emr.carlos.email.core.EmailConsentResolver emailConsentResolver;
+    @Mock private io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService clinicFooterService;
     @Mock private EmailLogDaoImpl emailLogDao;
     @Mock private DemographicManager demographicManager;
     @Mock private ProviderManager2 providerManager;
@@ -83,6 +85,14 @@ class EmailManagerEncryptionUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void stageOutbox() {
+        when(emailConsentResolver.resolve(loggedInInfo, 7311)).thenReturn(
+                new io.github.carlos_emr.carlos.email.core.EmailConsentResult("Email", EmailLog.EmailConsentStatus.OPT_IN, null, null));
+        injectDependency(emailManager, "emailConfigDao", emailConfigDao);
+        injectDependency(emailManager, "emailLogDao", emailLogDao);
+        injectDependency(emailManager, "demographicManager", demographicManager);
+        injectDependency(emailManager, "providerManager", providerManager);
+        injectDependency(emailManager, "clinicFooterService", clinicFooterService);
+        when(clinicFooterService.snapshot()).thenReturn(new io.github.carlos_emr.carlos.email.core.ClinicEmailFooterSnapshot("FAKE Clinic", null));
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true);
         when(emailConfigDao.findActiveEmailConfigById(1)).thenReturn(new EmailConfig(null, null, "clinic@example.invalid"));
         Demographic demographic = new Demographic();
@@ -125,7 +135,7 @@ class EmailManagerEncryptionUnitTest extends CarlosUnitTestBase {
             assertThat(result.getErrorMessage()).isEqualTo(FAILURE_MESSAGE);
             assertThat(senders.constructed()).as("nothing is sent").isEmpty();
         }
-        verify(emailLogDao).updateEmailStatus(isNull(), eq(EmailStatus.FAILED), eq(FAILURE_MESSAGE), any(Date.class));
+        verify(emailLogDao).transitionEmailStatus(isNull(), eq(EmailStatus.PENDING), eq(EmailStatus.FAILED), eq(FAILURE_MESSAGE), any(Date.class));
         assertThat(data.getAttachments()).as("no half-built attachment is left on the email").isEmpty();
     }
 

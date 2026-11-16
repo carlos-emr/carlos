@@ -30,10 +30,19 @@ import org.mockito.Mock;
 class DocumentListContentEndpointTest extends CarlosSoapTestBase {
     @Mock private DocumentManager documents;
     @Override protected Object getServiceBean() {
-        var service = new DocumentWs(); injectDependency(service, "documentManager", documents); return service;
+        var service = new DocumentWs();
+        injectDependency(service, "securityInfoManager", authorizeEndpoint("r", "_edoc"));
+        injectDependency(service, "documentManager", documents);
+        return service;
     }
     @Override protected Class<?> getServiceInterface() { return DocumentWs.class; }
-    @BeforeEach void dependencies() { registerMock(DocumentManager.class, documents); }
+    @BeforeEach void dependencies() {
+        registerMock(DocumentManager.class, documents);
+        var security = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+        when(security.hasPrivilege(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("_edoc"),
+                org.mockito.ArgumentMatchers.eq("r"), org.mockito.ArgumentMatchers.any())).thenReturn(true);
+        registerMock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class, security);
+    }
 
     /** A stored document whose file cannot be read; the failure message stands in for a private filename. */
     private Document row(int id) throws IOException {

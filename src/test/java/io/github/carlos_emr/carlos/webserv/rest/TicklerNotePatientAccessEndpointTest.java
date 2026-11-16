@@ -23,14 +23,25 @@ class TicklerNotePatientAccessEndpointTest extends CarlosRestTestBase {
     @Mock private TicklerManager ticklers;
     @Mock private CaseManagementManager notes;
     @Mock private ProviderManager providers;
+    @Override protected java.util.List<Object> additionalServerProviders() {
+        return java.util.List.of(new io.github.carlos_emr.carlos.webserv.rest.util.AccessDeniedExceptionMapper());
+    }
     @Override protected Object getServiceBean() {
         var service = new NotesService();
         injectDependency(service,"securityInfoManager",security);
         injectDependency(service,"noteTicklerManager",ticklers);
         injectDependency(service,"caseManagementMgr",notes);
-        injectDependency(service,"providerMgr",providers); return service;
+        injectDependency(service,"providerMgr",providers);
+        var rows = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.TicklerDao.class);
+        when(rows.findByTicklerNoDemo(7, 42)).thenReturn(java.util.List.of(new io.github.carlos_emr.carlos.commn.model.Tickler()));
+        injectDependency(service,"ticklerDao",rows); return service;
     }
     @BeforeEach void grantFixture() {
+        when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        var rows = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.TicklerDao.class);
+        when(rows.findByTicklerNoDemo(7, 42)).thenReturn(java.util.List.of(new io.github.carlos_emr.carlos.commn.model.Tickler()));
+        registerMock(io.github.carlos_emr.carlos.commn.dao.TicklerDao.class, rows);
+        when(notes.isClientInProgramDomain(anyList(), anyList())).thenReturn(true);
         when(security.hasPrivilege(mockLoggedInInfo,"_tickler","r",(String)null)).thenReturn(true);
         when(security.hasPrivilege(mockLoggedInInfo,"_tickler","w",(String)null)).thenReturn(true);
         when(security.hasPrivilege(mockLoggedInInfo,"_eChart","r",(String)null)).thenReturn(true);
@@ -80,7 +91,7 @@ class TicklerNotePatientAccessEndpointTest extends CarlosRestTestBase {
     @Test void shouldRefuseCrossPatientRevision_beforeReadingItsClinicalHistory() {
         var original = spy(new CaseManagementNote()); original.setDemographic_no("43");
         when(notes.getNote("9")).thenReturn(original);
-        assertThat(save("{\"tickler\":{\"id\":7,\"demographicNo\":42},\"noteId\":9,\"note\":\"new text\"}")).isEqualTo(400);
+        assertThat(save("{\"tickler\":{\"id\":7,\"demographicNo\":42},\"noteId\":9,\"note\":\"new text\"}")).isEqualTo(403);
         verify(original,never()).getHistory(); verify(notes,never()).saveNoteSimple(any());
     }
     @Test void shouldRejectMissingTicklerInput_insteadOfReportingAnInternalFailure() {

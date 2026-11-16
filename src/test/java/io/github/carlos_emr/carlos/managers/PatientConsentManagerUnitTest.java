@@ -131,7 +131,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
 
         verify(mockConsentDao).findLastEditedByConsentTypeId(7, editedAfter);
         logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogSynchronous(loggedInInfo,
-                "PatientConsentManager.getConsentsByTypeAndEditDate", " Demographic: " + type));
+                "PatientConsentManager.getConsentsByTypeAndEditDate", " ConsentTypeId: 7"));
     }
 
     @Test

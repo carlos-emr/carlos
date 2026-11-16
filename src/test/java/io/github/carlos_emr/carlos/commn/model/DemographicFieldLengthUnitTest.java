@@ -49,7 +49,7 @@ class DemographicFieldLengthUnitTest {
         demographic.setPronoun(exact + "X");
         demographic.setGender(exact + "X");
         assertThat(demographic.validateFieldLengths())
-                .contains("Pronouns exceeds maximum length of 25 characters.",
+                .contains("Pronoun exceeds maximum length of 25 characters.",
                         "Gender exceeds maximum length of 25 characters.");
         assertThat(demographic.getPronoun()).isEqualTo(exact + "X");
         assertThat(demographic.getGender()).isEqualTo(exact + "X");

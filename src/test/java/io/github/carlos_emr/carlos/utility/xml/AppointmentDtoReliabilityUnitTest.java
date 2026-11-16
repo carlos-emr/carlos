@@ -67,8 +67,7 @@ class AppointmentDtoReliabilityUnitTest {
     void shouldDescribeAppointment_whenDatesAreAbsent() {
         var appointment = new AppointmentExtTo();
         appointment.setAppointmentNo(7);
-        assertThat(appointment.toString()).startsWith("AppointmentExtTo2 [appointmentNo=7,")
-                .contains(", appointmentDate=null, startTime=null,").endsWith("]");
+        assertThat(appointment.toString()).isEqualTo("AppointmentExtTo[appointmentNo=7]");
     }
 
     @Test
@@ -78,7 +77,8 @@ class AppointmentDtoReliabilityUnitTest {
         var date = new GregorianCalendar(2026, Calendar.JULY, 15, 13, 14, 15).getTime();
         appointment.setAppointmentDate(date);
         appointment.setStartTime(date);
-        assertThat(appointment.toString()).startsWith("AppointmentExtTo2 [appointmentNo=7,")
-                .contains(", appointmentDate=2026-07-15, startTime=2026-07-15,").endsWith("]");
+        assertThat(appointment.getAppointmentDate()).isEqualTo(date);
+        assertThat(appointment.getStartTime()).isEqualTo(date);
+        assertThat(appointment.toString()).isEqualTo("AppointmentExtTo[appointmentNo=7]");
     }
 }

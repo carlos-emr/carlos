@@ -41,6 +41,12 @@ class EmailManagerStatusUnitTest {
     @InjectMocks private EmailManager emailManager;
     private final LoggedInInfo loggedInInfo = new LoggedInInfo();
 
+    @org.junit.jupiter.api.BeforeEach
+    void injectLegacyCollaborators() {
+        ReflectionTestUtils.setField(emailManager, "emailLogDao", emailLogDao);
+        ReflectionTestUtils.setField(emailManager, "oscarLogDao", oscarLogDao);
+    }
+
     private EmailLog failedLog() {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true);
         EmailLog log = new EmailLog();

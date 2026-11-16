@@ -163,8 +163,11 @@ class OauthRestDataContractUnitTest extends CarlosUnitTestBase {
     }
 
     private DemographicService newDemographicService() {
+        var records = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class);
+        org.mockito.Mockito.lenient().when(records.findForUpdate(DEMOGRAPHIC_NO)).thenReturn(new Demographic(DEMOGRAPHIC_NO));
+        org.mockito.Mockito.lenient().when(records.findFreshForUpdate(DEMOGRAPHIC_NO)).thenReturn(new Demographic(DEMOGRAPHIC_NO));
         DemographicService service = new DemographicService(org.mockito.Mockito.mock(
-                io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class)) {
+                io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class), records) {
             @Override
             protected LoggedInInfo getLoggedInInfo() {
                 return loggedInInfo;
