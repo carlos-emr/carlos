@@ -2,7 +2,6 @@
 'use strict';
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
-const {readAcceptanceResponse} = require('./cds-export-acceptance-response');
 const {chromium} = require(process.env.CDS_BROWSER_PLAYWRIGHT);
 
 async function main() {
@@ -14,8 +13,23 @@ async function main() {
     let stage = 'LOGIN';
     let acceptedRunId = null;
     let formAction = null;
-    const acceptanceDiagnostic = {};
     try {
+        // Chromium can discard a streamed no-store body before CDP retrieves it.
+        // Observe a clone in the page so the application's reader keeps its stream
+        // and the assertions still inspect the actual server's JSON response.
+        await page.addInitScript(() => {
+            const originalFetch = globalThis.fetch;
+            globalThis.fetch = async function (...args) {
+                const response = await originalFetch.apply(this, args);
+                const method = args[1]?.method || (args[0] instanceof Request ? args[0].method : 'GET');
+                if (method.toUpperCase() === 'POST'
+                        && new URL(response.url).pathname.endsWith('/form/cdsExportSubmit')) {
+                    globalThis.__cdsExportSubmitJson = response.clone().json()
+                        .then(data => ({ok: true, data}), () => ({ok: false}));
+                }
+                return response;
+            };
+        });
         await page.goto(options.base + '/index', {waitUntil: 'domcontentloaded'});
         await page.locator('#username').fill(options.username);
         await page.locator('#password').fill(options.password);
@@ -71,7 +85,10 @@ async function main() {
         const response = await responsePromise;
         assert.equal(response.status(), 202);
         assert.equal(response.headers()['x-carlos-cds-export-api-version'], '1');
-        const accepted = await readAcceptanceResponse(response, acceptanceDiagnostic);
+        await page.waitForFunction(() => globalThis.__cdsExportSubmitJson !== undefined);
+        const observed = await page.evaluate(() => globalThis.__cdsExportSubmitJson);
+        assert.equal(observed?.ok, true);
+        const accepted = observed.data;
         assert.equal(accepted.ok, true);
         assert.equal(accepted.submissionKey, key);
         assert.equal(accepted.job.state, 'ACCEPTED');
@@ -144,7 +161,6 @@ async function main() {
         // Only fixed harness action names and our own source line are published.
         // Playwright messages/locator dumps can contain form values and remain private.
         if (stage === 'REAL_FORM_ACCEPTANCE') diagnostic.formAction = formAction;
-        if (Object.keys(acceptanceDiagnostic).length) diagnostic.acceptanceResponse = acceptanceDiagnostic;
         const source = /run-cds-export-installed-browser\.js:(\d+):\d+/.exec(failure.stack || '');
         if (source) diagnostic.harnessLine = Number(source[1]);
         if (acceptedRunId && /^[0-9a-f-]{36}$/.test(acceptedRunId)) {
