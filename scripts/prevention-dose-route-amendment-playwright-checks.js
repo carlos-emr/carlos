@@ -133,7 +133,7 @@ async function workflow(s) {
 
   const storedDose = recordId => {
     const rows = sql.rows(`SELECT HEX(val), id FROM preventionsExt
-      WHERE prevention_id=${requireId(recordId, 'The dose record')} AND keyval='dose'`);
+      WHERE prevention_id=? AND keyval='dose'`, [requireId(recordId, 'The dose record')]);
     h.assert(rows.length === 1 && rows[0].length === 2 && /^(?:[0-9A-F]{2})*$/.test(rows[0][0]), 'The stored dose is absent, null or ambiguous');
     return Buffer.from(rows[0][0], 'hex').toString('utf8');
   };
