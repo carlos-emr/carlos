@@ -52,11 +52,24 @@
                                     <carlos:encode value="${attempt.preparedAt}"/> &#8212;
                                     <fmt:message key="admin.configureEmail.portalFooter.kind.${attempt.kind}"/> &#8212;
                                     <fmt:message key="admin.configureEmail.portalFooter.status.${attempt.status}"/>
+                                    <%-- Said on the collapsed line too, so a send without the footer is found without opening each row. --%>
+                                    <c:if test="${not empty attempt.footerSkipped}">&#8212; <fmt:message key="admin.configureEmail.portalFooter.skippedMarker"/></c:if>
                                 </summary>
                                 <c:if test="${not empty attempt.statusAt}">
                                     <p><fmt:message key="admin.configureEmail.portalFooter.statusTime"/> <carlos:encode value="${attempt.statusAt}"/></p>
                                 </c:if>
-                                <pre class="mt-2" style="white-space:pre-wrap;"><carlos:encode value="${attempt.footerText}"/></pre>
+                                <c:choose>
+                                    <%-- Prepared without the clinic footer while the Portal could not get one (portal #27, D138).
+                                         footerSkipped is one of the nine reasons PortalEmailFooterAuditPage accepts, each
+                                         with a label in every locale; the label is encoded like any other text. --%>
+                                    <c:when test="${not empty attempt.footerSkipped}">
+                                        <fmt:message var="portalFooterSkippedReason" key="admin.configureEmail.portalFooter.skippedReason.${attempt.footerSkipped}"/>
+                                        <p class="mt-2"><fmt:message key="admin.configureEmail.portalFooter.skipped"><fmt:param><carlos:encode value="${portalFooterSkippedReason}"/></fmt:param></fmt:message></p>
+                                    </c:when>
+                                    <c:otherwise>
+                                        <pre class="mt-2" style="white-space:pre-wrap;"><carlos:encode value="${attempt.footerText}"/></pre>
+                                    </c:otherwise>
+                                </c:choose>
                             </details>
                         </c:forEach>
                         <c:if test="${not empty portalFooterAudit.nextBefore}">

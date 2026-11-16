@@ -38,6 +38,7 @@ import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.apache.commons.lang3.time.DateFormatUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -73,9 +74,27 @@ class DemographicBirthDayTimezoneUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @ValueSource(strings = {"1980-06-15", "1980-01-15", "2000-02-29", "1970-01-01", "2018-11-04"})
     void shouldFormatRecordedDate_whenUsingJvmStartupTimezone(String date) {
-        // DateFormatUtils caches its timezone. Exercise formatting in the separate
-        // Toronto/Tokyo JVM runs, without changing the default after initialization.
+        // Exercise ordinary formatting in the separate Toronto/Tokyo JVM runs too.
         assertThat(demographic(date).getFormattedDob()).isEqualTo(date);
+    }
+
+    /** A formatter cached by another subsystem must not reinterpret the birthday's calendar date. */
+    @ParameterizedTest
+    @CsvSource({
+            "UTC,1980-06-15", "America/Toronto,1980-06-15", "Asia/Tokyo,1980-01-15",
+            "America/St_Johns,2000-02-29", "Etc/GMT-14,2000-02-29", "Etc/GMT+12,2000-02-29"
+    })
+    void shouldFormatRecordedDate_whenDefaultTimezoneChangesAfterFormatterInitialization(String zone, String date) {
+        TimeZone original = TimeZone.getDefault();
+        // Materialize the shared formatter before changing the default, as another test or subsystem can.
+        TimeZone cached = DateFormatUtils.ISO_DATE_FORMAT.getTimeZone();
+        try {
+            TimeZone.setDefault(TimeZone.getTimeZone(zone));
+            assertThat(demographic(date).getFormattedDob()).isEqualTo(date);
+            assertThat(DateFormatUtils.ISO_DATE_FORMAT.getTimeZone()).isEqualTo(cached);
+        } finally {
+            TimeZone.setDefault(original);
+        }
     }
 
     @ParameterizedTest

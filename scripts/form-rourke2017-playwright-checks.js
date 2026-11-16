@@ -41,6 +41,8 @@
  * Optional: ROURKE_PROVIDER_NO (999998).
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
@@ -168,16 +170,9 @@ function runCleanup() {
 }
 // Node does not run finally blocks on SIGINT/SIGTERM (the suite loop's `timeout`
 // sends TERM), so restore the fixtures here too before exiting.
-for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => {
-    console.error(`${signal} received; restoring fixtures before exiting.`);
-    runCleanup();
-    cleanupMysqlDefaults();
-    process.exit(130);
-  });
-}
+// Signals unwind through the shared entry point and the existing finally below.
 
-(async () => {
+legacyHarness.runLegacyCheck('form-rourke2017',async({cancellation})=>{
   const recorder = createRecorder();
   initMysqlDefaults();
   // Staging and the browser launch sit inside the protected scope so a failure in
@@ -191,35 +186,51 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     // The form shows the DOB as dd/MM/yyyy; the row stores it as yyyy-MM-dd.
     const [expectedName, expectedDob, expectedDobIso] = sql(`SELECT CONCAT(last_name, ', ', first_name), CONCAT(LPAD(date_of_birth, 2, '0'), '/', LPAD(month_of_birth, 2, '0'), '/', year_of_birth), CONCAT(year_of_birth, '-', LPAD(month_of_birth, 2, '0'), '-', LPAD(date_of_birth, 2, '0')) FROM demographic WHERE demographic_no=${Number(demographicNo)}`).split('\t');
     assert(expectedName && expectedDob, `demographic ${demographicNo} not found`);
-    browser = await chromium.launch(getLaunchOptions(config.chromePath));
+    browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1500, height: 1100 } });
+    cancellation?.throwIfCancelled();
     await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
 
     // 1. New form: identity auto-populated.
     const page = await openForm(context, recorder, 'rourke-new', `/form/formrourke2017complete?demographic_no=${encodeURIComponent(demographicNo)}&formId=0&provNo=${encodeURIComponent(providerNo)}`);
+    cancellation?.throwIfCancelled();
     const nameField = page.locator('input[name="c_pName"]');
     const dobField = page.locator('#c_birthDate');
     assert((await nameField.inputValue()) === expectedName, `patient name was "${await nameField.inputValue()}", expected "${expectedName}"`);
+    cancellation?.throwIfCancelled();
     assert((await dobField.inputValue()) === expectedDob, `DOB was "${await dobField.inputValue()}", expected "${expectedDob}"`);
+    cancellation?.throwIfCancelled();
     assert(await nameField.evaluate((el) => el.readOnly) && await dobField.evaluate((el) => el.readOnly), 'identity fields are not read-only');
+    cancellation?.throwIfCancelled();
 
     // 2. Birth length conversion and the 1-week visit.
     const length = page.locator('input[name="c_length"]');
     await length.fill('1\'8"');
+    cancellation?.throwIfCancelled();
     await length.dblclick();
+    cancellation?.throwIfCancelled();
     assert((await length.inputValue()) === '50.8', `birth length did not convert to cm (got ${await length.inputValue()})`);
+    cancellation?.throwIfCancelled();
     await page.locator('#p1_date1w').evaluate((el, value) => { el.value = value; }, visit.date);
+    cancellation?.throwIfCancelled();
     await page.locator('input[name="p1_ht1w"]').fill(visit.height);
+    cancellation?.throwIfCancelled();
     await page.locator('input[name="p1_wt1w"]').fill(visit.weight);
+    cancellation?.throwIfCancelled();
     await page.locator('input[name="p1_hc1w"]').fill(visit.headCirc);
+    cancellation?.throwIfCancelled();
 
     // 3. Save and Exit.
     const [saveResponse] = await Promise.all([
       page.waitForResponse((response) => response.request().method() === 'POST' && /\/form\/formname\?submit=exit/.test(response.url()), { timeout: 30000 }),
       page.locator('#frmP1 input[type="submit"][value="Save and Exit"]').first().click(),
     ]);
+    cancellation?.throwIfCancelled();
     assert(saveResponse.status() < 400, `Rourke save returned HTTP ${saveResponse.status()}`);
     await page.waitForFunction(() => window.__closed === true, null, { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     const confirms = ['answered'];
     assert(recorder.dialogs.length === 0, `save raised an unexpected dialog: ${JSON.stringify(recorder.dialogs)}`);
     const rows = newFormRows();
@@ -232,28 +243,41 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     assert(saved.hc1w === visit.headCirc, `saved head circumference was ${saved.hc1w}`);
     assert(saved.provider === providerNo, `saved provider was ${saved.provider}`);
     assert(await page.evaluate(() => window.__closed === true).catch(() => true), 'Save and Exit did not close the form window');
+    cancellation?.throwIfCancelled();
 
     // Both legacy and extensionless links must render the saved form as HTML.
     const redirectProbe = await context.newPage();
+    cancellation?.throwIfCancelled();
     wirePage(redirectProbe, 'rourke-save-redirect', recorder);
     for (const formLink of ['formrourke2017complete.jsp', 'formrourke2017complete']) {
       const saveRedirect = await gotoApp(redirectProbe, config.baseUrl, `/form/forwardname?form_link=${formLink}&demographic_no=${encodeURIComponent(demographicNo)}&formId=${encodeURIComponent(saved.id)}`);
+    cancellation?.throwIfCancelled();
       assert(saveRedirect && saveRedirect.status() === 200, `${formLink} did not return HTTP 200`);
       assert(/text\/html/i.test(saveRedirect.headers()['content-type'] || ''), `${formLink} did not return HTML`);
       assert(await redirectProbe.locator('#frmP1').count(), `${formLink} did not render the saved form`);
+    cancellation?.throwIfCancelled();
       assert((await redirectProbe.locator('input[name="p1_ht1w"]').inputValue()) === visit.height,
         `${formLink} lost the saved height`);
+    cancellation?.throwIfCancelled();
     }
     await redirectProbe.close();
+    cancellation?.throwIfCancelled();
 
     // 4. Reopen the latest form through the shortcut route.
     const reopened = await openForm(context, recorder, 'rourke-latest', `/form/forwardshortcutname?formname=Rourke2017&demographic_no=${encodeURIComponent(demographicNo)}&formId=latest`);
+    cancellation?.throwIfCancelled();
     assert((await reopened.locator('input[name="p1_ht1w"]').inputValue()) === visit.height, 'reopened form lost the 1-week height');
+    cancellation?.throwIfCancelled();
     assert((await reopened.locator('input[name="p1_wt1w"]').inputValue()) === visit.weight, 'reopened form lost the 1-week weight');
+    cancellation?.throwIfCancelled();
     assert((await reopened.locator('input[name="c_length"]').inputValue()) === '50.8', 'reopened form lost the birth length');
+    cancellation?.throwIfCancelled();
     assert(visit.dateForms.includes(await reopened.locator('#p1_date1w').inputValue()), `reopened form lost the 1-week date (got ${await reopened.locator('#p1_date1w').inputValue()})`);
+    cancellation?.throwIfCancelled();
     await reopened.close();
+    cancellation?.throwIfCancelled();
     await page.close();
+    cancellation?.throwIfCancelled();
 
     const consoleIssues = recorder.consoleIssues;
     assertNoPageErrors(recorder);
@@ -271,4 +295,4 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     runCleanup();
     cleanupMysqlDefaults();
   }
-})();
+});

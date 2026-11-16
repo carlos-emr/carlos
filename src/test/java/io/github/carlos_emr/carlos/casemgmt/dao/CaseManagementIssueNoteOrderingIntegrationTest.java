@@ -159,13 +159,16 @@ class CaseManagementIssueNoteOrderingIntegrationTest extends CaseManagementNoteD
     }
 
     @Test
-    void shouldKeepRejectingMissingObservationDate_whenALegacyRowHasNoSortKey() {
+    void shouldKeepMissingObservationDate_whenALegacyRowHasNoSortKey() {
         CaseManagementNote note = linked(issue(PATIENT, "MedHistory"), UUID.randomUUID().toString(),
                 OBSERVED, OBSERVED, "FAKE missing date");
         entityManager.createNativeQuery("UPDATE casemgmt_note SET observation_date=NULL WHERE note_id=?1")
                 .setParameter(1, note.getId()).executeUpdate();
         entityManager.clear();
-        assertThatThrownBy(() -> find("MedHistory")).isInstanceOf(NullPointerException.class);
+        assertThat(find("MedHistory")).singleElement().satisfies(stored -> {
+            assertThat(stored.getId()).isEqualTo(note.getId());
+            assertThat(stored.getObservation_date()).isNull();
+        });
     }
 
     private CaseManagementIssue issue(int patient, String code) {

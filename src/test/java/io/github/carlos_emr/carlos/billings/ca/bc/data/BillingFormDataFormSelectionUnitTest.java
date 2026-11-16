@@ -44,4 +44,20 @@ class BillingFormDataFormSelectionUnitTest extends CarlosUnitTestBase {
         when(forms.getAllServiceTypes()).thenReturn(List.of());
         assertThat(new BillingFormData().resolveBillingForm(null)).isEmpty();
     }
+
+    @Test
+    void shouldPreserveQueryCellConversion_forReferralDoctors() {
+        BillingmasterDAO referrals = createAndRegisterMock(BillingmasterDAO.class);
+        when(referrals.getRecentReferralDoctors(123)).thenReturn(List.of(
+                new Object[]{null, ""},
+                new Object[]{"alpha", "alpha"},
+                new Object[]{new Object[]{new String[]{"beta", "ignored"}}, new int[]{42, 99}},
+                new Object[]{new Object[0], new Object[]{null}},
+                new Object[]{new boolean[]{true}, new char[]{'z'}},
+                new Object[]{123L, new double[]{1.5}},
+                new Object[]{new byte[]{7}, new short[]{8}},
+                new Object[]{new long[]{9}, new float[]{2.5f}}));
+        assertThat(new BillingFormData().getRecentReferralDoctorsList(123))
+                .containsExactlyInAnyOrder("alpha", "beta", "42", "true", "z", "123", "1.5", "7", "8", "9", "2.5");
+    }
 }

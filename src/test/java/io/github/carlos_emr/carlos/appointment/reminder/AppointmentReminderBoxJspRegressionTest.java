@@ -154,11 +154,30 @@ class AppointmentReminderBoxJspRegressionTest {
         assertThat(group).containsSubsequence("equals(\"Add Group Appointment\")", "appointmentDao.persist(a);",
                 "groupBookings.add(a);", "AppointmentReminderChoice.recordForGroup(request,", "groupBookings, curProvider_no);",
                 "if (rowsAffected == 1) bSucc = true;");
-        assertThat(group).containsSubsequence("equals(\"Group Update\")", "replacedNo = appt.getId();",
-                "appointmentDao.persist(a);", "AppointmentReminderChoice.moveReminders(request, groupUser, replacedNo, a);",
-                "AppointmentReminderChoice.recordAfterGroupUpdate(request, groupUser, edited);");
-        // Each booking there is already saved: the reminder calls never stop the page (no transaction around it).
+        assertThat(group).containsSubsequence("equals(\"Group Update\")",
+                "new GroupUpdateReminders(request, groupUser);", "replacedNo = appt.getId();",
+                "appointmentDao.persist(a);", "groupReminders.moveReminders(replacedNo, a);",
+                "groupReminders.recordAfterGroupUpdate(edited);");
+        // Each booking is already saved when its reminder is recorded: the reminder calls never stop the page.
         assertThat(group).doesNotContain("AppointmentReminderChoice.record(request");
+    }
+
+    /**
+     * Group Update, Group Cancel and Group Delete write in one transaction. A reminder call inside it would join it,
+     * and one that failed would roll back every booking of the group. So Group Update's reminder steps are only
+     * noted while the transaction is open, and run after it has committed: the bookings always save.
+     */
+    @Test
+    void shouldRunGroupUpdateReminderSteps_onlyAfterTheGroupTransactionCommits() throws IOException {
+        String group = page("appointmentgrouprecords.jsp");
+
+        assertThat(group).containsSubsequence("groupTxManager.getTransaction(",
+                "groupReminders.moveReminders(replacedNo, a);", "groupReminders.recordAfterGroupUpdate(edited);",
+                "groupTxManager.commit(groupTx);", "groupTxEnded = true;", "groupReminders.runAfterCommit();",
+                "} finally {", "if (bSucc && AppointmentReminderChoice.notRecorded(request)) {");
+        assertThat(group).as("no reminder call runs inside the group transaction")
+                .doesNotContain("AppointmentReminderChoice.moveReminders(")
+                .doesNotContain("AppointmentReminderChoice.recordAfterGroupUpdate(");
     }
 
     /**

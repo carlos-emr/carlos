@@ -29,6 +29,7 @@
 
 --%>
 
+<%@ taglib prefix="source" tagdir="/WEB-INF/tags" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.PartialDate" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 
@@ -37,17 +38,17 @@
 
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@ page import="io.github.carlos_emr.CarlosProperties,io.github.carlos_emr.carlos.log.*" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo,io.github.carlos_emr.carlos.commn.dao.DrugReasonDao,io.github.carlos_emr.carlos.commn.model.DrugReason" %>
 <%@page import="io.github.carlos_emr.carlos.util.*,java.util.*,io.github.carlos_emr.carlos.commn.model.Drug,io.github.carlos_emr.carlos.commn.dao.*" %>
 <%@page import="io.github.carlos_emr.carlos.managers.CodingSystemManager" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
@@ -199,6 +200,7 @@
 <h4 style="margin-bottom:1px;margin-top:3px;"><carlos:encode value='<%= heading %>' context="html"/></h4>
 <%}%>
 <fmt:message key="SearchDrug.msgHideCPPSaveFailed" var="msg_hideCppSaveFailed"/>
+<div><source:cdsSourceFields demographicNo="${pageScope.RxSessionBean.demographicNo}" category="MedicationsAndTreatments"/></div>
 <div class="drugProfileText" style="">
     <table class="list-drugs sortable" id="Drug_table<carlos:encode value='<%= heading %>' context="htmlAttribute"/>">
         <tr>

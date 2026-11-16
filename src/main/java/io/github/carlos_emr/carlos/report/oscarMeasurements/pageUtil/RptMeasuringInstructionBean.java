@@ -31,7 +31,9 @@
 package io.github.carlos_emr.carlos.report.oscarMeasurements.pageUtil;
 
 
-public class RptMeasuringInstructionBean {
+public class RptMeasuringInstructionBean implements java.io.Serializable {
+
+    @java.io.Serial private static final long serialVersionUID = 1L;
 
     String measuringInstrc;
 

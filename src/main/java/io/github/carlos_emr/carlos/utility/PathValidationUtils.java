@@ -1,3 +1,26 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * Modifications by CARLOS Contributors, 2026.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
 package io.github.carlos_emr.carlos.utility;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -65,7 +88,6 @@ public final class PathValidationUtils {
             "Invalid filename: must not include a path.";
     private static final String BLOCKED_EXTENSION_MESSAGE =
             "Invalid filename: file extension .%s not allowed.";
-    private static final String INVALID_FIELD_EMPTY_LOG = "Invalid {}: null or empty";
     private static final Set<String> BLOCKED_EXTENSIONS = Set.of(
             "jsp", "jspx", "war", "class", "jar", "jnlp");
 
@@ -339,23 +361,22 @@ public final class PathValidationUtils {
      * names.
      *
      * @param value the path component to validate
-     * @param label field name used in log messages
+     * @param label caller label retained for API compatibility; its value is not logged
      * @return the original value when it is a safe single component
      * @throws FileValidationException if the value is blank, hidden, absolute,
      * contains path separators, or is a traversal component
      */
     public static String validatePathComponent(String value, String label) {
-        String field = label == null || label.trim().isEmpty() ? "path component" : label;
         if (value == null || value.trim().isEmpty()) {
-            logger.warn(INVALID_FIELD_EMPTY_LOG, field);
+            logger.warn("Invalid path setting: empty value");
             throw new FileValidationException(INVALID_FILENAME_MESSAGE);
         }
         if (value.indexOf('\0') >= 0) {
-            logger.warn("Invalid {}: contains null byte", field);
+            logger.warn("Invalid path setting: contains null byte");
             throw new FileValidationException(INVALID_FILENAME_MESSAGE);
         }
         if (".".equals(value) || "..".equals(value) || value.startsWith(".")) {
-            logger.warn("Invalid {}: hidden or traversal component", field);
+            logger.warn("Invalid path setting: hidden or traversal component");
             throw new FileValidationException(INVALID_FILENAME_MESSAGE);
         }
 
@@ -364,11 +385,11 @@ public final class PathValidationUtils {
                     || value.contains("/")
                     || value.contains("\\")
                     || !FilenameUtils.getName(value).equals(value)) {
-                logger.warn("Invalid {}: path components not allowed", field);
+                logger.warn("Invalid path setting: path components not allowed");
                 throw new FileValidationException(INVALID_FILENAME_MESSAGE);
             }
         } catch (IllegalArgumentException e) {
-            logger.warn("Invalid {}: filename parser rejected value", field);
+            logger.warn("Invalid path setting: filename parser rejected value");
             throw new FileValidationException(INVALID_FILENAME_MESSAGE, e);
         }
 
@@ -421,6 +442,33 @@ public final class PathValidationUtils {
     }
 
     /**
+     * Validates protected import paths without logging their names or an exception chain.
+     *
+     * <p>CDS source filenames can contain patient names or birth dates. LogSafe prevents log
+     * injection but does not redact that clinical information. Import callers record the safe
+     * rejection code in ordinary logs and retain necessary source context only in protected
+     * diagnostics. This method preserves the canonical containment check of the ordinary API;
+     * it deliberately does not change existing callers' logging contract.</p>
+     */
+    public static File validatePrivateImportPath(File file, File allowedDir) {
+        if (file == null || allowedDir == null) {
+            throw new SecurityException("CDS_PATH_INVALID");
+        }
+        try {
+            File canonicalBase = allowedDir.getCanonicalFile();
+            File canonicalFile = file.getCanonicalFile();
+            java.nio.file.Path base = canonicalBase.toPath();
+            if (!canonicalFile.toPath().startsWith(base)) {
+                throw new SecurityException("CDS_PATH_OUTSIDE_ROOT");
+            }
+            return canonicalFile;
+        } catch (IOException failure) {
+            // Do not attach the cause: lower-level filesystem messages may include PHI paths.
+            throw new SecurityException("CDS_PATH_CANONICALIZATION_FAILED");
+        }
+    }
+
+    /**
      * Validates that a child file path is within the allowed directory. The child
      * does not need to exist yet, so this helper is appropriate for creation paths.
      *
@@ -451,18 +499,17 @@ public final class PathValidationUtils {
      * externally controlled paths.
      *
      * @param file trusted file path to canonicalize
-     * @param label human-readable label for diagnostics
+     * @param label caller label retained for API compatibility; its value is not logged
      * @return canonicalized file
      */
     public static File resolveTrustedPath(File file, String label) {
-        String field = label == null || label.trim().isEmpty() ? "trusted file" : label;
         if (file == null) {
             throw new SecurityException("File is null");
         }
         try {
             return file.getCanonicalFile();
         } catch (IOException e) {
-            logger.error("Error resolving {} ({})", field, e.getClass().getSimpleName());
+            logger.error("Error resolving {} ({})", "path", e.getClass().getSimpleName());
             logTrace(e);
             throw new SecurityException("Error resolving trusted path", e);
         }
@@ -492,14 +539,13 @@ public final class PathValidationUtils {
      * resolving user or generated children with the other validation helpers.</p>
      *
      * @param configuredPath configured directory path
-     * @param label human-readable label for diagnostics
+     * @param label caller label retained for API compatibility; its value is not logged
      * @return canonical directory File
      * @throws SecurityException if the path is blank, cannot be canonicalized, or is not a directory
      */
     public static File validateConfiguredDirectory(String configuredPath, String label) {
-        String field = label == null || label.trim().isEmpty() ? "configured directory" : label;
         if (configuredPath == null || configuredPath.trim().isEmpty()) {
-            logger.warn(INVALID_FIELD_EMPTY_LOG, field);
+            logger.warn("Invalid path setting: empty value");
             throw new SecurityException("Invalid configured directory");
         }
 
@@ -507,13 +553,13 @@ public final class PathValidationUtils {
             File directory = new File(configuredPath).getCanonicalFile();
             if (!directory.isDirectory()) {
                 if (logger.isWarnEnabled()) {
-                    logger.warn("{} is not a directory: {}", field, logReference(directory.getPath()));
+                    logger.warn("{} is not a directory: {}", "path", logReference(directory.getPath()));
                 }
                 throw new SecurityException("Configured path is not a directory");
             }
             return directory;
         } catch (IOException e) {
-            logger.error("Error validating {} ({})", field, e.getClass().getSimpleName());
+            logger.error("Error validating {} ({})", "path", e.getClass().getSimpleName());
             logTrace(e);
             throw new SecurityException("Error validating configured directory", e);
         }
@@ -556,13 +602,12 @@ public final class PathValidationUtils {
      * are preserved to avoid changing legacy lazy-create behavior.
      *
      * @param configuredPath configured directory path
-     * @param label human-readable label for diagnostics
+     * @param label caller label retained for API compatibility; its value is not logged
      * @return canonical directory File
      */
     public static File resolveConfiguredDirectory(String configuredPath, String label) {
-        String field = label == null || label.trim().isEmpty() ? "configured directory" : label;
         if (configuredPath == null || configuredPath.trim().isEmpty()) {
-            logger.warn(INVALID_FIELD_EMPTY_LOG, field);
+            logger.warn("Invalid path setting: empty value");
             throw new SecurityException("Invalid configured directory");
         }
 
@@ -570,13 +615,13 @@ public final class PathValidationUtils {
             File directory = new File(configuredPath).getCanonicalFile();
             if (directory.exists() && !directory.isDirectory()) {
                 if (logger.isWarnEnabled()) {
-                    logger.warn("{} is not a directory: {}", field, logReference(directory.getPath()));
+                    logger.warn("{} is not a directory: {}", "path", logReference(directory.getPath()));
                 }
                 throw new SecurityException("Configured path is not a directory");
             }
             return directory;
         } catch (IOException e) {
-            logger.error("Error validating {} ({})", field, e.getClass().getSimpleName());
+            logger.error("Error validating {} ({})", "path", e.getClass().getSimpleName());
             logTrace(e);
             throw new SecurityException("Error validating configured directory", e);
         }
@@ -589,17 +634,16 @@ public final class PathValidationUtils {
      *
      * @param configuredPath configured base path
      * @param suffix trusted suffix to append to the configured file or directory name
-     * @param label human-readable label for diagnostics
+     * @param label caller label retained for API compatibility; its value is not logged
      * @return validated sibling File
      */
     public static File validateGeneratedSiblingPath(String configuredPath, String suffix, String label) {
-        String field = label == null || label.trim().isEmpty() ? "configured sibling" : label;
         if (configuredPath == null || configuredPath.trim().isEmpty() || suffix == null || suffix.trim().isEmpty()) {
-            logger.warn("Invalid {}: blank configured path or suffix", field);
+            logger.warn("Invalid path setting: blank configured path or suffix");
             throw new SecurityException("Invalid configured sibling path");
         }
         if (suffix.indexOf('\0') >= 0 || suffix.contains("/") || suffix.contains("\\")) {
-            logger.warn("Invalid {}: suffix must be a trusted path suffix", field);
+            logger.warn("Invalid path setting: suffix must be a trusted path suffix");
             throw new SecurityException("Invalid configured sibling suffix");
         }
 
@@ -613,7 +657,7 @@ public final class PathValidationUtils {
             validateWithinDirectory(sibling, parent);
             return sibling;
         } catch (IOException e) {
-            logger.error("Error validating {} ({})", field, e.getClass().getSimpleName());
+            logger.error("Error validating {} ({})", "path", e.getClass().getSimpleName());
             logTrace(e);
             throw new SecurityException("Error validating configured sibling path", e);
         }
@@ -625,13 +669,12 @@ public final class PathValidationUtils {
      * This is for trusted configuration values, not request parameters.
      *
      * @param configuredPath configured file path
-     * @param label human-readable label for diagnostics
+     * @param label caller label retained for API compatibility; its value is not logged
      * @return canonical file
      */
     public static File validateConfiguredFile(String configuredPath, String label) {
-        String field = label == null || label.trim().isEmpty() ? "configured file" : label;
         if (configuredPath == null || configuredPath.trim().isEmpty()) {
-            logger.warn(INVALID_FIELD_EMPTY_LOG, field);
+            logger.warn("Invalid path setting: empty value");
             throw new SecurityException("Invalid configured file");
         }
 
@@ -639,13 +682,13 @@ public final class PathValidationUtils {
             File file = new File(configuredPath).getCanonicalFile();
             if (!file.isFile()) {
                 if (logger.isWarnEnabled()) {
-                    logger.warn("{} is not a file: {}", field, logReference(file.getPath()));
+                    logger.warn("{} is not a file: {}", "path", logReference(file.getPath()));
                 }
                 throw new SecurityException("Configured path is not a file");
             }
             return file;
         } catch (IOException e) {
-            logger.error("Error validating {} ({})", field, e.getClass().getSimpleName());
+            logger.error("Error validating {} ({})", "path", e.getClass().getSimpleName());
             logTrace(e);
             throw new SecurityException("Error validating configured file", e);
         }
@@ -657,13 +700,12 @@ public final class PathValidationUtils {
      * changing legacy lazy-create behavior.
      *
      * @param configuredPath configured file path
-     * @param label human-readable label for diagnostics
+     * @param label caller label retained for API compatibility; its value is not logged
      * @return canonical file
      */
     public static File resolveConfiguredFile(String configuredPath, String label) {
-        String field = label == null || label.trim().isEmpty() ? "configured file" : label;
         if (configuredPath == null || configuredPath.trim().isEmpty()) {
-            logger.warn(INVALID_FIELD_EMPTY_LOG, field);
+            logger.warn("Invalid path setting: empty value");
             throw new SecurityException("Invalid configured file");
         }
 
@@ -671,13 +713,13 @@ public final class PathValidationUtils {
             File file = new File(configuredPath).getCanonicalFile();
             if (file.exists() && !file.isFile()) {
                 if (logger.isWarnEnabled()) {
-                    logger.warn("{} is not a file: {}", field, logReference(file.getPath()));
+                    logger.warn("{} is not a file: {}", "path", logReference(file.getPath()));
                 }
                 throw new SecurityException("Configured path is not a file");
             }
             return file;
         } catch (IOException e) {
-            logger.error("Error validating {} ({})", field, e.getClass().getSimpleName());
+            logger.error("Error validating {} ({})", "path", e.getClass().getSimpleName());
             logTrace(e);
             throw new SecurityException("Error validating configured file", e);
         }

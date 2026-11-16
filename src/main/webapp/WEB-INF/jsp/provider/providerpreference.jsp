@@ -49,7 +49,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
@@ -173,6 +173,8 @@
     // Lab & messaging preferences
     boolean labAckComment = "yes".equalsIgnoreCase(props.getOrDefault(UserProperty.LAB_ACK_COMMENT, "no"));
     String patientNameLen = props.getOrDefault(UserProperty.PATIENT_NAME_LENGTH, "");
+    boolean groupEchartDocuments = "true".equals(org.apache.commons.lang3.StringUtils.trimToEmpty(
+            props.get(UserProperty.ECHART_GROUP_DOCUMENTS_BY_TYPE)));
     String displayDocAs = props.getOrDefault(UserProperty.DISPLAY_DOCUMENT_AS, "");
     boolean eDocInReport = "yes".equalsIgnoreCase(
             props.getOrDefault(UserProperty.EDOC_BROWSER_IN_DOCUMENT_REPORT, "no"));
@@ -962,7 +964,7 @@
     <div id="secConsult" class="accordion-collapse collapse" data-bs-parent="#prefAccordion">
         <div class="accordion-body">
             <div class="pref-row">
-                <div class="pref-label"><fmt:message key="provider.providerpreference.label.consultCutoff"/> <span class="hint"><fmt:message key="provider.providerpreference.hint.days"/></span></div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.consultCutoff"/> <span class="hint"><fmt:message key="provider.consultationWarning.months"/></span></div>
                 <div class="pref-value">
                     <input type="text" name="consultation_time_period_warning"
                            value="<carlos:encode value='<%= consultCutoff %>' context="htmlAttribute"/>"
@@ -1069,6 +1071,18 @@
                     <input type="text" name="patient_name_length"
                            value="<carlos:encode value='<%= patientNameLen %>' context="htmlAttribute"/>"
                            class="pref-input input-xs">
+                </div>
+            </div>
+            <div class="pref-row">
+                <fmt:message key="provider.providerpreference.label.echartDocumentGrouping" var="echartDocumentGroupingLabel"/>
+                <fmt:message key="provider.providerpreference.documentGrouping.none" var="echartGroupingNoneLabel"/>
+                <fmt:message key="provider.providerpreference.documentGrouping.type" var="echartGroupingTypeLabel"/>
+                <div class="pref-label"><label for="echartDocumentGrouping">${carlos:forHtml(echartDocumentGroupingLabel)}</label></div>
+                <div class="pref-value">
+                    <select id="echartDocumentGrouping" name="<%= UserProperty.ECHART_GROUP_DOCUMENTS_BY_TYPE %>" class="pref-input form-select-sm">
+                        <option value="false" <%=!groupEchartDocuments ? "selected" : ""%>>${carlos:forHtml(echartGroupingNoneLabel)}</option>
+                        <option value="true" <%=groupEchartDocuments ? "selected" : ""%>>${carlos:forHtml(echartGroupingTypeLabel)}</option>
+                    </select>
                 </div>
             </div>
             <div class="pref-row">

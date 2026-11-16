@@ -74,7 +74,7 @@ public class AccessTokenResource {
         }
 
         RequestToken rt = provider.getRequestToken(oreq.token);
-        if (rt == null) {
+        if (rt == null || rt.getClient() == null || !client.getConsumerKey().equals(rt.getClient().getConsumerKey())) {
             logger.warn("Access token request failed: unrecognized request token");
             return Response.status(401).entity("invalid_request_token").build();
         }

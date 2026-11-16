@@ -1,0 +1,1728 @@
+{
+  "schemaVersion": 1,
+  "issue": "https://github.com/carlos-emr/carlos/issues/5721",
+  "candidateSource": {
+    "clean": false,
+    "commit": "908b6f7886782023c308d72afbafb90dd45713de",
+    "tree": "35a510c06a1938bd015a79a1e1740af2dc70d944"
+  },
+  "baseSource": "74f240a4b9f92188300a8700cf11f1d74bc2b58d",
+  "mainPackageSha256": "839c981b7de78460d89eaba0a8c95d992d88f861cc4739bba2b81753373a3af1",
+  "candidateWarSha256": "24d220efb38c4799244acabdcd7aa6b33901a24aeffcb4355e297fcafa116a87",
+  "probeSha256": "a95df99add5f922dfe17c47906c3d795a08a4f0f9874a48372051006ff765c4a",
+  "inventorySha256": "41d1fc8b1eba3c63effa2ead971490549c8c2d9a52d2b1d81a68bbe309a91693",
+  "baseNativeObservationsSha256": "25b96e20b29d88ddde4c5972a4a23c17514a56738510077614e4ccc917de272d",
+  "counts": {
+    "glassfish": {
+      "schema-equivalent-dateTime-fraction-width": 19,
+      "same-elements-values-attributes-and-order": 29,
+      "clinical-precision-graph-already-present-in-release-base": 8
+    },
+    "moxy": {
+      "same-elements-values-attributes-and-order": 30,
+      "xsi-type-prefix-spelling-with-identical-old-reader-state": 5,
+      "pre-existing-context-failure": 20,
+      "published-required-empty-map-retained-with-identical-old-reader-state": 1
+    }
+  },
+  "cases": {
+    "commn.model.Demographic:default": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "schema-equivalent-dateTime-fraction-width",
+          "paths": [
+            "/value/lastUpdateDate"
+          ]
+        },
+        "moxy": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        }
+      }
+    },
+    "commn.model.ProfessionalSpecialist:default": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "pre-existing-failure"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "pre-existing-failure"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "schema-equivalent-dateTime-fraction-width",
+          "paths": [
+            "/value/lastUpdated"
+          ]
+        },
+        "moxy": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        }
+      }
+    },
+    "commn.model.Provider:default": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "schema-equivalent-dateTime-fraction-width",
+          "paths": [
+            "/value/lastUpdateDate"
+          ]
+        },
+        "moxy": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        }
+      }
+    },
+    "model.LookupCodeValue:populated": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        },
+        "moxy": {
+          "disposition": "xsi-type-prefix-spelling-with-identical-old-reader-state",
+          "paths": [
+            "/value/associates"
+          ]
+        }
+      }
+    },
+    "webserv.rest.to.AbstractSearchResponse:default": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": "org.eclipse.persistence.jaxb.JAXBException",
+          "problems": [],
+          "readers": {}
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "schema-equivalent-dateTime-fraction-width",
+          "paths": [
+            "/value/timestamp"
+          ]
+        },
+        "moxy": {
+          "disposition": "pre-existing-context-failure",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.AllergyResponse:populated": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "pre-existing-failure",
+            "strictRead": "pre-existing-failure"
+          }
+        },
+        "moxy": {
+          "contextError": "org.eclipse.persistence.jaxb.JAXBException",
+          "problems": [],
+          "readers": {}
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "clinical-precision-graph-already-present-in-release-base",
+          "paths": [
+            "/value/allergies/entryDateInfo",
+            "/value/allergies/startDateInfo"
+          ]
+        },
+        "moxy": {
+          "disposition": "pre-existing-context-failure",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.AppointmentExtResponse:default": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": "org.eclipse.persistence.jaxb.JAXBException",
+          "problems": [],
+          "readers": {}
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "schema-equivalent-dateTime-fraction-width",
+          "paths": [
+            "/value/timestamp"
+          ]
+        },
+        "moxy": {
+          "disposition": "pre-existing-context-failure",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.AppointmentExtResponse:populated": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": "org.eclipse.persistence.jaxb.JAXBException",
+          "problems": [],
+          "readers": {}
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        },
+        "moxy": {
+          "disposition": "pre-existing-context-failure",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.DemographicResponse:default": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": "org.eclipse.persistence.jaxb.JAXBException",
+          "problems": [],
+          "readers": {}
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "schema-equivalent-dateTime-fraction-width",
+          "paths": [
+            "/value/timestamp"
+          ]
+        },
+        "moxy": {
+          "disposition": "pre-existing-context-failure",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.DemographicResponse:populated": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "pre-existing-failure",
+            "strictRead": "pre-existing-failure"
+          }
+        },
+        "moxy": {
+          "contextError": "org.eclipse.persistence.jaxb.JAXBException",
+          "problems": [],
+          "readers": {}
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "clinical-precision-graph-already-present-in-release-base",
+          "paths": [
+            "/value/content/demographic/allergies/entryDateInfo",
+            "/value/content/demographic/allergies/startDateInfo"
+          ]
+        },
+        "moxy": {
+          "disposition": "pre-existing-context-failure",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.DrugSearchResponse:default": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": "org.eclipse.persistence.jaxb.JAXBException",
+          "problems": [],
+          "readers": {}
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "schema-equivalent-dateTime-fraction-width",
+          "paths": [
+            "/value/timestamp"
+          ]
+        },
+        "moxy": {
+          "disposition": "pre-existing-context-failure",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.InboxResponse:default": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": "org.eclipse.persistence.jaxb.JAXBException",
+          "problems": [],
+          "readers": {}
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "schema-equivalent-dateTime-fraction-width",
+          "paths": [
+            "/value/timestamp"
+          ]
+        },
+        "moxy": {
+          "disposition": "pre-existing-context-failure",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.MessagingResponse:default": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": "org.eclipse.persistence.jaxb.JAXBException",
+          "problems": [],
+          "readers": {}
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "schema-equivalent-dateTime-fraction-width",
+          "paths": [
+            "/value/timestamp"
+          ]
+        },
+        "moxy": {
+          "disposition": "pre-existing-context-failure",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.NavbarResponse:populated": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        },
+        "moxy": {
+          "disposition": "xsi-type-prefix-spelling-with-identical-old-reader-state",
+          "paths": [
+            "/value/currentProgram/program/shelter/associates",
+            "/value/programDomain/program/program/shelter/associates"
+          ]
+        }
+      }
+    },
+    "webserv.rest.to.OscarSearchResponse:default": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": "org.eclipse.persistence.jaxb.JAXBException",
+          "problems": [],
+          "readers": {}
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "schema-equivalent-dateTime-fraction-width",
+          "paths": [
+            "/value/timestamp"
+          ]
+        },
+        "moxy": {
+          "disposition": "pre-existing-context-failure",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.PreventionResponse:populated": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "pre-existing-failure",
+            "strictRead": "pre-existing-failure"
+          }
+        },
+        "moxy": {
+          "contextError": "org.eclipse.persistence.jaxb.JAXBException",
+          "problems": [],
+          "readers": {}
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "clinical-precision-graph-already-present-in-release-base",
+          "paths": [
+            "/value/preventions/preventionDateInfo"
+          ]
+        },
+        "moxy": {
+          "disposition": "pre-existing-context-failure",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.ProviderApptsCountResponse:default": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": "org.eclipse.persistence.jaxb.JAXBException",
+          "problems": [],
+          "readers": {}
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "schema-equivalent-dateTime-fraction-width",
+          "paths": [
+            "/value/timestamp"
+          ]
+        },
+        "moxy": {
+          "disposition": "pre-existing-context-failure",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.ProviderPeriodAppsResponse:default": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": "org.eclipse.persistence.jaxb.JAXBException",
+          "problems": [],
+          "readers": {}
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "schema-equivalent-dateTime-fraction-width",
+          "paths": [
+            "/value/timestamp"
+          ]
+        },
+        "moxy": {
+          "disposition": "pre-existing-context-failure",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.SchedulingResponse:populated": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "pre-existing-failure"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        },
+        "moxy": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.TicklerResponse:default": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": "org.eclipse.persistence.jaxb.JAXBException",
+          "problems": [],
+          "readers": {}
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "schema-equivalent-dateTime-fraction-width",
+          "paths": [
+            "/value/timestamp"
+          ]
+        },
+        "moxy": {
+          "disposition": "pre-existing-context-failure",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.TicklerResponse:populated": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": "org.eclipse.persistence.jaxb.JAXBException",
+          "problems": [],
+          "readers": {}
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        },
+        "moxy": {
+          "disposition": "pre-existing-context-failure",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.model.AdmissionTo1:populated": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "pre-existing-failure",
+            "strictRead": "pre-existing-failure"
+          }
+        },
+        "moxy": {
+          "contextError": "org.eclipse.persistence.jaxb.JAXBException",
+          "problems": [],
+          "readers": {}
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "clinical-precision-graph-already-present-in-release-base",
+          "paths": [
+            "/value/demographic/allergies/entryDateInfo",
+            "/value/demographic/allergies/startDateInfo"
+          ]
+        },
+        "moxy": {
+          "disposition": "pre-existing-context-failure",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.model.AllergyTo1:populated": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "pre-existing-failure",
+            "strictRead": "pre-existing-failure"
+          }
+        },
+        "moxy": {
+          "contextError": "org.eclipse.persistence.jaxb.JAXBException",
+          "problems": [],
+          "readers": {}
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "clinical-precision-graph-already-present-in-release-base",
+          "paths": [
+            "/value/entryDateInfo",
+            "/value/startDateInfo"
+          ]
+        },
+        "moxy": {
+          "disposition": "pre-existing-context-failure",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.model.AllowedAppointmentTypeTransfer:populated": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        },
+        "moxy": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.model.AppointmentExtTo:populated": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        },
+        "moxy": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.model.AppointmentTo1:default": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "schema-equivalent-dateTime-fraction-width",
+          "paths": [
+            "/value/createDateTime",
+            "/value/updateDateTime"
+          ]
+        },
+        "moxy": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.model.AppointmentTo1:populated": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "pre-existing-failure"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        },
+        "moxy": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.model.BookingProviderTransfer:populated": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        },
+        "moxy": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.model.BookingScheduleTemplateCodeTransfer:populated": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        },
+        "moxy": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.model.CaseManagementIssueTo1:default": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "schema-equivalent-dateTime-fraction-width",
+          "paths": [
+            "/value/update_date"
+          ]
+        },
+        "moxy": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.model.ConsultationAttachmentTo1:populated": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        },
+        "moxy": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.model.ConsultationRequestTo1:default": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "schema-equivalent-dateTime-fraction-width",
+          "paths": [
+            "/value/referralDate"
+          ]
+        },
+        "moxy": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.model.ConsultationRequestTo1:populated": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "pre-existing-failure",
+            "strictRead": "pre-existing-failure"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "pre-existing-failure"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        },
+        "moxy": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.model.ConsultationResponseTo1:populated": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "pre-existing-failure",
+            "strictRead": "pre-existing-failure"
+          }
+        },
+        "moxy": {
+          "contextError": "org.eclipse.persistence.jaxb.JAXBException",
+          "problems": [],
+          "readers": {}
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "clinical-precision-graph-already-present-in-release-base",
+          "paths": [
+            "/value/demographic/allergies/entryDateInfo",
+            "/value/demographic/allergies/startDateInfo"
+          ]
+        },
+        "moxy": {
+          "disposition": "pre-existing-context-failure",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.model.DemographicTo1:populated": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "pre-existing-failure",
+            "strictRead": "pre-existing-failure"
+          }
+        },
+        "moxy": {
+          "contextError": "org.eclipse.persistence.jaxb.JAXBException",
+          "problems": [],
+          "readers": {}
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "clinical-precision-graph-already-present-in-release-base",
+          "paths": [
+            "/value/allergies/entryDateInfo",
+            "/value/allergies/startDateInfo"
+          ]
+        },
+        "moxy": {
+          "disposition": "pre-existing-context-failure",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.model.DocumentTo1:default": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "schema-equivalent-dateTime-fraction-width",
+          "paths": [
+            "/value/contentDateTime",
+            "/value/observationDate",
+            "/value/updateDateTime"
+          ]
+        },
+        "moxy": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.model.DocumentTo1:populated": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        },
+        "moxy": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.model.EFormTo1:default": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "schema-equivalent-dateTime-fraction-width",
+          "paths": [
+            "/value/formDate",
+            "/value/formTime"
+          ]
+        },
+        "moxy": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.model.FilterDefinitionTransfer:default": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        },
+        "moxy": {
+          "disposition": "published-required-empty-map-retained-with-identical-old-reader-state",
+          "paths": [
+            "/value"
+          ]
+        }
+      }
+    },
+    "webserv.rest.to.model.MeasurementTo1:default": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "schema-equivalent-dateTime-fraction-width",
+          "paths": [
+            "/value/createDate"
+          ]
+        },
+        "moxy": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.model.PharmacyInfoTo1:populated": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        },
+        "moxy": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.model.PreventionTo1:populated": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "pre-existing-failure",
+            "strictRead": "pre-existing-failure"
+          }
+        },
+        "moxy": {
+          "contextError": "org.eclipse.persistence.jaxb.JAXBException",
+          "problems": [],
+          "readers": {}
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "clinical-precision-graph-already-present-in-release-base",
+          "paths": [
+            "/value/preventionDateInfo"
+          ]
+        },
+        "moxy": {
+          "disposition": "pre-existing-context-failure",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.model.ProgramProviderTo1:populated": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        },
+        "moxy": {
+          "disposition": "xsi-type-prefix-spelling-with-identical-old-reader-state",
+          "paths": [
+            "/value/program/shelter/associates"
+          ]
+        }
+      }
+    },
+    "webserv.rest.to.model.ProgramTo1:populated": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        },
+        "moxy": {
+          "disposition": "xsi-type-prefix-spelling-with-identical-old-reader-state",
+          "paths": [
+            "/value/shelter/associates"
+          ]
+        }
+      }
+    },
+    "webserv.rest.to.model.ScheduleTemplateCodeTo:populated": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        },
+        "moxy": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.model.SearchConfigTo1:populated": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        },
+        "moxy": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        }
+      }
+    },
+    "webserv.rest.to.model.TicklerTo1:populated": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        },
+        "moxy": {
+          "disposition": "xsi-type-prefix-spelling-with-identical-old-reader-state",
+          "paths": [
+            "/value/program/shelter/associates"
+          ]
+        }
+      }
+    },
+    "webserv.transfer_objects.AppointmentArchiveTransfer:populated": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        },
+        "moxy": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        }
+      }
+    },
+    "webserv.transfer_objects.AppointmentTransfer:populated": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        },
+        "moxy": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        }
+      }
+    },
+    "webserv.transfer_objects.CalendarScheduleCodePairTransfer:populated": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        },
+        "moxy": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        }
+      }
+    },
+    "webserv.transfer_objects.DayWorkScheduleTransfer:populated": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        },
+        "moxy": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        }
+      }
+    },
+    "webserv.transfer_objects.DocumentTransfer:default": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        },
+        "moxy": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        }
+      }
+    },
+    "webserv.transfer_objects.DocumentTransfer:populated": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        },
+        "moxy": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        }
+      }
+    },
+    "webserv.transfer_objects.DrugTransfer:populated": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        },
+        "moxy": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        }
+      }
+    },
+    "webserv.transfer_objects.PrescriptionTransfer:populated": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        },
+        "moxy": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        }
+      }
+    },
+    "webserv.transfer_objects.ScheduleTemplateCodeTransfer:populated": {
+      "readers": {
+        "glassfish": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        },
+        "moxy": {
+          "contextError": null,
+          "problems": [],
+          "readers": {
+            "defaultRead": "compared",
+            "strictRead": "compared"
+          }
+        }
+      },
+      "nativeWriters": {
+        "glassfish": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        },
+        "moxy": {
+          "disposition": "same-elements-values-attributes-and-order",
+          "paths": []
+        }
+      }
+    }
+  },
+  "limits": "Native synthetic objects, schema checks and unchanged readers; not installed-client or whole-release acceptance. Pre-existing failures remain explicit. No original comparator, schema or frozen fixture is relaxed."
+}

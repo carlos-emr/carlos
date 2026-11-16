@@ -53,8 +53,11 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
+<%@page import="io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentEditConflict" %>
+<%@page import="io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentGroupSubmission" %>
+<%@page import="io.github.carlos_emr.carlos.utility.FormSubmissionGuard" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.MyGroup" %>
+
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ScheduleDateDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ScheduleDate" %>
@@ -72,7 +75,7 @@
     boolean bEdit = request.getParameter("appointment_no") != null ? true : false;
 %>
 <%@ page
-        import="java.util.*, java.sql.*,java.net.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.commn.OtherIdManager"
+        import="java.util.*, java.sql.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.commn.OtherIdManager"
         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.location.AppointmentLocationUnavailableException" %>
@@ -83,6 +86,7 @@
 <%@ page import="org.owasp.csrfguard.CsrfGuard" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderChoice" %>
+<%@ page import="io.github.carlos_emr.carlos.appointment.reminder.GroupUpdateReminders" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -178,9 +182,17 @@
                 a.setUrgency(request.getParameter("urgency"));
                 a.setReasonCode(Integer.parseInt(request.getParameter("reasonCode")));
 
+                // Each booking commits on its own: from the first one on, this rendering's token
+                // (claimed by the gate, see AppointmentGroupSubmission) is spent even if a later one fails.
+                AppointmentGroupSubmission.storageStarted(request);
                 appointmentDao.persist(a);
                 groupBookings.add(a);
                 rowsAffected = 1;
+                // Booked: audited under the appointment and its patient, like the Add Appointment popup.
+                io.github.carlos_emr.carlos.log.LogAction.addLog(
+                        io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request),
+                        io.github.carlos_emr.carlos.log.LogConst.ADD, io.github.carlos_emr.carlos.log.LogConst.CON_APPT,
+                        String.valueOf(a.getId()), a.getDemographicNo() > 0 ? String.valueOf(a.getDemographicNo()) : null, null);
 
 
                 param2[0] = param[0]; //provider_no
@@ -214,6 +226,27 @@
 
         if (request.getParameter("groupappt").equals("Group Update") || request.getParameter("groupappt").equals("Group Cancel") ||
                 request.getParameter("groupappt").equals("Group Delete")) {
+            // The three group edits write the fields of the Edit Appointment form this page was opened from
+            // (Group Update removes each ticked appointment and books it again from them). They run in one
+            // transaction that first locks the appointments the form and this page were rendered from and
+            // refuses the whole action (HTTP 409, nothing written) when one of them was changed or removed by
+            // someone else in the meantime; see AppointmentEditConflict.
+            org.springframework.transaction.PlatformTransactionManager groupTxManager =
+                    SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class);
+            org.springframework.transaction.TransactionStatus groupTx = groupTxManager.getTransaction(
+                    new org.springframework.transaction.support.DefaultTransactionDefinition());
+            boolean groupTxEnded = false;
+            // One entry per appointment written ({action, appointment id, patient or null, data}),
+            // turned into audit rows only once the whole group action has committed.
+            java.util.List<String[]> groupAudit = new java.util.ArrayList<String[]>();
+            try {
+            if (AppointmentEditConflict.staleUnderLock(appointmentDao, request)) {
+                groupTxManager.rollback(groupTx);
+                groupTxEnded = true;
+                AppointmentEditConflict.refuse(request, response);
+                pageContext.forward(AppointmentEditConflict.VIEW);
+                return;
+            }
             int rowsAffected = 0, datano = 0;
             StringBuffer strbuf = null;
             String createdDateTime = UtilDateUtilities.DateToString(new java.util.Date(), "yyyy-MM-dd HH:mm:ss");
@@ -223,6 +256,9 @@
             LoggedInInfo groupUser = LoggedInInfo.getLoggedInInfoFromSession(request);
             int editedNo = org.apache.commons.lang3.math.NumberUtils.toInt(request.getParameter("appointment_no"), 0);
             Appointment editedBooking = null;
+            // The reminder steps wait until this transaction has committed: inside it, a reminder that cannot be
+            // stored would roll back every booking of the group (GroupUpdateReminders).
+            GroupUpdateReminders groupReminders = new GroupUpdateReminders(request, groupUser);
 
             for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
                 strbuf = new StringBuffer(e.nextElement().toString());
@@ -240,6 +276,8 @@
                         appt.setLastUpdateUser((String) session.getAttribute("user"));
                         appointmentDao.merge(appt);
                         rowsAffected = 1;
+                        groupAudit.add(new String[]{io.github.carlos_emr.carlos.log.LogConst.UPDATE, String.valueOf(appt.getId()),
+                                appt.getDemographicNo() > 0 ? String.valueOf(appt.getDemographicNo()) : null, "status=C"});
                     }
                 }
 
@@ -251,6 +289,8 @@
                             appointmentArchiveDao.archiveAppointment(appt);
                             appointmentDao.remove(appt.getId());
                             rowsAffected = 1;
+                            groupAudit.add(new String[]{io.github.carlos_emr.carlos.log.LogConst.DELETE, String.valueOf(appt.getId()),
+                                    appt.getDemographicNo() > 0 ? String.valueOf(appt.getDemographicNo()) : null, null});
 
                         }
                     }
@@ -265,6 +305,8 @@
                             appointmentDao.remove(appt.getId());
                             replacedNo = appt.getId();
                             rowsAffected = 1;
+                            groupAudit.add(new String[]{io.github.carlos_emr.carlos.log.LogConst.DELETE, String.valueOf(appt.getId()),
+                                    appt.getDemographicNo() > 0 ? String.valueOf(appt.getDemographicNo()) : null, null});
 
                         }
                     }
@@ -320,10 +362,12 @@
 
                     appointmentDao.persist(a);
                     rowsAffected = 1;
-                    AppointmentReminderChoice.moveReminders(request, groupUser, replacedNo, a);
+                    groupReminders.moveReminders(replacedNo, a);
                     if (replacedNo != null && replacedNo == editedNo) {
                         editedBooking = a;
                     }
+                    groupAudit.add(new String[]{io.github.carlos_emr.carlos.log.LogConst.ADD, String.valueOf(a.getId()),
+                            a.getDemographicNo() > 0 ? String.valueOf(a.getDemographicNo()) : null, null});
 
                     if (rowsAffected == 1) {
 
@@ -351,11 +395,33 @@
                 // The box belongs to the appointment Edit was opened for: rebooked here, or left as it was.
                 Appointment edited = editedBooking != null ? editedBooking
                         : editedNo > 0 ? appointmentDao.find(editedNo) : null;
-                AppointmentReminderChoice.recordAfterGroupUpdate(request, groupUser, edited);
+                groupReminders.recordAfterGroupUpdate(edited);
             }
             if (rowsAffected == 1) bSucc = true;
+            // The token's claim learns whether these writes commit or roll back; a press that wrote
+            // nothing leaves this rendering free to be submitted again.
+            if (bSucc) AppointmentGroupSubmission.storageStarted(request);
+            groupTxManager.commit(groupTx);
+            groupTxEnded = true;
+            for (String[] entry : groupAudit) {
+                io.github.carlos_emr.carlos.log.LogAction.addLog(
+                        io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request),
+                        entry[0], io.github.carlos_emr.carlos.log.LogConst.CON_APPT, entry[1], entry[2], entry[3]);
+            }
+            // Committed: the bookings are saved. A reminder step that fails now is logged and shown below;
+            // it never undoes a booking.
+            groupReminders.runAfterCommit();
+            } finally {
+                // An exception part-way through leaves nothing half-applied. A commit that failed has
+                // already completed the transaction; rolling it back again would replace its cause.
+                if (!groupTxEnded && !groupTx.isCompleted()) groupTxManager.rollback(groupTx);
+            }
         }
 
+        if (bSucc) {
+            // The writes are durable: a repeat of this rendering ends on this result page without writing.
+            AppointmentGroupSubmission.saved(request);
+        }
         if (bSucc && AppointmentReminderChoice.notRecorded(request)) {
             // #5887: the bookings are saved but a reminder was not: say so, and leave the window open to read it.
 %>
@@ -477,6 +543,9 @@
     <form name="groupappt" method="POST"
           action="<%=request.getContextPath() %>/appointment/appointmentgrouprecords" onSubmit="return onSub();">
         <input type="hidden" name="groupappt" value="">
+        <%-- One save per rendering (FormSubmissionGuard): a repeat of a saved group action ends as that save did. --%>
+        <input type="hidden" name="<%= FormSubmissionGuard.PARAMETER %>"
+               value="<carlos:encode value='<%= FormSubmissionGuard.issue(session, FormSubmissionGuard.Scope.APPOINTMENT_GROUP, null) %>' context="htmlAttribute"/>">
 
         <%
             Properties otherAppt = new Properties();
@@ -523,6 +592,7 @@
                 if (bTwo) otherAppt.setProperty(other.getProviderNo() + "two", "checked");
                 if (bOne || bTwo) {
                     otherAppt.setProperty(other.getProviderNo() + "apptno", String.valueOf(other.getId()));
+                    otherAppt.setProperty(other.getProviderNo() + "apptversion", other.getEditVersion());
                     appt += "<b>" + String.valueOf(ConversionUtils.toTimeStringNoSeconds(other.getStartTime())).substring(0, 5) + "-" + String.valueOf(ConversionUtils.toTimeStringNoSeconds(other.getEndTime())).substring(0, 5) + "|"
                             + dotStr + SafeEncode.forHtml(other.getName() == null ? "" : other.getName()) + "</b>|";
                 } else {
@@ -546,7 +616,8 @@
             String csrfTokenName = CsrfGuard.getInstance().getTokenName();
             for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
                 temp = e.nextElement().toString();
-                if (temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("search_mode") || temp.equals("chart_no") || temp.equals(csrfTokenName))
+                if (temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("search_mode") || temp.equals("chart_no") || temp.equals(csrfTokenName)
+                        || temp.equals(FormSubmissionGuard.PARAMETER))
                     continue;
                 out.println("<input type=\"hidden\" name=\"" + SafeEncode.forHtmlAttribute(temp) + "\" value=\"" + SafeEncode.forHtmlAttribute(request.getParameter(temp) == null ? "" : request.getParameter(temp)) + "\">");
             }
@@ -611,6 +682,9 @@
                     <% if (otherAppt.getProperty(provider.getProviderNo() + "apptno") != null) {%>
                     <input type="hidden" name="appointment_no<%=i%>"
                            value="<%=otherAppt.getProperty(provider.getProviderNo()+"apptno")%>">
+                    <%-- The version this row was listed at; a group edit refuses a row changed since. --%>
+                    <input type="hidden" name="<%= AppointmentEditConflict.ROW_PARAMETER_PREFIX %><%=i%>"
+                           value="<carlos:encode value='<%= otherAppt.getProperty(provider.getProviderNo() + "apptversion", "") %>' context="htmlAttribute"/>">
                     <% } %>
                 </td>
                 <td class="text-center">

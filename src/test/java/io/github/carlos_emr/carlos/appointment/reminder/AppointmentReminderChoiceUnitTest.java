@@ -181,9 +181,10 @@ class AppointmentReminderChoiceUnitTest extends CarlosUnitTestBase {
     }
 
     /**
-     * The group page has no transaction around its bookings: each one is already saved when the reminder is
-     * recorded. A reminder that cannot be stored must not stop the page halfway or show an error page that invites
-     * a second submit (and a duplicate booking); Edit then shows the box unticked, so staff can tick it again.
+     * On the group page each booking is already saved when its reminder is recorded (Group Update's steps run
+     * after its transaction commits). A reminder that cannot be stored must not stop the page halfway or show an
+     * error page that invites a second submit (and a duplicate booking); Edit then shows the box unticked, so
+     * staff can tick it again.
      */
     @Test
     void shouldNotStopTheGroupPage_whenTheReminderCannotBeStored() {

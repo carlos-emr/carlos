@@ -1,0 +1,287 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.demographic.cdsimport.service;
+
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import io.github.carlos_emr.carlos.commn.dao.CdsImportPreparationDao;
+import io.github.carlos_emr.carlos.commn.model.CdsImportPreparation;
+import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand;
+import io.github.carlos_emr.carlos.utility.CdsImportKeys;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Objects;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+
+/**
+ * Immutable native DTOs keep unbounded source scans outside clinical locks without a file per
+ * unit. A prepared record is held whole up to what the column that stores it admits ({@link
+ * #MAXIMUM}); only a history note can approach it, and the history persister stores that note's
+ * documented placeholder instead when it does not fit ({@code NATIVE_PREPARATION_CAPACITY_EXCEEDED}).
+ */
+@Service
+public class CdsNativePreparationService {
+    /**
+     * What {@code cds_import_preparation.payload} admits: the capacity of its MEDIUMTEXT column,
+     * 16,777,215 UTF-8 bytes. V1.0.59.14 also gave the column a check of 1,048,576 bytes, an
+     * arbitrary number that V1.0.59.50 removed. The export reads a retained record under the same
+     * capacity ({@code CdsExportRetainedPreparationReader}), so a larger record needs both the
+     * column and that reader changed.
+     */
+    static final int MAXIMUM = 16_777_215;
+    private static final ObjectMapper JSON =
+            new ObjectMapper()
+                    .registerModule(new JavaTimeModule())
+                    .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+                    .disable(DeserializationFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE)
+                    .enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS)
+                    .enable(DeserializationFeature.FAIL_ON_MISSING_CREATOR_PROPERTIES)
+                    .enable(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES)
+                    .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+    private final CdsImportLedgerService ledger;
+    private final CdsImportPreparationDao preparations;
+    private final TransactionTemplate transaction;
+    private final CdsImportConfigurationService configuration;
+
+    public CdsNativePreparationService(
+            CdsImportLedgerService ledger,
+            CdsImportPreparationDao preparations,
+            PlatformTransactionManager manager,
+            CdsImportConfigurationService configuration) {
+        this.ledger = ledger;
+        this.preparations = preparations;
+        transaction = CdsImportLedgerService.template(manager);
+        this.configuration = configuration;
+    }
+
+    /** Serialization and all source IO finish before this short metadata-only transaction. */
+    public void store(
+            String run,
+            long epoch,
+            String unit,
+            String sourceDigest,
+            CdsImportCommand command,
+            Object value)
+            throws IOException {
+        CdsImportLedgerService.requireNoTransaction();
+        Objects.requireNonNull(value, "prepared value");
+        CdsImportKeys.digestValue(sourceDigest, "source record digest");
+        String type = value.getClass().getName();
+        CdsImportKeys.required(type, "prepared type", 250);
+        ByteArrayOutputStream output =
+                new ByteArrayOutputStream(4096) {
+                    @Override
+                    public synchronized void write(int value) {
+                        if (count >= MAXIMUM)
+                            throw new CdsImportException("NATIVE_PREPARATION_CAPACITY_EXCEEDED");
+                        super.write(value);
+                    }
+
+                    @Override
+                    public synchronized void write(byte[] bytes, int offset, int length) {
+                        if (length > MAXIMUM - count)
+                            throw new CdsImportException("NATIVE_PREPARATION_CAPACITY_EXCEEDED");
+                        super.write(bytes, offset, length);
+                    }
+                };
+        JSON.writeValue(output, value);
+        String payload = output.toString(StandardCharsets.UTF_8);
+        String options = CdsImportJobService.optionsDigest(command);
+        String ruleset = CdsImportJobService.rulesetDigest(command, configuration);
+        String digest = payloadDigest(type, sourceDigest, options, ruleset, payload);
+        String id = CdsImportKeys.hash(run, unit);
+        transaction.executeWithoutResult(
+                status -> {
+                    ledger.lockOwned(run, epoch);
+                    ledger.unit(run, unit);
+                    CdsImportPreparation existing = preparations.get(id);
+                    if (existing != null) {
+                        if (!Objects.equals(existing.getRunId(), run)
+                                || !Objects.equals(existing.getUnitKey(), unit)
+                                || !Objects.equals(existing.getSourceDigest(), sourceDigest)
+                                || !Objects.equals(existing.getOptionsDigest(), options)
+                                || !Objects.equals(existing.getRulesetDigest(), ruleset)
+                                || !Objects.equals(existing.getPayloadType(), type)
+                                || !Objects.equals(existing.getDigest(), digest)) {
+                            throw new CdsImportException("NATIVE_PREPARATION_CONFLICT");
+                        }
+                        if (!Objects.equals(existing.getPayload(), payload)) {
+                            // This is a derived cache, regenerated from the same immutable source
+                            // and identical decision digest. Never alter a checkpointed/native
+                            // unit.
+                            ledger.requireExpectedCheckpointFree(run, epoch, unit);
+                            existing.setPayload(payload);
+                            ledger.diagnostic(
+                                    run,
+                                    epoch,
+                                    ledger.unit(run, unit).getPatientKey(),
+                                    unit,
+                                    "INFO",
+                                    "NATIVE_PREPARATION_CACHE_REGENERATED",
+                                    "RECOVERY",
+                                    null,
+                                    "An uncommitted derived preparation was regenerated from its"
+                                            + " identical immutable decision",
+                                    null,
+                                    false);
+                        }
+                        return;
+                    }
+                    CdsImportPreparation prepared = new CdsImportPreparation();
+                    prepared.setId(id);
+                    prepared.setRunId(run);
+                    prepared.setUnitKey(unit);
+                    prepared.setSourceDigest(sourceDigest);
+                    prepared.setOptionsDigest(options);
+                    prepared.setRulesetDigest(ruleset);
+                    prepared.setPayloadType(type);
+                    prepared.setPayload(payload);
+                    prepared.setDigest(digest);
+                    preparations.persist(prepared);
+                });
+    }
+
+    /** A single row, at most what its column admits, is decoded in the already-owned clinical unit. */
+    // FindSecBugs UNSAFE_HASH_EQUALS: SHA-256 digests of the unit's source, options, ruleset and prepared payload, compared with the values stored on the prepared row to detect a stale or altered preparation; not a secret.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "UNSAFE_HASH_EQUALS", justification = "SHA-256 digests of the unit's source, options, ruleset and prepared payload, compared with the values stored on the prepared row to detect a stale or altered preparation; not a secret")
+    public <T> T load(
+            String run,
+            long epoch,
+            String unit,
+            String sourceDigest,
+            CdsImportCommand command,
+            Class<T> type)
+            throws IOException {
+        CdsImportUnitService.requireActive(run, epoch, unit);
+        ledger.lockOwned(run, epoch);
+        CdsImportPreparation prepared = preparations.get(CdsImportKeys.hash(run, unit));
+        if (prepared == null
+                || !prepared.getSourceDigest().equals(sourceDigest)
+                || !prepared.getOptionsDigest().equals(CdsImportJobService.optionsDigest(command))
+                || !prepared.getRulesetDigest()
+                        .equals(CdsImportJobService.rulesetDigest(command, configuration))
+                || !prepared.getPayloadType().equals(type.getName())
+                || prepared.getPayload().getBytes(StandardCharsets.UTF_8).length > MAXIMUM
+                || !prepared.getDigest()
+                        .equals(
+                                payloadDigest(
+                                        prepared.getPayloadType(),
+                                        sourceDigest,
+                                        prepared.getOptionsDigest(),
+                                        prepared.getRulesetDigest(),
+                                        prepared.getPayload()))) {
+            throw new CdsImportException("NATIVE_PREPARATION_VERIFICATION_FAILED");
+        }
+        if (type == io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsAllergyDto.class
+                || type
+                        == io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsHistoryNativeDto
+                                .class
+                || type
+                        == io.github.carlos_emr.carlos.demographic.cdsimport.dto
+                                .CdsMedicationNativeDto.class
+                || type
+                        == io.github.carlos_emr.carlos.demographic.cdsimport.dto
+                                .CdsImmunizationDto.class) {
+            var value =
+                    JSON.reader()
+                            .with(
+                                    com.fasterxml.jackson.core.JsonParser.Feature
+                                            .STRICT_DUPLICATE_DETECTION)
+                            .readTree(prepared.getPayload());
+            // Shared import/export defaults preserve the original payload bytes and seal.
+            try {
+                return JSON.treeToValue(
+                        type
+                                        == io.github.carlos_emr.carlos.demographic.cdsimport.dto
+                                                .CdsAllergyDto.class
+                                ? io.github.carlos_emr.carlos.demographic.cds.contract
+                                        .CdsPreparedAllergyDefaults.apply(value)
+                                : type
+                                                == io.github.carlos_emr.carlos.demographic
+                                                        .cdsimport.dto.CdsMedicationNativeDto.class
+                                        ? io.github.carlos_emr.carlos.demographic.cds.contract
+                                                .CdsPreparedMedicationDefaults.apply(value)
+                                        : type
+                                                        == io.github.carlos_emr.carlos.demographic
+                                                                .cdsimport.dto.CdsImmunizationDto
+                                                                .class
+                                                ? io.github.carlos_emr.carlos.demographic.cds
+                                                        .contract.CdsPreparedImmunizationDefaults
+                                                        .apply(value)
+                                                : io.github.carlos_emr.carlos.demographic.cds
+                                                        .contract.CdsPreparedHistoryDefaults
+                                                        .applyNative(value),
+                        type);
+            } catch (IllegalArgumentException invalid) {
+                throw new CdsImportException("NATIVE_PREPARATION_VERIFICATION_FAILED");
+            }
+        }
+        if (type
+                == io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsAppointmentNativeDto
+                        .class)
+            try {
+                // A preparation sealed before the appointment source record was read back.
+                return JSON.treeToValue(
+                        io.github.carlos_emr.carlos.demographic.cds.contract
+                                .CdsPreparedAppointmentDefaults.apply(
+                                JSON.reader()
+                                        .with(
+                                                com.fasterxml.jackson.core.JsonParser.Feature
+                                                        .STRICT_DUPLICATE_DETECTION)
+                                        .readTree(prepared.getPayload())),
+                        type);
+            } catch (IllegalArgumentException invalid) {
+                throw new CdsImportException("NATIVE_PREPARATION_VERIFICATION_FAILED");
+            }
+        if (type
+                == io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsDemographicNativeDto
+                        .class)
+            try {
+                // A preparation sealed before a CARLOS sender's demographic record was read back.
+                return JSON.treeToValue(
+                        io.github.carlos_emr.carlos.demographic.cds.contract
+                                .CdsPreparedDemographicDefaults.apply(
+                                JSON.reader()
+                                        .with(
+                                                com.fasterxml.jackson.core.JsonParser.Feature
+                                                        .STRICT_DUPLICATE_DETECTION)
+                                        .readTree(prepared.getPayload())),
+                        type);
+            } catch (IllegalArgumentException invalid) {
+                throw new CdsImportException("NATIVE_PREPARATION_VERIFICATION_FAILED");
+            }
+        return JSON.readValue(prepared.getPayload(), type);
+    }
+
+    private static String payloadDigest(
+            String type, String source, String options, String ruleset, String payload) {
+        return io.github.carlos_emr.carlos.demographic.cds.contract.CdsPreparationSeal.digest(
+                type, source, options, ruleset, payload);
+    }
+}

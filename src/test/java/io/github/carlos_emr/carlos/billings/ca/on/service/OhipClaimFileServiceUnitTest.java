@@ -90,6 +90,7 @@ class OhipClaimFileServiceUnitTest {
     private BillingONItemDao itemDao;
     private BillingServiceDao billingServiceDao;
     private BillingOnLookupService lookupService;
+    private BillingONDiskNameDao diskNameDao;
     private Object homeDirBefore;
 
     @BeforeEach
@@ -101,7 +102,7 @@ class OhipClaimFileServiceUnitTest {
         SiteDao siteDao = mock(SiteDao.class);
         itemDao = mock(BillingONItemDao.class);
         billingServiceDao = mock(BillingServiceDao.class);
-        BillingONDiskNameDao diskNameDao = mock(BillingONDiskNameDao.class);
+        diskNameDao = mock(BillingONDiskNameDao.class);
         lookupService = mock(BillingOnLookupService.class);
 
         // The constructor pre-caches site short names; an empty list keeps
@@ -733,5 +734,30 @@ class OhipClaimFileServiceUnitTest {
         service.readInBillingNo();
 
         assertThat(service.getErrorFatalMsg()).isEmpty();
+    }
+
+    @Test
+    void shouldRefuseEmptyDedup_whenImportedFileIsAmbiguous() {
+        String filename = "o19-claim-2021-2-0.claim";
+        service.setOhipFilename(filename);
+        when(diskNameDao.importedFilenameReviews(filename)).thenReturn(java.util.List.of(
+                new io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingFilenameImportDao.FileReview(
+                        "shared.001", filename, "ambiguous", null, null, false)));
+        assertThatThrownBy(service::readInBillingNo)
+                .isInstanceOf(BillingFileWriteException.class)
+                .hasMessageContaining("requires reconciliation");
+    }
+
+    @Test
+    void shouldRefuseRegeneration_whenImportedHtmlCompanionIsAmbiguous() {
+        service.setOhipFilename("ordinary.001");
+        String html = "o19-html-2021-2-0.html";
+        service.setHtmlFilename(html);
+        when(diskNameDao.importedFilenameReviews(html)).thenReturn(java.util.List.of(
+                new io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingFilenameImportDao.FileReview(
+                        "shared.html", html, "ambiguous", null, null, false)));
+        assertThatThrownBy(service::readInBillingNo)
+                .isInstanceOf(BillingFileWriteException.class)
+                .hasMessageContaining("requires reconciliation");
     }
 }

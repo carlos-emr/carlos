@@ -135,6 +135,8 @@ Ontario, Canada
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<% pageContext.setAttribute("appointmentLocale", io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request)); %>
+<fmt:setLocale value="${appointmentLocale}"/>
 <fmt:setBundle basename="oscarResources"/>
 <fmt:message key="Appointment.textTooLong" var="appointmentTextTooLong"/>
 <fmt:message key="Appointment.textInvalidUnicode" var="appointmentTextInvalidUnicode"/>
@@ -143,10 +145,10 @@ Ontario, Canada
 <fmt:message key="Appointment.formNotes" var="appointmentTextNotes"/>
 <fmt:message key="Appointment.formResources" var="appointmentTextResources"/>
 
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib tagdir="/WEB-INF/tags/appointment" prefix="appt" %>
 
@@ -1151,7 +1153,9 @@ Ontario, Canada
                     }
 
                     rosterStatus = d.getRosterStatus();
-                    if (rosterStatus == null || rosterStatus.equalsIgnoreCase("RO")) {
+                    if ("NR".equalsIgnoreCase(rosterStatus == null ? "" : rosterStatus.trim())) {
+                        rosterStatus = d.getRosterStatusDisplay(io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request));
+                    } else if (rosterStatus == null || rosterStatus.equalsIgnoreCase("RO")) {
                         rosterStatus = "";
                     }
                 }
@@ -1159,12 +1163,15 @@ Ontario, Canada
         %>
         <%-- Patient status banner: always rendered so JavaScript can show/hide when patient is selected via autocomplete --%>
         <%
-            String statusExp = " null-undefined\n IN-inactive ID-deceased OP-out patient\n NR-not signed\n FS-fee for service\n TE-terminated\n SP-self pay\n TP-third party";
+            String statusExp = "Patient status codes: null-undefined, IN-inactive, ID-deceased, OP-out patient, NR-not signed, FS-fee for service, TE-terminated, SP-self pay, TP-third party.\nEnrolment status codes: RO-rostered, NR-not rostered, TE-terminated, FS-fee for service.";
             boolean showStatusBanner = !patientStatus.equals("") || !rosterStatus.equals("");
         %>
+        <fmt:message key="Appointment.msgRosterStatus" var="rosterStatusLabel"/>
+        <fmt:message key="demographic.enrollementhistory.notrostered" var="rosterNotRosteredLabel"/>
         <div id="patientStatusBanner" class="alert alert-info alert-dismissible"
              title='<carlos:encode value='<%= statusExp %>' context="htmlAttribute"/>'
-             data-roster-label="<fmt:message key="Appointment.msgRosterStatus"/>"
+             data-roster-label="${carlos:forHtmlAttribute(rosterStatusLabel)}"
+             data-roster-not-rostered="${carlos:forHtmlAttribute(rosterNotRosteredLabel)}"
              style="<%= showStatusBanner ? "" : "display:none" %>" role="alert">
             <span id="patientStatusText"><carlos:encode value='<%= patientStatus %>' context="html"/>&nbsp;<fmt:message key="Appointment.msgRosterStatus"/>:&nbsp;<carlos:encode value='<%= rosterStatus %>' context="html"/></span>
             <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
@@ -1234,23 +1241,23 @@ Ontario, Canada
                     <%-- Left column: Date, Time, Duration, Patient, Reason, Location, Creator --%>
                     <div class="col-md-6">
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formDate"/>&nbsp;<span style="color:brown;">(<%=dateString1%>)</span>:</label>
+                            <label class="col-sm-4 col-form-label" for="appointment_date"><fmt:message key="Appointment.formDate"/>&nbsp;<span style="color:brown;">(<%=dateString1%>)</span>:</label>
                             <div class="col-sm-8">
-                                <input type="date" class="form-control form-control-sm" name="appointment_date"
+                                <input type="date" class="form-control form-control-sm" name="appointment_date" id="appointment_date"
                                        value="<%=dateString2%>"
                                        onChange="checkDateTypeIn(this);checkPageLock()">
                             </div>
                         </div>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formStartTime"/>:</label>
+                            <label class="col-sm-4 col-form-label" for="start_time"><fmt:message key="Appointment.formStartTime"/>:</label>
                             <div class="col-sm-8">
-                                <input type="time" name="start_time" class="form-control form-control-sm"
+                                <input type="time" name="start_time" id="start_time" class="form-control form-control-sm"
                                        value='<carlos:encode value='<%= request.getParameter("start_time") == null ? "" : request.getParameter("start_time") %>' context="htmlAttribute"/>'<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                                        onChange="checkTimeTypeIn(this);checkPageLock();updateTime()">
                             </div>
                         </div>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formDuration"/>:</label>
+                            <label class="col-sm-4 col-form-label" for="duration"><fmt:message key="Appointment.formDuration"/>:</label>
                             <div class="col-sm-8">
                                 <input type="number" name="duration" id="duration" class="form-control form-control-sm"
                                        value="<carlos:encode value='<%= duration %>' context="htmlAttribute"/>" onChange="checkPageLock()" onblur="calculateEndTime();">
@@ -1317,7 +1324,7 @@ Ontario, Canada
                             </div>
                         </div>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label" for="reasonCode"><fmt:message key="Appointment.formReason"/>:</label>
+                            <label class="col-sm-4 col-form-label" for="reasonCode" id="apptReasonLabel"><fmt:message key="Appointment.formReason"/>:</label>
                             <div class="col-sm-8">
                                 <select name="reasonCode" id="reasonCode" class="form-select form-select-sm">
                                     <c:choose>
@@ -1484,9 +1491,9 @@ Ontario, Canada
                             <label class="col-sm-4 col-form-label" for="notes"><fmt:message key="Appointment.formNotes"/>:</label>
                             <div class="col-sm-8">
                                 <fmt:message key="Appointment.formNotes" var="formNotesMsg"/>
-                                <textarea id="notes" class="form-control form-control-sm" name="notes" data-code-point-maxlength="255" rows="2" style="resize:none;"
+                                <textarea id="notes" class="form-control form-control-sm" name="notes" rows="2" style="resize:none;"
                                           placeholder="${carlos:forHtmlAttribute(formNotesMsg)}"
-                                          maxlength="510"><%=bFirstDisp ? "" : SafeEncode.forHtmlContent(StringUtils.defaultString(request.getParameter("notes")))%></textarea>
+                                          maxlength="65536" data-max-codepoints="32768"><%=bFirstDisp ? "" : SafeEncode.forHtmlContent(StringUtils.defaultString(request.getParameter("notes")))%></textarea>
                             </div>
                         </div>
                         <div class="mb-2 row">
@@ -1497,7 +1504,7 @@ Ontario, Canada
                             </div>
                         </div>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formDateTime"/>:</label>
+                            <span class="col-sm-4 col-form-label"><fmt:message key="Appointment.formDateTime"/>:</span>
                             <div class="col-sm-8">
                                 <%
                                     GregorianCalendar now = new GregorianCalendar();

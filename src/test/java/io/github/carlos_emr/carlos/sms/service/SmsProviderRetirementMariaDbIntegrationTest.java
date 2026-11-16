@@ -69,7 +69,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.time.Clock;
 import java.time.Duration;
@@ -132,7 +131,7 @@ class SmsProviderRetirementMariaDbIntegrationTest {
         assertThat(url).matches("jdbc:mysql://[^/]+/");
         user = System.getenv("SMS_TEST_DB_USER");
         password = System.getenv("SMS_TEST_DB_PASSWORD");
-        admin = DriverManager.getConnection(url, user, password);
+        admin = io.github.carlos_emr.carlos.test.base.MariaDbTestConnections.open(url, user, password);
         try (var s = admin.createStatement(); var r = s.executeQuery("SELECT VERSION()")) {
             assertThat(r.next()).isTrue();
             assertThat(r.getString(1)).containsIgnoringCase("MariaDB");
@@ -141,7 +140,7 @@ class SmsProviderRetirementMariaDbIntegrationTest {
             s.execute("CREATE DATABASE `" + schema + "`");
         }
         schemaUrl = url + schema;
-        try (Connection c = DriverManager.getConnection(schemaUrl, user, password)) {
+        try (Connection c = io.github.carlos_emr.carlos.test.base.MariaDbTestConnections.open(schemaUrl, user, password)) {
             install(c, migration("add_sms_system_of_record"), "CREATE TABLE IF NOT EXISTS sms_transaction (");
             install(c, migration("add_sms_system_of_record"), "CREATE TABLE IF NOT EXISTS sms_provider_rate_limit (");
             install(c, migration("add_sms_consent"), "ALTER TABLE sms_transaction");
@@ -159,6 +158,7 @@ class SmsProviderRetirementMariaDbIntegrationTest {
         }
         factory = new Configuration().addAnnotatedClass(SmsTransaction.class).addAnnotatedClass(SmsConfig.class)
                 .addAnnotatedClass(SmsProviderRateLimit.class).addAnnotatedClass(SystemPreferences.class)
+                .setProperty("hibernate.connection.driver_class", io.github.carlos_emr.carlos.utility.MariaDbCompatibilityDriver.class.getName())
                 .setProperty("hibernate.connection.url", schemaUrl)
                 .setProperty("hibernate.connection.username", user)
                 .setProperty("hibernate.connection.password", password)
@@ -665,6 +665,10 @@ class SmsProviderRetirementMariaDbIntegrationTest {
             assertThat(statement.executeUpdate()).isEqualTo(1);
         }
         save(SmsProviderType.STUB, true);
+        // The future-dated backlog remains pending until cleanup moves it to the selected
+        // provider. Its old row must then say MOVED rather than merely inactive.
+        assertThat(stored(old)).extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode)
+                .containsExactly(SmsStatus.QUEUED, null);
         SmsTransaction first = admit(SmsProviderType.STUB);
         SmsTransaction next = admit(SmsProviderType.STUB);
         sendAnswer.set(uncertain ? SmsProviderSendResultDto.uncertain("FAKE_TIMEOUT")
@@ -682,7 +686,7 @@ class SmsProviderRetirementMariaDbIntegrationTest {
         assertThat(stored(next)).extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount)
                 .containsExactly(SmsStatus.QUEUED, 0);
         assertThat(stored(old)).extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode)
-                .containsExactly(SmsStatus.FAILED, "QUEUE_PROVIDER_NOT_ACTIVE");
+                .containsExactly(SmsStatus.FAILED, "QUEUE_PROVIDER_MOVED");
         assertThat(lookups.get()).isZero();
     }
 
@@ -797,7 +801,7 @@ class SmsProviderRetirementMariaDbIntegrationTest {
     /** Compare every committed config/version, cutoff, limiter and message column after a refused transaction. */
     private List<String> durableState() {
         List<String> state = new ArrayList<>();
-        try (Connection connection = DriverManager.getConnection(schemaUrl, user, password);
+        try (Connection connection = io.github.carlos_emr.carlos.test.base.MariaDbTestConnections.open(schemaUrl, user, password);
              var statement = connection.createStatement()) {
             for (String table : List.of("sms_config", "SystemPreferences", "sms_transaction", "sms_provider_rate_limit")) {
                 String key = table.equals("sms_provider_rate_limit") ? "provider_type" : "id";

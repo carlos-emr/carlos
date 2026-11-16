@@ -179,4 +179,27 @@ class DemographicConverterUnitTest {
         assertThat((String) ReflectionTestUtils.getField(d, "prefName"))
             .hasSize(Demographic.PREF_NAME_MAX_LENGTH);
     }
+    @Test
+    @DisplayName("should keep the health card number and omit the SIN in detail and list conversions")
+    void shouldKeepHealthCardAndOmitSin_inDetailAndListConversions() {
+        Demographic patient = demographicWithValidBirthDate();
+        patient.setSin("FAKE-SIN"); patient.setHin("FAKE-HIN");
+        var detail = converter.getAsTransferObject(null, patient);
+        assertThat(detail.getSin()).isNull();
+        assertThat(detail.getHin()).isEqualTo("FAKE-HIN");
+        // GET /demographics and every other list built from this converter: the HIN identifies the
+        // patient for existing clients and is part of the published list contract.
+        var list = converter.getAllAsTransferObjects(null, java.util.List.of(patient));
+        assertThat(list).singleElement().satisfies(value -> {
+            assertThat(value.getSin()).isNull(); assertThat(value.getHin()).isEqualTo("FAKE-HIN");
+            assertThat(value.getDemographicNo()).isEqualTo(patient.getDemographicNo());
+        });
+        var soap = io.github.carlos_emr.carlos.webserv.transfer_objects.DemographicTransfer.toTransfer(patient);
+        assertThat(soap.getSin()).isNull(); assertThat(soap.getHin()).isEqualTo("FAKE-HIN");
+        var soap2 = io.github.carlos_emr.carlos.webserv.transfer_objects.DemographicTransfer2.toTransfer(patient);
+        assertThat(soap2.getSin()).isNull(); assertThat(soap2.getHin()).isEqualTo("FAKE-HIN");
+        assertThat(patient.getSin()).isEqualTo("FAKE-SIN");
+        assertThat(patient.getHin()).isEqualTo("FAKE-HIN");
+    }
+
 }

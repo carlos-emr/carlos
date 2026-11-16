@@ -689,7 +689,11 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("message"))
                 .isEqualTo("The K2A export service has been discontinued and is no longer available");
 
-        assertThat(new GenerateOutFiles2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        // No kept result named: the export asks the user to run the report again instead of downloading.
+        request.setMethod("POST");
+        request.setParameter("getCSV", "Export to CSV");
+        assertThat(new GenerateOutFiles2Action().execute()).isEqualTo("unavailable");
+        assertThat(response.getStatus()).isEqualTo(410);
 
         request.setParameter("type", "mock");
         Reporter reporter = mock(Reporter.class);

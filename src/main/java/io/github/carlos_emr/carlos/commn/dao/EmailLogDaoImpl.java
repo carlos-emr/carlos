@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Objects;
 
 import jakarta.persistence.Query;
+import jakarta.persistence.LockModeType;
 
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Propagation;
@@ -97,6 +98,12 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
     /** Settled and idle, or aged: the rule the selection and the conditional update share. */
     private static final String CODE_NOT_NEEDED = "((" + SETTLED + " AND e.timestamp < :changedBefore) OR "
             + CODE_AGED + ")";
+
+    // Hibernate wraps mutation subqueries in derived tables on MariaDB. They cannot refer to
+    // the update's outer alias; the selected row is already fixed by e.id = :id, so bind the
+    // same id inside every attempt predicate and retain the complete eligibility check.
+    private static final String CODE_NOT_NEEDED_FOR_ID =
+            CODE_NOT_NEEDED.replace(".emailLogId = e.id", ".emailLogId = :id");
 
     /** Commit lifecycle intent before a network operation, even if a caller has a transaction. */
     @org.springframework.transaction.annotation.Transactional(
@@ -274,8 +281,8 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
      * @param expectedStatus EmailLog.EmailStatus the status the row must currently have
      * @param newStatus EmailLog.EmailStatus the new email status (SUCCESS, FAILED, or RESOLVED)
      * @param errorMessage String the error message to record, or {@code null} to clear existing error message
-     * @param timestamp Date the timestamp to set, typically current time or email processing time
-     * @return int the number of database rows updated (1 if record exists and was updated, 0 if not found)
+     * @param timestamp Date the timestamp to set for transport outcomes; ignored for RESOLVED
+     * @return int 1 if updated; 0 if missing or a RESOLVED transition was rejected because the row is not FAILED
      */
     @Override
     public int transitionEmailStatus(Integer id, EmailLog.EmailStatus expectedStatus,
@@ -326,10 +333,13 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
 
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
+    // Only private constant HQL is rewritten from an outer alias to :id. Every caller value
+    // is bound below; no external text becomes query syntax (reviewed S2077 false positive).
+    @SuppressWarnings("java:S2077")
     public int replaceBodyIfUnchangedBefore(Integer id, EmailLog.TransactionType type, Date changedBefore,
             Date expiredBefore, Date agedBefore, String replacement) {
         return withSettledParameters(entityManager.createQuery("UPDATE EmailLog e SET e.body = :body "
-                        + "WHERE e.id = :id AND e.transactionType = :type AND " + CODE_NOT_NEEDED
+                        + "WHERE e.id = :id AND e.transactionType = :type AND " + CODE_NOT_NEEDED_FOR_ID
                         + " AND (e.body IS NULL OR e.body <> :body)"),
                 changedBefore, expiredBefore, agedBefore)
                 .setParameter("id", id)
@@ -355,5 +365,42 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
     /** The stored form of a body, as {@link EmailLog#setBody(String)} writes it. */
     private static byte[] encodeBody(String body) {
         return Base64.encodeBase64(body.getBytes(StandardCharsets.UTF_8));
+    }
+
+    @Override
+    public int updateEmailStatus(Integer id, EmailLog.EmailStatus status, String errorMessage, Date timestamp) {
+        String hql = "UPDATE EmailLog e SET e.status = :status, e.errorMessage = :msg";
+        if (status != EmailLog.EmailStatus.RESOLVED) {
+            hql += ", e.timestamp = :ts";
+        }
+        hql += " WHERE e.id = :id";
+        if (status == EmailLog.EmailStatus.RESOLVED) {
+            hql += " AND e.status = :failed";
+        }
+        Query query = entityManager.createQuery(hql);
+        query.setParameter("id", id);
+        query.setParameter("status", status);
+        query.setParameter("msg", errorMessage);
+        if (status != EmailLog.EmailStatus.RESOLVED) {
+            query.setParameter("ts", timestamp);
+        }
+        if (status == EmailLog.EmailStatus.RESOLVED) {
+            query.setParameter("failed", EmailLog.EmailStatus.FAILED);
+        }
+        return query.executeUpdate();
+    }
+
+    @Override
+    @Transactional
+    public EmailLog findFresh(Integer id) {
+        List<EmailLog> logs = entityManager.createQuery("SELECT e FROM EmailLog e WHERE e.id = :id", EmailLog.class)
+                .setParameter("id", id).setLockMode(LockModeType.PESSIMISTIC_READ).getResultList();
+        if (logs.isEmpty()) {
+            return null;
+        }
+        EmailLog log = logs.get(0);
+        // The row lock keeps a concurrent delete from racing the refresh, which also bypasses L1 state.
+        entityManager.refresh(log, LockModeType.PESSIMISTIC_READ);
+        return log;
     }
 }

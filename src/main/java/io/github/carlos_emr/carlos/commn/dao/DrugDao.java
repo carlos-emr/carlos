@@ -36,7 +36,15 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.prescript.dto.DrugListItemDTO;
 
-public interface DrugDao extends AbstractDao<Drug> {
+public interface DrugDao extends AbstractDao<Drug>, CdsExportPatientTableReadDao {
+
+    /**
+     * Scalar discovery for authorized export; callers own a short read-only transaction. One row
+     * is a prescription's id, its drug catalogue id and its DIN, for every prescription of the
+     * chart: no count of prescriptions holds a patient or stops an export.
+     */
+    java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportDrugReferenceInputDto>
+            readCdsExportDrugReferenceInputs(int patient);
 
     public boolean addNewDrug(Drug d);
 

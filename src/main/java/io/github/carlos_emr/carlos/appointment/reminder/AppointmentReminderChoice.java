@@ -188,12 +188,13 @@ public final class AppointmentReminderChoice {
     }
 
     /**
-     * Runs one of the group page's reminder calls. That page saves each booking on its own, with no transaction
-     * around them, so every booking is already saved when its reminder is recorded. A reminder that cannot be
-     * stored (a database error, an edit racing the reminder job) must not stop a Group Appt or Group Update
-     * halfway, or show an error page that invites a second submit and a duplicate booking. So the page carries
-     * on, the failure is logged (the class only), and the request is marked ({@link #notRecorded}): the page's
-     * result then says the appointment was saved but its reminder was not, and to tick the box again.
+     * Runs one of the group page's reminder calls. Every booking is already saved when its reminder is recorded:
+     * Group Appt saves each booking on its own, and Group Update writes in one transaction whose reminder steps
+     * run only after it has committed ({@link GroupUpdateReminders}). A reminder that cannot be stored (a database
+     * error, an edit racing the reminder job) must not stop the page halfway, undo a booking, or show an error
+     * page that invites a second submit and a duplicate booking. So the page carries on, the failure is logged
+     * (the class only), and the request is marked ({@link #notRecorded}): the page's result then says the
+     * appointment was saved but its reminder was not, and to tick the box again.
      */
     static void onGroupPage(HttpServletRequest request, Runnable reminderCall) {
         try {

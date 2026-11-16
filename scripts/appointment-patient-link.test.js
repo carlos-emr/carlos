@@ -548,6 +548,7 @@ function bannerPage() {
   make('patientAlertBanner');
   make('patientAlertText');
   make('patientStatusBanner').attributes['data-roster-label'] = 'Roster Status';
+  elements.patientStatusBanner.attributes['data-roster-not-rostered'] = 'Not Rostered';
   make('patientStatusText');
   return { doc, elements };
 }
@@ -571,6 +572,14 @@ test('attach() hides the status banner for the AC/RO defaults and the alert bann
   PatientLink.attach(doc).commit({ ...JONES, status: 'AC', rosterStatus: 'RO' });
   assert.equal(elements.patientAlertBanner.style.display, 'none');
   assert.equal(elements.patientStatusBanner.style.display, 'none');
+});
+
+test('attach() expands NR to the full localized roster label without changing the status code', () => {
+  const { doc, elements } = bannerPage();
+  const item = { ...SMITH, status: 'AC', rosterStatus: 'NR' };
+  PatientLink.attach(doc).commit(item);
+  assert.equal(elements.patientStatusText.textContent, 'Roster Status:\u00a0Not Rostered');
+  assert.equal(item.rosterStatus, 'NR');
 });
 
 test('attach() hides both banners when the link is removed, without moving the layout', () => {
@@ -617,5 +626,14 @@ test('both appointment JSPs use attach() instead of their own banner copies', ()
       `../src/main/webapp/WEB-INF/jsp/appointment/${page}.jsp`), 'utf8');
     assert.match(source, /CarlosAppointmentPatientLink\.attach\(document\)/, page);
     assert.doesNotMatch(source, /function showPatientBanners/, page);
+    assert.match(source, /data-roster-not-rostered=/, page);
+    assert.match(source, /getRosterStatusDisplay\(/, page);
+    if (page === 'addappointment') {
+      assert.match(source, /carlos:encode value='<%= rosterStatus %>' context="html"/);
+      assert.match(source, /Enrolment status codes: RO-rostered, NR-not rostered/);
+    } else {
+      assert.match(source, /SafeEncode\.forHtmlContent\(/);
+      assert.match(source, /<carlos:encode value='<%= StringUtils\.trimToEmpty\(/);
+    }
   }
 });

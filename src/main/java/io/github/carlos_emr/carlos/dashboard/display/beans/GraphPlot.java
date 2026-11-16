@@ -28,7 +28,6 @@
  */
 package io.github.carlos_emr.carlos.dashboard.display.beans;
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
 public class GraphPlot {
 
@@ -81,6 +80,6 @@ public class GraphPlot {
 
     @Override
     public String toString() {
-        return ReflectionToStringBuilder.toString(this);
+        return getClass().getSimpleName() + "[protected]";
     }
 }

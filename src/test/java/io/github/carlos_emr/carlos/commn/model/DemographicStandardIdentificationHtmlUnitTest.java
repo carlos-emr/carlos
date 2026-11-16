@@ -49,6 +49,28 @@ class DemographicStandardIdentificationHtmlUnitTest {
     }
 
     @Test
+    void shouldDisplayNotRosteredInTheRequestedLocale_andPreserveTheStoredCode() {
+        Demographic demographic = new Demographic();
+        demographic.setRosterStatus("NR");
+
+        assertThat(demographic.getRosterStatusDisplay(Locale.ENGLISH)).isEqualTo("Not Rostered");
+        assertThat(demographic.getRosterStatusDisplay(Locale.FRENCH)).isEqualTo("Non inscrit");
+        assertThat(demographic.getRosterStatusDisplay(new Locale("es"))).isEqualTo("No Registrado");
+        assertThat(demographic.getRosterStatusDisplay(new Locale("pt", "BR"))).isEqualTo("Não listado");
+        assertThat(demographic.getRosterStatusDisplay(new Locale("pl"))).isEqualTo("Nie na liście");
+        assertThat(demographic.getRosterStatusDisplay(null)).isEqualTo("Not Rostered");
+        assertThat(demographic.getRosterStatus()).isEqualTo("NR");
+    }
+
+    @Test
+    void shouldLeaveUnknownRosterCodesVisible() {
+        Demographic demographic = new Demographic();
+        demographic.setRosterStatus("UNKNOWN");
+
+        assertThat(demographic.getRosterStatusDisplay(Locale.ENGLISH)).isEqualTo("UNKNOWN");
+    }
+
+    @Test
     void shouldEscapePatientLabelFields_whenRenderingStandardIdentificationHtml() {
         Demographic demographic = demographicWithHostileDisplayFields();
 

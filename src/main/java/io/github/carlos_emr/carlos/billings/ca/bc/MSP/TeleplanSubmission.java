@@ -48,7 +48,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.billings.ca.bc.Teleplan.TeleplanSequenceDAO;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillActivityDAO;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
-import io.github.carlos_emr.carlos.util.StringUtils;
 
 /**
  * Holds Data about a teleplan submission
@@ -97,13 +96,18 @@ public class TeleplanSubmission {
         sb.append(this.getHtmlFile());
         sb.append("\n");
         sb.append("billing to be marked\n");
-        sb.append(StringUtils.getCSV(this.billingToBeMarkedAsBilled));
+        sb.append(billingIdsCsv(this.billingToBeMarkedAsBilled));
         sb.append("\n");
         sb.append("billingmaster");
-        sb.append(StringUtils.getCSV(this.billingmasterToBeMarkedAsBilled));
+        sb.append(billingIdsCsv(this.billingmasterToBeMarkedAsBilled));
         sb.append("\n");
         sb.append("Ending Seq: " + sequenceNum + " total Claims: " + this.getNumClaims() + " BigTotal: " + this.getBigTotal() + " # in Log: " + this.logList.size());
         return sb.toString();
+    }
+
+    /** Preserves the legacy CSV contract, including null elements and String-only casts. */
+    private static String billingIdsCsv(List<?> ids) {
+        return ids == null ? "" : String.join(",", ids.stream().map(String.class::cast).toList());
     }
 
     public String getHtmlFile() {

@@ -76,9 +76,7 @@ public class SiteDaoImpl extends AbstractDaoImpl<Site> implements SiteDao {
                 query.setParameter(2, old.getName());
                 query.executeUpdate();
 
-                // The rename rewrites appointment text; a Location List code no longer names the new
-                // text, so it is cleared as AppointmentLocationResolver.setLocationText does (#3982).
-                query = entityManager.createNativeQuery("update appointment set location = ?1, locationCode = null where location = ?2");
+                query = entityManager.createNativeQuery("update appointment set location = ?1, locationCode = null, updatedatetime = greatest(current_timestamp, coalesce(timestampadd(second, 1, updatedatetime), current_timestamp)) where location = ?2");
                 query.setParameter(1, s.getName());
                 query.setParameter(2, old.getName());
                 query.executeUpdate();

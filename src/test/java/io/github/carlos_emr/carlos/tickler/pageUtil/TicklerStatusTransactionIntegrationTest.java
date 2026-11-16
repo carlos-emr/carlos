@@ -49,12 +49,12 @@ class TicklerStatusTransactionIntegrationTest extends CarlosTestBase {
         int id = seed();
         try (var audit = mockStatic(LogAction.class)) {
             TicklerManager manager = manager(history, true);
-            assertThat(manager.updateStatusIfCurrent(login, id, "999998", Tickler.STATUS.A, Tickler.STATUS.D)).isTrue();
-            assertThat(manager.updateStatusIfCurrent(login, id, "999998", Tickler.STATUS.A, Tickler.STATUS.C)).isFalse();
-            assertThat(manager.updateStatusIfCurrent(login, id, "999998", null, Tickler.STATUS.C)).isFalse();
+            assertThat(manager.changeStatusIfCurrent(login, id, "999998", Tickler.STATUS.A, Tickler.STATUS.D)).isEqualTo(TicklerManager.StatusChange.APPLIED);
+            assertThat(manager.changeStatusIfCurrent(login, id, "999998", Tickler.STATUS.A, Tickler.STATUS.C)).isEqualTo(TicklerManager.StatusChange.STALE);
+            assertThat(manager.changeStatusIfCurrent(login, id, "999998", null, Tickler.STATUS.C)).isEqualTo(TicklerManager.StatusChange.STALE);
             assertRows(id, Tickler.STATUS.D, 1);
-            assertThat(manager.updateStatusIfCurrent(login, id, "999998", Tickler.STATUS.D, Tickler.STATUS.C)).isTrue();
-            assertThat(manager.updateStatusIfCurrent(login, id, "999998", Tickler.STATUS.C, Tickler.STATUS.C)).isTrue();
+            assertThat(manager.changeStatusIfCurrent(login, id, "999998", Tickler.STATUS.D, Tickler.STATUS.C)).isEqualTo(TicklerManager.StatusChange.APPLIED);
+            assertThat(manager.changeStatusIfCurrent(login, id, "999998", Tickler.STATUS.C, Tickler.STATUS.C)).isEqualTo(TicklerManager.StatusChange.UNCHANGED);
             assertRows(id, Tickler.STATUS.C, 2);
         } finally { cleanup(id); }
     }
@@ -79,30 +79,38 @@ class TicklerStatusTransactionIntegrationTest extends CarlosTestBase {
                         });
             }
             TicklerManager manager = manager(writes, true);
-            assertThatThrownBy(() -> manager.updateStatusIfCurrent(login, id, "999998", Tickler.STATUS.A, Tickler.STATUS.C))
+            assertThatThrownBy(() -> manager.changeStatusIfCurrent(login, id, "999998", Tickler.STATUS.A, Tickler.STATUS.C))
                     .isInstanceOf(IllegalStateException.class);
             assertRows(id, Tickler.STATUS.A, 0);
         } finally { cleanup(id); }
     }
 
     @Test
-    void shouldRefreshAnAlreadyManagedTickler_beforeComparingTheExpectedStatus() {
+    void shouldRejectStaleSnapshotOrRefreshIt_beforeComparingTheExpectedStatus() {
         int id = seed();
         try (var audit = mockStatic(LogAction.class)) {
             TicklerManager manager = manager(history, true);
-            new TransactionTemplate(transactions).executeWithoutResult(outer -> {
-                Tickler stale = entities.find(Tickler.class, id);
-                assertThat(stale.getStatus()).isEqualTo(Tickler.STATUS.A);
-                TransactionTemplate other = new TransactionTemplate(transactions);
-                other.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-                other.executeWithoutResult(inner -> {
-                    Tickler changed = ticklers.findForUpdate(id);
-                    changed.setStatus(Tickler.STATUS.D);
-                    ticklers.merge(changed);
+            try {
+                new TransactionTemplate(transactions).executeWithoutResult(outer -> {
+                    Tickler stale = entities.find(Tickler.class, id);
+                    assertThat(stale.getStatus()).isEqualTo(Tickler.STATUS.A);
+                    TransactionTemplate other = new TransactionTemplate(transactions);
+                    other.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+                    other.executeWithoutResult(inner -> {
+                        Tickler changed = ticklers.findForUpdate(id);
+                        changed.setStatus(Tickler.STATUS.D);
+                        ticklers.merge(changed);
+                    });
+                    assertThat(manager.changeStatusIfCurrent(login, id, "999998", Tickler.STATUS.A, Tickler.STATUS.C)).isEqualTo(TicklerManager.StatusChange.STALE);
+                    assertThat(stale.getStatus()).isEqualTo(Tickler.STATUS.D);
                 });
-                assertThat(manager.updateStatusIfCurrent(login, id, "999998", Tickler.STATUS.A, Tickler.STATUS.C)).isFalse();
-                assertThat(stale.getStatus()).isEqualTo(Tickler.STATUS.D);
-            });
+            } catch (RuntimeException failure) {
+                Throwable cause = org.springframework.core.NestedExceptionUtils.getMostSpecificCause(failure);
+                assertThat(cause).isInstanceOf(java.sql.SQLException.class);
+                assertThat(((java.sql.SQLException) cause).getErrorCode()).isEqualTo(1020);
+            }
+            assertThat(manager.changeStatusIfCurrent(login, id, "999998", Tickler.STATUS.A, Tickler.STATUS.C))
+                    .isEqualTo(TicklerManager.StatusChange.STALE);
             assertRows(id, Tickler.STATUS.D, 0);
         } finally { cleanup(id); }
     }
@@ -112,18 +120,35 @@ class TicklerStatusTransactionIntegrationTest extends CarlosTestBase {
         int id = seed();
         try (var audit = mockStatic(LogAction.class)) {
             TicklerManager denied = manager(history, false);
-            assertThatThrownBy(() -> denied.updateStatusIfCurrent(login, id, "999998", Tickler.STATUS.A, Tickler.STATUS.C))
+            assertThatThrownBy(() -> denied.changeStatusIfCurrent(login, id, "999998", Tickler.STATUS.A, Tickler.STATUS.C))
                     .isInstanceOf(RuntimeException.class);
             assertRows(id, Tickler.STATUS.A, 0);
             cleanup(id);
-            assertThat(manager(history, true).updateStatusIfCurrent(login, id, "999998", Tickler.STATUS.A, Tickler.STATUS.C)).isFalse();
+            assertThatThrownBy(() -> manager(history, true).changeStatusIfCurrent(login, id, "999998", Tickler.STATUS.A, Tickler.STATUS.C))
+                    .isInstanceOf(jakarta.ws.rs.NotFoundException.class);
         } finally { cleanup(id); }
+    }
+
+    @Test
+    void shouldRetainTheBooleanStatusContract_withCommittedHistoryAndStaleProtection() {
+        int id = seed();
+        try (var audit = mockStatic(LogAction.class)) {
+            TicklerManager manager = manager(history, true);
+            assertThat(manager.updateStatusIfCurrent(login, id, "999998", Tickler.STATUS.A, Tickler.STATUS.D)).isTrue();
+            assertThat(manager.updateStatusIfCurrent(login, id, "999998", Tickler.STATUS.A, Tickler.STATUS.C)).isFalse();
+            assertThat(manager.updateStatusIfCurrent(login, id, "999998", Tickler.STATUS.D, Tickler.STATUS.D)).isTrue();
+            assertRows(id, Tickler.STATUS.D, 1);
+        } finally {
+            cleanup(id);
+        }
     }
 
     private TicklerManager manager(TicklerUpdateDao writes, boolean allowed) {
         TicklerManagerImpl target = new TicklerManagerImpl();
         SecurityInfoManager security = mock(SecurityInfoManager.class);
         when(security.hasPrivilege(eq(login), eq("_tickler"), anyString(), isNull())).thenReturn(allowed);
+        when(security.hasPrivilege(eq(login), eq("_tickler"), anyString(), anyString())).thenReturn(allowed);
+        when(security.isAllowedAccessToPatientRecord(eq(login), anyInt())).thenReturn(allowed);
         ReflectionTestUtils.setField(target, "ticklerDao", ticklers);
         ReflectionTestUtils.setField(target, "ticklerUpdateDao", writes);
         ReflectionTestUtils.setField(target, "securityInfoManager", security);

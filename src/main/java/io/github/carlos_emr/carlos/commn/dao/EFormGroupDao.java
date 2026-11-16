@@ -38,6 +38,14 @@ import io.github.carlos_emr.carlos.commn.model.EFormGroup;
 
 public interface EFormGroupDao extends AbstractDao<EFormGroup> {
 
+    record GroupCount(String name, long count) { }
+
+    List<GroupCount> findActiveGroupCounts(Integer demographicNo);
+
+    boolean containsActiveForm(String name, Integer formId);
+
+    void addActiveFormIfMissing(String name, Integer formId);
+
     public int deleteByNameAndFormId(String groupName, Integer formId);
 
     public int deleteByName(String groupName);

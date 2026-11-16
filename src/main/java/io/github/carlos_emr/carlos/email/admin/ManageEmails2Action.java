@@ -353,7 +353,8 @@ public class ManageEmails2Action extends ActionSupport {
 
         String emailLogId = request.getParameter("logId");
         if (!StringUtils.isInteger(emailLogId)) {
-            JSONUtil.errorResponse(response, ERROR_MESSAGE_ATTRIBUTE, "Invalid email log id");
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            JSONUtil.jsonResponse(response, ERROR_MESSAGE_ATTRIBUTE, "Invalid email log id");
             return null;
         }
 

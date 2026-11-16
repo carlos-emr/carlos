@@ -36,6 +36,17 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
 
 public interface BillingServiceDao extends AbstractDao<BillingService> {
+
+    record TimeRule(String serviceCode, String timeRange) { }
+    record ConditionRule(String serviceCode, String conditionCode) { }
+    record CodeDescription(String code, String description) { }
+
+    List<TimeRule> findTimeRules();
+    List<ConditionRule> findAllConditionRules();
+    List<ConditionRule> findConditionRules(String serviceCode);
+    List<String> findVisitTypes();
+    List<CodeDescription> findCodeDescriptions(String descriptionPrefix);
+    String findFirstPrice(String serviceCode);
     static public final String BC = "BC";
 
     List<BillingService> getBillingCodeAttr(String serviceCode);
@@ -96,6 +107,9 @@ public interface BillingServiceDao extends AbstractDao<BillingService> {
     List<BillingService> findAll();
 
     List<Object[]> findSomethingByBillingId(Integer billingNo);
+
+    /** Loads only the form, avoiding nullable primitive invoice fields in the legacy tuple query. */
+    List<io.github.carlos_emr.carlos.billing.CA.BC.model.Wcb> findOpenWcbFormsByBillingId(Integer billingNo);
 
     List<BillingService> findGst(String code, Date date);
 
