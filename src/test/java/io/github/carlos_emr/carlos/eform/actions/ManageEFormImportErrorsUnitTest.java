@@ -10,6 +10,7 @@ import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.eform.upload.ImageUpload2Action;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -116,6 +117,26 @@ class ManageEFormImportErrorsUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("importErrors").toString())
                 .doesNotContain(missing.toString()).contains("import");
         assertThat(request.getAttribute("status")).isNull();
+        assertThat(request.getAttribute("input")).isEqualTo("import");
+    }
+
+    @Test
+    void shouldLogSafeOperationalDiagnostics_whenImportIoFails() throws Exception {
+        Path archive = Files.createFile(temporary.resolve("unreadable-entry.zip"));
+        var failure = new java.io.IOException("FAKE-private-archive-name\nFAKE-forged-log-line");
+        try (var capture = LogCapture.forLogger(ManageEForm2Action.class);
+             var importer = mockConstruction(EFormExportZip.class, (mock, context) ->
+                     when(mock.importForm(any())).thenThrow(failure))) {
+            assertThat(action(archive).execute()).isEqualTo("fail");
+            var warnings = capture.events().stream()
+                    .filter(event -> event.getLevel() == org.apache.logging.log4j.Level.WARN).toList();
+            assertThat(warnings).hasSize(1);
+            assertThat(warnings.getFirst().getThrown()).isNull();
+            assertThat(warnings.getFirst().getMessage().getFormattedMessage())
+                    .contains("java.io.IOException")
+                    .doesNotContain("FAKE-private-archive-name", "FAKE-forged-log-line");
+            assertThat(request.getAttribute("input")).isEqualTo("import");
+        }
     }
 
     @Test

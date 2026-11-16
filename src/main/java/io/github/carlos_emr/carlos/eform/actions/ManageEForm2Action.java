@@ -40,6 +40,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.eform.EFormExportZip;
 import io.github.carlos_emr.carlos.eform.data.EForm;
@@ -95,6 +96,7 @@ public class ManageEForm2Action extends ActionSupport implements UploadedFilesAw
             throw new SecurityException("missing required sec object (_eform)");
         }
 
+        request.setAttribute("input", "import");
         if (zippedForm == null) {
             MiscUtils.getLogger().error("importEForm() called with no uploaded file; returning fail.");
             request.setAttribute("importErrors", Collections.singletonList("No file was uploaded."));
@@ -103,11 +105,10 @@ public class ManageEForm2Action extends ActionSupport implements UploadedFilesAw
 
         List<String> errors = Collections.emptyList();
         try (InputStream zippedFormStream = Files.newInputStream(zippedForm.toPath())) {
-            request.setAttribute("input", "import");
             EFormExportZip eFormExportZip = new EFormExportZip();
             errors = eFormExportZip.importForm(zippedFormStream);
         } catch (IOException e) {
-            MiscUtils.getLogger().debug("eForm ZIP import could not be read", e);
+            MiscUtils.getLogger().warn("eForm ZIP import could not be read: {}", LogSafe.exceptionTrace(e));
             request.setAttribute("importErrors", Collections.singletonList(getText("eform.importReadFailed")));
             return "fail";
         }
