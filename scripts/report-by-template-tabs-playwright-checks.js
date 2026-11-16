@@ -139,7 +139,7 @@ async function workflow(s) {
     }
   }
   await s.step('a lone empty text parameter survives native upload, edit, reopen, run and export',async()=>{
-    const otherBefore=JSON.stringify(sql.rows(`SELECT * FROM reportTemplates WHERE templateid=${templates[1].id}`));
+    const otherBefore=JSON.stringify(sql.rows('SELECT * FROM reportTemplates WHERE templateid=?',[templates[1].id]));
     const proof=await open(templates[0]);
     h.assert(await proof.page.locator('input#pick').inputValue()==='', 'The empty text parameter acquired a value');
     await Promise.all([proof.page.waitForNavigation({waitUntil:'load'}),proof.page.getByRole('link',{name:'Edit Template',exact:true}).click()]);
@@ -154,9 +154,9 @@ async function workflow(s) {
     await proof.page.locator('input#pick').waitFor();
     h.assert(await proof.page.locator('input#pick').inputValue()==='', 'The edited text parameter lost its empty state');
     templates[0].query=editedQuery;
-    h.assert(sql.value(`SELECT templatesql FROM reportTemplates WHERE templateid=${templates[0].id}`)===editedQuery,
+    h.assert(sql.value('SELECT templatesql FROM reportTemplates WHERE templateid=?',[templates[0].id])===editedQuery,
       'Editing the report changed its legacy raw ampersand SQL');
-    h.assert(JSON.stringify(sql.rows(`SELECT * FROM reportTemplates WHERE templateid=${templates[1].id}`))===otherBefore,
+    h.assert(JSON.stringify(sql.rows('SELECT * FROM reportTemplates WHERE templateid=?',[templates[1].id]))===otherBefore,
       'Editing one template changed the other template');
     await run(proof,'F');await exports(proof);
     await leave(proof,()=>Promise.all([proof.page.waitForNavigation({waitUntil:'load'}),proof.page.locator('input[type="button"][value="Back"]').click()]));
