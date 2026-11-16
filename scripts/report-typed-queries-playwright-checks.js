@@ -52,7 +52,7 @@ async function workflow(s) {
     await page.goto(`${base}/report/ViewReportFilter?id=${reportId}`);
     await h.assertNotErrorPage(page, 'typed report filter list');
   });
-  await s.step('Move here retains configured fields through downward, upward and unchanged moves', async () => {
+  await s.step('Move here retains configured fields through downward, upward, unchanged and legacy NULL moves', async () => {
     await page.goto(`${base}/report/ViewReportFormConfig?id=${reportId}&tableName=formAlpha`);
     const fields = await page.locator('select[name="selField"] option').evaluateAll(options =>
       [...new Set(options.map(option => option.value).filter(value => value.includes('|')))].slice(0, 3));
@@ -91,6 +91,11 @@ async function workflow(s) {
     const noOpBefore = JSON.stringify(rows());
     await move(ids[2], ids[2], [ids[2], ids[1], ids[0]]);
     h.assert(JSON.stringify(rows()) === noOpBefore, 'Moving a field to its current position changed the stored order numbers');
+    sql.execute('UPDATE reportConfig SET order_no=NULL WHERE report_id=? AND id=?', [reportId, ids[2]]);
+    await page.reload({waitUntil: 'domcontentloaded'});
+    await move(ids[0], ids[2], [ids[0], ids[2], ids[1]]);
+    h.assert(sql.value('SELECT order_no FROM reportConfig WHERE report_id=? AND id=?',
+      [reportId, ids[2]]) === '1', 'Moving before a legacy NULL order did not shift its effective zero position');
     await page.reload({waitUntil: 'domcontentloaded'});
     h.assert(await page.locator('input[name="nameSelected"]').count() === 3, 'A moved field disappeared after reload');
   });

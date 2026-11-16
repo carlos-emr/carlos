@@ -118,9 +118,9 @@ class ReportConfigurationDaoIntegrationTest extends CarlosTestBase {
 
         assertThat(configurations.findByReportIdAndSave(5549, "nullable-order"))
                 .extracting(ReportConfig::getId)
-                .containsExactly(nullOrder.getId(), zeroOrder.getId(), later.getId());
+                .containsExactly(zeroOrder.getId(), nullOrder.getId(), later.getId());
         var row = (java.util.Properties) new RptReportConfigData()
-                .getConfigObj("nullable-order", "5549").getFirst();
+                .getConfigObj("nullable-order", "5549").get(1);
         assertThat(row).containsEntry("name", "nullOrder").containsEntry("order_no", "0");
         assertThat(configurations.nextOrder(5549)).isEqualTo(3);
         entityManager.flush();
@@ -224,6 +224,49 @@ class ReportConfigurationDaoIntegrationTest extends CarlosTestBase {
             assertThat(configurations.findByReportIdAndSave(5549, "A"))
                     .extracting(ReportConfig::getId, ReportConfig::getOrderNo)
                     .containsExactly(tuple(first.getId(), 1), tuple(second.getId(), 2));
+        } finally { cleanup(); }
+    }
+
+    @Test
+    void shouldMoveBeforeALegacyNullOrder_whenTheTargetIsZero() {
+        cleanup();
+        try {
+            ReportConfig legacy = config("legacy", 0, "A");
+            ReportConfig selected = config("selected", 2, "A");
+            new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+                configurations.persist(legacy);
+                configurations.persist(selected);
+                configurations.flush();
+                entityManager.createNativeQuery("update reportConfig set order_no=null where id=?1")
+                        .setParameter(1, legacy.getId()).executeUpdate();
+                entityManager.clear();
+            });
+            assertThat(configurations.find(legacy.getId()).getOrderNo()).isZero();
+            service.shiftAndRemove(5549, "A", selected.getId(), 0);
+            assertThat(configurations.findByReportIdAndSave(5549, "A"))
+                    .extracting(ReportConfig::getId).containsExactly(selected.getId(), legacy.getId());
+            assertThat(configurations.find(legacy.getId()).getOrderNo()).isEqualTo(1);
+        } finally { cleanup(); }
+    }
+
+    @Test
+    void shouldUseIdentifierOrder_forNullAndZeroOrderTies() {
+        cleanup();
+        try {
+            ReportConfig zero = config("zero", 0, "A");
+            ReportConfig legacy = config("legacy", 0, "A");
+            new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+                configurations.persist(zero);
+                configurations.persist(legacy);
+                configurations.flush();
+                entityManager.createNativeQuery("update reportConfig set order_no=null where id=?1")
+                        .setParameter(1, legacy.getId()).executeUpdate();
+                entityManager.clear();
+            });
+            assertThat(configurations.findByReportIdAndSave(5549, "A"))
+                    .extracting(ReportConfig::getId).containsExactly(zero.getId(), legacy.getId());
+            assertThat(configurations.findByReportId(5549))
+                    .extracting(ReportConfig::getId).containsExactly(zero.getId(), legacy.getId());
         } finally { cleanup(); }
     }
 
