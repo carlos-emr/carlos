@@ -73,8 +73,19 @@ public interface ConsultationRequestDao extends AbstractDao<ConsultationRequest>
 
     int getCountReferralsAfterCutOffDateAndNotCompleted(Date referralDateCutoff, String sendto);
 
+    /**
+     * @deprecated since 2026.08; use {@link #getConsultationListRows(Integer)}, which returns
+     *     {@code List<ConsultationListRow>} instead of {@code List<ConsultationRequest>}
+     */
+    @Deprecated(since = "2026.08", forRemoval = false)
     List<ConsultationRequest> getConsults(Integer demoNo);
 
+    /**
+     * @deprecated since 2026.08; construct a {@link ConsultationListFilterDto} and use
+     *     {@link #getConsultationListRows(ConsultationListFilterDto)}, which returns
+     *     {@code List<ConsultationListRow>} instead of {@code List<ConsultationRequest>}
+     */
+    @Deprecated(since = "2026.08", forRemoval = false)
     List<ConsultationRequest> getConsults(String team, boolean showCompleted, Date startDate, Date endDate, String orderby, String desc, String searchDate, Integer offset, Integer limit);
 
     /**
@@ -86,7 +97,10 @@ public interface ConsultationRequestDao extends AbstractDao<ConsultationRequest>
      * @param filter ConsultationListFilterDto the list filters; must not be null
      * @return List of matching requests, at most {@code MAX_LIST_RETURN_SIZE} rows
      * @since 2026-09-30
+     * @deprecated since 2026.08; use {@link #getConsultationListRows(ConsultationListFilterDto)}, which
+     *     returns {@code List<ConsultationListRow>} instead of {@code List<ConsultationRequest>}
      */
+    @Deprecated(since = "2026.08", forRemoval = false)
     List<ConsultationRequest> getConsults(ConsultationListFilterDto filter);
 
     /**
