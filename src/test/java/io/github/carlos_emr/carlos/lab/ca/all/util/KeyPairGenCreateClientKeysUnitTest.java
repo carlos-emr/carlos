@@ -33,6 +33,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -153,10 +156,12 @@ class KeyPairGenCreateClientKeysUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(mockPublicKeyDao);
     }
 
-    @Test
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "\t"})
     @DisplayName("should store nothing when the stored CARLOS key has no public key")
-    void shouldStoreNothing_whenCarlosPublicKeyBlank() {
-        when(mockOscarKeyDao.find("oscar")).thenReturn(carlosKey(" "));
+    void shouldStoreNothing_whenCarlosPublicKeyBlank(String publicKey) {
+        when(mockOscarKeyDao.find("oscar")).thenReturn(carlosKey(publicKey));
 
         ClientKeys result;
         try (LogCapture logs = LogCapture.forLogger(KeyPairGen.class)) {
