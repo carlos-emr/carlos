@@ -135,7 +135,7 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
     /**
      * Copies the validated upload into a fresh temp file for zip processing.
      *
-     * @param tmpFile destination owned and removed by {@link #execute()}
+     * @param tmpFile File destination owned and removed by {@link #execute()}
      * @throws IllegalStateException if the servlet container's temp directory is unavailable
      * @throws IllegalArgumentException if the uploaded file path fails validation
      * @throws IOException if the upload cannot be copied to the temp file

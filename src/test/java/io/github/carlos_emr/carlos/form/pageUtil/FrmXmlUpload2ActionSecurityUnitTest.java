@@ -353,6 +353,48 @@ class FrmXmlUpload2ActionSecurityUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"staging", "malformed", "success", "failure", "security"})
+    void shouldRemoveTheStagedArchive_onEveryNonLegacyExit(String outcome) throws Exception {
+        request.setMethod("POST");
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.eform"), eq("w"), isNull()))
+                .thenReturn(true);
+        Path upload = outcome.equals("malformed") ? Files.writeString(tempDir.resolve("malformed.zip"), "FAKE non-ZIP")
+                : createEFormArchive();
+        if (outcome.equals("staging")) when(servletContext.getAttribute("jakarta.servlet.context.tempdir")).thenReturn(null);
+        AtomicReference<Path> staged = new AtomicReference<>();
+        try (var temporaryFiles = org.mockito.Mockito.mockStatic(java.io.File.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+             var imports = org.mockito.Mockito.mockConstruction(io.github.carlos_emr.carlos.eform.EFormExportZip.class,
+                     (importer, context) -> when(importer.importForm(any(java.io.InputStream.class))).thenAnswer(call -> {
+                         assertThat(staged.get()).exists();
+                         if (outcome.equals("security")) throw new SecurityException("FAKE import security refusal");
+                         return outcome.equals("failure") ? List.of("FAKE import refusal") : List.of();
+                     }))) {
+            temporaryFiles.when(() -> java.io.File.createTempFile("tmp", ".zip")).thenAnswer(call -> {
+                Path path = Files.createTempFile(tempDir, "owned-staging-", ".zip");
+                staged.set(path);
+                return path.toFile();
+            });
+            var action = new FrmXmlUpload2Action();
+            action.setFile1(upload.toFile());
+            if (outcome.equals("staging")) {
+                assertThatThrownBy(action::execute).isInstanceOf(IllegalStateException.class)
+                        .hasMessage("Temporary directory attribute is not set.");
+            } else if (outcome.equals("malformed")) {
+                assertThatThrownBy(action::execute).isInstanceOf(java.util.zip.ZipException.class);
+            } else if (outcome.equals("security")) {
+                assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class)
+                        .hasMessage("FAKE import security refusal");
+            } else {
+                assertThat(action.execute()).isEqualTo(outcome.equals("success") ? ActionSupport.SUCCESS : ActionSupport.ERROR);
+            }
+            assertThat(staged.get()).isNotNull().doesNotExist();
+            assertThat(upload).exists();
+        } finally {
+            if (staged.get() != null) Files.deleteIfExists(staged.get());
+        }
+    }
+
     private Path createEFormArchive() throws Exception {
         return createEFormArchive("Issue3071/eform.properties");
     }
