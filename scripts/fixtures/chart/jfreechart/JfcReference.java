@@ -531,8 +531,9 @@ public class JfcReference {
     // --- helpers --------------------------------------------------------------------------------
 
     static TimeSeriesCollection series(String key, Object[] values) {
+        if ((values.length & 1) != 0) throw new IllegalArgumentException("Time series requires date/value pairs");
         TimeSeries s = new TimeSeries(key);
-        for (int i = 0; i < values.length; i += 2) s.addOrUpdate(new Day(day((String) values[i])), ((Number) values[i + 1]).doubleValue());
+        for (int i = 0; i + 1 < values.length; i += 2) s.addOrUpdate(new Day(day((String) values[i])), ((Number) values[i + 1]).doubleValue());
         TimeSeriesCollection c = new TimeSeriesCollection(); c.addSeries(s); return c;
     }
     static Object[] pts(Object... v) { return v; }

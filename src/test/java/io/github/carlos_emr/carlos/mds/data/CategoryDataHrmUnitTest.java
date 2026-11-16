@@ -56,4 +56,36 @@ class CategoryDataHrmUnitTest extends CarlosUnitTestBase {
         if ("any".equals(signedOff)) verify(query, never()).setParameter(eq("hrmSignedOff"), any());
         else verify(query, times(2)).setParameter("hrmSignedOff", Integer.parseInt(signedOff));
     }
+
+    @org.junit.jupiter.api.Test
+    void shouldLeaveOutAPatientTheUserMayNotOpen_fromTheHrmCountAndPatientList() throws Exception {
+        EntityManagerFactory factory = mock(EntityManagerFactory.class);
+        EntityManager manager = mock(EntityManager.class);
+        Query query = mock(Query.class);
+        Tuple locked = mock(Tuple.class);
+        Tuple readable = mock(Tuple.class);
+        registerMock(EntityManagerFactory.class, factory);
+        registerMock(SystemPreferencesDao.class, mock(SystemPreferencesDao.class));
+        when(factory.createEntityManager()).thenReturn(manager);
+        when(manager.createNativeQuery(anyString(), eq(Tuple.class))).thenReturn(query);
+        when(query.getResultList()).thenReturn(List.of(locked, readable));
+        when(locked.get("count")).thenReturn(3L);
+        when(locked.get("demographic_no", Integer.class)).thenReturn(7);
+        when(locked.get("first_name", String.class)).thenReturn("Synthetic");
+        when(locked.get("last_name", String.class)).thenReturn("Locked");
+        when(readable.get("count")).thenReturn(2L);
+        when(readable.get("demographic_no", Integer.class)).thenReturn(8);
+        when(readable.get("first_name", String.class)).thenReturn("Synthetic");
+        when(readable.get("last_name", String.class)).thenReturn("Readable");
+        var dao = new io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao(mock(SystemPreferencesDao.class));
+        org.springframework.test.util.ReflectionTestUtils.setField(dao, "entityManager", manager);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.class, dao);
+        CategoryData data = new CategoryData("", "", "", false, true, "999998", "N", "all", null, null);
+        // The inbox list already leaves out a report filed to a patient the user is locked out of;
+        // the sidebar must not name that patient or count the report either.
+        data.setHrmPatientReadable(patient -> patient != 7);
+
+        assertThat(data.getHRMDocumentCountForPatient()).isEqualTo(2);
+        assertThat(data.getPatients()).containsOnlyKeys(8);
+    }
 }

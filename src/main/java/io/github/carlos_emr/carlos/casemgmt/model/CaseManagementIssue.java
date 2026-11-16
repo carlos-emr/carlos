@@ -267,6 +267,21 @@ public class CaseManagementIssue extends BaseObject {
     public void setUpdate_date(Date update_date) {
         this.update_date = update_date;
     }
+
+    /**
+     * Stamps {@code update_date} when this row is about to be updated.
+     *
+     * <p>Hibernate calls this only for an entity whose flush-time dirty check, against the state
+     * it loaded from the database, found a changed column. So the date moves when one of the
+     * issue's own values changes, and not when a note save merely lists the issue or links a note
+     * to it (the link rows belong to the note). {@code CaseManagementIssueDAOImpl} stamps new rows
+     * and keeps a caller's copy of the date from counting as a change.</p>
+     */
+    @jakarta.persistence.PreUpdate
+    protected void stampChange() {
+        this.update_date = new Date();
+    }
+
     @jakarta.persistence.Column(name = "program_id")
 
     public Integer getProgram_id() {

@@ -4,7 +4,7 @@
     <groupId>io.github.carlos_emr</groupId>
     <artifactId>carlos</artifactId>
     <packaging>war</packaging>
-    <version>2026.08.0-beta7-SNAPSHOT</version>
+    <version>2026.08.0-beta8-SNAPSHOT</version>
     <name>CARLOS</name>
     <description>CARLOS EMR (Clinical Assisting Recording Ledger Open Source) is a web-based electronic medical record system for Canadian healthcare.</description>
     <inceptionYear>2024</inceptionYear>
@@ -1851,6 +1851,13 @@
                 <directory>${basedir}/database/mysql/migration</directory>
                 <targetPath>db/migration</targetPath>
                 <filtering>false</filtering>
+            </resource>
+            <!-- Export coverage reads the exact reviewed physical contracts; never filter schema evidence. -->
+            <resource>
+                <directory>${basedir}/database/mysql/schema-contract</directory>
+                <targetPath>cds-export/physical-schema</targetPath>
+                <filtering>false</filtering>
+                <includes><include>on.json</include><include>bc.json</include></includes>
             </resource>
         </resources>
 

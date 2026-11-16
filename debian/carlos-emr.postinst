@@ -76,7 +76,7 @@ mark_incomplete() {
     fi
     case "; ${INCOMPLETE_REASONS}; " in
         *"; ${incomplete_reason}; "*) ;;
-        *) INCOMPLETE_REASONS="${INCOMPLETE_REASONS:+${INCOMPLETE_REASONS}; }${incomplete_reason}" ;;
+        *) INCOMPLETE_REASONS="${INCOMPLETE_REASONS:+"${INCOMPLETE_REASONS}; "}${incomplete_reason}" ;;
     esac
     marker_tmp=""
     if mkdir -p "${STATE}" && marker_tmp="$(mktemp "${INCOMPLETE_MARKER}.XXXXXX")" &&
