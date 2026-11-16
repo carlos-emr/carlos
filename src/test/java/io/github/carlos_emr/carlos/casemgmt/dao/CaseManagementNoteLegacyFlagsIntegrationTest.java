@@ -72,7 +72,17 @@ class CaseManagementNoteLegacyFlagsIntegrationTest extends CaseManagementNoteDao
     }
 
     private Long persistLegacy(Boolean archived, Integer position) {
-        CaseManagementNote note = createNote(PATIENT, TEXT);
+        CaseManagementNote note = new CaseManagementNote();
+        note.setDemographic_no(PATIENT);
+        note.setProviderNo("999998");
+        note.setNote(TEXT);
+        note.setHistory("");
+        note.setSigning_provider_no("");
+        note.setProgram_no("0");
+        note.setReporter_caisi_role("0");
+        note.setReporter_program_team("");
+        note.setObservation_date(new java.util.Date());
+        caseManagementNoteDAO.saveNote(note);
         entityManager.flush();
         assertThat(entityManager.createNativeQuery(
                         "UPDATE casemgmt_note SET archived=:archived, position=:position WHERE note_id=:id")
