@@ -175,4 +175,146 @@ class EctConsultationFormRequestUtilUnitTest extends CarlosUnitTestBase {
         org.mockito.Mockito.verify(logDao).findConsultationFaxRows(42);
         org.mockito.Mockito.verifyNoInteractions(mockFaxJobDao);
     }
+
+    /** The consultation request 77 of patient 42, as the chart loads it. */
+    private io.github.carlos_emr.carlos.commn.model.ConsultationRequest request(
+            io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist specialist,
+            io.github.carlos_emr.carlos.commn.model.DemographicContact link) {
+        var request = new io.github.carlos_emr.carlos.commn.model.ConsultationRequest();
+        org.springframework.test.util.ReflectionTestUtils.setField(request, "id", 77);
+        request.setDemographicId(42);
+        request.setReferralDate(new java.util.Date(0));
+        request.setProfessionalSpecialist(specialist);
+        request.setDemographicContact(link);
+        when(mockConsultationRequestDao.find(77)).thenReturn(request);
+        return request;
+    }
+
+    /** A health-care-team link of patient 42. */
+    private static io.github.carlos_emr.carlos.commn.model.DemographicContact link(
+            int type, String category, String contactId) {
+        var link = new io.github.carlos_emr.carlos.commn.model.DemographicContact();
+        org.springframework.test.util.ReflectionTestUtils.setField(link, "id", 12);
+        link.setDemographicNo(42);
+        link.setType(type);
+        link.setCategory(category);
+        link.setContactId(contactId);
+        return link;
+    }
+
+    /** Runs the chart's request load with the health care team on, as its Print does. */
+    private EctConsultationFormRequestUtil load(boolean demographicRead) {
+        var security = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+        org.mockito.Mockito.lenient()
+                .when(security.hasPrivilege(org.mockito.ArgumentMatchers.any(), eq("_demographic"), eq("r"),
+                        org.mockito.ArgumentMatchers.<String>isNull()))
+                .thenReturn(demographicRead);
+        registerMock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class, security);
+        var properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        String previous = properties.getProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS");
+        properties.setProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true");
+        try {
+            var util = new EctConsultationFormRequestUtil();
+            util.estRequestFromId(mockLoggedInInfo, "77");
+            return util;
+        } finally {
+            if (previous == null) properties.remove("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS");
+            else properties.setProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", previous);
+        }
+    }
+
+    private io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao directoryWithAnUnrelatedSpecialist40() {
+        // A directory specialist that happens to share the team contact's id 40.
+        var directory = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao.class);
+        var unrelated = new io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist();
+        unrelated.setSalutation("Dr.");
+        unrelated.setFirstName("Other");
+        unrelated.setLastName("DIRECTORY");
+        unrelated.setProfessionalLetters("MD");
+        unrelated.setPhoneNumber("555-0900");
+        org.mockito.Mockito.lenient().when(directory.find(40)).thenReturn(unrelated);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao.class, directory);
+        return directory;
+    }
+
+    @Test
+    @DisplayName("should print a health-care-team contact with its own values, never a directory row sharing its id")
+    void shouldPrintTheTeamContactsOwnValues_whenADirectorySpecialistSharesItsId() {
+        var directory = directoryWithAnUnrelatedSpecialist40();
+        var contact = new io.github.carlos_emr.carlos.commn.model.ProfessionalContact();
+        contact.setId(40);
+        contact.setFirstName("Nora");
+        contact.setLastName("NURSE");
+        contact.setAddress("8 Care Rd");
+        contact.setCity("Testville");
+        contact.setProvince("ON");
+        contact.setWorkPhone("555-0500");
+        contact.setFax("555-0501");
+        contact.setCpso("12345");
+        when(mockContactDao.find((Object) 40)).thenReturn(contact);
+        request(null, link(io.github.carlos_emr.carlos.commn.model.DemographicContact.TYPE_CONTACT, "Professional", "40"));
+
+        var consultant = load(true).getProfessionalSpecialist();
+
+        assertThat(consultant.getFormattedTitle()).isEqualTo("NURSE, Nora");
+        assertThat(consultant.getPhoneNumber()).isEqualTo("555-0500");
+        assertThat(consultant.getFaxNumber()).isEqualTo("555-0501");
+        assertThat(consultant.getStreetAddress()).isEqualTo("8 Care Rd, Testville, ON");
+        assertThat(consultant.getId()).isNull();
+        org.mockito.Mockito.verify(directory, org.mockito.Mockito.never()).find(40);
+    }
+
+    @Test
+    @DisplayName("should print a team contact without a phone or CPSO number, as a CDS import creates one")
+    void shouldPrintBlankValues_whenTheTeamContactHasNoPhoneOrCpso() {
+        directoryWithAnUnrelatedSpecialist40();
+        var contact = new io.github.carlos_emr.carlos.commn.model.ProfessionalContact();
+        contact.setId(40);
+        contact.setFirstName("Nora");
+        contact.setLastName("NURSE");
+        when(mockContactDao.find((Object) 40)).thenReturn(contact);
+        request(null, link(io.github.carlos_emr.carlos.commn.model.DemographicContact.TYPE_CONTACT, "professional", "40"));
+
+        var consultant = load(true).getProfessionalSpecialist();
+
+        assertThat(consultant.getFormattedTitle()).isEqualTo("NURSE, Nora");
+        assertThat(consultant.getPhoneNumber()).isNull();
+        assertThat(consultant.getFaxNumber()).isNull();
+        assertThat(consultant.getStreetAddress()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should print the directory specialist when the request has no team contact, or one the form never offers")
+    void shouldPrintTheDirectorySpecialist_whenTheRequestHasNoProfessionalTeamContact() {
+        directoryWithAnUnrelatedSpecialist40();
+        var specialist = new io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist();
+        specialist.setLastName("SPECIALIST");
+        specialist.setFirstName("Sam");
+        // A request saved before the health care team was turned on has no link at all.
+        request(specialist, null);
+        assertThat(load(true).getProfessionalSpecialist()).isSameAs(specialist);
+        // A directory specialist on the team is the request's own specialist.
+        request(specialist, link(io.github.carlos_emr.carlos.commn.model.DemographicContact.TYPE_PROFESSIONALSPECIALIST, "professional", "9001"));
+        assertThat(load(true).getProfessionalSpecialist()).isSameAs(specialist);
+        // A professional link to a personal Contact row, or with an unreadable id, names no consultant.
+        when(mockContactDao.find((Object) 40)).thenReturn(new io.github.carlos_emr.carlos.commn.model.Contact());
+        request(null, link(io.github.carlos_emr.carlos.commn.model.DemographicContact.TYPE_CONTACT, "professional", "40"));
+        assertThat(load(true).getProfessionalSpecialist()).isNull();
+        request(null, link(io.github.carlos_emr.carlos.commn.model.DemographicContact.TYPE_CONTACT, "professional", "forty"));
+        assertThat(load(true).getProfessionalSpecialist()).isNull();
+    }
+
+    @Test
+    @DisplayName("should require demographic read rights to print a team contact")
+    void shouldRefuseTheTeamContact_withoutDemographicReadRights() {
+        directoryWithAnUnrelatedSpecialist40();
+        var contact = new io.github.carlos_emr.carlos.commn.model.ProfessionalContact();
+        contact.setId(40);
+        when(mockContactDao.find((Object) 40)).thenReturn(contact);
+        request(null, link(io.github.carlos_emr.carlos.commn.model.DemographicContact.TYPE_CONTACT, "professional", "40"));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> load(false))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_demographic)");
+    }
 }

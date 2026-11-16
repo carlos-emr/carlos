@@ -274,6 +274,18 @@ public class LabDataController {
      *         with counts set to zero if SQL errors occur during population
      */
     public CategoryData getCategoryData(InboxhubQuery query) {
+        return getCategoryData(null, query);
+    }
+
+    /**
+     * As {@link #getCategoryData(InboxhubQuery)}, leaving out of the HRM counts and the patient
+     * list any patient the signed-in user may not open.
+     *
+     * @param loggedInInfo LoggedInInfo the signed-in user; {@code null} applies no patient rule
+     * @param query InboxhubQuery the search filters
+     * @return CategoryData the populated counts and patient list
+     */
+    public CategoryData getCategoryData(LoggedInInfo loggedInInfo, InboxhubQuery query) {
         if (Objects.equals(query.getSearchProviderNo(), "-1")) {
             providerSearch = false;
         }
@@ -282,6 +294,10 @@ public class LabDataController {
         }
 
         CategoryData categoryData = new CategoryData(query.getPatientLastName(), query.getPatientFirstName(), query.getPatientHealthNumber(), patientSearch, providerSearch, query.getSearchProviderNo(), query.getStatusFilter().getValue(), query.getAbnormalFilter().getValue(), query.getStartDate(), query.getEndDate());
+        if (loggedInInfo != null) {
+            categoryData.setHrmPatientReadable(io.github.carlos_emr.carlos.hospitalReportManager.HRMReportAccess
+                    .inboxPatientFilter(SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class), loggedInInfo));
+        }
         try {
             categoryData.populateCountsAndPatients();
         } catch (SQLException e) {

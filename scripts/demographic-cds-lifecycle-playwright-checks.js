@@ -18,6 +18,7 @@ const {privateJson,publish} = require('./lib/cds-lifecycle-proxy-relay');
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const SHA = /^[0-9a-f]{64}$/;
 const q = h.sqlString;
+// nosemgrep: javascript.audit.detect-replaceall-sanitization.detect-replaceall-sanitization -- Encodes XML element text in an owned disposable fixture; this is never used for HTML, attributes or JavaScript.
 const xml = value => String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 
@@ -810,8 +811,11 @@ async function run(env = process.env) {
       const job = response.body.job;
       if (state.runId) h.assert(state.runId === id && state.sourceDigest === job.sourceDigest
         && state.rulesetDigest === job.rulesetDigest, 'Reconnect changed the accepted run/source/rules');
-      Object.assign(state,{runId:id,sourceDigest:job.sourceDigest,rulesetDigest:job.rulesetDigest,
-        manifestDigest:job.manifestDigest || state.manifestDigest}); save();
+      state.runId = id;
+      state.sourceDigest = job.sourceDigest;
+      state.rulesetDigest = job.rulesetDigest;
+      state.manifestDigest = job.manifestDigest || state.manifestDigest;
+      save();
       return response.body;
     };
     if (state.uploadId && !state.runId) {

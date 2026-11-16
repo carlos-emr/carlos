@@ -87,13 +87,13 @@ public class DemographicAddRecord2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private transient DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
-    private transient DemographicCustDao demographicCustDao = SpringUtils.getBean(DemographicCustDao.class);
-    private transient DemographicExtDao demographicExtDao = SpringUtils.getBean(DemographicExtDao.class);
-    private transient DemographicArchiveDao demographicArchiveDao = SpringUtils.getBean(DemographicArchiveDao.class);
-    private transient DemographicExtArchiveDao demographicExtArchiveDao = SpringUtils.getBean(DemographicExtArchiveDao.class);
-    private transient WaitingListDao waitingListDao = SpringUtils.getBean(WaitingListDao.class);
+    private final transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final transient DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
+    private final transient DemographicCustDao demographicCustDao = SpringUtils.getBean(DemographicCustDao.class);
+    private final transient DemographicExtDao demographicExtDao = SpringUtils.getBean(DemographicExtDao.class);
+    private final transient DemographicArchiveDao demographicArchiveDao = SpringUtils.getBean(DemographicArchiveDao.class);
+    private final transient DemographicExtArchiveDao demographicExtArchiveDao = SpringUtils.getBean(DemographicExtArchiveDao.class);
+    private final transient WaitingListDao waitingListDao = SpringUtils.getBean(WaitingListDao.class);
 
     /** Set once the patient row has committed, so a later failure can be told apart from one before it. */
     private String registeredDemographicNo;
@@ -437,7 +437,9 @@ public class DemographicAddRecord2Action extends ActionSupport {
                     waitingList.setIsHistory("N");
                     waitingListDao.persist(waitingList);
                 } catch (NumberFormatException e) {
-                    logger.warn("DemographicAddRecord2Action: invalid list_id={}, skipping waiting list entry", listId, e);
+                    logger.warn("DemographicAddRecord2Action: invalid list_id={}, skipping waiting list entry; failure={}",
+                            io.github.carlos_emr.carlos.utility.LogSafe.sanitize(listId),
+                            io.github.carlos_emr.carlos.utility.LogSafe.exceptionTrace(e));
                 }
             }
         }
