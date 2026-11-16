@@ -274,6 +274,7 @@ public class ConfigureFax2Action extends ActionSupport {
 
                 for (FaxConfig faxConfig1 : faxConfigList) {
                     faxConfigDao.saveEntity(faxConfig1);
+                    resetPollingBackoff(faxConfig1.getId());
                 }
 
                 for (FaxConfig faxConfig2 : savedFaxConfigList) {
@@ -304,10 +305,6 @@ public class ConfigureFax2Action extends ActionSupport {
 
             // Clear site password from memory after all configuration rows are processed
             sitePasswd = null;
-
-            for (FaxConfig savedAccount : faxConfigList) {
-                resetPollingBackoff(savedAccount.getId());
-            }
 
             jsonObject = objectMapper.createObjectNode();
             jsonObject.put("success", true);
@@ -797,7 +794,7 @@ public class ConfigureFax2Action extends ActionSupport {
     }
 
     private void resetPollingBackoff(Integer accountId) {
-        if (accountId != null && accountId > 0) {
+        if (accountId != null) {
             SpringUtils.getBean(FaxImporter.class).resetPollingBackoff(accountId);
         }
     }

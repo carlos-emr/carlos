@@ -1089,4 +1089,42 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(importer.getPollingFailures().get(2)).isEqualTo(original.get(2));
     }
 
+    @Test
+    void shouldResetAnAccountWhoseSaveCommitted_evenWhenALaterAccountSaveFails() throws Exception {
+        setUpCommonMocks();
+        grantConfigureWrite(true);
+        var importer = importerWithCappedBackoff();
+        var secondFailure = importer.getPollingFailures().get(2);
+        var accounts = new ArrayList<FaxConfig>();
+        for (int id : new int[]{1, 2}) {
+            FaxConfig stored = new FaxConfig();
+            stored.setId(id);
+            stored.setProviderType(FaxConfig.ProviderType.SRFAX);
+            accounts.add(stored);
+        }
+        when(faxConfigDao.findAll(isNull(), isNull())).thenReturn(accounts);
+        when(faxConfigDao.getCountAll()).thenReturn(2);
+        org.mockito.Mockito.doAnswer(call -> {
+            if (((FaxConfig) call.getArgument(0)).getId().equals(2)) {
+                throw new IllegalStateException("FAKE second account save refusal");
+            }
+            return null;
+        }).when(faxConfigDao).saveEntity(any(FaxConfig.class));
+        request.setMethod("POST");
+        setSrfaxAccountRowParams("1", "4165550100", "FAKE-updated-password");
+        for (String key : new String[]{"id", "faxUser", "faxPassword", "inboxQueue", "activeState",
+                "faxNumber", "senderEmail", "accountName", "downloadState", "providerType"}) {
+            String first = request.getParameter(key);
+            request.setParameter(key, new String[]{first, key.equals("id") ? "2" : first});
+        }
+        try (var servlet = mockStatic(ServletActionContext.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            new ConfigureFax2Action().execute();
+            assertThat(OBJECT_MAPPER.readTree(response.getContentAsString()).get("success").asBoolean()).isFalse();
+            assertThat(importer.getPollingFailures()).containsOnlyKeys(2);
+            assertThat(importer.getPollingFailures().get(2)).isEqualTo(secondFailure);
+        }
+    }
+
 }
