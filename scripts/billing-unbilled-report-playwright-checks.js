@@ -20,6 +20,18 @@
  * and for each the four checkbox combinations are asserted against the rendered
  * rows, including that the checkbox state is echoed back after submit.
  *
+ * Each row's Bill link is clicked and its address read: it names the appointment,
+ * the patient by number and the province, and carries no patient name (#6097
+ * took names out of billing addresses, which end up in access logs and history).
+ *
+ * The BC screen exists only on a BC install: BcBillingProvinceInterceptor
+ * (struts-billing.xml, #6097) answers every billing/CA/BC route with 404 where
+ * `billregion` is not BC. CARLOS_SUITE_PROVINCE names the installed province
+ * (the suite sets it). On BC, or when it is unset, the BC screen and its steps are
+ * driven as pages that must work; on any other province they are asserted to be
+ * refused with 404 and to show none of the fixtures. The Ontario screen has no
+ * such gate and is driven on every install.
+ *
  * Statuses seeded:
  *   t   To Do            always listed
  *   c   Customized 3     always listed (lowercase: must not be mistaken for C)
@@ -58,8 +70,25 @@ const SCENARIOS = [
 
 const SCREENS = [
   { name: 'ON', path: '/billing/CA/ON/ViewBillingReportControl' },
-  { name: 'BC', path: '/billing/CA/BC/ViewBillingReportControl' },
+  { name: 'BC', path: '/billing/CA/BC/ViewBillingReportControl', bcOnly: true },
 ];
+
+const STEP_BC_REFUSED = 'BC report control is refused with 404 and lists nothing on an install whose province is not BC';
+
+/** The installed province as the suite names it (CARLOS_SUITE_PROVINCE): 'ON', 'BC', or '' when the run did not say. */
+function installedProvince(env = process.env) {
+  const province = String(env.CARLOS_SUITE_PROVINCE || '').trim().toUpperCase();
+  h.assert(['', 'ON', 'BC'].includes(province), `CARLOS_SUITE_PROVINCE must be ON or BC when it is set; got "${env.CARLOS_SUITE_PROVINCE}"`);
+  return province;
+}
+
+/**
+ * Whether the BC screens are driven as pages that must work. Only a province the run names as
+ * something other than BC turns them into refusals; an unnamed province relaxes nothing.
+ */
+function bcScreensServed(province) {
+  return province === '' || province === 'BC';
+}
 
 /** A date on which the test provider has no appointments, so the report shows only fixtures. */
 function pickEmptyDate(sql, provider) {
@@ -82,7 +111,10 @@ async function listedLabels(page, marker) {
 }
 
 async function runReport(page, s, screen, date, scenario) {
-  await h.gotoApp(page, s.config.baseUrl, screen.path);
+  const opened = await h.gotoApp(page, s.config.baseUrl, screen.path);
+  h.assert(!(screen.bcOnly && opened && opened.status() === 404),
+    'The BC report control answered 404: BC billing routes are refused on an install whose province is not BC '
+    + '(BcBillingProvinceInterceptor). Run with CARLOS_SUITE_PROVINCE set to the installed province, so they are judged as refused');
   await h.assertNotErrorPage(page, `${screen.name} report control`);
   // The legacy markup nests <form name="serviceform"> directly inside <table>,
   // so the HTML parser leaves the controls outside the form element (they stay
@@ -130,7 +162,10 @@ async function runReport(page, s, screen, date, scenario) {
     h.assert(page.url().split('#')[0] === reportUrl.split('#')[0], `${screen.name}: opening a bill navigated away from the report`);
     h.assert(billing.searchParams.get('start_time') === expectedTime, `${screen.name}: billing link time changed`);
     h.assert(billing.searchParams.get('billRegion') === screen.name, `${screen.name}: billing link province changed`);
-    h.assert(billing.searchParams.get('demographic_name') === `${s.marker} ${label}${NAME_SUFFIX}`, `${screen.name}: billing link patient name changed`);
+    h.assert(billing.searchParams.get('demographic_no') === String(s.patient), `${screen.name}: billing link names another patient`);
+    // Patient names were taken out of billing addresses (#6097): the link identifies the patient by number only.
+    h.assert(!billing.searchParams.has('demographic_name'), `${screen.name}: billing link carries a demographic_name parameter`);
+    h.assert(![...billing.searchParams.values()].some(value => value.includes(s.marker)), `${screen.name}: billing link carries the patient's name`);
   }
   return listedLabels(page, s.marker);
 }
@@ -177,8 +212,10 @@ async function workflow(s) {
       AND BINARY status IN ('t','c','N','C','B','NV','CS')`) === String(FIXTURES.length),
   'appointment fixtures did not persist their exact-case statuses');
 
+  const bcServed = bcScreensServed(installedProvince());
   const page = await s.context.newPage();
   for (const screen of SCREENS) {
+    if (screen.bcOnly && !bcServed) continue;
     for (const scenario of SCENARIOS) {
       const label = `${screen.name} unbilled report, noShow=${scenario.noShow} cancelled=${scenario.cancelled}`;
       await s.step(label, async () => {
@@ -188,6 +225,22 @@ async function workflow(s) {
           `${label}: listed [${listed.join(', ')}], expected [${expected.join(', ')}]`);
       });
     }
+  }
+  if (!bcServed) {
+    await s.step(STEP_BC_REFUSED, async () => {
+      const screen = SCREENS.find(candidate => candidate.bcOnly);
+      const report = new URLSearchParams({ reportAction: 'unbilled', providerview: provider, xml_vdate: date, xml_appointment_date: date,
+        includeNoShow: 'true', includeCancelled: 'true' });
+      // Asked through the session's request context, not a page: the refusal is the expected answer here, not a broken page.
+      for (const address of [screen.path, `${screen.path}?${report}`]) {
+        const response = await s.context.request.get(h.appUrl(s.config.baseUrl, address), { failOnStatusCode: false, maxRedirects: 0, timeout: 30000 });
+        const body = await response.text().catch(() => '');
+        h.assert(response.status() === 404, `${screen.path} answered HTTP ${response.status()} on an install whose province is not BC; expected 404`);
+        h.assert(!body.includes(marker), 'The refused BC report control listed an owned appointment');
+      }
+    });
+    await page.close();
+    return;
   }
   await s.step('BC omitted dates retain report defaults', async () => {
     const response = await h.gotoApp(page, s.config.baseUrl,
@@ -235,4 +288,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('billing-unbilled-report', workflow, { openPatient: true });
-module.exports = { workflow, FIXTURES, SCENARIOS };
+module.exports = { workflow, FIXTURES, SCENARIOS, SCREENS, bcScreensServed, installedProvince };

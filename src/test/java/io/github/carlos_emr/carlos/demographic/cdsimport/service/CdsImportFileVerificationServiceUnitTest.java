@@ -90,11 +90,27 @@ class CdsImportFileVerificationServiceUnitTest {
     }
 
     @Test
-    void shouldStopBeforeSixteenMiB_whenSlowSmallReadsExhaustElapsedBudget() throws Exception {
+    void shouldVerifySlowButMovingReads_pastTheOldVerificationDuration() throws Exception {
         Fixture f = new Fixture();
-        assertThatThrownBy(() -> f.slowRead(300_000_000, ignored -> {}))
-                .hasMessage("IMPORT_FILE_VERIFICATION_TIMEOUT");
-        assertThat(f.reads).hasValue(4);
+        // Each 7-byte read takes 300ms: the file takes several times the one-second window,
+        // but the verification never stops while every read moves.
+        f.slowRead(300_000_000, ignored -> {});
+        assertThat(f.clock.get()).isGreaterThan(2_000_000_000L);
+        verify(f.files).verifiedIfOwned("run", 1, "file", f.file.digest(), f.file.byteLength());
+    }
+
+    @Test
+    void shouldStopBeforeSixteenMiB_whenOneReadIsSilentForTheStallWindow() throws Exception {
+        Fixture f = new Fixture();
+        assertThatThrownBy(
+                        () ->
+                                f.slowRead(
+                                        1_000_000,
+                                        read -> {
+                                            if (read == 3) f.clock.addAndGet(1_500_000_000L);
+                                        }))
+                .hasMessage("IMPORT_WORKER_STALLED");
+        assertThat(f.reads).hasValue(3);
         f.noProof();
     }
 
@@ -181,7 +197,7 @@ class CdsImportFileVerificationServiceUnitTest {
                             1);
             when(configuration.stagingRoot()).thenReturn(root);
             var limits = mock(CdsInputLimitsDto.class);
-            when(limits.maxDurationMillis()).thenReturn(1000L);
+            when(limits.stallWindowMillis()).thenReturn(1000L);
             when(configuration.limits()).thenReturn(limits);
             when(files.referencedFiles("run", "", 100)).thenReturn(List.of(file));
             when(files.referencedFiles("run", "file", 100)).thenReturn(List.of());

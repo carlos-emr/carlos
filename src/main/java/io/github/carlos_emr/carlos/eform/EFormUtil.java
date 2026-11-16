@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.EFormDao.EFormSortOrder;
+import io.github.carlos_emr.carlos.documentManager.DocumentDescription;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.MessagingManager;
@@ -918,7 +919,10 @@ public class EFormUtil {
                 else docOwner = eForm.getProviderNo();
             }
 
-            String docDesc = getContent("docdesc", template, eForm.getFormName());
+            // The template's <docdesc>, field values filled in, is not bounded by anything the eForm
+            // author controls, and the eForm is already saved: shortened to document.docdesc rather
+            // than cut by the database without a word.
+            String docDesc = DocumentDescription.fit(getContent("docdesc", template, eForm.getFormName()));
             String docText = getContent("content", template, "");
             docText = putTemplateEformHtml(eForm.getFormHtml(), docText);
 

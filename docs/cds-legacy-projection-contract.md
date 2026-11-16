@@ -31,6 +31,10 @@ The finite core entry points covered are:
 The existing authorized, category-local clinical source view remains available and applies its
 own chart, category, sensitive-laboratory, maintenance and hold checks. These boundaries do not
 implement a new exporter and do not turn a source-view privilege into disclosure authorization.
+An imported chart is exported with the CDS 5.2 exporter, which reads the preserved source fields
+and typed laboratory results under its own export authorization
+([export operator guide](cds-export-operator-guide.md)); the legacy CDS 4 export keeps its 409
+refusal for such a chart.
 They do not disable ordinary chart editing/viewing simply because source fields exist.
 
 The demographic optional-includes path applies the same category contract as the dedicated endpoints. Before any patient or provenance read, every requested clinical category requires its patient-scoped read permission: `_allergy`, `_measurement`, `_rx`, or `_casemgmt.notes` for CPP notes, followed by the patient-record restriction check. A denial returns the same empty HTTP 403 for native and imported records. CPP notes cover PersonalHistory, FamilyHistory, PastHealth, RiskFactors and AlertsAndSpecialNeeds; the pre-existing exclusion of ProblemList concerns and non-CPP ClinicalNotes remains intact. Unrequested categories, contacts and basic demographics keep their existing behavior. This closes the alternate native-only measurement/Date projection without introducing a new DTO or disclosure role.
