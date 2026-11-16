@@ -703,6 +703,63 @@ class PrivacyStatementAppendingFilterUnitTest {
         }
     }
 
+    private AutoCloseable configuredStatement(String value) {
+        var properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        Object previous = properties.setProperty("confidentiality_statement.v1", value);
+        return () -> {
+            if (previous == null) properties.remove("confidentiality_statement.v1");
+            else properties.put("confidentiality_statement.v1", previous);
+        };
+    }
+
+    @Test
+    void shouldKeepMetadataLength_whenAConfiguredNoticeHasNoBodyChannel() throws Exception {
+        try (var notice = configuredStatement("FAKE metadata notice")) {
+            var request = new MockHttpServletRequest("GET", "/fixture.html");
+            var response = new MockHttpServletResponse();
+            filter.doFilter(request, response, (req, res) -> {
+                res.setContentType("text/html");
+                res.setContentLengthLong(12345);
+            });
+            assertThat(response.getHeader("Content-Length")).isEqualTo("12345");
+            assertThat(response.getContentAsByteArray()).isEmpty();
+        }
+    }
+
+    @Test
+    void shouldKeepOtherIntegerHeaders_whenDecoratingHtml() throws Exception {
+        try (var notice = configuredStatement("FAKE integer-header notice")) {
+            var request = new MockHttpServletRequest("GET", "/fixture.html");
+            var response = new MockHttpServletResponse();
+            filter.doFilter(request, response, (req, res) -> {
+                var http = (jakarta.servlet.http.HttpServletResponse) res;
+                http.setContentType("text/html");
+                http.setIntHeader("X-FAKE-Count", 7);
+                http.addIntHeader("X-FAKE-Count", 8);
+                http.getWriter().write("BODY");
+            });
+            assertThat(response.getHeaders("X-FAKE-Count")).containsExactly("7", "8");
+            assertThat(response.getContentAsString()).startsWith("BODY").contains("FAKE integer-header notice");
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldKeepServletNullHeaderSemantics_whenHandlingContentLength(boolean addingNull) throws Exception {
+        var request = new MockHttpServletRequest("GET", "/fixture.txt");
+        var response = new MockHttpServletResponse();
+        filter.doFilter(request, response, (req, res) -> {
+            var http = (jakarta.servlet.http.HttpServletResponse) res;
+            http.setContentType("text/plain");
+            http.setContentLengthLong(4);
+            if (addingNull) http.addHeader("Content-Length", null);
+            else http.setHeader("Content-Length", null);
+            http.getWriter().write("BODY");
+        });
+        assertThat(response.getHeader("Content-Length")).isEqualTo(addingNull ? "4" : null);
+        assertThat(response.getContentAsString()).isEqualTo("BODY");
+    }
+
     /**
      * Enforces the servlet rule a real container applies and MockHttpServletResponse does not:
      * once the writer or the output stream is obtained, asking for the other one throws.

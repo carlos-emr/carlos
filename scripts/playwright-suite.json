@@ -19358,6 +19358,21 @@
       "env": [],
       "fixtures": "Owned patient and one native-created task with its attachment/link/comment/history rows; removed by owned marker and exact identifiers. Freezes Date in each composer only; no shared clock, preferences or provider state changes.",
       "notes": "#6041 Add/Edit month-end and leap-year clamps, cumulative/negative/Clear/manual-base Add behavior, today-based Edit behavior and exact saved service dates."
+    },
+    {
+      "name": "privacy-html-range",
+      "script": "scripts/privacy-html-range-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 120,
+      "env": [],
+      "notes": "Issue #5782. Authenticated HTTP protocol checks against the actual installed DefaultServlet: full HTML carries the privacy notice, a single byte range preserves exact bytes and Content-Range, and an ignored If-Range returns a decorated full response.",
+      "fixtures": "Read-only packaged /usr/share/carlos-emr/webapp/carlos/gpl.htm and a configured confidentiality statement. No clinical fixtures or configuration changes."
     }
   ]
 }
