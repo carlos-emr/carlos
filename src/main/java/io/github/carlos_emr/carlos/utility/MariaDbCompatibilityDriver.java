@@ -360,7 +360,8 @@ public final class MariaDbCompatibilityDriver implements Driver {
                 // Connector/J named Boolean for every BIT width, although only BIT(1) values are Boolean objects.
                 return Boolean.class.getName();
             }
-            if (name.equals("getColumnType") && args != null && args.length == 1 && args[0] instanceof Integer column) {
+            if (name.equals("getColumnType")) {
+                int column = (Integer) args[0];
                 int sqlType = legacyColumnType(metadata, column);
                 if (sqlType != metadata.getColumnType(column)) return sqlType;
             }
