@@ -234,8 +234,9 @@ public class ReportManager {
         return doc;
     }
 
+    // Disjoint possessive chunks avoid recursive backtracking through long metadata tags.
     private static final java.util.regex.Pattern EMPTY_PARAMETER = java.util.regex.Pattern.compile(
-            "<param(?=[\\s/])(?:[^<>\"']|\"[^\"]*\"|'[^']*')*/\\s*>");
+            "<param(?=[\s/])(?:[^<>\"'/]++|/(?!\s*>)|\"[^\"]*+\"|'[^']*+')*+/\s*+>");
 
     /** Restores empty parameter metadata while retaining the established legacy SQL escaping policy. */
     private static Document parseTemplateXml(String xml) throws JDOMException, IOException {

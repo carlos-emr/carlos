@@ -123,6 +123,17 @@ class ReportTemplateEmptyParameterUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRestoreEmptyMetadata_withoutRecursiveMatchingOfLongWhitespace() {
+        var manager = new ReportManager();
+        String xml = "<report title='FAKE long parameter' description='Synthetic only'><query>SELECT '{pick}'</query>"
+                + "<param" + " ".repeat(50_000) + "id='pick' type='text' description='Choice'/></report>";
+        assertThat(manager.addTemplate(null, xml, info)).isEqualTo("Saved Successfully");
+        var parameters = manager.getReportTemplate("17").getParameters();
+        assertThat(parameters).hasSize(1);
+        assertThat(((Parameter) parameters.getFirst()).getParamId()).isEqualTo("pick");
+    }
+
+    @Test
     void shouldKeepSiblingChoicesAndAnotherTemplate_whenEditingAnEmptyParameter() {
         var manager = new ReportManager();
         String mixed = "<report title='FAKE mixed' description='Synthetic only'><query>SELECT '{pick}' AS chosen</query>"
