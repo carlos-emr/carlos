@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.report.reportByTemplate;
 
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.report.data.ConfiguredReportQuery;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -39,6 +40,7 @@ import java.util.stream.Stream;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -51,6 +53,7 @@ import static org.mockito.Mockito.*;
  */
 @Tag("unit")
 @Tag("report")
+@Isolated("Temporarily overrides the configured report character budget")
 class ReportBinaryReadersUnitTest {
     private enum Kind { CONFIGURED, TEMPLATE }
 
@@ -96,6 +99,43 @@ class ReportBinaryReadersUnitTest {
         ResultSet rows = rows(Types.INTEGER);
         when(rows.getString(1)).thenReturn("42");
         assertThat(read(kind, rows)).isEqualTo("42");
+        verify(rows, never()).getBinaryStream(1);
+        verify(rows, never()).getCharacterStream(1);
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {8, 9})
+    void shouldCountDecodedCharacters_andRetainQualifiedColumnLookup(int characters) throws Exception {
+        var properties = CarlosProperties.getInstance();
+        String setting = ConfiguredReportQuery.Limit.OUTPUT.setting();
+        // The public budget counts the five-character column name plus decoded cell characters.
+        Object previous = properties.setProperty(setting, "13");
+        try {
+            ResultSet rows = rows(Types.BLOB);
+            String text = "\u03a9".repeat(characters);
+            var stream = new TrackedBytes(text.getBytes(StandardCharsets.UTF_8));
+            when(rows.getBinaryStream(1)).thenReturn(stream);
+            if (characters == 8) {
+                assertThat(read(Kind.CONFIGURED, rows, "report.value")).isEqualTo(text);
+            } else {
+                assertThatThrownBy(() -> read(Kind.CONFIGURED, rows, "report.value"))
+                        .isInstanceOfSatisfying(ConfiguredReportQuery.LimitExceededException.class,
+                                failure -> assertThat(failure.limit()).isEqualTo(ConfiguredReportQuery.Limit.OUTPUT));
+            }
+            assertThat(stream.closed).isTrue();
+        } finally {
+            if (previous == null) properties.remove(setting);
+            else properties.put(setting, previous);
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(Kind.class)
+    void shouldRetainScalarCellRefusals_afterAddingBinaryDecoding(Kind kind) throws Exception {
+        ResultSet rows = rows(Types.INTEGER);
+        when(rows.getString(1)).thenReturn("1".repeat(2 * ConfiguredReportQuery.MAX_OUTPUT_CHARACTERS));
+        assertThatThrownBy(() -> read(kind, rows)).satisfies(failure ->
+                assertThat(failure.getClass().getSimpleName()).isEqualTo("LimitExceededException"));
         verify(rows, never()).getBinaryStream(1);
         verify(rows, never()).getCharacterStream(1);
     }
@@ -156,14 +196,21 @@ class ReportBinaryReadersUnitTest {
     }
 
     private static String read(Kind kind, ResultSet rows) throws Exception {
+        return read(kind, rows, "value");
+    }
+
+    private static String read(Kind kind, ResultSet rows, String column) throws Exception {
         if (kind == Kind.CONFIGURED) {
             try (var jdbc = mockStatic(LegacyJdbcQuery.class)) {
                 jdbc.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(), anyInt(), anyLong(), any(Object[].class)))
                         .thenReturn(rows);
-                return ConfiguredReportQuery.read("select value from report").rows().getFirst().value("value");
+                return ConfiguredReportQuery.read("select value from report").rows().getFirst().value(column);
             }
         }
-        var result = new ReportResultBudget().render(rows, null);
+        var budget = new ReportResultBudget();
+        int remaining = budget.remainingRows();
+        var result = budget.render(rows, null);
+        assertThat(budget.remainingRows()).isEqualTo(remaining - 1);
         try (var csv = CSVParser.parse(result.csv(), CSVFormat.DEFAULT)) {
             return csv.getRecords().get(1).get(0);
         }
