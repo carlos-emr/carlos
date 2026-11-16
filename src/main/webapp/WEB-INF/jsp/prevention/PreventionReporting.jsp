@@ -30,17 +30,16 @@
 --%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*, java.text.SimpleDateFormat,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.report.data.*,io.github.carlos_emr.carlos.prevention.pageUtil.*,java.net.*,io.github.carlos_emr.carlos.eform.*" %>
+<%@page import="io.github.carlos_emr.carlos.demographic.data.*, java.util.*, java.text.SimpleDateFormat, io.github.carlos_emr.carlos.prevention.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.report.data.*, io.github.carlos_emr.carlos.prevention.pageUtil.*" %>
 <%@page import="io.github.carlos_emr.CarlosProperties"%>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils"%>
-<%@ page import="org.owasp.encoder.Encode" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.prevention.pageUtil.PreventionReportDisplay" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptSearchData" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicExt" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -52,7 +51,7 @@
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -215,6 +214,9 @@
 
     </div>
 
+    <% if (Boolean.TRUE.equals(request.getAttribute("preventionDateReview"))) { %>
+    <div class="alert alert-warning" role="alert">Prevention timing requires review before this report can run.</div>
+    <% } %>
     <%
         ArrayList overDueList = new ArrayList();
         String type = (String) request.getAttribute("ReportType");
@@ -223,6 +225,13 @@
         String percentage = (String) request.getAttribute("percent");
         String percentageWithGrace = (String) request.getAttribute("percentWithGrace");
         ArrayList list = (ArrayList) request.getAttribute("returnReport");
+        // Patients whose preventions could not be read are in the list, marked, never left out.
+        int unreadablePatients = 0;
+        try {
+            unreadablePatients = Integer.parseInt(String.valueOf(request.getAttribute("unreadablePatients")));
+        } catch (NumberFormatException noCount) {
+            unreadablePatients = 0;
+        }
         Date asDate = (Date) request.getAttribute("asDate");
         if (asDate == null) {
             asDate = Calendar.getInstance().getTime();
@@ -231,6 +240,13 @@
         if (list != null) {
     %>
     <div style="margin-top:10px;">
+        <% if (unreadablePatients > 0) { %>
+        <div class="alert alert-danger" role="alert" id="preventionReportIncomplete">
+            <fmt:message key="prevention.reporting.incomplete">
+                <fmt:param value="<%= Integer.valueOf(unreadablePatients) %>"/>
+            </fmt:message>
+        </div>
+        <% } %>
         <form name="frmBatchBill" action="" method="post">
             <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
             <input type="hidden" name="clinic_view" value="<%=CarlosProperties.getInstance().getProperty("clinic_view","")%>">
@@ -272,16 +288,46 @@
                 <%
                     DemographicNameAgeString deName = DemographicNameAgeString.getInstance();
                     DemographicData demoData = new DemographicData();
+                    // Looked up and counted by the action, so the notice above already includes
+                    // the rows whose patient record was not found.
+                    Map<Integer, Demographic> reportDemographics = (Map<Integer, Demographic>) request.getAttribute("reportDemographics");
 
                     for (int i = 0; i < list.size(); i++) {
                         PreventionReportDisplay dis = (PreventionReportDisplay) list.get(i);
-                        Hashtable<String, String> h = new Hashtable<>(deName.getNameAgeSexHashtable(LoggedInInfo.getLoggedInInfoFromSession(request), dis.demographicNo.toString()));
-                        Demographic demo = demoData.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), dis.demographicNo.toString());
+                        Demographic demo = reportDemographics == null ? null : reportDemographics.get(dis.demographicNo);
 
                         if (demo == null) {
-                            MiscUtils.getLogger().warn("PreventionReporting: demographic not found for demographicNo=" + dis.demographicNo);
+                            // No patient record for this row. It stays in the report, marked, where
+                            // it used to be skipped with a log line: a missing row reads as a
+                            // patient who was never in the set.
+                %>
+                <tr class="prevention-report-unreadable">
+                    <td><%=i+1%></td>
+                    <td><carlos:encode value='<%= dis.demographicNo.toString() %>' context="html"/></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td><fmt:message key="prevention.reporting.patientUnreadable"/></td>
+                    <td></td>
+                    <%if (type != null) { %>
+                    <td></td>
+                    <%}%>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td><span class="badge bg-dark"><fmt:message key="prevention.reporting.unreadable"/></span></td>
+                    <%if (type != null) { %>
+                    <td>------</td>
+                    <%}%>
+                    <td>------</td>
+                    <td>------</td>
+                    <td></td>
+                </tr>
+                <%
                             continue;
                         }
+                        Hashtable<String, String> h = new Hashtable<>(deName.getNameAgeSexHashtable(LoggedInInfo.getLoggedInInfoFromSession(request), dis.demographicNo.toString()));
 
                         if (dis.state != null && dis.state.equals("Overdue")) {
                             overDueList.add(dis.demographicNo);
@@ -320,8 +366,9 @@ else if ("yellow".equals(dis.color)) labelClass = "bg-warning text-dark";
 else if ("orange".equals(dis.color)) labelClass = "bg-warning text-dark";
 else if ("pink".equals(dis.color)) labelClass = "bg-info";
 else if ("Magenta".equals(dis.color)) labelClass = "bg-info";
+else if (dis.isUnreadable()) labelClass = "bg-dark";
 else labelClass = "bg-secondary";
-%><span class="badge <%=labelClass%>"><carlos:encode value='<%= StringUtils.defaultString(dis.state) %>' context="html"/></span></td>
+%><span class="badge <%=labelClass%>"><% if (dis.isUnreadable()) { %><fmt:message key="prevention.reporting.unreadable"/><% } else { %><carlos:encode value='<%= StringUtils.defaultString(dis.state) %>' context="html"/><% } %></span></td>
                     <td><carlos:encode value='<%= String.valueOf(dis.numMonths) %>' context="html"/></td>
                     <td><carlos:encode value='<%= StringUtils.defaultString(dis.lastDate) %>' context="html"/></td>
 
@@ -344,8 +391,9 @@ else if ("yellow".equals(dis.color)) labelClass = "bg-warning text-dark";
 else if ("orange".equals(dis.color)) labelClass = "bg-warning text-dark";
 else if ("pink".equals(dis.color)) labelClass = "bg-info";
 else if ("Magenta".equals(dis.color)) labelClass = "bg-info";
+else if (dis.isUnreadable()) labelClass = "bg-dark";
 else labelClass = "bg-secondary";
-%><span class="badge <%=labelClass%>"><carlos:encode value='<%= StringUtils.defaultString(dis.state) %>' context="html"/></span></td>
+%><span class="badge <%=labelClass%>"><% if (dis.isUnreadable()) { %><fmt:message key="prevention.reporting.unreadable"/><% } else { %><carlos:encode value='<%= StringUtils.defaultString(dis.state) %>' context="html"/><% } %></span></td>
                     <td><carlos:encode value='<%= String.valueOf(dis.numShots) %>' context="html"/></td>
                     <td><carlos:encode value='<%= String.valueOf(dis.numMonths) %>' context="html"/></td>
                     <td><carlos:encode value='<%= StringUtils.defaultString(dis.lastDate) %>' context="html"/></td>

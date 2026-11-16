@@ -118,27 +118,8 @@ public class DbManageBillingformService2Action extends ActionSupport {
 
     private List<CtlBillingService> buildReplacementRows(String typeid, String type) {
         List<CtlBillingService> replacementRows = new ArrayList<>();
-        for (int j = 1; j < 4; j++) {
-            String groupName = Objects.toString(request.getParameter("group" + j), "");
-
-            for (int i = 0; i < 20; i++) {
-                String serviceCode = request.getParameter("group" + j + "_service" + i);
-                if (serviceCode == null || serviceCode.isEmpty()) {
-                    continue;
-                }
-                String orderStr = request.getParameter("group" + j + "_service" + i + "_order");
-                int serviceOrder = parseServiceOrder(orderStr);
-
-                CtlBillingService cbs = new CtlBillingService();
-                cbs.setServiceTypeName(type);
-                cbs.setServiceType(typeid);
-                cbs.setServiceCode(serviceCode);
-                cbs.setServiceGroupName(groupName);
-                cbs.setServiceGroup("Group" + j);
-                cbs.setStatus("A");
-                cbs.setServiceOrder(serviceOrder);
-                replacementRows.add(cbs);
-            }
+        for (BillingFormServiceCodeInput input : BillingFormServiceCodeInput.read(request)) {
+            replacementRows.add(input.toRow(typeid, type, parseServiceOrder(input.order())));
         }
         return replacementRows;
     }

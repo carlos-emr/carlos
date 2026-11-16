@@ -42,8 +42,8 @@
 --%>
 
 
-<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils"%>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay"%>
+
+
 <%  long start = System.currentTimeMillis(); %>
 <%@include file="/WEB-INF/jsp/casemgmt/taglibs.jsp"%>
 <fmt:setBundle basename="oscarResources"/>
@@ -58,7 +58,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.PartialDate"%>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils"%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo"%>
-<%@page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
@@ -68,7 +68,7 @@
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
@@ -123,9 +123,10 @@
         </c:choose>
 
 <ul>
-<c:if test="${empty Notes}">
-    <li class="cpp-empty-state"><fmt:message key="casemgmt.viewNotes.msgNoNotes"/></li>
-</c:if>
+<%-- A section without notes stays blank. It gets the same empty row the navbar modules print
+     (LeftNavBarDisplay.jsp), so an empty section keeps the spacing of its neighbours; it carries
+     no placeholder sentence. --%>
+<c:if test="${empty Notes}"><li>&nbsp;</li></c:if>
 <%
     List<CaseManagementNoteExt> noteExts = (List<CaseManagementNoteExt>)request.getAttribute("NoteExts");
     List<CaseManagementNote> notes = (List<CaseManagementNote>) request.getAttribute("Notes");
@@ -179,8 +180,8 @@
             while (iter.hasNext()) {
                 CaseManagementIssue iss = iter.next();
                 strNoteIssues.append(iss.getIssue_id()).append(";")
-                             .append(iss.getIssue().getCode()).append(";")
-                             .append(SafeEncode.forJavaScript(iss.getIssue().getDescription()));
+                             .append(SafeEncode.forUriComponent(iss.getIssue().getCode())).append(";")
+                             .append(SafeEncode.forUriComponent(iss.getIssue().getDescription()));
                 if (iter.hasNext()) {
                     strNoteIssues.append(";");
                 }
@@ -230,7 +231,8 @@
 		if (key.contains(" Date")) {
 		    val = readPartialDate(cme);
 		} else {
-		    val = SafeEncode.forJavaScript(cme.getValue());
+		    // Protect the semicolon-delimited transport; the outer tag encodes the onclick context.
+		    val = SafeEncode.forUriComponent(cme.getValue());
 		}
 		if (strcme.length()>0) strcme.append(";");
 		strcme.append(key + ";" + val);

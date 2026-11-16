@@ -104,6 +104,7 @@ public class LabResultData implements Comparable<LabResultData> {
 
     private Integer ackCount = null;
     private Integer multiplAckCount = null;
+    private transient boolean multipleAckCountUnavailable;
     private ArrayList<Integer> duplicateLabIds = new ArrayList<Integer>();
 
     public LabResultData() {
@@ -558,7 +559,17 @@ public class LabResultData implements Comparable<LabResultData> {
 
             // String[] multiId = this.multiLabId.split(",");
             CommonLabResultData data = new CommonLabResultData();
-            String[] multiId = data.getMatchingLabs(this.segmentID, this.labType).split(",");
+            String[] multiId;
+            try {
+                multiId = data.getMatchingLabs(this.segmentID, this.labType).split(",");
+            } catch (io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData.IncompleteCmlVersionChainException unavailable) {
+                // This optional listing aggregate must not hide otherwise readable reports.
+                // Individual acknowledgements remain real; chain-dependent writes stay strict.
+                logger.warn("CML acknowledgement history is incomplete; aggregate count withheld");
+                multipleAckCountUnavailable = true;
+                multiplAckCount = -1;
+                return multiplAckCount;
+            }
             int count = 0;
             if (multiId.length == 1) {
                 count = -1;
@@ -575,6 +586,14 @@ public class LabResultData implements Comparable<LabResultData> {
 
     public void setMultipleAckCount(Integer multipleAckCount) {
         this.multiplAckCount = multipleAckCount;
+        this.multipleAckCountUnavailable = false;
+    }
+
+    /** Display state only: preserve the existing JSON/XML acknowledgement-count contract. */
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    public boolean isMultipleAckCountUnavailable() {
+        getMultipleAckCount();
+        return multipleAckCountUnavailable;
     }
 
     public ArrayList<Integer> getDuplicateLabIds() {

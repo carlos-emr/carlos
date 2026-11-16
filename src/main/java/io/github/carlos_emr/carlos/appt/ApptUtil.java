@@ -51,6 +51,7 @@ public class ApptUtil {
 
     private static final String SESSION_APPT_BEAN = "apptBean";
     private static final int MAX_FIELD_LEN = 255;
+    private static final int MAX_NOTES_LEN = 32768;
     private static final int MAX_REASON_LEN = 80;
     private static final String APPOINTMENT_DATE = "appointment_date";
     private static final String START_TIME = "start_time";
@@ -151,6 +152,11 @@ public class ApptUtil {
     public static void copyAppointmentIntoSession(HttpServletRequest request) {
         Integer sourceId = AppointmentLocationList.parseCode(request.getParameter("appointment_no"));
         Appointment source = sourceId == null ? null : SpringUtils.getBean(OscarAppointmentDao.class).find(sourceId);
+        setAppointmentIntoSession(request, prepareAppointmentClipboard(request, source));
+    }
+
+    /** Validates and prepares a clipboard against the source without changing the session. */
+    public static ApptData prepareAppointmentClipboard(HttpServletRequest request, Appointment source) {
         if (source == null) {
             throw new IllegalArgumentException("The source appointment is no longer available. Nothing was copied or cut.");
         }
@@ -187,7 +193,7 @@ public class ApptUtil {
         obj.setLocationCode(location.code() == null ? null : String.valueOf(location.code()));
         // Refuse invalid text before replacing the clipboard; never silently shorten a cut booking.
         obj.setName(sanitizeText(request.getParameter("keyword"), MAX_FIELD_LEN));
-        obj.setNotes(sanitizeMultilineText(request.getParameter("notes"), MAX_FIELD_LEN));
+        obj.setNotes(sanitizeMultilineText(request.getParameter("notes"), MAX_NOTES_LEN));
         obj.setReason(sanitizeMultilineText(request.getParameter("reason"), MAX_REASON_LEN));
         obj.setLocation(sanitizeText(location.text(), MAX_FIELD_LEN));
         obj.setResources(sanitizeText(request.getParameter("resources"), MAX_FIELD_LEN));
@@ -196,9 +202,12 @@ public class ApptUtil {
         obj.setBilling(sanitizeText(request.getParameter("billing"), MAX_FIELD_LEN));
         obj.setRemarks(sanitizeMultilineText(request.getParameter("remarks"), MAX_FIELD_LEN));
         obj.setUrgency(sanitizeText(request.getParameter("urgency"), MAX_FIELD_LEN));
-        // nosemgrep: tainted-session-from-http-request -- numeric IDs validated via regex; status validated against [a-zA-Z]{1,2};
-        // date/time validated against format patterns; chart and free-text fields validated for length, Unicode and control characters
-        request.getSession().setAttribute(SESSION_APPT_BEAN, obj); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): ApptData bean fields validated before storage; failure leaves the previous clipboard intact
+        return obj;
+    }
+
+    /** Publishes a prepared clipboard after the operation that owns it has succeeded. */
+    public static void setAppointmentIntoSession(HttpServletRequest request, ApptData clipboard) {
+        request.getSession().setAttribute(SESSION_APPT_BEAN, java.util.Objects.requireNonNull(clipboard)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- Prepared by prepareAppointmentClipboard: validates all structured and free-text fields before publishing.
     }
 
     private static void validateCompleteClipboard(HttpServletRequest request) {

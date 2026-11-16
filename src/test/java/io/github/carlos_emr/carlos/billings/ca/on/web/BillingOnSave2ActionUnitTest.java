@@ -206,6 +206,67 @@ class BillingOnSave2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(transactions.commits).isEqualTo(1);
     }
 
+    /** The save service stores the reviewed claim as invoice 4321. */
+    private void claimSavesAs4321() {
+        when(mockSaveService.saveBillingWithExtAndPayee(any(BillingClaimSubmissionService.BillingClaimSubmission.class),
+                any(), anyString(), any())).thenReturn(new BillingClaimSubmissionService.SaveResult(true, 4321));
+    }
+
+    @Test
+    void shouldAuditTheSavedClaimAgainstItsPatient_whenAClaimIsSaved() {
+        reviewFor("42");
+        mockRequest.setParameter("hin", "9876543217");
+        mockRequest.setParameter("dxCode", "250");
+        claimSavesAs4321();
+
+        assertThat(newAction().execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        // The invoice and its patient, written with the signed-in user (provider, client address).
+        // No data: the claim's health number, diagnosis and fees stay in the billing tables.
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLog(mockLoggedInInfo,
+                io.github.carlos_emr.carlos.log.LogConst.ADD, io.github.carlos_emr.carlos.log.LogConst.CON_BILLING,
+                "4321", "42", null));
+        logActionMock.verifyNoMoreInteractions();
+    }
+
+    @Test
+    void shouldAuditTheClaimOnce_whenOneReviewIsSubmittedTwice() {
+        reviewFor("42");
+        claimSavesAs4321();
+
+        newAction().execute();
+        repeatOf(mockRequest);
+        newAction().execute();
+
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLog(mockLoggedInInfo,
+                io.github.carlos_emr.carlos.log.LogConst.ADD, io.github.carlos_emr.carlos.log.LogConst.CON_BILLING,
+                "4321", "42", null), times(1));
+        logActionMock.verifyNoMoreInteractions();
+    }
+
+    @Test
+    void shouldNotAuditAClaim_whenNothingWasSaved() {
+        reviewFor("42");
+        when(mockSaveService.saveBillingWithExtAndPayee(any(BillingClaimSubmissionService.BillingClaimSubmission.class),
+                any(), anyString(), any())).thenReturn(new BillingClaimSubmissionService.SaveResult(false, 0));
+
+        assertThat(newAction().execute()).isEqualTo("failure");
+
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    void shouldAuditTheClaimWithoutAPatient_whenThePatientNumberIsNotANumber() {
+        reviewFor("42x");
+        claimSavesAs4321();
+
+        newAction().execute();
+
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLog(mockLoggedInInfo,
+                io.github.carlos_emr.carlos.log.LogConst.ADD, io.github.carlos_emr.carlos.log.LogConst.CON_BILLING,
+                "4321", null, null));
+    }
+
     @Test
     void shouldRepeatTheFirstSavesRoute_forARepeatedSaveAndPrint() {
         reviewFor("42");

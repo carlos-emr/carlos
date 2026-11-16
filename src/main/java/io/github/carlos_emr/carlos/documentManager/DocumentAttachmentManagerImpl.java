@@ -40,6 +40,7 @@ import io.github.carlos_emr.carlos.eform.util.EFormRenderApproval;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderCompletenessReport;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationLabsNotIncluded;
+import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationAttachmentsNotIncluded;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
@@ -626,8 +627,8 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             logger.debug("Concatenated {} PDF document(s) into a combined PDF ({} bytes)",
                     pdfDocumentList.size(), outputStream.size());
         } catch (IOException e) {
-            logger.error("Failed to concatenate {} PDF document(s) into a combined eForm PDF",
-                    pdfDocumentList.size(), e);
+            logger.error("Failed to concatenate {} PDF document(s) into a combined eForm PDF {}",
+                    pdfDocumentList.size(), LogSafe.exceptionTrace(e));
             throw new PDFGenerationException("An error occurred while concatenating PDF.", e);
         }
         return path;
@@ -778,6 +779,9 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
                     LabResultData::getSegmentID);
             ArrayList<HashMap<String, ? extends Object>> attachedHRMs = consultationManager.getAttachedHRMDocuments(loggedInInfo, demographicId, requestId);
             List<EctFormData.PatientForm> attachedForms = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(requestId), Integer.parseInt(demographicId));
+            List<String> attachmentsNotIncluded = ConsultationAttachmentsNotIncluded.describe(consultationManager,
+                    loggedInInfo, Integer.parseInt(requestId), attachedForms, attachedHRMs, readerLocale);
+            request.setAttribute(ConsultationAttachmentsNotIncluded.REQUEST_ATTRIBUTE, attachmentsNotIncluded);
 
             // Unavailable documents, eForms and HRM reports (including unreadable HRM files)
             // are named and omitted. Unsupported lab sources and rendering failures still
@@ -795,6 +799,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             }
 
             attachLabsNotIncludedNotice(labsNotIncluded, readerLocale, pdfDocumentList);
+            attachAttachmentsNotIncludedNotice(attachmentsNotIncluded, readerLocale, pdfDocumentList);
             Path result = concatPDF(pdfDocumentList, demographicId);
             cleanupRenderedTempInputs(pdfDocumentList, result);
             return result;
@@ -802,6 +807,17 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             // The rendered consult and attachment PDFs hold PHI; do not leave them for the purge job.
             cleanupRenderedTempInputs(pdfDocumentList, null);
             throw e;
+        }
+    }
+
+    private void attachAttachmentsNotIncludedNotice(List<String> warnings, Locale locale,
+                                                    ArrayList<Object> pdfDocumentList) throws PDFGenerationException {
+        if (warnings.isEmpty()) return;
+        try (ByteArrayOutputStream notice = new ByteArrayOutputStream()) {
+            notice.write(ConsultationAttachmentsNotIncluded.noticePage(warnings, locale));
+            pdfDocumentList.add(nioFileManager.saveTempFile("consultationAttachmentsNotIncluded", notice).toString());
+        } catch (IOException | DocumentException e) {
+            throw new PDFGenerationException("The attachment omission notice could not be created", e);
         }
     }
 
@@ -1558,8 +1574,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
                 } catch (IOException cleanupFailure) {
                     // Best-effort cleanup on a failed move; the original file is intact. Log it (basename
                     // only) so an orphaned flatten temp is recorded rather than silently left on disk.
-                    logger.warn("Could not remove orphaned flatten temp file: {}",
-                            LogSafe.sanitize(flattenedTemp.getFileName().toString()));
+                    logger.warn("Could not remove orphaned flatten temp file");
                 }
             }
         }

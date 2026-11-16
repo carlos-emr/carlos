@@ -238,7 +238,7 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
 
         String result = new TestableEditTickler2Action().execute();
 
-        assertThat(result).isEqualTo("error");
+        assertThat(result).isEqualTo("attachmentsRefused");
     }
 
     @Test
@@ -252,7 +252,7 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
         doThrow(new SecurityException("Document is not available"))
                 .when(ticklerAttachmentService).syncAttachments(any(), any(), any(), any());
 
-        assertThat(new TestableEditTickler2Action().execute()).isEqualTo("error");
+        assertThat(new TestableEditTickler2Action().execute()).isEqualTo("attachmentsRefused");
 
         verify(ticklerManager, never()).updateTickler(any(), any());
         assertThat(tickler.getStatus()).isEqualTo(Tickler.STATUS.A);
@@ -321,7 +321,7 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
         });
         doThrow(new IllegalArgumentException("Attachment does not belong to this patient"))
                 .when(ticklerAttachmentService).syncAttachments(any(), any(), any(), any());
-        assertThat(new TestableEditTickler2Action().execute()).isEqualTo("error");
+        assertThat(new TestableEditTickler2Action().execute()).isEqualTo("attachmentsRefused");
         assertThat(jdbc.queryForObject("SELECT comment_count FROM edit_probe WHERE id=42", Integer.class)).isZero();
         jdbc.execute("DROP ALL OBJECTS");
     }
@@ -332,7 +332,7 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
     @ValueSource(strings = {" ", "\t\r\n", "0"})
     void shouldIgnoreEmptyListPlaceholders_withoutPersistingSuggestions(String placeholder) {
         TicklerTextSuggestDao dao = createAndRegisterMock(TicklerTextSuggestDao.class);
-        var action = new TestableEditTickler2Action();
+        var action = new EditTicklerTextSuggest2Action();
         action.setActiveText(new String[]{placeholder});
         action.setInactiveText(new String[]{placeholder});
 
@@ -343,7 +343,7 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldPreserveExactNewText_andSkipPlaceholdersInBothLists() {
         TicklerTextSuggestDao dao = createAndRegisterMock(TicklerTextSuggestDao.class);
-        var action = new TestableEditTickler2Action();
+        var action = new EditTicklerTextSuggest2Action();
         action.setActiveText(new String[]{"", "0", "  Active suggestion <follow-up>  "});
         action.setInactiveText(new String[]{" ", "0", "Inactive suggestion"});
 
@@ -377,7 +377,7 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
         inactive.setCreateDate(new Date(5678));
         when(dao.find(Integer.valueOf(11))).thenReturn(active);
         when(dao.find(Integer.valueOf(12))).thenReturn(inactive);
-        var action = new TestableEditTickler2Action();
+        var action = new EditTicklerTextSuggest2Action();
         action.setActiveText(new String[]{"11", ""});
         action.setInactiveText(new String[]{"0", "12"});
 
@@ -399,7 +399,7 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
     void shouldPersistPrefixedLiteralText_withoutTreatingNumericTextAsAnId(String text) {
         TicklerTextSuggestDao dao = createAndRegisterMock(TicklerTextSuggestDao.class);
         request.setParameter("suggestionValueFormat", "prefixed");
-        var action = new TestableEditTickler2Action();
+        var action = new EditTicklerTextSuggest2Action();
         action.setActiveText(new String[]{"", "text:" + text});
         action.setInactiveText(new String[]{"text:" + text, "text: ", "text:"});
 
@@ -416,7 +416,7 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldPreserveLegacyTextPrefixes_whenNoNewFormatIsDeclared() {
         TicklerTextSuggestDao dao = createAndRegisterMock(TicklerTextSuggestDao.class);
-        var action = new TestableEditTickler2Action();
+        var action = new EditTicklerTextSuggest2Action();
         action.setActiveText(new String[]{"text:literal"});
         action.setInactiveText(new String[]{""});
 

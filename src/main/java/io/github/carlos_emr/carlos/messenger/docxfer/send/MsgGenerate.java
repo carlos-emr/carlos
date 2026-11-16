@@ -25,16 +25,14 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 
 package io.github.carlos_emr.carlos.messenger.docxfer.send;
 
 
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
 
-import io.github.carlos_emr.Misc;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.w3c.dom.Attr;
@@ -44,7 +42,8 @@ import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.commn.dao.DocumentTransferDao;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.messenger.docxfer.util.MsgCommxml;
 
 /**
@@ -134,18 +133,26 @@ public class MsgGenerate {
             table.setAttribute(attr.getNodeName(), attr.getNodeValue());
         }
 
-        // Execute the SQL query to retrieve data for this table
-        String sql = this.constructSQL(cfgTable);
-        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LegacyJdbcQuery.trustedReportSelectSql(sql),
-                this.demographicNo)) {
-            ResultSetMetaData meta = rs.getMetaData();
+        java.util.List<String> expressions = new java.util.ArrayList<>();
+        Element configuredItem = (Element) cfgTable.getElementsByTagName("item").item(0);
+        NodeList configuredFields = cfgTable.getElementsByTagName("fld");
+        for (int i = 0; i < configuredFields.getLength(); i++) {
+            expressions.add(((Element) configuredFields.item(i)).getAttribute("sql"));
+        }
+        DocumentTransferDao.Definition definition = new DocumentTransferDao.Definition(
+                cfgTable.getAttribute("sqlFrom"), cfgTable.getAttribute("sqlLink"),
+                cfgTable.getAttribute("sqlWhere"), cfgTable.getAttribute("sqlOrder"),
+                configuredItem.getAttribute("sql"), expressions);
+        {
+            java.util.List<DocumentTransferDao.Row> rows = SpringUtils.getBean(DocumentTransferDao.class)
+                    .read(definition, demographicNo);
 
             // Get the item and field configurations from the config
             Element cfgItem = (Element) cfgTable.getElementsByTagName("item").item(0);
             NodeList cfgFlds = cfgItem.getElementsByTagName("fld");
 
             // Process each row returned by the query
-            while (rs.next()) {
+            for (DocumentTransferDao.Row row : rows) {
                 Element item = MsgCommxml.addNode(table, "item");
                 item.setAttribute("itemId", String.valueOf(itemId));
                 itemId++; // Increment the sequential item ID
@@ -157,13 +164,13 @@ public class MsgGenerate {
                 Element data = MsgCommxml.addNode(item, "data");
 
                 // Process all database columns except those starting with "fld"
-                for (int i = 1; i <= meta.getColumnCount(); i++) {
-                    if (!meta.getColumnName(i).startsWith("fld")) {
-                        String name = meta.getTableName(i) + "." + meta.getColumnName(i);
+                for (DocumentTransferDao.Column column : row.columns()) {
+                    {
+                        String name = column.qualifiedName();
 
                         // A failed clinical column read must fail the transfer, not export an
                         // apparently complete document with silently erased patient information.
-                        String fldData = Misc.getString(rs, i);
+                        String fldData = column.value();
 
                         Element fld = doc.createElement(name);
 
@@ -187,7 +194,7 @@ public class MsgGenerate {
 
                 // Set the item value from the fldItem column
                 {
-                    String value = Misc.getString(rs, "fldItem");
+                    String value = row.item();
                     if (value == null) value = "";
                     item.setAttribute("value", value);
                 }
@@ -199,7 +206,7 @@ public class MsgGenerate {
 
                     fld.setAttribute("name", cfgFld.getAttribute("name"));
                     fld.setAttribute("sql", cfgFld.getAttribute("sql"));
-                    String value = Misc.getString(rs, ("fld" + i));
+                    String value = row.fields().get(i);
                     if (value == null) value = "";
                     fld.setAttribute("value", value);
                 }
@@ -209,46 +216,4 @@ public class MsgGenerate {
         return table;
     }
 
-    /**
-     * Constructs a SQL query based on the table configuration from DocXferConfig.xml.
-     * Builds a SELECT statement that includes all table columns plus configured fields
-     * and applies demographic-specific filtering and ordering.
-     * 
-     * @param cfgTable Element containing the table configuration with SQL attributes
-     * @return String the complete SQL query to retrieve patient data for this table
-     * @since 2003
-     */
-    private String constructSQL(Element cfgTable) {
-        Element fldItem = (Element) cfgTable.getElementsByTagName("item").item(0);
-        NodeList flds = cfgTable.getElementsByTagName("fld");
-
-        // Start with SELECT * to get all table columns
-        String sql = "SELECT *";
-
-        // Add the item field as fldItem
-        sql += ", " + fldItem.getAttribute("sql") + " AS fldItem";
-
-        // Add each configured field with sequential naming (fld0, fld1, etc.)
-        for (int i = 0; i < flds.getLength(); i++) {
-            Element fld = (Element) flds.item(i);
-            sql += ", " + fld.getAttribute("sql") + " AS fld" + String.valueOf(i);
-        }
-
-        // Add FROM clause and demographic-specific WHERE clause
-        sql += " FROM " + cfgTable.getAttribute("sqlFrom")
-                + " WHERE " + cfgTable.getAttribute("sqlLink")
-                + " = ?"; // demographicNo bound via GetPreSQL parameter
-        
-        // Add additional WHERE conditions if specified
-        if (cfgTable.getAttribute("sqlWhere").length() > 0) {
-            sql += " AND " + cfgTable.getAttribute("sqlWhere");
-        }
-        
-        // Add ORDER BY clause if specified
-        if (cfgTable.getAttribute("sqlOrder").length() > 0) {
-            sql += " ORDER BY " + cfgTable.getAttribute("sqlOrder");
-        }
-
-        return sql;
-    }
 }

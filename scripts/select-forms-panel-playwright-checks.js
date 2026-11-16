@@ -30,6 +30,9 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
+const { validateBaseUrl } = require('./lib/playwright-harness');
 const { chromium } = require('playwright');
 const h = require('./lib/playwright-harness');
 const { encounterForms, formListAsSeen } = require('./lib/encounter-form-list');
@@ -67,25 +70,6 @@ function isLocalHost(rawHost) {
   // them so bracketed loopback addresses match the same as their bare form.
   const host = rawHost.toLowerCase().replace(/^\[|\]$/g, '');
   return LOCAL_HOSTS.has(host);
-}
-
-function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-  // Credentials in BASE_URL would ride along on every navigation and could surface
-  // in the badResponses diagnostics this script prints on failure.
-  if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not contain embedded credentials');
-  }
-
-  const host = parsed.hostname.toLowerCase();
-  if (!isLocalHost(host) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
-  return parsed;
 }
 
 function appUrl(appPath) {
@@ -303,7 +287,8 @@ async function restoreSubject(page, subject) {
   }
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('select-forms-panel',async context=>{
+  await (async({cancellation})=>{
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
@@ -323,16 +308,22 @@ async function restoreSubject(page, subject) {
   let passed = false;
   try {
     formsBefore = encounterForms(sql);
-    browser = await chromium.launch(launchOptions);
+    browser = await chromium.launch({...(launchOptions),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
     context = await browser.newContext({
       ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl),
     });
+    cancellation?.throwIfCancelled();
     page = await context.newPage();
+    cancellation?.throwIfCancelled();
     wirePage(page, 'select-forms');
     await login(page);
+    cancellation?.throwIfCancelled();
     await openSelectFormsPanel(page);
+    cancellation?.throwIfCancelled();
 
     const initial = await readPanel(page);
+    cancellation?.throwIfCancelled();
     assertPanelRendered(initial, 'initial load');
     assert(
       initial.available.length > 0,
@@ -342,6 +333,7 @@ async function restoreSubject(page, subject) {
 
     // Acceptance criterion: submitting with nothing selected must not blank the panel.
     const noSelection = await clickPanelButton(page, { buttonSelector: '#add', label: 'add with no selection' });
+    cancellation?.throwIfCancelled();
     assertPanelRendered(noSelection, 'add with no selection');
     assert(
       sameOrder(noSelection.selected, initial.selected)
@@ -355,6 +347,7 @@ async function restoreSubject(page, subject) {
       listName: 'selectedAddTypes',
       formName: subject,
     });
+    cancellation?.throwIfCancelled();
     assertPanelRendered(afterAdd, 'add');
     assert(afterAdd.selected.includes(subject), `add did not move ${subject} into the selected list`);
     assert(!afterAdd.available.includes(subject), `add left ${subject} in the available list`);
@@ -365,6 +358,7 @@ async function restoreSubject(page, subject) {
       listName: 'selectedDeleteTypes',
       formName: subject,
     });
+    cancellation?.throwIfCancelled();
     assertPanelRendered(afterUp, 'move up');
     // Add appends the subject last. On an install where nothing was selected to begin
     // with it is also first, and Move Up correctly no-ops rather than moving it off the
@@ -384,6 +378,7 @@ async function restoreSubject(page, subject) {
       listName: 'selectedDeleteTypes',
       formName: subject,
     });
+    cancellation?.throwIfCancelled();
     assertPanelRendered(afterDown, 'move down');
     // Symmetric to Move Up: normally this puts the subject back where Add left it, and
     // when Move Up was a no-op the subject is still last, so Move Down no-ops too. Both
@@ -399,6 +394,7 @@ async function restoreSubject(page, subject) {
       listName: 'selectedDeleteTypes',
       formName: subject,
     });
+    cancellation?.throwIfCancelled();
     assertPanelRendered(afterDelete, 'delete');
     assert(afterDelete.available.includes(subject), `delete did not return ${subject} to the available list`);
     assert(!afterDelete.selected.includes(subject), `delete left ${subject} in the selected list`);
@@ -447,7 +443,8 @@ async function restoreSubject(page, subject) {
     }
   }
   console.log(`PASS Select Forms panel renders after add, delete, move up, and move down (subject form ${subject})`);
-})().catch((error) => {
+})(context).catch((error) => {
   console.error(`FAIL Select Forms panel checks: ${error.stack || error.message}`);
-  process.exit(1);
+  {process.exitCode=1;return;}
+});
 });

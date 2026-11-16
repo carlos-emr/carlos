@@ -203,5 +203,33 @@ class ChangedLineAuditWorkingTreeTest(unittest.TestCase):
 
 
 
+class BranchAndInstructionEvidenceTest(unittest.TestCase):
+    def test_line_hit_cannot_hide_partial_instructions_or_an_unexecuted_branch(self):
+        source = {SERVICE: {10: (3, 2, 1, 1), 11: (0, 4, 0, 2)}}
+        changed = {SERVICE: {10, 11, 12}}
+        self.assertEqual(audit_script.audit(source, changed)[0][SERVICE], (1, 1, [11]))
+        result = audit_script.audit_details(source, changed)[SERVICE]
+        self.assertEqual(result, dict(covered_instructions=3, missed_instructions=6,
+                                     covered_branches=1, missed_branches=3,
+                                     partial_lines=[10], missed_branch_lines=[10, 11]))
+
+    def test_branch_gate_rejects_a_line_that_is_nominally_fully_covered(self):
+        report = JACOCO.replace('mi="0" ci="3" mb="0" cb="0"', 'mi="0" ci="3" mb="1" cb="1"')
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "jacoco.xml"
+            path.write_text(report)
+            diff = DIFF.split("diff --git a/src/main/java/io/github/carlos_emr/carlos/Unbuilt")[0]
+            diff = diff.replace("+9,4", "+10,1")
+            with patch.object(audit_script.subprocess, "check_output", return_value=diff), contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(audit_script.main([str(path), "BASE", "HEAD", "--fail-under", "100"]), 0)
+                self.assertEqual(audit_script.main([str(path), "BASE", "HEAD", "--fail-under-branches", "100"]), 1)
+
+    def test_new_thresholds_reject_nonfinite_values(self):
+        for flag in ("--fail-under-branches", "--fail-under-instructions"):
+            for value in ("nan", "inf", "-1", "101"):
+                with self.subTest(flag=flag, value=value), self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
+                    audit_script.parse_args(["r.xml", "base", flag + "=" + value])
+
+
 if __name__ == "__main__":
     unittest.main()

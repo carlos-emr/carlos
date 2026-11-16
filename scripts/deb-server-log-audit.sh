@@ -28,14 +28,15 @@
 # names in the event's stack, a request path where the message logs one
 # (query string cut off and every all-digit path segment replaced by {n}, so a
 # demographic or record number never reaches the output), the error page
-# status, and a CSRF rejection's method and reason. Message text is never
+# status, a CSRF rejection's method and reason, and the fixed synthetic
+# AP-cache renderer probe marker (without its timestamp). Message text is never
 # printed unless --show-messages is given, and that is for disposable
 # demonstration hosts.
 #
 # Usage:
 #   scripts/deb-server-log-audit.sh [--since 'YYYY-MM-DD HH:MM:SS'] [--baseline FILE]
 #                                   [--unit carlos-emr] [--catalina-dir DIR]
-#                                   [--input FILE] [--show-messages]
+#                                   [--input FILE] [--show-messages] [--include-warn]
 #
 #   --since       start of the window (default: $CARLOS_LOG_AUDIT_SINCE, else
 #                 the current boot, for the journal and for catalina's own
@@ -46,6 +47,7 @@
 #                 a regex is reported as known, not failed. Default
 #                 scripts/lib/server-log-baseline.tsv. Every reason must cite
 #                 an issue (#NNNN), an app-findings-log.md finding, or a doc.
+#   --include-warn  also reject unexplained WARN signatures for release qualification.
 #   --input       read log lines from FILE instead of the journal (tests).
 #   --catalina-dir  Tomcat log directory (default /var/log/carlos-emr/tomcat);
 #                 its SEVERE lines are audited too.
@@ -60,6 +62,7 @@ UNIT=carlos-emr
 CATALINA_DIR=/var/log/carlos-emr/tomcat
 INPUT=""
 SHOW_MESSAGES=false
+INCLUDE_WARN=false
 
 usage() { sed -n '/^# Usage:/,/^# Exit status/p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 usage_error() { echo "deb-server-log-audit: $1" >&2; usage >&2; exit 2; }
@@ -72,6 +75,7 @@ while [ "$#" -gt 0 ]; do
     --catalina-dir) [ -n "${2:-}" ] || usage_error "--catalina-dir needs a directory"; CATALINA_DIR="$2"; shift 2 ;;
     --input) [ -n "${2:-}" ] || usage_error "--input needs a file"; INPUT="$2"; shift 2 ;;
     --show-messages) SHOW_MESSAGES=true; shift ;;
+    --include-warn) INCLUDE_WARN=true; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "deb-server-log-audit: unknown argument '$1'" >&2; usage >&2; exit 2 ;;
   esac
@@ -89,7 +93,9 @@ trap 'rm -rf "$work"' EXIT
 boot_start_iso() {
   local first
   first="$(journalctl --no-pager -q -b -o short-unix 2>/dev/null | head -n 1 | cut -d. -f1 || true)"
-  case "$first" in ''|*[!0-9]*) return 1 ;; esac
+  case "$first" in
+    ''|*[!0-9]*) return 1 ;;
+  esac
   date -d "@$first" '+%Y-%m-%d %H:%M:%S'
 }
 
@@ -144,7 +150,7 @@ fi
 # 2. Reduce events to signatures. An event starts at a log4j line whose level
 #    is ERROR or FATAL, or a CATALINA SEVERE line; the stack lines that follow
 #    contribute exception class names until the next timestamped line.
-awk -v show="$SHOW_MESSAGES" '
+awk -v show="$SHOW_MESSAGES" -v include_warn="$INCLUDE_WARN" '
   function flush() {
     if (sig != "") {
       out = sig
@@ -159,7 +165,7 @@ awk -v show="$SHOW_MESSAGES" '
   /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9:,.]+ +[A-Z]+ / {
     flush()
     level = $3
-    if (level == "ERROR" || level == "FATAL") {
+    if (level == "ERROR" || level == "FATAL" || (include_warn == "true" && level == "WARN")) {
       logger = $4; loc = $5
       sig = level " " logger " " loc
       rest = $0; cut = index(rest, ") - "); if (cut > 0) rest = substr(rest, cut + 4)
@@ -171,6 +177,12 @@ awk -v show="$SHOW_MESSAGES" '
         sig = sig " " u
       }
       if (logger ~ /ErrorPageLogger$/ && match(rest, /status=[0-9]+/)) sig = sig " " substr(rest, RSTART, RLENGTH)
+      # Only the exact synthetic renderer key with its 13-digit millisecond
+      # timestamp is a known negative control. Keep this portable to older awk.
+      # Do not baseline this JSP location alone: real unconfigured keys log here too.
+      if (logger ~ /efmformapconfig_005flookup_jsp$/ && rest ~ /^AP config lookup requested an unconfigured key=renderer_missing_ap_[0-9]+ fid=[0-9]+$/ && match(rest, /renderer_missing_ap_[0-9]+/) && RLENGTH == length("renderer_missing_ap_") + 13) {
+        sig = sig " apcache-key=renderer_missing_ap_{n}"
+      }
       # A CSRF rejection is ERROR by design. CSRFGuard logs no request path,
       # and the CARLOS session login is invisible to it, so every violation
       # reads "user:<anonymous>"; the method and the reason are all that tell
@@ -191,6 +203,13 @@ awk -v show="$SHOW_MESSAGES" '
   }
   sig != "" {
     line = $0
+    # The disposable #5794 servlet lives outside the production package tree.
+    # Preserve that exact frame so its intentional exception cannot allowlist
+    # an unlocated ServletException from an ordinary application request.
+    if (frame == "" && line ~ /^[ \t]+at carlostest5794\.ErrorSanitizationFaultServlet\.doGet\(/) {
+      frame = "carlostest5794.ErrorSanitizationFaultServlet.doGet"
+      sig = sig " @" frame
+    }
     # The first CARLOS frame says where the failure surfaced, so a baseline
     # entry for one deliberate 500 cannot also hide the same exception class
     # thrown anywhere else.

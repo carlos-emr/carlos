@@ -36,13 +36,13 @@
 --%>
 
 <%@page %>
-<%@page import="io.github.carlos_emr.carlos.demographic.data.*,io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBeanHandler,java.util.*,io.github.carlos_emr.carlos.rx.util.*" %>
-<%@page import="io.github.carlos_emr.carlos.lab.ca.on.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.lab.*" %>
+
+<%@page import="java.util.*" %>
+<%@page import="io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.LimitedUseCode" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.LimitedUseLookup" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -63,8 +63,8 @@
         <%for (LimitedUseCode limitedUseCode : luList) {%>
         <tr>
             <td valign="top">
-                <a onclick="javascript:addLuCode('instructions_<carlos:encode value='<%= randomId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= limitedUseCode.getUseId() %>' context="javaScriptAttribute"/>')"
-                   href="javascript: return void();"><carlos:encode value='<%= limitedUseCode.getUseId() %>' context="html"/>
+                <a onclick="event.preventDefault();addLuCode('instructions_<carlos:encode value='<%= randomId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= limitedUseCode.getUseId() %>' context="javaScriptAttribute"/>')"
+                   href="#"><carlos:encode value='<%= limitedUseCode.getUseId() %>' context="html"/>
                 </a>&nbsp;
             </td>
             <td><carlos:encode value='<%= limitedUseCode.getTxt() %>' context="html"/>

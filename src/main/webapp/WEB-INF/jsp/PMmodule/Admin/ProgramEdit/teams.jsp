@@ -58,28 +58,41 @@ function add_team(form) {
 </table>
 </div>
 <!--  show current staff -->
-<display:table class="simple" cellspacing="2" cellpadding="3" id="team" name="teams" export="false" pagesize="0" requestURI="/PMmodule/ProgramManager">
-	<display:setProperty name="paging.banner.placement" value="bottom" />
-	<display:setProperty name="basic.msg.empty_list" value="No teams are currently defined for this program." />
-	<display:column sortable="false" title="">
+<c:if test="${not empty teams}">
+<table class="carlos-table-spaced simple" id="team" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+<thead><tr>
+
+
+    <th scope="col"></th>
+    <th scope="col"><span data-table-sort>Name</span></th>
+    <th scope="col"><span data-table-sort>Staff</span></th>
+    <th scope="col"><span data-table-sort>Clients</span></th>
+</tr></thead>
+<tbody><c:forEach var="team" items="${teams}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
+
+
+    <td>
 		<a onclick="deleteTeam('${carlos:forJavaScript(team.id)}');return false;" href="javascript:void(0);"> Delete </a>
-	</display:column>
-	<display:column property="name" sortable="true" title="Name" />
-	<display:column sortable="true" title="Staff">
+    </td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(team.name))}" data-sort-type="${carlos:tableSortType(team.name)}">${carlos:forHtml(team.name)}</td>
+    <td>
 		<ul>
 			<c:forEach var="provider" items="${team.providers}">
 				<li>${carlos:forHtml(provider.provider.formattedName)} (${carlos:forHtml(provider.role.name)})</li>
 			</c:forEach>
 		</ul>
-	</display:column>
-	<display:column sortable="true" title="Clients">
+    </td>
+    <td>
 		<ul>
 			<c:forEach var="admission" items="${team.admissions}">
 				<li>${carlos:forHtml(admission.client.formattedName)}</li>
 			</c:forEach>
 		</ul>
-	</display:column>
-</display:table>
+    </td>
+</tr></c:forEach></tbody>
+</table>
+</c:if>
+<c:if test="${empty teams}">No teams are currently defined for this program.</c:if>
 <br />
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
 	<html:hidden property="team.id" />

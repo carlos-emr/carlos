@@ -83,7 +83,7 @@ test('filename output uses the encoder for each HTML and script context', () => 
   assert.match(jsp, /title="<%=SafeEncode.forHtmlAttribute\(curimage\)%>"/);
   assert.match(jsp, /showImage\('<%=SafeEncode.forJavaScriptAttribute\(fileURL\)%>'/);
   assert.match(jsp, /return false;">\s*<%=SafeEncode.forHtmlContent\(curimage\)%>/);
-  assert.match(jsp, /deleteImg\('<%=SafeEncode.forJavaScriptAttribute\(curimage\)%>'/);
+  assert.ok(jsp.includes(`deleteImg('<carlos:encode value='<%= curimage %>' context="javaScriptAttribute"/>');`));
   assert.match(jsp, /import="io.github.carlos_emr.carlos.utility.SafeEncode"/);
 });
 

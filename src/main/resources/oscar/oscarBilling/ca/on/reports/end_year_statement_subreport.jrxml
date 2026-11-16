@@ -8,7 +8,6 @@
 	<!-- Bundle the measuring/export font: host SansSerif metrics can clip every 12pt value in these rows. -->
 	<style name="statementFont" default="true" fontName="DejaVu Sans" />
 	<parameter name="invoiceId" forPrompting="true" class="java.lang.Integer" />
-	<query><![CDATA[SELECT bi.`service_code`, bi.`fee` FROM `billing_on_item` bi WHERE ch1_id = $P{invoiceId} AND (bi.status IS NULL OR bi.status <> 'D') ORDER BY bi.service_code, bi.id]]></query>
 	<field name="service_code" class="java.lang.String" />
 	<field name="fee" class="java.lang.String" />
 	<background height="0">

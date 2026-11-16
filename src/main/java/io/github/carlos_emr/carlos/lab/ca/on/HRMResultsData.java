@@ -16,11 +16,12 @@
 package io.github.carlos_emr.carlos.lab.ca.on;
 
 import java.util.*;
+import java.util.function.Predicate;
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMReport;
+import io.github.carlos_emr.carlos.hospitalReportManager.HRMReportAccess;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMReportParser;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
@@ -29,6 +30,7 @@ import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToProvider;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -144,9 +146,26 @@ public class HRMResultsData {
         // the key = SendingFacility+':'+ReportNumber+':'+DeliverToUserID as per HRM spec can be used to signify duplicate report
         HashMap<String, LabResultData> labResults = new HashMap<String, LabResultData>();
         HashMap<String, HRMReport> labReports = new HashMap<String, HRMReport>();
+        Set<Integer> seenDocumentIds = new HashSet<>();
+
+        // A report routed to this provider can be filed to a patient they are locked out of. Its
+        // row is the patient's name, sex and health number, so it is left out, decided from the
+        // link alone before the report or the patient is read. (The patient lookup below refuses
+        // such a patient by throwing, which used to fail the whole list.) The module right is not
+        // part of this decision: the inbox has always listed a routed report without it.
+        Predicate<Collection<HRMDocumentToDemographic>> listable = HRMReportAccess.listFilter(
+                SpringUtils.getBean(SecurityInfoManager.class), loggedInInfo, false);
 
         for (HRMDocumentToProvider hrmDocResult : hrmDocResultsProvider) {
             Integer id = hrmDocResult.getHrmDocumentId();
+            // A report can have several provider routes; only distinct documents are versions.
+            if (!seenDocumentIds.add(id)) {
+                continue;
+            }
+            List<HRMDocumentToDemographic> hrmDocResultsDemographic = hrmDocumentToDemographicDao.findByHrmDocumentId(id);
+            if (!listable.test(hrmDocResultsDemographic)) {
+                continue;
+            }
             LabResultData lbData = new LabResultData(LabResultData.HRM);
 
             List<HRMDocument> hrmDocument = hrmDocumentDao.findById(id);
@@ -158,8 +177,7 @@ public class HRMResultsData {
             lbData.setDateObj(hrmDocument.get(0).getReportDate());
             lbData.patientName = "Not, Assigned";
 
-            // check if patient is matched
-            List<HRMDocumentToDemographic> hrmDocResultsDemographic = hrmDocumentToDemographicDao.findByHrmDocumentId(hrmDocument.get(0).getId());
+            // check if patient is matched (the links were read above, for the access decision)
             HRMReport hrmReport = HRMReportParser.parseReport(loggedInInfo, hrmDocument.get(0).getReportFile());
             if (hrmReport == null) continue;
 
@@ -219,12 +237,7 @@ public class HRMResultsData {
 
         }
 
-        if (logger.isDebugEnabled()) {
-            for (LabResultData temp : labResults.values()) {
-                logger.debug("------------------");
-                logger.debug(ReflectionToStringBuilder.toString(temp));
-            }
-        }
+        logger.debug("HRM result count: {}", labResults.size());
 
         return labResults.values();
     }

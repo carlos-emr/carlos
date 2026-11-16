@@ -26,6 +26,8 @@ import io.github.carlos_emr.carlos.appt.ApptStatusData;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.FormSubmissionGuard;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -234,6 +236,11 @@ public class BillingOnSave2Action extends ActionSupport {
                 claim.saved(String.valueOf(billingNo));
             }
             request.setAttribute("billingNo", billingNo);
+            // The claim committed: audit the invoice against its patient. The invoice number and the
+            // patient only; the health number, diagnosis and fees stay in the billing tables. A
+            // repeated submission is answered above from the first save and is not audited again.
+            LogAction.addLog(loggedInInfo, LogConst.ADD, LogConst.CON_BILLING, String.valueOf(billingNo),
+                    ViewBillingOnHistory2Action.auditPatientNumber(request.getParameter("demographic_no")), null);
             return routeSavedBill(request, loggedInInfo, billingAction, safeUrlBack);
         }
 

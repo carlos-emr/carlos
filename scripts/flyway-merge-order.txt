@@ -83,3 +83,50 @@ common/V1.0.78__add_sms_config.sql
 common/V1.0.79__add_email_log_footer.sql
 common/V1.0.80__email_front_desk_default.sql
 common/V1.0.81__appointment_location_list.sql
+
+# Published release/2026.08 migrations incorporated by the forward merge.
+common/V1.0.59.8__widen_messagetbl_pdfattachment.sql forward-merge
+common/V1.0.59.8.1__cds_import_ledger.sql forward-merge
+common/V1.0.59.9__cds_upload_sessions.sql forward-merge
+common/V1.0.59.10__cds_laboratory_results.sql forward-merge
+common/V1.0.59.11__cds_contact_care_capacity.sql forward-merge
+common/V1.0.59.12__cds_preflight_identity.sql forward-merge
+common/V1.0.59.13__cds_import_review_history.sql forward-merge
+common/V1.0.59.14__cds_native_preparation.sql forward-merge
+common/V1.0.59.15__cds_file_verification_epoch.sql forward-merge
+common/V1.0.59.16__cds_provider_lookup_indexes.sql forward-merge
+common/V1.0.59.17__cds_review_source_provenance.sql forward-merge
+common/V1.0.59.18__cds_medication_projection_safety.sql forward-merge
+common/V1.0.59.19__cds_held_patient_lookup.sql forward-merge
+common/V1.0.59.20__cds_identity_authority.sql forward-merge
+common/V1.0.59.21__cds_note_unknown_observation_and_import_permission.sql forward-merge
+common/V1.0.59.22__cds_alphanumeric_prevention_creator.sql forward-merge
+common/V1.0.59.23__cds_report_content_precision.sql forward-merge
+common/V1.0.59.24__cds_durable_resume_intent.sql forward-merge
+common/V1.0.59.25__cds_review_kind_capacity.sql forward-merge
+common/V1.0.59.26__cds_measurements_deleted_capacity.sql forward-merge
+common/V1.0.59.27__preserve_oscar19_text_capacity.sql forward-merge
+on/V1.0.59.28__preserve_oscar19_text_capacity.sql forward-merge
+bc/V1.0.59.29__preserve_oscar19_text_capacity.sql forward-merge
+common/V1.0.59.30__one_live_consent_per_type.sql forward-merge
+bc/V1.0.59.31__restore_bcar2007_urine_culture_text.sql forward-merge
+common/V1.0.59.32__preserve_native_archive_capacity.sql forward-merge
+common/V1.0.59.33__audit_imported_billing_filenames.sql forward-merge
+common/V1.0.59.34__preserve_unassigned_digital_signatures.sql forward-merge
+common/V1.0.59.35__freeze_imported_signature_ownership.sql forward-merge
+bc/V1.0.59.36__preserve_bc_history_amount.sql forward-merge
+common/V1.0.59.37__rx_favorite_groups.sql forward-merge
+common/V1.0.59.38__rx_submission_receipts.sql forward-merge
+common/V1.0.59.39__rx_original_versions.sql forward-merge
+common/V1.0.59.40__cds_native_field_baselines.sql forward-merge
+common/V1.0.59.41__cds_export_ledger.sql forward-merge
+common/V1.0.59.42__cds_export_artifact_attempts.sql forward-merge
+common/V1.0.59.43__seed_admin_cds_import_permission.sql forward-merge
+common/V1.0.59.44__index_cds_hrm_patient_scope.sql forward-merge
+common/V1.0.59.45__cds_export_held_patients.sql forward-merge
+common/V1.0.59.46__index_measurements_deleted_owners.sql forward-merge
+common/V1.0.59.47__index_cds_laboratory_result_native_lab.sql forward-merge
+common/V1.0.59.48__index_cds_import_unit_patient_id.sql forward-merge
+common/V1.0.59.49__cds_export_attempt_checkpoint.sql forward-merge
+common/V1.0.59.50__cds_preparation_payload_capacity.sql forward-merge
+common/V1.0.82__hide_consent_live_demographic_projection.sql

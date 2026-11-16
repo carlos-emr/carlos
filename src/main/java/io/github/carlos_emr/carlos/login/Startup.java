@@ -22,6 +22,7 @@
  * Ontario, Canada
  
  * <p>
+ * Modifications by CARLOS Contributors, 2026.
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
@@ -29,6 +30,8 @@
 
 
 package io.github.carlos_emr.carlos.login;
+
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 import io.github.carlos_emr.CarlosProperties;
 import org.apache.logging.log4j.Logger;
@@ -71,6 +74,13 @@ public class Startup implements ServletContextListener {
 
 	private CarlosProperties p = CarlosProperties.getInstance();
 
+    /**
+     * Initializes configuration, persisted encryption state and application resources.
+     * Required configuration or key failures abort startup before encrypted data is used.
+     *
+     * @param sc ServletContextEvent the application context being initialized
+     * @throws RuntimeException if required startup configuration or initialization fails
+     */
     public void contextInitialized(ServletContextEvent sc) {
         logger.info("Starting OSCAR application ");
 
@@ -95,14 +105,14 @@ public class Startup implements ServletContextListener {
 
                 contextPath = url;
             } catch (Exception e) {
-                logger.error("Error", e);
+                logger.error("Error: {}", LogSafe.exceptionTrace(e));
             }
 
             String propName = contextPath + ".properties";
 
             char sep = System.getProperty("file.separator").toCharArray()[0];
             propFileName = System.getProperty("user.home") + sep + propName;
-            logger.info("looking up " + propFileName);
+            logger.info("Looking up application configuration");
 
             // Decide the /WEB-INF/ fallback from deployment-supplied config only: the singleton is
             // pre-loaded with packaged /carlos.properties defaults, including db_username, so asking it
@@ -112,12 +122,17 @@ public class Startup implements ServletContextListener {
 
             // Apply the same deployment snapshot used to decide fallback. User-home values win
             // over the override file, and neither source is reopened during startup.
-            p.putAll(deploymentProperties);
+            if (deployment.userHomeFound()) {
+                p.applyExternalConfiguration(deploymentProperties, propFileName);
+            } else {
+                p.putAll(deploymentProperties);
+            }
             if (deployment.userHomeFound()) {
                 logger.info("loading properties from {}", propFileName);
             }
 
             if (!hasDatabaseConfiguration(deploymentProperties)) {
+                String externalSource = p.getExternalConfigurationLocation();
                 // The deployment supplied no usable DB config, so /WEB-INF/ is still the source of truth.
                 try {
                     logger.info("looking up  /WEB-INF/{}", propName);
@@ -132,6 +147,10 @@ public class Startup implements ServletContextListener {
                         }
                         p.setProperty(key, value);
                     }
+                    // A key-only external file still owns persisted startup settings when the
+                    // database configuration comes from WEB-INF. Keep that provenance without
+                    // re-reading either configuration source or overwriting the fallback values.
+                    if (externalSource != null) p.applyExternalConfiguration(new Properties(), externalSource);
                     logger.info("loading properties from /WEB-INF/{}", propName);
                 } catch (java.io.FileNotFoundException e) {
                     /*
@@ -159,12 +178,11 @@ public class Startup implements ServletContextListener {
                 sc.getServletContext().setAttribute("CaseMgmtUsers", listUsers);
 
                 logger.info("BILLING REGION : " + p.getProperty("billregion", "NOTSET"));
-                logger.info("DB PROPS: Username :" + p.getProperty("db_username", "NOTSET") + " db name: " + p.getProperty("db_name", "NOTSET"));
+                logger.info("Database configuration loaded");
                 p.setProperty("OSCAR_START_TIME", "" + System.currentTimeMillis());
 
             } catch (Exception e) {
-                String s = "Property file not found at:" + propFileName;
-                logger.error(s, e);
+                logger.error("Application properties could not be loaded: {}", LogSafe.exceptionTrace(e));
             }
 
 
@@ -197,10 +215,14 @@ public class Startup implements ServletContextListener {
 						+ "); refusing to start. Restore the correct encryption key, or remove it to have a new one generated.", e);
 			}
 
+            // Modern saves no longer mirror to eChart. A rollback binary must keep reading
+            // modern data, so require the same durable flag before startup can complete.
+            p.ensureModernChartRollbackSafety();
+
 			// CHECK FOR DEFAULT PROPERTIES
 			String baseDocumentDir = p.getProperty("BASE_DOCUMENT_DIR");
 			if (baseDocumentDir != null) {
-				logger.info("Found Base Document Dir: " + baseDocumentDir);
+				logger.info("Found base document directory");
 				checkAndSetProperty(baseDocumentDir, contextPath, "HOME_DIR", "/billing/download/");
 				checkAndSetProperty(baseDocumentDir, contextPath, "DOCUMENT_DIR", "/document/");
 				checkAndSetProperty(baseDocumentDir, contextPath, "DOCUMENT_CACHE_DIR", "/document_cache/");
@@ -223,7 +245,7 @@ public class Startup implements ServletContextListener {
             // way as every other startup failure, without a second "Unexpected error." copy.
             throw new RuntimeException(e);
         } catch (Exception e) {
-            logger.error("Unexpected error.", e);
+            logger.error("Unexpected error.: {}", LogSafe.exceptionTrace(e));
             throw (new RuntimeException(e));
         }
     }
@@ -345,15 +367,17 @@ public class Startup implements ServletContextListener {
         }
 
         try {
-            String secretKey = EncryptionUtils.generateSecretKey();
-            p.saveProperty(propFileName, EncryptionUtils.SECRET_KEY_ENV_VAR, secretKey);
+            String secretKey = p.getOrCreateEncryptionKey();
+            p.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, secretKey);
         } catch (IOException | NoSuchAlgorithmException e) {
             /*
              * A usable encryption key is mandatory: it protects stored PHI and provider
              * credentials. Fail fast rather than booting with no key, which would defer the
              * failure to the first credential save (an opaque runtime error for clinicians).
              */
-            throw new IllegalStateException("Unable to generate and persist a new encryption key at startup", e);
+            throw new IllegalStateException("Unable to generate and persist a new encryption key at startup ("
+                    + EncryptionUtils.SECRET_KEY_ENV_VAR + " at " + p.getExternalConfigurationLocation()
+                    + "). Check file access before restarting.", e);
         }
 
         if (mayOrphanData) {
@@ -473,14 +497,14 @@ public class Startup implements ServletContextListener {
         String propertyDir = p.getProperty(propName);
         if (propertyDir == null) {
             propertyDir = baseDir + "/" + context + endDir;
-            logger.debug("Setting property {} with value {}", propName, propertyDir);
+            logger.debug("Resolving configured application directory");
             p.setProperty(propName, propertyDir);
             // Create directory if it does not exist
             File propertyDirectory = PathValidationUtils.resolveConfiguredDirectory(propertyDir, propName);
             if (!propertyDirectory.exists()) {
-                logger.warn("Directory does not exist:  " + propertyDir + ". Creating.");
+                logger.warn("Directory does not exist; creating");
                 boolean success = propertyDirectory.mkdirs();
-                if (!success) logger.error("An error occured when creating " + propertyDir);
+                if (!success) logger.error("Application directory could not be created");
             }
         }
     }

@@ -47,6 +47,12 @@ public class ReportTableFieldCaptionDaoImpl extends AbstractDaoImpl<ReportTableF
     }
 
     @Override
+    public List<ReportTableFieldCaption> findByTableName(String tableName) {
+        return entityManager.createQuery("select x from ReportTableFieldCaption x where x.tableName=:tableName order by x.id", ReportTableFieldCaption.class)
+                .setParameter("tableName", tableName).getResultList();
+    }
+
+    @Override
     public List<ReportTableFieldCaption> findByTableNameAndName(String tableName, String name) {
         Query q = entityManager.createQuery("SELECT x FROM ReportTableFieldCaption x WHERE x.tableName=?1 AND x.name=?2");
         q.setParameter(1, tableName);

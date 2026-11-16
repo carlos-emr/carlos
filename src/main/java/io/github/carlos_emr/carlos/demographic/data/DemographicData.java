@@ -183,18 +183,15 @@ public class DemographicData {
     }
 
     public String getDemographicNotes(String demographicNo) {
-        String retval = "";
         DemographicCust demographicCust = demographicCustDao.find(Integer.parseInt(demographicNo));
-        if (demographicCust != null) {
-            retval = demographicCust.getNotes();
-        }
+        return demographicCust == null ? "" : DemographicCust.patientNotesText(demographicCust.getNotes());
+    }
 
-        if (retval.startsWith("<unotes>")) retval = retval.substring(8);
-        if (retval.endsWith("</unotes>")) retval = retval.substring(0, retval.length() - 9);
-
-        // The note text is XML-escaped on write (DemographicXml.userNotes), so decode it
-        // exactly once here; exporters and printers consume this as plain text.
-        return DemographicXml.unescapeXmlTextOrEmpty(retval);
+    /** The patient alert shown on the master record (demographiccust.cust3), or "" when none. */
+    public String getDemographicAlert(String demographicNo) {
+        DemographicCust demographicCust = demographicCustDao.find(Integer.parseInt(demographicNo));
+        String alert = demographicCust == null ? null : demographicCust.getAlert();
+        return alert == null ? "" : alert;
     }
 
     public Demographic getDemographic(LoggedInInfo loggedInInfo, String DemographicNo) {

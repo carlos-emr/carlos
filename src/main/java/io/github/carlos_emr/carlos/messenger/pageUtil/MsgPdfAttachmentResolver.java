@@ -45,6 +45,10 @@ import io.github.carlos_emr.carlos.commn.model.EChart;
  * {@code RequestDispatcher.include}. Titles are computed here too, from the same message keys the
  * chooser displays, instead of being taken from the request.</p>
  *
+ * <p>The encounter item is explicitly historical: it renders the last retained legacy revision,
+ * not the current modern chart. Rows without clinical content are omitted. Current modern notes
+ * and CPP continue to use their own chart print workflow.</p>
+ *
  * @since 2026-10-01
  */
 public class MsgPdfAttachmentResolver {
@@ -130,13 +134,14 @@ public class MsgPdfAttachmentResolver {
                                 label(labels, "messenger.generatePreviewPDF.information", "Information")))));
             case ENCOUNTER:
                 EChart chart = eChartDao.getLatestChart(demographicNo);
-                if (chart == null || chart.getId() == null) {
+                if (chart == null || chart.getId() == null || chart.getDemographicNo() != demographicNo
+                        || !hasClinicalContent(chart)) {
                     return Optional.empty();
                 }
                 return Optional.of(new Attachment(item,
                         "/encounter/ViewEcharthistoryprint?echartid=" + chart.getId()
                                 + "&demographic_no=" + demographicNo,
-                        safeTitle(joinNonBlank(label(labels, "messenger.generatePreviewPDF.encounter", "Encounter"),
+                        safeTitle(joinNonBlank(label(labels, "messenger.generatePreviewPDF.historicalEncounter", "Historical encounter"),
                                 chart.getTimestamp() == null ? "" : chart.getTimestamp().toString()))));
             case PRESCRIPTIONS:
                 return Optional.of(new Attachment(item,
@@ -146,6 +151,14 @@ public class MsgPdfAttachmentResolver {
             default:
                 return Optional.empty();
         }
+    }
+
+    // Historical rows remain printable, but an empty row must not become a header-only PDF.
+    // This source is deliberately separate from current modern notes and CPP.
+    private static boolean hasClinicalContent(EChart chart) {
+        return java.util.stream.Stream.of(chart.getSocialHistory(), chart.getFamilyHistory(),
+                        chart.getMedicalHistory(), chart.getOngoingConcerns(), chart.getReminders(), chart.getEncounter())
+                .anyMatch(value -> value != null && !value.isBlank());
     }
 
     /**

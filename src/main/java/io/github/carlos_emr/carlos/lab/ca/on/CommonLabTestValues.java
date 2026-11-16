@@ -30,7 +30,6 @@
 package io.github.carlos_emr.carlos.lab.ca.on;
 
 import java.io.Serializable;
-import java.sql.Connection;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -243,8 +242,18 @@ public class CommonLabTestValues {
         return labList;
     }
 
-    //WITH MORE DATA MERGE WITH 1 AFTER April 09
-    public static ArrayList<Map<String, Serializable>> findValuesByLoinc2(String demographicNo, String loincCode, Connection conn) {
+    /**
+     * Reads measurement values matching the patient's LOINC/location identifier.
+     * Each map contains {@code lab_no}, {@code result}, {@code date}, {@code abn},
+     * {@code collDateDate} and {@code units}. Values are strings produced by
+     * {@link String#valueOf(Object)}, including the string {@code "null"} for null columns;
+     * {@code date} and {@code collDateDate} contain the same observed-date string.
+     *
+     * @param demographicNo String patient identifier converted to an integer for the DAO
+     * @param loincCode String LOINC/location code passed to the measurement DAO
+     * @return {@code List<Map<String, Serializable>>} in DAO result order, empty when no values match
+     */
+    public static List<Map<String, Serializable>> findValuesByLoinc2(String demographicNo, String loincCode) {
         ArrayList<Map<String, Serializable>> labList = new ArrayList<Map<String, Serializable>>();
 
         MeasurementDao dao = SpringUtils.getBean(MeasurementDao.class);
@@ -307,15 +316,15 @@ public class CommonLabTestValues {
                 String accessionNum = lfp.getAccessionNum();
 
                 Date dateA = (Date) accessionMap.get(accessionNum);
-                Date dateB = UtilDateUtilities.getDateFromString(collDate, "dd-MMM-yy");
-                if (dateA == null || dateA.before(dateB)) {
+                Date dateB = collDate == null ? null : UtilDateUtilities.getDateFromString(collDate, "dd-MMM-yy");
+                if (dateB == null || dateA == null || dateA.before(dateB)) {
                     int monthsBetween = 0;
-                    if (dateA != null) {
+                    if (dateA != null && dateB != null) {
                         monthsBetween = UtilDateUtilities.getNumMonths(dateA, dateB);
                     }
                     if (monthsBetween < 4) {
-                        accessionMap.put(accessionNum, dateB);
-                        Hashtable<String, Serializable> h = new Hashtable<String, Serializable>();
+                        if (dateB != null) accessionMap.put(accessionNum, dateB);
+                        Map<String, Serializable> h = new HashMap<>();
                         h.put("testName", testNam);
                         h.put("abn", abn);
                         h.put("result", result);
@@ -325,12 +334,18 @@ public class CommonLabTestValues {
                         h.put("collDate", collDate);
                         h.put("collDateDate", dateB);
                         //labList.add(h);
-                        labMap.put(accessionNum, h);
+                        labMap.put(dateB == null ? String.valueOf(accessionNum) + ":undated:" + lab_no : accessionNum, h);
                     }
                 }
             }
 
             labList.addAll(labMap.values());
+            // Preserve undated observations as visibly unusable, ahead of dated results.
+            // Never fabricate today's date or let an older normal result silently hide them.
+            labList.sort(java.util.Comparator.comparing(
+                    row -> (Date) row.get("collDateDate"),
+                    java.util.Comparator.nullsFirst(java.util.Comparator.reverseOrder())));
+            return labList;
         } else if (labType != null && labType.equals("MDS")) {
             PatientLabRoutingDao dao = SpringUtils.getBean(PatientLabRoutingDao.class);
             MdsZMNDao zmDao = SpringUtils.getBean(MdsZMNDao.class);
