@@ -48,6 +48,7 @@ import org.jdom2.JDOMException;
 import org.jdom2.Element;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 import org.jdom2.output.XMLOutputter;
+import org.jdom2.output.Format;
 import io.github.carlos_emr.carlos.commn.dao.ReportTemplatesDao;
 import io.github.carlos_emr.carlos.commn.model.ReportTemplates;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -249,8 +250,14 @@ public class ReportManager {
                     continue;
                 }
                 // Only report-level metadata is repaired; query text keeps its legacy interpretation.
-                Document fragment = XmlUtils.createSecureSAXBuilder().build(new StringReader(
-                        "<report>" + text.replace("&", "&amp;") + "</report>"));
+                Element wrapper = new Element("report", report.getNamespace());
+                for (var namespace : report.getNamespacesInScope()) {
+                    wrapper.addNamespaceDeclaration(namespace);
+                }
+                String wrapperXml = new XMLOutputter(Format.getRawFormat().setExpandEmptyElements(true))
+                        .outputString(wrapper);
+                String fragmentXml = wrapperXml.replace("</report>", text.replace("&", "&amp;") + "</report>");
+                Document fragment = XmlUtils.createSecureSAXBuilder().build(new StringReader(fragmentXml));
                 List<Content> restored = fragment.getRootElement().removeContent();
                 boolean hasParameters = restored.stream().anyMatch(part ->
                         part instanceof Element element && "param".equals(element.getName()));

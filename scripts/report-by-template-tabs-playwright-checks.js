@@ -52,9 +52,9 @@ async function workflow(s) {
       await click(library.getByRole('link',{name:'Add Template',exact:true}));
       const escape=value=>value.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
       const parameter=template.parameterType==='text'
-        ? '<param id="pick" type="text" description="Sex"></param>'
+        ? '<param id="pick" type="text" description="Sex" meta:hint="optional"></param>'
         : '<param id="pick" type="list" description="Sex"><choice id="F">Female</choice><choice id="M">Male</choice><choice id="X">No matching patient</choice></param>';
-      const xml=`<report title="${template.title}" description="${marker} tab isolation" active="1"><query>${escape(template.query)}</query>${parameter}</report>`;
+      const xml=`<report xmlns:meta="urn:carlos:regression-metadata" title="${template.title}" description="${marker} tab isolation" active="1"><query>${escape(template.query)}</query>${parameter}</report>`;
       await library.locator('#uploadReportXml').setInputFiles({name:'owned-report-tabs.xml',mimeType:'text/xml',buffer:Buffer.from(xml)});
       await click(library.locator('input[type="submit"][value^="Upload"]'));
       await library.locator('.alert-success',{hasText:'Saved Successfully'}).waitFor();
@@ -154,6 +154,10 @@ async function workflow(s) {
     await proof.page.locator('input#pick').waitFor();
     h.assert(await proof.page.locator('input#pick').inputValue()==='', 'The edited text parameter lost its empty state');
     templates[0].query=editedQuery;
+    const persistedXml=sql.value('SELECT templatexml FROM reportTemplates WHERE templateid=?',[templates[0].id]);
+    h.assert(persistedXml.includes('meta:hint="optional"')
+      && persistedXml.includes('xmlns:meta="urn:carlos:regression-metadata"'),
+    'The empty parameter lost its inherited namespace metadata');
     h.assert(sql.value('SELECT templatesql FROM reportTemplates WHERE templateid=?',[templates[0].id])===editedQuery,
       'Editing the report changed its legacy raw ampersand SQL');
     h.assert(JSON.stringify(sql.rows('SELECT * FROM reportTemplates WHERE templateid=?',[templates[1].id]))===otherBefore,

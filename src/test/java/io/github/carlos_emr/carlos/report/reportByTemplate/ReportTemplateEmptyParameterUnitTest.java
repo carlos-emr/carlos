@@ -182,4 +182,21 @@ class ReportTemplateEmptyParameterUnitTest extends CarlosUnitTestBase {
         assertThat(manager.addTemplate(null, xml, info)).isEqualTo("Saved Successfully");
         assertThat(manager.getReportTemplate("17").getParameters()).isEmpty();
     }
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldPreserveInheritedMetadataNamespaces_afterSaveAndReopen(boolean onList) {
+        String namespace = " xmlns:m='urn:meta' xmlns:extra='urn:extra?a=1&amp;b=2'";
+        String xml = "<report title='FAKE namespace' description='Synthetic only'" + (onList ? "" : namespace)
+                + "><query>SELECT 'A&amp;B', '{pick}' AS chosen</query>"
+                + "<param id='pick' type='text' description='Choice' m:hint='optional'/></report>";
+        if (onList) xml = "<report-list" + namespace + ">" + xml + "</report-list>";
+        var manager = new ReportManager();
+        assertThat(manager.addTemplate(null, xml, info)).isEqualTo("Saved Successfully");
+        assertThat(manager.getReportTemplate("17").getParameters()).hasSize(1);
+        assertThat(manager.updateTemplate(null, "17", rows.get(17).getTemplateXml(), info))
+                .isEqualTo("Saved Successfully");
+        assertThat(manager.getReportTemplate("17").getParameters()).hasSize(1);
+        assertThat(rows.get(17).getTemplateXml()).contains("m:hint=\"optional\"");
+    }
+
 }
