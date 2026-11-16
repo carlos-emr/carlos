@@ -256,6 +256,22 @@ public final class PDFSigningUtil {
         }
     }
 
+    /**
+     * The configured signing key's ID, as myCarlos pins it and the audit log records it.
+     *
+     * @param config signing configuration; must be enabled and complete
+     * @return {@code b64url(SHA-256(SubjectPublicKeyInfo DER))} of the signing certificate's key
+     * @throws IOException when the keystore cannot be loaded or validated
+     * @throws IllegalStateException when signing is not enabled, or is enabled but incomplete
+     */
+    public static String signingKeyId(PDFSigningConfig config) throws IOException {
+        if (config == null || !config.isEnabled()) {
+            throw new IllegalStateException("PDF signing is not enabled");
+        }
+        ensureBouncyCastleProvider();
+        return keyId(currentSigningCertificate(config));
+    }
+
     /** SHA-256 of the manifest bytes for the signed attribute, or {@code null} without a manifest. */
     private static byte[] manifestDigest(byte[] manifestJson) throws IOException {
         if (manifestJson == null) {
