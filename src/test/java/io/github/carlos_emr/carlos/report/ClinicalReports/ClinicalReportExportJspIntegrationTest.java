@@ -113,6 +113,18 @@ class ClinicalReportExportJspIntegrationTest {
                             .isEqualTo(single ? FILENAME + ".csv" : "report.csv");
                     assertThat(ContentDisposition.parse(disposition).getType()).isEqualTo("attachment");
                 }
+                for (String name : List.of("=1/2", "+SUM(1,2)/all", "-cmd/all", "@SUM(1)/all", "\uFEFF=1/2", "\uFF1D1/2")) {
+                    when(report.getName()).thenReturn(name);
+                    var response = client.send(HttpRequest.newBuilder(base.resolve("/export"))
+                            .timeout(Duration.ofSeconds(30)).GET().build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+                    assertThat(response.statusCode()).isEqualTo(200);
+                    try (var parser = CSVFormat.DEFAULT.parse(new StringReader(response.body()))) {
+                        var records = parser.getRecords();
+                        assertThat(records).hasSize(1);
+                        assertThat(records.getFirst().size()).isEqualTo(5);
+                        assertThat(records.getFirst().get(0)).isEqualTo("\t" + name.replace("/", "---"));
+                    }
+                }
             }
         } finally {
             try {

@@ -49,6 +49,7 @@
         import="java.util.*, io.github.carlos_emr.carlos.report.ClinicalReports.*" %>
 <%@ page import="io.github.carlos_emr.carlos.report.ClinicalReports.ReportEvaluator" %>
 <%@ page import="java.nio.charset.StandardCharsets, org.springframework.http.ContentDisposition" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpreadsheetCsv" %>
 <%
 
 
@@ -70,7 +71,8 @@
                 ReportEvaluator re = (ReportEvaluator) arrList.get(i);
                 String filename = re.getName().replaceAll("/", "---").replaceAll(" ", "_"); // "report.txt";
 
-                out.write("\"" + filename.replace("\"", "\"\"") + "\"," + re.getCSV() + '\n');
+                String reportNameCell = SpreadsheetCsv.sanitizeCell(filename);
+                out.write("\"" + reportNameCell.replace("\"", "\"\"") + "\"," + re.getCSV() + '\n');
             }
         }
     } else {
