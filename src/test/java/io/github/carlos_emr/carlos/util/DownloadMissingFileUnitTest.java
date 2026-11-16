@@ -2,6 +2,8 @@
 package io.github.carlos_emr.carlos.util;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.CarlosProperties;
+import org.junit.jupiter.api.Test;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.nio.file.Files;
@@ -48,7 +50,32 @@ class DownloadMissingFileUnitTest extends CarlosUnitTestBase {
         assertThat(response.getContentAsByteArray()).containsExactly(bytes);
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void shouldReturnNotFound_whenTheSessionDirectoryCannotBeCanonicalized(boolean backup) throws Exception {
+        var response = download(backup, "missing.txt", directory + "\u0000unavailable");
+        assertThat(response.getStatus()).isEqualTo(404);
+        assertThat(response.getHeader("Content-Disposition")).isNull();
+        assertThat(response.getContentAsByteArray()).isEmpty();
+    }
+
+    @Test
+    void shouldReturnNotFound_whenTheBillingDirectoryCannotBeCanonicalized() throws Exception {
+        var config = mock(CarlosProperties.class);
+        when(config.getProperty("HOME_DIR")).thenReturn(directory + "\u0000unavailable");
+        try (var properties = mockStatic(CarlosProperties.class)) {
+            properties.when(CarlosProperties::getInstance).thenReturn(config);
+            var response = download(false, "missing.txt");
+            assertThat(response.getStatus()).isEqualTo(404);
+            assertThat(response.getHeader("Content-Disposition")).isNull();
+        }
+    }
+
     private MockHttpServletResponse download(boolean backup, String filename) throws Exception {
+        return download(backup, filename, directory.toString());
+    }
+
+    private MockHttpServletResponse download(boolean backup, String filename, String serverDirectory) throws Exception {
         var security = mock(SecurityInfoManager.class);
         registerMock(SecurityInfoManager.class, security);
         when(security.hasPrivilege(any(), any(), any(), any())).thenReturn(true);
@@ -57,8 +84,8 @@ class DownloadMissingFileUnitTest extends CarlosUnitTestBase {
         request.addParameter("homepath", "obecdownload");
         var session = request.getSession();
         session.setAttribute("user", "999998");
-        session.setAttribute("backupfilepath", directory.toString());
-        session.setAttribute("obecdownload", directory.toString());
+        session.setAttribute("backupfilepath", serverDirectory);
+        session.setAttribute("obecdownload", serverDirectory);
         var response = new MockHttpServletResponse();
         try (var info = mockStatic(LoggedInInfo.class)) {
             info.when(() -> LoggedInInfo.getLoggedInInfoFromSession(session)).thenReturn(mock(LoggedInInfo.class));

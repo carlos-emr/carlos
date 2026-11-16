@@ -140,7 +140,13 @@ public class GenericDownload extends HttpServlet {
 
         // Use PathValidationUtils for security validation
         // This sanitizes the filename and validates directory containment
-        File directory = new File(dir).getCanonicalFile();
+        File directory;
+        try {
+            directory = new File(dir).getCanonicalFile();
+        } catch (IOException unavailable) {
+            res.sendError(HttpServletResponse.SC_NOT_FOUND, "Download file not found.");
+            return;
+        }
         File curfile = PathValidationUtils.validatePath(filename, directory);
 
         // Sanitize filename for HTTP header (prevent response splitting)
