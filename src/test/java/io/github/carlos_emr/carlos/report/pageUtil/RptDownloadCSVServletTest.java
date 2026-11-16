@@ -308,6 +308,47 @@ class RptDownloadCSVServletTest {
     }
 
     @Test
+    void shouldKeepPatientsAndDigitLeadingExtensionKeysDistinct() throws Exception {
+        var request = new MockHttpServletRequest();
+        request.getSession(true);
+        request.setParameter("demoReport", "true");
+        request.setParameter("first_name", "on");
+        request.setParameter("2custom", "on");
+        request.setParameter("custom", "on");
+        request.setParameter("filter_1", "on");
+        request.setParameter("value_1", "demographic.first_name='FAKE'");
+        request.setParameter("dateFormat_1", "");
+        var first = new ConfiguredReportQuery.Row(Map.of("demographic_no", "41", "first_name", "FAKE first"), List.of());
+        var second = new ConfiguredReportQuery.Row(Map.of("demographic_no", "412", "first_name", "FAKE second"), List.of());
+        configuredQueryMock.when(() -> ConfiguredReportQuery.read(anyString(), any(Object[].class)))
+                .thenAnswer(call -> new ConfiguredReportQuery.Result(List.of(),
+                        ((String) call.getArgument(0)).startsWith("select x.demographic_no, k.extension_key")
+                                ? List.of(extensionRow("41", "2custom", "FAKE first value"), extensionRow("412", "custom", "FAKE second value"))
+                                : List.of(first, second)));
+        var properties = mock(CarlosProperties.class);
+        when(properties.getProperty("demographicExt")).thenReturn("2custom|custom");
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        try (var settings = mockStatic(CarlosProperties.class)) {
+            settings.when(CarlosProperties::getInstance).thenReturn(properties);
+            new RptDownloadCSVServlet().service(request, response);
+        }
+        assertThat(response.getStatus()).isEqualTo(200);
+        try (var csv = org.apache.commons.csv.CSVParser.parse(response.getContentAsString(),
+                org.apache.commons.csv.CSVFormat.DEFAULT.builder().setDelimiter('\t').get())) {
+            var rows = csv.getRecords();
+            assertThat(rows).hasSize(3);
+            int digitKey = rows.getFirst().toList().indexOf("2custom");
+            int plainKey = rows.getFirst().toList().indexOf("custom");
+            assertThat(digitKey).isGreaterThanOrEqualTo(0);
+            assertThat(plainKey).isGreaterThanOrEqualTo(0);
+            assertThat(rows.get(1).get(digitKey)).isEqualTo("FAKE first value");
+            assertThat(rows.get(1).get(plainKey)).isEmpty();
+            assertThat(rows.get(2).get(digitKey)).isEmpty();
+            assertThat(rows.get(2).get(plainKey)).isEqualTo("FAKE second value");
+        }
+    }
+
+    @Test
     void shouldSkipExtensionRetrieval_whenTheCohortIsEmpty() throws Exception {
         var request = branchRequest(CsvScenario.EXTENSION);
         List<SqlCall> calls = new ArrayList<>();

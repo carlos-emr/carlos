@@ -34,6 +34,8 @@ import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.Properties;
 import java.util.Vector;
 
@@ -69,6 +71,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
 
     private record GeneratedCsv(String reportName, String content) { }
     private record ExtensionColumn(String key, String caption) { }
+    private record ExtensionValueKey(String demographic, String key) { }
 
     public void service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         HttpSession session = request.getSession(false);
@@ -199,7 +202,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
         private final Vector<String> fieldCaptions = new Vector<>();
         private final Vector<String> fieldNames = new Vector<>();
         private final List<ExtensionColumn> selectedExtensionColumns = new ArrayList<>();
-        private final Properties extensionValues = new Properties();
+        private final Map<ExtensionValueKey, String> extensionValues = new HashMap<>();
         private Vector<Properties> fieldValues = new Vector<>();
 
         private DemographicCsvReport(HttpServletRequest request) {
@@ -461,7 +464,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
                     + ") order by x.date_time, x.id";
             for (var extension : ConfiguredReportQuery.read(sql, parameters.toArray()).rows()) {
                 String value = extension.value("value");
-                extensionValues.setProperty(extension.value(DEMOGRAPHIC_NUMBER) + extension.value("extension_key"),
+                extensionValues.put(new ExtensionValueKey(extension.value(DEMOGRAPHIC_NUMBER), extension.value("extension_key")),
                         value == null ? "" : value);
             }
         }
@@ -499,7 +502,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
             if (extensionColumns.selected) {
                 String demographic = row.getProperty(DEMOGRAPHIC_NUMBER);
                 for (ExtensionColumn extension : selectedExtensionColumns) {
-                    csv.print(extensionValues.getProperty(demographic + extension.key(), ""));
+                    csv.print(extensionValues.getOrDefault(new ExtensionValueKey(demographic, extension.key()), ""));
                 }
             }
         }
