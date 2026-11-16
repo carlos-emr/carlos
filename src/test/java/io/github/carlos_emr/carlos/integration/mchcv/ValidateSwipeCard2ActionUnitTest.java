@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 
@@ -48,6 +49,7 @@ class ValidateSwipeCard2ActionUnitTest extends CarlosUnitTestBase {
         factory = mockStatic(HCValidationFactory.class);
         factory.when(HCValidationFactory::getHCValidator).thenReturn(validator);
         when(security.hasPrivilege(user, "_demographic", "r", null)).thenReturn(true);
+        when(request.getMethod()).thenReturn("POST");
         action = new ValidateSwipeCard2Action();
     }
 
@@ -68,6 +70,20 @@ class ValidateSwipeCard2ActionUnitTest extends CarlosUnitTestBase {
         action.setMagneticStripe(track);
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
         verify(response).sendError(HttpServletResponse.SC_BAD_REQUEST);
+        verify(request, never()).setAttribute(anyString(), any());
+        factory.verifyNoInteractions();
+        verifyNoInteractions(validator);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD", "PUT", "DELETE", "PATCH", "OPTIONS"})
+    void shouldRefuseValidation_whenRequestMethodIsNotPost(String method) throws Exception {
+        when(request.getMethod()).thenReturn(method);
+        action.setMagneticStripe(TRACK);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        verify(response).setHeader("Allow", "POST");
+        verify(response).sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         verify(request, never()).setAttribute(anyString(), any());
         factory.verifyNoInteractions();
         verifyNoInteractions(validator);
