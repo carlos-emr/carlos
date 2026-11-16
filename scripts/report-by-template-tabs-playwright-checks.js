@@ -145,12 +145,17 @@ async function workflow(s) {
     await Promise.all([proof.page.waitForNavigation({waitUntil:'load'}),proof.page.getByRole('link',{name:'Edit Template',exact:true}).click()]);
     const textarea=proof.page.locator('textarea#xmltext');
     const source=await textarea.inputValue();
-    const changed=source.replace(`${marker} tab isolation`,`${marker} tab isolation edited`);
-    h.assert(changed!==source,'The owned description was not present in the editor');
+    const editedQuery=templates[0].query.replace(' ORDER BY'," AND 'A&B'='A&B' ORDER BY");
+    const changed=source.replace(`${marker} tab isolation`,`${marker} tab isolation edited`)
+      .replace(templates[0].query,editedQuery);
+    h.assert(changed!==source&&changed.includes(editedQuery),'The owned description or SQL was not present in the editor');
     await textarea.fill(changed);
     await Promise.all([proof.page.waitForNavigation({waitUntil:'load'}),proof.page.locator('input[type="submit"][value="Done"]').click()]);
     await proof.page.locator('input#pick').waitFor();
     h.assert(await proof.page.locator('input#pick').inputValue()==='', 'The edited text parameter lost its empty state');
+    templates[0].query=editedQuery;
+    h.assert(sql.value(`SELECT templatesql FROM reportTemplates WHERE templateid=${templates[0].id}`)===editedQuery,
+      'Editing the report changed its legacy raw ampersand SQL');
     h.assert(JSON.stringify(sql.rows(`SELECT * FROM reportTemplates WHERE templateid=${templates[1].id}`))===otherBefore,
       'Editing one template changed the other template');
     await run(proof,'F');await exports(proof);

@@ -43,6 +43,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.jdom2.Document;
+import org.jdom2.Content;
 import org.jdom2.JDOMException;
 import org.jdom2.Element;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
@@ -232,13 +233,35 @@ public class ReportManager {
         return doc;
     }
 
-    /** Parses standard XML directly, retaining empty elements; accepts legacy raw SQL through the existing escape fallback. */
+    /** Restores empty parameter metadata while retaining the established legacy SQL escaping policy. */
     private static Document parseTemplateXml(String xml) throws JDOMException, IOException {
-        try {
-            return XmlUtils.createSecureSAXBuilder().build(new StringReader(xml));
-        } catch (JDOMException malformedXml) {
-            return XmlUtils.createSecureSAXBuilder().build(new StringReader(UtilXML.escapeXML(xml)));
+        Document doc = XmlUtils.createSecureSAXBuilder().build(new StringReader(UtilXML.escapeXML(xml)));
+        Element root = doc.getRootElement();
+        List<Element> reports = "report".equals(root.getName()) ? List.of(root) : root.getChildren("report");
+        for (Element report : reports) {
+            for (int index = 0; index < report.getContentSize(); index++) {
+                Content content = report.getContent(index);
+                if (content.getCType() != Content.CType.Text) {
+                    continue;
+                }
+                String text = content.getValue();
+                if (!text.contains("<param")) {
+                    continue;
+                }
+                // Only report-level metadata is repaired; query text keeps its legacy interpretation.
+                Document fragment = XmlUtils.createSecureSAXBuilder().build(new StringReader(
+                        "<report>" + text.replace("&", "&amp;") + "</report>"));
+                List<Content> restored = fragment.getRootElement().removeContent();
+                boolean hasParameters = restored.stream().anyMatch(part ->
+                        part instanceof Element element && "param".equals(element.getName()));
+                if (hasParameters) {
+                    report.removeContent(index);
+                    report.addContent(index, restored);
+                    index += restored.size() - 1;
+                }
+            }
         }
+        return doc;
     }
 
     //returns any error messages

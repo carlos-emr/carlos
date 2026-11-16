@@ -103,7 +103,7 @@ class ReportTemplateEmptyParameterUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"SELECT 1 < 2 AS chosen", "SELECT 'A&B' AS chosen"})
+    @ValueSource(strings = {"SELECT 1 < 2 AS chosen", "SELECT 'A&B' AS chosen", "SELECT '<param/>' AS chosen"})
     void shouldKeepLegacyUnescapedSql_whenLoadingAndSaving(String sql) {
         var manager = new ReportManager();
         String xml = "<report title='FAKE raw query' description='Synthetic only'><type>SQL</type><query>" + sql + "</query></report>";
@@ -133,5 +133,53 @@ class ReportTemplateEmptyParameterUnitTest extends CarlosUnitTestBase {
                 + "<query>DELETE FROM demographic</query></report>";
         assertThat(manager.addTemplate(null, xml, info)).startsWith("Error: The <query> was refused");
         verify(dao, never()).persist(any(ReportTemplates.class));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"SELECT 'A&B', '{pick}' AS chosen", "SELECT 1 < 2, '{pick}' AS chosen"})
+    void shouldRetainTheEmptyParameter_whenLegacySqlNeedsEscaping(String sql) {
+        var manager = new ReportManager();
+        String xml = "<report title='FAKE combined' description='Synthetic only'>\n<type>SQL</type>\n<query>" + sql
+                + "</query>\n<param id='pick' type='text' description='Choice'/>\n</report>";
+        assertThat(manager.addTemplate(null, xml, info)).isEqualTo("Saved Successfully");
+        assertThat(manager.getSQL("17")).isEqualTo(sql);
+        var report = manager.getReportTemplate("17");
+        assertThat(report.getParameters()).hasSize(1);
+        assertThat(((Parameter) report.getParameters().getFirst()).getParamId()).isEqualTo("pick");
+    }
+
+    @Test
+    void shouldRestoreEmptyParameters_inEachReportOfAReportList() {
+        var manager = new ReportManager();
+        String xml = "<report-list><report title='FAKE first' description='One'><query>SELECT 'A&B'</query>"
+                + "<param id='one' type='text' description='One'/><param id='two' type='text' description='Two'/></report>"
+                + "<report title='FAKE second' description='Two'><query>SELECT 2</query>"
+                + "<param id='three' type='text' description='Three'/></report></report-list>";
+        assertThat(manager.addTemplate(null, xml, info)).isEqualTo("Saved Successfully");
+        var first = manager.getReportTemplate("17").getParameters();
+        assertThat(first).hasSize(2);
+        assertThat(((Parameter) first.get(0)).getParamId()).isEqualTo("one");
+        assertThat(((Parameter) first.get(1)).getParamId()).isEqualTo("two");
+        var second = manager.getReportTemplate("18").getParameters();
+        assertThat(second).hasSize(1);
+        assertThat(((Parameter) second.getFirst()).getParamId()).isEqualTo("three");
+    }
+
+    @Test
+    void shouldRetainLegacyRefusal_forRootCdataContainingParameterText() {
+        var manager = new ReportManager();
+        String xml = "<report title='FAKE cdata' description='Synthetic only'><query>SELECT 1</query>"
+                + "<![CDATA[<param id='fake'/>]]></report>";
+        assertThat(manager.addTemplate(null, xml, info)).startsWith("Error");
+        verify(dao, never()).persist(any(ReportTemplates.class));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"<parameter-placeholder ignored='yes'/> ", "<!-- <param id='fake'/> -->"})
+    void shouldNotInventParameters_fromCommentsOrLookalikeMetadata(String metadata) {
+        var manager = new ReportManager();
+        String xml = "<report title='FAKE metadata' description='Synthetic only'><query>SELECT 1</query>" + metadata + "</report>";
+        assertThat(manager.addTemplate(null, xml, info)).isEqualTo("Saved Successfully");
+        assertThat(manager.getReportTemplate("17").getParameters()).isEmpty();
     }
 }
