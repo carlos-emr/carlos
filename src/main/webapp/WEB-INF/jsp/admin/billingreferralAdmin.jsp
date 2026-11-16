@@ -186,15 +186,9 @@
                                    onclick="return openAddSpecialist()" value="<fmt:message key='admin.billingreferralAdmin.btnAdd'/>" />
                 </form>
                 <br/>
-                <%
-                    if (request.getAttribute("referrals") == null) {
-                %>
-                <h3 style="color:red"><fmt:message key="admin.billingreferralAdmin.msgNoResults"/></h3>
-                <%
-                } else {
-                %>
+                <div id="serverTableRegion" data-server-page-region>
                 <c:if test="${not empty referrals}">
-                <table class="its" style="border:1px solid #666666; width:99%;margin-top:2px;" id="referral" data-carlos-table data-page-size="15" data-default-sort="0" data-default-order="ascending">
+                <table class="its" style="border:1px solid #666666; width:99%;margin-top:2px;" id="referral" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
 
@@ -220,6 +214,7 @@
 
                     <td><input type="checkbox" id="referral-select-${carlos:forHtmlAttribute(referral.id)}"
                                name="checked_${carlos:forHtmlAttribute(referral.id)}"
+                               ${selectedReferralIds.contains(referral.id) ? 'checked' : ''}
                                onChange="checkUncheck('${carlos:forJavaScriptAttribute(referral.id)}')"/>
                         <label class="table-selection-label" for="referral-select-${carlos:forHtmlAttribute(referral.id)}"><fmt:message key="dms.incomingDocs.select"/> ${carlos:forHtml(referral.firstName)} ${carlos:forHtml(referral.lastName)}</label></td>
                     <td><a href="javascript:void(0)" <%-- NOSONAR Web:S6844 - the link markup displaytag rendered for this row action, kept as it looked --%>
@@ -236,6 +231,8 @@
 </table>
                 </c:if>
 <c:if test="${empty referrals}"><fmt:message key="table.msg.emptyList"/></c:if>
+<%@ include file="/WEB-INF/jspf/server-table-page.jspf" %>
+</div>
             </td>
         </tr>
         <tr>
@@ -280,5 +277,4 @@
             <td class="MainTableBottomRowRightColumn">&nbsp;</td>
         </tr>
     </table>
-    <% } %>
 </html>
