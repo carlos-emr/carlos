@@ -179,7 +179,32 @@
       "source": "scripts/job-types-datatable-browser-check.js",
       "sourceSha256": "0bc46bfb85b6521d75ccd670c13c631ff630d7f47f4c20eb29ad30d32e319fb2",
       "minimumAssertions": 139
+    },
+    {
+      "id": "admin-jobs-save-browser-checks",
+      "command": [
+        "node",
+        "--test",
+        "scripts/admin-jobs-save-browser-checks.js"
+      ],
+      "source": "scripts/admin-jobs-save-browser-checks.js",
+      "sourceSha256": "d44389c8d4bbf2e71d64bbeaaed1a7e8c7149bc1857c40a89a96c3a1769f21e1",
+      "minimumAssertions": 98,
+      "requiredCases": [
+        "shouldKeepJobDialogOpen_whileItsSaveIsPending",
+        "shouldRetainJobDialogEntries_afterRefusalAndAllowRetry",
+        "shouldKeepScheduleDialogOpen_whileItsSaveIsPending",
+        "shouldRetainScheduleDialogEntries_afterRefusalAndAllowRetry",
+        "shouldKeepTheEditorOpen_forHtmlAcknowledgement",
+        "shouldKeepTheEditorOpen_forWrongAcknowledgement",
+        "shouldKeepTheEditorOpen_forEmptyAcknowledgement",
+        "shouldKeepTheEditorOpen_forZeroAcknowledgement",
+        "shouldKeepTheEditorOpen_forMultipleAcknowledgement",
+        "shouldKeepTheEditorOpen_forNullAcknowledgement",
+        "shouldBlockBlindCreationRetry_whenTheInsertCannotBeConfirmed",
+        "shouldIgnoreAnOldEditorLoad_afterOpeningANewDraft"
+      ]
     }
   ],
-  "workflowSha256": "5ccdf51a4ce6735ce0f3ebf511d3304cb279d630d1740cec65eec94ac1b037dc"
+  "workflowSha256": "493abf7dd8c8941a14da42a40ba2c068d761b7a46c1c2606bb104a70901f1ed8"
 }

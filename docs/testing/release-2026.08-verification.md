@@ -300,11 +300,11 @@ Chromium executable and Playwright's selected default headless executable are
 hashed before the run and checked for changes afterward.
 Real provider observations require the locked Chromium
 version and disconnected browsers; the committed
-[fixture contract](release-2026.08-ci-browser-fixtures.json) defines 17 fixtures
-whose `minimumAssertions` sum to 4,344. Recompute these totals from the contract
-when updating the workflow. The navigation fixture additionally requires all
-six exact Node
-engine cases with no skips, TODOs or cancellations. The observer delegates original
+[fixture contract](release-2026.08-ci-browser-fixtures.json) defines 18 fixtures
+whose `minimumAssertions` sum to 4,514. Recompute these totals from the contract
+when updating the workflow. The navigation and job-save fixtures additionally
+require all six and twelve exact Node engine cases, respectively, with no skips,
+TODOs or cancellations. The observer delegates original
 assertions and browser calls, preserving arguments, results and failures. Missing
 commands, changed fixture sources, zero-assertion success and incomplete browser
 cleanup fail. These isolated source fixtures complement installed-page acceptance.
