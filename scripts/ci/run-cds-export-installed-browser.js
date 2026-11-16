@@ -61,15 +61,24 @@ async function main() {
         await page.locator('#auditPlanId').fill('native');
         formAction = 'SUBMISSION_KEY';
         const key = await page.locator('#submissionKey').inputValue();
+        // Capture the body as soon as the response arrives. Waiting until click() finishes
+        // can leave Chromium's response body unavailable while the page processes acceptance.
+        // Settle failures here so an early body-read error cannot become an unhandled rejection.
         const responsePromise = page.waitForResponse(response =>
-            response.url().includes('/form/cdsExportSubmit') && response.request().method() === 'POST');
+            response.url().includes('/form/cdsExportSubmit') && response.request().method() === 'POST')
+            .then(async response => ({
+                status: response.status(), headers: response.headers(), accepted: await response.json()
+            }))
+            .then(value => ({value}), failure => ({failure}));
         formAction = 'SUBMIT';
         await page.locator('#submitExport').click();
         formAction = 'ACCEPTANCE_RESPONSE';
-        const response = await responsePromise;
-        assert.equal(response.status(), 202);
-        assert.equal(response.headers()['x-carlos-cds-export-api-version'], '1');
-        const accepted = await response.json();
+        const captured = await responsePromise;
+        if (captured.failure) throw captured.failure;
+        const response = captured.value;
+        assert.equal(response.status, 202);
+        assert.equal(response.headers['x-carlos-cds-export-api-version'], '1');
+        const accepted = response.accepted;
         assert.equal(accepted.ok, true);
         assert.equal(accepted.submissionKey, key);
         assert.equal(accepted.job.state, 'ACCEPTED');
@@ -139,6 +148,9 @@ async function main() {
     } catch (failure) {
         // No page content, credentials, storage state, trace or network body is published.
         const diagnostic = {protocol: 1, status: 'FAILED', stage, failureClass: failure.constructor.name};
+        if (/Network\.getResponseBody|No resource with given identifier|No data found for resource/.test(failure.message || '')) {
+            diagnostic.failureCategory = 'RESPONSE_BODY_UNAVAILABLE';
+        }
         // Only fixed harness action names and our own source line are published.
         // Playwright messages/locator dumps can contain form values and remain private.
         if (stage === 'REAL_FORM_ACCEPTANCE') diagnostic.formAction = formAction;
