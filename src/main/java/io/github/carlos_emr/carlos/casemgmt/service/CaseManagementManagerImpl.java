@@ -1134,8 +1134,8 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         Demographic dg = demographicDao.getClientByDemographicNo(Integer.valueOf(demoNo));
         if (dg == null)
             return "";
-        else
-            return dg.getFirstName() + " " + dg.getLastName();
+        // A missing part is left out rather than printed as "null" on the chart print header.
+        return (StringUtils.defaultString(dg.getFirstName()) + " " + StringUtils.defaultString(dg.getLastName())).trim();
     }
 
     @Override
@@ -1144,7 +1144,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
         Demographic demo = demographicDao.getClientByDemographicNo(Integer.valueOf(demoNo));
         if (demo != null) {
-            gender = demo.getSex();
+            gender = StringUtils.defaultString(demo.getSex());
         }
 
         return gender;
@@ -1166,7 +1166,8 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     public String getDemoPhn(String demoNo) {
         Demographic dg = demographicDao.getClientByDemographicNo(Integer.valueOf(demoNo));
         if (dg == null) return "";
-        else return dg.getHin();
+        // A patient without a health number prints an empty value, never "null".
+        return StringUtils.defaultString(dg.getHin());
     }
 
     @Override
