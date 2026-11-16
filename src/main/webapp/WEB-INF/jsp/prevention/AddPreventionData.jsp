@@ -1044,13 +1044,15 @@
                                 String d1 = existingPrevention == null ? pDose : dose;
                                 // The brand picker's unit as the form's own (VIAL is vial, DOSE is dose).
                                 String d2 = existingPrevention == null ? PreventionFormCodes.doseUnitCode(pUnit) : "";
-                                if (dose.split(" ").length == 2) {
-                                    String d3 = PreventionFormCodes.doseUnitCode(dose.split(" ")[1]);
-                                    if (!PreventionFormCodes.isOfferedDoseUnit(d3)) {
-                                        d1 = dose;
-                                    } else {
-                                        d1 = dose.split(" ")[0];
-                                        d2 = d3;
+                                String[] doseParts = dose.split(" ", -1);
+                                if (doseParts.length == 2
+                                        && doseParts[0].matches("[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)")) {
+                                    String unit = PreventionFormCodes.doseUnitCode(doseParts[1]);
+                                    // Splitting must reconstruct the exact stored text on an unchanged save.
+                                    if (PreventionFormCodes.isOfferedDoseUnit(unit)
+                                            && dose.equals(doseParts[0] + " " + unit)) {
+                                        d1 = doseParts[0];
+                                        d2 = unit;
                                     }
                                 }
 

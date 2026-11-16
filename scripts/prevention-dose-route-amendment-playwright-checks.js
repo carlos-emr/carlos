@@ -19,7 +19,7 @@
 const h = require('./lib/playwright-harness');
 const { requirePoppler } = require('./lib/export-content-helpers');
 const {
-  enterLot, openPreventionIndex, ownPatientPreventions, preventionForms, printPreventions, printedIncludes,
+  enterLot, openPreventionIndex, ownPatientPreventions, preventionForms, printPreventions, printedIncludes, requireId,
 } = require('./lib/prevention-coverage');
 const { runWorkflow } = require('./lib/workflow-session');
 
@@ -29,7 +29,7 @@ const GIVEN_ON = '2026-05-06';
 const SITE = 'Deltoid Lt';
 
 async function workflow(s) {
-  const { context, config, marker } = s;
+  const { context, config, marker, sql } = s;
   ownPatientPreventions(s);
   const index = await openPreventionIndex(s);
   const picker = index.locator('#immunization');
@@ -131,20 +131,27 @@ async function workflow(s) {
       `A dose stored as "0.5" with no unit reopened as "${reopened}", and an unchanged save stored "${resaved}"`);
   });
 
-  for (const dose of ['0.5ml', '0.5 unknown', 'half a vial', '0.5  mL', 'Équipe "dose"', 'A&B <dose>', '']) {
+  const storedDose = recordId => {
+    const rows = sql.rows(`SELECT HEX(val) FROM preventionsExt
+      WHERE prevention_id=${requireId(recordId, 'The dose record')} AND keyval='dose'`);
+    h.assert(rows.length === 1 && /^(?:[0-9A-F]{2})*$/.test(rows[0][0]), 'The stored dose is absent, null or ambiguous');
+    return Buffer.from(rows[0][0], 'hex').toString('utf8');
+  };
+  for (const dose of ['0.5ml', '0.5 unknown', 'half a vial', '0.5  mL', 'Équipe "dose"', 'A&B <dose>',
+    '0.5 mL ', 'half mL', '0.5 ML', '']) {
     await s.step(`the stored dose ${JSON.stringify(dose)} survives reopening and an unchanged save`, async () => {
       editor = await forms.open(id);
       await editor.locator('#dose').fill(dose);
       await editor.locator('select[name="doseUnit"]').selectOption('');
       id = await forms.saveAmendment(editor, id);
-      h.assert(forms.ext(id, 'dose') === dose, 'The submitted dose was changed before reopening');
+      h.assert(storedDose(id) === dose, 'The submitted dose was changed before reopening');
       editor = await forms.open(id);
       const actual = await editor.locator('#dose').inputValue();
       const unit = await editor.locator('select[name="doseUnit"]').inputValue();
       h.assert(actual === dose && unit === '',
         `The stored dose ${JSON.stringify(dose)} reopened as ${JSON.stringify(actual)} / ${JSON.stringify(unit)}`);
       id = await forms.saveAmendment(editor, id);
-      h.assert(forms.ext(id, 'dose') === dose, 'An unchanged save changed the stored dose');
+      h.assert(storedDose(id) === dose, 'An unchanged save changed the stored dose');
     });
   }
 }
