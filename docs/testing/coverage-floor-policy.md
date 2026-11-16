@@ -205,6 +205,15 @@ row, the release evidence in `baselinePriorEvidence` and the release-lane
 qualification requirements are unchanged; no floor is lowered and no waiver is
 added.
 
+The `ca5a91ac8727` refresh merges release `9c2014ef3867` (#6134) into the PR.
+The release's floors file (1,614 rows plus exclusions, refusal lines and its
+77 unreviewed zero floors) again supplies every row the PR does not change.
+The adapter blobs are unchanged, and the same 495-case focused union rerun on
+the merged sources measures them as before: the driver at 94.00/92.18/85.04 and
+`MariaDbJdbcCompatibility.java` at 98.27/98.14/90.21, which keeps its retained
+90.45 branch floor. Both adapter rows keep their floors; no floor is lowered
+and no waiver is added.
+
 The `dd7321db79ee` PR #6102 merged-source refresh uses Debian 13 and Temurin
 25.0.3. Its complete H2 run records 35,947 actual cases: 35,736 passes,
 211 explicit routed/prerequisite skips, and zero failures or errors. The
