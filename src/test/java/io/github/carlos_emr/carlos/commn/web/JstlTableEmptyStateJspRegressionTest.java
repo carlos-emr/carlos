@@ -33,7 +33,10 @@ class JstlTableEmptyStateJspRegressionTest {
     private static final Pattern EMPTY_GUARD = Pattern.compile("</table>\\s*</c:if>\\s*<c:if test=\"\\$\\{empty ([A-Za-z_][\\w.]*)\\}\">");
     /** Every migrated table answers an empty list (30 at the time of the displaytag removal, #5472). */
     private static final int MINIMUM_GUARDS = 30;
-    private static final Pattern CARLOS_TABLE = Pattern.compile("<table\\b[^>]*\\bdata-carlos-table\\b[^>]*>");
+    // Attach Client now posts sorting/paging to the server and no longer uses data-carlos-table.
+    // It is still one of the migrated tables and must retain the same empty-list guard.
+    private static final Pattern MIGRATED_TABLE = Pattern.compile(
+            "<table\\b[^>]*(?:\\sdata-carlos-table\\b|\\sid=\"client\")[^>]*>");
 
     @Test
     @DisplayName("should hide the table, header included, when its list is empty")
@@ -49,7 +52,7 @@ class JstlTableEmptyStateJspRegressionTest {
                     String before = page.substring(0, guard.start());
                     // A cell can contain a nested layout table (for example, staff teams).
                     // Find the migrated table itself so nested markup cannot bypass this check.
-                    Matcher tables = CARLOS_TABLE.matcher(before);
+                    Matcher tables = MIGRATED_TABLE.matcher(before);
                     int table = -1;
                     while (tables.find()) table = tables.start();
                     if (table < 0) continue;
