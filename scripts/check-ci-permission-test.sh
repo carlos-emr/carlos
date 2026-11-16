@@ -20,7 +20,7 @@ selector=$(python3 - <<'SELECTOR'
 import json
 from pathlib import Path
 cases = json.loads(Path('scripts/ci/permission-cases.json').read_text())
-print(','.join(row['classname'] + '#' + row['name'] for row in cases))
+print(','.join(row.get('selectorClass', row['classname']) + '#' + row['name'] for row in cases))
 SELECTOR
 )
 # The source-bound verifier clears compiled classes before each Java lane.

@@ -95,6 +95,42 @@ class H2ReportEvidenceTest(unittest.TestCase):
         paths = [call.args[0] for call in read.call_args_list]
         self.assertEqual(len(paths), len(set(paths)))
 
+    def service_reports(self, outcomes=('pass', 'pass')):
+        plan = self.root / 'docs/testing/release-2026.08-verification.json'
+        data = json.loads(plan.read_text())
+        data['checks'][0]['routedSkips']['example.Footer'] = {
+            'check': 'java-native-release-services', 'cases': [
+                {'name': 'concurrent(boolean)', 'destinations': [
+                    {'name': 'concurrent(boolean)[1]'}, {'name': 'concurrent(boolean)[2]'}]}]}
+        data['checks'].append({'id': 'java-native-release-services', 'minimumCases': 2,
+                               'requiredFamilies': {'Footer': 2}})
+        plan.write_text(json.dumps(data))
+        reports = self.root / 'services'
+        reports.mkdir(exist_ok=True)
+        self.report(reports, 'example.Footer', list(zip(
+            ['concurrent(boolean)[1]', 'concurrent(boolean)[2]'], outcomes)))
+        return reports
+
+    def test_native_services_require_every_real_parameterized_destination(self):
+        reports = self.service_reports()
+        self.assertTrue(GATE.verify_services(reports)['ready'])
+        self.report(reports, 'example.Footer', [('concurrent(boolean)[1]', 'pass'), ('unrelated', 'pass')])
+        with self.assertRaisesRegex(EvidenceError, 'Native service cases'):
+            GATE.verify_services(reports)
+
+    def test_native_services_refuse_skips_failures_and_missing_families(self):
+        reports = self.service_reports()
+        for outcome in ('skipped', 'failure'):
+            self.report(reports, 'example.Footer', [('concurrent(boolean)[1]', 'pass'),
+                                                    ('concurrent(boolean)[2]', outcome)])
+            with self.subTest(outcome=outcome), self.assertRaises(EvidenceError):
+                GATE.verify_services(reports)
+        (reports / 'TEST-example.Footer.xml').unlink()
+        self.report(reports, 'example.Other', [('concurrent(boolean)[1]', 'pass'),
+                                               ('concurrent(boolean)[2]', 'pass')])
+        with self.assertRaises(EvidenceError):
+            GATE.verify_services(reports)
+
     def test_missing_permission_routes_are_refused_instead_of_silently_invented(self):
         plan = self.root / 'docs/testing/release-2026.08-verification.json'
         data = json.loads(plan.read_text())

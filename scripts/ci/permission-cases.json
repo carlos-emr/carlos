@@ -23,5 +23,11 @@
     "classname": "io.github.carlos_emr.carlos.decision.AntenatalRiskConfigServiceUnitTest",
     "name": "shouldRefuse_whenExistingConfigurationIsUnreadable",
     "container": "Antenatal risk configuration service"
+  },
+  {
+    "classname": "io.github.carlos_emr.carlos.managers.OutboundEmailArchiveKeyringServiceUnitTest",
+    "selectorClass": "io.github.carlos_emr.carlos.managers.OutboundEmailArchiveKeyringServiceUnitTest$ExistingKeyring",
+    "container": "an existing keyring",
+    "name": "shouldRefuseToStart_whenTheKeyringCannotBeRead"
   }
 ]

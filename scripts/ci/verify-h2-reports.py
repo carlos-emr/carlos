@@ -41,15 +41,40 @@ def verify(reports, permission_reports):
     return {key: summary[key] for key in ('tests', 'failed', 'skipped', 'ready')}
 
 
+def verify_services(reports):
+    """Require real executions of every native footer, booking and SMS skip destination."""
+    plan = json.loads((ROOT / 'docs/testing/release-2026.08-verification.json').read_text())
+    check_id = 'java-native-release-services'
+    check = next(row for row in plan['checks'] if row['id'] == check_id)
+    h2 = next(row for row in plan['checks'] if row['id'] == 'java-all')
+    required = set()
+    for family, route in h2['routedSkips'].items():
+        for item in route['cases']:
+            case = {'name': item} if isinstance(item, str) else item
+            if case.get('check', route['check']) != check_id:
+                continue
+            for destination in case.get('destinations', [case]):
+                required.add((family, destination['name'], destination.get('container', '')))
+    cases = []
+    summary = junit_results(reports, check, cases_out=cases)
+    passed = {(case.classname, case.name, case.container) for case in cases if case.outcome == 'pass'}
+    if not summary['ready'] or not required or not required <= passed:
+        raise EvidenceError('Native service cases missing, replaced, skipped, or failed')
+    return {key: summary[key] for key in ('tests', 'failed', 'skipped', 'ready')}
+
+
 def main():
-    """Validate either the H2/permission pair or the exact historical oracle lane."""
+    """Validate H2 permissions, native service destinations, or historical compatibility oracles."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--reports', type=Path)
     parser.add_argument('--permission-reports', type=Path)
     parser.add_argument('--legacy-reports', type=Path)
+    parser.add_argument('--service-reports', type=Path)
     args = parser.parse_args()
     try:
-        if args.legacy_reports:
+        if args.service_reports:
+            print(json.dumps(verify_services(args.service_reports)))
+        elif args.legacy_reports:
             plan = json.loads((ROOT / 'docs/testing/release-2026.08-verification.json').read_text())
             h2 = next(row for row in plan['checks'] if row['id'] == 'java-all')
             family = 'io.github.carlos_emr.carlos.login.LegacyDependencyCompatibilityUnitTest'

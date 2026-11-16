@@ -57,7 +57,8 @@
         "main-release-wire-compatibility",
         "public-api-oracle",
         "main-glassfish-release-wire-compatibility",
-        "main-moxy-release-wire-compatibility"
+        "main-moxy-release-wire-compatibility",
+        "java-native-release-services"
       ]
     },
     {
@@ -83,7 +84,8 @@
         "java-all",
         "build",
         "packaged-full",
-        "java-unprivileged-permission"
+        "java-unprivileged-permission",
+        "java-native-release-services"
       ]
     },
     {
@@ -113,7 +115,8 @@
         "coverage-ratchet",
         "jsp-compile",
         "production-js-view-coverage",
-        "java-unprivileged-permission"
+        "java-unprivileged-permission",
+        "java-native-release-services"
       ]
     },
     {
@@ -143,7 +146,8 @@
         "java-cds-native",
         "java-cds-transfer-import",
         "java-cds-transfer-export",
-        "java-cds-transfer-shared"
+        "java-cds-transfer-shared",
+        "java-native-release-services"
       ]
     },
     {
@@ -171,7 +175,8 @@
         "packaged-full",
         "java-native-generated",
         "java-native-flyway",
-        "java-native-bc-flyway"
+        "java-native-bc-flyway",
+        "java-native-release-services"
       ]
     },
     {
@@ -194,7 +199,8 @@
         "packaged-full",
         "java-native-generated",
         "java-native-flyway",
-        "java-native-bc-flyway"
+        "java-native-bc-flyway",
+        "java-native-release-services"
       ]
     },
     {
@@ -216,7 +222,8 @@
         "java-all",
         "build",
         "packaged-full",
-        "installed-service-restart"
+        "installed-service-restart",
+        "java-native-release-services"
       ]
     },
     {
@@ -261,7 +268,8 @@
         "public-api-oracle",
         "main-glassfish-release-wire-compatibility",
         "main-moxy-release-wire-compatibility",
-        "native-xml-binary-contracts"
+        "native-xml-binary-contracts",
+        "java-native-release-services"
       ]
     },
     {
@@ -293,7 +301,8 @@
         "java-native-generated",
         "java-native-flyway",
         "java-native-bc-flyway",
-        "http-client-compatibility"
+        "http-client-compatibility",
+        "java-native-release-services"
       ]
     },
     {
@@ -320,7 +329,8 @@
         "java-native-generated",
         "java-native-flyway",
         "java-native-bc-flyway",
-        "manual-consultation-attachment-query-reuse"
+        "manual-consultation-attachment-query-reuse",
+        "java-native-release-services"
       ]
     },
     {
@@ -341,7 +351,8 @@
         "node-all",
         "java-all",
         "build",
-        "packaged-full"
+        "packaged-full",
+        "java-native-release-services"
       ]
     },
     {
@@ -367,7 +378,8 @@
         "packaged-full",
         "java-native-generated",
         "java-native-flyway",
-        "java-native-bc-flyway"
+        "java-native-bc-flyway",
+        "java-native-release-services"
       ]
     },
     {
@@ -392,7 +404,8 @@
         "java-all",
         "build",
         "packaged-full",
-        "manual-legacy-encounter-editor-isolation"
+        "manual-legacy-encounter-editor-isolation",
+        "java-native-release-services"
       ]
     },
     {
@@ -428,7 +441,8 @@
         "java-native-bc-flyway",
         "java-date-zones",
         "manual-pathnet-patient-link",
-        "packaged-native-pathnet"
+        "packaged-native-pathnet",
+        "java-native-release-services"
       ]
     },
     {
@@ -456,7 +470,8 @@
         "manual-fax-backbone-loopback",
         "manual-fax-inbox-lifecycle",
         "manual-fax-dedup-no-reimport",
-        "manual-fax-prescription-drugref"
+        "manual-fax-prescription-drugref",
+        "java-native-release-services"
       ]
     },
     {
@@ -485,7 +500,8 @@
         "packaged-full",
         "java-native-generated",
         "java-native-flyway",
-        "java-native-bc-flyway"
+        "java-native-bc-flyway",
+        "java-native-release-services"
       ]
     },
     {
@@ -511,7 +527,8 @@
         "java-all",
         "build",
         "packaged-full",
-        "http-client-compatibility"
+        "http-client-compatibility",
+        "java-native-release-services"
       ]
     },
     {
@@ -541,7 +558,8 @@
         "packaged-full",
         "http-client-compatibility",
         "java-browser-pdf",
-        "manual-jasper-production"
+        "manual-jasper-production",
+        "java-native-release-services"
       ]
     },
     {
@@ -578,7 +596,8 @@
         "main-release-wire-compatibility",
         "public-api-oracle",
         "main-glassfish-release-wire-compatibility",
-        "main-moxy-release-wire-compatibility"
+        "main-moxy-release-wire-compatibility",
+        "java-native-release-services"
       ]
     },
     {
@@ -612,7 +631,8 @@
         "java-cds-native",
         "java-cds-transfer-import",
         "java-cds-transfer-export",
-        "java-cds-transfer-shared"
+        "java-cds-transfer-shared",
+        "java-native-release-services"
       ]
     },
     {
@@ -646,7 +666,8 @@
         "main-release-wire-compatibility",
         "public-api-oracle",
         "main-glassfish-release-wire-compatibility",
-        "main-moxy-release-wire-compatibility"
+        "main-moxy-release-wire-compatibility",
+        "java-native-release-services"
       ]
     },
     {
@@ -669,7 +690,8 @@
         "node-all",
         "java-all",
         "build",
-        "packaged-full"
+        "packaged-full",
+        "java-native-release-services"
       ]
     },
     {
@@ -689,7 +711,8 @@
         "node-all",
         "java-all",
         "build",
-        "packaged-full"
+        "packaged-full",
+        "java-native-release-services"
       ]
     },
     {
@@ -715,7 +738,8 @@
         "main-release-wire-compatibility",
         "public-api-oracle",
         "main-glassfish-release-wire-compatibility",
-        "main-moxy-release-wire-compatibility"
+        "main-moxy-release-wire-compatibility",
+        "java-native-release-services"
       ]
     },
     {
@@ -744,7 +768,8 @@
         "package-clean-reinstall",
         "package-main-upgrade",
         "package-beta5-upgrade",
-        "packaged-o19-migrated"
+        "packaged-o19-migrated",
+        "java-native-release-services"
       ]
     },
     {
@@ -780,7 +805,8 @@
         "manual-deb-login",
         "package-clean-reinstall",
         "package-main-upgrade",
-        "package-beta5-upgrade"
+        "package-beta5-upgrade",
+        "java-native-release-services"
       ]
     },
     {
@@ -816,7 +842,8 @@
         "fixture-echart-note-lifecycle",
         "fixture-hrm-report-list",
         "fixture-messenger-reply-form",
-        "fixture-search-sort-messenger-inbox"
+        "fixture-search-sort-messenger-inbox",
+        "java-native-release-services"
       ]
     },
     {
@@ -854,7 +881,8 @@
         "fixture-messenger-reply-form",
         "fixture-search-sort-messenger-inbox",
         "fixture-clinical-risk",
-        "installed-package-reinstall"
+        "installed-package-reinstall",
+        "java-native-release-services"
       ]
     },
     {
@@ -882,7 +910,8 @@
         "build",
         "packaged-full",
         "installed-package-reinstall",
-        "manual-report-configured-jasper"
+        "manual-report-configured-jasper",
+        "java-native-release-services"
       ]
     },
     {
@@ -919,7 +948,8 @@
         "manual-shared-outcomes-launch",
         "browser-process-oracle",
         "packaged-profile-first-nations",
-        "packaged-profile-first-nations-encoding"
+        "packaged-profile-first-nations-encoding",
+        "java-native-release-services"
       ]
     },
     {
@@ -976,7 +1006,8 @@
         "packaged-profile-private-consent",
         "installed-smoke-signals",
         "browser-process-oracle",
-        "fixture-ci-browser"
+        "fixture-ci-browser",
+        "java-native-release-services"
       ]
     },
     {
@@ -995,7 +1026,8 @@
         "node-all",
         "java-all",
         "build",
-        "packaged-full"
+        "packaged-full",
+        "java-native-release-services"
       ]
     },
     {
@@ -1016,7 +1048,8 @@
         "java-all",
         "build",
         "packaged-full",
-        "installed-load-budgets"
+        "installed-load-budgets",
+        "java-native-release-services"
       ]
     },
     {
@@ -1037,7 +1070,8 @@
         "java-all",
         "build",
         "packaged-full",
-        "scope-and-main-disposition"
+        "scope-and-main-disposition",
+        "java-native-release-services"
       ]
     },
     {
@@ -1061,7 +1095,8 @@
         "waf-self-tests",
         "waf-config",
         "waf-inventory",
-        "waf-real-engine"
+        "waf-real-engine",
+        "java-native-release-services"
       ]
     },
     {
@@ -1085,7 +1120,8 @@
         "packaged-full",
         "backup-retention-purge",
         "debian-python",
-        "installed-backup-core"
+        "installed-backup-core",
+        "java-native-release-services"
       ]
     },
     {
@@ -1115,7 +1151,8 @@
         "packaged-profile-multisite",
         "packaged-profile-no-pin",
         "packaged-profile-private-consent",
-        "manual-account-unlock-address-mode"
+        "manual-account-unlock-address-mode",
+        "java-native-release-services"
       ]
     },
     {
@@ -1138,7 +1175,8 @@
         "packaged-full",
         "java-native-generated",
         "java-native-flyway",
-        "java-native-bc-flyway"
+        "java-native-bc-flyway",
+        "java-native-release-services"
       ]
     },
     {
@@ -1166,7 +1204,8 @@
         "packaged-full",
         "java-native-generated",
         "java-native-flyway",
-        "java-native-bc-flyway"
+        "java-native-bc-flyway",
+        "java-native-release-services"
       ]
     },
     {
@@ -1206,7 +1245,8 @@
         "fixture-search-sort-messenger-inbox",
         "fixture-clinical-risk",
         "production-js-view-coverage",
-        "fixture-ci-browser"
+        "fixture-ci-browser",
+        "java-native-release-services"
       ]
     }
   ],
@@ -4790,6 +4830,580 @@
               "container": ""
             }
           ]
+        },
+        "io.github.carlos_emr.carlos.email.core.ClinicEmailFooterMariaDbIntegrationTest": {
+          "check": "java-native-release-services",
+          "cases": [
+            {
+              "name": "shouldUpdateCanonicalInsertedAfterAmbientEmptyRead_whenShownFingerprintMatches_orRefuseStrictSnapshot(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldUpdateCanonicalInsertedAfterAmbientEmptyRead_whenShownFingerprintMatches_orRefuseStrictSnapshot(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldUpdateCanonicalInsertedAfterAmbientEmptyRead_whenShownFingerprintMatches_orRefuseStrictSnapshot(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldRollBackPermittedDetachedUpdate_andDuplicateCleanup_withCallerTransaction",
+              "container": ""
+            },
+            {
+              "name": "shouldCleanDuplicateInsertedAfterAmbientRead_orRefuseStrictSnapshotThenPermitFreshRetry(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldCleanDuplicateInsertedAfterAmbientRead_orRefuseStrictSnapshotThenPermitFreshRetry(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldCleanDuplicateInsertedAfterAmbientRead_orRefuseStrictSnapshotThenPermitFreshRetry(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldRefuseStaleEdit_afterEarlierManagedPropertyRead(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldRefuseStaleEdit_afterEarlierManagedPropertyRead(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldRefuseStaleEdit_afterEarlierManagedPropertyRead(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldUpdateDetachedCurrentRow_andCleanLegacyDuplicates_withoutChangingOtherOwners",
+              "container": ""
+            },
+            {
+              "name": "shouldSerializeFirstSave_afterAmbientEmptyRead_andRespectWinnerRollback(boolean, boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldSerializeFirstSave_afterAmbientEmptyRead_andRespectWinnerRollback(boolean, boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldSerializeFirstSave_afterAmbientEmptyRead_andRespectWinnerRollback(boolean, boolean)[2]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldSerializeFirstSave_afterAmbientEmptyRead_andRespectWinnerRollback(boolean, boolean)[3]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldSerializeFirstSave_afterAmbientEmptyRead_andRespectWinnerRollback(boolean, boolean)[4]",
+                  "container": ""
+                }
+              ]
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.email.core.PersonalEmailFooterMariaDbIntegrationTest": {
+          "check": "java-native-release-services",
+          "cases": [
+            {
+              "name": "shouldClearAndRecreateCommittedRows_inOuterTransactionWithoutLosingRollback(boolean, boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldClearAndRecreateCommittedRows_inOuterTransactionWithoutLosingRollback(boolean, boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldClearAndRecreateCommittedRows_inOuterTransactionWithoutLosingRollback(boolean, boolean)[2]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldClearAndRecreateCommittedRows_inOuterTransactionWithoutLosingRollback(boolean, boolean)[3]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldClearAndRecreateCommittedRows_inOuterTransactionWithoutLosingRollback(boolean, boolean)[4]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldUpdateDetachedPersonalAndDeleteLegacyDuplicates_onlyForOwner",
+              "container": ""
+            },
+            {
+              "name": "shouldNotBlockOtherOwner_withExistingRowPointLocksOrClear(boolean, boolean, boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldNotBlockOtherOwner_withExistingRowPointLocksOrClear(boolean, boolean, boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldNotBlockOtherOwner_withExistingRowPointLocksOrClear(boolean, boolean, boolean)[2]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldNotBlockOtherOwner_withExistingRowPointLocksOrClear(boolean, boolean, boolean)[3]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldNotBlockOtherOwner_withExistingRowPointLocksOrClear(boolean, boolean, boolean)[4]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldNotBlockOtherOwner_withExistingRowPointLocksOrClear(boolean, boolean, boolean)[5]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldNotBlockOtherOwner_withExistingRowPointLocksOrClear(boolean, boolean, boolean)[6]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldNotBlockOtherOwner_withExistingRowPointLocksOrClear(boolean, boolean, boolean)[7]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldNotBlockOtherOwner_withExistingRowPointLocksOrClear(boolean, boolean, boolean)[8]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldIdentifyAndCleanStoredNameAliases_byDatabaseCollationAndExactOwner(String, boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldIdentifyAndCleanStoredNameAliases_byDatabaseCollationAndExactOwner(String, boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldIdentifyAndCleanStoredNameAliases_byDatabaseCollationAndExactOwner(String, boolean)[2]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldIdentifyAndCleanStoredNameAliases_byDatabaseCollationAndExactOwner(String, boolean)[3]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldIdentifyAndCleanStoredNameAliases_byDatabaseCollationAndExactOwner(String, boolean)[4]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldIdentifyAndCleanStoredNameAliases_byDatabaseCollationAndExactOwner(String, boolean)[5]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldIdentifyAndCleanStoredNameAliases_byDatabaseCollationAndExactOwner(String, boolean)[6]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldOverlayPendingStoredNameAliases_withCallerRollbackAndClearReinsert(String, boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldOverlayPendingStoredNameAliases_withCallerRollbackAndClearReinsert(String, boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldOverlayPendingStoredNameAliases_withCallerRollbackAndClearReinsert(String, boolean)[2]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldOverlayPendingStoredNameAliases_withCallerRollbackAndClearReinsert(String, boolean)[3]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldOverlayPendingStoredNameAliases_withCallerRollbackAndClearReinsert(String, boolean)[4]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldOverlayPendingStoredNameAliases_withCallerRollbackAndClearReinsert(String, boolean)[5]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldOverlayPendingStoredNameAliases_withCallerRollbackAndClearReinsert(String, boolean)[6]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldCleanNewDuplicateAfterAmbientRead_orRefuseStrictAndAllowFreshRetry(boolean, boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldCleanNewDuplicateAfterAmbientRead_orRefuseStrictAndAllowFreshRetry(boolean, boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldCleanNewDuplicateAfterAmbientRead_orRefuseStrictAndAllowFreshRetry(boolean, boolean)[2]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldCleanNewDuplicateAfterAmbientRead_orRefuseStrictAndAllowFreshRetry(boolean, boolean)[3]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldCleanNewDuplicateAfterAmbientRead_orRefuseStrictAndAllowFreshRetry(boolean, boolean)[4]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldRefuseStaleSaveAndClear_afterAConcurrentWinnerCommits(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldRefuseStaleSaveAndClear_afterAConcurrentWinnerCommits(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldRefuseStaleSaveAndClear_afterAConcurrentWinnerCommits(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldSerializeFirstPersonalSave_afterAmbientEmptyRead_andAvoidDuplicateRows(boolean, boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldSerializeFirstPersonalSave_afterAmbientEmptyRead_andAvoidDuplicateRows(boolean, boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldSerializeFirstPersonalSave_afterAmbientEmptyRead_andAvoidDuplicateRows(boolean, boolean)[2]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldSerializeFirstPersonalSave_afterAmbientEmptyRead_andAvoidDuplicateRows(boolean, boolean)[3]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldSerializeFirstPersonalSave_afterAmbientEmptyRead_andAvoidDuplicateRows(boolean, boolean)[4]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldNotBlockAnotherOwner_withReadCommittedAndKeepClinicAndOtherPersonalOnClear",
+              "container": ""
+            },
+            {
+              "name": "shouldSuspendAndRestoreOwnWriteOverlay_acrossRequiresNew",
+              "container": ""
+            },
+            {
+              "name": "shouldRespectChangedCachedPersonalRow_andStrictConflict(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldRespectChangedCachedPersonalRow_andStrictConflict(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldRespectChangedCachedPersonalRow_andStrictConflict(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldHonorCallerDaoRemovals_beforeJoiningFooterSave(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldHonorCallerDaoRemovals_beforeJoiningFooterSave(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldHonorCallerDaoRemovals_beforeJoiningFooterSave(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldAcceptRepeatedSamePersonal_withoutDuplicateOrFalseConflict",
+              "container": ""
+            },
+            {
+              "name": "shouldKeepOwnPendingInserts_andRepeatedSaveClearAtomic(boolean, boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldKeepOwnPendingInserts_andRepeatedSaveClearAtomic(boolean, boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldKeepOwnPendingInserts_andRepeatedSaveClearAtomic(boolean, boolean)[2]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldKeepOwnPendingInserts_andRepeatedSaveClearAtomic(boolean, boolean)[3]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldKeepOwnPendingInserts_andRepeatedSaveClearAtomic(boolean, boolean)[4]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldNotBlockAnotherOwner_andKeepClinicAndOtherPersonalOnClear",
+              "container": ""
+            },
+            {
+              "name": "shouldRollBackPersonalUpdateAndDuplicateCleanup_withCallerTransaction",
+              "container": ""
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.integration.patientportal.booking.PortalBookingLockMariaDbIntegrationTest": {
+          "check": "java-native-release-services",
+          "cases": [
+            {
+              "name": "shouldBookOnlyOnce_whenPatientsPickTheSameTimeAtOnce",
+              "container": ""
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.managers.OutboundEmailArchiveKeyringServiceUnitTest": {
+          "check": "java-unprivileged-permission",
+          "cases": [
+            {
+              "name": "shouldRefuseToStart_whenTheKeyringCannotBeRead",
+              "container": "an existing keyring"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.sms.service.JpaSmsSendRateLimitMariaDbIntegrationTest": {
+          "check": "java-native-release-services",
+          "cases": [
+            {
+              "name": "shouldEnforceCap_whenMissingRowIsContended",
+              "container": ""
+            },
+            {
+              "name": "shouldEnforceCap_whenSeededRowIsContended",
+              "container": ""
+            },
+            {
+              "name": "shouldPreserveDeliveryOutcome_whenCallbackWinsReleaseRace(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldPreserveDeliveryOutcome_whenCallbackWinsReleaseRace(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldPreserveDeliveryOutcome_whenCallbackWinsReleaseRace(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldAvoidConfirmedQueue_whenClaimedRowDisappears(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldAvoidConfirmedQueue_whenClaimedRowDisappears(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldAvoidConfirmedQueue_whenClaimedRowDisappears(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldCreateRow_whenConcurrentCreatorRollsBack",
+              "container": ""
+            },
+            {
+              "name": "shouldConfirmQueuedSend_whenLimiterThrowsAndClaimIsReleased",
+              "container": ""
+            },
+            {
+              "name": "shouldAllowRetry_whenPermitTransactionRollsBack",
+              "container": ""
+            },
+            {
+              "name": "shouldWaitForCreator_whenMissingRowCreationCommits",
+              "container": ""
+            },
+            {
+              "name": "shouldKeepPermit_whenOuterTransactionRollsBack",
+              "container": ""
+            },
+            {
+              "name": "shouldNotSendTwice_whenStaleRecoveryTakesOverDuringPermitWait",
+              "container": ""
+            },
+            {
+              "name": "shouldPreserveCurrentClaim_whenReleaseLosesVersionRace(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldPreserveCurrentClaim_whenReleaseLosesVersionRace(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldPreserveCurrentClaim_whenReleaseLosesVersionRace(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.sms.service.SmsProviderRetirementMariaDbIntegrationTest": {
+          "check": "java-native-release-services",
+          "cases": [
+            {
+              "name": "shouldLeaveLimiterCounterAndWindowAlone_whenSerializingSelection",
+              "container": ""
+            },
+            {
+              "name": "shouldReleaseWorkerClaimWithoutDispatch_whenSendingIsTurnedOffDuringPermit",
+              "container": ""
+            },
+            {
+              "name": "shouldApplyDistinctProviderCaps_underConcurrentRequests",
+              "container": ""
+            },
+            {
+              "name": "shouldBlockFirstSaveBeforeReadingCutoff_whenAdmissionIsUncommitted(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldBlockFirstSaveBeforeReadingCutoff_whenAdmissionIsUncommitted(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldBlockFirstSaveBeforeReadingCutoff_whenAdmissionIsUncommitted(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldRetireUnsentClaimsAndRetries_butKeepStartedProviderResults",
+              "container": ""
+            },
+            {
+              "name": "shouldStopCleanupAfterTwoFailedWrites_withoutPublishingRolledBackEvents",
+              "container": ""
+            },
+            {
+              "name": "shouldAllowInitialAdminStubTest_whenOtherProviderIsSelectedAndSendingOff",
+              "container": ""
+            },
+            {
+              "name": "shouldRollbackCutoffAndConfigTogether_whenAuditFails",
+              "container": ""
+            },
+            {
+              "name": "shouldRequireManualReconciliation_withoutLookingUpRetiredUncertainSend",
+              "container": ""
+            },
+            {
+              "name": "shouldSerializeCleanupWithActivation_andKeepNewlyAdmittedRows",
+              "container": ""
+            },
+            {
+              "name": "shouldSkipOneFailedCleanupWrite_andCommitNextRowsMove",
+              "container": ""
+            },
+            {
+              "name": "shouldRefuseAdmissionAndDispatch_whenRetirementValueIsMalformed(String)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldRefuseAdmissionAndDispatch_whenRetirementValueIsMalformed(String)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldRefuseAdmissionAndDispatch_whenRetirementValueIsMalformed(String)[2]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldRefuseAdmissionAndDispatch_whenRetirementValueIsMalformed(String)[3]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldRefuseAdmissionAndDispatch_whenRetirementValueIsMalformed(String)[4]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldReturnUnsentClaim_whenSendingIsTurnedOffDuringPermit",
+              "container": ""
+            },
+            {
+              "name": "shouldKeepPublishedSystemTestReason_whenDurableCleanupOrUnsentReleaseRetiresHeldTest",
+              "container": ""
+            },
+            {
+              "name": "shouldUseCurrentHighestId_whenCallerHasEarlierRepeatableReadSnapshot(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldUseCurrentHighestId_whenCallerHasEarlierRepeatableReadSnapshot(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldUseCurrentHighestId_whenCallerHasEarlierRepeatableReadSnapshot(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldRefreshCachedSelectionAndCutoffs_orAbortWholeStaleTransaction(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldRefreshCachedSelectionAndCutoffs_orAbortWholeStaleTransaction(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldRefreshCachedSelectionAndCutoffs_orAbortWholeStaleTransaction(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldMoveOldBacklogToNewRows_whenSwitchedAwayAndBackBeforeWorker",
+              "container": ""
+            },
+            {
+              "name": "shouldRetireOtherLegacyProviders_whenRegistryIsInitializedForExistingConfig",
+              "container": ""
+            },
+            {
+              "name": "shouldRefusePartialOrDuplicateRegistry",
+              "container": ""
+            },
+            {
+              "name": "shouldRetireOldBacklogAndKeepNextAttempt_whenProviderFailureStopsSending(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldRetireOldBacklogAndKeepNextAttempt_whenProviderFailureStopsSending(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldRetireOldBacklogAndKeepNextAttempt_whenProviderFailureStopsSending(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            }
+          ]
         }
       },
       "runtimeConstraints": {
@@ -7332,13 +7946,14 @@
       "runtimeConstraints": {
         "java": "25"
       },
-      "minimumCases": 5,
+      "minimumCases": 6,
       "requiredFamilies": {
         "CarlosPropertiesModernChartPersistenceUnitTest": 1,
         "ActionUtilsOutboxTimestampUnitTest": 1,
         "ApplicationTempPurgeJobUnitTest": 1,
         "BillingOutputLockUnitTest": 1,
-        "AntenatalRiskConfigServiceUnitTest": 1
+        "AntenatalRiskConfigServiceUnitTest": 1,
+        "OutboundEmailArchiveKeyringServiceUnitTest": 1
       },
       "requireCoverage": true,
       "requireClassIdentity": true,
@@ -7998,6 +8613,49 @@
         "java": "25"
       },
       "timeoutSeconds": 3600
+    },
+    {
+      "id": "java-native-release-services",
+      "kind": "junit",
+      "profiles": [
+        "all"
+      ],
+      "repetitions": 1,
+      "command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "test",
+        "jacoco:report",
+        "-Dtest=ClinicEmailFooterMariaDbIntegrationTest,JpaSmsSendRateLimitMariaDbIntegrationTest,PersonalEmailFooterMariaDbIntegrationTest,PortalBookingLockMariaDbIntegrationTest,SmsProviderRetirementMariaDbIntegrationTest",
+        "-Dtest.forkCount=1",
+        "-Dtest.reportsDirectory={run}/reports",
+        "-Djacoco.destFile={run}/jacoco.exec",
+        "-Djacoco.dataFile={run}/jacoco.exec",
+        "-Dtest.coverageDirectory={run}/coverage"
+      ],
+      "minimumCases": 102,
+      "requiredFamilies": {
+        "PortalBookingLockMariaDbIntegrationTest": 1,
+        "ClinicEmailFooterMariaDbIntegrationTest": 12,
+        "JpaSmsSendRateLimitMariaDbIntegrationTest": 14,
+        "PersonalEmailFooterMariaDbIntegrationTest": 48,
+        "SmsProviderRetirementMariaDbIntegrationTest": 27
+      },
+      "requiresEnvironment": [
+        "EMAIL_TEST_DB_URL",
+        "EMAIL_TEST_DB_USER",
+        "SMS_TEST_DB_URL",
+        "SMS_TEST_DB_USER",
+        "CARLOS_TEST_MARIADB_URL",
+        "CARLOS_TEST_MARIADB_USER"
+      ],
+      "timeoutSeconds": 600,
+      "requireCoverage": true,
+      "runtimeConstraints": {
+        "java": "25"
+      },
+      "requireClassIdentity": true
     }
   ],
   "requireJavaDiscovery": true,

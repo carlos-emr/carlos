@@ -62,7 +62,9 @@ class PermissionLaneShellTest(unittest.TestCase):
         self.assertIn('-Dtest.coverageDirectory=' + paths['CARLOS_PERMISSION_COVERAGE'], arguments)
         cases = gate.read_json(gate.ROOT / 'scripts/ci/permission-cases.json')
         self.assertEqual(next(value.removeprefix('-Dtest=') for value in arguments if value.startswith('-Dtest=')).split(','),
-                         [row['classname'] + '#' + row['name'] for row in cases])
+                         [row.get('selectorClass', row['classname']) + '#' + row['name'] for row in cases])
+        self.assertIn('io.github.carlos_emr.carlos.managers.OutboundEmailArchiveKeyringServiceUnitTest'
+                      '$ExistingKeyring#shouldRefuseToStart_whenTheKeyringCannotBeRead', ','.join(arguments))
 
     def test_every_existing_or_dangling_output_is_refused_before_maven(self):
         for name in ('CARLOS_PERMISSION_REPORTS', 'CARLOS_PERMISSION_EXECUTION', 'CARLOS_PERMISSION_COVERAGE'):
