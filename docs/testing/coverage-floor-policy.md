@@ -214,6 +214,11 @@ the merged sources measures them as before: the driver at 94.00/92.18/85.04 and
 90.45 branch floor. Both adapter rows keep their floors; no floor is lowered
 and no waiver is added.
 
+The `b75252bf2c47` refresh repeats that procedure for release `0ba9d149d105`
+(#6169, #6235, #6155, #6143): the release file supplies every other row, and the
+same 495-case union on the merged sources measures both unchanged adapter blobs
+exactly as before, so their floors stand.
+
 The `dd7321db79ee` PR #6102 merged-source refresh uses Debian 13 and Temurin
 25.0.3. Its complete H2 run records 35,947 actual cases: 35,736 passes,
 211 explicit routed/prerequisite skips, and zero failures or errors. The
