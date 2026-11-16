@@ -70,7 +70,7 @@
                 ReportEvaluator re = (ReportEvaluator) arrList.get(i);
                 String filename = re.getName().replaceAll("/", "---").replaceAll(" ", "_"); // "report.txt";
 
-                out.write("'" + filename + "'," + re.getCSV() + '\n');
+                out.write("\"" + filename.replace("\"", "\"\"") + "\"," + re.getCSV() + '\n');
             }
         }
     } else {

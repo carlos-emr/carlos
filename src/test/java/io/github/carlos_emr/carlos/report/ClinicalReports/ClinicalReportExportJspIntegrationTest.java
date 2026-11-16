@@ -8,6 +8,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.StringReader;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -18,6 +19,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.commons.csv.CSVFormat;
 import org.apache.catalina.startup.Tomcat;
 import org.apache.jasper.servlet.JasperInitializer;
 import org.apache.jasper.servlet.JspServlet;
@@ -37,7 +39,7 @@ import static org.mockito.Mockito.*;
 @Tag("integration")
 @Tag("report")
 class ClinicalReportExportJspIntegrationTest {
-    private static final String NAME = "FAKE report/été; 漢字, totals";
+    private static final String NAME = "FAKE report/été; 漢字, \"totals\"";
     private static final String FILENAME = NAME.replace("/", "---").replace(" ", "_");
     private static final String CSV = "'Montréal','12','20','60'";
     @TempDir
@@ -93,8 +95,18 @@ class ClinicalReportExportJspIntegrationTest {
                     var response = client.send(HttpRequest.newBuilder(base.resolve(single ? "/export?id=0" : "/export"))
                             .timeout(Duration.ofSeconds(30)).GET().build(), HttpResponse.BodyHandlers.ofByteArray());
                     assertThat(response.statusCode()).isEqualTo(200);
-                    assertThat(new String(response.body(), StandardCharsets.UTF_8))
-                            .isEqualTo(single ? CSV : "'" + FILENAME + "'," + CSV + '\n');
+                    String body = new String(response.body(), StandardCharsets.UTF_8);
+                    if (single) {
+                        assertThat(body).isEqualTo(CSV);
+                    } else {
+                        try (var parser = CSVFormat.DEFAULT.parse(new StringReader(body))) {
+                            var records = parser.getRecords();
+                            assertThat(records).hasSize(1);
+                            assertThat(records.getFirst().size()).isEqualTo(5);
+                            assertThat(records.getFirst().get(0)).isEqualTo(FILENAME);
+                            assertThat(records.getFirst().get(1)).isEqualTo("'Montréal'");
+                        }
+                    }
                     assertThat(response.headers().firstValue("Content-Type")).hasValue("text/csv;charset=UTF-8");
                     String disposition = response.headers().firstValue("Content-Disposition").orElseThrow();
                     assertThat(ContentDisposition.parse(disposition).getFilename())
