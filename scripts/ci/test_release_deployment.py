@@ -135,17 +135,17 @@ class PublishedPackageBindingTest(unittest.TestCase):
                 attest_package(self.package, digest, self.installed, 'https://127.0.0.1/carlos')
 
     def test_wrong_pin_empty_application_and_archive_links_cannot_attest(self):
-        digest = self.build()
+        self.build()
         with self.assertRaises(EvidenceError):
             attest_package(self.package, '0' * 64, self.installed, 'https://127.0.0.1/carlos')
         link = self.application / 'link'; link.symlink_to('/FAKE-outside')
-        digest = self.build()
+        linked_digest = self.build()
         with self.assertRaisesRegex(EvidenceError, 'nonregular'):
-            attest_package(self.package, digest, self.installed, 'https://127.0.0.1/carlos')
+            attest_package(self.package, linked_digest, self.installed, 'https://127.0.0.1/carlos')
         shutil.rmtree(self.application)
-        digest = self.build()
+        empty_digest = self.build()
         with self.assertRaisesRegex(EvidenceError, 'no application'):
-            attest_package(self.package, digest, self.installed, 'https://127.0.0.1/carlos')
+            attest_package(self.package, empty_digest, self.installed, 'https://127.0.0.1/carlos')
 
 
 if __name__ == "__main__":

@@ -12,6 +12,9 @@
  */
 package io.github.carlos_emr.carlos.prevention.pageUtil;
 
+import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
+import io.github.carlos_emr.carlos.commn.dao.PreventionDao;
+import io.github.carlos_emr.carlos.commn.dao.PreventionExtDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.prevention.pageUtil.PreventionPrintLoader.Entry;
@@ -89,6 +92,11 @@ class PreventionPrint2ActionTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         mocks = MockitoAnnotations.openMocks(this);
+
+        // Even the unreadable-result logger initializes PreventionData's static DAO fields.
+        registerMock(PreventionDao.class, mock(PreventionDao.class));
+        registerMock(PreventionExtDao.class, mock(PreventionExtDao.class));
+        registerMock(PartialDateDao.class, mock(PartialDateDao.class));
 
         request = new MockHttpServletRequest("POST", "/prevention/printPrevention");
         response = new MockHttpServletResponse();
