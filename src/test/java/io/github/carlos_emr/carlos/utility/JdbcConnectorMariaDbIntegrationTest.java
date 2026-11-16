@@ -497,7 +497,10 @@ class JdbcConnectorMariaDbIntegrationTest {
         assertConnectorJTinyIntMetadataModes(legacy);
     }
 
-    /** Both metadata switches retain the same values and object classes as Connector/J. */
+    /**
+     * Both metadata switches retain the same values and object classes as Connector/J, for TINYINT(1) and for a
+     * real BIT(1), which MariaDB alone reports as BOOLEAN when transformedBitIsBoolean is set.
+     */
     private void assertConnectorJTinyIntMetadataModes(boolean legacy) throws Exception {
         for (boolean tinyBit : new boolean[]{false, true}) {
             for (boolean transformed : new boolean[]{false, true}) {
@@ -505,16 +508,44 @@ class JdbcConnectorMariaDbIntegrationTest {
                     String options = "tinyInt1isBit=" + tinyBit + "&transformedBitIsBoolean=" + transformed
                             + "&useServerPrepStmts=" + prepared;
                     try (var source = source(legacy, options); var connection = source.getConnection();
-                         var query = connection.prepareStatement("SELECT t1 FROM number_probe WHERE id >= ? ORDER BY id")) {
+                         var query = connection.prepareStatement("SELECT t1 FROM number_probe WHERE id >= ? ORDER BY id");
+                         var bits = connection.prepareStatement("SELECT b1 FROM number_probe WHERE id <= ? ORDER BY id")) {
                         query.setInt(1, 1);
                         try (var rows = query.executeQuery()) {
                             if (tinyBit) assertConnectorJTinyIntTruthValues(rows);
                             else assertConnectorJTinyIntIntegerValues(rows);
                         }
+                        bits.setInt(1, 3);
+                        try (var rows = bits.executeQuery()) {
+                            assertConnectorJRealBitOneValues(rows);
+                        }
                     }
                 }
             }
         }
+    }
+
+    /** A real BIT(1) keeps Connector/J's BIT metadata, "1"/"0" text and numeric reads in every metadata mode. */
+    private static void assertConnectorJRealBitOneValues(ResultSet rows) throws SQLException {
+        assertThat(rows.getMetaData().getColumnType(1)).isEqualTo(java.sql.Types.BIT);
+        assertThat(rows.getMetaData().getColumnClassName(1)).isEqualTo(Boolean.class.getName());
+        for (Integer expected : new Integer[]{1, 0, null}) {
+            assertThat(rows.next()).isTrue();
+            String text = expected == null ? null : expected.toString();
+            Double number = expected == null ? null : expected.doubleValue();
+            assertThat(rows.getString(1)).isEqualTo(text);
+            assertThat(rows.wasNull()).isEqualTo(expected == null);
+            assertThat(rows.getObject(1, String.class)).isEqualTo(text);
+            assertThat(rows.getObject(1)).isEqualTo(expected == null ? null : expected == 1);
+            assertThat(rows.getDouble(1)).isEqualTo(expected == null ? 0.0d : number);
+            assertThat(rows.wasNull()).isEqualTo(expected == null);
+            assertThat(rows.getFloat(1)).isEqualTo(expected == null ? 0.0f : number.floatValue());
+            assertThat(rows.getObject(1, Double.class)).isEqualTo(number);
+            assertThat(rows.getObject(1, double.class)).isEqualTo(number);
+            assertThat(rows.getObject(1, Float.class)).isEqualTo(number == null ? null : number.floatValue());
+            assertThat(rows.getBigDecimal(1)).isEqualTo(expected == null ? null : java.math.BigDecimal.valueOf(expected));
+        }
+        assertThat(rows.next()).isFalse();
     }
 
     private static void assertConnectorJTinyIntIntegerValues(ResultSet rows) throws SQLException {

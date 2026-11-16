@@ -60,6 +60,10 @@ numeric truth rule as `getBoolean`: positive values and `-1` are true, other
 non-positive values are false, and SQL NULL remains null. This also applies
 when `transformedBitIsBoolean=true` reports the column as BOOLEAN;
 `tinyInt1isBit=false` retains integer objects and signed numeric values.
+`transformedBitIsBoolean=true` also makes MariaDB report a real BIT(1) column as
+BOOLEAN (it keeps the type name `BIT`), print it as `true`/`false` and refuse
+`double` and `float` reads. Connector/J changed only TINYINT(1), so a real BIT(1)
+keeps BIT metadata, `1`/`0` text and its numeric conversions in every mode.
 Typed `getObject` reads also keep SQL NULL as null when the requested numeric
 or Boolean class is primitive (for example `double.class`). Primitive getters
 such as `getDouble` still return zero with `wasNull()` set.

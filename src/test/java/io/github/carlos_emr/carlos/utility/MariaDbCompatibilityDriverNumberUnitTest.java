@@ -199,6 +199,30 @@ class MariaDbCompatibilityDriverNumberUnitTest {
     }
 
     @Test
+    @DisplayName("should keep BIT metadata, text and numbers for a real BIT(1) that transformedBitIsBoolean reports as BOOLEAN")
+    void shouldKeepConnectorJBitReads_whenBitOneIsReportedAsBoolean() throws Exception {
+        withRows(-1L, Types.BOOLEAN, Types.BOOLEAN, rows -> {
+            ResultSetMetaData metadata = rows.getMetaData();
+            assertThat(metadata.getColumnType(FLAG)).isEqualTo(Types.BIT);
+            assertThat(metadata.getColumnClassName(FLAG)).isEqualTo(Boolean.class.getName());
+            assertThat(metadata.getColumnType(TINY_FLAG)).isEqualTo(Types.BOOLEAN);
+            assertThat(rows.getString(FLAG)).isEqualTo("1");
+            assertThat(rows.getObject(FLAG, String.class)).isEqualTo("1");
+            assertThat(rows.getObject(FLAG)).isEqualTo(Boolean.TRUE);
+            assertThat(rows.getBoolean(FLAG)).isTrue();
+            assertThat(rows.getDouble(FLAG)).isEqualTo(1.0d);
+            assertThat(rows.getFloat(FLAG)).isEqualTo(1.0f);
+            assertThat(rows.getObject(FLAG, Double.class)).isEqualTo(1.0d);
+            assertThat(rows.getObject(FLAG, double.class)).isEqualTo(1.0d);
+            assertThat(rows.getObject(FLAG, Float.class)).isEqualTo(1.0f);
+            assertThat(rows.getBigDecimal(FLAG)).isEqualTo(BigDecimal.ONE);
+            // TINYINT(1) reported as BOOLEAN keeps MariaDB's own text and Connector/J's signed truth.
+            assertThat(rows.getString(TINY_FLAG)).isEqualTo("-1");
+            assertThat(rows.getObject(TINY_FLAG)).isEqualTo(Boolean.TRUE);
+        });
+    }
+
+    @Test
     void shouldNameBooleanForEveryBitWidth_whenDescribingColumns() throws Exception {
         withRows(rows -> {
             ResultSetMetaData metadata = rows.getMetaData();
@@ -218,7 +242,11 @@ class MariaDbCompatibilityDriverNumberUnitTest {
     }
 
     private static void withRows(Long tinyFlag, int tinySqlType, RowsCheck check) throws Exception {
-        ResultSet nativeRows = scriptedRows(tinyFlag, tinySqlType);
+        withRows(tinyFlag, tinySqlType, Types.BIT, check);
+    }
+
+    private static void withRows(Long tinyFlag, int tinySqlType, int flagSqlType, RowsCheck check) throws Exception {
+        ResultSet nativeRows = scriptedRows(tinyFlag, tinySqlType, flagSqlType);
         org.mariadb.jdbc.Statement nativeStatement = mock(org.mariadb.jdbc.Statement.class);
         when(nativeStatement.executeQuery(anyString())).thenReturn(nativeRows);
         org.mariadb.jdbc.Connection physical = mock(org.mariadb.jdbc.Connection.class, Answers.RETURNS_DEEP_STUBS);
@@ -236,8 +264,13 @@ class MariaDbCompatibilityDriverNumberUnitTest {
         }
     }
 
-    /** A result set that answers like MariaDB Connector/J 3.5.11 for one row of the probe columns. */
-    private static ResultSet scriptedRows(Long tinyFlag, int tinySqlType) throws SQLException {
+    /**
+     * A result set that answers like MariaDB Connector/J 3.5.11 for one row of the probe columns. With
+     * transformedBitIsBoolean, MariaDB reports the real BIT(1) {@code FLAG} as BOOLEAN under the type name "BIT",
+     * prints it as "true"/"false" and refuses double/float reads; TINYINT(1) is the column named "BOOLEAN".
+     */
+    private static ResultSet scriptedRows(Long tinyFlag, int tinySqlType, int flagSqlType) throws SQLException {
+        boolean booleanBit = flagSqlType == Types.BOOLEAN;
         Map<Integer, Object> values = new HashMap<>();
         values.put(DOUBLE, 100.0d);
         values.put(FLOAT, 1.0E7d);
@@ -247,13 +280,14 @@ class MariaDbCompatibilityDriverNumberUnitTest {
         values.put(TEXT, "server text");
         values.put(NULL_BIT, null);
         values.put(NULL_DOUBLE, null);
-        Map<Integer, String> serverText = Map.of(DOUBLE, "100", FLOAT, "10000000", FLAG, "b'1'",
+        Map<Integer, String> serverText = Map.of(DOUBLE, "100", FLOAT, "10000000", FLAG, booleanBit ? "true" : "b'1'",
                 WIDE_BIT, "b'1000000000000000000000000000000000000000000000000000000000000000'", TINY_FLAG, String.valueOf(tinyFlag),
                 TEXT, "server text");
         ResultSetMetaData metadata = mock(ResultSetMetaData.class);
-        int[] types = {0, Types.DOUBLE, Types.REAL, Types.BIT, Types.BIT, tinySqlType, Types.VARCHAR, Types.BIT, Types.DOUBLE};
+        int[] types = {0, Types.DOUBLE, Types.REAL, flagSqlType, Types.BIT, tinySqlType, Types.VARCHAR, Types.BIT, Types.DOUBLE};
         int[] precisions = {0, 22, 12, 1, 64, 1, 255, 8, 22};
-        String[] typeNames = {"", "DOUBLE", "FLOAT", "BIT", "BIT", "TINYINT", "VARCHAR", "BIT", "DOUBLE"};
+        String tinyName = tinySqlType == Types.BOOLEAN ? "BOOLEAN" : "BIT";
+        String[] typeNames = {"", "DOUBLE", "FLOAT", "BIT", "BIT", tinyName, "VARCHAR", "BIT", "DOUBLE"};
         for (int column = 1; column < types.length; column++) {
             when(metadata.getColumnType(column)).thenReturn(types[column]);
             when(metadata.getPrecision(column)).thenReturn(precisions[column]);
@@ -289,6 +323,12 @@ class MariaDbCompatibilityDriverNumberUnitTest {
                 }
                 if (type.isPrimitive() && value == null) throw new SQLException("Cannot return null for primitive " + type.getName());
             }
+            if (booleanBit && column == FLAG && value != null
+                    && (name.equals("getDouble") || name.equals("getFloat")
+                        || (name.equals("getObject") && args.length == 2 && args[1] != String.class
+                            && args[1] != Boolean.class && args[1] != boolean.class))) {
+                throw new java.sql.SQLDataException("Data type BIT cannot be decoded as Double");
+            }
             return switch (name) {
                 case "getDouble" -> value == null ? 0.0d : ((Number) value).doubleValue();
                 case "getLong" -> value == null ? 0L : ((Number) value).longValue();
@@ -296,7 +336,8 @@ class MariaDbCompatibilityDriverNumberUnitTest {
                 case "getObject" -> nativeObject(value, types[column], precisions[column]);
                 case "getBigDecimal" -> {
                     if (value == null) yield null;
-                    BigDecimal decimal = new BigDecimal(serverText.get(column));
+                    BigDecimal decimal = booleanBit && column == FLAG
+                            ? BigDecimal.valueOf(((Number) value).longValue()) : new BigDecimal(serverText.get(column));
                     yield args.length == 2 ? decimal.setScale((Integer) args[1]) : decimal;
                 }
                 case "getCharacterStream" -> throw new SQLException("Data type DOUBLE cannot be decoded as Reader");

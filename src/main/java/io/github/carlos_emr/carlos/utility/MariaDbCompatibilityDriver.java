@@ -242,7 +242,7 @@ public final class MariaDbCompatibilityDriver implements Driver {
             if (!name.equals("getString") && !name.equals("getNString") && !stream && !typedString) return NO_CONVERSION;
             int column = columnIndex(rows, args);
             ResultSetMetaData metadata = rows.getMetaData();
-            int sqlType = metadata.getColumnType(column);
+            int sqlType = legacyColumnType(metadata, column);
             String text;
             if (isTemporalColumn(sqlType)) {
                 text = temporalText(rows, column, metadata);
@@ -277,13 +277,25 @@ public final class MariaDbCompatibilityDriver implements Driver {
             if (requested == null) return NO_CONVERSION;
             int column = columnIndex(rows, args);
             ResultSetMetaData metadata = rows.getMetaData();
-            int sqlType = metadata.getColumnType(column);
+            int sqlType = legacyColumnType(metadata, column);
             // transformedBitIsBoolean exposes TINYINT(1) as BOOLEAN; its object truth rule is identical.
             if (sqlType == Types.BOOLEAN && requested == Object.class) return bitValue(rows, column, 1, requested);
             if (FLOATING_TYPES.contains(sqlType)) {
                 return requested == java.math.BigDecimal.class ? floatingDecimal(rows, column) : NO_CONVERSION;
             }
             return sqlType == Types.BIT ? bitValue(rows, column, metadata.getPrecision(column), requested) : NO_CONVERSION;
+        }
+
+        /**
+         * With transformedBitIsBoolean=true MariaDB also reports a real BIT(1) column as BOOLEAN, keeping the
+         * type name "BIT"; TINYINT(1) is the column that becomes "BOOLEAN". Connector/J changed only TINYINT(1),
+         * so a real BIT(1) keeps BIT metadata and BIT text and number conversions ("1", 1.0) instead of MariaDB's
+         * "true" and its refusal of double/float reads.
+         */
+        private static int legacyColumnType(ResultSetMetaData metadata, int column) throws SQLException {
+            int sqlType = metadata.getColumnType(column);
+            return sqlType == Types.BOOLEAN
+                    && MariaDbJdbcCompatibility.asciiEquals("BIT", metadata.getColumnTypeName(column)) ? Types.BIT : sqlType;
         }
 
         /** Names the type a getter asks for when {@link #legacyNumberValue} may answer it, or null. */
@@ -344,9 +356,13 @@ public final class MariaDbCompatibilityDriver implements Driver {
                     && MariaDbJdbcCompatibility.asciiEquals("DATETIME", metadata.getColumnTypeName((Integer) args[0]))) {
                 return LocalDateTime.class.getName();
             }
-            if (name.equals("getColumnClassName") && metadata.getColumnType((Integer) args[0]) == Types.BIT) {
+            if (name.equals("getColumnClassName") && legacyColumnType(metadata, (Integer) args[0]) == Types.BIT) {
                 // Connector/J named Boolean for every BIT width, although only BIT(1) values are Boolean objects.
                 return Boolean.class.getName();
+            }
+            if (name.equals("getColumnType") && args != null && args.length == 1 && args[0] instanceof Integer column) {
+                int sqlType = legacyColumnType(metadata, column);
+                if (sqlType != metadata.getColumnType(column)) return sqlType;
             }
             return NO_CONVERSION;
         }
@@ -403,7 +419,7 @@ public final class MariaDbCompatibilityDriver implements Driver {
                     && (args[1] == Boolean.class || args[1] == boolean.class);
             if (!primitiveGetter && !typedGetter) return NO_CONVERSION;
             int column = columnIndex(rows, args);
-            int sqlType = rows.getMetaData().getColumnType(column);
+            int sqlType = legacyColumnType(rows.getMetaData(), column);
             Object result;
             if (TEXTUAL_TYPES.contains(sqlType)) {
                 result = textBoolean(rows, column, sqlType);
