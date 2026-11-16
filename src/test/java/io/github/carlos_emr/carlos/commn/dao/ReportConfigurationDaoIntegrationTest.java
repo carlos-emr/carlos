@@ -180,6 +180,7 @@ class ReportConfigurationDaoIntegrationTest extends CarlosTestBase {
             "third,first,third:first:second",
             "first,third,second:first:third"
     })
+    @Tag("update")
     void shouldMoveTheSelectedField_beforeTheTargetWithoutDroppingRows(
             String selected, String target, String expectedNames) {
         cleanup();
@@ -211,6 +212,7 @@ class ReportConfigurationDaoIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    @Tag("update")
     void shouldKeepEveryOrderNumber_whenMovingAFieldToItsCurrentPosition() {
         cleanup();
         try {
@@ -228,6 +230,7 @@ class ReportConfigurationDaoIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    @Tag("update")
     void shouldMoveBeforeALegacyNullOrder_whenTheTargetIsZero() {
         cleanup();
         try {
@@ -250,6 +253,7 @@ class ReportConfigurationDaoIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    @Tag("read")
     void shouldUseIdentifierOrder_forNullAndZeroOrderTies() {
         cleanup();
         try {
