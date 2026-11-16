@@ -86,6 +86,7 @@
 <%@ page import="org.owasp.csrfguard.CsrfGuard" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderChoice" %>
+<%@ page import="io.github.carlos_emr.carlos.appointment.reminder.GroupUpdateReminders" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -255,6 +256,9 @@
             LoggedInInfo groupUser = LoggedInInfo.getLoggedInInfoFromSession(request);
             int editedNo = org.apache.commons.lang3.math.NumberUtils.toInt(request.getParameter("appointment_no"), 0);
             Appointment editedBooking = null;
+            // The reminder steps wait until this transaction has committed: inside it, a reminder that cannot be
+            // stored would roll back every booking of the group (GroupUpdateReminders).
+            GroupUpdateReminders groupReminders = new GroupUpdateReminders(request, groupUser);
 
             for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
                 strbuf = new StringBuffer(e.nextElement().toString());
@@ -358,7 +362,7 @@
 
                     appointmentDao.persist(a);
                     rowsAffected = 1;
-                    AppointmentReminderChoice.moveReminders(request, groupUser, replacedNo, a);
+                    groupReminders.moveReminders(replacedNo, a);
                     if (replacedNo != null && replacedNo == editedNo) {
                         editedBooking = a;
                     }
@@ -391,7 +395,7 @@
                 // The box belongs to the appointment Edit was opened for: rebooked here, or left as it was.
                 Appointment edited = editedBooking != null ? editedBooking
                         : editedNo > 0 ? appointmentDao.find(editedNo) : null;
-                AppointmentReminderChoice.recordAfterGroupUpdate(request, groupUser, edited);
+                groupReminders.recordAfterGroupUpdate(edited);
             }
             if (rowsAffected == 1) bSucc = true;
             // The token's claim learns whether these writes commit or roll back; a press that wrote
@@ -404,6 +408,9 @@
                         io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request),
                         entry[0], io.github.carlos_emr.carlos.log.LogConst.CON_APPT, entry[1], entry[2], entry[3]);
             }
+            // Committed: the bookings are saved. A reminder step that fails now is logged and shown below;
+            // it never undoes a booking.
+            groupReminders.runAfterCommit();
             } finally {
                 // An exception part-way through leaves nothing half-applied. A commit that failed has
                 // already completed the transaction; rolling it back again would replace its cause.

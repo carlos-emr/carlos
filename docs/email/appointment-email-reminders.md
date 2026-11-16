@@ -45,7 +45,8 @@ The clinic email footer must be configured, as for every patient email. The `app
     fails, nothing is sent and it is tried once more 30 minutes later.
   - **Group Action, then Group Update**, books each appointment again under a new number. Its reminder, and the
     start already reminded for, go with it, so the same start is not reminded twice. The Edit form's box applies to
-    the appointment Edit was opened for.
+    the appointment Edit was opened for. These reminder steps run only after the group change has been saved: if
+    one fails, the appointments stay saved and the page says the reminder was not recorded (tick the box again).
 - **Cut and Paste does not keep it:** the pasted appointment is new, and the choice is not copied, so tick the box
   on it if it should be reminded.
 - **Retry:** one retry, 30 minutes after a definite failure (the mail server refused it, or it failed before
