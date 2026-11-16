@@ -49,7 +49,7 @@ public class ReportConfigDaoImpl extends AbstractDaoImpl<ReportConfig> implement
 
     @Override
     public List<ReportConfig> findByReportIdAndSaveForUpdate(int reportId, String save) {
-        return entityManager.createQuery("select r from ReportConfig r where r.reportId = :reportId and r.save = :save order by r.id", ReportConfig.class)
+        return entityManager.createQuery("select r from ReportConfig r where r.reportId = :reportId and (r.save = :save or (:save is null and r.save is null)) order by r.id", ReportConfig.class)
                 .setParameter("reportId", reportId).setParameter("save", save)
                 .setLockMode(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE).getResultList();
     }

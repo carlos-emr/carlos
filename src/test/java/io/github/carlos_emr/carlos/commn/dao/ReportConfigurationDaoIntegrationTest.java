@@ -294,6 +294,18 @@ class ReportConfigurationDaoIntegrationTest extends CarlosTestBase {
 
     @Test
     @Tag("update")
+    void shouldRetainNullableVariantCompatibility_forTheLegacyMoveApi() {
+        cleanup();
+        try {
+            ReportConfig row = config("nullable variant", 1, null);
+            new TransactionTemplate(transactionManager).executeWithoutResult(status -> configurations.persist(row));
+            service.shiftAndRemove(5549, null, row.getId(), 10);
+            assertThat(configurations.find(row.getId()).getOrderNo()).isEqualTo(10);
+        } finally { cleanup(); }
+    }
+
+    @Test
+    @Tag("update")
     void shouldKeepEveryOrderNumber_whenMovingAFieldToItsCurrentPosition() {
         cleanup();
         try {
