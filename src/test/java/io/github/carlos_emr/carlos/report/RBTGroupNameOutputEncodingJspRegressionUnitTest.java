@@ -46,8 +46,11 @@ class RBTGroupNameOutputEncodingJspRegressionUnitTest extends CarlosUnitTestBase
     @Test
     void shouldEncodeValidationMessage_inTemplateGroupsJsp() throws IOException {
         String jsp = Files.readString(GROUPS_JSP, StandardCharsets.UTF_8);
-        assertThat(jsp).contains("${carlos:forHtml(errormsg)}")
-                .doesNotContain("${errormsg}</div>");
+        String active = jsp.replaceAll("(?s)<%--.*?--%>", "");
+        var alerts = org.jsoup.Jsoup.parse(active).select("div[role=alert]");
+        assertThat(alerts).hasSize(1);
+        assertThat(alerts.first().html().trim()).isEqualTo("${carlos:forHtml(errormsg)}");
+        assertThat(active).doesNotContainPattern("\\$\\{\\s*errormsg\\s*}");
     }
 
     @Test
