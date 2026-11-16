@@ -351,7 +351,7 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldAskTheBundleForTheNotShownNote_withTheCount() {
         List<String> asked = new ArrayList<>();
-        try (var servlet = mockStatic(ServletActionContext.class)) {
+        try (var _ = mockStatic(ServletActionContext.class)) {
             MeasurementGraphAction22Action graphAction = new MeasurementGraphAction22Action() {
                 @Override
                 public String getText(String key, String[] args) {

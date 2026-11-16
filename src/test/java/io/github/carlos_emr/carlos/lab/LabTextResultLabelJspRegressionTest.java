@@ -80,8 +80,8 @@ class LabTextResultLabelJspRegressionTest {
         String jsp = read("src/main/webapp/" + page);
 
         assertThat(jsp).containsPattern("<carlos:encode value='<%= String\\.valueOf\\((h|hMap)\\.get\\(\"result\"\\)\\) %>'"
-                + " context=\"htmlWithBreakMarkers\"/>");
-        assertThat(jsp).doesNotContainPattern("get\\(\"result\"\\)\\) %>' context=\"html\"/>");
+                + " context=\"htmlWithBreakMarkers\"/>")
+                .doesNotContainPattern("get\\(\"result\"\\)\\) %>' context=\"html\"/>");
     }
 
     @Test
