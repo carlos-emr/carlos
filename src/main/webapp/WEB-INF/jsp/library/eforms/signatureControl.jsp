@@ -24,8 +24,9 @@
       signature input element, and shows the saved signature in the display element.
     - The pad is opened for one patient only: options.demographicNo, else (for an eForm) the form's own
       #demographicNo input, also when a saved form is reopened; never session state. A patient number that
-      is not a whole number from 1 to 2147483647 gets an alert and no pad, because a signature saved
-      without its patient cannot be previewed or printed.
+      is not a whole number from 1 to 2147483647 gets no pad, because a signature saved without its
+      patient cannot be previewed or printed. Patientless eForm previews/intake (-1) show an inline
+      availability note; malformed patient context still gets an alert.
     - The pad's URL always carries demographicNo and a ModuleType (E_FORM unless the URL already names
       one); the upload saves both with the signature.
     - window.signatureHandler(e) receives the pad's events: e.isDirty, and e.isSave with e.storedImageUrl.
@@ -54,8 +55,9 @@
     var signatureControl = {
         initialize: function (options) {
             var element = this;
+            var isEform = typeof options == "undefined" || options == null || options.eform;
             // Generating an eform configuration.
-            if (typeof options == "undefined" || options == null || options.eform) {
+            if (isEform) {
                 options = options || {};
                 element.sigHTML = "<%= request.getContextPath() %>/signature_pad/tabletSignature?inWindow=true&saveToDB=true&demographicNo=";
                 element.signatureDisplay = "#signatureDisplay";
@@ -150,6 +152,10 @@
                 }
                 : options.signatureHandler;
             if (jQuery(element.signatureInput).length) {
+                if (isEform && String(element.demographicNo) === '-1') {
+                    jQuery(element.signatureInput).empty().text("Signing is available once this form is saved for a patient.");
+                    return element;
+                }
                 if (!/^[1-9][0-9]*$/.test(String(element.demographicNo)) || Number(element.demographicNo) > 2147483647) {
                     alert("The signature pad could not determine this form's patient. Please reopen the form.");
                     return element;
