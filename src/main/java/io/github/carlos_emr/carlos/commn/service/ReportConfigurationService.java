@@ -75,10 +75,11 @@ public class ReportConfigurationService {
     }
 
     /**
-     * Shifts the saved variant and removes the original row once, including an empty target range.
+     * Moves the selected field before the target order while retaining its row and saved variant.
+     * The legacy method name is retained for existing callers.
      * @param reportId int owning report identifier
      * @param save String saved variant name
-     * @param id int configuration identifier to remove
+     * @param id int configuration identifier to move
      * @param newPosition int first order number to shift
      * @throws IllegalArgumentException if the configuration is missing or belongs to another report or variant
      */
@@ -88,13 +89,15 @@ public class ReportConfigurationService {
                 || !java.util.Objects.equals(original.getSave(), save)) {
             throw new IllegalArgumentException("Report configuration does not belong to this saved report");
         }
+        if (java.util.Objects.equals(original.getOrderNo(), newPosition)) return;
         for (ReportConfig r : configurations.findByReportIdAndSaveAndGtOrderNo(reportId, save, newPosition)) {
             if (r.getId() != id) {
                 r.setOrderNo(r.getOrderNo() + 1);
                 configurations.merge(r);
             }
         }
-        configurations.remove(id);
+        original.setOrderNo(newPosition);
+        configurations.merge(original);
     }
 
     /**

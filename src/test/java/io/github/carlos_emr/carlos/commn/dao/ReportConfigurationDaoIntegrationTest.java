@@ -162,16 +162,69 @@ class ReportConfigurationDaoIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    void shouldRemoveOriginalOnce_whenTargetRangeIsEmpty() {
+    void shouldPreserveTheMovedField_whenTargetRangeIsEmpty() {
         cleanup();
         try {
             ReportConfig first = config("first", 1, "A");
             service.insertWithOrder(first);
             service.shiftAndRemove(5549, "A", first.getId(), 100);
-            assertThat(configurations.find(first.getId())).isNull();
+            assertThat(configurations.find(first.getId())).isNotNull();
+            assertThat(configurations.find(first.getId()).getOrderNo()).isEqualTo(100);
         } finally {
             cleanup();
         }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            "third,first,third:first:second",
+            "first,third,second:first:third"
+    })
+    void shouldMoveTheSelectedField_beforeTheTargetWithoutDroppingRows(
+            String selected, String target, String expectedNames) {
+        cleanup();
+        try {
+            for (int index = 0; index < 3; index++) {
+                ReportConfig row = config(java.util.List.of("first", "second", "third").get(index), index + 1, "A");
+                row.setCaption("FAKE-5926 & Ω");
+                new TransactionTemplate(transactionManager).executeWithoutResult(status -> configurations.persist(row));
+            }
+            ReportConfig otherVariant = config("other", 42, "B");
+            new TransactionTemplate(transactionManager).executeWithoutResult(status -> configurations.persist(otherVariant));
+            var before = configurations.findByReportIdAndSave(5549, "A");
+            var selectedRow = before.stream().filter(row -> row.getName().equals(selected)).findFirst().orElseThrow();
+            int position = before.stream().filter(row -> row.getName().equals(target)).findFirst().orElseThrow().getOrderNo();
+            var originalIds = before.stream().map(ReportConfig::getId).toList();
+
+            service.shiftAndRemove(5549, "A", selectedRow.getId(), position);
+
+            var after = configurations.findByReportIdAndSave(5549, "A");
+            assertThat(after).extracting(ReportConfig::getName).containsExactly(expectedNames.split(":"));
+            assertThat(after).extracting(ReportConfig::getId).containsExactlyInAnyOrderElementsOf(originalIds);
+            assertThat(after).allSatisfy(row -> {
+                assertThat(row.getCaption()).isEqualTo("FAKE-5926 & Ω");
+                assertThat(row.getTableName()).isEqualTo("formBCAR");
+            });
+            assertThat(configurations.find(selectedRow.getId()).getOrderNo()).isEqualTo(position);
+            assertThat(configurations.find(otherVariant.getId()).getOrderNo()).isEqualTo(42);
+        } finally { cleanup(); }
+    }
+
+    @Test
+    void shouldKeepEveryOrderNumber_whenMovingAFieldToItsCurrentPosition() {
+        cleanup();
+        try {
+            ReportConfig first = config("first", 1, "A");
+            ReportConfig second = config("second", 2, "A");
+            new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+                configurations.persist(first);
+                configurations.persist(second);
+            });
+            service.shiftAndRemove(5549, "A", first.getId(), 1);
+            assertThat(configurations.findByReportIdAndSave(5549, "A"))
+                    .extracting(ReportConfig::getId, ReportConfig::getOrderNo)
+                    .containsExactly(tuple(first.getId(), 1), tuple(second.getId(), 2));
+        } finally { cleanup(); }
     }
 
     @Test
