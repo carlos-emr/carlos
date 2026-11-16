@@ -39,9 +39,6 @@ public class CdsUploadDao extends AbstractDaoImpl<CdsUpload> {
         if (rows.size() > 1) throw new IllegalStateException("UPLOAD_RUN_ASSOCIATION_CONFLICT");
         return rows.isEmpty() ? null : rows.get(0);
     }
-    public long reservedCount() {
-        return entityManager.createQuery("select count(u) from CdsUpload u where u.quotaReleased=false", Long.class).getSingleResult();
-    }
     public List<CdsUpload> page(String operator, String after, int limit) {
         return entityManager.createQuery("select u from CdsUpload u where u.operator=:operator and u.id>:after and u.state<>'ABANDONED' order by u.id", CdsUpload.class)
                 .setParameter("operator", operator).setParameter("after", after).setMaxResults(limit).getResultList();

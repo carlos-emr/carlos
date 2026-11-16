@@ -290,10 +290,10 @@ public final class Frm2Action extends ActionSupport {
                 newID = rec.saveFormRecord(loggedInInfo, props);
 
                 if (newID > 0) {
-                    log.info("{} new form ID {} successfully saved.", LogSafe.sanitize(formClassName), newID); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                    log.info("{} new form ID {} successfully saved.", LogSafe.sanitize(formClassName), LogSafe.sanitize(String.valueOf(newID))); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                     saveSuccess = Boolean.TRUE;
                 } else {
-                    log.info("{} form ID {} failed to save.", LogSafe.sanitize(formClassName), formId); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                    log.info("{} form ID {} failed to save.", LogSafe.sanitize(formClassName), LogSafe.sanitize(String.valueOf(formId))); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 }
 
                 String ip = request.getRemoteAddr();

@@ -56,6 +56,7 @@ public class CategoryData {
     private int matchedHRMCount = 0;
 
     private HashMap<Integer, PatientInfo> patients;
+    private java.util.function.IntPredicate hrmPatientReadable = patient -> true;
 
     public int getTotalDocs() {
         return totalDocs;
@@ -153,7 +154,14 @@ public class CategoryData {
             // Inbox controllers retain their checked-SQL failure path after the DAO migration.
             throw new SQLException("Could not read inbox category counts", failure);
         }
+        int withheld = 0;
         for (InboxCategoryDao.PatientCount row : result.patients()) {
+            if (operation == Operation.HRM_PATIENT && !hrmPatientReadable.test(row.id())) {
+                // The report list leaves this patient's hospital reports out; neither the patient's
+                // name nor the count may appear in the sidebar.
+                withheld += row.hrm();
+                continue;
+            }
             if (operation == Operation.DOCUMENT_PATIENT) {
                 PatientInfo patient = new PatientInfo(row.id(), row.firstName(), row.lastName());
                 patient.setDocCount(row.documents());
@@ -168,7 +176,18 @@ public class CategoryData {
                 }
             }
         }
-        return result.total();
+        return result.total() - withheld;
+    }
+
+    /**
+     * Sets which patients' hospital (HRM) reports this user may see. Without it every patient is
+     * counted, as before the patient-level HRM rules existed.
+     *
+     * @param readable decides for a demographic number; {@code false} leaves the patient and the
+     *                 patient's HRM count out of the matched counts and the patient list
+     */
+    public void setHrmPatientReadable(java.util.function.IntPredicate readable) {
+        this.hrmPatientReadable = java.util.Objects.requireNonNull(readable);
     }
 
     /** @return String current date-search preference */

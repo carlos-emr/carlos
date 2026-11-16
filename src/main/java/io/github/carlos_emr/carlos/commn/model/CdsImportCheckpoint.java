@@ -54,6 +54,9 @@ public class CdsImportCheckpoint extends AbstractModel<String> {
     @Column(name = "target_digest", nullable = false, length = 64)
     private String targetDigest;
 
+    @Column(name = "native_baseline", nullable = true, columnDefinition = "longtext")
+    private String nativeBaseline;
+
     @Column(name = "first_run_id", nullable = false, length = 36)
     private String firstRunId;
 
@@ -73,6 +76,8 @@ public class CdsImportCheckpoint extends AbstractModel<String> {
     public void setRulesetDigest(String value) { rulesetDigest = value; }
     public String getTargetReferences() { return targetReferences; }
     public void setTargetReferences(String value) { targetReferences = value; }
+    public String getNativeBaseline() { return nativeBaseline; }
+    public void setNativeBaseline(String value) { nativeBaseline = value; }
     public String getTargetDigest() { return targetDigest; }
     public void setTargetDigest(String value) { targetDigest = value; }
     public String getFirstRunId() { return firstRunId; }

@@ -66,6 +66,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+import io.github.carlos_emr.carlos.documentManager.DocumentDescription;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -164,7 +165,9 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
                 return null;
             }
             Attachment attachment = communicationRequest.getPayloadFirstRep().getContentAttachment();
-            String title = attachment.getTitle();
+            // The sending system's title becomes the document description: shortened to
+            // document.docdesc rather than cut by the database without a word.
+            String title = DocumentDescription.fit(attachment.getTitle());
             String docType = "";
             CodeableConcept cc = communicationRequest.getCategoryFirstRep();
 

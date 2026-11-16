@@ -393,6 +393,24 @@ class PrintLayoutServiceUnitTest {
     }
 
     @Test
+    @DisplayName("should refuse a document type that declares entities, naming no document text")
+    void shouldFailWithPhase_whenDocumentTypeDeclaresEntities() {
+        // The composer never writes an internal subset; a string that carries one did not come from it.
+        String composed = xhtml(blockPage(300));
+        assertThat(composed).startsWith("<html>");
+        String declared = "<!DOCTYPE html [<!ENTITY fake \"FAKE-Patient expanded\">]>"
+                + composed.replace("</body>", "<p>&fake;</p></body>");
+        assertThat(declared).contains("&fake;");
+
+        assertThatExceptionOfType(HtmlPdfRenderException.class).isThrownBy(() -> service.render(PrintMode.NORMAL,
+                        declared, baseDirectory, List.of(baseDirectory), fonts, degradations()))
+                .satisfies(e -> {
+                    assertThat(e.phase()).isEqualTo(HtmlPdfRenderException.Phase.LAYOUT_PASS_1);
+                    assertThat(e.getMessage()).doesNotContain("FAKE-");
+                });
+    }
+
+    @Test
     @DisplayName("should treat a linkage error in a pass like any other failure of that pass")
     void shouldCatchLinkageError_inAPass() {
         PrintLayoutService failing = new PrintLayoutService((directories, resolver) -> {

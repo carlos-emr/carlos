@@ -42,4 +42,29 @@ class FormRourke2020UnitTest {
         imported.setP4Immunization(null);
         assertThat(imported.toProperties()).containsEntry("p3_immunization", "").containsEntry("p4_immunization", "");
     }
+
+    @Test
+    void shouldPrintBlankFields_whenStoredColumnsAreNull() {
+        // A record loaded with NULL text, date and edit-time columns used to fail the whole Print
+        // (Properties.setProperty rejects null); each prints as a blank field, as Rourke 2017 does.
+        FormRourke2020 stored = new FormRourke2020(recordProperties());
+        stored.setCMale(null);
+        stored.setP5_1CommentsOther(null);
+        stored.setFormCreated(null);
+        stored.setFormEdited(null);
+        stored.setC_APGAR1min(null);
+        stored.setC_APGAR5min(null);
+
+        Properties printed = stored.toProperties();
+
+        assertThat(printed)
+                .containsEntry("c_male", "")
+                .containsEntry("p5_1CommentsOther", "")
+                .containsEntry("formCreated", "")
+                .containsEntry("formEdited", "")
+                // A NULL Integer column too: blank, never the text "null".
+                .containsEntry("c_APGAR1min", "")
+                .containsEntry("c_APGAR5min", "")
+                .containsEntry("provider_no", "999998");
+    }
 }

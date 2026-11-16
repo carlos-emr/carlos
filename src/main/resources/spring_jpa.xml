@@ -127,7 +127,10 @@
 		<property name="entityManagerFactory" ref="entityManagerFactory" />
 	</bean>
 	
-	<tx:annotation-driven transaction-manager="transactionManager" />
+	<!-- order: keep equal to the tx:annotation-driven in applicationContext.xml, which explains it.
+	     That declaration is parsed first and is the one Spring configures the advisor from; this
+	     one decides only where a context loads this file without it. -->
+	<tx:annotation-driven transaction-manager="transactionManager" order="2147483647" />
 
 	<!-- Managed Beans -->
 	<context:component-scan base-package="io.github.carlos_emr.carlos.commn.dao">
