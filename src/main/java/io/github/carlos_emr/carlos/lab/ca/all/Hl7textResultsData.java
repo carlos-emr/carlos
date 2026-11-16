@@ -555,7 +555,22 @@ public class Hl7textResultsData {
     static String textResultValue(String result, String status, String context) {
         if (result == null || !ObxResultStatus.isFinal(status)) return null;
         // Handlers mark line breaks as <br />; a lab may send its own in capitals.
-        String text = result.replaceAll("(?i)\\s*\\<br\\s?/?\\>\\s*", " ").trim();
+        // Start at the marker: a leading \\s* makes a failed search rescan every whitespace suffix.
+        Matcher breaks = Pattern.compile("(?i)<br\\s?/?>\\s*").matcher(result);
+        StringBuilder normalized = new StringBuilder();
+        int start = 0;
+        while (breaks.find()) {
+            int end = breaks.start();
+            while (end > start) {
+                char c = result.charAt(end - 1);
+                // Preserve the regex's default ASCII whitespace semantics.
+                if (c != ' ' && (c < '\t' || c > '\r')) break;
+                end--;
+            }
+            normalized.append(result, start, end).append(' ');
+            start = breaks.end();
+        }
+        String text = normalized.append(result, start, result.length()).toString().trim();
         if (text.isEmpty() || "DNR".equals(text)) return null;
         int characters = text.codePointCount(0, text.length());
         if (characters > Measurement.DATA_FIELD_MAX_LENGTH) {

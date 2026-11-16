@@ -22,6 +22,7 @@ import java.io.Reader;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Calendar;
@@ -791,6 +792,32 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
                 assertThat(Hl7textResultsData.textResultValue(tooLong, "F", null)).isNull();
                 assertThat(log.messages()).isEmpty();
             }
+        }
+
+        @Test
+        void shouldNormalizeOnlyBreakMarkersAndTheirSurroundingWhitespace() {
+            for (var example : Map.of(
+                    "  Pending \t<br /> \n see report  ", "Pending see report",
+                    "Pending<br><BR/>see report", "Pending  see report",
+                    "Pending\u00a0<br>\u00a0see report", "Pending\u00a0 \u00a0see report",
+                    "Pending<br  />see report", "Pending<br  />see report",
+                    "Pending \t see report", "Pending \t see report").entrySet()) {
+                assertThat(Hl7textResultsData.textResultValue(example.getKey(), "F", null))
+                        .isEqualTo(example.getValue());
+            }
+        }
+
+        @Test
+        void shouldBoundNormalizationTime_whenAnOversizedResultHasLongWhitespaceRuns() {
+            String whitespace = " ".repeat(100_000);
+            org.junit.jupiter.api.Assertions.assertTimeout(Duration.ofSeconds(5), () -> {
+                assertThat(Hl7textResultsData.textResultValue("Pending" + whitespace + "see report", "F", null))
+                        .isNull();
+                assertThat(Hl7textResultsData.textResultValue("Pending" + whitespace + "<br not-a-tag>", "F", null))
+                        .isNull();
+                assertThat(Hl7textResultsData.textResultValue("Pending" + whitespace + "<BR/>" + whitespace + "see report", "F", null))
+                        .isEqualTo("Pending see report");
+            });
         }
 
         @Test
