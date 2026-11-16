@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "006f9ac808518f93751d2d0fbf7fac44a52f25ea8533be38b20b6fa0f53799a0",
+ "migration_sha256": "dc873047eb5444fbccb09469a3f3bcd59add3bf5b89322552b0b6bdbf82d612f",
  "province": "bc",
  "schema": {
   "checks": [
@@ -1028,10 +1028,10 @@
    [
     "Consent",
     "live_demographic_no",
-    "int(11)",
+    "int(10)",
     "YES",
     "NULL",
-    "STORED GENERATED",
+    "STORED GENERATED, INVISIBLE",
     null,
     null,
     "if(`deleted` = 0,`demographic_no`,NULL)",

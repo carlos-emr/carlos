@@ -29,7 +29,6 @@
 package io.github.carlos_emr.carlos.managers;
 
 import io.github.carlos_emr.Misc;
-import org.apache.cxf.common.util.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.SecurityArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;

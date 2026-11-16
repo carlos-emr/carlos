@@ -309,7 +309,7 @@ class AppointmentStaleEditFormUnitTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
         assertThat(ApptUtil.getAppointmentFromSession(request)).isNotNull();
         assertThat(ApptUtil.getAppointmentFromSession(request).getReason()).isEqualTo("edited by a stale form");
-        logActionMock.verify(() -> LogAction.addLogSynchronous(info, "Appointment.cut", LogConst.CON_APPT, "61", null,
+        logActionMock.verify(() -> LogAction.addLogSynchronous(info, "Appointment.cut", LogConst.CON_APPT, "61", (Integer) null,
                 "id=61"));
     }
 }

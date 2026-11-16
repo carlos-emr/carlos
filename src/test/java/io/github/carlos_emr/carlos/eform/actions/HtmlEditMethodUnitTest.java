@@ -52,7 +52,7 @@ class HtmlEditMethodUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest
     @ValueSource(strings = {"GET", "HEAD", "PUT", "DELETE"})
-    void shouldRefuseBeforeFormPersistence_whenMethodIsNotPost(String method) {
+    void shouldRefuseBeforeFormPersistence_whenMethodIsNotPost(String method) throws Exception {
         request.setMethod(method);
         try (var forms = mockStatic(EFormUtil.class)) {
             assertThat(new HtmlEdit2Action().execute()).isEqualTo(ActionSupport.NONE);
@@ -64,7 +64,7 @@ class HtmlEditMethodUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest
     @ValueSource(strings = {"", "7"})
-    void shouldRetainCreateAndUpdate_whenAuthorizedPostIsSubmitted(String id) {
+    void shouldRetainCreateAndUpdate_whenAuthorizedPostIsSubmitted(String id) throws Exception {
         request.setMethod("POST");
         var action = new HtmlEdit2Action();
         action.setFid(id);

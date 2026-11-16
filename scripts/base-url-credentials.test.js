@@ -162,6 +162,6 @@ test('legacy Rx fax string adapter keeps root-context navigation on the applicat
 test('application-health refuses cleartext remote credentials before reading login secrets',()=>{
  const {spawnSync}=require('node:child_process');
  const result=spawnSync(process.execPath,[path.join(__dirname,'application-health-playwright-checks.js')],{env:{PATH:process.env.PATH,BASE_URL:'http://example.invalid/carlos',ALLOW_NON_LOCAL_BASE_URL:'true'},encoding:'utf8',timeout:10000});
- assert.equal(result.status,1);assert.match(result.stderr,/Non-loopback BASE_URL targets must use https/);
+ assert.equal(result.status,1);assert.match(result.stderr,/BASE_URL must use HTTPS/);
  assert.doesNotMatch(result.stderr,/TEST_USER must be set/);
 });

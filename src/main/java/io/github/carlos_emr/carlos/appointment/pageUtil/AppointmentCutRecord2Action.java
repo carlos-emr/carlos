@@ -40,8 +40,6 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.appt.ApptUtil;
 import io.github.carlos_emr.carlos.appt.AppointmentClipboardValidationException;
 import io.github.carlos_emr.carlos.appt.location.AppointmentLocationUnavailableException;
-import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
-import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;

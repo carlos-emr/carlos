@@ -31,8 +31,6 @@
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
 import io.github.carlos_emr.carlos.util.plugin.IsPropertiesOn;
-import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
-import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao.DocumentType;
@@ -43,7 +41,6 @@ import io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferenceReso
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 

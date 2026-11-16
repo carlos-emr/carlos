@@ -47,12 +47,10 @@ import io.github.carlos_emr.carlos.webserv.rest.to.PreventionResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.PreventionTo1;
 import io.github.carlos_emr.carlos.prevention.PreventionDateService;
 import io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException;
-import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
 import org.springframework.stereotype.Component;
 
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
 
 
 /**

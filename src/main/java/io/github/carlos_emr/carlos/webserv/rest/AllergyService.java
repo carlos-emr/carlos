@@ -33,7 +33,6 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTemporalRead
 
 import java.util.List;
 
-import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -41,7 +40,6 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 
-import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.managers.AllergyManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;

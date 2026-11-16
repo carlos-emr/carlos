@@ -945,7 +945,7 @@ class TestTheSqlSemanticsOracleStaysUsable(unittest.TestCase):
     def test_all_published_consent_repairs_are_verified_in_flyway_order(self):
         migrations = self.mod._consent_migrations()
         self.assertEqual([p.name.split("__")[0] for p in migrations],
-                         ["V1.0.59.30", "V1.0.77"])
+                         ["V1.0.59.30", "V1.0.77", "V1.0.82"])
         self.assertEqual(self.mod._consent_migration_sql(),
                          "\n".join(p.read_text(encoding="utf-8") for p in migrations))
 

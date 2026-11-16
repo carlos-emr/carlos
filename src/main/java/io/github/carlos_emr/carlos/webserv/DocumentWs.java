@@ -29,7 +29,6 @@
 
 package io.github.carlos_emr.carlos.webserv;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;

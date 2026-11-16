@@ -35,7 +35,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
 import io.github.carlos_emr.carlos.prescript.data.RxProviderData;
@@ -540,7 +539,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         PdfPTable datelineborder = new PdfPTable(1);
         datelineborder.setWidthPercentage(100f);
         PdfPCell datecell = new PdfPCell();
-        datecell.setPhrase(PdfFonts.phrase(String.format("%s %s", getResource("msgDate"), letter.request().patientWillBook().equals("1") ? getResource("pwb") : letter.request().referralDate()), heading));
+        datecell.setPhrase(PdfFonts.phrase(String.format("%s %s", getResource("msgDate"), "1".equals(letter.request().patientWillBook()) ? getResource("pwb") : letter.request().referralDate()), heading));
         datecell.setBorder(0);
         datecell.setColspan(1);
         datecell.setPaddingTop(5f);
