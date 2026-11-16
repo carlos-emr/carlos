@@ -89,8 +89,20 @@ class ValidateSwipeCard2ActionUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(validator);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"magneticStripe=FAKE", "%6dagneticStripe=FAKE", "unused=x&magneticStripe=FAKE", "magneticStripe", "malformed%xx=x"})
+    void shouldRefuseUrlCarriedTracks_beforeValidation(String query) throws Exception {
+        when(request.getQueryString()).thenReturn(query);
+        action.setMagneticStripe(TRACK);
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        verify(response).sendError(HttpServletResponse.SC_BAD_REQUEST);
+        factory.verifyNoInteractions();
+        verifyNoInteractions(validator);
+    }
+
     @Test
     void validTrackPreservesParsedCardAndValidatorResult() throws Exception {
+        when(request.getQueryString()).thenReturn("method=execute&CSRF_TOKEN=FAKE");
         HCValidationResult result = new HCValidationResult();
         result.setResponseCode("51");
         when(validator.validate("9267294685", "DK")).thenReturn(result);

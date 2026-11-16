@@ -86,6 +86,23 @@ public class ValidateSwipeCard2Action extends ActionSupport {
             return NONE;
         }
 
+        // Struts merges query and body parameters; track data must only arrive in the body.
+        String query = request.getQueryString();
+        if (query != null) {
+            try {
+                for (String parameter : query.split("&")) {
+                    String key = parameter.split("=", 2)[0];
+                    if ("magneticStripe".equals(java.net.URLDecoder.decode(key, java.nio.charset.StandardCharsets.UTF_8))) {
+                        response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                        return NONE;
+                    }
+                }
+            } catch (IllegalArgumentException invalidQueryEncoding) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
+            }
+        }
+
         String magneticStripe = this.getMagneticStripe();
         HCMagneticStripe hcMagneticStripe;
         try {
