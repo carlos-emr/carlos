@@ -302,6 +302,9 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
 
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
+    // Only private constant HQL is rewritten from an outer alias to :id. Every caller value
+    // is bound below; no external text becomes query syntax (reviewed S2077 false positive).
+    @SuppressWarnings("java:S2077")
     public int replaceBodyIfUnchangedBefore(Integer id, EmailLog.TransactionType type, Date changedBefore,
             Date expiredBefore, Date agedBefore, String replacement) {
         return withSettledParameters(entityManager.createQuery("UPDATE EmailLog e SET e.body = :body "
