@@ -795,12 +795,13 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        void shouldNormalizeOnlyBreakMarkersAndTheirSurroundingWhitespace() {
+        void shouldNormalizeOnlyBreakMarkers_withTheirSurroundingWhitespace() {
             for (var example : Map.of(
                     "  Pending \t<br /> \n see report  ", "Pending see report",
                     "Pending<br><BR/>see report", "Pending  see report",
                     "Pending\u00a0<br>\u00a0see report", "Pending\u00a0 \u00a0see report",
                     "Pending<br  />see report", "Pending<br  />see report",
+                    "Pending\u0007<br>see report", "Pending\u0007 see report",
                     "Pending \t see report", "Pending \t see report").entrySet()) {
                 assertThat(Hl7textResultsData.textResultValue(example.getKey(), "F", null))
                         .isEqualTo(example.getValue());
