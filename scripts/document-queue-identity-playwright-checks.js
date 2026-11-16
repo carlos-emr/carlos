@@ -78,7 +78,7 @@ async function workflow(s) {
     h.assert(posted.get('newQueueName') === adminName && posted.getAll('method').length === 1,
       'Queue punctuation or Unicode changed in the submitted form body');
     await expectValue(sql, `SELECT COUNT(*) FROM queue q JOIN secObjectName s ON s.objectName=CONCAT('_queue.',q.id)
-      WHERE q.name=${q(adminName)} AND s.description=${q(adminName)}`, '1', 'Security object belongs to a different queue');
+      WHERE BINARY q.name=BINARY ${q(adminName)} AND BINARY s.description=BINARY ${q(adminName)}`, '1', 'Security object belongs to a different queue');
     h.assert(sql.value('SELECT MAX(id) FROM queue') !== providerId, 'A later queue is required for the failure regression');
   });
 

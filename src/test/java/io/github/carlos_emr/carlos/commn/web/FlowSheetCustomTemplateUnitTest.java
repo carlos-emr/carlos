@@ -15,6 +15,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.jdom2.Element;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -39,7 +40,16 @@ class FlowSheetCustomTemplateUnitTest extends CarlosUnitTestBase {
         save(count, true);
     }
 
+    @Test
+    void shouldRejectMissingTemplate_beforePersistingAnyCustomization() throws Exception {
+        save("absent", false, null);
+    }
+
     private void save(String count, boolean exists) throws Exception {
+        save(count, exists, "Synthetic template");
+    }
+
+    private void save(String count, boolean exists, String flowsheet) throws Exception {
         var dao = createAndRegisterMock(FlowSheetCustomizationDao.class);
         createAndRegisterMock(FlowSheetUserCreatedDao.class);
         var customization = createAndRegisterMock(FlowSheetCustomizationService.class);
@@ -53,7 +63,7 @@ class FlowSheetCustomTemplateUnitTest extends CarlosUnitTestBase {
         request.setMethod("POST");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), user);
         request.setParameter("method", "save");
-        request.setParameter("flowsheet", "Synthetic template");
+        if (flowsheet != null) request.setParameter("flowsheet", flowsheet);
         request.setParameter("measurement", "BP");
         request.setParameter("display_name", "Blood pressure");
         request.setParameter("guideline", "");
