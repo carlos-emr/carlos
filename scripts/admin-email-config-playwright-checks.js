@@ -321,6 +321,40 @@ async function workflow(s) {
     h.assert(await cards().count() === 1 && await manager.locator(`#emailStatus${failedLog}`).count() === 1, 'The FAILED filter did not isolate the failed row');
   });
 
+  await s.step('Resolve preserves the FAILED card when a timeout returns the application login HTML', async () => {
+    const anonymous = await h.newContext(context.browser(), s.config);
+    let loginHtml;
+    try {
+      const login = await anonymous.request.get(h.appUrl(s.config.baseUrl, '/logoutPage'));
+      h.assert(login.status() === 200 && /text\/html/i.test(login.headers()['content-type'] || ''),
+        'The application timeout page is unavailable');
+      loginHtml = await login.text();
+    } finally { await anonymous.close(); }
+    // Replay the real timeout-page body at this one response boundary. The separate
+    // LoginFilter inactivity probe verifies why an authenticated AJAX call can receive it.
+    const routePattern = '**/admin/ManageEmails';
+    const timeoutResponse = async route => {
+      const request = route.request();
+      if (request.method() === 'POST' && new URLSearchParams(request.postData() || '').get('method') === 'setResolved') {
+        await route.fulfill({status: 200, contentType: 'text/html;charset=UTF-8', body: loginHtml});
+      } else await route.continue();
+    };
+    await context.route(routePattern, timeoutResponse);
+    try {
+      const dialogs = await h.withExpectedDialogs(manager.page(), async () => {
+        await manager.locator(`#btnResolve${failedLog}`).click();
+        await manager.waitForFunction(() => window.jQuery && window.jQuery.active === 0);
+      });
+      h.assert(sql.value(`SELECT status FROM emailLog WHERE id=${failedLog}`) === 'FAILED',
+        'The timeout response changed the stored email status');
+      h.assert((await manager.locator(`#emailStatus${failedLog}`).innerText()).trim() === 'FAILED'
+        && await manager.locator(`#btnResolve${failedLog}`).count() === 1,
+      'Login HTML falsely marked the unresolved email RESOLVED');
+      h.assert(dialogs.length === 2 && dialogs[0].type === 'confirm' && dialogs[1].type === 'alert',
+        'The timeout did not report that resolution failed');
+    } finally { await context.unroute(routePattern, timeoutResponse); }
+  });
+
   await s.step('Resolve on the failed row stores RESOLVED', async () => {
     const dialogs = await h.withExpectedDialogs(manager.page(), async () => {
       const [response] = await Promise.all([
@@ -328,6 +362,8 @@ async function workflow(s) {
         manager.locator(`#btnResolve${failedLog}`).click(),
       ]);
       h.assert(response.status() === 200, `Resolve answered HTTP ${response.status()}`);
+      h.assert((await response.json()).resolvedLogId === failedLog,
+        'Resolve did not acknowledge the requested email row');
     });
     h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Resolve did not ask for confirmation');
     await expectValue(sql, `SELECT status FROM emailLog WHERE id=${failedLog}`, 'RESOLVED',

@@ -5648,7 +5648,7 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Issue #5641: Resolve must dispatch to the status update, store RESOLVED, and retain the resolved card and filter result after reloading Manage Emails.",
+      "notes": "Issues #5641 and #6020: Resolve must acknowledge the requested row, store RESOLVED, and retain the resolved card and filter result after reload. Replaying the application's timeout HTML at the response boundary must retain the FAILED card, button and stored state while reporting the failed resolution.",
       "fixtures": "Owned LOCAL emailConfig pointing at an in-process 127.0.0.1 SMTP sink, owned eForm template and owned patient email (one valid example.com, one .invalid); nothing leaves the host; emailConfig snapshot asserted unchanged. The sender is offered clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
