@@ -56,7 +56,7 @@ async function workflow(s) {
     h.assert(/^[1-9]\d*$/.test(id), 'The BLOB fixture has no valid generated identifier');
     const result = spawnSync('java', ['--source', '25', '-cp',
       `${path.join(webapp(), 'WEB-INF/classes')}:${path.join(webapp(), 'WEB-INF/lib/*')}`,
-      path.join(__dirname, 'fixtures/ReportBlobReaderProbe.java')],
+      path.join(__dirname, 'fixtures/carlostest5922/ReportBlobReaderProbe.java')],
     {stdio: 'inherit', env: {...process.env, PROBE_BLOB_FORM_ID: id, PROBE_BLOB_FORM_MARKER: marker}});
     if (result.error) throw result.error;
     h.assert(result.status === 0, 'An installed binary report reader failed the JDBC decoding probe');
