@@ -26,14 +26,22 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.net.URISyntaxException;
+import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Properties;
+import java.util.ArrayList;
+import java.util.Hashtable;
+import java.util.List;
+import java.util.Map;
+
+import javax.tools.ToolProvider;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -82,6 +90,60 @@ class LabTextResultLabelJspRegressionTest {
 
         assertThat(grid).contains("row['latestText']", "cell['text'] eq 'true'");
         assertThat(grid.split(LABEL, -1)).as("latest value and dated cells").hasSize(3);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void shouldKeepTheNewestObservation_whenOneReportRepeatsATest(boolean newestText, @TempDir Path scratch)
+            throws Exception {
+        String grid = read("src/main/webapp/WEB-INF/jsp/lab/CumulativeLabValues3.jsp");
+        int selectionStart = grid.indexOf("for (int j = 0; j < labList.size(); j++) {");
+        int selectionEnd = grid.indexOf("if (!labList.isEmpty())", selectionStart);
+        int rowsStart = grid.indexOf("List<Map<String, Object>> tableRows =");
+        int rowsEnd = grid.indexOf("pageContext.setAttribute(", rowsStart);
+        assertThat(selectionStart).isPositive();
+        assertThat(selectionEnd).isGreaterThan(selectionStart);
+        assertThat(rowsStart).isPositive();
+        assertThat(rowsEnd).isGreaterThan(rowsStart);
+        // Execute the actual selection and cell-building scriptlets, using the DAO's newest-first order.
+        String source = """
+                import java.util.*;
+                import io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues;
+                import io.github.carlos_emr.carlos.util.StringUtils;
+                public class LabGridFragment {
+                    public static Map<String, Object> render(ArrayList labList) {
+                        LinkedHashMap<String, Hashtable> idMap = new LinkedHashMap<>();
+                        List<String> idList = new ArrayList<>();
+                        List<Hashtable<String, String>> dateList = new ArrayList<>();
+                """ + grid.substring(selectionStart, selectionEnd) + """
+                        LinkedHashMap<String, String> nameMap = new LinkedHashMap<>();
+                        nameMap.put("1234", "Synthetic test");
+                        Map<String, LinkedHashMap<String, Hashtable>> measIdMap = new HashMap<>();
+                        measIdMap.put("1234", idMap);
+                """ + grid.substring(rowsStart, rowsEnd) + "return tableRows.getFirst(); }}";
+        Path wrapper = scratch.resolve("LabGridFragment.java");
+        Files.writeString(wrapper, source);
+        String classpath = System.getProperty("surefire.test.class.path", System.getProperty("java.class.path"));
+        assertThat(ToolProvider.getSystemJavaCompiler()).isNotNull();
+        assertThat(ToolProvider.getSystemJavaCompiler().run(null, null, null, "-encoding", "UTF-8",
+                "-classpath", classpath, "-d", scratch.toString(), wrapper.toString())).isZero();
+        Hashtable<String, String> newest = new Hashtable<>(Map.of("lab_no", "42", "date", "2026-11-12 12:00:00",
+                "result", newestText ? "Pending" : "7.2", "abn", "N", "valueType", newestText ? "text" : ""));
+        Hashtable<String, String> older = new Hashtable<>(Map.of("lab_no", "42", "date", "2026-11-11 12:00:00",
+                "result", newestText ? "7.2" : "Pending", "abn", "A", "valueType", newestText ? "" : "text"));
+        try (URLClassLoader loader = new URLClassLoader(new java.net.URL[]{scratch.toUri().toURL()},
+                getClass().getClassLoader())) {
+            Map<?, ?> row = (Map<?, ?>) loader.loadClass("LabGridFragment").getMethod("render", ArrayList.class)
+                    .invoke(null, new ArrayList<>(List.of(newest, older)));
+            assertThat(row.get("latestVal")).isEqualTo(newest.get("result"));
+            assertThat(row.get("latestDate")).isEqualTo("2026-11-12");
+            assertThat(row.get("latestText")).isEqualTo(newestText);
+            List<?> cells = (List<?>) row.get("cells");
+            assertThat(cells).hasSize(1);
+            Map<?, ?> cell = (Map<?, ?>) cells.getFirst();
+            assertThat(cell.get("val")).isEqualTo(newest.get("result"));
+            assertThat(cell.get("text")).isEqualTo(String.valueOf(newestText));
+        }
     }
 
     @Test

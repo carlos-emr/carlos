@@ -118,7 +118,8 @@
                     Hashtable h  = (Hashtable) labList.get(j);
                     String date  = (String) h.get("date");
                     String id    = (String) h.get("lab_no");
-                    idMap.put(id, h);
+                    // The DAO returns newest first; keep that observation when a report repeats a LOINC.
+                    idMap.putIfAbsent(id, h);
                     if (!idList.contains(id)) {
                         idList.add(id);
                         Hashtable<String, String> dateIdHash = new Hashtable<>();
