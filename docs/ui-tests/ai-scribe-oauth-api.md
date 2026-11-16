@@ -23,8 +23,8 @@ together.
   writes, prescription history, and prescription listing.
 - Scheduling day/status/month/provider-period/patient-history reads, including
   the endpoint used to find the patient's existing appointments.
-- `insufficient_scope` refusals for demographic and eForm operations when the
-  token lacks the corresponding scope.
+- `insufficient_scope` refusals for demographic update, measurement create,
+  and eForm read/update operations when the token lacks the corresponding scope.
 
 The eForm endpoints manage templates, not completed patient eForm instances.
 New patient measurements use `POST /ws/services/measurements/{demographicNo}/new`
