@@ -1938,20 +1938,6 @@
             </plugin>
 
             <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>buildnumber-maven-plugin</artifactId>
-                <version>3.3.1</version>
-                <executions>
-                    <execution>
-                        <phase>validate</phase>
-                        <goals>
-                            <goal>create</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-
-            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-site-plugin</artifactId>
                 <version>3.21.0</version>
@@ -2003,6 +1989,27 @@
                 <artifactId>maven-antrun-plugin</artifactId>
                 <version>3.2.0</version>
                 <executions>
+                    <execution>
+                        <id>git-revision</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <exportAntProperties>true</exportAntProperties>
+                            <!-- buildNumber.properties must identify the tree being built, including
+                                 merge commits. The former SCM provider skipped merges in its Git log lookup.
+                                 Keep the release workflow's explicit -DbuildNumber override authoritative. -->
+                            <target unless="buildNumber">
+                                <exec executable="git" dir="${project.basedir}"
+                                      outputproperty="buildNumber" failonerror="true">
+                                    <arg value="rev-parse"/>
+                                    <arg value="--verify"/>
+                                    <arg value="HEAD"/>
+                                </exec>
+                            </target>
+                        </configuration>
+                    </execution>
                     <execution>
                         <phase>process-classes</phase>
                         <goals>
