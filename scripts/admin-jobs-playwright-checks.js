@@ -180,7 +180,7 @@ async function workflow(s) {
       h.assert(JSON.stringify(await jobs.locator('#minute').evaluate(select => Array.from(select.selectedOptions, option => option.value))) === JSON.stringify(['15', '45']),
         'The schedule minute selection was lost after refusal');
       h.assert(await jobs.locator('#hour').inputValue() === '3', 'The schedule hour was lost after refusal');
-      h.assert(sql.value(`SELECT cronExpression IS NULL FROM OscarJob WHERE id=${jobId}`) === '1',
+      h.assert(sql.value('SELECT cronExpression IS NULL FROM OscarJob WHERE id=?', [jobId]) === '1',
         'The controlled refusal changed the stored schedule');
     });
     await clickAwaiting(isRest('saveCrontabExpression'), dialogButton(jobs, 'scheduleDialog', 'Save'));
@@ -203,7 +203,7 @@ async function workflow(s) {
     await refuseSaveAsSignIn(jobs, 'new-job', 'saveJob', async () => {
       h.assert(await jobs.locator('#jobDescription').inputValue() === `${marker} edited disabled fixture`,
         'The edited description was lost after refusal');
-      h.assert(sql.value(`SELECT description FROM OscarJob WHERE id=${jobId}`) === `${marker} disabled fixture`,
+      h.assert(sql.value('SELECT description FROM OscarJob WHERE id=?', [jobId]) === `${marker} disabled fixture`,
         'The controlled refusal changed the stored job');
     });
     await clickAwaiting(isRest('saveJob'), dialogButton(jobs, 'new-job', 'Save Job'));
