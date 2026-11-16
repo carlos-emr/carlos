@@ -132,9 +132,9 @@ async function workflow(s) {
   });
 
   const storedDose = recordId => {
-    const rows = sql.rows(`SELECT HEX(val) FROM preventionsExt
+    const rows = sql.rows(`SELECT HEX(val), id FROM preventionsExt
       WHERE prevention_id=${requireId(recordId, 'The dose record')} AND keyval='dose'`);
-    h.assert(rows.length === 1 && /^(?:[0-9A-F]{2})*$/.test(rows[0][0]), 'The stored dose is absent, null or ambiguous');
+    h.assert(rows.length === 1 && rows[0].length === 2 && /^(?:[0-9A-F]{2})*$/.test(rows[0][0]), 'The stored dose is absent, null or ambiguous');
     return Buffer.from(rows[0][0], 'hex').toString('utf8');
   };
   for (const dose of ['0.5ml', '0.5 unknown', 'half a vial', '0.5  mL', 'Équipe "dose"', 'A&B <dose>',
