@@ -49,6 +49,7 @@ import jakarta.servlet.ServletContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
+import java.nio.file.Files;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Locale;
@@ -107,12 +108,15 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
             return forwardActionErrors();
         }
 
-        File tmpFile = stageUploadedArchive();
-
-        try (ZipFile zf = new ZipFile(tmpFile)) {
-            String importResult = isEFormArchive(zf) ? importEFormArchive(tmpFile) : importLegacyArchive(zf);
-            if (importResult != null) {
-                return importResult;
+        File tmpFile = File.createTempFile("tmp", ".zip");
+        // Register cleanup before staging/opening so copy failures and malformed ZIPs are removed too.
+        try (AutoCloseable cleanup = () -> Files.deleteIfExists(tmpFile.toPath())) {
+            stageUploadedArchive(tmpFile);
+            try (ZipFile zf = new ZipFile(tmpFile)) {
+                String importResult = isEFormArchive(zf) ? importEFormArchive(tmpFile) : importLegacyArchive(zf);
+                if (importResult != null) {
+                    return importResult;
+                }
             }
         }
 
@@ -122,15 +126,12 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
     /**
      * Copies the validated upload into a fresh temp file for zip processing.
      *
-     * @return the staged temp file, ready to be opened as a {@link ZipFile}
+     * @param tmpFile destination owned and removed by {@link #execute()}
      * @throws IllegalStateException if the servlet container's temp directory is unavailable
      * @throws IllegalArgumentException if the uploaded file path fails validation
      * @throws IOException if the upload cannot be copied to the temp file
      */
-    private File stageUploadedArchive() throws IOException {
-        File tmpFile = File.createTempFile("tmp", ".zip");
-        tmpFile.deleteOnExit();
-
+    private void stageUploadedArchive(File tmpFile) throws IOException {
         ServletContext servletContext = ServletActionContext.getServletContext();
         File safeDir = (File) servletContext.getAttribute("jakarta.servlet.context.tempdir"); // Use a safe directory
         if (safeDir == null) {
@@ -148,7 +149,6 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
              OutputStream fos = new FileOutputStream(tmpFile)) {
             is.transferTo(fos);
         }
-        return tmpFile;
     }
 
     /**

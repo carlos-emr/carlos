@@ -40,6 +40,8 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+import java.util.zip.ZipFile;
+import java.util.concurrent.atomic.AtomicReference;
 
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.http.HttpServletResponse;
@@ -309,6 +311,45 @@ class FrmXmlUpload2ActionSecurityUnitTest extends CarlosUnitTestBase {
         }
 
         verify(eformDao, never()).persist(any(EForm.class));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 0, -1, -2})
+    void shouldDeleteTheStagedCopy_afterLegacySuccessRefusalOrException(int outcome) throws Exception {
+        request.setMethod("POST");
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.eform"), eq("w"), isNull()))
+                .thenReturn(true);
+        Path upload = tempDir.resolve("cleanup-forms.zip");
+        try (ZipOutputStream archive = new ZipOutputStream(Files.newOutputStream(upload))) {
+            archive.putNextEntry(new ZipEntry("forms.xml"));
+            archive.write("<Results/>".getBytes(StandardCharsets.UTF_8));
+            archive.closeEntry();
+        }
+        AtomicReference<Path> staged = new AtomicReference<>();
+        FormXmlImportService importer = mock(FormXmlImportService.class);
+        when(importer.importArchive(any(ZipFile.class))).thenAnswer(call -> {
+            Path path = Path.of(((ZipFile) call.getArgument(0)).getName());
+            staged.set(path);
+            assertThat(path).exists().isNotEqualTo(upload);
+            if (outcome == -1) throw new IOException("synthetic import IO failure");
+            if (outcome == -2) throw new IllegalArgumentException("synthetic import refusal");
+            return outcome;
+        });
+        registerMock(FormXmlImportService.class, importer);
+        FrmXmlUpload2Action action = new FrmXmlUpload2Action();
+        action.setFile1(upload.toFile());
+        try {
+            if (outcome == -1) {
+                assertThatThrownBy(action::execute).isInstanceOf(IOException.class).hasMessage("synthetic import IO failure");
+            } else {
+                assertThat(action.execute()).isEqualTo(outcome == 1 ? ActionSupport.SUCCESS : ActionSupport.ERROR);
+            }
+            assertThat(staged.get()).isNotNull().doesNotExist();
+            assertThat(upload).exists();
+        } finally {
+            // Also clean the intentionally failing baseline reproduction.
+            if (staged.get() != null) Files.deleteIfExists(staged.get());
+        }
     }
 
     private Path createEFormArchive() throws Exception {
