@@ -85,6 +85,7 @@ async function main() {
         const response = await responsePromise;
         assert.equal(response.status(), 202);
         assert.equal(response.headers()['x-carlos-cds-export-api-version'], '1');
+        await page.waitForFunction(() => globalThis.__cdsExportSubmitJson !== undefined);
         const observed = await page.evaluate(() => globalThis.__cdsExportSubmitJson);
         assert.equal(observed?.ok, true);
         const accepted = observed.data;
