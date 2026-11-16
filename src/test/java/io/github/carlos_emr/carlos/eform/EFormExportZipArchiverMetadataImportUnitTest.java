@@ -34,6 +34,7 @@ import java.util.zip.ZipOutputStream;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.eform.upload.ImageUpload2Action;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -96,11 +97,15 @@ class EFormExportZipArchiverMetadataImportUnitTest {
     }
 
     private Result runImport(byte[] zip) throws Exception {
+        return runImport(zip, false);
+    }
+
+    private Result runImport(byte[] zip, boolean existing) throws Exception {
         List<EForm> saved = new ArrayList<>();
         try (MockedStatic<ImageUpload2Action> images = mockStatic(ImageUpload2Action.class);
              MockedStatic<EFormUtil> forms = mockStatic(EFormUtil.class)) {
             images.when(ImageUpload2Action::getImageFolder).thenReturn(imageFolder.toFile());
-            forms.when(() -> EFormUtil.formExistsInDB(any())).thenReturn(false);
+            forms.when(() -> EFormUtil.formExistsInDB(any())).thenReturn(existing);
             forms.when(() -> EFormUtil.saveEForm(any(EForm.class))).thenAnswer(invocation -> {
                 saved.add(invocation.getArgument(0));
                 return "1";
@@ -115,6 +120,52 @@ class EFormExportZipArchiverMetadataImportUnitTest {
         try (Stream<Path> files = Files.list(imageFolder)) {
             return files.map(path -> path.getFileName().toString())
                     .filter(name -> !"extractFolder".equals(name)).sorted().toList();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"form.name=\n", "form.name=FAKE rejected\n"})
+    void shouldPublishNothing_whenRejectedMetadataCannotIdentifyItsHtml(String properties) throws Exception {
+        Map<String, byte[]> entries = new LinkedHashMap<>();
+        entries.put("eform.properties", utf8(properties));
+        entries.put("unattributed.html", utf8(HTML));
+        entries.put("valid/eform.properties", utf8("form.name=FAKE valid\nform.htmlFilename=valid.html\n"));
+        entries.put("valid.html", utf8(HTML));
+        entries.put("image.png", utf8("PNG-BYTES"));
+        Result result = runImport(zip(entries));
+        assertThat(result.errors()).hasSize(1);
+        assertThat(result.saved()).isEmpty();
+        assertThat(publishedNames()).isEmpty();
+        try (Stream<Path> staged = Files.list(imageFolder.resolve("extractFolder"))) {
+            assertThat(staged).isEmpty();
+        }
+    }
+
+    @Test
+    void shouldKeepExistingFormsAndTheirHtmlUnchanged_whenMetadataNamesAnExistingForm() throws Exception {
+        byte[] archive = zip(Map.of("eform.properties", utf8("form.name=FAKE existing\nform.htmlFilename=existing.html\n"),
+                "existing.html", utf8(HTML)));
+        try (var capture = LogCapture.forLogger(EFormExportZip.class)) {
+            Result result = runImport(archive, true);
+            assertThat(result.errors()).singleElement().asString().contains("already exists");
+            assertThat(result.saved()).isEmpty();
+            assertThat(publishedNames()).isEmpty();
+            assertThat(capture.messages()).anySatisfy(message -> assertThat(message).contains("form already exists"));
+        }
+    }
+
+    @Test
+    void shouldKeepDebugDiagnosticsFreeOfFormHtml_whenImportingAcceptedMetadata() throws Exception {
+        Map<String, byte[]> entries = new LinkedHashMap<>();
+        entries.put("valid/", null);
+        entries.put("valid/eform.properties", utf8("form.name=FAKE valid\nform.htmlFilename=valid.html\n"));
+        entries.put("valid.html", utf8(HTML));
+        try (var capture = LogCapture.forLogger(EFormExportZip.class)) {
+            Result result = runImport(zip(entries));
+            assertThat(result.errors()).isEmpty();
+            assertThat(result.saved()).hasSize(1);
+            assertThat(capture.messages()).anySatisfy(message -> assertThat(message).contains("Importing eForm record"));
+            assertThat(capture.messages()).noneSatisfy(message -> assertThat(message).contains(HTML));
         }
     }
 
