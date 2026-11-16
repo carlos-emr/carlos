@@ -93,7 +93,7 @@ async function workflow(s) {
     h.assert(cells[0].trim()==='Q5549' && cells[1].trim()===marker, 'Report lost service code or description');
     h.assert(cells[2].trim()==='1' && cells[3].trim()==='1', 'Native report did not render one patient and visit');
   });
-  await s.step('demographic CSV includes each patient’s latest extension, including NULL timestamps', async () => {
+  await s.step('demographic CSV includes each patient’s current extension, including NULL timestamps', async () => {
     h.assert(sql.value('SELECT COUNT(*) FROM demographic WHERE last_name=? AND first_name=? AND provider_no=?',
       [marker, 'Extension', provider]) === '0', 'The secondary report patient namespace is occupied');
     h.assert(sql.value('SELECT COUNT(*) FROM demographicExt WHERE demographic_no=?', [patient]) === '0',
@@ -109,6 +109,16 @@ async function workflow(s) {
       [patient, 'French', '2026-08-02 00:00:00'], [extensionPatient, 'English', '2026-08-03 00:00:00']
     ]) sql.execute('INSERT INTO demographicExt (demographic_no,provider_no,key_val,value,date_time,hidden) VALUES (?,?,?,?,?,0)',
       [id, provider, 'prefer_language', value, date]);
+    const keyRows = sql.rows(`SELECT x.demographic_no,k.extension_key,x.value FROM demographicExt x
+      JOIN (SELECT ? AS extension_key UNION ALL SELECT ? AS extension_key) k ON x.key_val=k.extension_key
+      WHERE x.demographic_no IN (?,?) ORDER BY x.date_time,x.id`,
+    ['prefer_language', 'PREFER_LANGUAGE', patient, extensionPatient]);
+    const expectedKeys = new Set([
+      `${patient}|prefer_language|French`, `${patient}|PREFER_LANGUAGE|French`,
+      `${extensionPatient}|prefer_language|English`, `${extensionPatient}|PREFER_LANGUAGE|English`
+    ]);
+    h.assert(keyRows.length === 4 && keyRows.every(row => expectedKeys.delete(row.join('|'))) && expectedKeys.size === 0,
+      'The physical database did not preserve both bound key spellings for each current patient value');
     await page.goto(`${base}/report/ViewReportFormRecord`);
     const token = await page.locator('input[name="CSRF-TOKEN"]').first().inputValue();
     async function verifyCohort() {
@@ -123,8 +133,8 @@ async function workflow(s) {
       h.assert(nameIndex >= 0 && languageIndex >= 0, 'The cohort CSV lost its selected columns');
       const first = rows.slice(1).find(row => row[nameIndex] === 'Workflow');
       const second = rows.slice(1).find(row => row[nameIndex] === 'Extension');
-      h.assert(first && first[languageIndex] === 'French', 'The first patient lost its latest extension value');
-      h.assert(second && second[languageIndex] === 'English', 'The second patient lost its latest extension value or ID tie order');
+      h.assert(first && first[languageIndex] === 'French', 'The first patient lost its current extension value');
+      h.assert(second && second[languageIndex] === 'English', 'The second patient lost its current extension value');
       await response.dispose();
     }
     await verifyCohort();

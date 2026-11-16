@@ -25,7 +25,9 @@ bound SQL preserves creator restrictions, deleted header/detail exclusions,
 distinct patient/visit counts, service-date code selection, billing-date counts,
 and MariaDB's current-date age expressions. `DemographicExtDao.findReportValues`
 retains its legacy latest-first cohort mode for compatibility. Demographic CSV
-exports request all current extension values, since the active table's
+exports read all selected current extension values in one parameterized
+`ConfiguredReportQuery` read, so configured row, time and combined text budgets
+apply during JDBC retrieval before materialization. The active table's
 `(demographic_no, key_val)` unique key permits one value per patient/key.
 This corrects #5927's missing CSV cells while preserving the DAO contract and
 leaving archive data unchanged. Cell lookup uses the stored extension key;

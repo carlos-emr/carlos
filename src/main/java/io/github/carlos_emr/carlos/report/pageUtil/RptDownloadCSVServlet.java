@@ -27,8 +27,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.commn.dao.AntenatalReportDao;
 
-import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
-
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -444,18 +442,27 @@ public class RptDownloadCSVServlet extends HttpServlet {
             return fieldValues.stream().map(row -> row.getProperty(DEMOGRAPHIC_NUMBER)).toList();
         }
 
-        private void readExtensionValues(List<String> demographics) {
+        private void readExtensionValues(List<String> demographics) throws java.sql.SQLException {
             for (String column : extensionColumns.selection.toString().replaceAll(EXTENSION_PREFIX, "").split(",")) {
                 String key = column.trim();
                 selectedExtensionColumns.add(new ExtensionColumn(key, extensionColumns.captions.getProperty(key)));
-                if (!demographics.isEmpty()) {
-                    List<Integer> numbers = demographics.stream().map(Integer::valueOf).toList();
-                    // The active table is unique by patient/key; latest-only would cap the whole cohort.
-                    for (var extension : SpringUtils.getBean(DemographicExtDao.class).findReportValues(key, numbers, false)) {
-                        extensionValues.setProperty(extension.demographicNo() + key,
-                                extension.value() == null ? "" : extension.value());
-                    }
-                }
+            }
+            if (demographics.isEmpty()) return;
+            // One bounded read covers all selected patient/key values, including their combined text.
+            // The derived keys preserve the requested spelling under a case-insensitive database collation.
+            String keys = String.join(" UNION ALL ", java.util.Collections.nCopies(
+                    selectedExtensionColumns.size(), "SELECT ? AS extension_key"));
+            String patients = String.join(",", java.util.Collections.nCopies(demographics.size(), "?"));
+            List<Object> parameters = new ArrayList<>();
+            selectedExtensionColumns.forEach(column -> parameters.add(column.key()));
+            demographics.forEach(number -> parameters.add(Integer.valueOf(number)));
+            String sql = "select x.demographic_no, k.extension_key, x.value from demographicExt x join (" + keys
+                    + ") k on x.key_val=k.extension_key where x.demographic_no in (" + patients
+                    + ") order by x.date_time, x.id";
+            for (var extension : ConfiguredReportQuery.read(sql, parameters.toArray()).rows()) {
+                String value = extension.value("value");
+                extensionValues.setProperty(extension.value(DEMOGRAPHIC_NUMBER) + extension.value("extension_key"),
+                        value == null ? "" : value);
             }
         }
 
