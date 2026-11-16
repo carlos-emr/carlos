@@ -80,6 +80,46 @@ class Contact2ActionUnitTest extends CarlosWebTestBase {
     private static final String DEMOGRAPHIC_NO = "12345";
 
     @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldPreserveSpecialistAssociation_whenAnEditIsRejected(boolean stale) {
+        registerContactActionBeans();
+        addRequestParameter("demographicContactId", "71");
+        addRequestParameter("contactType", "");
+        addRequestParameter("specialistEditVersion", "rendered-version");
+        var association = new DemographicContact();
+        association.setType(DemographicContact.TYPE_PROFESSIONALSPECIALIST);
+        when(mockDemographicContactDao.find(71)).thenReturn(association);
+        var posted = new io.github.carlos_emr.carlos.commn.model.ProfessionalContact();
+        posted.setId(37);
+        posted.setFirstName("FAKE-Edited");
+        posted.setSpecialty("Cardiology");
+        var persister = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.utility.SpecialistContactEditPersister.class);
+        replaceSpringUtilsBean(io.github.carlos_emr.carlos.utility.SpecialistContactEditPersister.class, persister);
+        RuntimeException rejected = stale ? new java.util.ConcurrentModificationException("changed")
+                : new IllegalArgumentException("invalid address");
+        when(persister.update(any(), same(posted), eq("rendered-version"))).thenThrow(rejected);
+        ContactSpecialtyDao previous = Contact2Action.contactSpecialtyDao;
+        Contact2Action.contactSpecialtyDao = mockContactSpecialtyDao;
+        try {
+            withContactDao(() -> {
+                Contact2Action action = new Contact2Action();
+                action.setPcontact(posted);
+                assertThat(action.saveProContact()).isEqualTo("pForm");
+                assertThat(mockResponse.getStatus()).isEqualTo(stale ? 409 : 400);
+                assertThat(mockRequest.getAttribute("demographicContactId")).isEqualTo("71");
+                assertThat(mockRequest.getAttribute("contactType"))
+                        .isEqualTo(DemographicContact.TYPE_PROFESSIONALSPECIALIST);
+                assertThat(mockRequest.getAttribute("pcontact")).isSameAs(posted);
+                assertThat(mockRequest.getAttribute("specialistEditVersion")).isEqualTo("rendered-version");
+                verify(mockDemographicContactDao, never()).merge(any());
+                verify(mockDemographicContactDao, never()).persist(any());
+            });
+        } finally {
+            Contact2Action.contactSpecialtyDao = previous;
+        }
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"GET", "HEAD", "PUT", "DELETE"})
     void shouldRefuseDirectorySave_beforeAuthorizationIdentifiersOrDao(String method) {
         registerContactActionBeans(); mockRequest.setMethod(method);
