@@ -156,6 +156,7 @@ class MutatorActionGetRejectionContractUnitTest {
      */
     static Stream<Arguments> unconditionalMutators() {
         return Stream.of(
+            Arguments.of("io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationHrmDetach2Action", "_con", "w"),
                 Arguments.of(
                         "io.github.carlos_emr.carlos.demographic.cdsimport.web.CdsUpload2Action",
                         "_demographic",
@@ -1063,6 +1064,7 @@ class MutatorActionGetRejectionContractUnitTest {
      */
     private static final Set<String> IN_SCOPE_EXPLICIT_CLASSES =
             Set.of(
+                    "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationHrmDetach2Action",
                     "io.github.carlos_emr.carlos.admin.lookUpLists.LookupListManager2Action",
                     "io.github.carlos_emr.carlos.prescript.pageUtil.RxFavoriteGroups2Action",
                     "io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmCreateImmunizationSetConfig2Action",
