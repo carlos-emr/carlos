@@ -11,6 +11,9 @@ async function workflow(s) {
   h.assert(fs.existsSync(fixture), 'The installed static HTML fixture is unavailable; run this check on the host serving the packaged install');
   const original = fs.readFileSync(fixture);
   h.assert(original.length > 100, 'The installed static HTML fixture is unavailable');
+  const body = /<body\b[^>]*>([\s\S]*?)<\/body>/i.exec(original.toString('utf8'));
+  h.assert(body && body[1].length > 100, 'The installed static HTML fixture has no usable original body');
+  const originalBody = Buffer.from(body[1]);
   const url = h.appUrl(s.config.baseUrl, '/gpl.htm');
   async function fetch(headers = {}) {
     const response = await s.context.request.get(url, {
@@ -27,6 +30,7 @@ async function workflow(s) {
     h.assert(response.status === 200, 'The complete static HTML response failed');
     h.assert(response.bytes.includes(Buffer.from('carlos-print-decoration')),
       'The installed privacy notice is unavailable for range qualification');
+    h.assert(response.bytes.includes(originalBody), 'The decorated response lost original HTML body content');
   });
   await s.step('a single HTML byte range retains exact bytes and Content-Range without decoration', async () => {
     const response = await fetch({Range: 'bytes=0-99'});
@@ -41,6 +45,7 @@ async function workflow(s) {
     const response = await fetch({Range: 'bytes=0-99', 'If-Range': 'Thu, 01 Jan 1970 00:00:00 GMT'});
     h.assert(response.status === 200 && response.bytes.includes(Buffer.from('carlos-print-decoration')),
       'The full HTML response lost its privacy notice when If-Range was ignored');
+    h.assert(response.bytes.includes(originalBody), 'The ignored If-Range response lost original HTML body content');
   });
 }
 if (require.main === module) runWorkflow('privacy-html-range', workflow, {openPatient: false});

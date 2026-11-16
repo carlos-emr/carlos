@@ -78,7 +78,8 @@ class PrivacyStatementRangeTomcatIntegrationTest {
         try (HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build()) {
             var full = client.send(HttpRequest.newBuilder(uri).GET().build(), HttpResponse.BodyHandlers.ofByteArray());
             assertThat(full.statusCode()).isEqualTo(200);
-            assertThat(new String(full.body(), StandardCharsets.UTF_8)).contains("FAKE-5782-NOTICE");
+            assertThat(new String(full.body(), StandardCharsets.UTF_8))
+                    .contains("FAKE-5782-NOTICE", "FAKE-5782-content-".repeat(32), "<html><body>", "</body></html>");
 
             var partial = client.send(HttpRequest.newBuilder(uri).header("Range", "bytes=0-99").GET().build(),
                     HttpResponse.BodyHandlers.ofByteArray());
@@ -90,7 +91,8 @@ class PrivacyStatementRangeTomcatIntegrationTest {
             var ignored = client.send(HttpRequest.newBuilder(uri).header("Range", "bytes=0-99")
                     .header("If-Range", "Thu, 01 Jan 1970 00:00:00 GMT").GET().build(), HttpResponse.BodyHandlers.ofByteArray());
             assertThat(ignored.statusCode()).isEqualTo(200);
-            assertThat(new String(ignored.body(), StandardCharsets.UTF_8)).contains("FAKE-5782-NOTICE");
+            assertThat(new String(ignored.body(), StandardCharsets.UTF_8))
+                    .contains("FAKE-5782-NOTICE", "FAKE-5782-content-".repeat(32), "<html><body>", "</body></html>");
         } finally {
             if (original == null) properties.remove("confidentiality_statement.v1");
             else properties.put("confidentiality_statement.v1", original);
