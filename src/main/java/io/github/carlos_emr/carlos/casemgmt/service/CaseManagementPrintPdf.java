@@ -62,7 +62,10 @@ import java.text.SimpleDateFormat;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.ResourceBundle;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * PDF generation engine for the case management encounter print workflow. Renders
@@ -160,6 +163,14 @@ public class CaseManagementPrintPdf {
     }
 
     /**
+     * One patient value for the header, or empty when the caller set none: a missing value prints as a
+     * blank after its label, never as the word "null".
+     */
+    static String headerValue(HttpServletRequest request, String attribute) {
+        return Objects.toString(request.getAttribute(attribute), "");
+    }
+
+    /**
      * Initializes the PDF document and renders the first-page header containing
      * clinic information (left column) and patient demographics (right column),
      * separated by horizontal rules. Optionally uses current program info if
@@ -182,12 +193,12 @@ public class CaseManagementPrintPdf {
 
         //set up document title and header
         ResourceBundle propResource = ResourceBundle.getBundle("oscarResources");
-        String title = propResource.getString("encounter.pdfPrint.title") + " " + (String) request.getAttribute("demoName") + "\n";
-        String gender = propResource.getString("encounter.pdfPrint.gender") + " " + (String) request.getAttribute("demoSex") + "\n";
-        String dob = propResource.getString("encounter.pdfPrint.dob") + " " + (String) request.getAttribute("demoDOB") + "\n";
-        String age = propResource.getString("encounter.pdfPrint.age") + " " + (String) request.getAttribute("demoAge") + "\n";
-        String mrp = propResource.getString("encounter.pdfPrint.mrp") + " " + (String) request.getAttribute("mrp") + "\n";
-        String phn = propResource.getString("encounter.pdfPrint.phn") + " " + (String) request.getAttribute("demoPhn") + "\n";
+        String title = propResource.getString("encounter.pdfPrint.title") + " " + headerValue(request, "demoName") + "\n";
+        String gender = propResource.getString("encounter.pdfPrint.gender") + " " + headerValue(request, "demoSex") + "\n";
+        String dob = propResource.getString("encounter.pdfPrint.dob") + " " + headerValue(request, "demoDOB") + "\n";
+        String age = propResource.getString("encounter.pdfPrint.age") + " " + headerValue(request, "demoAge") + "\n";
+        String mrp = propResource.getString("encounter.pdfPrint.mrp") + " " + headerValue(request, "mrp") + "\n";
+        String phn = propResource.getString("encounter.pdfPrint.phn") + " " + headerValue(request, "demoPhn") + "\n";
 
         String[] info;
         if ("true".equals(CarlosProperties.getInstance().getProperty("print.includeMRP", "true"))) {
@@ -198,9 +209,12 @@ public class CaseManagementPrintPdf {
 
         ClinicData clinicData = new ClinicData();
         clinicData.refreshClinicData();
+        // Each line is trimmed when printed, so only the joined lines need guarding against "null".
         String[] clinic = new String[]{clinicData.getClinicName(), clinicData.getClinicAddress(),
-                clinicData.getClinicCity() + ", " + clinicData.getClinicProvince(),
-                clinicData.getClinicPostal(), "Phone: " + clinicData.getClinicPhone(), "Fax: " + clinicData.getClinicFax()};
+                Stream.of(clinicData.getClinicCity(), clinicData.getClinicProvince()).filter(StringUtils::isNotBlank)
+                        .collect(Collectors.joining(", ")),
+                clinicData.getClinicPostal(), "Phone: " + Objects.toString(clinicData.getClinicPhone(), ""),
+                "Fax: " + Objects.toString(clinicData.getClinicFax(), "")};
 
         if ("true".equals(CarlosProperties.getInstance().getProperty("print.useCurrentProgramInfoInHeader", "false"))) {
             ProgramManager2 programManager2 = SpringUtils.getBean(ProgramManager2.class);
