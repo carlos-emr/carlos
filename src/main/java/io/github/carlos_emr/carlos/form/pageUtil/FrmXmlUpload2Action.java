@@ -40,6 +40,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.JDBCUtil;
@@ -110,7 +111,15 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
 
         File tmpFile = File.createTempFile("tmp", ".zip");
         // Register cleanup before staging/opening so copy failures and malformed ZIPs are removed too.
-        try (AutoCloseable cleanup = () -> Files.deleteIfExists(tmpFile.toPath())) {
+        try (AutoCloseable cleanup = () -> {
+            try {
+                Files.deleteIfExists(tmpFile.toPath());
+            } catch (IOException cleanupFailure) {
+                tmpFile.deleteOnExit();
+                LOGGER.warn("Staged form ZIP cleanup failed; removal scheduled for JVM exit: {}",
+                        LogSafe.exceptionTrace(cleanupFailure));
+            }
+        }) {
             stageUploadedArchive(tmpFile);
             try (ZipFile zf = new ZipFile(tmpFile)) {
                 String importResult = isEFormArchive(zf) ? importEFormArchive(tmpFile) : importLegacyArchive(zf);

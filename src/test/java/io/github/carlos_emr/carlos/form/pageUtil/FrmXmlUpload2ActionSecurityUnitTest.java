@@ -34,6 +34,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -354,6 +355,50 @@ class FrmXmlUpload2ActionSecurityUnitTest extends CarlosUnitTestBase {
 
     private Path createEFormArchive() throws Exception {
         return createEFormArchive("Issue3071/eform.properties");
+    }
+
+    @Test
+    @org.junit.jupiter.api.condition.EnabledOnOs(org.junit.jupiter.api.condition.OS.LINUX)
+    void shouldKeepSuccessfulImport_whenStagedArchiveCleanupFails() throws Exception {
+        request.setMethod("POST");
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.eform"), eq("w"), isNull()))
+                .thenReturn(true);
+        Path upload = tempDir.resolve("cleanup-obstruction.zip");
+        try (ZipOutputStream archive = new ZipOutputStream(Files.newOutputStream(upload))) {
+            archive.putNextEntry(new ZipEntry("forms.xml"));
+            archive.write("<Results/>".getBytes(StandardCharsets.UTF_8));
+            archive.closeEntry();
+        }
+        AtomicReference<Path> staged = new AtomicReference<>();
+        FormXmlImportService importer = mock(FormXmlImportService.class);
+        when(importer.importArchive(any(ZipFile.class))).thenAnswer(call -> {
+            Path path = Path.of(((ZipFile) call.getArgument(0)).getName());
+            staged.set(path);
+            assertThat(path).isNotEqualTo(upload);
+            // Linux permits unlinking the open ZIP. An owned nonempty directory makes the
+            // production cleanup operation fail with a real filesystem IOException.
+            Files.delete(path);
+            Files.createDirectory(path);
+            Files.writeString(path.resolve("FAKE-obstruction"), "FAKE");
+            return 1;
+        });
+        registerMock(FormXmlImportService.class, importer);
+        var action = new FrmXmlUpload2Action();
+        action.setFile1(upload.toFile());
+        try (var capture = LogCapture.forLogger(FrmXmlUpload2Action.class)) {
+            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(capture.events()).filteredOn(event -> event.getLevel() == org.apache.logging.log4j.Level.WARN)
+                    .singleElement().satisfies(event -> {
+                        assertThat(event.getThrown()).isNull();
+                        assertThat(event.getMessage().getFormattedMessage()).contains("cleanup", "JVM exit");
+                    });
+            assertThat(upload).exists();
+        } finally {
+            if (staged.get() != null) {
+                Files.deleteIfExists(staged.get().resolve("FAKE-obstruction"));
+                Files.deleteIfExists(staged.get());
+            }
+        }
     }
 
     private Path createEFormArchive(String propertiesEntryName) throws Exception {
