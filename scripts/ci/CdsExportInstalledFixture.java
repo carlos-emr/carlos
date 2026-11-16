@@ -108,7 +108,7 @@ public final class CdsExportInstalledFixture {
         }
         directory(PRIVATE, false, false);
         directory(ROOT, false, true);
-        for (String child : List.of("store", "import", "documents", "delivery", "data"))
+        for (String child : List.of("store", "import", "documents", "delivery", "data", "email-archive-keyring"))
             directory(ROOT.resolve(child), true, false);
         for (String child : List.of("selection", "policy", "keys"))
             directory(ROOT.resolve(child), false, true);
@@ -261,6 +261,8 @@ public final class CdsExportInstalledFixture {
         config.setProperty("cds.export.store.native.root", ROOT.resolve("store").toString());
         config.setProperty("cds.export.selectionRoot", ROOT.resolve("selection").toString());
         config.setProperty("cds.import.stagingRoot", ROOT.resolve("import").toString());
+        // The installed service owns its fresh archive keyring; its system-account home is not writable.
+        config.setProperty("email.archive.keyring.file", ROOT.resolve("email-archive-keyring/native.keyring").toString());
         // Same deployment keys initialized by the actual paired CLI package.
         config.setProperty("BASE_DOCUMENT_DIR", ROOT.resolve("data") + "/");
         config.setProperty("DOCUMENT_DIR", ROOT.resolve("documents") + "/");
