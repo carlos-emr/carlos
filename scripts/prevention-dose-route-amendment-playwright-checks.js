@@ -108,8 +108,7 @@ async function workflow(s) {
     h.assert(!printedIncludes(printed, 'Dose Administered: 0.5 mL'), 'The printout shows the archived dose');
   });
 
-  // The known defect (finding 322) is asserted in a step of its own, after the steps that act on the page, so a
-  // failure while saving or reopening is reported under those steps and never mistaken for the known defect.
+  // Exercise the original data-loss reproduction before other legacy dose spellings (#5431).
   await s.step('a dose saved with no unit is stored as entered', async () => {
     editor = await forms.open(id);
     await editor.locator('#dose').fill('0.5');
@@ -131,6 +130,23 @@ async function workflow(s) {
     h.assert(reopened === '0.5' && resaved === '0.5',
       `A dose stored as "0.5" with no unit reopened as "${reopened}", and an unchanged save stored "${resaved}"`);
   });
+
+  for (const dose of ['0.5ml', '0.5 unknown', 'half a vial', '0.5  mL', 'Équipe "dose"', '']) {
+    await s.step(`the stored dose ${JSON.stringify(dose)} survives reopening and an unchanged save`, async () => {
+      editor = await forms.open(id);
+      await editor.locator('#dose').fill(dose);
+      await editor.locator('select[name="doseUnit"]').selectOption('');
+      id = await forms.saveAmendment(editor, id);
+      h.assert(forms.ext(id, 'dose') === dose, 'The submitted dose was changed before reopening');
+      editor = await forms.open(id);
+      const actual = await editor.locator('#dose').inputValue();
+      const unit = await editor.locator('select[name="doseUnit"]').inputValue();
+      h.assert(actual === dose && unit === '',
+        `The stored dose ${JSON.stringify(dose)} reopened as ${JSON.stringify(actual)} / ${JSON.stringify(unit)}`);
+      id = await forms.saveAmendment(editor, id);
+      h.assert(forms.ext(id, 'dose') === dose, 'An unchanged save changed the stored dose');
+    });
+  }
 }
 
 if (require.main === module) {

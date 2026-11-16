@@ -1040,9 +1040,10 @@
                             </div>
                             <%
                                 String dose = str((extraData.get("dose")), "");
-                                String d1 = pDose;
+                                // Editing must start from the stored value, including unitless and imported doses (#5431).
+                                String d1 = existingPrevention == null ? pDose : dose;
                                 // The brand picker's unit as the form's own (VIAL is vial, DOSE is dose).
-                                String d2 = PreventionFormCodes.doseUnitCode(pUnit);
+                                String d2 = existingPrevention == null ? PreventionFormCodes.doseUnitCode(pUnit) : "";
                                 if (dose.split(" ").length == 2) {
                                     String d3 = PreventionFormCodes.doseUnitCode(dose.split(" ")[1]);
                                     if (!PreventionFormCodes.isOfferedDoseUnit(d3)) {
@@ -1051,8 +1052,6 @@
                                         d1 = dose.split(" ")[0];
                                         d2 = d3;
                                     }
-                                } else {
-                                    d1 = pDose;
                                 }
 
                                 // mL is only the default for a new record that names no unit. An existing
