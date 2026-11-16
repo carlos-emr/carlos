@@ -69,7 +69,7 @@ MANIFEST_DIR = REPO_ROOT / "debian" / "assets" / "o19-manifest"
 #: format it does not know, and the content is versioned separately by
 #: SCHEMA_MAP_VERSION / PROPS_MAP_VERSION.
 MANIFEST_FORMAT = 1
-SCHEMA_MANIFEST_FORMAT = 2
+SCHEMA_MANIFEST_FORMAT = 3
 #: manifest kind -> file name; the kind is written into the file too
 MANIFEST_FILES = {
     "o19map-schema": "o19map_schema.json",
@@ -1096,12 +1096,22 @@ def load_schema(files: List[Path],
         elif f.name == "V1.0.59__archive_security_mfa_setting.sql":
             schema.apply_alter("SecurityArchive", "ADD COLUMN IF NOT EXISTS "
                                "usingMfa TINYINT(1) NULL DEFAULT NULL")
-        elif f.name == "V1.0.59.34__preserve_bc_history_amount.sql":
+        elif f.name == "V1.0.59.36__preserve_bc_history_amount.sql":
             schema.apply_alter("billing_history", "MODIFY COLUMN amount VARCHAR(9) NOT NULL DEFAULT ''")
         elif f.name == "V1.0.57__preserve_rourke2020_immunization_notes.sql":
             for column in ("p3_immunization", "p4_immunization"):
                 schema.apply_alter("formRourke2020", "ADD COLUMN IF NOT EXISTS "
                                    + column + " TEXT NULL")
+        elif f.name == "V1.0.59.49__cds_export_attempt_checkpoint.sql":
+            # A resumed CDS export's checkpoint pointer, added column by column behind a
+            # same-shape guard (CARLOS export metadata; not an OSCAR 19 copy target).
+            for column, definition in (("checkpoint_member", "VARCHAR(64) NULL"),
+                                       ("checkpoint_digest", "VARCHAR(64) NULL"),
+                                       ("checkpoint_bytes", "BIGINT NULL"),
+                                       ("checkpoint_charts", "BIGINT NULL"),
+                                       ("adopted_charts", "BIGINT NULL")):
+                schema.apply_alter("cds_export_attempt", "ADD COLUMN IF NOT EXISTS "
+                                   + column + " " + definition)
     return schema
 
 
@@ -2597,6 +2607,13 @@ def build_profile(oscar: Path, province: str, ov_schema) -> Dict:
                 "rows in the {} profile (stale entry)".format(
                     t, n, seed_counts.get(t, 0), province))
         seed_counts[t] -= n
+
+    # Curated literal SELECT seeds whose predicates hold on the fresh reference
+    # target. Do not infer arbitrary INSERT ... SELECT cardinality from SQL text.
+    for t, n in sorted(getattr(ov_schema, "SEED_COUNT_ADDITIONS", {}).items()):
+        if t not in seed_counts or type(n) is not int or n < 1:
+            raise SystemExit("SEED_COUNT_ADDITIONS: invalid fresh reference count for " + t)
+        seed_counts[t] += n
 
     tables = build_tables(o19, carlos, ov_schema, province)
     unknown = sorted(t for t, e in tables.items() if e["class"] == "unknown")

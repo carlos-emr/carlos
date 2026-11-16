@@ -5,9 +5,10 @@ import json
 from pathlib import Path
 
 CONTRACTS = {
-    'o19map_schema.json': ('o19map-schema', 2),
+    'o19map_schema.json': ('o19map-schema', 3),
     'o19map_props.json': ('o19map-props', 1),
     'o19_preflight.json': ('o19-preflight', 1),
+    'stock-eform-assets.json': ('o19-stock-eform-assets', 1),
 }
 
 

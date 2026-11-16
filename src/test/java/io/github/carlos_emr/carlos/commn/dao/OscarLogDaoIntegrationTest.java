@@ -149,6 +149,43 @@ public class OscarLogDaoIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    @DisplayName("should not list a patient as recently opened when the provider was only refused access")
+    void shouldExcludeRefusedPatients_fromEveryRecentPatientList() throws Exception {
+        int opened = createRecentPatient();
+        int refused = createRecentPatient();
+        createOscarLog(opened, "recent", "read", "demographic", String.valueOf(opened), new Date(1000));
+        // The audit row of a refused attempt names the patient so that it can be found from the chart.
+        createOscarLog(refused, "recent", io.github.carlos_emr.carlos.log.LogConst.NORIGHT, "demographic",
+                String.valueOf(refused), new Date(2000));
+
+        assertThat(dao.getRecentDemographicsAccessedByProvider("recent", 0, 5)).containsExactly(opened);
+        assertThat(dao.getRecentDemographicsAccessedByProvider("recent", 0, 5, java.util.Set.of(Integer.MAX_VALUE)))
+                .containsExactly(opened);
+        assertThat(dao.getRecentDemographicsViewedByProvider("recent", 0, 5))
+                .extracting(row -> row[0]).containsExactly(opened);
+        assertThat(dao.getRecentDemographicsViewedByProviderAfterDateIncluded("recent", new Date(0), 0, 5))
+                .extracting(row -> row[0]).containsExactly(opened);
+        // The refusal stays on the patient's own audit trail.
+        assertThat(dao.findByDemographicId(refused)).extracting(OscarLog::getAction)
+                .containsExactly(io.github.carlos_emr.carlos.log.LogConst.NORIGHT);
+    }
+
+    @Test
+    @DisplayName("should keep a patient recent when the provider opened the record and was later refused")
+    void shouldKeepPatientRecent_whenAnEarlierOpenPrecedesARefusal() throws Exception {
+        int patient = createRecentPatient();
+        createOscarLog(patient, "recent", "read", "demographic", String.valueOf(patient), new Date(1000));
+        createOscarLog(patient, "recent", io.github.carlos_emr.carlos.log.LogConst.NORIGHT, "demographic",
+                String.valueOf(patient), new Date(2000));
+
+        // The refusal neither removes the patient from the list nor counts as the latest access.
+        assertThat(dao.getRecentDemographicsAccessedByProvider("recent", 0, 5)).containsExactly(patient);
+        List<Object[]> viewed = dao.getRecentDemographicsViewedByProvider("recent", 0, 5);
+        assertThat(viewed).hasSize(1);
+        assertThat(((Date) viewed.get(0)[1]).getTime()).isEqualTo(1000L);
+    }
+
+    @Test
     @DisplayName("should return no recent patients when only stale or non-patient audit entries exist")
     void shouldReturnNoRecentPatients_whenOnlyStaleHistoryExists() throws Exception {
         createOscarLog(Integer.MAX_VALUE, "recent", "read", "demographic", "1");

@@ -29,6 +29,8 @@ permissions:
 
 concurrency:
   group: cds-import-performance-${{ github.event.pull_request.number || github.run_id }}
+  # Qualify the current PR source/WAR instead of queueing behind obsolete proofs.
+  # Independently dispatched runs retain their unique run IDs and finish normally.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:

@@ -99,6 +99,24 @@ public class Document extends AbstractModel<Integer> implements Serializable {
     public static final char STATUS_ACTIVE = 'A';
     public static final char STATUS_DELETED = 'D';
 
+    /**
+     * The most characters the {@code docdesc} column holds: it is a utf8mb4 {@code VARCHAR(255)}, which counts
+     * Unicode code points (an emoji is one character, two Java chars). MariaDB cuts a longer description off without
+     * a word when {@code sql_mode} is not strict, which it is not on a packaged install, so the actions that store a
+     * typed description refuse a longer one first. Change it only with the column.
+     */
+    public static final int DESCRIPTION_MAX_LENGTH = 255;
+
+    /**
+     * Whether a description, as it is stored, fits the {@code docdesc} column.
+     *
+     * @param description the description as stored ({@code EDoc} trims it), or {@code null}
+     * @return {@code true} for {@code null} or a description of at most {@link #DESCRIPTION_MAX_LENGTH} code points
+     */
+    public static boolean descriptionFits(String description) {
+        return description == null || description.codePointCount(0, description.length()) <= DESCRIPTION_MAX_LENGTH;
+    }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Basic(optional = false)

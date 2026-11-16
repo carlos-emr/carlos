@@ -363,7 +363,7 @@ public final class ImageRenderingServlet extends HttpServlet {
         }
 
         Integer demographicId = digitalSignature.getDemographicId();
-        if (demographicId == null) {
+        if (demographicId == null || demographicId <= 0) {
             return false;
         }
 

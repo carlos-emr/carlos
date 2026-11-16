@@ -84,7 +84,7 @@ class EmbeddedRecordXmlContractUnitTest {
         snapshots.measurement = EmbeddedRecordSnapshots.measurement(null,measurement);
         snapshots.issue = EmbeddedRecordSnapshots.caseManagementIssue(null,issue);
         var xml = new StringWriter(); context(writer,SnapshotEnvelope.class).createMarshaller().marshal(snapshots,xml);
-        assertThat(xml.toString()).doesNotContain("PRIVATE_SIN","PRIVATE_HIN");
+        assertThat(xml.toString()).contains("PRIVATE_HIN").doesNotContain("PRIVATE_SIN");
         JAXBContext existingBindings = context(reader,EntityEnvelope.class);
         Schema schema = schema(existingBindings);
         schema.newValidator().validate(new StreamSource(new StringReader(xml.toString())));
@@ -93,6 +93,8 @@ class EmbeddedRecordXmlContractUnitTest {
         var result = (EntityEnvelope) unmarshaller.unmarshal(new StringReader(xml.toString()));
         assertThat(result.patient.getDemographicNo()).isEqualTo(42);
         assertThat(result.patient.getFirstName()).isEqualTo("Synthetic");
+        assertThat(result.patient.getHin()).isEqualTo("PRIVATE_HIN");
+        assertThat(result.patient.getSin()).isNull();
         assertThat(result.patient.getDateJoined()).isEqualTo(patient.getDateJoined());
         assertThat(result.provider.getProviderNo()).isEqualTo("p");
         var legacyEnvelope = new EntityEnvelope(); legacyEnvelope.patient = patient; legacyEnvelope.provider = provider;
