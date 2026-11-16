@@ -12,6 +12,7 @@ async function main() {
     page.setDefaultTimeout(45000);
     let stage = 'LOGIN';
     let acceptedRunId = null;
+    let formAction = null;
     try {
         await page.goto(options.base + '/index', {waitUntil: 'domcontentloaded'});
         await page.locator('#username').fill(options.username);
@@ -38,23 +39,33 @@ async function main() {
         assert.equal(tokenless.status(), 403);
 
         stage = 'REAL_FORM_ACCEPTANCE';
+        formAction = 'PROVIDER';
         await page.locator('#providerNo').fill(options.provider);
+        formAction = 'FACILITY';
         await page.locator('#facilityId').fill('');
+        formAction = 'SELECTION';
         await page.locator('#selection').selectOption('SELECTED_PATIENTS');
+        formAction = 'PATIENTS';
         await page.locator('#patientNos').fill(String(options.patient));
         const wanted = new Set(['Demographics', 'PersonalHistory', 'FamilyHistory', 'PastHealth',
             'ProblemList', 'RiskFactors', 'AlertsAndSpecialNeeds', 'MedicationsAndTreatments', 'LaboratoryResults', 'ClinicalNotes', 'Reports', 'CareElements', 'NewCategory']);
         const categories = page.locator('.export-category');
         for (let i = 0; i < await categories.count(); i++) {
+            formAction = 'CATEGORY_' + i;
             const category = categories.nth(i);
             await category.setChecked(wanted.has(await category.inputValue()));
         }
+        formAction = 'RECIPIENT';
         await page.locator('#recipientId').fill('native');
+        formAction = 'AUDIT_PLAN';
         await page.locator('#auditPlanId').fill('native');
+        formAction = 'SUBMISSION_KEY';
         const key = await page.locator('#submissionKey').inputValue();
         const responsePromise = page.waitForResponse(response =>
             response.url().includes('/form/cdsExportSubmit') && response.request().method() === 'POST');
+        formAction = 'SUBMIT';
         await page.locator('#submitExport').click();
+        formAction = 'ACCEPTANCE_RESPONSE';
         const response = await responsePromise;
         assert.equal(response.status(), 202);
         assert.equal(response.headers()['x-carlos-cds-export-api-version'], '1');
@@ -128,6 +139,11 @@ async function main() {
     } catch (failure) {
         // No page content, credentials, storage state, trace or network body is published.
         const diagnostic = {protocol: 1, status: 'FAILED', stage, failureClass: failure.constructor.name};
+        // Only fixed harness action names and our own source line are published.
+        // Playwright messages/locator dumps can contain form values and remain private.
+        if (stage === 'REAL_FORM_ACCEPTANCE') diagnostic.formAction = formAction;
+        const source = /run-cds-export-installed-browser\.js:(\d+):\d+/.exec(failure.stack || '');
+        if (source) diagnostic.harnessLine = Number(source[1]);
         if (acceptedRunId && /^[0-9a-f-]{36}$/.test(acceptedRunId)) {
             diagnostic.runId = acceptedRunId;
             try {

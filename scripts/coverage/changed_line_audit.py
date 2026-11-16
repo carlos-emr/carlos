@@ -135,7 +135,8 @@ def audit_details(source_lines, changed):
             counters = source_lines[filename].get(number)
             if counters is None:
                 continue
-            ci, mi, cb, mb = (*counters[:2], *(counters[2:] if len(counters) == 4 else (0, 0)))
+            ci, mi = counters[:2]
+            cb, mb = counters[2:] if len(counters) == 4 else (0, 0)
             for field, count in zip(("covered_instructions", "missed_instructions",
                                      "covered_branches", "missed_branches"), (ci, mi, cb, mb)):
                 result[field] += count
