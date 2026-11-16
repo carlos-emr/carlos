@@ -13012,6 +13012,24 @@
       "fixtures": "Owned FAKE patient (runWorkflow, given a synthetic HIN for the bill family), an owned eForm template (<marker> csrf form), owned appointments (the update target, three delete targets, and the bill family's on BILLING_SUBMIT_DATE), and the rows each family writes, keyed by the run marker (<marker>-<family>-<tag> in the appointment reason, the new patient's last name, the city, the eForm subject, the message subject, the consultation reason, the prevention comment, the measurement comment and the REST tickler message). Cleanup removes them by key (with the appointment archive, new-patient child rows, bill items, eForm values, delivery rows above the run's high-water marks, consultation extension rows and signatures, prevention extension rows, and measurement history) and asserts them gone. No clinic-wide state is changed."
     },
     {
+      "name": "download-missing",
+      "script": "scripts/download-missing-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "ONEDT_INBOX",
+        "DOCUMENT_DIR"
+      ],
+      "fixtures": "No file or patient fixtures. Uses the authenticated workflow session and requires both configured directories to exist; the random missing basename must not exist.",
+      "notes": "Issue #4569. Arms the BackupDownload and OscarDownload session directories through their real MOH and OBEC pages, then requires an application HTTP 404 with no attachment for a missing basename."
+    },
+    {
       "name": "direct-response-contract",
       "script": "scripts/direct-response-contract-playwright-checks.js",
       "tiers": [
