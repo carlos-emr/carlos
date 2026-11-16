@@ -249,6 +249,7 @@ public class FaxImporter {
 
         log.info("CHECKING REMOTE FOR INCOMING FAXES");
 
+        long pollCheckpoint = pollBackoff.checkpoint();
         List<FaxConfig> faxConfigList = faxConfigDao.findAll(null, null);
         pollBackoff.retainAccounts(faxConfigList.stream()
                 .filter(fc -> fc.isActive() && fc.isDownload())
@@ -283,7 +284,7 @@ public class FaxImporter {
                 providerClient = faxProviderClientFactory.getClient(faxConfig);
                 faxList = providerClient.listInboundFaxes(faxConfig);
             } catch (FaxProviderException | RuntimeException e) {
-                recordPollFailure(faxConfig, e);
+                recordPollFailure(faxConfig, e, pollCheckpoint);
                 continue;
             }
             if (pollBackoff.recovered(faxConfig.getId())) {
@@ -435,8 +436,8 @@ public class FaxImporter {
 
     }
 
-    private void recordPollFailure(FaxConfig faxConfig, Exception failure) {
-        if (pollBackoff.failed(faxConfig.getId())) {
+    private void recordPollFailure(FaxConfig faxConfig, Exception failure, long pollCheckpoint) {
+        if (pollBackoff.failed(faxConfig.getId(), pollCheckpoint)) {
             String httpStatus = failure instanceof FaxProviderException providerFailure && providerFailure.getHttpStatus() > 0
                     ? Integer.toString(providerFailure.getHttpStatus()) : "n/a";
             log.warn("Inbound fax polling failed for account {} ({}, HTTP {}, type={}); retries will back off up to one hour. "
@@ -463,7 +464,7 @@ public class FaxImporter {
      */
     public void resetPollingBackoff(Integer accountId) {
         if (accountId != null && accountId > 0) {
-            pollBackoff.recovered(accountId);
+            pollBackoff.reset(accountId);
         }
     }
 

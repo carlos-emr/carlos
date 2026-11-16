@@ -40,6 +40,8 @@ final class FaxPollBackoff {
     private static final long MAX_DELAY_MINUTES = 60;
     private final Clock clock;
     private final Map<Integer, PollingFailure> failures = new HashMap<>();
+    private final Map<Integer, Long> resets = new HashMap<>();
+    private long resetSequence;
 
     FaxPollBackoff(Clock clock) {
         this.clock = clock;
@@ -48,6 +50,24 @@ final class FaxPollBackoff {
     synchronized boolean isDue(Integer accountId) {
         PollingFailure failure = failures.get(accountId);
         return failure == null || !clock.instant().isBefore(failure.nextRetry());
+    }
+
+    /** Capture before reading configurations so a reset also invalidates a stale configuration snapshot. */
+    synchronized long checkpoint() {
+        return resetSequence;
+    }
+
+    synchronized boolean failed(Integer accountId, long checkpoint) {
+        if (resets.getOrDefault(accountId, 0L) > checkpoint) {
+            return false;
+        }
+        return failed(accountId);
+    }
+
+    /** Clear the deadline and invalidate failures from cycles that started before this reset. */
+    synchronized void reset(Integer accountId) {
+        resets.put(accountId, ++resetSequence);
+        recovered(accountId);
     }
 
     synchronized boolean failed(Integer accountId) {
@@ -67,6 +87,7 @@ final class FaxPollBackoff {
 
     synchronized void retainAccounts(Set<Integer> accountIds) {
         failures.keySet().retainAll(accountIds);
+        resets.keySet().retainAll(accountIds);
     }
 
     synchronized Map<Integer, PollingFailure> snapshot() {

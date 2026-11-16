@@ -451,4 +451,70 @@ class FaxImporterPollTest extends CarlosUnitTestBase {
         assertThat(faxImporter.getPollingFailures().get(2)).isEqualTo(secondFailure);
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"configurationRead", "clientSetup", "providerRequest"})
+    void shouldIgnoreFailuresFromTheOldPollingCycle_afterConfigurationReset(String resetDuring) throws Exception {
+        FaxConfig config = createFaxConfig(1, true, true);
+        var firstRead = new java.util.concurrent.atomic.AtomicBoolean(true);
+        when(faxConfigDao.findAll(null, null)).thenAnswer(call -> {
+            if (firstRead.getAndSet(false) && resetDuring.equals("configurationRead")) faxImporter.resetPollingBackoff(1);
+            return List.of(config);
+        });
+        var firstSetup = new java.util.concurrent.atomic.AtomicBoolean(true);
+        when(faxProviderClientFactory.getClient(config)).thenAnswer(call -> {
+            if (firstSetup.getAndSet(false) && resetDuring.equals("clientSetup")) {
+                faxImporter.resetPollingBackoff(1);
+                throw new FaxProviderException("FAKE old configuration failure");
+            }
+            return faxProviderClient;
+        });
+        var firstRequest = new java.util.concurrent.atomic.AtomicBoolean(true);
+        when(faxProviderClient.listInboundFaxes(config)).thenAnswer(call -> {
+            if (firstRequest.getAndSet(false) && !resetDuring.equals("clientSetup")) {
+                if (resetDuring.equals("providerRequest")) faxImporter.resetPollingBackoff(1);
+                throw new FaxProviderException("FAKE old request failure");
+            }
+            return List.of();
+        });
+        faxImporter.poll();
+        assertThat(faxImporter.getPollingFailures()).isEmpty();
+        faxImporter.poll();
+        verify(faxProviderClientFactory, times(2)).getClient(config);
+        verify(faxProviderClient, times(resetDuring.equals("clientSetup") ? 1 : 2)).listInboundFaxes(config);
+        assertThat(faxImporter.getPollingFailures()).isEmpty();
+    }
+
+    @Test
+    void shouldNotWaitForAnInflightRequest_orLetItsLaterFailureRestoreBackoff() throws Exception {
+        FaxConfig config = createFaxConfig(1, true, true);
+        when(faxConfigDao.findAll(null, null)).thenReturn(List.of(config));
+        when(faxProviderClientFactory.getClient(config)).thenReturn(faxProviderClient);
+        var entered = new java.util.concurrent.CountDownLatch(1);
+        var finish = new java.util.concurrent.CountDownLatch(1);
+        when(faxProviderClient.listInboundFaxes(config)).thenAnswer(call -> {
+            entered.countDown();
+            if (!finish.await(5, java.util.concurrent.TimeUnit.SECONDS)) throw new AssertionError("Old request was not released");
+            throw new FaxProviderException("FAKE old request failure");
+        });
+        var worker = java.util.concurrent.Executors.newSingleThreadExecutor();
+        try {
+            var oldPoll = worker.submit(faxImporter::poll);
+            try {
+                assertThat(entered.await(5, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+                faxImporter.resetPollingBackoff(1);
+                assertThat(oldPoll.isDone()).isFalse();
+            } finally {
+                finish.countDown();
+            }
+            oldPoll.get(5, java.util.concurrent.TimeUnit.SECONDS);
+            assertThat(faxImporter.getPollingFailures()).isEmpty();
+            org.mockito.Mockito.doReturn(List.of()).when(faxProviderClient).listInboundFaxes(config);
+            faxImporter.poll();
+            verify(faxProviderClient, times(2)).listInboundFaxes(config);
+        } finally {
+            finish.countDown();
+            worker.shutdownNow();
+            assertThat(worker.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+        }
+    }
 }

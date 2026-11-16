@@ -63,4 +63,43 @@ class FaxPollBackoffUnitTest extends CarlosUnitTestBase {
         assertThat(backoff.failed(1)).isTrue();
         assertThat(backoff.snapshot().get(1).attempts()).isEqualTo(1);
     }
+
+    @Test
+    void shouldIgnoreAnOldFailureAfterReset_butBackOffANewAttemptNormally() {
+        var backoff = new FaxPollBackoff(Clock.fixed(NOW, ZoneOffset.UTC));
+        long old = backoff.checkpoint();
+        backoff.failed(1);
+        backoff.reset(1);
+        assertThat(backoff.failed(1, old)).isFalse();
+        assertThat(backoff.snapshot()).isEmpty();
+        assertThat(backoff.isDue(1)).isTrue();
+        assertThat(backoff.failed(1, backoff.checkpoint())).isTrue();
+        assertThat(backoff.snapshot().get(1).attempts()).isEqualTo(1);
+        assertThat(backoff.isDue(1)).isFalse();
+    }
+
+    @Test
+    void shouldInvalidateOnlyTheResetAccount_andKeepLaterResetsEffective() {
+        var backoff = new FaxPollBackoff(Clock.fixed(NOW, ZoneOffset.UTC));
+        long old = backoff.checkpoint();
+        backoff.reset(1);
+        assertThat(backoff.failed(2, old)).isTrue();
+        long between = backoff.checkpoint();
+        backoff.reset(1);
+        assertThat(backoff.failed(1, between)).isFalse();
+        assertThat(backoff.snapshot()).containsOnlyKeys(2);
+    }
+
+    @Test
+    void shouldPruneResetMarkersForRemovedAccounts_withoutReusingTheSequence() {
+        var backoff = new FaxPollBackoff(Clock.fixed(NOW, ZoneOffset.UTC));
+        backoff.reset(1);
+        long previous = backoff.checkpoint();
+        backoff.retainAccounts(Set.of());
+        backoff.reset(2);
+        assertThat(backoff.checkpoint()).isGreaterThan(previous);
+        assertThat(backoff.failed(1, previous)).isTrue();
+        assertThat(backoff.failed(2, previous)).isFalse();
+        assertThat(backoff.snapshot()).containsOnlyKeys(1);
+    }
 }
