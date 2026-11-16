@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "437b500997020ddbd6b42725ff4a7660eeef2fa1",
-  "comparisonSha256": "7b91c912c9620c420d3912f0e7baf87778a2d257045b556baf1485a077f85d6e",
+  "sourceTree": "9b8593458e056320a7125c57cebd1990bdaad02e",
+  "comparisonSha256": "dd26a64695360a18aa6597a1738656cf9534872dcfd93e8501c0b9bd2cf9849d",
   "files": {
     "src/main/java/io/github/carlos_emr/AppointmentMainBean.java": {
       "lines": 100.0,
@@ -1652,13 +1652,13 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "8b2cd3c21cf2dde99daeb602640480bd39d34065"
+      "sourceBlob": "11de43f17c18b494ca3e90a5d98a851b776e5a8a"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/MeasurementDaoImpl.java": {
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "fd3c920583fb6b9cfc850353a49a5b1a39c5f870"
+      "sourceBlob": "a02803de75cb79125514d48d5f666247e61be60f"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/MeasurementTypeDao.java": {
       "lines": 100.0,
@@ -6824,13 +6824,13 @@
       "lines": 99.33333333333333,
       "instructions": 99.42196531791907,
       "branches": 94.44444444444444,
-      "sourceBlob": "89c3d2d7ff520d3add107a7e0fc23834f8cdc33d"
+      "sourceBlob": "09691b31366280a938aa00d1b15d20135f48408b"
     },
     "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/pageUtil/MeasurementGraphAction22Action.java": {
       "lines": 81.02766798418972,
       "instructions": 79.12657290895633,
       "branches": 77.8894472361809,
-      "sourceBlob": "4ed5b28b808ebc182dfbd829c5929c86265cb5ed"
+      "sourceBlob": "b0c1695fa9d7d9c25f776766e70d04b8dc30e9a7"
     },
     "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/pageUtil/ScatterPlotChartServlet.java": {
       "lines": 100.0,
@@ -7454,7 +7454,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "4d33dfc6c9cad057aec118fcb7f12426de874395"
+      "sourceBlob": "24341864ba044dfe63e3c852e538408f290bde43"
     },
     "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/pageUtil/LabUpload2Action.java": {
       "lines": 60.0,
@@ -7478,7 +7478,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "a93c66c71b6057737b6d1c8bf00f73dedbf188c1"
+      "sourceBlob": "e502dd02c8fb9658ad1a15310c9aafa72f586ef5"
     },
     "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/parsers/CdsLaboratoryMessageParser.java": {
       "lines": 81.42857142857143,
@@ -7616,7 +7616,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "81d08e01ea1f7a42b5e23a0c55e2b38d0b34956c"
+      "sourceBlob": "592bae074cc4e456085a07ea77269cab2e5ac458"
     },
     "src/main/java/io/github/carlos_emr/carlos/lab/ca/on/HRMResultsData.java": {
       "lines": 100.0,
@@ -9705,6 +9705,18 @@
       "instructions": 100.0,
       "branches": 100.0,
       "sourceBlob": "81801574511e707904e5b88eb14174066b82201a"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/MeasurementsExt.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "90b03964181255227e7114c0e280101e5c1c1ad5"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/parsers/ObxResultStatus.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "f15a89f5ee5f51bfe891da2e3ad1510938bdfeb0"
     }
   },
   "exclusions": {
@@ -9776,68 +9788,81 @@
     }
   },
   "zeroCoverageWaivers": {},
-  "baselineCommit": "e1aca6dac93eaf5068748795a4c820905c905abc",
-  "baselineSourceTree": "437b500997020ddbd6b42725ff4a7660eeef2fa1",
-  "baselineReportSha256": "c9ed83876190741c8d493c82b052171ba048dc5fad3971bbe7a2e8bfa73a2dde",
-  "baselineLane": "PR #6134 Temurin JDK 25.0.3 focused H2 Maven test jacoco:report execution of every Java test class changed by this PR on merged release/2026.08 source e1aca6dac93eaf5068748795a4c820905c905abc. All 564 distinct test cases were counted with the strict Surefire reader; 0 prerequisite/routed skips remain explicit. Zero failures or errors. Existing higher historical floors and required refusal lines are retained. No zero-floor waiver is added. This refresh establishes source freshness and PR regression evidence; it does not qualify the complete native-lane release coverage union.",
+  "baselineCommit": "7aef2d59ffacc59d33c67dd43b9eea74c184255e",
+  "baselineSourceTree": "9b8593458e056320a7125c57cebd1990bdaad02e",
+  "baselineReportSha256": "c69f7cc969ee6cd4cc9a1f1e4777cdd22356891d6d7e69587cca4635026d1074",
+  "baselineLane": "PR #6142 Temurin JDK 25.0.3 focused H2 Maven jacoco:prepare-agent surefire:test jacoco:report execution of every Java test class changed by this PR on merged release/2026.08 source 5eefb1105c39146f552a6d4dc187b020d7fbf1bc. All 312 distinct test cases were counted with the strict Surefire reader; 0 prerequisite/routed skips remain explicit. Zero failures or errors. Existing higher historical floors and required refusal lines are retained. No zero-floor waiver is added. This refresh establishes source freshness and PR regression evidence; it does not qualify the complete native-lane release coverage union. Re-bound WITHOUT a new run to the merge commit 7aef2d59ff of release/2026.08 9c2014ef38 into this branch, which adds Java from PRs merged since; the values are from the run above, not re-measured.",
   "baselineTestCounts": {
-    "tests": 564,
+    "tests": 312,
     "skipped": 0,
     "failures": 0,
     "errors": 0
   },
-  "baselineTestReportsSha256": "51e52f784015844b74617d2f63e67a7e329c7c39c78f0e53e428fb219ae82db5",
+  "baselineTestReportsSha256": "e343e9859e2e5aeaac2e9c5c2661bfc03251603aa1952d9137705230627eb494",
   "baselineTestReportsHashFormat": "SHA-256 of canonical sorted JSON name/SHA-256 report manifest, compact separators plus final newline",
   "baselineReportHeaderCollisions": 0,
   "baselinePriorEvidence": {
-    "baselineCommit": "46ebae44664168d2f4909ef354db8471cd7c025c",
-    "baselineSourceTree": "b2c8c296bd3fc21961f46e1cf1531dc253aba039",
-    "baselineReportSha256": "15db36d32116bf4ce06f5700afcf78c5ce1d995f19a957687ef5e0e9d7f4ad4d",
-    "baselineLane": "PR #6174 conflict resolution on release f96b5b937f50b3b8cfe0ecca6128d35495544c6b. OpenJDK 25.0.3 focused Maven tests and JaCoCo on the merged production and test sources. Existing metric floors, required refusal lines, exclusions and zero-coverage review requirements are retained; new source paths use measured changed-code counters (abstract-only interfaces have no executable lines). Historical release evidence is archived in baselinePriorEvidence and is not combined with this execution. This establishes source freshness and focused regression evidence, not complete release-lane coverage acceptance.",
+    "baselineCommit": "07d2a41257c014b5a0d44d32a3687ee62b744a92",
+    "baselineSourceTree": "dee5a65f2a0fc53d8dd5df66c2604f87feb56b81",
+    "baselineReportSha256": "4535d2740c18e159e553029226a49cdcb14b926bf1734996302d8628d5b73ea2",
+    "baselineLane": "PR #6142 Temurin JDK 25.0.3 focused H2 Maven test jacoco:report execution of every Java test class changed by this PR on merged release/2026.08 source 07d2a41257c014b5a0d44d32a3687ee62b744a92. All 308 distinct test cases were counted with the strict Surefire reader; 0 prerequisite/routed skips remain explicit. Zero failures or errors. Existing higher historical floors and required refusal lines are retained. No zero-floor waiver is added. This refresh establishes source freshness and PR regression evidence; it does not qualify the complete native-lane release coverage union.",
     "baselineTestCounts": {
-      "tests": 16,
+      "tests": 308,
       "skipped": 0,
       "failures": 0,
       "errors": 0
     },
-    "baselineTestReportsSha256": "8d52860829522abe4e3af0de88b498559396d63393b74fda2f101b280eb91c3f",
+    "baselineTestReportsSha256": "90edafc6e6a88a87c7d574b6d16405e36827dce4c8259fb9d4d44480fe35751e",
     "baselineTestReportsHashFormat": "SHA-256 of canonical sorted JSON name/SHA-256 report manifest, compact separators plus final newline",
-    "baselineReportHeaderCollisions": 0
+    "baselineReportHeaderCollisions": 0,
+    "baselineCoverageInputs": [
+      {
+        "lane": "pr-6142-merged-focused-h2",
+        "sourceCommit": "07d2a41257c014b5a0d44d32a3687ee62b744a92",
+        "executionSha256": "f41b26169743497673914c92677e8e6155ecc0ede5e88a15ca9a54b830fc3ed6",
+        "reportsSha256": "90edafc6e6a88a87c7d574b6d16405e36827dce4c8259fb9d4d44480fe35751e",
+        "summary": {
+          "tests": 308,
+          "failed": 0,
+          "skipped": 0,
+          "ready": true
+        },
+        "counterCollisionCount": 0,
+        "suiteCount": 6
+      }
+    ],
+    "baselineSelectedTestClasses": [
+      "io.github.carlos_emr.carlos.commn.dao.MeasurementDaoIntegrationTest",
+      "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.MeasurementGraphErrorResponseUnitTest",
+      "io.github.carlos_emr.carlos.lab.LabTextResultLabelJspRegressionTest",
+      "io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsDataUnitTest",
+      "io.github.carlos_emr.carlos.lab.ca.all.parsers.ObxResultStatusUnitTest",
+      "io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValuesUnitTest"
+    ]
   },
   "baselineCoverageInputs": [
     {
-      "lane": "pr-6134-merged-focused-h2",
-      "sourceCommit": "e1aca6dac93eaf5068748795a4c820905c905abc",
-      "executionSha256": "c0c577290f0a0b42fa0008f5c870a33e3873c17078d9becab5162364a827f4bd",
-      "reportsSha256": "51e52f784015844b74617d2f63e67a7e329c7c39c78f0e53e428fb219ae82db5",
+      "lane": "pr-6142-merged-focused-h2",
+      "sourceCommit": "5eefb1105c39146f552a6d4dc187b020d7fbf1bc",
+      "executionSha256": "c102457c678c47ace678f790a3f972470fb1b7b5549399a838bb12596884a954",
+      "reportsSha256": "e343e9859e2e5aeaac2e9c5c2661bfc03251603aa1952d9137705230627eb494",
       "summary": {
-        "tests": 564,
+        "tests": 312,
         "failed": 0,
         "skipped": 0,
         "ready": true
       },
       "counterCollisionCount": 0,
-      "suiteCount": 18
+      "suiteCount": 6
     }
   ],
   "baselineSelectedTestClasses": [
-    "io.github.carlos_emr.carlos.PMmodule.web.ClientSearchAttachNoteUnitTest",
-    "io.github.carlos_emr.carlos.app.contract.MutatorActionGetRejectionContractUnitTest",
-    "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BcBillingPageLinksRegressionTest",
-    "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SupServiceCodeAssoc2ActionUnitTest",
-    "io.github.carlos_emr.carlos.commn.dao.ConsultationListCorrectionsIntegrationTest",
-    "io.github.carlos_emr.carlos.commn.dao.QueryPageUnitTest",
-    "io.github.carlos_emr.carlos.commn.dao.ServerTablePagingIntegrationTest",
-    "io.github.carlos_emr.carlos.commn.dao.ServerTrayPagingIntegrationTest",
-    "io.github.carlos_emr.carlos.commn.web.BillingreferralEdit2ActionUnitTest",
-    "io.github.carlos_emr.carlos.commn.web.Contact2ActionUnitTest",
-    "io.github.carlos_emr.carlos.commn.web.JstlTableEmptyStateJspRegressionTest",
-    "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationFormPatientResolverUnitTest",
-    "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationHrmAttachmentPersisterIntegrationTest",
-    "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationHrmAttachmentPersisterUnitTest",
-    "io.github.carlos_emr.carlos.managers.ConsultationManagerUnitTest",
-    "io.github.carlos_emr.carlos.managers.DemographicManagerUnitTest",
-    "io.github.carlos_emr.carlos.utility.SpecialistContactAddressUnitTest",
-    "io.github.carlos_emr.carlos.utility.SpecialistContactEditPersisterUnitTest"
-  ]
+    "io.github.carlos_emr.carlos.commn.dao.MeasurementDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.MeasurementGraphErrorResponseUnitTest",
+    "io.github.carlos_emr.carlos.lab.LabTextResultLabelJspRegressionTest",
+    "io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsDataUnitTest",
+    "io.github.carlos_emr.carlos.lab.ca.all.parsers.ObxResultStatusUnitTest",
+    "io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValuesUnitTest"
+  ],
+  "baselineBuildPreparation": "Production and all other test classes compiled by the preceding Maven test lifecycle on the same Java source tree. Revised JSP-fragment test recompiled with Temurin25 javac -parameters -g --release25 and the actual Surefire test classpath. Final focused Surefire/JaCoCo execution starts with empty reports and execution data."
 }
