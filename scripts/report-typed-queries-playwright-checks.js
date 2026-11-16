@@ -92,11 +92,15 @@ async function workflow(s) {
     await move(ids[2], ids[2], [ids[2], ids[1], ids[0]]);
     h.assert(JSON.stringify(rows()) === noOpBefore, 'Moving a field to its current position changed the stored order numbers');
     sql.execute('UPDATE reportConfig SET order_no=NULL WHERE report_id=? AND id=?', [reportId, ids[2]]);
-    await page.reload({waitUntil: 'domcontentloaded'});
+    // The previous document is a POST response. Reopen with GET so the browser does not
+    // resubmit the previous move and overwrite the independently seeded legacy NULL.
+    await page.goto(orderUrl, {waitUntil: 'domcontentloaded'});
+    h.assert(sql.value('SELECT order_no IS NULL FROM reportConfig WHERE report_id=? AND id=?',
+      [reportId, ids[2]]) === '1', 'The legacy NULL fixture changed before its move');
     await move(ids[0], ids[2], [ids[0], ids[2], ids[1]]);
     h.assert(sql.value('SELECT order_no FROM reportConfig WHERE report_id=? AND id=?',
       [reportId, ids[2]]) === '1', 'Moving before a legacy NULL order did not shift its effective zero position');
-    await page.reload({waitUntil: 'domcontentloaded'});
+    await page.goto(orderUrl, {waitUntil: 'domcontentloaded'});
     h.assert(await page.locator('input[name="nameSelected"]').count() === 3, 'A moved field disappeared after reload');
   });
   await s.step('typed provider-role and PHCP report pages render native billed counts', async () => {
