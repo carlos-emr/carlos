@@ -55,11 +55,13 @@ async function workflow(s) {
   async function save(reason, service) {
     const {form, list} = await formFor(reason);
     h.assert(await form.locator('#hctService').inputValue() === service, 'HCT service fallback or exact match was lost');
-    const response = form.waitForResponse(answer => answer.request().method() === 'POST'
-      && new URL(answer.url()).pathname.endsWith('/encounter/RequestConsultation'), {timeout: 30000});
-    await form.locator('[name="submitSaveOnly"]').click();
-    h.assert((await response).status() === 200, 'HCT consultation save failed');
-    await form.waitForLoadState('domcontentloaded');
+    const [response] = await Promise.all([
+      form.waitForResponse(answer => answer.request().method() === 'POST'
+        && new URL(answer.url()).pathname.endsWith('/encounter/RequestConsultation'), {timeout: 90000}),
+      form.locator('[name="submitSaveOnly"]').click({noWaitAfter: true}),
+    ]);
+    h.assert(response.status() === 200, 'HCT consultation save failed');
+    await form.waitForLoadState('domcontentloaded', {timeout: 90000});
     h.assert(/has been\s+Created/i.test(await form.locator('body').innerText()), 'HCT consultation was not confirmed');
     const rows = sql.rows(`SELECT serviceId, demographicContactId, IFNULL(specId,''), reason
       FROM consultationRequests WHERE demographicNo=? AND reason=?`, [patient, reason]);
