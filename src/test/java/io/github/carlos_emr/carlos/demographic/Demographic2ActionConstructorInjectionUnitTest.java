@@ -72,8 +72,20 @@ class Demographic2ActionConstructorInjectionUnitTest extends CarlosWebTestBase {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("constructorInjectedActions")
-    @DisplayName("should retain a public no-arg constructor for Struts instantiation")
-    void shouldRetainNoArgConstructor_forStrutsInstantiation(Class<?> actionClass) {
+    @DisplayName("should support the configured Struts or Spring bean lifecycle")
+    void shouldSupportConfiguredLifecycle_forStrutsInstantiation(Class<?> actionClass) throws IOException {
+        if (!hasPublicNoArgConstructor(actionClass)) {
+            var component = actionClass.getAnnotation(org.springframework.stereotype.Component.class);
+            assertThat(component).as("constructor-only actions must be Spring components").isNotNull();
+            assertThat(component.value()).isNotBlank();
+            var scope = actionClass.getAnnotation(org.springframework.context.annotation.Scope.class);
+            assertThat(scope).as("actions must have a request-isolated Spring lifecycle").isNotNull();
+            assertThat(scope.value()).isEqualTo("prototype");
+            assertThat(Files.readString(Path.of("src/main/webapp/WEB-INF/classes/struts-demographic.xml")))
+                    .as("Struts must resolve the constructor-injected action through its Spring bean name")
+                    .contains("class=\"" + component.value() + "\"");
+            return;
+        }
         // Struts builds these actions through SpringObjectFactory under the default
         // `name` autowire strategy (see Demographic2ActionInjectionRegressionTest for why
         // `constructor` must not be set globally). That strategy autowires an instance
@@ -93,9 +105,8 @@ class Demographic2ActionConstructorInjectionUnitTest extends CarlosWebTestBase {
 
     /**
      * Returns the dependency-injection entry point: the public constructor with the most
-     * parameters. Actions also expose a no-arg constructor that delegates to this one via
-     * {@code SpringUtils.getBean(...)} so Struts (default {@code name} autowire) can build
-     * them, while tests and Spring constructor wiring use the parameterized constructor.
+     * parameters. Class-name Struts mappings also expose a no-arg constructor delegating via
+     * {@code SpringUtils.getBean(...)}; constructor-only actions use named prototype Spring beans.
      */
     private static Constructor<?> injectionConstructor(Class<?> actionClass) {
         Constructor<?> injection = Arrays.stream(actionClass.getConstructors())

@@ -55,6 +55,9 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
+const { validateBaseUrl } = require('./lib/playwright-harness');
 const fs = require('fs');
 const { createJournalLogSource } = require('./logout-journal-log');
 const { chromium } = require('playwright');
@@ -90,29 +93,6 @@ const affectedRoutes = [
   ...pageRoutes,
   { label: 'measurement-graph', path: graphPath, graph: true },
 ];
-
-function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not embed a username or password');
-  }
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-
-  const host = parsed.hostname.toLowerCase();
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const octets = host.split('.');
-  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
-  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
-    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
-    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
-  if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
-  return parsed;
-}
 
 function parseTimeout(rawTimeout, fallback) {
   if (rawTimeout === undefined || rawTimeout === '') {
@@ -426,7 +406,8 @@ function checkLogDelta(snapshot) {
   }
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('logout-redirect',async context=>{
+  await (async({cancellation})=>{
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
@@ -436,21 +417,27 @@ function checkLogDelta(snapshot) {
   }
 
   const logSnapshot = captureLogSnapshot();
-  const browser = await chromium.launch(launchOptions);
+  const browser = await chromium.launch({...(launchOptions),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   try {
     for (const route of affectedRoutes) {
       await checkUnauthenticatedRoute(browser, route);
+    cancellation?.throwIfCancelled();
     }
 
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1000 } });
+    cancellation?.throwIfCancelled();
     const landingPage = await login(context);
+    cancellation?.throwIfCancelled();
     if (!findings.some((finding) => finding.label === 'post-login' && finding.type === 'login-failed')) {
       for (const route of pageRoutes) {
         await checkAuthenticatedPageRoute(context, route);
+    cancellation?.throwIfCancelled();
       }
     }
     await landingPage.close();
+    cancellation?.throwIfCancelled();
     await context.close();
+    cancellation?.throwIfCancelled();
   } finally {
     await browser.close();
   }
@@ -464,11 +451,12 @@ function checkLogDelta(snapshot) {
   }
 
   console.log('PASS logout redirect surfaces rendered without auth, HTTP, browser, or response-commit failures');
-})().catch((error) => {
+})(context).catch((error) => {
   console.error('FAIL logout redirect Playwright check');
   console.error(error.stack || error.message);
   if (findings.length) {
     console.error(`Findings: ${JSON.stringify(findings, null, 2)}`);
   }
-  process.exit(1);
+  {process.exitCode=1;return;}
+});
 });

@@ -614,40 +614,54 @@ function parseTemplate(){
 	//replace template placeholders with database pulls
 	var contents=editControlContents(cfg_editorname, true);
 	var temp = contents.split('##'); //parse for template place holders identified by ##value##
-	// Placeholders the server has to resolve; one the page was rendered with is read from the page.
-	var serverPlaceholders = [];
+	var needLookup = false;
+	for (var placeholder = 1; placeholder < temp.length; placeholder += 2) {
+		if (!templateValueOnPage(temp[placeholder]) && !cache.contains(temp[placeholder])) { needLookup = true; break; }
+	}
+	if (!needLookup) { populateTemplate(); return; }
+	var keys = [];
+	var mappings = [];
+	var visited = [];
+	function collectKey(key) {
+		if (visited.indexOf(key) !== -1) { return; }
+		visited.push(key);
+		var mapping = cache.getMapping(key);
+		if (mapping == null) { keys.push(key); return; }
+		for (var index = 0; index < mapping.values.length; index++) {
+			var component = mapping.values[index];
+			// Self mappings (such as sex) transform a real AP value as it arrives.
+			if (component === key) { keys.push(key); }
+			else { collectKey(component); }
+		}
+		// Composite names are local, not apconfig.xml keys. Compose nested mappings
+		// in dependency order after the response has stored all server values.
+		if (mapping.values.indexOf(key) === -1) { mappings.push(mapping); }
+	}
+	function populateResolvedTemplate() {
+		for (var index = 0; index < mappings.length; index++) {
+			mappings[index].onStoreInCache();
+		}
+		populateTemplate();
+	}
 	var x;
 	for (x in temp) {
-		//odd numbered values contain placeholders
-		if ((x % 2) && !templateValueOnPage(temp[x]) && serverPlaceholders.indexOf(temp[x]) < 0) {
-			serverPlaceholders.push(temp[x]);
-		}
+		if ((x % 2) && !templateValueOnPage(temp[x])){ //odd numbered values contain placeholders
+			// A lookup clears the entire default cache, including cached placeholders.
+			if (cache.flushCache || !cache.contains(temp[x])) { collectKey(temp[x]); }
+		}		
 	}
-	var needLookup = serverPlaceholders.some(function (key) { return !cache.contains(key); });
-	// The letter's cache flushes on every lookup (APCache's flushCache default), so once a lookup is
-	// needed it has to ask for every placeholder again. Requesting only the uncached ones let the
-	// lookup discard the rest, and populateTemplate() then prompted the clinician for each of them.
-	var requested = cache.flushCache ? serverPlaceholders
-		: serverPlaceholders.filter(function (key) { return !cache.contains(key); });
-	var keys = [];
-	requested.forEach(function (key) {
-		var mapping = cache.getMapping(key);
-		if (mapping != null) { keys = keys.concat(mapping.values); }
-		keys.push(key);
-	});
-	if (!needLookup) { populateTemplate(); }
+	if (keys.length === 0) { populateResolvedTemplate(); }
 	else {
 		var templateMapping = cache.getMapping("template");
 		if (templateMapping != null) {			
 			templateMapping.values = keys;
-			if (!cache.flushCache && cache.contains("template")) { populateTemplate(); return; }
 			measureTemplateLookupsPending++;
 			try { cache.lookup("template", 15000, {
                 isCurrent: templateIsCurrent,
                 onStale: function() { finishTemplateLookup(true, true); },
                 onResponse: function() {
                     var populated = false;
-                    try { populateTemplate(); populated = true; }
+                    try { populateResolvedTemplate(); populated = true; }
                     catch (error) { console.warn('RTL: template population failed.'); }
                     finally { finishTemplateLookup(populated); }
                 },

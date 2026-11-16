@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
@@ -189,7 +190,7 @@ public class FieldNoteManager {
             for (EFormValue fieldNoteValue : fieldNoteValues.get(fdid)) {
                 if (!varName.equals(fieldNoteValue.getVarName())) continue;
 
-                if (varValue.equals("\b") || StringUtils.nullSafeEquals(varValue, fieldNoteValue.getVarValue())) {
+                if (varValue.equals("\b") || Objects.equals(varValue, fieldNoteValue.getVarValue())) {
                     fdids.add(fdid);
                     break;
                 }

@@ -111,6 +111,12 @@ class AppointmentLocationClipboardUnitTest extends CarlosUnitTestBase {
         SecurityInfoManager security = mock(SecurityInfoManager.class);
         when(security.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(true);
         registerMock(SecurityInfoManager.class, security);
+        when(appointmentDao.findForUpdate(42)).thenReturn(saved);
+        var manager = new io.github.carlos_emr.carlos.managers.ScheduleManagerImpl();
+        org.springframework.test.util.ReflectionTestUtils.setField(manager, "oscarAppointmentDao", appointmentDao);
+        org.springframework.test.util.ReflectionTestUtils.setField(manager, "appointmentArchiveDao", archiveDao);
+        org.springframework.test.util.ReflectionTestUtils.setField(manager, "securityInfoManager", security);
+        registerMock(io.github.carlos_emr.carlos.managers.ScheduleManager.class, manager);
         request.getSession().setAttribute(LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY", mock(LoggedInInfo.class));
         ActionContext.of().withServletRequest(request).withServletResponse(response).bind();
     }
@@ -209,7 +215,7 @@ class AppointmentLocationClipboardUnitTest extends CarlosUnitTestBase {
 
         assertThat(ApptUtil.getAppointmentFromSession(request).getLocation()).isEqualTo("Booked room");
         verify(archiveDao).archiveAppointment(saved);
-        verify(appointmentDao).remove(42);
+        verify(appointmentDao).remove(saved);
     }
 
     @Test
@@ -238,7 +244,17 @@ class AppointmentLocationClipboardUnitTest extends CarlosUnitTestBase {
         assertThat(clipboard.getEnd_time()).isEqualTo("10:05:30");
         assertThat(clipboard.getReasonCode()).isEqualTo("-1");
         verify(archiveDao).archiveAppointment(saved);
-        verify(appointmentDao).remove(42);
+        verify(appointmentDao).remove(saved);
+    }
+
+    @Test
+    void shouldPreserveCompleteClinicalNotes_whenCuttingAnImportedAppointment() throws Exception {
+        String notes = "F".repeat(32768);
+        request.setParameter("notes", notes);
+        assertThat(new AppointmentCutRecord2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(ApptUtil.getAppointmentFromSession(request).getNotes()).isEqualTo(notes);
+        verify(archiveDao).archiveAppointment(saved);
+        verify(appointmentDao).remove(saved);
     }
 
     @ParameterizedTest
@@ -253,7 +269,7 @@ class AppointmentLocationClipboardUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(409);
         assertThat(request.getAttribute(ErrorPageMessage.ATTRIBUTE)).isEqualTo(AppointmentClipboardValidationException.MESSAGE_KEY);
         assertThat(ApptUtil.getAppointmentFromSession(request)).isSameAs(priorClipboard);
-        verify(appointmentDao, never()).remove(anyInt());
+        verify(appointmentDao, never()).remove(any(Appointment.class));
         verifyNoInteractions(archiveDao);
     }
 
@@ -270,7 +286,7 @@ class AppointmentLocationClipboardUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(409);
         assertThat(request.getAttribute(ErrorPageMessage.ATTRIBUTE)).isEqualTo(AppointmentClipboardValidationException.MESSAGE_KEY);
         assertThat(ApptUtil.getAppointmentFromSession(request)).isSameAs(priorClipboard);
-        verify(appointmentDao, never()).remove(anyInt());
+        verify(appointmentDao, never()).remove(any(Appointment.class));
         verifyNoInteractions(archiveDao);
     }
 
@@ -287,7 +303,7 @@ class AppointmentLocationClipboardUnitTest extends CarlosUnitTestBase {
         assertThat(clipboard.getName()).isEmpty();
         assertThat(clipboard.getNotes()).isEmpty();
         assertThat(clipboard.getReason()).isEmpty();
-        verify(appointmentDao).remove(42);
+        verify(appointmentDao).remove(saved);
     }
 
     static Stream<Arguments> invalidClipboardFields() {
@@ -315,7 +331,7 @@ class AppointmentLocationClipboardUnitTest extends CarlosUnitTestBase {
                 Arguments.of("reasonCode", "2147483648"),
                 Arguments.of("keyword", "x".repeat(256)),
                 Arguments.of("reason", "x".repeat(81)),
-                Arguments.of("notes", "x".repeat(256)),
+                Arguments.of("notes", "x".repeat(32769)),
                 Arguments.of("resources", "x".repeat(256)),
                 Arguments.of("keyword", String.valueOf(Character.MIN_HIGH_SURROGATE)),
                 Arguments.of("notes", "A" + (char) 0 + "B"));
@@ -332,7 +348,7 @@ class AppointmentLocationClipboardUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(409);
         assertThat(request.getAttribute(ErrorPageMessage.ATTRIBUTE)).isEqualTo(AppointmentLocationUnavailableException.MESSAGE_KEY);
         assertThat(ApptUtil.getAppointmentFromSession(request)).isSameAs(priorClipboard);
-        verify(appointmentDao, never()).remove(anyInt());
+        verify(appointmentDao, never()).remove(any(Appointment.class));
         verifyNoInteractions(archiveDao);
         assertThat(saved.getLocation()).isEqualTo("Booked room");
     }

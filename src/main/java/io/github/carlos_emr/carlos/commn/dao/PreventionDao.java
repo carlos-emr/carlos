@@ -36,7 +36,14 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.Prevention;
 import io.github.carlos_emr.carlos.prevention.dto.PreventionListItemDTO;
 
-public interface PreventionDao extends AbstractDao<Prevention> {
+public interface PreventionDao extends AbstractDao<Prevention>, CdsExportPatientTableReadDao, CdsExportPreventionDataReadDao {
+    @Override java.util.List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column> readCdsExportReceiptColumns();
+
+    /**
+     * CDS export restriction metadata only: prevention id to program for each of the patient's
+     * prevention rows restricted to a program. No prevention type, date or value is read.
+     */
+    java.util.SortedMap<Integer, Integer> readCdsExportProgramRestrictions(int patient);
     List<Prevention> findByDemographicId(Integer demographicId);
 
     List<Prevention> findByUpdateDate(Date updatedAfterThisDateExclusive, int itemsToReturn);
@@ -72,6 +79,10 @@ public interface PreventionDao extends AbstractDao<Prevention> {
      * @return List of Prevention entities safe to use for extension lookups after detachment
      */
     List<Prevention> findUniqueByDemographicId(Integer demographicId);
+
+    /** True if this patient's non-deleted imported history has uncertain timing.
+     * A null demographic returns false; population SQL never gates unrelated charts. */
+    boolean hasUncertainPreventionDates(Integer demographicId);
 
     List<Integer> findNewPreventionsSinceDemoKey(String keyName);
 

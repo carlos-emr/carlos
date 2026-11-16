@@ -30,7 +30,7 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%
     response.setHeader("Cache-Control", "no-store");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -51,7 +51,7 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ page import="java.lang.*, java.util.*, java.text.*,java.sql.*, io.github.carlos_emr.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ page import="java.lang.*, java.util.*, io.github.carlos_emr.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="org.apache.commons.lang3.math.NumberUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Security" %>
@@ -415,6 +415,9 @@
                         <input type="hidden" name="securityEditVersion"
                                value="<carlos:encode value='<%= isDraft ? java.util.Objects.toString(request.getParameter(SecurityEditVersion.PARAMETER), "") : SecurityEditVersion.of(security) %>' context="htmlAttribute"/>">
                         <input type="hidden" name="security_no" value="<carlos:encode value='<%= String.valueOf(security.getSecurityNo()) %>' context="htmlAttribute"/>">
+                        <%-- The version of the login this form shows (SecurityEditVersion): a save from a form
+                             opened before another save changed the login is refused instead of undoing it. --%>
+                        <input type="hidden" name="<%= SecurityEditVersion.PARAMETER %>" value="<carlos:encode value='<%= SecurityEditVersion.of(security) %>' context="htmlAttribute"/>">
                         <input type="submit" name="subbutton"
                                value='<fmt:message key="admin.securityupdatesecurity.btnSubmit"/>'>
                         <% if (!isDraft) { %>

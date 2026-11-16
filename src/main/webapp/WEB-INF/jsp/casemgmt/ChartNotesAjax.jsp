@@ -44,35 +44,35 @@
 <%@page buffer="1024kb" %>
 <% response.setBufferSize(1024 * 1024); %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="io.github.carlos_emr.Misc" %>
-<%@page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
+
+
 <%@include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@page import="java.util.Enumeration" %>
-<%@page import="io.github.carlos_emr.carlos.encounter.pageUtil.NavBarDisplayDAO" %>
-<%@page import="java.util.Arrays,java.util.Properties,java.util.List,java.util.Set,java.util.ArrayList,java.util.Enumeration,java.util.HashSet,java.util.Iterator,java.text.SimpleDateFormat,java.util.Calendar,java.util.Date,java.text.ParseException" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty,io.github.carlos_emr.carlos.casemgmt.model.*,io.github.carlos_emr.carlos.casemgmt.service.* " %>
+
+<%@page import="java.util.List, java.util.ArrayList, java.util.Enumeration, java.util.Iterator, java.text.SimpleDateFormat, java.util.Calendar, java.util.Date, java.text.ParseException" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty, io.github.carlos_emr.carlos.casemgmt.model.*" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.model.*" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@page import="io.github.carlos_emr.carlos.util.DateUtils" %>
 <%@page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
-<%@page import="org.springframework.web.context.WebApplicationContext" %>
-<%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.common.Colour" %>
+
+
+
 <%@page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
-<%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="com.quatro.dao.security.*,io.github.carlos_emr.carlos.model.security.Secrole" %>
+
+
 <%@page import="io.github.carlos_emr.carlos.utility.EncounterUtil" %>
-<%@page import="org.apache.cxf.common.i18n.UncheckedException" %>
+
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewAction" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO" %>
+
 <%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LogSafe" %>
@@ -82,8 +82,8 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplayNonNote" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.EncounterTemplateDao" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.web.CheckBoxBean" %>
+
+
 <%@page import="io.github.carlos_emr.carlos.commn.model.CasemgmtNoteLock" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.EmailLog" %>
 <%@page import="io.github.carlos_emr.carlos.managers.EmailManager" %>
@@ -95,7 +95,7 @@
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Facility" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%
@@ -432,10 +432,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                 savedNoteId =<%=note.getNoteId()%>;
             </script>
             <div class='tool-button print-button'>
-                <img title="<fmt:message key="encounter.print.title"/>" id='print<%=globalNoteId%>'
-                     alt="<fmt:message key="encounter.togglePrintNote.title"/>"
-                     onclick="togglePrint(<%=globalNoteId%>, event)" style='float: right; margin-right: 5px;'
-                     src='<%=ctx %>/encounter/graphics/printer.png'/>
+                <%@ include file="/WEB-INF/jsp/casemgmt/notePrintControl.jspf" %>
             </div>
             <textarea tabindex="7" cols="84" rows="10"
                       class="txtArea boxsizingBorder <%= note.isSigned() ? "" : "unsigned-textarea"%>" wrap="soft"
@@ -481,11 +478,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                 if (!note.isDocument() && !note.isCpp() && !note.isEformData() && !note.isEncounterForm() && !note.isInvoice() && !note.isEmailNote()) {
 
             %>
-            <img title="<fmt:message key="encounter.print.title"/>" id='print<%=globalNoteId%>'
-                 alt="<fmt:message key="encounter.togglePrintNote.title"/>"
-                 onclick="togglePrint('<%=globalNoteId%>'   , event)"
-                 style='float: right; margin-right: 5px; margin-top: 2px;'
-                 src='<%=ctx %>/encounter/graphics/printer.png'/>
+            <%@ include file="/WEB-INF/jsp/casemgmt/notePrintControl.jspf" %>
             <%
                 }
 
@@ -1003,17 +996,13 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
     noteIssuesChanged = false;
 
 <%
-    int MaxLen = 20;
-    int TruncLen = 17;
-    String ellipses = "...";
     // Template names are not patient data; a bean that never set up an encounter carries none.
     List<String> templateNames = bean.templateNames != null ? bean.templateNames : List.of();
     for (int j = 0; j < templateNames.size(); j++) {
         String encounterTmp = templateNames.get(j);
-        encounterTmp = StringUtils.maxLenString(encounterTmp, MaxLen, TruncLen, ellipses);
         encounterTmp = SafeEncode.forJavaScript(encounterTmp);
 %>
-    autoCompleted["<%=encounterTmp%>"] = "ajaxInsertTemplate('<%=encounterTmp%>')";
+    autoCompleted["<%=encounterTmp%>"] = function () { ajaxInsertTemplate("<%=encounterTmp%>"); };
     autoCompList.push("<%=encounterTmp%>");
     itemColours["<%=encounterTmp%>"] = "99CCCC";
 <%

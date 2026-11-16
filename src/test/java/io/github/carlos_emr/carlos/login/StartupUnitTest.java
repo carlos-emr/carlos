@@ -565,17 +565,21 @@ class StartupUnitTest extends CarlosUnitTestBase {
         Path userHomeStub = tempDir.resolve("carlosmerge.properties");
 
         try {
-            System.setProperty("user.home", tempDir.toString()); // no carlosmerge.properties here yet
+            System.setProperty("user.home", tempDir.toString());
+            // A previous release may have persisted only its encryption key. The new startup
+            // keeps that key and adds its durable chart-cutover marker to the same external file.
+            Files.writeString(userHomeStub, EncryptionUtils.SECRET_KEY_ENV_VAR + "="
+                    + EncryptionUtils.generateSecretKey() + "\n");
 
-            // --- Boot 1: user-home empty; config comes from WEB-INF (no key) -> key generated+persisted.
+            // --- Boot 1: the external key has no DB settings; load those from WEB-INF.
             props.clear();
             keySpecField.set(null, null);
 
             new Startup().contextInitialized(event);
 
             assertThat(props.getProperty("db_username")).isEqualTo("carlos_test_user");
-            String generatedKey = props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
-            assertThat(generatedKey).isNotBlank();
+            String retainedKey = props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
+            assertThat(retainedKey).isNotBlank();
 
             // The persisted user-home file is a stub containing ONLY the key - the shadowing hazard.
             assertThat(userHomeStub).exists();
@@ -583,7 +587,7 @@ class StartupUnitTest extends CarlosUnitTestBase {
             try (var in = Files.newInputStream(userHomeStub)) {
                 stub.load(in);
             }
-            assertThat(stub).containsOnlyKeys(EncryptionUtils.SECRET_KEY_ENV_VAR);
+            assertThat(stub).containsOnlyKeys(EncryptionUtils.SECRET_KEY_ENV_VAR, "AbandonOldChart");
 
             // --- Boot 2: fresh JVM (clear singleton). user-home now holds the key-only stub.
             props.clear();
@@ -596,7 +600,7 @@ class StartupUnitTest extends CarlosUnitTestBase {
             assertThat(props.getProperty("db_username")).isEqualTo("carlos_test_user");
             assertThat(props.getProperty("db_name")).isEqualTo("carlos_test_db;MODE=MySQL;NON_KEYWORDS=VALUE");
             // The previously generated key is reused as-is (not rotated).
-            assertThat(props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR)).isEqualTo(generatedKey);
+            assertThat(props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR)).isEqualTo(retainedKey);
         } finally {
             restoreUserHome(originalUserHome);
             props.clear();
@@ -884,7 +888,8 @@ class StartupUnitTest extends CarlosUnitTestBase {
 
             List<String> messages;
             try (LogCapture capture = LogCapture.forLogger(Startup.class)) {
-                new Startup().contextInitialized(event);
+                assertThatThrownBy(() -> new Startup().contextInitialized(event))
+                        .isInstanceOf(RuntimeException.class);
                 messages = capture.messages();
             }
 

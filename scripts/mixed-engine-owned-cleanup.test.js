@@ -17,8 +17,8 @@ function settings({locks = '1', global = '0', session = '0', triggers = '0', cas
   return {queries, rows(query) {queries.push(query); return [[locks,global,session]];},
     value(query) {queries.push(query); return query.includes('TRIGGERS') ? triggers : cascades;}};
 }
-test('only owned parents are WRITE locked and only proven Aria reference is READ locked', () => {
-  const p = plan(), sql = helper.build(p);
+for(const engine of ['Aria','MyISAM'])test(`only owned parents are WRITE locked and the proven ${engine} reference is READ locked`, () => {
+  const p = plan();p.schema[1][3]=engine;const sql = helper.build(p);
   helper.capability(settings(), p.schema, p.owned, p.tables, p.foreign);
   assert.match(sql, /LOCK TABLES `demographic` WRITE, `formRourke2009` READ NOWAIT/);
   assert(!sql.includes('READ LOCAL')); assert(!sql.includes('START TRANSACTION'));
@@ -46,7 +46,8 @@ test('all original row and reference checks precede deletes and exact row count 
 });
 for (const [label, edit] of [
   ['Aria parent', p => p.schema[0][3] = 'Aria'],
-  ['unreviewed MyISAM reference', p => p.schema[1][3] = 'MyISAM'],
+  ['MyISAM parent', p => p.schema[0][3] = 'MyISAM'],
+  ['unreviewed MyISAM reference', p => {p.schema[1][3]='MyISAM';p.schema[1][0]='other';p.tables[1]='other';p.checks[1].table='other';}],
   ['unknown Aria reference', p => {p.schema[1][0]='other';p.tables[1]='other';p.checks[1].table='other';}],
   ['reference view', p => p.schema[1][9] = 'VIEW'],
   ['missing schema table', p => p.schema.pop()],

@@ -44,7 +44,7 @@ public class ReportFilter extends AbstractModel<Integer> {
     private Integer id;
 
     @Column(name = "report_id")
-    private int reportId;
+    private Integer reportId = 0;
 
     private String description;
 
@@ -55,7 +55,7 @@ public class ReportFilter extends AbstractModel<Integer> {
     private int status;
 
     @Column(name = "order_no")
-    private int orderNo;
+    private Integer orderNo = 0;
 
     private String javascript;
 
@@ -71,7 +71,7 @@ public class ReportFilter extends AbstractModel<Integer> {
     }
 
     public int getReportId() {
-        return reportId;
+        return reportId == null ? 0 : reportId;
     }
 
     public void setReportId(int reportId) {
@@ -111,7 +111,8 @@ public class ReportFilter extends AbstractModel<Integer> {
     }
 
     public int getOrderNo() {
-        return orderNo;
+        // Preserve ResultSet.getInt() behavior for legacy filters with no configured order.
+        return orderNo == null ? 0 : orderNo;
     }
 
     public void setOrderNo(int orderNo) {

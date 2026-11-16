@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.prescript.util;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
@@ -142,10 +144,10 @@ public class DrugPriceLookup {
 			java.io.File formularyFile = new java.io.File(fileName);
 			try {
 				formularyFile = PathValidationUtils.validateExistingPath(formularyFile, formularyFile.getParentFile());
-				log.info("loading odb file from property {}", fileName);
+				log.info("loading odb file from property");
 				return new BufferedInputStream(new FileInputStream(formularyFile));
 			} catch (SecurityException e) {
-				log.error("Formulary file path validation failed, skipping property source: {}", fileName, e);
+				log.error("Formulary file path validation failed, skipping property source: {}", LogSafe.exceptionTrace(e));
 			}
 		}
 

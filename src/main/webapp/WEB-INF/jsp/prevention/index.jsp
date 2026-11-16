@@ -50,11 +50,12 @@
     @since 2005-10-26
 --%>
 
+<%@ taglib prefix="source" tagdir="/WEB-INF/tags" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.CanadianVaccineCatalogueManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ConsentDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.CVCMappingDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Consent" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.CVCMapping" %>
@@ -65,12 +66,12 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.DHIRSubmissionManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.PreventionManager" %>
 <%@ page import="io.github.carlos_emr.carlos.prevention.*" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
-<%@page import="org.owasp.encoder.Encode" %>
+
 <%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.CVCMapping" %>
@@ -84,9 +85,9 @@
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao, io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
+
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="io.github.carlos_emr.carlos.managers.PreventionManager" %>
@@ -97,7 +98,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -140,6 +141,33 @@
     Prevention p = PreventionData.getPrevention(loggedInInfo, Integer.valueOf(demographic_no));
 
     Integer demographicId = Integer.parseInt(demographic_no);
+
+    // A prevention read can fail part-way down the page. Every type the page is about to list is
+    // read here, before any of them is written, so a failure puts one "could not be read" message
+    // in place of the lists; the types read before the failure are never shown as if they were
+    // the patient's whole history. pageData keeps each list, so the loops below read nothing twice.
+    boolean classicPreventionView = CarlosProperties.getInstance().getBooleanProperty("PREVENTION_CLASSIC_VIEW", "yes");
+    List<String> listedPreventionTypes = new ArrayList<String>();
+    if (!classicPreventionView) {
+        for (HashMap<String, String> listedPrevention : prevList) {
+            listedPreventionTypes.add(listedPrevention.get("name"));
+        }
+    } else if (configSets != null) {
+        for (Map<String, Object> listedSet : configSets) {
+            String[] listedNames = (String[]) listedSet.get("prevList");
+            for (int listedIdx = 0; listedNames != null && listedIdx < listedNames.length; listedIdx++) {
+                HashMap<String, String> listedPrevention = pdc.getPrevention(listedNames[listedIdx]);
+                if (listedPrevention != null) {
+                    listedPreventionTypes.add(listedPrevention.get("name"));
+                }
+            }
+        }
+    }
+    boolean preventionsUnreadable = !pageData.canReadAll(listedPreventionTypes);
+    if (preventionsUnreadable) {
+        PreventionData.logUnreadable("prevention page", demographicId);
+    }
+    boolean printUnreadable = request.getAttribute("printUnreadable") != null;
     Date demographicDateOfBirth = pageData.getDateOfBirth();
     String demographicDob = UtilDateUtilities.DateToString(demographicDateOfBirth);
 
@@ -190,7 +218,7 @@
 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 
 
-<%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
+
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.prevention.PreventionData" %>
 <%@ page import="io.github.carlos_emr.carlos.prevention.PreventionDS" %>
@@ -644,6 +672,7 @@
     </head>
 
     <body class="BodyStyle">
+    <div><source:cdsSourceFields demographicNo="${param.demographic_no}" category="Immunizations"/></div>
     <!--  -->
     <%=WebUtils.popErrorAndInfoMessagesAsHtml(session)%>
     <%
@@ -801,7 +830,11 @@
                 <td valign="top" class="MainTableRightColumn">
 
                     <% if (printError) { %>
+                    <% if (printUnreadable) { %>
+                    <div class="alert alert-danger" role="alert" id="preventionPrintUnreadable"><fmt:message key="prevention.unreadable.print"/></div>
+                    <% } else { %>
                     <div class="alert alert-danger" role="alert">An error occurred while trying to print</div>
+                    <% } %>
                     <% } %>
 
                     <%if (dhirEnabled && !isSSOLoggedIn && !hideSSOWarning) {%>
@@ -924,7 +957,11 @@
                     <div>
                         <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demographic_no %>' context="htmlAttribute"/>"/>
                                 <%
-                 if (!io.github.carlos_emr.CarlosProperties.getInstance().getBooleanProperty("PREVENTION_CLASSIC_VIEW","yes")){
+                 if (preventionsUnreadable) {
+               %>
+                        <div class="alert alert-danger" role="alert" id="preventionsUnreadable"><fmt:message key="prevention.unreadable.message"/></div>
+                                <%
+                 } else if (!classicPreventionView) {
                    ArrayList<Map<String,Object>> hiddenlist = new ArrayList<Map<String,Object>>();
                   for (int i = 0 ; i < prevList.size(); i++){
                   		HashMap<String,String> h = prevList.get(i);

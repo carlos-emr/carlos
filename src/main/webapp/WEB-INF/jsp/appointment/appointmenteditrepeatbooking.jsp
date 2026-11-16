@@ -72,7 +72,7 @@
 --%>
 <%@ page import="java.sql.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="java.util.*" %>
-<%@ page import="io.github.carlos_emr.*" %>
+
 <%@ page import="io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.appointment.service.RecurringAppointmentService" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
@@ -130,6 +130,13 @@
                     io.github.carlos_emr.carlos.appt.location.AppointmentLocationUnavailableException.MESSAGE_KEY);
         } catch (IllegalArgumentException ex) {
             recurrenceMessage = ex.getMessage();
+        } catch (io.github.carlos_emr.carlos.managers.AppointmentUpdateException ex) {
+            // The Edit Appointment form this page was opened from is no longer current: another user
+            // changed the appointment after it was rendered. Nothing was written.
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
+            java.util.ResourceBundle conflictBundle = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
+            recurrenceMessage = conflictBundle.getString("appointment.editConflict.message") + " "
+                    + conflictBundle.getString("appointment.editConflict.instructions");
         } catch (SecurityException ex) {
             throw ex;
         } catch (RuntimeException ex) {

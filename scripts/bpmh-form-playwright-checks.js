@@ -20,6 +20,7 @@
  * clinic-wide, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).
  * Cleanup deletes the patient's formBPMH rows, drug reason, drug and allergy, and asserts them gone.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
@@ -289,7 +290,7 @@ async function workflow(s) {
   await s.step('GET and HEAD carrying the save are refused and store nothing', async () => {
     const probe = `${marker} saved by GET`;
     for (const method of ['GET', 'HEAD']) {
-      const response = await context.request.fetch(h.appUrl(s.config.baseUrl, '/formBPMH')
+      const response = await authenticatedProbe({context, config: s.config}, h.appUrl(s.config.baseUrl, '/formBPMH')
         + `?method=save&form.demographicNo=${patient}&form.formId=0&form.note=${encodeURIComponent(probe)}`,
       { method, maxRedirects: 0, failOnStatusCode: false });
       await h.assertRefused(s, { label: `${method} formBPMH method=save`, table: 'formBPMH',

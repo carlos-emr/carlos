@@ -39,7 +39,15 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.RecordComponent;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.Locale;
 import java.util.Map;
+import java.util.TimeZone;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -50,6 +58,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -108,6 +117,45 @@ class PopulationReport2ActionUnitTest extends CarlosUnitTestBase {
         Field cached = PopulationReport2Action.class.getDeclaredField("CACHED_FIGURES");
         cached.setAccessible(true);
         ((AtomicReference<?>) cached.get(null)).set(null);
+    }
+
+    /** Publishes figures computed at {@code computedAt} as the fresh cached report. */
+    @SuppressWarnings("unchecked")
+    private static void seedCache(Date computedAt) throws Exception {
+        Class<?> figures = Class.forName(PopulationReport2Action.class.getName() + "$Figures");
+        Class<?>[] components = Arrays.stream(figures.getRecordComponents())
+                .map(RecordComponent::getType).toArray(Class<?>[]::new);
+        var constructor = figures.getDeclaredConstructor(components);
+        constructor.setAccessible(true);
+        Object seeded = constructor.newInstance(computedAt, mock(ShelterPopulation.class), mock(ShelterUsage.class),
+                mock(Mortalities.class), Map.of(), Map.of(), Map.of(), Map.of(), System.currentTimeMillis());
+        Field cached = PopulationReport2Action.class.getDeclaredField("CACHED_FIGURES");
+        cached.setAccessible(true);
+        ((AtomicReference<Object>) cached.get(null)).set(seeded);
+    }
+
+    @Test
+    void shouldPublishTheClinicDateAndTime_whenTheUtcDateHasAlreadyChanged() throws Exception {
+        TimeZone original = TimeZone.getDefault();
+        try {
+            TimeZone.setDefault(TimeZone.getTimeZone("America/Toronto"));
+            // 23:30 in Toronto on 28 February is already 1 March in UTC.
+            Date computedAt = Date.from(Instant.parse("2026-03-01T04:30:00Z"));
+            seedCache(computedAt);
+
+            PopulationReport2Action action = newAction();
+            assertThat(action.report()).isEqualTo("report");
+
+            // The page has always shown dd/MM/yyyy and the short Canadian time; these call-local
+            // legacy formatters are the reference for both.
+            assertThat(request.getAttribute("date")).isEqualTo("28/02/2026")
+                    .isEqualTo(new SimpleDateFormat("dd/MM/yyyy").format(computedAt));
+            assertThat(request.getAttribute("time"))
+                    .isEqualTo(DateFormat.getTimeInstance(DateFormat.SHORT, Locale.CANADA).format(computedAt));
+            verify(manager, never()).getShelterPopulation();
+        } finally {
+            TimeZone.setDefault(original);
+        }
     }
 
     @Test

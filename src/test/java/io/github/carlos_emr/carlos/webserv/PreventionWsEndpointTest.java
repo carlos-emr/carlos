@@ -17,10 +17,12 @@
  *
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
+ * Modifications made by CARLOS Contributors in 2026: enforce CDS maintenance and disclosure compatibility.
  */
 package io.github.carlos_emr.carlos.webserv;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
@@ -40,6 +42,8 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 
 import io.github.carlos_emr.carlos.commn.model.Prevention;
+import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
+import io.github.carlos_emr.carlos.prevention.PreventionDateService;
 import io.github.carlos_emr.carlos.managers.PreventionManager;
 import io.github.carlos_emr.carlos.test.base.CarlosSoapTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -63,13 +67,28 @@ class PreventionWsEndpointTest extends CarlosSoapTestBase {
 
     @Mock
     private PreventionManager preventionManager;
+    @Mock
+    private PartialDateDao partialDateDao;
+
+    @Mock
+    private io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService projections;
 
     private PreventionWs ws;
 
     @Override
     protected Object getServiceBean() {
-        ws = new PreventionWs();
+        ws = new PreventionWs(preventionManager, new PreventionDateService(partialDateDao), projections);
         return ws;
+    }
+
+    @Test
+    void shouldFaultInsteadOfReturningEmptySubset_whenStructuredSourceCannotBeProjected() {
+        when(preventionManager.getByDemographicIdUpdatedAfterDate(any(LoggedInInfo.class),eq(123),any(java.util.Date.class))).thenReturn(java.util.List.of());
+        org.mockito.Mockito.doThrow(new org.apache.cxf.binding.soap.SoapFault("Structured projection requires review",
+                org.apache.cxf.binding.soap.SoapFault.FAULT_CODE_CLIENT))
+                .when(projections).requireSoapSupported(123,java.util.Set.of("Immunizations"));
+        org.assertj.core.api.Assertions.assertThatThrownBy(()->createClient(PreventionPort.class).getPreventionsByDemographicIdAfter(java.util.Calendar.getInstance(),123))
+                .hasMessageContaining("Structured projection requires review");
     }
 
     @Override
@@ -80,7 +99,50 @@ class PreventionWsEndpointTest extends CarlosSoapTestBase {
     @BeforeEach
     void setUpMocks() {
         registerMock(PreventionManager.class, preventionManager);
-        injectDependency(ws, "preventionManager", preventionManager);
+    }
+
+    @Test
+    void shouldKeepLegacyAnchorPayload_forNativeYearOnlyPrevention() {
+        Prevention record = new Prevention();
+        record.setDemographicId(123);
+        org.springframework.test.util.ReflectionTestUtils.setField(record, "id", 41);
+        record.setPreventionType("Td");
+        record.setPreventionDate(java.sql.Date.valueOf("2019-01-01"));
+        when(partialDateDao.getFormat(4, 41, 7)).thenReturn("YYYY");
+        when(preventionManager.getPrevention(any(LoggedInInfo.class), eq(41))).thenReturn(record);
+        var result = createClient(PreventionPort.class).getPrevention(41);
+        assertThat(result.getPreventionDate()).isEqualTo(java.sql.Date.valueOf("2019-01-01"));
+        assertThat(result.getPreventionType()).isEqualTo("Td");
+        assertThat(result.getDemographicId()).isEqualTo(123);
+    }
+
+    @Test
+    void shouldRefuseDateOnlyResponse_whenHistoryHasPartialTiming() {
+        Prevention record = new Prevention();
+        markImported(record);
+            record.setDemographicId(123);
+        org.springframework.test.util.ReflectionTestUtils.setField(record, "id", 41);
+        record.setPreventionDate(java.sql.Date.valueOf("2019-01-01"));
+        when(partialDateDao.getFormat(4, 41, 7)).thenReturn("YYYY");
+        when(preventionManager.getPrevention(any(LoggedInInfo.class), eq(41))).thenReturn(record);
+        assertThatThrownBy(() -> createClient(PreventionPort.class).getPrevention(41))
+                .hasMessageContaining("precision-aware");
+    }
+
+    @Test
+    void shouldRefuseListOperation_whenHistoryContainsUndatedRecords() {
+        Prevention record = new Prevention();
+        markImported(record);
+        when(preventionManager.getUpdatedAfterDate(any(LoggedInInfo.class), any(Date.class), anyInt()))
+                .thenReturn(List.of(record));
+        assertThatThrownBy(() -> createClient(PreventionPort.class).getPreventionsUpdatedAfterDate(new Date(), 10))
+                .hasMessageContaining("precision-aware");
+    }
+
+    private static void markImported(Prevention prevention) {
+        var provenance = new io.github.carlos_emr.carlos.commn.model.PreventionExt();
+        provenance.setKeyval("cdsDatePrecision");
+        prevention.addPreventionExt(provenance);
     }
 
     /** Tests for the getPrevention SOAP operation. */
@@ -92,12 +154,14 @@ class PreventionWsEndpointTest extends CarlosSoapTestBase {
         @DisplayName("should return prevention transfer when found")
         void shouldReturnPreventionTransfer_whenFound() {
             Prevention prevention = new Prevention();
+            prevention.setDemographicId(123);
             prevention.setPreventionType("Flu");
+            prevention.setPreventionDate(java.sql.Date.valueOf("2019-01-01"));
             when(preventionManager.getPrevention(any(LoggedInInfo.class), eq(7))).thenReturn(prevention);
             when(preventionManager.getPreventionExtByPrevention(any(LoggedInInfo.class), eq(7)))
                 .thenReturn(Collections.emptyList());
 
-            PreventionWs proxy = createClient(PreventionWs.class);
+            PreventionPort proxy = createClient(PreventionPort.class);
             PreventionTransfer result = proxy.getPrevention(7);
 
             assertThat(result).isNotNull();
@@ -109,7 +173,7 @@ class PreventionWsEndpointTest extends CarlosSoapTestBase {
         void shouldReturnNull_whenPreventionNotFound() {
             when(preventionManager.getPrevention(any(LoggedInInfo.class), eq(999))).thenReturn(null);
 
-            PreventionWs proxy = createClient(PreventionWs.class);
+            PreventionPort proxy = createClient(PreventionPort.class);
             PreventionTransfer result = proxy.getPrevention(999);
 
             assertThat(result).isNull();
@@ -127,12 +191,14 @@ class PreventionWsEndpointTest extends CarlosSoapTestBase {
         void shouldReturnPreventionArray_whenResultsExist() {
             List<Prevention> preventions = new ArrayList<>();
             Prevention p = new Prevention();
+            p.setDemographicId(123);
             p.setPreventionType("Flu");
+            p.setPreventionDate(java.sql.Date.valueOf("2019-01-01"));
             preventions.add(p);
             when(preventionManager.getUpdatedAfterDate(any(LoggedInInfo.class), any(Date.class), anyInt()))
                 .thenReturn(preventions);
 
-            PreventionWs proxy = createClient(PreventionWs.class);
+            PreventionPort proxy = createClient(PreventionPort.class);
             PreventionTransfer[] result = proxy.getPreventionsUpdatedAfterDate(new Date(), 10);
 
             assertThat(result).hasSize(1);
@@ -146,7 +212,7 @@ class PreventionWsEndpointTest extends CarlosSoapTestBase {
             when(preventionManager.getUpdatedAfterDate(any(LoggedInInfo.class), any(Date.class), anyInt()))
                 .thenReturn(new ArrayList<>());
 
-            PreventionWs proxy = createClient(PreventionWs.class);
+            PreventionPort proxy = createClient(PreventionPort.class);
             PreventionTransfer[] result = proxy.getPreventionsUpdatedAfterDate(new Date(), 10);
 
             // SOAP omits an empty return array, which JAXB may deserialize as null.
@@ -165,17 +231,30 @@ class PreventionWsEndpointTest extends CarlosSoapTestBase {
         void shouldReturnPreventions_forDemographicAfterDate() {
             List<Prevention> preventions = new ArrayList<>();
             Prevention p = new Prevention();
+            p.setDemographicId(123);
             p.setPreventionType("Flu");
+            p.setPreventionDate(java.sql.Date.valueOf("2019-01-01"));
             preventions.add(p);
             when(preventionManager.getByDemographicIdUpdatedAfterDate(any(LoggedInInfo.class), eq(200), any(Date.class)))
                 .thenReturn(preventions);
 
-            PreventionWs proxy = createClient(PreventionWs.class);
+            PreventionPort proxy = createClient(PreventionPort.class);
             Calendar cal = Calendar.getInstance();
             PreventionTransfer[] result = proxy.getPreventionsByDemographicIdAfter(cal, 200);
 
             assertThat(result).hasSize(1);
             assertThat(result[0].getPreventionType()).isEqualTo("Flu");
         }
+    }
+    /** JAX-WS clients use a service interface; constructing a concrete CGLIB proxy would
+     * require a fake no-argument constructor on the constructor-injected production service. */
+    @jakarta.jws.WebService(name="PreventionWs",targetNamespace="http://ws.oscarehr.org/")
+    public interface PreventionPort {
+        PreventionTransfer getPrevention(Integer arg0);
+        PreventionTransfer[] getPreventionsUpdatedAfterDate(Date arg0,int arg1);
+        PreventionTransfer[] getPreventionsByProgramProviderDemographicDate(Integer arg0,String arg1,Integer arg2,java.util.Calendar arg3,int arg4);
+        PreventionTransfer[] getPreventionsByDemographicIdAfter(
+                @jakarta.jws.WebParam(name="lastUpdate") java.util.Calendar lastUpdate,
+                @jakarta.jws.WebParam(name="demographicId") Integer demographicId);
     }
 }

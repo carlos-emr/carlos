@@ -473,7 +473,6 @@
             <c:set var="__apptDateUri"><carlos:encode value='${formModel.requestContext.requestParamEchoes["appointment_date"]}' context='uriComponent'/></c:set>
             <c:set var="__statusUri"><carlos:encode value='${formModel.requestContext.requestParamEchoes["status"]}' context='uriComponent'/></c:set>
             <c:set var="__startTimeUri"><carlos:encode value='${formModel.requestContext.requestParamEchoes["start_time"]}' context='uriComponent'/></c:set>
-            <c:set var="__demoNameJs">&demographic_name=<carlos:encode value='${formModel.requestContext.demoNameUrlEncoded}' context='javaScript'/></c:set>
             <%-- billRegion MUST stay on every self-navigation out of this page.
                  Billing2Action routes on it and only falls back to the
                  deployment-wide `billregion` property when it is absent; an
@@ -482,7 +481,7 @@
                  BC-only tables the Ontario schema does not have and answers
                  "CARLOS Error: 500". This page is the Ontario bill-entry form,
                  so the region is unconditionally ON. --%>
-            <c:set var="__commonQs">&billRegion=ON&appointment_no=<carlos:encode value='${__apptNoUri}' context='javaScript'/>${__demoNameJs}&demographic_no=<carlos:encode value='${__demoNoUri}' context='javaScript'/></c:set>
+            <c:set var="__commonQs">&billRegion=ON&appointment_no=<carlos:encode value='${__apptNoUri}' context='javaScript'/>&demographic_no=<carlos:encode value='${__demoNoUri}' context='javaScript'/></c:set>
             <c:set var="__commonTail">&apptProvider_no=<carlos:encode value='${__apptProvUri}' context='javaScript'/>&appointment_date=<carlos:encode value='${__apptDateUri}' context='javaScript'/>&status=<carlos:encode value='${__statusUri}' context='javaScript'/>&start_time=<carlos:encode value='${__startTimeUri}' context='javaScript'/>&bNewForm=1</c:set>
             if (val.substring(0, 3) == "PAT" || val.substring(0, 3) == "OCF" || val.substring(0, 3) == "ODS" || val.substring(0, 3) == "CPP" || val.substring(0, 3) == "STD") {
                 self.location.href = billingContextPath + "/billing?curBillForm=PRI&hotclick=${__commonQs}&xml_billtype=" + val.substring(0, 3) + "${__commonTail}" + physicianQuery;
@@ -508,7 +507,7 @@
 
         function onHistory() {
             var dd = document.forms[0].day.value;
-            popupPage("800", "1000", billingContextPath + "/billing/CA/ON/ViewBillingONHistorySpec?demographic_no=<carlos:encode value='${formModel.requestContext.demographicNo}' context='javaScript'/>&demo_name=<carlos:encode value='${formModel.requestContext.demoNameUrlEncoded}' context='javaScript'/>&orderby=appointment_date&day=" + dd);
+            popupPage("800", "1000", billingContextPath + "/billing/CA/ON/ViewBillingONHistorySpec?demographic_no=<carlos:encode value='${formModel.requestContext.demographicNo}' context='javaScript'/>&orderby=appointment_date&day=" + dd);
         }
 
         function prepareBack() {
@@ -878,9 +877,11 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
 								        <input type="text" class="form-control" id="service_date" name="service_date" readonly
                                            value="<carlos:encode value='${formModel.visit.serviceDateDefault}' context='htmlAttribute'/>"
                                            style="width: 80px; height:14px;  vertical-align: bottom;">
-                                        <span class="input-group-text" id="service_date_cal" style="cursor:pointer;">
+                                        <fmt:message key="oscar.billing.ca.on.billingON.chooseDate" var="serviceDateCalendarLabel"/>
+                                        <button type="button" class="input-group-text" id="service_date_cal"
+                                                aria-label="<carlos:encode value='${serviceDateCalendarLabel}' context='htmlAttribute'/>">
                                             <img src="${pageContext.request.contextPath}/images/cal.gif"
-                                                 style="height:14px;" alt="cal"></span></span>
+                                                 style="height:14px;" alt=""></button></span>
                                 </c:when>
                                 <c:otherwise>
                                     <input type="text" id="service_date" name="service_date" readonly

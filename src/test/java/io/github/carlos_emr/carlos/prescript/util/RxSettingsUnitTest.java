@@ -18,6 +18,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
@@ -33,11 +35,14 @@ class RxSettingsUnitTest {
     private static final String[] KEYS = {
             "prescript.policy", "rx.policy", "prescript.default_instruction", "rx.default_instruction"};
 
+    private String originalQuantity;
+
     /** Original raw values on the shared singleton, restored after each test. */
     private final Map<String, String> original = new HashMap<>();
 
     @BeforeEach
     void clearKeys() {
+        originalQuantity = RxUtil.getDefaultQuantity();
         CarlosProperties properties = CarlosProperties.getInstance();
         for (String key : KEYS) {
             // Hashtable read: getProperty(String) would log a missing-key warning and apply defaults.
@@ -48,6 +53,7 @@ class RxSettingsUnitTest {
 
     @AfterEach
     void restoreKeys() {
+        RxUtil.setDefaultQuantity(originalQuantity);
         CarlosProperties properties = CarlosProperties.getInstance();
         for (String key : KEYS) {
             String value = original.get(key);
@@ -67,6 +73,26 @@ class RxSettingsUnitTest {
         RxPrescriptionData.Prescription rx = new RxPrescriptionData.Prescription(0, "999998", 1);
         RxUtil.setDefaultSpecialQuantityRepeat(rx);
         return rx.getSpecial();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"30", "90", "7 days"})
+    @DisplayName("should initialize notes at zero quantity and repeats regardless of the drug default")
+    void shouldInitializeNoteAtZero_whenDrugQuantityDefaultIsConfigured(String quantity) {
+        RxUtil.setDefaultQuantity(quantity);
+        set("prescript.default_instruction", "Bring the old pill bottles");
+        RxPrescriptionData.Prescription note = new RxPrescriptionData.Prescription(0, "999998", 1);
+        note.setCustomNote(true);
+
+        RxUtil.setDefaultSpecialQuantityRepeat(note);
+
+        assertThat(note.getQuantity()).isEqualTo("0");
+        assertThat(note.getRepeat()).isZero();
+        assertThat(note.getSpecial()).isEqualTo("Bring the old pill bottles");
+        RxPrescriptionData.Prescription drug = new RxPrescriptionData.Prescription(0, "999998", 1);
+        RxUtil.setDefaultSpecialQuantityRepeat(drug);
+        assertThat(drug.getQuantity()).isEqualTo(quantity);
+        assertThat(drug.getRepeat()).isZero();
     }
 
     @Test

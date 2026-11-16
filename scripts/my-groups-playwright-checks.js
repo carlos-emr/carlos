@@ -23,6 +23,7 @@
  * snapshotted and restored through the UI and again by cleanup SQL; cleanup deletes only
  * rows carrying the group name and asserts they are gone.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const {clickAndAwaitReload, clickOpensPopupOrNavigates} = require('./lib/playwright-ui');
 const {revealAuditLink} = require('./lib/playwright-link-audit');
@@ -200,9 +201,9 @@ async function workflow(s) {
     // left a blank page. It now posts to provider/SaveMyGroup and redirects to the list.
     await assertOnProviderGroupList(groups, 'Save');
     h.assert(await groups.locator(`input[name="${groupName}${demo2}"]`).count() === 1, 'The group list does not show the new member');
-    const rejected = await s.context.request.get(h.appUrl(s.config.baseUrl, '/provider/SaveMyGroup'), {maxRedirects: 0});
+    const rejected = await authenticatedProbe(s, h.appUrl(s.config.baseUrl, '/provider/SaveMyGroup'), {maxRedirects: 0});
     h.assert(rejected.status() === 405, 'GET on provider/SaveMyGroup was not rejected');
-    const rejectedDelete = await s.context.request.get(h.appUrl(s.config.baseUrl, '/provider/DeleteMyGroupMembers'),
+    const rejectedDelete = await authenticatedProbe(s, h.appUrl(s.config.baseUrl, '/provider/DeleteMyGroupMembers'),
       {params: {[`${groupName}${demo2}`]: groupName}, maxRedirects: 0});
     h.assert(rejectedDelete.status() === 405, 'GET on provider/DeleteMyGroupMembers was not rejected');
     h.assert(groupRows() === '3', 'A rejected GET delete changed group rows');
@@ -231,9 +232,9 @@ async function workflow(s) {
     h.assert(await s.schedule.locator('#mygroup_no').inputValue() === originalOption, 'The day sheet did not return to the previous selection');
   });
   await s.step('GET cannot delete or save a group; Search/Edit/Delete Groups ▸ Delete removes the ticked members', async () => {
-    const getSave = await s.context.request.get(h.appUrl(s.config.baseUrl, '/admin/AdminSaveMyGroup'), {maxRedirects: 0});
+    const getSave = await authenticatedProbe(s, h.appUrl(s.config.baseUrl, '/admin/AdminSaveMyGroup'), {maxRedirects: 0});
     h.assert(getSave.status() === 405, 'GET on admin/AdminSaveMyGroup was not rejected');
-    const getDelete = await s.context.request.get(h.appUrl(s.config.baseUrl, '/admin/AdminNewGroup'),
+    const getDelete = await authenticatedProbe(s, h.appUrl(s.config.baseUrl, '/admin/AdminNewGroup'),
       {params: {submit: 'Delete', [`${groupName}${provider}`]: groupName}, maxRedirects: 0});
     h.assert(getDelete.status() === 405, 'GET on the AdminNewGroup delete branch was not rejected');
     h.assert(groupRows() === '2', 'A rejected GET changed group rows');

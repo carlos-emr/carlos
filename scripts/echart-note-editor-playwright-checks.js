@@ -222,7 +222,9 @@ async function main() {
     await note.waitFor({ state: 'visible', timeout });
     // The click is the point: getActiveText() is a click handler on the note.
     await note.click({ timeout });
-    const autosave = chartPage.waitForRequest(isAutosaveRequest, { timeout: AUTOSAVE_WAIT_MS });
+    const autosave = chartPage.waitForRequest(request=>isAutosaveRequest(request)
+      && [...new URLSearchParams(request.postData()||'').values()].some(value=>value.includes(stamp)), { timeout: AUTOSAVE_WAIT_MS });
+    autosave.catch(()=>{});
     await note.pressSequentially(`${stamp} typed by the note-editor check`, { delay: 15 });
 
     const request = await autosave;
@@ -234,13 +236,17 @@ async function main() {
       'the draft autosave was not sent as an XMLHttpRequest, so CSRFGuard would not validate it by header');
     assert(response && response.status() === 200,
       `the draft autosave answered HTTP ${response ? response.status() : '(no response)'} instead of 200`);
+    assert(!(await response.finished()), 'The stamped autosave response did not finish');
     // The draft holds the whole textarea, and a fresh note opens with a header
     // line ("[date .: reason]") already in it, so the stamp is inside the text,
     // not at its start.
-    const drafts = Number(sql.value(
-      `SELECT COUNT(*) FROM casemgmt_tmpsave WHERE provider_no = '${providerNo}' AND demographic_no = ${demographicNo} `
-      + `AND note LIKE '%${stamp}%'`,
-    ) || '0');
+    let drafts=0;
+    const persistenceDeadline=Date.now()+5000;
+    do {
+      drafts=Number(sql.value(`SELECT COUNT(*) FROM casemgmt_tmpsave WHERE provider_no='${providerNo}' AND demographic_no=${demographicNo} AND note LIKE '%${stamp}%'`)||'0');
+      if(drafts)break;
+      await new Promise(resolve=>setTimeout(resolve,100));
+    } while(Date.now()<persistenceDeadline);
     assert(drafts >= 1, 'the autosave answered 200 but wrote no casemgmt_tmpsave row, so the POST did not reach the action');
 
     assertStrictPage(recorder, ['echart']);

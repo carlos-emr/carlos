@@ -99,12 +99,7 @@ function normalizeHost(rawHost) {
   return String(rawHost).toLowerCase().replace(/^\[|\]$/g, '');
 }
 
-const LOCAL_BASE_URL_HOSTS = new Set([
-  'localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1', '0.0.0.0', 'host.docker.internal', 'carlos',
-]);
-// Loopback only. This is the set that decides whether TLS verification may be relaxed, so it is
-// deliberately narrower than LOCAL_BASE_URL_HOSTS: a self-signed certificate is expected on the
-// packaged loopback front door and nowhere else.
+// Shared validation requires explicit non-loopback opt-in; TLS exceptions default to loopback; ALLOW_UNVERIFIED_TLS is a separate explicit override.
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']);
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
@@ -153,25 +148,9 @@ let expectingCustomDrugConfirm = false;
 // --- config validation -------------------------------------------------------
 
 function validateBaseUrl(rawBaseUrl) {
-  let parsed;
-  try {
-    parsed = new URL(rawBaseUrl);
-  } catch (e) {
-    throw new Error(`BASE_URL is not a valid URL: ${rawBaseUrl}`);
-  }
-  // A non-HTTP scheme parses cleanly but is not a navigable target; reject it here rather than
-  // failing later with an opaque navigation error.
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-  if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not embed credentials');
-  }
-  if (!LOCAL_BASE_URL_HOSTS.has(normalizeHost(parsed.hostname))
-      && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`refusing non-local BASE_URL host ${parsed.hostname}; set ALLOW_NON_LOCAL_BASE_URL=true to override`);
-  }
-  return `${parsed.origin}${parsed.pathname.replace(/\/$/, '')}`;
+  // Delegate host/protocol/credential rules; this legacy caller retains its return shape.
+  const parsed = require('./lib/playwright-harness').validateCredentialBaseUrl(rawBaseUrl);
+  return `${parsed.origin}${parsed.pathname.replace(/\/+$/, '')}`;
 }
 
 /** True when BASE_URL points at loopback, where the packaged self-signed certificate lives. */
@@ -752,7 +731,9 @@ async function runChecks(context) {
   }
 }
 
-(async () => {
+const legacyHarness = require('./lib/legacy-check');
+legacyHarness.runLegacyCheck('rx-fax-reprint-represcribe', async () => {
+  await (async () => {
   const args = ['--disable-dev-shm-usage'];
   if (process.env.EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX !== 'true') args.unshift('--no-sandbox');
   const launchOptions = { headless: true, args, ...NO_PLAYWRIGHT_SIGNAL_HANDLING };
@@ -788,5 +769,6 @@ async function runChecks(context) {
 })().catch((error) => {
   try { cleanupFixtures(); } finally { removeSecretsDir(); }
   console.error(`FAIL rx-fax-reprint-represcribe: ${checkPhase}: ${browserErrorClass(error)}${fixtureErrorTag(error)}${errorSourceLocation(error)}`);
-  process.exit(1);
+  process.exitCode = 1;
 });
+}, {existingSignalHandlers:true});

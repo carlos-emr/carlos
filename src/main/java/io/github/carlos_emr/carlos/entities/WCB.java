@@ -41,7 +41,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Temporal;
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
 import io.github.carlos_emr.carlos.util.StringUtils;
 
@@ -50,6 +49,8 @@ import io.github.carlos_emr.carlos.util.StringUtils;
  */
 @Entity
 @Table(name = "wcb")
+// A normalized legacy zero date is missing in memory; unrelated edits must leave its stored value intact.
+@org.hibernate.annotations.DynamicUpdate
 public class WCB {
 
     @Id
@@ -62,9 +63,11 @@ public class WCB {
     private //    | int(10) unsigned ||
     String provider_no;
     @Temporal(value = jakarta.persistence.TemporalType.TIMESTAMP)
+    @org.hibernate.annotations.ColumnTransformer(read = "CASE WHEN CAST(formCreated AS CHAR(30)) LIKE '0000-00-00%' THEN NULL ELSE formCreated END")
     private //    | int(10) unsigned ||
     Date formCreated;
     @Temporal(value = jakarta.persistence.TemporalType.TIMESTAMP)
+    @org.hibernate.annotations.ColumnTransformer(read = "CASE WHEN CAST(formEdited AS CHAR(30)) LIKE '0000-00-00%' THEN NULL ELSE formEdited END")
     private //   | datetime         ||
     Date formEdited;
     private //  | datetime         ||
@@ -80,6 +83,7 @@ public class WCB {
     private //         | char(1)          ||
     String w_gender;
     @Temporal(value = jakarta.persistence.TemporalType.DATE)
+    @org.hibernate.annotations.ColumnTransformer(read = "CASE WHEN CAST(w_dob AS CHAR(30)) LIKE '0000-00-00%' THEN NULL ELSE w_dob END")
     private //         | char(1)          ||
     Date w_dob;
     private //       | date             ||
@@ -114,6 +118,7 @@ public class WCB {
     private //  | int(1)           || 
     String w_problem;
     @Temporal(value = jakarta.persistence.TemporalType.TIMESTAMP)
+    @org.hibernate.annotations.ColumnTransformer(read = "CASE WHEN CAST(w_servicedate AS CHAR(30)) LIKE '0000-00-00%' THEN NULL ELSE w_servicedate END")
     private //   | varchar(160)     ||
     Date w_servicedate;
     private //    | date             ||
@@ -129,6 +134,7 @@ public class WCB {
     private //     | varchar(5)       ||
     String w_work;
     @Temporal(value = jakarta.persistence.TemporalType.DATE)
+    @org.hibernate.annotations.ColumnTransformer(read = "CASE WHEN CAST(w_workdate AS CHAR(30)) LIKE '0000-00-00%' THEN NULL ELSE w_workdate END")
     private //     | char(1)          ||
     Date w_workdate;
     private //   | date             ||
@@ -148,6 +154,7 @@ public class WCB {
     private //  | char(1)          ||
     String w_ftreatment;
     @Temporal(value = jakarta.persistence.TemporalType.TIMESTAMP)
+    @org.hibernate.annotations.ColumnTransformer(read = "CASE WHEN CAST(w_estimatedate AS CHAR(30)) LIKE '0000-00-00%' THEN NULL ELSE w_estimatedate END")
     private //  | varchar(25)      ||
     Date w_estimatedate;
     private // | date             ||
@@ -157,6 +164,7 @@ public class WCB {
     private //   | varchar(10)      ||
     String w_pracno;
     @Temporal(value = jakarta.persistence.TemporalType.DATE)
+    @org.hibernate.annotations.ColumnTransformer(read = "CASE WHEN CAST(w_doi AS CHAR(30)) LIKE '0000-00-00%' THEN NULL ELSE w_doi END")
     private //   | varchar(10)      ||
     Date w_doi;
     private // | date             ||
@@ -606,7 +614,7 @@ public class WCB {
     }
 
     public String toString() {
-        return ReflectionToStringBuilder.toString(this);
+        return getClass().getSimpleName() + "[protected]";
     }
 
     public List verify() {

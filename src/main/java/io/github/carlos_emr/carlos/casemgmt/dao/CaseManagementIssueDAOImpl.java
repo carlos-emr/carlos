@@ -34,7 +34,6 @@ package io.github.carlos_emr.carlos.casemgmt.dao;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -54,7 +53,43 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 @Transactional
 public class CaseManagementIssueDAOImpl extends AbstractJpaDao implements CaseManagementIssueDAO {
 
+    // One authorized read-only patient snapshot owns these finite scalar projections; no managed issue is loaded.
+    @Override
+    @Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column> readCdsExportReceiptColumns() {
+        return io.github.carlos_emr.carlos.commn.dao.CdsExportNativeMetadataReadSupport.read(entityManager(), io.github.carlos_emr.carlos.commn.dao.CdsExportNativeMetadataReadSupport.Table.CASE_ISSUES);
+    }
+    @Override
+    @Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto readCdsExportSourceSchema() {
+        return io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.schema(entityManager(), io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Plan.CASE_ISSUES);
+    }
+    @Override
+    @Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public long countCdsExportRows(int patient) {
+        return io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.count(entityManager(), io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Plan.CASE_ISSUES, patient);
+    }
+    @Override
+    @Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> findCdsExportRowsAfter(int patient, Long afterId, int limit) {
+        return io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.page(entityManager(), io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Plan.CASE_ISSUES, patient, afterId, limit);
+    }
+    @Override
+    @Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public byte[] readCdsExportValueChunk(int patient, long rowId, String column, long offset, int length) {
+        return io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.chunk(entityManager(), io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Plan.CASE_ISSUES, patient, rowId, column, offset, length);
+    }
+
+
     private static Logger log = MiscUtils.getLogger();
+
+    @Override
+    public List<CaseManagementIssue> findCandidatesByDemographicAndIssue(int demographicNo, Long issueId) {
+        return entityManager().createQuery("select i from CaseManagementIssue i where"
+                        + " i.demographic_no=:patient and i.issue_id=:issue order by i.id", CaseManagementIssue.class)
+                .setParameter("patient", demographicNo).setParameter("issue", issueId)
+                .setMaxResults(2).getResultList();
+    }
 
     @SuppressWarnings("unchecked")
     @Override
@@ -78,16 +113,29 @@ public class CaseManagementIssueDAOImpl extends AbstractJpaDao implements CaseMa
         }
     }
 
+    /**
+     * Finds issues linked to a note, optionally filtered by resolution state.
+     * Results are ordered by resolution state, with unresolved issues first;
+     * ordering within each state is unspecified.
+     *
+     * @param noteId Integer identifier of the note; must not be null
+     * @param resolved Boolean resolution state to match, or null to return issues
+     *                 without filtering by resolution
+     * @return non-null {@code List<CaseManagementIssue>} of matching issues, or an
+     *         empty list if the note does not exist or has no matching linked issues
+     * @throws IllegalArgumentException if noteId is null
+     * @throws org.springframework.dao.DataAccessException if persistence access fails
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementIssue> getIssuesByNote(Integer noteId, Boolean resolved) {
         if (resolved != null) {
             return (List<CaseManagementIssue>) JpqlQueryHelper.find(entityManager(),
-                    "from CaseManagementIssue cmi where cmi.notes.id = ?1 and cmi.resolved = ?2 order by cmi.resolved",
+                    "select distinct cmi from CaseManagementIssue cmi join cmi.notes n where n.id = ?1 and cmi.resolved = ?2 order by cmi.resolved",
                     noteId, resolved);
         } else {
             return (List<CaseManagementIssue>) JpqlQueryHelper.find(entityManager(),
-                    "from CaseManagementIssue cmi where cmi.notes.id = ?1 order by cmi.resolved",
+                    "select distinct cmi from CaseManagementIssue cmi join cmi.notes n where n.id = ?1 order by cmi.resolved",
                     noteId);
         }
     }
@@ -150,26 +198,49 @@ public class CaseManagementIssueDAOImpl extends AbstractJpaDao implements CaseMa
 
     @Override
     public void saveAndUpdateCaseIssues(List<CaseManagementIssue> issuelist) {
-        Iterator<CaseManagementIssue> itr = issuelist.iterator();
-        while (itr.hasNext()) {
-            CaseManagementIssue cmi = itr.next();
-            cmi.setUpdate_date(new Date());
-            if (cmi.getId() != null && cmi.getId().longValue() > 0) {
-                entityManager().merge(cmi);
-            } else {
-                entityManager().persist(cmi);
-            }
+        for (CaseManagementIssue cmi : issuelist) {
+            write(cmi);
         }
-
     }
 
+    @Override
     public void saveIssue(CaseManagementIssue issue) {
-        issue.setUpdate_date(new Date());
+        write(issue);
+    }
+
+    @Override
+    public void insertCdsMarker(CaseManagementIssue issue) {
+        if (issue == null || issue.getId() != null || issue.getDemographic_no() == null
+                || issue.getDemographic_no() < 1 || issue.getIssue_id() < 1
+                || issue.getUpdate_date() == null || !issue.getNotes().isEmpty())
+            throw new IllegalArgumentException("CDS_NATIVE_ISSUE_INSERT_INVALID");
+        entityManager().persist(issue);
+    }
+
+    /**
+     * Inserts a new issue stamped now, or writes an existing one without moving its date.
+     *
+     * <p>Both note save paths hand every issue the editor lists to this DAO, almost always as
+     * detached copies. Such a copy's {@code update_date} is whatever the caller holds: the value
+     * loaded when the editor opened, {@code null} from REST input, or a caller's own
+     * {@code new Date()}. It is not the row's change time, so the stored value is adopted before
+     * the merge and the date alone never makes the row dirty. {@link CaseManagementIssue#stampChange()}
+     * then stamps the row from Hibernate's flush-time dirty check, which compares with the state
+     * loaded from the database, not with an instance a caller may already have modified. A
+     * managed instance is therefore left entirely to that check.</p>
+     */
+    private void write(CaseManagementIssue issue) {
         if (issue.getId() == null || issue.getId() <= 0) {
+            issue.setUpdate_date(new Date());
             entityManager().persist(issue);
-        } else {
-            entityManager().merge(issue);
+            return;
         }
+        if (!entityManager().contains(issue)) {
+            // find() never flushes; a query here could auto-flush other pending writes first.
+            CaseManagementIssue stored = entityManager().find(CaseManagementIssue.class, issue.getId());
+            if (stored != null) issue.setUpdate_date(stored.getUpdate_date());
+        }
+        entityManager().merge(issue);
     }
 
     @SuppressWarnings("unchecked")

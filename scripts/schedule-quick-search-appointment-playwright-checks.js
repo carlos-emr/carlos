@@ -41,6 +41,8 @@
  * The test provider is the patient's MRP and must have a schedule template applied in the next 90 days.
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
@@ -146,16 +148,9 @@ function runCleanup() {
 }
 // Node does not run finally blocks on SIGINT/SIGTERM (the suite loop's `timeout`
 // sends TERM), so restore the fixtures here too before exiting.
-for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => {
-    console.error(`${signal} received; restoring fixtures before exiting.`);
-    runCleanup();
-    cleanupMysqlDefaults();
-    process.exit(130);
-  });
-}
+// Signals unwind through the shared entry point and the existing finally below.
 
-(async () => {
+legacyHarness.runLegacyCheck('schedule-quick-search-appointment',async({cancellation})=>{
   const recorder = createRecorder();
   initMysqlDefaults();
   // Staging and the browser launch sit inside the protected scope so a failure in
@@ -175,60 +170,84 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     assert(lastName, `demographic ${demographicNo} not found`);
     assert(mrp, `demographic ${demographicNo} has no MRP, so the widget will not offer Appt`);
     assert(!status || status === 'AC', `demographic ${demographicNo} is not active (${status})`);
-    browser = await chromium.launch(getLaunchOptions(config.chromePath));
+    browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1600, height: 1100 } });
+    cancellation?.throwIfCancelled();
     const schedule = await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(schedule, 'schedule');
+    cancellation?.throwIfCancelled();
 
     // 1. Quick search.
     await schedule.locator('#quickSearch').click();
+    cancellation?.throwIfCancelled();
     const [searchResponse] = await Promise.all([
       schedule.waitForResponse((response) => response.request().method() === 'POST' && new URL(response.url()).pathname.endsWith('/demographic/SearchDemographic'), { timeout: 30000 }),
       schedule.keyboard.type(lastName, { delay: 40 }),
     ]);
+    cancellation?.throwIfCancelled();
     assert(searchResponse.status() === 200, `quick search returned HTTP ${searchResponse.status()}`);
     const dropdown = schedule.locator('#quickSearchDropdown');
     await dropdown.waitFor({ state: 'visible', timeout: 15000 });
+    cancellation?.throwIfCancelled();
     const row = dropdown.locator('.qs-result-row').filter({ hasText: firstName }).filter({ hasText: lastName }).first();
     await row.waitFor({ state: 'visible', timeout: 15000 });
+    cancellation?.throwIfCancelled();
     for (const badge of ['.qs-badge-m', '.qs-badge-e', '.qs-badge-rx', '.qs-badge-appt']) {
       assert(await row.locator(badge).count(), `quick search row did not offer the ${badge} badge`);
+    cancellation?.throwIfCancelled();
     }
 
     // 2. Appt badge -> next available slot -> popup. The page navigates as
     // soon as the slot arrives, so read the same answer the badge will get
     // through the API first, then require the badge's own call to succeed.
     const slotProbe = await context.request.get(`${config.baseUrl.href}/demographic/FindNextAvailableSlot?providerNos=${encodeURIComponent(mrp)}`);
+    cancellation?.throwIfCancelled();
     assert(slotProbe.ok(), `FindNextAvailableSlot returned HTTP ${slotProbe.status()}`);
     const slot = await slotProbe.json();
+    cancellation?.throwIfCancelled();
     assert(slot && slot.found, `no available slot was found for the MRP: ${JSON.stringify(slot)}`);
     const popupPromise = context.waitForEvent('page', { timeout: 60000 });
     const [slotResponse] = await Promise.all([
       schedule.waitForResponse((response) => /\/demographic\/FindNextAvailableSlot\?/.test(response.url()), { timeout: 30000 }),
       row.locator('.qs-badge-appt').click(),
     ]);
+    cancellation?.throwIfCancelled();
     assert(slotResponse.status() === 200, `the Appt badge's FindNextAvailableSlot call returned HTTP ${slotResponse.status()}`);
     assert(String(slot.providerNo) === mrp, `slot provider ${slot.providerNo} is not the patient's MRP ${mrp}`);
     const popup = await popupPromise;
+    cancellation?.throwIfCancelled();
     wirePage(popup, 'add-appointment', recorder);
     await popup.waitForURL(/\/appointment\/addappointment\?/, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    cancellation?.throwIfCancelled();
     await popup.waitForLoadState('domcontentloaded', { timeout: 30000 });
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(popup, 'add-appointment popup');
+    cancellation?.throwIfCancelled();
     await schedule.waitForLoadState('domcontentloaded', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     const scheduleUrl = new URL(schedule.url());
     assert(scheduleUrl.searchParams.get('year') === String(slot.year) && scheduleUrl.searchParams.get('day') === String(slot.day),
       `schedule did not navigate to the slot's day (${schedule.url()})`);
     assert((await popup.locator('#demographic_no').inputValue()) === demographicNo, 'popup did not pre-select the patient');
+    cancellation?.throwIfCancelled();
     const expectedDate = `${slot.year}-${String(slot.month).padStart(2, '0')}-${String(slot.day).padStart(2, '0')}`;
     assert((await popup.locator('input[name="appointment_date"]').inputValue()) === expectedDate, `popup date was ${await popup.locator('input[name="appointment_date"]').inputValue()}, expected ${expectedDate}`);
+    cancellation?.throwIfCancelled();
     assert((await popup.locator('input[name="start_time"]').inputValue()) === slot.startTime, `popup start time was ${await popup.locator('input[name="start_time"]').inputValue()}, expected ${slot.startTime}`);
+    cancellation?.throwIfCancelled();
     assert((await popup.locator('input[name="provider_no"]').inputValue()) === String(slot.providerNo), 'popup provider did not match the slot');
+    cancellation?.throwIfCancelled();
 
     // 3. Book.
     await popup.locator('#reason').fill(reason);
+    cancellation?.throwIfCancelled();
     const closed = popup.waitForEvent('close', { timeout: 30000 });
     await popup.locator('#addButton').click();
+    cancellation?.throwIfCancelled();
     await closed;
+    cancellation?.throwIfCancelled();
     const appointment = appointmentRow();
     assert(appointment, 'appointment row was not created');
     assert(appointment.demoNo === demographicNo, `appointment patient was ${appointment.demoNo}`);
@@ -240,23 +259,35 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     // 4. Day sheet shows it. The booking popup refreshes its opener on the way
     // out; let that navigation settle before looking for the link.
     await schedule.waitForLoadState('domcontentloaded', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     await schedule.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     await schedule.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
+    cancellation?.throwIfCancelled();
     await schedule.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     const link = schedule.locator(`a.apptLink[onclick*="appointment_no=${appointment.id}&"]`).first();
     await link.waitFor({ state: 'visible', timeout: 30000 });
+    cancellation?.throwIfCancelled();
 
     // A provider-filtered day must retain encounter/bill links, and entering
     // week view explicitly must survive the previous/next navigation controls.
     assert(await schedule.locator(`a.encounterBtn[onclick*=",${appointment.id});"]`).count(), 'provider-filtered day lost the encounter link');
+    cancellation?.throwIfCancelled();
     assert(await schedule.locator(`a[onclick*="/billing?"][onclick*="appointment_no=${appointment.id}&"]`).count(), 'provider-filtered day lost the billing link');
+    cancellation?.throwIfCancelled();
     await schedule.locator(`[onclick*="goWeekView"][onclick*="'${appointment.providerNo}'"]`).first().click();
+    cancellation?.throwIfCancelled();
     await schedule.waitForURL(/weekView=true/);
+    cancellation?.throwIfCancelled();
     assert(await schedule.locator('select[name="provider_select"]').inputValue() === appointment.providerNo,
       'week view changed the selected provider');
+    cancellation?.throwIfCancelled();
     for (const icon of ['fa-forward-step', 'fa-backward-step']) {
       await schedule.locator(`a.redArrow:has(.${icon})`).click();
+    cancellation?.throwIfCancelled();
       await schedule.waitForLoadState('domcontentloaded');
+    cancellation?.throwIfCancelled();
       const weekUrl = new URL(schedule.url());
       assert(weekUrl.searchParams.get('weekView') === 'true'
         && weekUrl.searchParams.get('provider_no') === appointment.providerNo, 'week navigation lost view/provider context');
@@ -266,6 +297,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
         schedule.waitForNavigation({waitUntil: 'domcontentloaded'}),
         schedule.locator(`.quick-btn[onclick*="getLocation('${shortcut}', document.getElementById"]`).click(),
       ]);
+    cancellation?.throwIfCancelled();
       const weekUrl = new URL(schedule.url());
       assert(weekUrl.searchParams.get('weekView') === 'true'
         && weekUrl.searchParams.get('provider_no') === appointment.providerNo, `${shortcut} lost week/provider context`);
@@ -275,6 +307,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
       schedule.waitForNavigation({waitUntil: 'domcontentloaded'}),
       schedule.locator(`a[onclick*="updateApptStatus"][onclick*="appointment_no=${appointment.id}&"]`).click(),
     ]);
+    cancellation?.throwIfCancelled();
     const updatedWeekUrl = new URL(schedule.url());
     assert(updatedWeekUrl.searchParams.get('weekView') === 'true'
       && updatedWeekUrl.searchParams.get('provider_no') === appointment.providerNo, 'status update lost week/provider context');
@@ -296,4 +329,4 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     runCleanup();
     cleanupMysqlDefaults();
   }
-})();
+});

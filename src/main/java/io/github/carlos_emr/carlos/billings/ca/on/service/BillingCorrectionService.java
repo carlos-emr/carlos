@@ -26,6 +26,7 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 import java.util.Locale;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -46,7 +47,6 @@ import io.github.carlos_emr.carlos.commn.model.BillingPaymentType;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.util.DateUtils;
-import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -723,7 +723,7 @@ public class BillingCorrectionService {
                 || !bCh1.getComment().equals(request.getParameter("comment"))
                 || !bCh1.getProviderNo().equals(request.getParameter("provider_no"))
                 || !bCh1.getLocation().equals(request.getParameter("xml_slicode"))
-                || !StringUtils.nullSafeEquals(bCh1.getClinic(), request.getParameter("site"))
+                || !Objects.equals(bCh1.getClinic(), request.getParameter("site"))
                 || !bCh1.getProvince().equals(request.getParameter("hc_type"));
     }
 

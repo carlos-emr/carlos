@@ -185,7 +185,8 @@ public class DemographicConverter extends AbstractConverter<Demographic, Demogra
         t.setChildren(d.getChildren());
         t.setSourceOfIncome(d.getSourceOfIncome());
         t.setCitizenship(d.getCitizenship());
-        t.setSin(d.getSin());
+        // The SIN is not sent in any demographic response; the health card number (above) is, in
+        // detail and list responses alike, as existing clients expect.
         t.setAnonymous(d.getAnonymous());
         t.setSpokenLanguage(d.getSpokenLanguage());
         t.setActiveCount(d.getActiveCount());
