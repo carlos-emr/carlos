@@ -1,7 +1,6 @@
 /*
- * Copyright (c) 2026 CARLOS EMR Project Contributors. All Rights Reserved.
- * This software is published under the GPL GNU General Public License.
- * https://github.com/carlos-emr/carlos
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 CARLOS Contributors
  */
 package io.github.carlos_emr.carlos.eform.actions;
 
