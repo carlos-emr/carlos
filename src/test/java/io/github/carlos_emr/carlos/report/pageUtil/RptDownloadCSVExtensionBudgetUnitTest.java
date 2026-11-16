@@ -16,7 +16,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.report.data.ConfiguredReportQuery;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import java.io.StringReader;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -37,7 +37,7 @@ import static org.mockito.Mockito.*;
  */
 @Tag("unit")
 @Tag("report")
-class RptDownloadCSVExtensionBudgetUnitTest {
+class RptDownloadCSVExtensionBudgetUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @EnumSource(BudgetCase.class)
     void shouldRefuseBeforeMaterializingTheCohort_whenExtensionBudgetIsExceeded(BudgetCase budget)
@@ -83,11 +83,11 @@ class RptDownloadCSVExtensionBudgetUnitTest {
         var legacy = mock(DemographicExtDao.class);
         when(legacy.findReportValues(anyString(), anyCollection(), anyBoolean()))
                 .thenReturn(List.of(new DemographicExtDao.ReportValue(1, 41, "French")));
-        try (var settings = mockStatic(CarlosProperties.class); var spring = mockStatic(SpringUtils.class);
+        registerMock(DemographicExtDao.class, legacy);
+        try (var settings = mockStatic(CarlosProperties.class);
                 var jdbc = mockStatic(LegacyJdbcQuery.class);
                 var query = mockStatic(ConfiguredReportQuery.class, CALLS_REAL_METHODS)) {
             settings.when(CarlosProperties::getInstance).thenReturn(properties);
-            spring.when(() -> SpringUtils.getBean(DemographicExtDao.class)).thenReturn(legacy);
             query.when(() -> ConfiguredReportQuery.read(startsWith("select demographic_no,"), any(Object[].class)))
                     .thenReturn(new ConfiguredReportQuery.Result(List.of(), List.of(demographic)));
             jdbc.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(), anyInt(), anyLong(), any(Object[].class)))
