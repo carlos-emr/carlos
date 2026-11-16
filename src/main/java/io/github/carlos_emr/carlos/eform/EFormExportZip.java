@@ -414,32 +414,53 @@ public class EFormExportZip {
     /** Loads retained HTML and publishes assets only after all resource preflight checks pass. */
     private void publishImportFiles(File imageTempFolderDir, Map<String, EForm> eformTable,
             Map<String, EForm> eformTableFailed, Map<String, File> tempFiles, List<String> errors) throws IOException {
-        for (Entry<String, File> tempFile : tempFiles.entrySet()) {
-            _log.info("Inspecting eForm import entry");
-            if (eformTable.containsKey(tempFile.getKey())) {
-                File extractedTempFile = PathValidationUtils.validateExistingPath(tempFile.getValue(), imageTempFolderDir);
-                try (FileInputStream fis = new FileInputStream(extractedTempFile);
-                     ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-                    inputToOutput(fis, baos);
-                    String html = new String(baos.toByteArray());
-                    // Do not log raw uploaded HTML; log only its length.
-                    _log.debug("Loaded eform HTML content ({} chars)", html.length());
-                    eformTable.get(tempFile.getKey()).setFormHtml(html);
+        Map<java.nio.file.Path, java.nio.file.Path> publishedAssets = new java.util.LinkedHashMap<>();
+        try {
+            for (Entry<String, File> tempFile : tempFiles.entrySet()) {
+                _log.info("Inspecting eForm import entry");
+                if (eformTable.containsKey(tempFile.getKey())) {
+                    File extractedTempFile = PathValidationUtils.validateExistingPath(tempFile.getValue(), imageTempFolderDir);
+                    try (FileInputStream fis = new FileInputStream(extractedTempFile);
+                         ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+                        inputToOutput(fis, baos);
+                        String html = new String(baos.toByteArray());
+                        // Do not log raw uploaded HTML; log only its length.
+                        _log.debug("Loaded eform HTML content ({} chars)", html.length());
+                        eformTable.get(tempFile.getKey()).setFormHtml(html);
+                    }
+                } else if (!eformTableFailed.containsKey(tempFile.getKey())) {
+                    publishImportAsset(tempFile, imageTempFolderDir, errors, publishedAssets);
                 }
-            } else if (!eformTableFailed.containsKey(tempFile.getKey())) {
-                publishImportAsset(tempFile, imageTempFolderDir, errors);
+            }
+        } catch (IOException failure) {
+            rollbackPublishedAssets(publishedAssets, failure);
+            throw failure;
+        }
+    }
+
+    /** Unlinks only names still referring to this import's staged inode. */
+    static void rollbackPublishedAssets(Map<java.nio.file.Path, java.nio.file.Path> publishedAssets, IOException failure) {
+        for (var asset : publishedAssets.entrySet()) {
+            try {
+                if (Files.exists(asset.getKey(), java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                        && Files.isSameFile(asset.getKey(), asset.getValue())) {
+                    Files.delete(asset.getKey());
+                }
+            } catch (IOException cleanupFailure) {
+                failure.addSuppressed(cleanupFailure);
             }
         }
     }
 
     private void publishImportAsset(Entry<String, File> tempFile, File imageTempFolderDir,
-            List<String> errors) throws IOException {
+            List<String> errors, Map<java.nio.file.Path, java.nio.file.Path> publishedAssets) throws IOException {
         File extractedTempFile = PathValidationUtils.validateExistingPath(tempFile.getValue(), imageTempFolderDir);
         File imageFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validatePathComponent(tempFile.getKey(), "eform image file"), ImageUpload2Action.getImageFolder());
         try {
             // Publish the complete inode without replacing another import's image.
             // Cleanup unlinks only our private staging name, preserving the public link.
             Files.createLink(imageFile.toPath(), extractedTempFile.toPath());
+            publishedAssets.put(imageFile.toPath(), extractedTempFile.toPath());
             _log.info("Loaded eForm import entry");
         } catch (FileAlreadyExistsException e) {
             errors.add("Image '" + tempFile.getKey() + "' already exists, skipping image, but the form may still be uploaded.  Please resolve.");

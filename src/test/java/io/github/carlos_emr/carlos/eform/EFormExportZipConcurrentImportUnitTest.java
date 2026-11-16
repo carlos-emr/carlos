@@ -118,6 +118,59 @@ class EFormExportZipConcurrentImportUnitTest {
         }
     }
 
+    @Test
+    void shouldRemoveOnlyOwnedPublishedAssets_whenLaterPublicationFails() throws Exception {
+        Path blocked = Files.createDirectory(images.resolve("blocked"));
+        byte[] archive = zip(Map.of("first.bin", "FAKE first", "second.bin", "FAKE second"));
+        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        Files.setPosixFilePermissions(blocked, java.util.Set.of(
+                java.nio.file.attribute.PosixFilePermission.OWNER_READ,
+                java.nio.file.attribute.PosixFilePermission.OWNER_EXECUTE));
+        try (MockedStatic<ImageUpload2Action> folder = mockStatic(ImageUpload2Action.class)) {
+            folder.when(ImageUpload2Action::getImageFolder).thenAnswer(call ->
+                    calls.incrementAndGet() < 3 ? images.toFile() : blocked.toFile());
+            assertThatThrownBy(() -> new EFormExportZip().importForm(new ByteArrayInputStream(archive)))
+                    .isInstanceOf(java.nio.file.AccessDeniedException.class);
+            try (var files = Files.list(images)) {
+                assertThat(files.filter(file -> file.getFileName().toString().endsWith(".bin")).toList()).isEmpty();
+            }
+            assertThat(stagingDirectories()).isEmpty();
+        } finally {
+            Files.setPosixFilePermissions(blocked, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        }
+    }
+
+    @Test
+    void shouldLeaveMissingAndReplacedAssetsAlone_duringRollback() throws Exception {
+        Path source = Files.writeString(images.resolve("source.bin"), "FAKE owned inode");
+        Path owned = Files.createLink(images.resolve("owned.bin"), source);
+        Path replaced = Files.writeString(images.resolve("replaced.bin"), "FAKE other inode");
+        Path absent = images.resolve("absent.bin");
+        var failure = new IOException("FAKE publication failure");
+        EFormExportZip.rollbackPublishedAssets(Map.of(owned, source, replaced, source, absent, source), failure);
+        assertThat(owned).doesNotExist();
+        assertThat(Files.readString(replaced)).isEqualTo("FAKE other inode");
+        assertThat(absent).doesNotExist();
+        assertThat(source).exists();
+        assertThat(failure.getSuppressed()).isEmpty();
+    }
+
+    @Test
+    void shouldRetainCleanupDiagnostics_whenTheFilesystemRefusesRollback() throws Exception {
+        Path source = Files.writeString(images.resolve("source.bin"), "FAKE owned inode");
+        Path blocked = Files.createDirectory(images.resolve("blocked"));
+        Path owned = Files.createLink(blocked.resolve("owned.bin"), source);
+        Files.setPosixFilePermissions(blocked, java.nio.file.attribute.PosixFilePermissions.fromString("r-x------"));
+        try {
+            var failure = new IOException("FAKE publication failure");
+            EFormExportZip.rollbackPublishedAssets(Map.of(owned, source), failure);
+            assertThat(failure.getSuppressed()).singleElement().isInstanceOf(java.nio.file.AccessDeniedException.class);
+            assertThat(owned).exists();
+        } finally {
+            Files.setPosixFilePermissions(blocked, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        }
+    }
+
     private List<Path> stagingDirectories() throws IOException {
         try (Stream<Path> paths = Files.list(images.resolve("extractFolder"))) {
             return paths.toList();
