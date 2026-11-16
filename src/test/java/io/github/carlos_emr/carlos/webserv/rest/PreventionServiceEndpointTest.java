@@ -64,15 +64,28 @@ class PreventionServiceEndpointTest extends CarlosRestTestBase {
     @Mock
     private io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService projections;
 
+    private io.github.carlos_emr.carlos.managers.SecurityInfoManager endpointSecurity;
+
     @Override
     protected Object getServiceBean() {
         var service = new PreventionService(mockPreventionManager, new PreventionDateService(partialDateDao), projections);
-        var security = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
-        org.mockito.Mockito.when(security.hasPrivilege(org.mockito.ArgumentMatchers.any(),
+        endpointSecurity = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+        org.mockito.Mockito.when(endpointSecurity.hasPrivilege(org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.eq("_prevention"), org.mockito.ArgumentMatchers.eq("r"),
                 org.mockito.ArgumentMatchers.anyInt())).thenReturn(true);
-        org.springframework.test.util.ReflectionTestUtils.setField(service, "securityInfoManager", security);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "securityInfoManager", endpointSecurity);
         return service;
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {
+            "/preventions/active/precision", "/preventions/immunizations/123/precision"})
+    void shouldDenyPrecisionReads_beforeLookingUpClinicalRecords(String route) {
+        when(endpointSecurity.hasPrivilege(org.mockito.ArgumentMatchers.any(), eq("_prevention"), eq("r"), eq(123)))
+                .thenReturn(false);
+        var response = request().path(route).query("demographicNo", 123).get();
+        assertThat(response.getStatus()).isEqualTo(403);
+        org.mockito.Mockito.verifyNoInteractions(mockPreventionManager, projections);
     }
 
     @Test

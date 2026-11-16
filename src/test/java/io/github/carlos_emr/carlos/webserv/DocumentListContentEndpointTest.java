@@ -46,12 +46,15 @@ class DocumentListContentEndpointTest extends CarlosSoapTestBase {
 
     /** A stored document whose file cannot be read; the failure message stands in for a private filename. */
     private Document row(int id) throws IOException {
-        Document result = spy(new Document(id)); result.setDocdesc("Retained metadata");
+        Document result = spy(new Document(id));
+        result.setDocdesc("Retained metadata");
         doThrow(new IOException("PRIVATE_patient_report.pdf")).when(result).getDocumentFileContentsAsBytes();
         return result;
     }
     private Document readable(int id, byte... content) throws IOException {
-        Document result = row(id); doReturn(content).when(result).getDocumentFileContentsAsBytes(); return result;
+        Document result = row(id);
+        doReturn(content).when(result).getDocumentFileContentsAsBytes();
+        return result;
     }
     private DocumentWs proxy(String... profile) {
         DocumentWs proxy = createClient(DocumentWs.class);
@@ -106,28 +109,33 @@ class DocumentListContentEndpointTest extends CarlosSoapTestBase {
         }
     }
     @Test void shouldReturnEveryMetadataRow_whenTheMetadataProfileIsExplicit() throws Exception {
-        Document first = row(1), second = row(2); stubPages(List.of(first, second));
+        Document first = row(1), second = row(2);
+        stubPages(List.of(first, second));
         for (var operation : bulkOperations()) {
             DocumentWs proxy = proxy("metadata");
             DocumentTransfer[] page = operation.apply(proxy);
             assertThat(page).extracting(DocumentTransfer::getDocumentNo).containsExactly(1, 2);
             assertThat(page).allSatisfy(row -> {
-                assertThat(row.getFileContents()).isNull(); assertThat(row.getDocdesc()).isEqualTo("Retained metadata");
+                assertThat(row.getFileContents()).isNull();
+                assertThat(row.getDocdesc()).isEqualTo("Retained metadata");
             });
             assertThat(responseHeader(proxy, DocumentListProfile.HEADER)).containsExactly("metadata");
         }
-        verify(first, never()).getDocumentFileContentsAsBytes(); verify(second, never()).getDocumentFileContentsAsBytes();
+        verify(first, never()).getDocumentFileContentsAsBytes();
+        verify(second, never()).getDocumentFileContentsAsBytes();
     }
     @Test void shouldRetainInlineBytes_whenLegacyProfileIsExplicit() throws Exception {
         stubPages(List.of(readable(1, (byte) 1, (byte) 2, (byte) 3), readable(2, (byte) 4, (byte) 5)));
         DocumentWs proxy = proxy("legacy-inline");
         DocumentTransfer[] page = proxy.getDocumentsUpdateAfterDate(new Date(),2);
-        assertThat(page).hasSize(2); assertThat(page[0].getFileContents()).containsExactly(1,2,3);
+        assertThat(page).hasSize(2);
+        assertThat(page[0].getFileContents()).containsExactly(1,2,3);
         assertThat(page[1].getFileContents()).containsExactly(4,5);
         assertThat(responseHeader(proxy, DocumentListProfile.HEADER)).containsExactly("legacy-inline");
     }
     @Test void shouldFaultTheWholePage_whenTheExplicitLegacyProfileMeetsAnUnreadableDocument() throws Exception {
-        Document first = readable(1, (byte) 1), second = row(2); stubPages(List.of(first,second));
+        Document first = readable(1, (byte) 1), second = row(2);
+        stubPages(List.of(first,second));
         assertThatThrownBy(() -> proxy("legacy-inline").getDocumentsUpdateAfterDate(new Date(),2))
                 .hasMessageContaining("Document content could not be read").hasMessageNotContaining("PRIVATE");
         verify(second).getDocumentFileContentsAsBytes();

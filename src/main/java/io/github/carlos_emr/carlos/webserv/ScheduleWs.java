@@ -173,7 +173,8 @@ public class ScheduleWs extends AbstractWs {
 
     public AppointmentTransfer[] getAppointmentsUpdatedAfterDate(Date updatedAfterThisDateExclusive, int itemsToReturn, boolean useGMTTime) {
         requirePrivilege(APPOINTMENT_OBJECT, "r");
-        Date after = updatedAfterThisDateExclusive; int limit = itemsToReturn;
+        Date after = updatedAfterThisDateExclusive;
+        int limit = itemsToReturn;
         var actor = getLoggedInInfo();
         var selection = ScheduleSyncHeaders.select(actor, "current", after, limit, useGMTTime);
         List<Appointment> appointments = invokeSync(() -> {
@@ -197,7 +198,8 @@ public class ScheduleWs extends AbstractWs {
      */
     public AppointmentArchiveTransfer[] getAppointmentArchivesUpdatedAfterDate(Date updatedAfterThisDateExclusive, int itemsToReturn, boolean useGMTTime) {
         requirePrivilege(APPOINTMENT_OBJECT, "r");
-        Date after = updatedAfterThisDateExclusive; int limit = itemsToReturn;
+        Date after = updatedAfterThisDateExclusive;
+        int limit = itemsToReturn;
         var actor = getLoggedInInfo();
         var selection = ScheduleSyncHeaders.select(actor, "archive", after, limit, useGMTTime);
         List<AppointmentArchive> appointments = invokeSync(() -> {
@@ -211,7 +213,8 @@ public class ScheduleWs extends AbstractWs {
 
     public AppointmentTransfer[] getAppointmentsByProgramProviderDemographicDate(Integer programId, String providerNo,
             Integer demographicId, Calendar updatedAfterThisDateExclusive, int itemsToReturn, boolean useGMTTime) {
-        Calendar after = updatedAfterThisDateExclusive; int limit = itemsToReturn;
+        Calendar after = updatedAfterThisDateExclusive;
+        int limit = itemsToReturn;
         Date initial = after == null ? null : after.getTime();
         var actor = getLoggedInInfo();
         var selection = ScheduleSyncHeaders.select(actor, "filtered", initial, limit, programId, providerNo, demographicId, useGMTTime);

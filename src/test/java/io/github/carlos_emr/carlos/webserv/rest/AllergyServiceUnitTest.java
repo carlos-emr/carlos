@@ -130,13 +130,17 @@ class AllergyServiceUnitTest extends CarlosUnitTestBase {
         verify(mockSecurityInfoManager).hasPrivilege(any(), eq(ALLERGY), eq("r"), eq(1));
     }
 
-    @Test
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
     @DisplayName("should deny active allergies when caller lacks allergy read privilege for the patient")
     @Tag("read")
-    void shouldDenyActiveAllergies_whenCallerLacksReadPrivilege() {
+    void shouldDenyActiveAllergies_whenCallerLacksReadPrivilege(boolean precisionAware) {
         when(mockSecurityInfoManager.hasPrivilege(any(), eq(ALLERGY), eq("r"), eq(6))).thenReturn(false);
 
-        assertThatThrownBy(() -> service.getCurrentAllergies(6))
+        assertThatThrownBy(() -> {
+            if (precisionAware) service.getCurrentAllergiesWithPrecision(6);
+            else service.getCurrentAllergies(6);
+        })
             .isInstanceOf(AccessDeniedException.class);
 
         verify(mockAllergyManager, never()).getActiveAllergies(any(), anyInt());

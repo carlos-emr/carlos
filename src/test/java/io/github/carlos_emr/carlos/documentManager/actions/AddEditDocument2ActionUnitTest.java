@@ -563,9 +563,13 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
         var documentsDao = mock(DocumentDao.class);
         when(documentsDao.find(123)).thenReturn(new io.github.carlos_emr.carlos.commn.model.Document(), null);
         registerMock(DocumentDao.class, documentsDao);
-        action.setMode("123"); action.setFunction("provider"); action.setFunctionId("999998");
-        action.setDocDesc("Synthetic review"); action.setDocType("Consultant Report");
-        action.setAppointmentNo("0"); action.setExtraReviewDoc(true);
+        action.setMode("123");
+        action.setFunction("provider");
+        action.setFunctionId("999998");
+        action.setDocDesc("Synthetic review");
+        action.setDocType("Consultant Report");
+        action.setAppointmentNo("0");
+        action.setExtraReviewDoc(true);
         try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class);
              MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class)) {
             assertThat(action.execute2()).isEqualTo("failEdit");

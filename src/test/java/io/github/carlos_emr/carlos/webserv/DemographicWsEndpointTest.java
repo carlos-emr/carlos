@@ -136,7 +136,8 @@ class DemographicWsEndpointTest extends CarlosSoapTestBase {
                 org.mockito.ArgumentMatchers.isNull())).thenReturn(true);
         var type = new io.github.carlos_emr.carlos.commn.model.ConsentType();
         when(patientConsentManager.getProviderSpecificConsent(any(LoggedInInfo.class))).thenReturn(type);
-        var first = new io.github.carlos_emr.carlos.commn.model.Consent(); first.setDemographicNo(101);
+        var first = new io.github.carlos_emr.carlos.commn.model.Consent();
+        first.setDemographicNo(101);
         var missing = new io.github.carlos_emr.carlos.commn.model.Consent();
         when(patientConsentManager.getConsentsByTypeAndEditDate(any(), eq(type), any()))
                 .thenReturn(List.of(first, missing));
@@ -295,15 +296,18 @@ class DemographicWsEndpointTest extends CarlosSoapTestBase {
         when(patientConsentManager.getProviderSpecificConsent(any(LoggedInInfo.class))).thenReturn(type);
         List<io.github.carlos_emr.carlos.commn.model.Consent> consents = new ArrayList<>();
         for (int id = 1; id <= 502; id++) {
-            var consent = new io.github.carlos_emr.carlos.commn.model.Consent(); consent.setDemographicNo(id);
-            consents.add(consent); consents.add(consent);
+            var consent = new io.github.carlos_emr.carlos.commn.model.Consent();
+            consent.setDemographicNo(id);
+            consents.add(consent);
+            consents.add(consent);
         }
         when(patientConsentManager.getConsentsByTypeAndEditDate(any(LoggedInInfo.class), eq(type), any(java.util.Date.class)))
                 .thenReturn(consents);
         when(visibility.getReadableDemographicIds(any(LoggedInInfo.class), org.mockito.ArgumentMatchers.anyCollection()))
                 .thenAnswer(call -> {
                     var ids = new java.util.LinkedHashSet<>(call.<java.util.Collection<Integer>>getArgument(1));
-                    ids.retainAll(List.of(501, 502)); return ids;
+                    ids.retainAll(List.of(501, 502));
+                    return ids;
                 });
         var proxy = unpublishedConsentHelper();
         assertThat(proxy.getConsentedDemographicIdsAfter(java.util.Calendar.getInstance())).containsExactly(501, 502);

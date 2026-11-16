@@ -38,7 +38,7 @@ class CdsExportAppointmentMapperUnitTest {
     void shouldAccountForEveryNativeField_andUseExactCapturedPublicDefinitions() throws Exception {
         var mapped = mapper.map(27, appointment(baseline()), lookups(), ZONE);
         assertThat(mapped.nativeRowRepresentable()).isTrue();
-        assertThat(mapped.fields()).hasSize(41);
+        assertThat(mapped.fields()).hasSize(42);
         assertThat(mapped.value().status()).isEqualTo("Exact booked Ω");
         assertThat(mapped.value().provider().ohipNumber()).isEqualTo("001234");
         assertThat(mapped.value().provider().firstName()).isEqualTo("Zoë😀");
@@ -237,7 +237,7 @@ class CdsExportAppointmentMapperUnitTest {
     @Test
     void shouldRejectAnUnreviewedPhysicalColumn_beforeMappingAnyValues() throws Exception {
         var fields = baseline();
-        fields.put("locationCode", "17");
+        fields.put("unreviewed_clinical_column", "17");
         assertThatThrownBy(() -> mapper.map(27, appointment(fields), lookups(), ZONE))
                 .isInstanceOf(java.io.IOException.class)
                 .hasMessage("CDS_EXPORT_APPOINTMENT_CAPTURE_SCOPE_INVALID");
@@ -464,7 +464,7 @@ class CdsExportAppointmentMapperUnitTest {
                 mapper.map(27, appointment(fields), lookups(reasonItem("2", " Follow-Up ")), ZONE);
         assertThat(mapped.nativeRowRepresentable()).isTrue();
         assertThat(mapped.value().purpose()).isEqualTo("Follow-Up Cough for 3 days");
-        assertThat(mapped.fields()).hasSize(49);
+        assertThat(mapped.fields()).hasSize(52);
         assertThat(mapped.fields().get(key("reasonCode")).outcome()).isEqualTo(Outcome.MAPPED);
         assertThat(mapped.fields().get(key("reason")).destination())
                 .isEqualTo("AppointmentPurpose");

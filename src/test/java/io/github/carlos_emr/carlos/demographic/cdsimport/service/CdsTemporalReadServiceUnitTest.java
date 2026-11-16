@@ -152,6 +152,9 @@ class CdsTemporalReadServiceUnitTest {
                         return info;
                     }
                 };
+        var permissions = mock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+        when(permissions.hasPrivilege(info, "_allergy", "r", 1)).thenReturn(true);
+        ReflectionTestUtils.setField(service, "securityInfoManager", permissions);
         ReflectionTestUtils.setField(service, "allergyManager", manager);
         ReflectionTestUtils.setField(
                 service, "legacyProjection", mock(CdsLegacyProjectionService.class));

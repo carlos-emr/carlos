@@ -77,6 +77,7 @@ class ScheduleLegacySyncEndpointTest extends CarlosSoapTestBase {
         injectDependency(manager, "securityInfoManager", security);
         injectDependency(manager, "patientConsentManager", consent);
         ScheduleWs service = new ScheduleWs();
+        injectDependency(service, "securityInfoManager", authorizeEndpoint("r", "_appointment"));
         injectDependency(service, "scheduleManager", manager);
         return service;
     }

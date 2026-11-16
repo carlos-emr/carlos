@@ -23,19 +23,26 @@ import org.mockito.Mock;
 class ScheduleSyncEndpointTest extends CarlosSoapTestBase {
     @Mock private ScheduleManager schedules;
     @Override protected Object getServiceBean() {
-        var service = new ScheduleWs(); injectDependency(service,"scheduleManager",schedules); return service;
+        var service = new ScheduleWs();
+        injectDependency(service,"securityInfoManager",authorizeEndpoint("r", "_appointment"));
+        injectDependency(service,"scheduleManager",schedules);
+        return service;
     }
     @Override protected Class<?> getServiceInterface() { return ScheduleWs.class; }
     @BeforeEach void actor() { when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("sync-reader"); }
     private static Appointment row(int id) {
-        var row = new Appointment(); row.setId(id); row.setUpdateDateTime(new Date(1000));
+        var row = new Appointment();
+        row.setId(id);
+        row.setUpdateDateTime(new Date(1000));
         row.setAppointmentDate(java.sql.Date.valueOf("2026-07-15"));
-        row.setStartTime(java.sql.Time.valueOf("09:30:00")); row.setEndTime(java.sql.Time.valueOf("09:45:00"));
+        row.setStartTime(java.sql.Time.valueOf("09:30:00"));
+        row.setEndTime(java.sql.Time.valueOf("09:45:00"));
         return row;
     }
     private ScheduleWs client(Map<String,List<String>> headers) {
         var proxy = createClient(ScheduleWs.class);
-        ((BindingProvider)proxy).getRequestContext().put(Message.PROTOCOL_HEADERS,headers); return proxy;
+        ((BindingProvider)proxy).getRequestContext().put(Message.PROTOCOL_HEADERS,headers);
+        return proxy;
     }
     @SuppressWarnings("unchecked")
     private Map<String,List<String>> headers(ScheduleWs proxy) {
@@ -57,7 +64,8 @@ class ScheduleSyncEndpointTest extends CarlosSoapTestBase {
         verify(schedules,never()).getAppointmentUpdatedAfterDate(any(),any(),anyInt());
     }
     @Test void shouldSupportTheFilteredOperation_withContextBoundContinuation() {
-        var bound = Calendar.getInstance(); bound.setTimeInMillis(0);
+        var bound = Calendar.getInstance();
+        bound.setTimeInMillis(0);
         when(schedules.getAppointmentsByProgramProviderDemographicPage(any(),eq(5),eq("p"),eq(42),eq(new Date(0)),eq(Integer.MAX_VALUE),eq(1)))
                 .thenReturn(new AppointmentUpdatePage<>(List.of(row(1)),false,1000L,1,null));
         var proxy = client(Map.of(ScheduleSyncHeaders.PROFILE,List.of("timestamp-id")));
@@ -66,7 +74,8 @@ class ScheduleSyncEndpointTest extends CarlosSoapTestBase {
         assertThat(headers(proxy)).containsKey(ScheduleSyncHeaders.NEXT);
     }
     @Test void shouldSupportArchiveContinuation_withoutAddingASoapOperation() {
-        var row = new AppointmentArchive(); org.springframework.test.util.ReflectionTestUtils.setField(row,"id",8);
+        var row = new AppointmentArchive();
+        org.springframework.test.util.ReflectionTestUtils.setField(row,"id",8);
         row.setUpdateDateTime(new Date(1000));
         when(schedules.getAppointmentArchiveUpdatedPage(any(),eq(new Date(0)),eq(Integer.MAX_VALUE),eq(1)))
                 .thenReturn(new AppointmentUpdatePage<>(List.of(row),false,1000L,8,null));
@@ -79,7 +88,8 @@ class ScheduleSyncEndpointTest extends CarlosSoapTestBase {
                 .thenReturn(new AppointmentUpdatePage<>(List.of(row(1)),false,1000L,1,null));
         var first = client(Map.of(ScheduleSyncHeaders.PROFILE,List.of("timestamp-id")));
         first.getAppointmentsUpdatedAfterDate(new Date(0),1,false);
-        String cursor = headers(first).get(ScheduleSyncHeaders.NEXT).getFirst(); clearInvocations(schedules);
+        String cursor = headers(first).get(ScheduleSyncHeaders.NEXT).getFirst();
+        clearInvocations(schedules);
         var proxy = client(Map.of(ScheduleSyncHeaders.PROFILE,List.of("timestamp-id"),ScheduleSyncHeaders.CURSOR,List.of(cursor)));
         assertThatThrownBy(() -> proxy.getAppointmentArchivesUpdatedAfterDate(new Date(0),1,false)).hasMessageContaining("does not match");
         assertThatThrownBy(() -> proxy.getAppointmentsUpdatedAfterDate(new Date(1),1,false)).hasMessageContaining("does not match");

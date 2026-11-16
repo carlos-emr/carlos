@@ -93,7 +93,10 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
         old.put("creator", "ORIGINAL_ACTOR");
         old.put("lastupdateuser", "ORIGINAL_ACTOR");
         old.put("createdatetime", "2024-02-29 12:34:56");
+        // The released import receipt predates the nullable Location List reference.
+        old.remove("locationCode");
         current = new TreeMap<>(old);
+        current.put("locationCode", null);
         prepared =
                 new CdsAppointmentNativeDto(
                         "2024-03-01",
@@ -144,11 +147,15 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
     }
 
     @Test
-    void shouldRejectAPopulatedLocationReference_whenDerivingAnOldUnchangedReceipt() {
+    void shouldMapCurrentLocationFromNativeValues_whenTheOldImportHasNoFieldWitness() throws Exception {
         baseline = false;
         current.put("locationCode", "17");
-        assertThatThrownBy(this::reconcile)
-                .hasMessage("CDS_EXPORT_APPOINTMENT_PROJECTION_EVIDENCE_INVALID");
+        var result = reconcile();
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.preparedPaths()).doesNotContain("AppointmentNotes");
+        assertThat(result.mapping().fields().get(new CdsExportNativeFieldKeyDto(
+                "appointment", row(current).recordKey(), "locationCode")).outcome())
+                .isEqualTo(CdsExportFieldAssessmentDto.Outcome.MAPPED);
     }
 
     @Test
@@ -166,14 +173,16 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
     }
 
     @Test
-    void shouldReconcileTheReleaseReceipt_withoutInventingADevelopLocationColumn()
+    void shouldReconcileTheReleaseReceipt_withoutInventingALocationReference()
             throws Exception {
         var result = reconcile();
         assertThat(result.mapping().nativeRowRepresentable()).isTrue();
         assertThat(result.mapping().value().notes()).isEqualTo(originalNotes);
         assertThat(result.preparedPaths()).contains("AppointmentNotes", "AppointmentPurpose");
-        assertThat(result.mapping().fields().keySet())
-                .noneMatch(key -> key.column().equals("locationCode"));
+        var location = result.mapping().fields().get(new CdsExportNativeFieldKeyDto(
+                "appointment", row(current).recordKey(), "locationCode"));
+        assertThat(location.presence()).isEqualTo(CdsExportFieldAssessmentDto.Presence.SQL_NULL);
+        assertThat(location.outcome()).isEqualTo(CdsExportFieldAssessmentDto.Outcome.ABSENT);
     }
 
     @Test
@@ -188,7 +197,20 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
     void shouldRequireReviewForAPopulatedAddedLocationReference_insteadOfIgnoringIt() {
         current.put("locationCode", "17");
         assertThatThrownBy(this::reconcile)
-                .hasMessage("CDS_EXPORT_APPOINTMENT_PROJECTION_EVIDENCE_INVALID");
+                .hasMessage("CDS_EXPORT_APPOINTMENT_FIELD_CODEC_REQUIRES_REVIEW");
+    }
+
+    @Test
+    void shouldPreserveTheRecordedClinicalFields_whenANewerReceiptIncludesTheLocationColumn() throws Exception {
+        old.put("locationCode", null);
+        current.put("locationCode", "17");
+        var result = reconcile();
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.mapping().value().notes()).isEqualTo(originalNotes);
+        assertThat(result.preparedPaths()).contains("AppointmentNotes");
+        assertThat(result.mapping().fields().get(new CdsExportNativeFieldKeyDto(
+                "appointment", row(current).recordKey(), "locationCode")).outcome())
+                .isEqualTo(CdsExportFieldAssessmentDto.Outcome.MAPPED);
     }
 
     @Test
@@ -558,6 +580,8 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
 
     @Test
     void shouldVerifyASecondAppliedUnitCannotClaimTheSameAppointment_withoutAliasReview() throws Exception {
+        // Keep this alias fixture unchanged so it reaches the duplicate-claim guard.
+        old.put("locationCode", null);
         build();
         String alias = RUN + ":" + "d".repeat(64);
         var refs = new TreeMap<>(index.references());

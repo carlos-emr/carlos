@@ -34,7 +34,8 @@ class TicklerNotePatientAccessEndpointTest extends CarlosRestTestBase {
         injectDependency(service,"providerMgr",providers);
         var rows = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.TicklerDao.class);
         when(rows.findByTicklerNoDemo(7, 42)).thenReturn(java.util.List.of(new io.github.carlos_emr.carlos.commn.model.Tickler()));
-        injectDependency(service,"ticklerDao",rows); return service;
+        injectDependency(service,"ticklerDao",rows);
+        return service;
     }
     @BeforeEach void grantFixture() {
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
@@ -69,10 +70,15 @@ class TicklerNotePatientAccessEndpointTest extends CarlosRestTestBase {
         verifyNoInteractions(notes,providers);
     }
     @Test void shouldReturnTheAuthorizedLinkedNote_withoutChangingItsContents() {
-        var link = new CaseManagementNoteLink(); link.setNoteId(9L);
+        var link = new CaseManagementNoteLink();
+        link.setNoteId(9L);
         when(notes.getLatestLinkByTableId(CaseManagementNoteLink.TICKLER,7L)).thenReturn(link);
-        var note = new CaseManagementNote(); note.setId(9L); note.setDemographic_no("42"); note.setProviderNo("p");
-        note.setNote("Retained clinical note"); note.setRevision("3");
+        var note = new CaseManagementNote();
+        note.setId(9L);
+        note.setDemographic_no("42");
+        note.setProviderNo("p");
+        note.setNote("Retained clinical note");
+        note.setRevision("3");
         when(notes.getNote("9")).thenReturn(note);
         when(providers.getProvider("p")).thenReturn(new Provider("p","Clinician","doctor","F","","Test"));
         var response = request().path("/notes/ticklerGetNote/7").get();
@@ -89,32 +95,39 @@ class TicklerNotePatientAccessEndpointTest extends CarlosRestTestBase {
         verifyNoInteractions(notes,providers);
     }
     @Test void shouldRefuseCrossPatientRevision_beforeReadingItsClinicalHistory() {
-        var original = spy(new CaseManagementNote()); original.setDemographic_no("43");
+        var original = spy(new CaseManagementNote());
+        original.setDemographic_no("43");
         when(notes.getNote("9")).thenReturn(original);
         assertThat(save("{\"tickler\":{\"id\":7,\"demographicNo\":42},\"noteId\":9,\"note\":\"new text\"}")).isEqualTo(403);
-        verify(original,never()).getHistory(); verify(notes,never()).saveNoteSimple(any());
+        verify(original,never()).getHistory();
+        verify(notes,never()).saveNoteSimple(any());
     }
     @Test void shouldRejectMissingTicklerInput_insteadOfReportingAnInternalFailure() {
-        assertThat(save("{}")).isEqualTo(400); verifyNoInteractions(ticklers,notes,providers);
+        assertThat(save("{}")).isEqualTo(400);
+        verifyNoInteractions(ticklers,notes,providers);
     }
     @Test void shouldDenyGroupExtensionsForAScopedPatient_beforeReadingExtensions() {
-        var stored = new CaseManagementNote(); stored.setDemographic_no("43");
+        var stored = new CaseManagementNote();
+        stored.setDemographic_no("43");
         when(notes.getNote("9")).thenReturn(stored);
         assertThat(request().path("/notes/getGroupNoteExt/9").post(Entity.json("{}")).getStatus()).isEqualTo(403);
         verify(notes,never()).getExtByNote(anyLong());
     }
     @Test void shouldDenyGroupExtensionsForABlockedChart_beforeReadingExtensions() {
-        var stored = new CaseManagementNote(); stored.setDemographic_no("42");
+        var stored = new CaseManagementNote();
+        stored.setDemographic_no("42");
         when(notes.getNote("9")).thenReturn(stored);
         when(security.isAllowedAccessToPatientRecord(mockLoggedInInfo,42)).thenReturn(false);
         assertThat(request().path("/notes/getGroupNoteExt/9").post(Entity.json("{}")).getStatus()).isEqualTo(403);
         verify(notes,never()).getExtByNote(anyLong());
     }
     @Test void shouldRetainAuthorizedGroupExtensionContents() {
-        var stored = new CaseManagementNote(); stored.setDemographic_no("42");
+        var stored = new CaseManagementNote();
+        stored.setDemographic_no("42");
         when(notes.getNote("9")).thenReturn(stored);
         var ext = new io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt();
-        ext.setKeyVal(io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt.TREATMENT); ext.setValue("Retained treatment");
+        ext.setKeyVal(io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt.TREATMENT);
+        ext.setValue("Retained treatment");
         when(notes.getExtByNote(9L)).thenReturn(java.util.List.of(ext));
         var response=request().path("/notes/getGroupNoteExt/9").post(Entity.json("{}"));
         assertThat(response.getStatus()).isEqualTo(200);

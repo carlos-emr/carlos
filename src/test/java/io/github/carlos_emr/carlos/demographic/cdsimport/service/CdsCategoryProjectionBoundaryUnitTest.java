@@ -99,11 +99,12 @@ class CdsCategoryProjectionBoundaryUnitTest {
                     }
                 };
         ReflectionTestUtils.setField(service, "allergyManager", manager);
+        ReflectionTestUtils.setField(service, "securityInfoManager", security);
         ReflectionTestUtils.setField(
                 service, "legacyProjection", new CdsLegacyProjectionService(records));
         ReflectionTestUtils.setField(manager, "securityInfoManager", security);
         ReflectionTestUtils.setField(manager, "allergyDao", allergies);
-        assertThrows(SecurityException.class, () -> service.getCurrentAllergiesWithPrecision(42));
+        assertThrows(io.github.carlos_emr.carlos.commn.exception.AccessDeniedException.class, () -> service.getCurrentAllergiesWithPrecision(42));
         verifyNoInteractions(records, allergies);
     }
 
@@ -111,16 +112,20 @@ class CdsCategoryProjectionBoundaryUnitTest {
     void shouldNotHideOmittedImportedFields_withExactAllergyDatesInOldProjection() {
         CdsLegacyProjectionDao records = mock(CdsLegacyProjectionDao.class);
         when(records.hasSourceFields(42, Set.of("AllergiesAndAdverseReactions"))).thenReturn(true);
+        var actor = mock(LoggedInInfo.class);
+        var security = mock(SecurityInfoManager.class);
+        when(security.hasPrivilege(actor, "_allergy", "r", 42)).thenReturn(true);
         AllergyManager manager = mock(AllergyManager.class);
-        when(manager.getActiveAllergies(null, 42)).thenReturn(List.of(new Allergy()));
+        when(manager.getActiveAllergies(actor, 42)).thenReturn(List.of(new Allergy()));
         AllergyService service =
                 new AllergyService() {
                     @Override
                     protected LoggedInInfo getLoggedInInfo() {
-                        return null;
+                        return actor;
                     }
                 };
         ReflectionTestUtils.setField(service, "allergyManager", manager);
+        ReflectionTestUtils.setField(service, "securityInfoManager", security);
         ReflectionTestUtils.setField(
                 service, "legacyProjection", new CdsLegacyProjectionService(records));
         var failure =

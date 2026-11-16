@@ -158,7 +158,10 @@ class SafeDiagnosticSinksUnitTest extends CarlosUnitTestBase {
         var linkedIssue = new CaseManagementIssue();
         linkedIssue.setId(14L);
         when(manager.getIssueById("23", "13")).thenReturn(linkedIssue);
-        doAnswer(call -> { ((CaseManagementNote) call.getArgument(0)).setId(41L); return null; })
+        doAnswer(call -> {
+            ((CaseManagementNote) call.getArgument(0)).setId(41L);
+            return null;
+        })
                 .when(manager).saveNoteSimple(any());
         var body = JSON.createObjectNode().put("note", PRIVATE);
         body.putObject("tickler").put("id", 31).put("demographicNo", 23);
@@ -193,7 +196,8 @@ class SafeDiagnosticSinksUnitTest extends CarlosUnitTestBase {
         when(display.getNote()).thenReturn(PRIVATE);
         when(display.toString()).thenReturn(PRIVATE);
         var result = new io.github.carlos_emr.carlos.casemgmt.service.NoteSelectionResult();
-        result.setMoreNotes(true); result.setNotes(List.of(display));
+        result.setMoreNotes(true);
+        result.setNotes(List.of(display));
         when(selection.findNotes(any(), any())).thenReturn(result);
         var body = JSON.createObjectNode().put("unusedPrivatePayload", PRIVATE);
         body.putArray("filterIssues").add(PRIVATE);
@@ -216,7 +220,8 @@ class SafeDiagnosticSinksUnitTest extends CarlosUnitTestBase {
         var service = noteService(manager);
         doThrow(new IllegalStateException(PRIVATE, new java.io.IOException(PRIVATE)))
                 .when(manager).replaceTmpSave(anyString(), anyString(), anyString(), anyString(), anyString());
-        var note = new io.github.carlos_emr.carlos.webserv.rest.to.model.NoteTo1(); note.setNote(PRIVATE);
+        var note = new io.github.carlos_emr.carlos.webserv.rest.to.model.NoteTo1();
+        note.setNote(PRIVATE);
         try (var logs = LogCapture.forLogger(NotesService.class)) {
             org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.tmpSaveNote(23, note))
                     .isInstanceOf(jakarta.ws.rs.WebApplicationException.class)

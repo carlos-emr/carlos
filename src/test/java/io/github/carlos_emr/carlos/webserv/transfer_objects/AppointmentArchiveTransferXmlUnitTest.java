@@ -19,9 +19,13 @@ class AppointmentArchiveTransferXmlUnitTest extends CarlosUnitTestBase {
             Object value = type.getConstructor().newInstance();
             type.getMethod("setLocationCode", Integer.class).invoke(value, 7);
             type.getMethod("setLocation", String.class).invoke(value, "Booking-time location");
-            var json = new com.fasterxml.jackson.databind.ObjectMapper().valueToTree(value);
-            assertThat(json.path("locationCode").intValue()).isEqualTo(7);
-            assertThat(json.path("location").textValue()).isEqualTo("Booking-time location");
+            for (var mapper : java.util.List.of(new com.fasterxml.jackson.databind.ObjectMapper(),
+                    io.github.carlos_emr.carlos.webserv.rest.util.ProductionRestObjectMappers.oauthSurface(),
+                    io.github.carlos_emr.carlos.webserv.rest.util.ProductionRestObjectMappers.sessionSurface())) {
+                var json = mapper.valueToTree(value);
+                assertThat(json.path("locationCode").intValue()).isEqualTo(7);
+                assertThat(json.path("location").textValue()).isEqualTo("Booking-time location");
+            }
             var xml = new java.io.StringWriter();
             var context = jakarta.xml.bind.JAXBContext.newInstance(type);
             marshal(context, type, value, xml);
@@ -52,7 +56,8 @@ class AppointmentArchiveTransferXmlUnitTest extends CarlosUnitTestBase {
                 else if (type == int.class || type == Integer.class) field = 7;
                 else if (Calendar.class.isAssignableFrom(type)) {
                     var calendar = new java.util.GregorianCalendar(java.util.TimeZone.getTimeZone("America/Toronto"));
-                    calendar.clear(); calendar.set(2026, Calendar.JULY, 15, 13, 14, 15);
+                    calendar.clear();
+                    calendar.set(2026, Calendar.JULY, 15, 13, 14, 15);
                     field = calendar;
                 } else if (type == io.github.carlos_emr.carlos.commn.model.Appointment.BookingSource.class) {
                     field = io.github.carlos_emr.carlos.commn.model.Appointment.BookingSource.OSCAR;

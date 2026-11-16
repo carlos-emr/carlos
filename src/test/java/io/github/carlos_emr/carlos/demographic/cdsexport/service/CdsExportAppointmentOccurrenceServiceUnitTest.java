@@ -59,7 +59,7 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
         assertThat(f.result.nativeOnlyRows()).isEqualTo(1);
         assertThat(f.result.importedRows()).isZero();
         assertThat(f.receipts).hasSize(1);
-        assertThat(f.receipts.getFirst().fields()).hasSize(32);
+        assertThat(f.receipts.getFirst().fields()).hasSize(33);
     }
 
     @Test
@@ -167,9 +167,9 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
                         field ->
                                 field.outcome()
                                         == CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW);
-        // 26 appointment, 6 public provider, 9 status definition and 8 reason-list item fields;
+        // 27 appointment, 6 public provider, 9 status definition and 10 reason-list item fields;
         // the superseded archive version is assessed but is not an occurrence of its own.
-        assertThat(fields).hasSize(49);
+        assertThat(fields).hasSize(52);
         assertThat(
                         fields.get(
                                         CdsExportAppointmentMapperUnitTest.itemKey(

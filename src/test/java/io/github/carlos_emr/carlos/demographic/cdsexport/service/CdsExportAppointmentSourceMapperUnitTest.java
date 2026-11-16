@@ -44,6 +44,7 @@ class CdsExportAppointmentSourceMapperUnitTest {
             throws Exception {
         var fields = CdsExportAppointmentMapperUnitTest.baseline();
         fields.put("location", "Main Clinic");
+        fields.put("locationCode", "17");
         fields.put("remarks", null);
         var row = CdsExportAppointmentMapperUnitTest.appointment(fields);
         var lookups = CdsExportAppointmentMapperUnitTest.lookups();
@@ -67,6 +68,7 @@ class CdsExportAppointmentSourceMapperUnitTest {
         assertThat(json.path("appointment").asLong()).isEqualTo(3);
         assertThat(json.path("fields").size()).isEqualTo(row.fields().size());
         assertThat(json.path("fields").path("location").asText()).isEqualTo("Main Clinic");
+        assertThat(json.path("fields").path("locationCode").asText()).isEqualTo("17");
         // SQL NULL stays distinct from empty text.
         assertThat(json.path("fields").path("remarks").isNull()).isTrue();
         assertThat(json.path("complete").path("AppointmentNotes").asText())

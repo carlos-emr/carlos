@@ -141,7 +141,8 @@ class DocumentAttachUnavailableConsultUnitTest extends CarlosUnitTestBase {
                     .thenReturn(List.of(new EctFormData.PatientForm("formAnnual", "Annual", 7, 1)));
         } else {
             var link = new io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic();
-            link.setDemographicNo(1); link.setHrmDocumentId(7);
+            link.setDemographicNo(1);
+            link.setHrmDocumentId(7);
             when(hrms.findByHrmDocumentId(7)).thenReturn(List.of(link));
         }
         registerMock(AttachmentSelectionAccess.class, new AttachmentSelectionAccess(security,

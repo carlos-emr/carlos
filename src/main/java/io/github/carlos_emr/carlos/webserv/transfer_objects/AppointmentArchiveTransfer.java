@@ -169,6 +169,7 @@ public final class AppointmentArchiveTransfer {
     // Existing strict SOAP clients validate against schemas without this lookup metadata.
     // Keep the booking-time label in location and retain the lookup id for Java/JSON callers.
     @jakarta.xml.bind.annotation.XmlTransient
+    @com.fasterxml.jackson.annotation.JsonIgnore(false)
     public Integer getLocationCode() {
         return locationCode;
     }
