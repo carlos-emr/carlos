@@ -262,7 +262,11 @@ public class FlowSheetCustom2Action extends ActionSupport {
         }
 
         MeasurementTemplateFlowSheetConfig templateConfig = MeasurementTemplateFlowSheetConfig.getInstance();
-        MeasurementFlowSheet mFlowsheet = templateConfig.getFlowSheet(flowsheet);
+        MeasurementFlowSheet mFlowsheet = flowsheet == null ? null : templateConfig.getFlowSheet(flowsheet);
+        if (mFlowsheet == null) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND, "Flowsheet template not found.");
+            return NONE;
+        }
 
         if (request.getParameter("measurement") != null) {
 
