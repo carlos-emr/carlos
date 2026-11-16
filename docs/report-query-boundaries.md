@@ -27,8 +27,11 @@ and MariaDB's current-date age expressions. `DemographicExtDao.findReportValues`
 retains its legacy latest-first cohort mode for compatibility. Demographic CSV
 exports read all selected current extension values in one parameterized
 `ConfiguredReportQuery` read, so configured row, time and combined text budgets
-apply during JDBC retrieval before materialization. The active table's
-`(demographic_no, key_val)` unique key permits one value per patient/key.
+apply during JDBC retrieval before materialization. Uniqueness is not universal:
+`V1.0.54__allow_dashboard_exclusion_history.sql` permits `excludeIndicator`
+history and leaves legacy tables without a unique patient/key index unchanged.
+When duplicates exist, the CSV retains the last value in `(date_time, id)` order
+for each patient and requested key; NULL dates sort first and ID breaks date ties.
 This corrects #5927's missing CSV cells while preserving the DAO contract and
 leaving archive data unchanged. Cell lookup uses the stored extension key;
 display captions remain independent, including the default "Preferred Language".

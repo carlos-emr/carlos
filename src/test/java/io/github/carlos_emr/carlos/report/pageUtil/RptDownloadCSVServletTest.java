@@ -334,6 +334,38 @@ class RptDownloadCSVServletTest {
         return new ConfiguredReportQuery.Row(values, List.of());
     }
 
+    @Test
+    void shouldKeepLastDateAndIdOrderedValue_forLegacyDuplicateRows() throws Exception {
+        var request = branchRequest(CsvScenario.EXTENSION);
+        var demographic = new ConfiguredReportQuery.Row(Map.of("demographic_no", "41", "last_name", "FAKE",
+                "first_name", "First"), List.of());
+        List<SqlCall> extensionCalls = new ArrayList<>();
+        configuredQueryMock.when(() -> ConfiguredReportQuery.read(anyString(), any(Object[].class)))
+                .thenAnswer(call -> {
+                    String sql = call.getArgument(0);
+                    if (!sql.startsWith("select x.demographic_no, k.extension_key")) {
+                        return new ConfiguredReportQuery.Result(List.of(), List.of(demographic));
+                    }
+                    extensionCalls.add(new SqlCall(sql, extractBindParameters(call.getArguments())));
+                    // The physical ordering puts NULL dates first and the highest ID last on a date tie.
+                    return new ConfiguredReportQuery.Result(List.of(), List.of(
+                            extensionRow("41", "prefer_language", "null-date"),
+                            extensionRow("41", "prefer_language", "earlier-date"),
+                            extensionRow("41", "prefer_language", "same-date-lower-id"),
+                            extensionRow("41", "prefer_language", "same-date-higher-id")));
+                });
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        try (var settings = mockStatic(CarlosProperties.class)) {
+            settings.when(CarlosProperties::getInstance).thenReturn(mock(CarlosProperties.class));
+            new RptDownloadCSVServlet().service(request, response);
+        }
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentAsString()).contains("\tsame-date-higher-id")
+                .doesNotContain("null-date", "earlier-date", "same-date-lower-id");
+        assertThat(extensionCalls).singleElement().satisfies(call ->
+                assertThat(call.sql()).endsWith("order by x.date_time, x.id"));
+    }
+
     private MockHttpServletRequest branchRequest(CsvScenario scenario) {
         MockHttpServletRequest request = baseRequest();
         request.getSession(true);

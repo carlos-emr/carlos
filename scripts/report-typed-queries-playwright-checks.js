@@ -39,8 +39,8 @@ async function workflow(s) {
       'The extension report patient ownership changed');
     for (const id of [patient, ...owned]) {
       h.assert(/^[1-9]\d*$/.test(id), 'Invalid extension report patient identifier');
-      sql.execute('DELETE FROM demographicExt WHERE demographic_no=? AND provider_no=? AND key_val=?',
-        [id, provider, 'prefer_language']);
+      sql.execute('DELETE FROM demographicExt WHERE demographic_no=? AND provider_no=? AND key_val IN (?,?)',
+        [id, provider, 'prefer_language', 'excludeIndicator']);
       h.assert(sql.value('SELECT COUNT(*) FROM demographicExt WHERE demographic_no=?', [id]) === '0',
         'An unexpected extension remains on the owned report patient');
     }
@@ -119,6 +119,16 @@ async function workflow(s) {
     ]);
     h.assert(keyRows.length === 4 && keyRows.every(row => expectedKeys.delete(row.join('|'))) && expectedKeys.size === 0,
       'The physical database did not preserve both bound key spellings for each current patient value');
+    const historyValues = ['null-date', 'earlier-date', 'same-date-lower-id', 'same-date-higher-id'].map(value => `${marker}-${value}`);
+    for (const [index, date] of [null, '2026-08-01 00:00:00', '2026-08-02 00:00:00', '2026-08-02 00:00:00'].entries()) {
+      sql.execute('INSERT INTO demographicExt (demographic_no,provider_no,key_val,value,date_time,hidden) VALUES (?,?,?,?,?,0)',
+        [patient, provider, 'excludeIndicator', historyValues[index], date]);
+    }
+    const history = sql.rows(`SELECT x.demographic_no,k.extension_key,x.value FROM demographicExt x
+      JOIN (SELECT ? AS extension_key) k ON x.key_val=k.extension_key
+      WHERE x.demographic_no IN (?) ORDER BY x.date_time,x.id`, ['excludeIndicator', patient]);
+    h.assert(history.length === 4 && history.every((row, index) => row[2] === historyValues[index]),
+      'Dashboard exclusion history did not retain NULL-first dates and ascending ID ties');
     await page.goto(`${base}/report/ViewReportFormRecord`);
     const token = await page.locator('input[name="CSRF-TOKEN"]').first().inputValue();
     async function verifyCohort() {
