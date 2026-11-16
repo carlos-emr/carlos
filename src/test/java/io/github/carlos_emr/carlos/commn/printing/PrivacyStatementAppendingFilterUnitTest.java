@@ -675,6 +675,34 @@ class PrivacyStatementAppendingFilterUnitTest {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldPreservePartialHtmlBodyAndLength_whenUsingEitherResponseChannel(boolean stream) throws Exception {
+        var properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        Object original = properties.setProperty("confidentiality_statement.v1", "FAKE-5782-NOTICE");
+        try {
+            var request = new MockHttpServletRequest("GET", "/fixture.html");
+            request.addHeader("Range", "bytes=0-3");
+            var response = new MockHttpServletResponse();
+            filter.doFilter(request, response, (req, res) -> {
+                var http = (jakarta.servlet.http.HttpServletResponse) res;
+                http.setStatus(206);
+                http.setContentType("text/html;charset=UTF-8");
+                http.setHeader("Content-Range", "bytes 0-3/100");
+                http.setContentLengthLong(4);
+                if (stream) http.getOutputStream().write("BODY".getBytes(StandardCharsets.UTF_8));
+                else http.getWriter().write("BODY");
+            });
+            assertThat(response.getStatus()).isEqualTo(206);
+            assertThat(response.getContentAsByteArray()).isEqualTo("BODY".getBytes(StandardCharsets.UTF_8));
+            assertThat(response.getHeader("Content-Range")).isEqualTo("bytes 0-3/100");
+            assertThat(response.getContentLength()).isEqualTo(4);
+        } finally {
+            if (original == null) properties.remove("confidentiality_statement.v1");
+            else properties.put("confidentiality_statement.v1", original);
+        }
+    }
+
     /**
      * Enforces the servlet rule a real container applies and MockHttpServletResponse does not:
      * once the writer or the output stream is obtained, asking for the other one throws.

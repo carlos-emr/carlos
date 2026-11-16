@@ -159,6 +159,12 @@ public class PrivacyStatementAppendingFilter implements Filter {
             DelegatingServletResponse delegatingServletResponse = new DelegatingServletResponse(httpResponse);
             chain.doFilter(request, delegatingServletResponse);
 
+            // A partial response must retain the bytes and length described by Content-Range.
+            if (delegatingServletResponse.getStatus() == HttpServletResponse.SC_PARTIAL_CONTENT) {
+                delegatingServletResponse.completeWithoutStatement();
+                return;
+            }
+
             if (isConfidentialityNotePrinted) {
                 delegatingServletResponse.completeWithoutStatement();
                 return;
