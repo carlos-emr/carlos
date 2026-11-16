@@ -116,7 +116,8 @@ public class CdsImportAccessService {
         if (command.synthetic()) courses.requireCopy(actor, command);
         if (actor.programId() != null && !command.synthetic()) {
             var program = programs.metadata(actor.programId());
-            if (program == null || !"active".equalsIgnoreCase(program.status())
+            if (program == null
+                    || !io.github.carlos_emr.carlos.utility.CdsImportKeys.asciiKeyword("active", program.status())
                     || (actor.facilityId() != null && !Objects.equals(program.facilityId(), actor.facilityId()))) deny();
             if (!programs.member(actor.providerNo(), actor.programId())) deny();
         }
@@ -154,19 +155,11 @@ public class CdsImportAccessService {
     @Transactional(readOnly = true)
     public void requireClinicalRead(LoggedInInfo supplied, int demographicNo, String category) {
         if (supplied == null || supplied.getLoggedInSecurity() == null || demographicNo < 1) deny();
-        String object = switch (category == null ? "" : category) {
-            case "Demographics" -> "_demographic";
-            case "MedicationsAndTreatments" -> "_rx";
-            case "AllergiesAndAdverseReactions" -> "_allergy";
-            case "Immunizations" -> "_prevention";
-            case "LaboratoryResults" -> "_lab";
-            case "Reports" -> "_edoc";
-            case "Appointments" -> "_appointment";
-            case "CareElements" -> "_measurement";
-            case "PersonalHistory", "FamilyHistory", "PastHealth", "ProblemList", "RiskFactors",
-                    "AlertsAndSpecialNeeds", "ClinicalNotes", "NewCategory" -> "_casemgmt.notes";
-            default -> throw new IllegalArgumentException("IMPORT_CATEGORY_INVALID");
-        };
+        final String object;
+        try {
+            object = io.github.carlos_emr.carlos.demographic.cds.security.CdsCategoryReadPermission.object(
+                    io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory.fromWireName(category));
+        } catch (IllegalArgumentException invalid) { throw new IllegalArgumentException("IMPORT_CATEGORY_INVALID"); }
         Security account = activeAccount(supplied.getLoggedInSecurity().getSecurityNo());
         if (!Objects.equals(account.getProviderNo(), supplied.getLoggedInProviderNo())) deny();
         LoggedInInfo current = providerContext(account.getProviderNo(),

@@ -66,6 +66,7 @@ const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const {createRoutingLockFixture} = require('./lib/lab-routing-fixture');
+const { PROVIDER_LINKING_RULES_LOCK } = require('./lib/document-fixture-allocation');
 const { serverLogFromEnvironment, verifyStorageFailureLog } = require('./lib/server-log');
 
 const { createFaultReceipt, ownedTriggerStatements, observeOwnedTrigger, dropOwnedTrigger, normalize, sha } = require('./lib/lab-rollback-fault-proof');
@@ -225,17 +226,30 @@ function removeArchivedUploads(stamp, {requireArchive = true} = {}) {
   h.assert(ownFiles().length === 0, 'The archived synthetic lab uploads were not all removed');
 }
 
+/*
+ * The routing locks present before this check uploads anything: report ids, all positive. The
+ * application also keeps ONE row that is no report, ProviderLabRoutingDao.PROVIDER_LINKING_RULES_LOCK
+ * (Integer.MIN_VALUE), its clinic-wide coordination row; it exists from the first time the provider
+ * linking rules are saved (provider-linking-rules does that) and stays. The snapshot leaves out
+ * exactly that key, as lib/document-fixture-allocation.js does; any other key that is not a positive
+ * id still fails the check.
+ */
+const INITIAL_ROUTING_LOCKS_QUERY = 'SELECT lab_no FROM providerLabRoutingLock'
+  + ` WHERE BINARY CAST(lab_no AS CHAR) <> '${PROVIDER_LINKING_RULES_LOCK}' ORDER BY lab_no`;
+function initialRoutingLocks(sql) {
+  return sql.rows(INITIAL_ROUTING_LOCKS_QUERY).map(row => {
+    h.assert(row.length === 1 && /^[1-9]\d*$/.test(row[0]), 'Invalid initial routing lock snapshot');
+    return row[0];
+  });
+}
+
 async function workflow(session, options = {}) {
   const { sql, patient, marker, cleanup, config } = session;
   // A native HL7 continuation returns before the separate legacy flat-CML path.
   // Its lifecycle must not depend on ON-only labReportInformation on BC.
   const includeLegacyCml = !options.afterInitial;
   const exclusiveLocks = process.env.EXCLUSIVE === '1' && process.env.CARLOS_DISPOSABLE_VM === 'true';
-  const initialLocks = exclusiveLocks
-    ? sql.rows('SELECT lab_no FROM providerLabRoutingLock ORDER BY lab_no').map(row => {
-      h.assert(row.length === 1 && /^[1-9]\d*$/.test(row[0]), 'Invalid initial routing lock snapshot');
-      return row[0];
-    }) : undefined;
+  const initialLocks = exclusiveLocks ? initialRoutingLocks(sql) : undefined;
   const stamp = crypto.randomBytes(4).toString('hex').toUpperCase();
   const accession = `LU${stamp}`;
   const flatAccession = `FL${stamp}`;
@@ -493,4 +507,7 @@ async function workflow(session, options = {}) {
 }
 
 if (require.main === module) runWorkflow('lab-upload', workflow);
-module.exports = { workflow, syntheticCmlLab, syntheticCmlFlatFile, openUploader, uploadThroughPopup, removeArchivedUploads };
+module.exports = {
+  workflow, syntheticCmlLab, syntheticCmlFlatFile, openUploader, uploadThroughPopup, removeArchivedUploads,
+  INITIAL_ROUTING_LOCKS_QUERY, initialRoutingLocks,
+};

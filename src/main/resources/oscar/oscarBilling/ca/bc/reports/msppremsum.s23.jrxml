@@ -37,22 +37,27 @@ order by s23_id]]>
 		<initialValueExpression><![CDATA["test"]]></initialValueExpression>
 	</variable>
 	<variable name="grossTotal" class="java.math.BigDecimal" calculation="Sum">
-		<expression><![CDATA[new java.math.BigDecimal(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_gamount}))]]></expression>
+		<expression><![CDATA[io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.knownOrZero($F{t_gamount})]]></expression>
 	</variable>
 	<variable name="regTotal" class="java.math.BigDecimal" calculation="Sum">
-		<expression><![CDATA[new java.math.BigDecimal(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_ramount}))]]></expression>
+		<expression><![CDATA[io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.knownOrZero($F{t_ramount})]]></expression>
 	</variable>
 	<variable name="oneTotal" class="java.math.BigDecimal" calculation="Sum">
-		<expression><![CDATA[new java.math.BigDecimal(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_oamount}))]]></expression>
+		<expression><![CDATA[io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.knownOrZero($F{t_oamount})]]></expression>
 	</variable>
 	<variable name="blncTotal" class="java.math.BigDecimal" calculation="Sum">
-		<expression><![CDATA[new java.math.BigDecimal(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_balancefwd}))]]></expression>
+		<expression><![CDATA[io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.knownOrZero($F{t_balancefwd})]]></expression>
 	</variable>
 	<variable name="adjTotal" class="java.math.BigDecimal" calculation="Sum">
-		<expression><![CDATA[new java.math.BigDecimal(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_adjmade}))]]></expression>
+		<expression><![CDATA[io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.knownOrZero($F{t_adjmade})]]></expression>
 	</variable>
 	<variable name="adjOutTotal" class="java.math.BigDecimal" calculation="Sum">
-		<expression><![CDATA[new java.math.BigDecimal(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_adjoutstanding}))]]></expression>
+		<expression><![CDATA[io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.knownOrZero($F{t_adjoutstanding})]]></expression>
+	</variable>
+	<!-- The totals above add known amounts only; this counts the stored fields that are not Teleplan amounts. -->
+	<variable name="unparsedTotal" class="java.lang.Integer" calculation="Sum">
+		<expression><![CDATA[Integer.valueOf(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.unparsedCount($F{t_gamount}, $F{t_ramount}, $F{t_oamount}, $F{t_balancefwd}, $F{t_adjmade}, $F{t_adjoutstanding}))]]></expression>
+		<initialValueExpression><![CDATA[Integer.valueOf(0)]]></initialValueExpression>
 	</variable>
 	<background splitType="Stretch">
 		</background>
@@ -180,7 +185,13 @@ order by s23_id]]>
 	<columnHeader splitType="Stretch">
 		</columnHeader>
 	<detail>
-		<band height="14" splitType="Stretch">
+		<band height="26" splitType="Stretch">
+			<!-- Printed only under a row with a field that is not a Teleplan amount (its cell shows "?"): each
+			     such field's column and source text. On every other row the line takes no space. -->
+			<element kind="textField" positionType="Float" mode="Transparent" x="0" y="14" width="535" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField-unparsed-row" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" removeLineWhenBlank="true">
+				<printWhenExpression><![CDATA[Boolean.valueOf(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.unparsedCount($F{t_gamount}, $F{t_ramount}, $F{t_oamount}, $F{t_balancefwd}, $F{t_adjmade}, $F{t_adjoutstanding}) > 0)]]></printWhenExpression>
+				<expression><![CDATA[io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.unparsedNote("Gross Amt", $F{t_gamount}, "Reg. Amt", $F{t_ramount}, "One Time Amt.", $F{t_oamount}, "Blnc. Fwd.", $F{t_balancefwd}, "Adj. Made", $F{t_adjmade}, "Adj. Out.", $F{t_adjoutstanding})]]></expression>
+			</element>
 			<element kind="textField" mode="Transparent" x="0" y="0" width="63" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Top" rotation="None" blankWhenNull="true" pattern="">
 				<paragraph lineSpacing="Single" />
 				<box>
@@ -229,7 +240,7 @@ order by s23_id]]>
 					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 				</box>
-				<expression><![CDATA["$"+io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_gamount})]]></expression>
+				<expression><![CDATA[io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.dollarsOrMark($F{t_gamount})]]></expression>
 			</element>
 			<element kind="textField" mode="Transparent" x="271" y="0" width="40" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Right" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="">
 				<paragraph lineSpacing="Single" />
@@ -239,7 +250,7 @@ order by s23_id]]>
 					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 				</box>
-				<expression><![CDATA["$"+io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_ramount})]]></expression>
+				<expression><![CDATA[io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.dollarsOrMark($F{t_ramount})]]></expression>
 			</element>
 			<element kind="textField" mode="Transparent" x="314" y="0" width="49" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Right" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="">
 				<paragraph lineSpacing="Single" />
@@ -249,7 +260,7 @@ order by s23_id]]>
 					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 				</box>
-				<expression><![CDATA["$"+io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_oamount})]]></expression>
+				<expression><![CDATA[io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.dollarsOrMark($F{t_oamount})]]></expression>
 			</element>
 			<element kind="textField" mode="Transparent" x="363" y="0" width="54" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Right" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="">
 				<paragraph lineSpacing="Single" />
@@ -259,7 +270,7 @@ order by s23_id]]>
 					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 				</box>
-				<expression><![CDATA["$"+io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_balancefwd})]]></expression>
+				<expression><![CDATA[io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.dollarsOrMark($F{t_balancefwd})]]></expression>
 			</element>
 			<element kind="textField" mode="Transparent" x="417" y="0" width="55" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Right" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="">
 				<paragraph lineSpacing="Single" />
@@ -269,7 +280,7 @@ order by s23_id]]>
 					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 				</box>
-				<expression><![CDATA["$"+io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_adjmade})]]></expression>
+				<expression><![CDATA[io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.dollarsOrMark($F{t_adjmade})]]></expression>
 			</element>
 			<element kind="textField" mode="Transparent" x="473" y="0" width="62" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Right" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="">
 				<paragraph lineSpacing="Single" />
@@ -279,7 +290,7 @@ order by s23_id]]>
 					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 				</box>
-				<expression><![CDATA["$"+io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_adjoutstanding})]]></expression>
+				<expression><![CDATA[io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.dollarsOrMark($F{t_adjoutstanding})]]></expression>
 			</element>
 			<element kind="textField" mode="Transparent" x="63" y="0" width="19" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField-1" hTextAlign="Left" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="">
 				<paragraph lineSpacing="Single" />
@@ -297,7 +308,11 @@ order by s23_id]]>
 		</columnFooter>
 	<pageFooter splitType="Stretch">
 		</pageFooter>
-	<summary height="26" splitType="Stretch">
+	<summary height="38" splitType="Stretch">
+		<element kind="textField" positionType="Float" mode="Transparent" x="0" y="26" width="535" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField-unparsed-total" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" removeLineWhenBlank="true">
+			<printWhenExpression><![CDATA[Boolean.valueOf($V{unparsedTotal}.intValue() > 0)]]></printWhenExpression>
+			<expression><![CDATA["Known amounts only. Unparsed amount fields excluded: " + $V{unparsedTotal}]]></expression>
+		</element>
 		<element kind="line" mode="Opaque" x="1" y="3" width="533" height="1" forecolor="#666666" backcolor="#FFFFFF" key="line-3">
 			<pen lineWidth="0.5" lineStyle="Solid" />
 		</element>

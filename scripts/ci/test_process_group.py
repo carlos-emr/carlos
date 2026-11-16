@@ -120,7 +120,7 @@ class ProcessGroupTest(unittest.TestCase):
     def test_existing_child_tree_is_refused_before_adoption_or_browser_start(self):
         parent = subprocess.Popen([sys.executable, '-c',
             "import subprocess,sys; child=subprocess.Popen([sys.executable,'-c','import time; time.sleep(60)']); "
-            "print(child.pid,flush=True); sys.stdin.readline()"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+            + "print(child.pid,flush=True); sys.stdin.readline()"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
         descendant = int(parent.stdout.readline())
         try:
             with patch('process_group.subprocess.Popen') as launch, self.assertRaises(ProcessGroupFailure) as failed:

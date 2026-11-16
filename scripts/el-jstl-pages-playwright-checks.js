@@ -72,8 +72,9 @@ function unevaluatedSource(body) {
  * what unevaluatedSource looks for.
  */
 function unevaluatedMarkup(body) {
+  // Escape '<' so embedded-language analysis sees a JavaScript regexp.
   const markup = body
-    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/\x3C!--[\s\S]*?-->/g, ' ')
     .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, ' ')
     .replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, ' ');
   const match = /\$\{|#\{/.exec(markup);

@@ -2900,8 +2900,9 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         } else {
             logAction = LogConst.UPDATE;
         }
+        // The row describes the saved revision (NoteAuditData); the note text stays in the chart.
         LogAction.addLog(user, logAction, LogConst.CON_CME_NOTE, "" + Long.valueOf(note.getId()).intValue(), remoteAddr,
-                note.getDemographic_no(), note.getAuditString());
+                note.getDemographic_no(), io.github.carlos_emr.carlos.casemgmt.common.NoteAuditData.describe(note));
 
         return note;
     }

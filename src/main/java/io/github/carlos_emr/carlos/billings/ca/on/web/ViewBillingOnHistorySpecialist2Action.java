@@ -66,6 +66,7 @@ public class ViewBillingOnHistorySpecialist2Action extends ActionSupport {
                 request.getParameter("day"),
                 request.getParameter("serviceCode"));
         request.setAttribute("historySpecModel", model);
+        ViewBillingOnHistory2Action.auditHistoryRead(loggedInInfo, request.getParameter("demographic_no"));
 
         return SUCCESS;
     }

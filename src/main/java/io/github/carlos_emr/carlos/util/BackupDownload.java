@@ -38,6 +38,7 @@ import jakarta.servlet.http.HttpSession;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -85,7 +86,7 @@ public class BackupDownload extends GenericDownload {
 
             download(true, res, dir, filename);
         } catch (FileValidationException e) {
-            log.warn("BackupDownload rejected invalid filename from {}", req.getRemoteAddr());
+            log.warn("BackupDownload rejected invalid filename from {}", LogSafe.sanitize(req.getRemoteAddr()));
             sendErrorForCaughtException(res, HttpServletResponse.SC_BAD_REQUEST, "Invalid filename parameter.");
         } catch (IOException e) {
             throw e;
