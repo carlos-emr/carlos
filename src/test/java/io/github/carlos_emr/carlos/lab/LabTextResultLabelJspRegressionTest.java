@@ -112,14 +112,16 @@ class LabTextResultLabelJspRegressionTest {
                 import io.github.carlos_emr.carlos.util.StringUtils;
                 public class LabGridFragment {
                     public static Map<String, Object> render(ArrayList labList) {
+                        List<Hashtable<String, String>> dateList = new ArrayList<>();
+                        Map<String, LinkedHashMap<String, Hashtable>> measIdMap = new HashMap<>();
+                        {
                         LinkedHashMap<String, Hashtable> idMap = new LinkedHashMap<>();
                         List<String> idList = new ArrayList<>();
-                        List<Hashtable<String, String>> dateList = new ArrayList<>();
                 """ + grid.substring(selectionStart, selectionEnd) + """
+                        measIdMap.put("1234", idMap);
+                        }
                         LinkedHashMap<String, String> nameMap = new LinkedHashMap<>();
                         nameMap.put("1234", "Synthetic test");
-                        Map<String, LinkedHashMap<String, Hashtable>> measIdMap = new HashMap<>();
-                        measIdMap.put("1234", idMap);
                 """ + grid.substring(rowsStart, rowsEnd) + "return tableRows.getFirst(); }}";
         Path wrapper = scratch.resolve("LabGridFragment.java");
         Files.writeString(wrapper, source);
