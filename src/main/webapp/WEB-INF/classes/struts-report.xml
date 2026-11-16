@@ -159,9 +159,11 @@
         </action>
         <action name="oscarReport/reportByTemplate/actions/addGroup" class="io.github.carlos_emr.carlos.report.reportByTemplate.actions.RBTAddGroup2Action">
             <result name="success">/oscarReport/reportByTemplate/rbtGroup</result>
+            <result name="input">/oscarReport/reportByTemplate/rbtGroup</result>
         </action>
         <action name="oscarReport/reportByTemplate/actions/rbtAddToGroup" class="io.github.carlos_emr.carlos.report.reportByTemplate.actions.RBTAddToGroup2Action">
             <result name="success">/oscarReport/reportByTemplate/actions/tempInGroup</result>
+            <result name="input">/oscarReport/reportByTemplate/rbtGroup</result>
         </action>
         <action name="oscarReport/reportByTemplate/actions/remFromGroup" class="io.github.carlos_emr.carlos.report.reportByTemplate.actions.RBTRemoveFromGroup2Action">
             <result name="success">/oscarReport/reportByTemplate/actions/tempInGroup</result>

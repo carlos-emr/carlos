@@ -62,7 +62,13 @@ public class RBTAddToGroup2Action extends ActionSupport {
 
         if (templateIdArray != null && templateIdArray.length > 0) {
             for (String templateId : templateIdArray) {
-                rbtGroupManager.addTemplateToGroup(loggedInInfo, groupName, Integer.parseInt(templateId));
+                int id = Integer.parseInt(templateId);
+                try {
+                    rbtGroupManager.addTemplateToGroup(loggedInInfo, groupName, id);
+                } catch (IllegalArgumentException e) {
+                    request.setAttribute("errormsg", e.getMessage());
+                    return INPUT;
+                }
             }
         }
 

@@ -60,7 +60,12 @@ public class RBTAddGroup2Action extends ActionSupport {
 
 
         String groupName = request.getParameter("groupName");
-        rbtGroupManager.addTemplateToGroup(loggedInInfo, groupName, 0);  //marker for group
+        try {
+            rbtGroupManager.addTemplateToGroup(loggedInInfo, groupName, 0);  //marker for group
+        } catch (IllegalArgumentException e) {
+            request.setAttribute("errormsg", e.getMessage());
+            return INPUT;
+        }
         request.setAttribute("group_view", groupName);
         return SUCCESS;
 

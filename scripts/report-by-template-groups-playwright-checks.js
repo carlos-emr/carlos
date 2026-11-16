@@ -55,6 +55,17 @@ async function workflow(s) {
     await navigated;
     await settle(label);
   }
+  async function submitWithName(form, name, label) {
+    const navigated = admin.waitForEvent('framenavigated', {predicate: f => f === frame, timeout: 20000});
+    navigated.catch(() => {});
+    await form.evaluate((element, value) => {
+      if (value === null) element.elements.groupName.remove();
+      else element.elements.groupName.value = value;
+      element.submit();
+    }, name);
+    await navigated;
+    await settle(label);
+  }
   async function upload(content) {
     await frame.locator('#uploadReportXml').setInputFiles({name: 'rbt-group-template.xml', mimeType: 'text/xml',
       buffer: Buffer.from(content)});
@@ -115,6 +126,50 @@ async function workflow(s) {
     await frame.locator('.textExists').waitFor();
     h.assert(await frame.locator('input.groupAdd').isDisabled(), 'Add Group is enabled for a duplicate name');
     h.assert(JSON.stringify(groupRows()) === '["0"]', 'Typing a duplicate name changed the group rows');
+  });
+
+  await s.step('database-equivalent group names show a validation message without adding a row', async () => {
+    const stored = `${s.marker} Straße`;
+    const collision = `${s.marker} Strase`;
+    const input = frame.locator('input[name="groupName"].check');
+    await input.fill('');
+    await input.pressSequentially(stored);
+    await frameClick(frame.locator('input.groupAdd'), 'Create collation control group');
+    h.assert(s.sql.value('SELECT COUNT(*) FROM rbt_groups WHERE group_name=?', [stored]) === '1',
+      'The collation control group was not created');
+    await frame.locator('input[name="groupName"].check').pressSequentially(collision);
+    h.assert(await frame.locator('input.groupAdd').isEnabled(),
+      'The collation regression no longer reaches server-side validation');
+    await frameClick(frame.locator('input.groupAdd'), 'Refuse database-equivalent group name');
+    await frame.locator('.alert-danger', {hasText: 'A Report by Template group with this name already exists'}).waitFor();
+    h.assert(s.sql.value('SELECT COUNT(*) FROM rbt_groups WHERE group_name=?', [stored]) === '1',
+      'A refused duplicate group added or changed its marker row');
+    h.assert(JSON.stringify(groupRows()) === '["0"]', 'Duplicate refusal changed the original group');
+  });
+
+  await s.step('missing, blank, oversized and control-character names return to the groups page without writes', async () => {
+    const before = s.sql.value('SELECT COUNT(*) FROM rbt_groups');
+    for (const [name, message] of [
+      [null, 'Report by Template group name is required'],
+      [' \u00a0 ', 'Report by Template group name is required'],
+      [`${s.marker}${'a'.repeat(256)}`, 'Report by Template group name exceeds 255 characters'],
+      [`${s.marker}\ninvalid`, 'Report by Template group name contains control characters']
+    ]) {
+      await submitWithName(frame.locator('#addGroupTemplate'), name, 'Refuse invalid group name');
+      await frame.locator('.alert-danger', {hasText: message}).waitFor();
+      h.assert(s.sql.value('SELECT COUNT(*) FROM rbt_groups') === before,
+        'Refusing an invalid name changed group rows');
+    }
+  });
+
+  await s.step('invalid group membership shows the validation message without adding a template', async () => {
+    await frameClick(groupLink(), 'Templates in group');
+    await frame.locator('#selectRbtTemplatesBtn').click();
+    await frame.locator('#selectTemplatesModal.show').waitFor();
+    await frame.locator('#templateSelect').selectOption(templateId);
+    await submitWithName(frame.locator('#templateToGroupForm'), '', 'Refuse invalid membership group');
+    await frame.locator('.alert-danger', {hasText: 'Report by Template group name is required'}).waitFor();
+    h.assert(JSON.stringify(groupRows()) === '["0"]', 'Invalid membership added a template to the group');
   });
 
   await s.step('Select Templates adds the owned template to the group', async () => {
