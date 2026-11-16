@@ -174,7 +174,7 @@ public class IHAHandler extends DefaultGenericHandler implements MessageHandler 
                 logger.debug("EXCEPTION RESULT: " + result);
 
                 MessageUploader.clean(fileId);
-                logger.error("ERROR:", e);
+                logger.error("ERROR: {}", LogSafe.exceptionTrace(e));
                 return null;
             }
         }
@@ -197,7 +197,7 @@ public class IHAHandler extends DefaultGenericHandler implements MessageHandler 
             CarlosProperties props = CarlosProperties.getInstance();
             String documentDir = props.getProperty("DOCUMENT_DIR");
             if (documentDir == null || documentDir.trim().isEmpty()) {
-                logger.error("DOCUMENT_DIR is not configured while parsing XML file: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                logger.error("DOCUMENT_DIR is not configured while parsing XML file");
                 return null;
             }
             File docDir = PathValidationUtils.validateConfiguredDirectory(documentDir, "DOCUMENT_DIR");
@@ -205,7 +205,7 @@ public class IHAHandler extends DefaultGenericHandler implements MessageHandler 
 
             // Ensure the file exists and is a regular file
             if (!file.exists() || !file.isFile()) {
-                logger.error("File does not exist or is not a regular file: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                logger.error("File does not exist or is not a regular file");
                 return null;
             }
 
@@ -214,10 +214,10 @@ public class IHAHandler extends DefaultGenericHandler implements MessageHandler 
             return (doc);
 
         } catch (SecurityException e) {
-            logger.error("Path traversal attempt detected while parsing XML file: {}", LogSafe.sanitize(fileName), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            logger.error("Path traversal attempt detected while parsing XML file: {}", LogSafe.exceptionTrace(e));
             return null;
         } catch (Exception e) {
-            logger.error("Error parsing XML file: {}", LogSafe.sanitize(fileName), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            logger.error("Error parsing XML file: {}", LogSafe.exceptionTrace(e));
             return (null);
         }
     }

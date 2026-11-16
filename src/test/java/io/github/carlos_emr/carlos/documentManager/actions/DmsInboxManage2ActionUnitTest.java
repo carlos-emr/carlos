@@ -220,8 +220,12 @@ class DmsInboxManage2ActionUnitTest extends CarlosUnitTestBase {
         request.setParameter("newQueueName", "  Lab Queue  ");
         when(securityInfoManager.hasPrivilege(nullable(LoggedInInfo.class), eq("_edoc"), eq("w"), isNull()))
                 .thenReturn(true);
-        when(queueDao.addNewQueue("Lab Queue")).thenReturn(true);
-        when(queueDao.getLastId()).thenReturn("42");
+        when(queueDao.addNewQueueAndGetId("Lab Queue")).thenAnswer(call -> {
+            // A second request inserts a later row before the first associates its security object.
+            assertThat(queueDao.addNewQueueAndGetId("Other Queue")).isEqualTo(99);
+            return 42;
+        });
+        when(queueDao.addNewQueueAndGetId("Other Queue")).thenReturn(99);
 
         String result = new DmsInboxManage2Action().execute();
 
@@ -230,6 +234,8 @@ class DmsInboxManage2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getContentAsString()).isEqualTo("{\"addNewQueue\":true}");
         org.mockito.Mockito.verify(secObjectNameDao).saveOrUpdate(org.mockito.ArgumentMatchers.argThat(
                 sbn -> "_queue.42".equals(sbn.getObjectname()) && "Lab Queue".equals(sbn.getDescription())));
+        verify(queueDao, never()).getLastId();
+        assertThat(transactions.commits).isEqualTo(1);
     }
 
     @Test
@@ -240,12 +246,62 @@ class DmsInboxManage2ActionUnitTest extends CarlosUnitTestBase {
         request.setParameter("newQueueName", "Dup");
         when(securityInfoManager.hasPrivilege(nullable(LoggedInInfo.class), eq("_edoc"), eq("w"), isNull()))
                 .thenReturn(true);
-        when(queueDao.addNewQueue("Dup")).thenReturn(false);
+        when(queueDao.addNewQueueAndGetId("Dup")).thenThrow(new jakarta.persistence.PersistenceException("insert failed"));
 
         new DmsInboxManage2Action().execute();
 
         assertThat(response.getContentAsString()).isEqualTo("{\"addNewQueue\":false}");
         verifyNoInteractions(secObjectNameDao);
+        verify(queueDao, never()).getLastId();
+        assertThat(transactions.rollbacks).isEqualTo(1);
+    }
+
+    @Test
+    void shouldReportFailure_whenSecurityObjectCannotBeSaved() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("method", "addNewQueue");
+        request.setParameter("newQueueName", "Lab Queue");
+        when(securityInfoManager.hasPrivilege(nullable(LoggedInInfo.class), eq("_edoc"), eq("w"), isNull()))
+                .thenReturn(true);
+        when(queueDao.addNewQueueAndGetId("Lab Queue")).thenReturn(42);
+        doThrow(new IllegalStateException("security insert failed")).when(secObjectNameDao).saveOrUpdate(any());
+
+        new DmsInboxManage2Action().execute();
+
+        assertThat(response.getContentAsString()).isEqualTo("{\"addNewQueue\":false}");
+        assertThat(transactions.commits).isZero();
+        assertThat(transactions.rollbacks).isEqualTo(1);
+    }
+
+    @Test
+    void shouldNotCreateSecObject_whenQueueHasNoAssignedId() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("method", "addNewQueue");
+        request.setParameter("newQueueName", "Lab Queue");
+        when(securityInfoManager.hasPrivilege(nullable(LoggedInInfo.class), eq("_edoc"), eq("w"), isNull()))
+                .thenReturn(true);
+        when(queueDao.addNewQueueAndGetId("Lab Queue")).thenReturn(null);
+
+        new DmsInboxManage2Action().execute();
+
+        assertThat(response.getContentAsString()).isEqualTo("{\"addNewQueue\":false}");
+        verifyNoInteractions(secObjectNameDao);
+        assertThat(transactions.rollbacks).isEqualTo(1);
+    }
+
+    @Test
+    void shouldReportFailure_whenQueueTransactionCannotCommit() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("method", "addNewQueue");
+        request.setParameter("newQueueName", "Lab Queue");
+        when(securityInfoManager.hasPrivilege(nullable(LoggedInInfo.class), eq("_edoc"), eq("w"), isNull()))
+                .thenReturn(true);
+        when(queueDao.addNewQueueAndGetId("Lab Queue")).thenReturn(42);
+        transactions.failCommit = true;
+
+        new DmsInboxManage2Action().execute();
+
+        assertThat(response.getContentAsString()).isEqualTo("{\"addNewQueue\":false}");
     }
 
     @Test
@@ -258,6 +314,54 @@ class DmsInboxManage2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/logoutPage");
         verifyNoInteractions(secUserRoleDao, queueDocumentLinkDao, queueDao);
+    }
+
+    @Test
+    @DisplayName("should give the sidebar counts the locked-patient filter before they are counted")
+    void shouldFilterSidebarHrmCounts_whenIndexPageIsPrepared() throws Exception {
+        request.getSession().setAttribute("userrole", "doctor");
+        request.getSession().setAttribute("user", "999998");
+        LoggedInInfo user = mock(LoggedInInfo.class);
+        try (MockedStatic<LoggedInInfo> login = mockStatic(LoggedInInfo.class);
+             org.mockito.MockedConstruction<io.github.carlos_emr.carlos.mds.data.CategoryData> built =
+                     mockConstruction(io.github.carlos_emr.carlos.mds.data.CategoryData.class)) {
+            login.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(user);
+
+            String result = new DmsInboxManage2Action().prepareForIndexPage();
+
+            assertThat(result).isEqualTo("dms_index");
+            assertThat(built.constructed()).hasSize(1);
+            io.github.carlos_emr.carlos.mds.data.CategoryData counts = built.constructed().get(0);
+            // The hospital-report rows of the list leave out a patient the user may not open. The
+            // sidebar's counts must be given the same rule, and before they are counted.
+            org.mockito.InOrder order = inOrder(counts);
+            order.verify(counts).setHrmPatientReadable(notNull());
+            order.verify(counts).populateCountsAndPatients();
+        }
+    }
+
+    @Test
+    @DisplayName("should keep no patient's hospital reports in the sidebar when the session has no signed-in user")
+    void shouldKeepNoPatientReports_whenSessionHasNoLoggedInInfo() throws Exception {
+        request.getSession().setAttribute("userrole", "doctor");
+        request.getSession().setAttribute("user", "999998");
+        try (MockedStatic<LoggedInInfo> login = mockStatic(LoggedInInfo.class);
+             org.mockito.MockedConstruction<io.github.carlos_emr.carlos.mds.data.CategoryData> built =
+                     mockConstruction(io.github.carlos_emr.carlos.mds.data.CategoryData.class)) {
+            login.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(null);
+
+            String result = new DmsInboxManage2Action().prepareForIndexPage();
+
+            assertThat(result).isEqualTo("dms_index");
+            io.github.carlos_emr.carlos.mds.data.CategoryData counts = built.constructed().get(0);
+            org.mockito.ArgumentCaptor<java.util.function.IntPredicate> rule =
+                    org.mockito.ArgumentCaptor.forClass(java.util.function.IntPredicate.class);
+            verify(counts).setHrmPatientReadable(rule.capture());
+            verify(counts).populateCountsAndPatients();
+            // The rule is set even then, and it denies: the default would have counted every patient.
+            assertThat(rule.getValue().test(7)).isFalse();
+            verifyNoInteractions(securityInfoManager);
+        }
     }
 
     @Test
@@ -314,7 +418,27 @@ class DmsInboxManage2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
-    @CsvSource({"2026-03-08,2026-03-09T03:59:59.999Z", "2026-11-01,2026-11-02T04:59:59.999Z",
+    @CsvSource({"startDate,garbage", "endDate,garbage", "startDate,2026-02-30", "endDate,2026-02-30",
+            "startDate,2026-01-05abc", "endDate,2026-01-05abc"})
+    void shouldReturnErrorForBothFrames_whenDateBoundIsInvalid(String bound, String value) {
+        request.getSession().setAttribute("userrole", "doctor");
+        request.getSession().setAttribute("user", "991820");
+        request.setParameter(bound, value);
+        registerMock(ProviderLabRoutingDao.class, mock(ProviderLabRoutingDao.class));
+        var preferences = mock(io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao.class);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.class,
+                new io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao(preferences));
+        var inbox = mock(InboxResultsDao.class);
+        registerMock(InboxResultsDao.class, inbox);
+        var action = new DmsInboxManage2Action();
+        assertThat(action.prepareForIndexPage()).isEqualTo("error");
+        assertThat(action.prepareForContentPage()).isEqualTo("error");
+        verifyNoInteractions(preferences, inbox);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"2026-03-08,2026-03-09T03:59:59.999Z", "2026-3-8,2026-03-09T03:59:59.999Z",
+            "2026-11-01,2026-11-02T04:59:59.999Z",
             "2026-03-10,2026-03-11T03:59:59.999Z"})
     void shouldPassCompleteLocalEndDate_whenDaylightSavingChanges(String selectedDate, String expectedInstant) {
         TimeZone original = TimeZone.getDefault();

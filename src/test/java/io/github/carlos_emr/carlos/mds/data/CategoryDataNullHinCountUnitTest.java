@@ -48,6 +48,8 @@ class CategoryDataNullHinCountUnitTest extends CarlosUnitTestBase {
     private final String url = "jdbc:h2:mem:categorydata_" + UUID.randomUUID().toString().replace("-", "")
             + ";MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1";
     private Connection keepAlive;
+    private org.hibernate.SessionFactory sessionFactory;
+    private jakarta.persistence.EntityManager manager;
 
     @BeforeEach
     void setUpDatabase() throws SQLException {
@@ -79,9 +81,15 @@ class CategoryDataNullHinCountUnitTest extends CarlosUnitTestBase {
         insert("INSERT INTO providerLabRouting (provider_no, lab_no, status, lab_type) VALUES (?, ?, 'N', 'HL7')", PROVIDER, 22);
         insert("INSERT INTO hl7TextInfo (lab_no, result_status, accessionNum) VALUES (?, 'A', ?)", 21, "ACC-21");
         insert("INSERT INTO hl7TextInfo (lab_no, result_status, accessionNum) VALUES (?, 'A', ?)", 22, "ACC-22");
-        registerMock(DataSource.class, hintStrippingDataSource());
-        registerMock(SystemPreferencesDao.class, mock(SystemPreferencesDao.class));
-        registerMock(EntityManagerFactory.class, mock(EntityManagerFactory.class));
+        sessionFactory = new org.hibernate.cfg.Configuration()
+                .setProperty("hibernate.connection.url", url)
+                .setProperty("hibernate.connection.driver_class", "org.h2.Driver")
+                .setStatementInspector(sql -> sql.replace("SELECT HIGH_PRIORITY ", "SELECT "))
+                .buildSessionFactory();
+        manager = sessionFactory.createEntityManager();
+        var dao = new io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao(mock(SystemPreferencesDao.class));
+        org.springframework.test.util.ReflectionTestUtils.setField(dao, "entityManager", manager);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.class, dao);
     }
 
     private void insert(String sql, Object... values) throws SQLException {
@@ -95,7 +103,8 @@ class CategoryDataNullHinCountUnitTest extends CarlosUnitTestBase {
 
     @AfterEach
     void tearDownDatabase() throws SQLException {
-        LegacyJdbcQuery.releaseThreadResources();
+        manager.close();
+        sessionFactory.close();
         try (Statement drop = keepAlive.createStatement()) {
             drop.execute("SHUTDOWN");
         }
@@ -136,28 +145,57 @@ class CategoryDataNullHinCountUnitTest extends CarlosUnitTestBase {
         assertThat(data.getPatientList()).isEmpty();
     }
 
+    @Test
+    void shouldCountReportsOnce_acrossProvidersVersionsAndAccessions() throws SQLException {
+        insert("INSERT INTO hl7TextInfo (lab_no,result_status,accessionNum) VALUES (23,'A','another')");
+        insert("INSERT INTO patientLabRouting (demographic_no,lab_no,lab_type) VALUES (?,23,'HL7')", PATIENT);
+        for (String provider : new String[] {PROVIDER, "111111", "222222"}) {
+            insert("INSERT INTO providerLabRouting (provider_no,lab_no,status,lab_type) VALUES (?,23,'N','HL7')", provider);
+            if (!provider.equals(PROVIDER)) insert("INSERT INTO providerLabRouting (provider_no,lab_no,status,lab_type) VALUES (?,21,'N','HL7')", provider);
+        }
+        CategoryData data = new CategoryData("Synthetic", "Nohin", "", true, false, "-1", "N", "all", null, null);
+        assertThat(data.getLabCountForPatientSearch()).isEqualTo(3);
+        assertThat(data.getPatientList()).filteredOn(row -> row.getId() == PATIENT)
+                .extracting(PatientInfo::getLabCount).containsExactly(2);
+    }
+
+    @Test
+    void shouldCountReportIdentities_whenAccessionsMissing() throws SQLException {
+        for (int id = 30; id < 34; id++) {
+            insert("INSERT INTO hl7TextInfo (lab_no,result_status,accessionNum) VALUES (?,'A',?)", id, id < 32 ? "" : null);
+            insert("INSERT INTO providerLabRouting (provider_no,lab_no,status,lab_type) VALUES (?,?,'N','HL7')", PROVIDER, id);
+        }
+        assertThat(search("").getLabCountForUnmatched()).isEqualTo(4);
+    }
+
+    @Test
+    void shouldIncludeDateOnlyStart_withWholeEndDayBounds() throws SQLException {
+        insert("UPDATE hl7TextInfo SET obr_date=? WHERE lab_no=21", "2026-01-01");
+        insert("UPDATE hl7TextInfo SET obr_date=? WHERE lab_no=22", "2026-01-01 23:59:59");
+        CategoryData data = new CategoryData("Synthetic", "Nohin", "", true, true, PROVIDER,
+                "N", "all", "2026-01-01", "2026-01-01");
+        assertThat(data.getLabCountForPatientSearch()).isEqualTo(2);
+        insert("UPDATE hl7TextInfo SET obr_date=? WHERE lab_no=22", "2026-01-02");
+        assertThat(data.getLabCountForPatientSearch()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldScopeAbnormalCounts_byDatesAndDistinctReportsIncludingNullNormalStatus() throws SQLException {
+        insert("UPDATE hl7TextInfo SET obr_date=?,result_status=NULL WHERE lab_no=21", "2026-01-01");
+        insert("UPDATE hl7TextInfo SET obr_date=? WHERE lab_no=22", "2025-12-31");
+        insert("INSERT INTO providerLabRouting (provider_no,lab_no,status,lab_type) VALUES ('111111',21,'N','HL7')");
+        CategoryData data = new CategoryData("Synthetic", "Nohin", "", true, false, "-1",
+                "N", "all", "2026-01-01", "2026-01-01");
+        assertThat(data.getLabCountForPatientSearch()).isEqualTo(1);
+        assertThat(data.getAbnormalCount(true)).isZero();
+        assertThat(data.getAbnormalCount(false)).isEqualTo(1);
+        insert("UPDATE hl7TextInfo SET result_status='A' WHERE lab_no=21");
+        assertThat(data.getAbnormalCount(true)).isEqualTo(1);
+        assertThat(data.getAbnormalCount(false)).isZero();
+    }
+
     private static CategoryData search(String hin) {
         return new CategoryData("Synthetic", "Nohin", hin, true, true, PROVIDER, "N", "all", null, null);
     }
 
-    /** Opens real H2 connections whose statements have only the MySQL priority hint removed. */
-    private DataSource hintStrippingDataSource() {
-        DataSource dataSource = mock(DataSource.class, invocation -> {
-            if (!"getConnection".equals(invocation.getMethod().getName())) return null;
-            Connection real = DriverManager.getConnection(url);
-            return Proxy.newProxyInstance(Connection.class.getClassLoader(), new Class<?>[] {Connection.class},
-                    (proxy, method, args) -> {
-                        if ("prepareStatement".equals(method.getName()) && args != null && args[0] instanceof String sql) {
-                            // H2 cannot parse the MySQL-only priority hint; it has no effect on results.
-                            args[0] = sql.replace("SELECT HIGH_PRIORITY ", "SELECT ");
-                        }
-                        try {
-                            return method.invoke(real, args);
-                        } catch (InvocationTargetException e) {
-                            throw e.getCause();
-                        }
-                    });
-        });
-        return dataSource;
-    }
 }

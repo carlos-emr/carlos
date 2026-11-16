@@ -412,6 +412,7 @@ function fakeAuditPage(options = {}) {
         }),
         first: () => ({ inputValue: async () => '' }),
         innerText: async () => 'a page with content',
+        allTextContents: async () => [],
         evaluate: async () => false,
       };
     },
@@ -670,7 +671,9 @@ function fakePopup(body) {
   const state = { closed: false, listeners: [] };
   state.page = {
     url: () => 'http://127.0.0.1:8080/carlos/admin/popup',
-    locator: () => ({ innerText: async () => body, first: () => ({ count: async () => 0 }), count: async () => 0 }),
+    locator: () => ({ innerText: async () => body,
+      allTextContents: async () => /^HTTP Status/.test(body) ? [body] : [],
+      first: () => ({ count: async () => 0 }), count: async () => 0 }),
     evaluate: async () => false,
     waitForLoadState: async () => {},
     on: (event, handler) => { state.listeners.push(event); void handler; },
@@ -1104,6 +1107,7 @@ for (const [url, text, error] of [
     const { destinationText } = require('./lib/playwright-link-audit');
     const page = { url: () => url, locator: () => ({
       first: () => ({ count: async () => 0 }), innerText: async () => text,
+      allTextContents: async () => /^HTTP Status/.test(text) ? [text] : [],
     }) };
     const result = destinationText({ page, isPopup: false,
       cameFrom: 'http://localhost/carlos/administration' }, '#dynamic-content', 100);

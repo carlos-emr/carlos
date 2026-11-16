@@ -46,7 +46,7 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager.BillingItem;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
-import io.github.carlos_emr.carlos.util.SqlUtils;
+import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -194,6 +194,17 @@ public class BillingCreateBilling2Action extends ActionSupport {
         // container that persists or replicates sessions).
         BcBillStaging.save(request, bean);
         log.debug("Ignore warnings ? {}", LogSafe.sanitize(request.getParameter("ignoreWarn")));
+        // Database availability is never a business warning that ignoreWarn may override.
+        BillingServiceDao rules = SpringUtils.getBean(BillingServiceDao.class);
+        try {
+            timeRules = rules.findTimeRules();
+            conditionRules = rules.findAllConditionRules();
+            if (timeRules == null || conditionRules == null) throw new org.springframework.dao.DataRetrievalFailureException("Billing rules are unavailable");
+        } catch (jakarta.persistence.PersistenceException | org.springframework.dao.DataAccessException
+                | org.springframework.transaction.TransactionException failure) {
+            addActionError(getText("oscarMDS.patientSearch.errorDatabase"));
+            return refuse(bean, null);
+        }
         if (request.getParameter("ignoreWarn") == null) {
             validateServiceCodeList(billItem, demo, errors);
             validateDxCodeList(bean, errors);
@@ -347,17 +358,13 @@ public class BillingCreateBilling2Action extends ActionSupport {
      *
      * @param errors ActionMessages
      */
+    private transient List<BillingServiceDao.TimeRule> timeRules;
+    private transient List<BillingServiceDao.ConditionRule> conditionRules;
+
     private void validateServiceCodeTimes(ArrayList<BillingItem> billItems,
                                           List<String> errors) {
-        String qry = "select bt.billingservice_no,bt.timeRange " +
-                "from billing_msp_servicecode_times bt";
-
-        List<String[]> results = SqlUtils.getQueryResultsList(qry);
-        // SqlUtils answers null when the query has no rows, and a Flyway-built BC install ships this
-        // table empty: no service code then needs a time (issue #4716).
-        if (results == null) {
-            return;
-        }
+        List<BillingServiceDao.TimeRule> results = timeRules;
+        java.util.Objects.requireNonNull(results, "Mandatory time rules must be loaded");
 
         for (int i = 0; i < billItems.size(); i++) {
             BillingItem item = billItems.get(i);
@@ -373,17 +380,16 @@ public class BillingCreateBilling2Action extends ActionSupport {
                     "".equals(this.getXml_endtime_min()));
             boolean noEndTime = noEndHour && noEndMinute;
             String svcCode = item.getServiceCode();
-            for (Iterator<String[]> iter = results.iterator(); iter.hasNext(); ) {
-                String[] elem = iter.next();
-                String codeToCompare = elem[0];
+            for (BillingServiceDao.TimeRule rule : results) {
+                String codeToCompare = rule.serviceCode();
                 if (codeToCompare.equals(svcCode)) {
                     //if the specified code requires a start time
-                    if ("0".equals(elem[1])) {
+                    if ("0".equals(rule.timeRange())) {
                         if (noStartTime) {
                             errors.add("oscar.billing.CA.BC.billingBC.error.startTimeNeeded");
                             addActionError(getText("oscar.billing.CA.BC.billingBC.error.startTimeNeeded", new String[]{item.getServiceCode()}));
                         }
-                    } else if ("1".equals(elem[1])) {
+                    } else if ("1".equals(rule.timeRange())) {
                         if (noStartTime || noEndTime) {
                             errors.add("oscar.billing.CA.BC.billingBC.error.startTimeandEndNeeded");
                             addActionError(getText("oscar.billing.CA.BC.billingBC.error.startTimeandEndNeeded", new String[]{item.getServiceCode()}));
@@ -531,13 +537,8 @@ public class BillingCreateBilling2Action extends ActionSupport {
 
     private void validateCDMCodeConditions(List<String> errors, String demoNo,
                                            String serviceCode) {
-        String cdmRulesQry =
-                "SELECT serviceCode,conditionCode FROM billing_service_code_conditions";
-        List<String[]> cdmRules = SqlUtils.getQueryResultsList(cdmRulesQry);
-        // Null when billing_service_code_conditions has no rows: there is no condition to check.
-        if (cdmRules == null) {
-            return;
-        }
+        List<BillingServiceDao.ConditionRule> cdmRules = conditionRules;
+        java.util.Objects.requireNonNull(cdmRules, "Mandatory condition rules must be loaded");
         List<String[]> cdmSvcCodes = vldt.getCDMCodes();
         for (String[] item : cdmSvcCodes) {
             if (patientDX.contains(item[0])) {
@@ -549,12 +550,12 @@ public class BillingCreateBilling2Action extends ActionSupport {
     }
 
     private void validateCDMCodeConditionsHlp(List<String> errors, String demoNo,
-                                              List<String[]> cdmRules, String code) {
-        for (String[] item : cdmRules) {
-            if (code.equals(item[0])) {
-                int days = vldt.daysSinceCodeLastBilled(demoNo, item[1]);
+                                              List<BillingServiceDao.ConditionRule> cdmRules, String code) {
+        for (BillingServiceDao.ConditionRule item : cdmRules) {
+            if (code.equals(item.serviceCode())) {
+                int days = vldt.daysSinceCodeLastBilled(demoNo, item.conditionCode());
                 if (days >= 0 && days < 365) {
-                    addActionError(getText("oscar.billing.CA.BC.billingBC.error.codeCond", new String[]{item[0], item[1]}));
+                    addActionError(getText("oscar.billing.CA.BC.billingBC.error.codeCond", new String[]{item.serviceCode(), item.conditionCode()}));
                 }
             }
         }
@@ -578,17 +579,9 @@ public class BillingCreateBilling2Action extends ActionSupport {
     private void validateCodeLastBilledHlp(List<String> errors,
                                            String demoNo, String code) {
         int codeLastBilled = -1;
-        String conditionCodeQuery = "select conditionCode from billing_service_code_conditions where serviceCode = '" +
-                code + "'";
-        List<String[]> conditions = SqlUtils.getQueryResultsList(conditionCodeQuery);
-        // Null when the code has no conditions: nothing was last billed against them.
-        if (conditions == null) {
-            return;
-        }
-
-        for (Iterator<String[]> iter = conditions.iterator(); iter.hasNext(); ) {
-            String[] row = iter.next();
-            codeLastBilled = vldt.daysSinceCodeLastBilled(demoNo, row[0]);
+        List<BillingServiceDao.ConditionRule> conditions = conditionRules.stream().filter(rule -> code.equals(rule.serviceCode())).toList();
+        for (BillingServiceDao.ConditionRule row : conditions) {
+            codeLastBilled = vldt.daysSinceCodeLastBilled(demoNo, row.conditionCode());
             if (codeLastBilled < 365 && codeLastBilled > -1) {
                 break;
             }

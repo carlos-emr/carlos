@@ -8,9 +8,12 @@
  * the tickler was Active. B deletes it. A, whose list still shows it as Active, ticks it and clicks
  * Complete.
  *
- * Asserted: B's delete lands; A receives explicit conflict guidance, with no status or history
- * change. A fresh list can still perform a deliberate transition, and replay of the stale POST
- * cannot create another history row.
+ * Asserted: B's delete lands (control) and A's batch POST is answered normally; the deleted tickler is
+ * NOT silently brought back as Completed. DbTicklerMain2Action used to call TicklerManager.updateStatus
+ * for every ticked row, which applies the requested status whatever the row currently holds (it only
+ * skips an identical status), so D -> C resurrected the tickler into the Completed list. The list now
+ * posts the status each ticked row showed and the action leaves a task changed since untouched,
+ * naming it in a notice on the list it redirects to.
  *
  * Fixtures: one owned tickler seeded by SQL for the owned FAKE- patient; cleanup removes it and its
  * history and asserts it gone. Wave-7 sweep "concurrency".
@@ -20,13 +23,15 @@ const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { openSecondSession } = require('./lib/concurrency-support');
 const { seedTickler, openPatientTicklerList, listRow } = require('./lib/concurrency-tickler');
+const { withTicklerConfirmations } = require('./lib/tickler-confirmation');
 
-async function batch(list, message, buttonValue, conflicts = 0) {
+/** `confirms` is 1 for Delete, which asks before it submits (#5683), and 0 for Complete. */
+async function batch(list, message, buttonValue, confirms) {
   const row = await listRow(list, message);
   await row.locator('input[name="checkbox"]').check();
   const button = list.locator(`input[type="button"][value="${buttonValue}"]`).first();
   h.assert(await button.count() > 0, `The tickler list offers no ${buttonValue} button`);
-  await ui.clickAndAwaitReload(list, button, { timeout: 30000, label: buttonValue });
+  await withTicklerConfirmations(list, confirms, () => ui.clickAndAwaitReload(list, button, { timeout: 30000, label: buttonValue }));
   // DbTicklerMain2Action swallows a per-row exception and redirects with failCount=N; a failed update must not be read as the
   // application protecting the row (the status assertions below could not tell the two apart).
   h.assert(!new URL(list.url()).searchParams.has('failCount'),
@@ -40,6 +45,12 @@ async function batch(list, message, buttonValue, conflicts = 0) {
   }
 }
 
+/**
+ * Runs the stale-list race: session B deletes a task (one native confirmation, #5683), then session A, whose
+ * list still shows it Active, completes it. Passes only if the deleted task is not resurrected as Completed.
+ *
+ * @param {object} s the workflow session from lib/workflow-session.js (patient, marker, sql, steps)
+ */
 async function workflow(s) {
   const { sql } = s;
   const tickler = seedTickler(s, 'list race');
@@ -55,19 +66,17 @@ async function workflow(s) {
   let staleRequest;
 
   await s.step('session B deletes the tickler from its list', async () => {
-    await batch(bList, tickler.message, deleteLabel);
+    await batch(bList, tickler.message, deleteLabel, 1);
     await expectValue(sql, statusQuery, 'D', 'Session B\'s delete did not reach the database');
     h.assert(sql.value(historyQuery) === '1', 'The successful delete must record exactly one history row');
   });
   await s.step('session A completes the same tickler from its stale list', async () => {
-    const submitted = aList.waitForRequest(request => request.method() === 'POST'
-      && new URL(request.url()).pathname.endsWith('/tickler/DbTicklerMain'));
-    submitted.catch(() => {});
-    await batch(aList, tickler.message, completeLabel, 1);
-    staleRequest = await submitted;
-    const fields = new URLSearchParams(staleRequest.postData());
-    h.assert(fields.get(`expectedStatus_${tickler.id}`) === 'A' && fields.get('checkbox') === tickler.id,
-      'The captured request must contain the owned stale selection');
+    await batch(aList, tickler.message, completeLabel, 0);
+    // The list posts what each ticked row showed (ticklerRendered); a task changed since is left alone and named on the
+    // list the action redirects to, with its current status, so the refusal is not silent.
+    const notice = aList.locator('#ticklerStaleSelection');
+    await notice.waitFor({ state: 'visible', timeout: 20000 });
+    h.assert((await notice.innerText()).includes(tickler.message), 'The list does not name the task its Complete left unchanged');
   });
   await s.step('the tickler session B deleted stays deleted', async () => {
     h.assert(sql.value(statusQuery) === 'D', 'A stale Complete resurrected the deleted tickler');

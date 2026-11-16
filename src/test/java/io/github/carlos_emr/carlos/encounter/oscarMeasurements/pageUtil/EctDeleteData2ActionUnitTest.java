@@ -182,6 +182,41 @@ class EctDeleteData2ActionUnitTest extends CarlosUnitTestBase {
 
         verify(measurementDao, never()).remove(anyInt());
         verify(measurementsDeletedDao, never()).persist(any(MeasurementsDeleted.class));
+        // Nothing was deleted, so nothing is audited as deleted.
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should audit each deleted reading against its patient, by id only")
+    void shouldAuditEachDeletedReadingAgainstItsPatient_whenReadingsAreDeleted() throws Exception {
+        LoggedInInfo signedIn = mock(LoggedInInfo.class);
+        when(signedIn.getLoggedInProviderNo()).thenReturn("999998");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), signedIn);
+        request.setRemoteAddr("192.0.2.7");
+        request.setParameter("demographicNo", "111");
+        when(securityInfoManager.hasPrivilege(nullable(LoggedInInfo.class), anyString(), anyString(),
+                nullable(String.class))).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(nullable(LoggedInInfo.class), eq(111)))
+                .thenReturn(true);
+        Measurement first = measurementFor(111, 5);
+        first.setDataField("128/82");
+        first.setComments("FAKE-COMMENT after exertion");
+        when(measurementDao.find((Object) Integer.valueOf(5))).thenReturn(first);
+        when(measurementDao.find((Object) Integer.valueOf(6))).thenReturn(measurementFor(111, 6));
+        action.setDeleteCheckbox(new String[]{"5", "6"});
+
+        action.execute();
+
+        verify(measurementDao).remove((Object) Integer.valueOf(5));
+        verify(measurementDao).remove((Object) Integer.valueOf(6));
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLog("999998",
+                io.github.carlos_emr.carlos.log.LogConst.DELETE, io.github.carlos_emr.carlos.log.LogConst.CON_MEASUREMENT,
+                "5", "192.0.2.7", "111"));
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLog("999998",
+                io.github.carlos_emr.carlos.log.LogConst.DELETE, io.github.carlos_emr.carlos.log.LogConst.CON_MEASUREMENT,
+                "6", "192.0.2.7", "111"));
+        // Only that six-argument form: no data column for the reading or its comment.
+        logActionMock.verifyNoMoreInteractions();
     }
 
     @Test

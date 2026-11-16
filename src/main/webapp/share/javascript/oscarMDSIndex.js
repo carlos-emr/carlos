@@ -2137,23 +2137,33 @@ function checkObservationDate(formid) {
  * @param {number} clearedCount routing rows the acknowledgement cleared; omit for items with
  *                 no version chain (documents, HRM reports), which always clear one
  */
-function notifyInboxhubAcknowledged(doclabid, labType, clearedCount) {
+function notifyInboxhubAcknowledged(doclabid, labType, clearedCount, chain) {
     try {
         const bc = new BroadcastChannel('inboxhub-refresh');
         bc.postMessage({
             action: 'refresh',
             segmentID: String(doclabid),
             labType: labType,
-            clearedCount: clearedCount
+            clearedCount: clearedCount,
+            retainedVersionIds: chain ? [] : undefined
         });
         bc.close();
     } catch (e) {
-        // BroadcastChannel unsupported — user must manually refresh the inbox
+        try {
+        const inbox = self.opener || (window.parent !== window ? window.parent : null);
+        if (inbox && typeof inbox.dropAcknowledgedInboxhubItem === 'function') {
+            const handled = inbox.dropAcknowledgedInboxhubItem(String(doclabid), labType, clearedCount,
+                chain ? [] : undefined);
+            if (!handled && typeof inbox.fetchInboxhubData === 'function') inbox.fetchInboxhubData();
+        } else if (inbox && typeof inbox.refreshView === 'function') inbox.refreshView();
+        } catch (unreachableInbox) {
+            if (!unreachableInbox || unreachableInbox.name !== 'SecurityError') throw unreachableInbox;
+        }
     }
 }
 
 /**
- * The lab versions an acknowledgement of doclabid files away: itself and everything older.
+ * Legacy non-CML fallback when the server does not provide the affected version IDs.
  *
  * Used for ROW REMOVAL ONLY. The count comes from the server, because this chain is the one
  * the page was rendered with: the server ignores it for HL7 and re-derives the chain from the
@@ -2161,7 +2171,7 @@ function notifyInboxhubAcknowledged(doclabid, labType, clearedCount) {
  * and it says nothing about which of those versions were still NEW. Removing a row that is
  * already gone is a no-op; counting from a stale chain is a wrong badge.
  *
- * Mirrors the server's selection rule for the ids it does report, including the case where
+ * Never use this fallback to infer CML coverage from a posted chain. For legacy sources,
  * doclabid is absent from the chain — then only doclabid itself is affected, rather than the
  * whole chain. Non-numeric tokens are dropped, as LabVersionChain.parse drops them.
  *
@@ -2219,6 +2229,16 @@ function serverClearedCount(responseBody) {
     }
 }
 
+/** Use only the server-confirmed filing set, never the form's stale multiID. */
+function serverAcknowledgedVersions(responseBody) {
+    try {
+        const parsed = typeof responseBody === 'string' ? JSON.parse(responseBody) : responseBody;
+        const valid = ids => Array.isArray(ids) && ids.every(id => /^[1-9]\d*$/.test(String(id)) && Number(id) <= 2147483647);
+        return parsed && valid(parsed.affectedVersionIds)
+            ? {affectedVersionIds: parsed.affectedVersionIds.map(String)} : null;
+    } catch (error) { return null; }
+}
+
 function confirmedLabAcknowledgement(responseBody) {
     try {
         const parsed = typeof responseBody === 'string' ? JSON.parse(responseBody) : responseBody;
@@ -2262,13 +2282,14 @@ function updateStatus(formid, requireConfirmation) {//acknowledge
 				// or a body that is not JSON — means "fall back to one", which is what the
 				// inbox assumes when no count travels with the message.
 				const clearedCount = serverClearedCount(responseBody);
+                const chain = serverAcknowledgedVersions(responseBody);
 				if (window.frameElement) {
 					// Hide the parent <div> of the iframe only for new inbox previews loaded in an iframe
 					jQuery(window.frameElement).closest('.document-card.card').slideUp();
 					// The card is hidden, but the surrounding inbox still counts this item in its
 					// Documents/Labs/HRMs totals until it is told the item is gone — and it
 					// counts one row per lab version, not one per card.
-					notifyInboxhubAcknowledged(doclabid, data.labType, clearedCount);
+					notifyInboxhubAcknowledged(doclabid, data.labType, clearedCount, chain);
 				} else if (typeof _in_window !== 'undefined' && _in_window) {
 					/**
 					 * Acknowledging any lab version also files away the versions older than it,
@@ -2277,15 +2298,16 @@ function updateStatus(formid, requireConfirmation) {//acknowledge
 					 * not there is a no-op, and this covers a view that did render one.
 					 * Removal only: the broadcast below carries the count.
 					 */
-					for (const id of acknowledgedVersionIds(data.multiID, doclabid)) {
+					for (const id of (chain ? chain.affectedVersionIds : data.labType === 'HL7' ? [String(doclabid)] : acknowledgedVersionIds(data.multiID, doclabid))) {
 						removeOpenerInboxRow(id, data.labType);
 					}
-                    notifyInboxhubAcknowledged(doclabid, data.labType, clearedCount);
+                    notifyInboxhubAcknowledged(doclabid, data.labType, clearedCount, chain);
                     window.close();
                 } else {
                     //Hide document
                     labDocumentRows(doclabid, data.labType).slideUp();
-                    updateGlobalDataAndSideNav(doclabid, null);
+                    if (data.labType === 'HL7' && !chain) refreshView();
+                    else updateGlobalDataAndSideNav(doclabid, null);
                 }
             }
             if (data.labType === 'DOC') return window.CarlosDocumentMetadata.acknowledge(formid, acknowledged);

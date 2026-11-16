@@ -26,7 +26,7 @@ tools: ["*"]
 - Java 25, Spring 7.0.6, Struts 7.1.1, Hibernate 7.2.7, Maven 3
 - Tomcat 11.0, MariaDB/MySQL, Spring Security 7.0.4
 - OWASP CSRFGuard 4.5, OWASP Encoder 1.4.0 (Jakarta edition)
-- Apache CXF 4.1.5, HAPI FHIR 8.4.0, Drools 10.1.0
+- Apache CXF 4.1.5, HAPI FHIR 8.12.1, Drools 10.1.0
 
 **Package Namespace**: `io.github.carlos_emr.carlos.*`
 - DAOs: `...commn.dao.*` (note: "commn" NOT "common")
@@ -235,7 +235,7 @@ Details: `docs/fax-provider-configuration-and-ux.md`
 - **lab/**: HL7 lab results
 - **prevention/**: Immunization tracking with provincial schedules
 - **demographic/**: Patient data with HIN management
-- **fhir/**: FHIR R4 with HAPI FHIR 8.4.0
+- **fhir/**: FHIR DSTU3 with HAPI FHIR 8.12.1
 - **hl7/**: HL7 v2/v3 message processing
 
 ---

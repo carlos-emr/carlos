@@ -56,6 +56,8 @@ import jakarta.persistence.Lob;
 import jakarta.persistence.NamedQueries;
 import jakarta.persistence.NamedQuery;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.PostLoad;
+import jakarta.persistence.PostPersist;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -96,6 +98,24 @@ public class Document extends AbstractModel<Integer> implements Serializable {
 
     public static final char STATUS_ACTIVE = 'A';
     public static final char STATUS_DELETED = 'D';
+
+    /**
+     * The most characters the {@code docdesc} column holds: it is a utf8mb4 {@code VARCHAR(255)}, which counts
+     * Unicode code points (an emoji is one character, two Java chars). MariaDB cuts a longer description off without
+     * a word when {@code sql_mode} is not strict, which it is not on a packaged install, so the actions that store a
+     * typed description refuse a longer one first. Change it only with the column.
+     */
+    public static final int DESCRIPTION_MAX_LENGTH = 255;
+
+    /**
+     * Whether a description, as it is stored, fits the {@code docdesc} column.
+     *
+     * @param description the description as stored ({@code EDoc} trims it), or {@code null}
+     * @return {@code true} for {@code null} or a description of at most {@link #DESCRIPTION_MAX_LENGTH} code points
+     */
+    public static boolean descriptionFits(String description) {
+        return description == null || description.codePointCount(0, description.length()) <= DESCRIPTION_MAX_LENGTH;
+    }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -143,6 +163,13 @@ public class Document extends AbstractModel<Integer> implements Serializable {
     @Column(name = "contentdatetime")
     @Temporal(TemporalType.TIMESTAMP)
     private Date contentdatetime;
+    /** Immutable imported-source precision; NULL retains ordinary native document behavior. */
+    @Column(name = "cds_content_precision", length = 16, updatable = false)
+    private String cdsContentPrecision;
+    @Transient
+    private String loadedCdsContentPrecision;
+    @Transient
+    private boolean cdsPrecisionLoaded;
     @Column(name = "report_media")
     private String reportMedia;
     @Column(name = "sent_date_time")
@@ -255,6 +282,36 @@ public class Document extends AbstractModel<Integer> implements Serializable {
 
     public void setContentdatetime(Date contentdatetime) {
         this.contentdatetime = contentdatetime;
+    }
+
+    /** Describes the imported source, independently of later explicit native observation-date edits. */
+    public String getCdsContentPrecision() { return cdsPrecisionLoaded?loadedCdsContentPrecision:cdsContentPrecision; }
+
+    public void setCdsContentPrecision(String value) {
+        if (value != null && !java.util.Set.of("UNKNOWN", "YEAR", "MONTH", "FULL_DATE",
+                "LOCAL_DATE_TIME", "OFFSET_DATE_TIME").contains(value)) {
+            throw new IllegalArgumentException("CDS_CONTENT_PRECISION_INVALID");
+        }
+        if (cdsContentPrecision != null && !cdsContentPrecision.equals(value)
+                || cdsPrecisionLoaded && !java.util.Objects.equals(loadedCdsContentPrecision, value)) {
+            throw new IllegalArgumentException("CDS_CONTENT_PRECISION_IMMUTABLE");
+        }
+        cdsContentPrecision=value;
+    }
+
+    /** Legacy metadata editors have no source-time reconciliation contract; keep that read-only value. */
+    public void preserveImportedContentFrom(Document stored) {
+        if (stored != null && stored.getCdsContentPrecision() != null) {
+            cdsContentPrecision=stored.getCdsContentPrecision();
+            contentdatetime=stored.contentdatetime==null?null:new Date(stored.contentdatetime.getTime());
+        }
+    }
+
+    @PostLoad
+    @PostPersist
+    protected void rememberCdsContentPrecision() {
+        loadedCdsContentPrecision=cdsContentPrecision;
+        cdsPrecisionLoaded=true;
     }
 
     public String getReportMedia() {
@@ -441,12 +498,15 @@ public class Document extends AbstractModel<Integer> implements Serializable {
 
     @PreUpdate
     protected void jpaUpdateDate() {
+        // Hibernate merge uses field access. A source-less legacy detached DTO must not erase
+        // this insert-only marker in the managed instance, even before the next reload.
+        if (cdsPrecisionLoaded) cdsContentPrecision=loadedCdsContentPrecision;
         this.updatedatetime = new Date();
     }
 
     @PrePersist
     protected void jpaContentDate() {
-        if (this.contentdatetime == null) {
+        if (this.contentdatetime == null && this.cdsContentPrecision == null) {
             this.contentdatetime = new Date();
         }
         this.updatedatetime = new Date();

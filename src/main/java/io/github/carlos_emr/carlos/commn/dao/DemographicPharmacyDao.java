@@ -36,7 +36,7 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.DemographicPharmacy;
 
-public interface DemographicPharmacyDao extends AbstractDao<DemographicPharmacy> {
+public interface DemographicPharmacyDao extends AbstractDao<DemographicPharmacy>, CdsExportPatientTableReadDao {
 
     public DemographicPharmacy addPharmacyToDemographic(Integer pharmacyId, Integer demographicNo,
                                                         Integer preferredOrder);

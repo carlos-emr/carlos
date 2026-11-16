@@ -15,6 +15,7 @@
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { withTicklerConfirmations, dismissTicklerDelete } = require('./lib/tickler-confirmation');
 
 const TIMEOUT = 30000;
 const FORM = 'form[name="ticklerform"]';
@@ -25,6 +26,13 @@ const BUTTON = {
   erase: `${FORM} input[type="button"][onclick*="submit_form.value='Erase Completely'"]`,
 };
 
+/**
+ * Drives the provider-wide task list through its Active, Completed and Deleted views against four
+ * owned tasks, including the Delete confirmation (#5683), the reactivation refresh and a legacy erase
+ * submission. Every row it creates is removed and verified gone by the registered cleanup.
+ *
+ * @param {object} s the workflow session from lib/workflow-session.js (patient, marker, sql, steps)
+ */
 async function workflow(s) {
   const { sql, marker, patient, provider } = s;
   const owned = `SELECT tickler_no FROM tickler WHERE demographic_no=${patient}`;
@@ -103,15 +111,24 @@ async function workflow(s) {
     h.assert(JSON.stringify(found) === JSON.stringify(expected),
       `The footer offers ${JSON.stringify(found)}; expected ${JSON.stringify(expected)}`);
   }
+  /**
+   * Clicks one of the list's bulk actions (or posts the retired legacy erase form) and waits for the
+   * return to the task list. Delete raises one native confirmation that is accepted; Complete and the
+   * legacy erase raise none.
+   *
+   * @param {'complete'|'delete'|'legacyErase'} button the action to run
+   */
   async function press(button) {
-    await Promise.all([
+    // Only Delete asks for confirmation (#5683); the helper accepts it and fails if Delete stops asking
+    // or Complete / the legacy erase submission start to.
+    await withTicklerConfirmations(list, button === 'delete' ? 1 : 0, () => Promise.all([
       list.waitForEvent('domcontentloaded', { timeout: TIMEOUT }),
       button === 'legacyErase' ? list.evaluate(() => {
         const form = document.forms['ticklerform'];
         form.submit_form.value = 'Erase Completely';
         form.submit();
       }) : list.locator(BUTTON[button]).click(),
-    ]);
+    ]));
     h.assert(new URL(list.url()).pathname.endsWith('/tickler/ViewTicklerMain'), 'The bulk action returned to an unexpected page');
     await h.assertNotErrorPage(list, `the task list after ${button}`);
     h.assert(!new URL(list.url()).searchParams.has('failCount'), `${button} reported tasks it could not change`);
@@ -157,6 +174,13 @@ async function workflow(s) {
     await lists({ first: true, second: false, third: true, fourth: true });
     await box('third').check();
     await box('fourth').check();
+    const records = () => JSON.stringify(sql.rows(`SELECT * FROM tickler WHERE tickler_no IN (${ids.join(',')}) ORDER BY tickler_no`));
+    const history = () => JSON.stringify(sql.rows(`SELECT * FROM tickler_update WHERE tickler_no IN (${ids.join(',')}) ORDER BY id`));
+    const recordsBefore = records();
+    const historyBefore = history();
+    await dismissTicklerDelete(list, () => list.locator(BUTTON.delete).click());
+    h.assert(records() === recordsBefore && history() === historyBefore,
+      'Dismissing main-list Delete changed a task or its status history');
     await press('delete');
     h.assert(statuses() === 'ACDD', `Delete left first..fourth as ${statuses()}`);
   });

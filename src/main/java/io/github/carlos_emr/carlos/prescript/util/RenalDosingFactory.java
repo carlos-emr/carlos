@@ -65,14 +65,13 @@ public class RenalDosingFactory {
     }
 
 
-    static private void loadDosingInformation() {
+    static private synchronized void loadDosingInformation() {
         MiscUtils.getLogger().debug("current dosing size " + currentDosingInformation.size());
         if (!loaded) {
             String dosing = "oscar/oscarRx/RenalDosing.xml";
             RenalDosingFactory rdf = new RenalDosingFactory();
-            InputStream is = rdf.getClass().getClassLoader().getResourceAsStream(dosing);
-
-            try {
+            currentDosingInformation.clear();
+            try (InputStream is = rdf.getClass().getClassLoader().getResourceAsStream(dosing)) {
                 SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
                 Document doc = parser.build(is);
                 Element root = doc.getRootElement();
@@ -140,7 +139,9 @@ public class RenalDosingFactory {
                 }
 
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
+                currentDosingInformation.clear();
+                MiscUtils.getLogger().error("Unable to load renal dosing guidance", e);
+                throw new IllegalStateException("Renal dosing guidance unavailable", e);
             }
             loaded = true;
         }

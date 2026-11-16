@@ -80,6 +80,10 @@ class BillingOnReviewViewModelAssemblerUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         mockitoCloseable = MockitoAnnotations.openMocks(this);
+        var patientManager = Mockito.mock(io.github.carlos_emr.carlos.managers.DemographicManager.class);
+        when(patientManager.getDemographic(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenAnswer(call -> demographicDao.getDemographic(String.valueOf((Integer) call.getArgument(1))));
+        registerMock(io.github.carlos_emr.carlos.managers.DemographicManager.class, patientManager);
         when(reviewPrep.getDxDescription(any())).thenReturn("Essential, benign hypertension");
         // The assembler unconditionally indexes into the result of these
         // two methods at lines 332-334; default null Mockito return NPEs.

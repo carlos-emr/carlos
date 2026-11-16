@@ -22,6 +22,7 @@
  * Lists (best effort, while the browser is open) before the SQL teardown.
  * Reordering (method=order) has no UI control and is not driven (reported).
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const {clickOpensPopupOrNavigates} = require('./lib/playwright-ui');
 const {revealAuditLink} = require('./lib/playwright-link-audit');

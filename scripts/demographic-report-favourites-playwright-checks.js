@@ -19,6 +19,7 @@
  * Zero-name baselines and foreign-patient refusal gates precede owned-set cleanup.
  * Implements coverage plan §3.6 (report: Demographic Report Tool saved queries).
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const {clickOpensPopupOrNavigates, clickAndAwaitReload} = require('./lib/playwright-ui');
 const {runWorkflow} = require('./lib/workflow-session');
@@ -224,7 +225,7 @@ async function workflow(s) {
     const url = h.appUrl(s.config.baseUrl, '/report/DeleteDemographicReport');
     await context.request.post(url, {form: {queryFavourite: probeId}, maxRedirects: 0});
     h.assert(active(), 'A POST without a CSRF token archived a saved query');
-    const unsafeGet = await context.request.get(url, {params: {queryFavourite: probeId}, maxRedirects: 0});
+    const unsafeGet = await authenticatedProbe({context, config: s.config}, url, {params: {queryFavourite: probeId}, maxRedirects: 0});
     const archivedByGet = !active();
     h.assert(unsafeGet.status() === 405 && !archivedByGet,
       `GET of report/DeleteDemographicReport was not rejected (status ${unsafeGet.status()}, archived=${archivedByGet})`);

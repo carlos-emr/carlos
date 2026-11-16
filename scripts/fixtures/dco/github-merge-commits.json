@@ -1,0 +1,221 @@
+{
+  "_comment": "Sanitized shapes of the eight GitHub-generated merge commits listed in issue 5283. SHAs, subjects and the web-flow committer login come from the public commit API; names, emails, dates and avatar URLs are dropped. The two parent SHAs are synthetic and the verification block records the verified/valid state the issue reports for all eight (the commit read used to build this file did not return those fields).",
+  "commits": [
+    {
+      "pr": 2721,
+      "sha": "bbc8a19619f2f9246b8ebee4e8105a3dd8565b38",
+      "parents": [
+        {
+          "sha": "a000000000000000000000000000000000000000"
+        },
+        {
+          "sha": "b000000000000000000000000000000000000000"
+        }
+      ],
+      "author": {
+        "login": "contributor",
+        "type": "User"
+      },
+      "committer": {
+        "login": "web-flow",
+        "type": "User"
+      },
+      "commit": {
+        "message": "Merge branch 'develop' into fix-pdf-action-response",
+        "verification": {
+          "verified": true,
+          "reason": "valid"
+        }
+      }
+    },
+    {
+      "pr": 2938,
+      "sha": "7b1c40e1c19e45b33307c619a45ddb646d8f882f",
+      "parents": [
+        {
+          "sha": "a100000000000000000000000000000000000000"
+        },
+        {
+          "sha": "b100000000000000000000000000000000000000"
+        }
+      ],
+      "author": {
+        "login": "contributor",
+        "type": "User"
+      },
+      "committer": {
+        "login": "web-flow",
+        "type": "User"
+      },
+      "commit": {
+        "message": "Merge branch 'develop' into fix-issue-1748",
+        "verification": {
+          "verified": true,
+          "reason": "valid"
+        }
+      }
+    },
+    {
+      "pr": 2938,
+      "sha": "babcfbf2fa02b5cb02a6517c5eb5e64224e1ace7",
+      "parents": [
+        {
+          "sha": "a200000000000000000000000000000000000000"
+        },
+        {
+          "sha": "b200000000000000000000000000000000000000"
+        }
+      ],
+      "author": {
+        "login": "contributor",
+        "type": "User"
+      },
+      "committer": {
+        "login": "web-flow",
+        "type": "User"
+      },
+      "commit": {
+        "message": "Merge branch 'develop' into fix-issue-1748",
+        "verification": {
+          "verified": true,
+          "reason": "valid"
+        }
+      }
+    },
+    {
+      "pr": 2938,
+      "sha": "4a1af8d964b212826854859772d7227443a209b9",
+      "parents": [
+        {
+          "sha": "a300000000000000000000000000000000000000"
+        },
+        {
+          "sha": "b300000000000000000000000000000000000000"
+        }
+      ],
+      "author": {
+        "login": "contributor",
+        "type": "User"
+      },
+      "committer": {
+        "login": "web-flow",
+        "type": "User"
+      },
+      "commit": {
+        "message": "Merge branch 'develop' into fix-issue-1748",
+        "verification": {
+          "verified": true,
+          "reason": "valid"
+        }
+      }
+    },
+    {
+      "pr": 2938,
+      "sha": "6489da9c1daf9662ec7772c2a4f5a1e4f87a74c5",
+      "parents": [
+        {
+          "sha": "a400000000000000000000000000000000000000"
+        },
+        {
+          "sha": "b400000000000000000000000000000000000000"
+        }
+      ],
+      "author": {
+        "login": "contributor",
+        "type": "User"
+      },
+      "committer": {
+        "login": "web-flow",
+        "type": "User"
+      },
+      "commit": {
+        "message": "Merge branch 'develop' into fix-issue-1748",
+        "verification": {
+          "verified": true,
+          "reason": "valid"
+        }
+      }
+    },
+    {
+      "pr": 2976,
+      "sha": "300e1a1daea0a37a1f8ea56b6ead9b8f2a55d4a2",
+      "parents": [
+        {
+          "sha": "a500000000000000000000000000000000000000"
+        },
+        {
+          "sha": "b500000000000000000000000000000000000000"
+        }
+      ],
+      "author": {
+        "login": "contributor",
+        "type": "User"
+      },
+      "committer": {
+        "login": "web-flow",
+        "type": "User"
+      },
+      "commit": {
+        "message": "Merge branch 'develop' into refactor/replace-hashtable-docerrors-hashmap",
+        "verification": {
+          "verified": true,
+          "reason": "valid"
+        }
+      }
+    },
+    {
+      "pr": 2976,
+      "sha": "1494452b15268e58aee55584126300439fb6ceda",
+      "parents": [
+        {
+          "sha": "a600000000000000000000000000000000000000"
+        },
+        {
+          "sha": "b600000000000000000000000000000000000000"
+        }
+      ],
+      "author": {
+        "login": "contributor",
+        "type": "User"
+      },
+      "committer": {
+        "login": "web-flow",
+        "type": "User"
+      },
+      "commit": {
+        "message": "Merge branch 'develop' into refactor/replace-hashtable-docerrors-hashmap",
+        "verification": {
+          "verified": true,
+          "reason": "valid"
+        }
+      }
+    },
+    {
+      "pr": 3179,
+      "sha": "90d418eb94d6d829b4f9b306034aa8019748d02b",
+      "parents": [
+        {
+          "sha": "a700000000000000000000000000000000000000"
+        },
+        {
+          "sha": "b700000000000000000000000000000000000000"
+        }
+      ],
+      "author": {
+        "login": "contributor",
+        "type": "User"
+      },
+      "committer": {
+        "login": "web-flow",
+        "type": "User"
+      },
+      "commit": {
+        "message": "Merge branch 'develop' into fix-issue-2969",
+        "verification": {
+          "verified": true,
+          "reason": "valid"
+        }
+      }
+    }
+  ]
+}

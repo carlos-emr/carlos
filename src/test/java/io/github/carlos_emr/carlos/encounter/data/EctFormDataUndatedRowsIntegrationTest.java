@@ -55,9 +55,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * Lists a patient's saved forms from rows that lack a created and/or edited time (issue #5994).
  *
  * <p>{@code formCreated} is nullable in every encounter form table and {@code formEdited} in several,
- * so real data can hold a row with neither. The real SQL of
+ * so real data can hold a row with neither. The nullable metadata consumed by
  * {@link EctFormData#getPatientFormsFromLocalAndRemote(io.github.carlos_emr.carlos.utility.LoggedInInfo, String, String)}
- * runs against an isolated H2 database owned by each test; only the form registry and the
+ * comes from an isolated H2 database owned by each test through a stub patient-bound growth DAO; the form registry and the
  * thread-scoped Spring bean lookup are mocked. The table is {@code formGrowth0_36}, a built-in
  * table {@code EctFormData} accepts without consulting its class-level registry DAO.</p>
  */
@@ -94,6 +94,16 @@ class EctFormDataUndatedRowsIntegrationTest {
         spring = mockStatic(SpringUtils.class);
         spring.when(() -> SpringUtils.getBean(DataSource.class)).thenReturn(source);
         spring.when(() -> SpringUtils.getBean(EncounterFormDao.class)).thenReturn(forms);
+        var growth = mock(io.github.carlos_emr.carlos.commn.dao.forms.FormGrowth0To36Dao.class);
+        when(growth.findHistory(Integer.parseInt(PATIENT))).thenAnswer(call -> jdbc.query(
+                "SELECT ID, demographic_no, formCreated, formEdited FROM formGrowth0_36 WHERE demographic_no=? ORDER BY ID DESC",
+                (rows, index) -> new io.github.carlos_emr.carlos.commn.dao.forms.FormGrowth0To36Dao.Version(
+                        rows.getInt(1), rows.getInt(2), rows.getDate(3), rows.getTimestamp(4)), Integer.parseInt(PATIENT)));
+        when(growth.findGroupedHistory(Integer.parseInt(PATIENT))).thenAnswer(call -> jdbc.query(
+                "SELECT MAX(ID), demographic_no, MAX(formCreated), MAX(formEdited) FROM formGrowth0_36 WHERE demographic_no=? GROUP BY demographic_no, CAST(formEdited AS DATE) ORDER BY MAX(formEdited)",
+                (rows, index) -> new io.github.carlos_emr.carlos.commn.dao.forms.FormGrowth0To36Dao.Version(
+                        rows.getInt(1), rows.getInt(2), rows.getDate(3), rows.getTimestamp(4)), Integer.parseInt(PATIENT)));
+        spring.when(() -> SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.forms.FormGrowth0To36Dao.class)).thenReturn(growth);
 
         insert(10, "2026-01-05", "2026-03-09 14:00:00");
         insert(20, "2026-02-10", null);

@@ -146,8 +146,9 @@ public class DocumentAttach {
             List<String> existing = rows.stream().map(row -> Integer.toString(row.getDocumentNo())).toList();
             // Same exclusion as the save below, so the preflight agrees with it. A report whose file is
             // missing still belongs to the patient, so the database lookup is enough to pass the check.
-            Set<String> kept = requestId == null ? Set.of()
-                    : unavailableAttached(documentType, existing, consultDocsDao.findUnavailableActiveConsultAttachments(requestId));
+            Set<String> kept = new LinkedHashSet<>(requestId == null ? Set.of()
+                    : unavailableAttached(documentType, existing, consultDocsDao.findUnavailableActiveConsultAttachments(requestId)));
+            kept.addAll(unavailablePickerIds(documentType, demographicNo, requestId, selected, existing));
             validateSelection(documentType, demographicNo, without(selected, kept), without(existing, kept));
         }
     }
@@ -160,7 +161,9 @@ public class DocumentAttach {
         for (ConsultDocs consultDoc : consultDocsList) {
             oldList.add(Integer.toString(consultDoc.getDocumentNo()));
         }
-        Set<String> kept = unavailable == null ? Set.of() : unavailableAttached(documentType, oldList, unavailable.get());
+        Set<String> kept = new LinkedHashSet<>(unavailable == null ? Set.of()
+                : unavailableAttached(documentType, oldList, unavailable.get()));
+        kept.addAll(unavailablePickerIds(documentType, patient, requestId, currentList, oldList));
         // A kept id is already attached, so it is not a selection to authorize: the selection check
         // would refuse it (its target is gone or another patient's) and roll the whole save back.
         // Every other submitted id, and every newly selected one, is still checked.
@@ -207,6 +210,31 @@ public class DocumentAttach {
 
     private static List<String> without(Collection<String> ids, Set<String> excluded) {
         return ids.stream().filter(id -> !excluded.contains(id)).toList();
+    }
+
+    /** An existing relationship omitted from the picker is preserved during an unrelated save. */
+    private Set<String> unavailablePickerIds(DocumentType type, int patient, Integer requestId,
+            Collection<String> selected, Collection<String> existing) {
+        if (type == DocumentType.HRM && !io.github.carlos_emr.CarlosProperties.getInstance().isOntarioBillingRegion()
+                && !existing.containsAll(selected)) {
+            throw new SecurityException("missing required sec object (_hrm)");
+        }
+        if (requestId == null || existing.isEmpty() || (type != DocumentType.FORM && type != DocumentType.HRM)
+                || new LinkedHashSet<>(selected).equals(new LinkedHashSet<>(existing))) return Set.of();
+        var manager = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.ConsultationManager.class);
+        Set<String> available = new LinkedHashSet<>();
+        if (type == DocumentType.FORM) {
+            if (SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class)
+                    .hasPrivilege(loggedInInfo, "_form", "r", Integer.toString(patient))) {
+                for (var form : manager.getAttachedForms(loggedInInfo, requestId, patient)) available.add(form.getFormId());
+            }
+        } else {
+            for (var hrm : manager.getAttachedHRMDocuments(loggedInInfo, Integer.toString(patient), requestId.toString())) {
+                available.add(String.valueOf(hrm.get("id")));
+            }
+        }
+        return existing.stream().filter(id -> !available.contains(id))
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
     }
 
     private void attachToConsult(List<String> currentList, List<String> oldList, DocumentType documentType, String providerNo, Integer requestId) {

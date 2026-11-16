@@ -67,6 +67,12 @@ public class EChartDaoImpl extends AbstractDaoImpl<EChart> implements EChartDao 
         return null;
     }
 
+    @Override
+    public EChart getLatestChartById(int demographicNo) {
+        return entityManager.createQuery("from EChart c where c.demographicNo = :patient order by c.id desc", EChart.class)
+                .setParameter("patient", demographicNo).setMaxResults(1).getResultStream().findFirst().orElse(null);
+    }
+
     public String saveEchart(CaseManagementNote note, CaseManagementCPP cpp, String userName, String lastStr) {
         String demoNo = note.getDemographic_no();
         String sql = "select e from EChart e where e.demographicNo=?1 order by e.id";
@@ -195,6 +201,17 @@ public class EChartDaoImpl extends AbstractDaoImpl<EChart> implements EChartDao 
         Query query = createQuery("e", "e.demographicNo = ?1 ORDER BY e.id DESC");
         query.setParameter(1, demoNo);
         return query.getResultList();
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public List<EChart> getChartsForDemographic(Integer demoNo, int offset, int limit) {
+        if (demoNo == null || demoNo <= 0 || offset < 0 || limit < 1 || limit > 101) {
+            throw new IllegalArgumentException("Invalid historical chart page");
+        }
+        Query query = createQuery("e", "e.demographicNo = ?1 ORDER BY e.id DESC");
+        query.setParameter(1, demoNo);
+        return query.setFirstResult(offset).setMaxResults(limit).getResultList();
     }
 
     @SuppressWarnings("unchecked")

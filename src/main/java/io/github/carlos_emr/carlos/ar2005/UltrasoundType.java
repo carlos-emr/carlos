@@ -1,7 +1,5 @@
 package io.github.carlos_emr.carlos.ar2005;
 
-import org.apache.xmlbeans.xml.stream.XMLStreamException;
-import org.apache.xmlbeans.xml.stream.XMLInputStream;
 import org.w3c.dom.Node;
 import javax.xml.stream.XMLStreamReader;
 import java.io.Reader;
@@ -395,64 +393,6 @@ public interface UltrasoundType extends XmlObject
          */
         public static UltrasoundType parse(final Node node, final XmlOptions options) throws XmlException {
             return (UltrasoundType)XmlBeans.getContextTypeLoader().parse(node, UltrasoundType.type, options);
-        }
-
-        /**
-         * Parses XML content from an XMLInputStream into an UltrasoundType instance with default options.
-         *
-         * @param xis XMLInputStream the XML input stream to parse
-         * @return UltrasoundType the parsed UltrasoundType instance
-         * @throws XmlException if the XML is invalid or does not conform to the schema
-         * @throws XMLStreamException if there is an error reading from the XML stream
-         * @deprecated XMLInputStream is deprecated in favor of XMLStreamReader
-         */
-        @Deprecated
-        public static UltrasoundType parse(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return (UltrasoundType)XmlBeans.getContextTypeLoader().parse(xis, UltrasoundType.type, (XmlOptions)null);
-        }
-
-        /**
-         * Parses XML content from an XMLInputStream into an UltrasoundType instance with specified options.
-         *
-         * @param xis XMLInputStream the XML input stream to parse
-         * @param options XmlOptions the XML processing options for schema validation and other features
-         * @return UltrasoundType the parsed UltrasoundType instance
-         * @throws XmlException if the XML is invalid or does not conform to the schema
-         * @throws XMLStreamException if there is an error reading from the XML stream
-         * @deprecated XMLInputStream is deprecated in favor of XMLStreamReader
-         */
-        @Deprecated
-        public static UltrasoundType parse(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return (UltrasoundType)XmlBeans.getContextTypeLoader().parse(xis, UltrasoundType.type, options);
-        }
-
-        /**
-         * Creates a validating XMLInputStream from an existing XMLInputStream with default options.
-         *
-         * @param xis XMLInputStream the XML input stream to wrap with validation
-         * @return XMLInputStream a validating XML input stream
-         * @throws XmlException if the XML is invalid or does not conform to the schema
-         * @throws XMLStreamException if there is an error reading from the XML stream
-         * @deprecated XMLInputStream is deprecated in favor of XMLStreamReader
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, UltrasoundType.type, (XmlOptions)null);
-        }
-
-        /**
-         * Creates a validating XMLInputStream from an existing XMLInputStream with specified options.
-         *
-         * @param xis XMLInputStream the XML input stream to wrap with validation
-         * @param options XmlOptions the XML processing options for schema validation and other features
-         * @return XMLInputStream a validating XML input stream
-         * @throws XmlException if the XML is invalid or does not conform to the schema
-         * @throws XMLStreamException if there is an error reading from the XML stream
-         * @deprecated XMLInputStream is deprecated in favor of XMLStreamReader
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, UltrasoundType.type, options);
         }
 
         private Factory() {

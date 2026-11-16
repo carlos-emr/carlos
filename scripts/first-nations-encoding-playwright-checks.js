@@ -79,6 +79,8 @@
  *   database), CHROME_PATH, FIRST_NATIONS_SCREENSHOT_DIR (default /tmp).
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors, EXIT_SKIP } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
@@ -388,20 +390,7 @@ function restoreSeededRows() {
 // SIGTERM would otherwise kill this process between seeding and the finally,
 // stranding the payload in the record. Every sql() call is synchronous, so the
 // restore completes inside the handler.
-for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
-  process.on(signal, () => {
-    try {
-      restoreSeededRows();
-      console.error(`WARN received ${signal}; restored seeded First Nations rows before exiting.`);
-    } catch (restoreError) {
-      console.error(`FAIL received ${signal} and could NOT restore seeded First Nations rows: ${restoreError.message}`);
-      console.error(`Restore by hand before using demographic ${demographicNo}: it still holds the test payload.`);
-    } finally {
-      cleanupMysqlDefaults();
-      process.exit(1);
-    }
-  });
-}
+// Signals unwind through the shared entry point and the existing finally below.
 
 function reportFirstNationsCoverage(coveredMasterRecord, communityAsserted) {
   const missing = [];
@@ -414,9 +403,9 @@ function reportFirstNationsCoverage(coveredMasterRecord, communityAsserted) {
   return false;
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('first-nations-encoding',async({cancellation})=>{
   const recorder = createRecorder();
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
+  const browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   initMysqlDefaults();
   let coveredMasterRecord = false;
   let communityAsserted = false;
@@ -478,45 +467,61 @@ function reportFirstNationsCoverage(coveredMasterRecord, communityAsserted) {
     const expectCommunity = Boolean(seededLookupListId);
 
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
+    cancellation?.throwIfCancelled();
     const schedulePage = await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
 
     // Path 1: the gate route. Always present, so this is the assertion that
     // must hold on every install.
     const gatePage = await context.newPage();
+    cancellation?.throwIfCancelled();
     wirePage(gatePage, 'first-nations-gate', recorder);
     const gateResponse = await gotoApp(
       gatePage,
       config.baseUrl,
       `/demographic/ViewManageFirstNationsModule?demo=${encodeURIComponent(demographicNo)}`,
     );
+    cancellation?.throwIfCancelled();
     assert(gateResponse && gateResponse.ok(), `Gate route answered HTTP ${gateResponse && gateResponse.status()}`);
     await gatePage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     const gateResult = await assertEncodedRender(gatePage, 'first-nations-gate', { expectCommunity });
+    cancellation?.throwIfCancelled();
     communityAsserted = gateResult.communityAsserted;
 
     // The served bytes, not the parsed DOM: a render that escaped the quote but
     // left the angle brackets raw would still pass the DOM checks on a lenient
     // parser, and this catches it at the source.
     const rawHtml = await gateResponse.text();
+    cancellation?.throwIfCancelled();
     assert(
       !rawHtml.includes('"><img src=x'),
       'The gate route served the payload unencoded (raw `"><img src=x` is present in the response body)',
     );
     await screenshot(gatePage, config.screenshotDir, 'first-nations-gate');
+    cancellation?.throwIfCancelled();
 
     // Path 2: the master record, reached the way an operator reaches it.
     const searchPage = await context.newPage();
+    cancellation?.throwIfCancelled();
     wirePage(searchPage, 'patient-search', recorder);
     await gotoApp(searchPage, config.baseUrl, '/demographic/ViewSearch');
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(searchPage, 'patient-search');
+    cancellation?.throwIfCancelled();
     await searchPage.locator('#search_mode').selectOption('search_demographic_no');
+    cancellation?.throwIfCancelled();
     await searchPage.locator('#keyword').fill(String(demographicNo));
+    cancellation?.throwIfCancelled();
     await Promise.all([
       searchPage.waitForURL(/DemographicSearch/, { timeout: 30000 }),
       searchPage.locator('form[name="titlesearch"] input[type="submit"]').first().click(),
     ]);
+    cancellation?.throwIfCancelled();
     await searchPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(searchPage, 'patient-search-results');
+    cancellation?.throwIfCancelled();
 
     // Match the row by its exact link text, not by a substring of the onclick
     // URL: demographic_no=1 is a substring of demographic_no=11. Compare the
@@ -527,6 +532,7 @@ function reportFirstNationsCoverage(coveredMasterRecord, communityAsserted) {
     const linkTexts = await candidateLinks.evaluateAll(
       (nodes) => nodes.map((node) => (node.textContent || '').trim()),
     );
+    cancellation?.throwIfCancelled();
     const rowIndex = linkTexts.indexOf(String(demographicNo));
     assert(
       rowIndex >= 0,
@@ -536,16 +542,22 @@ function reportFirstNationsCoverage(coveredMasterRecord, communityAsserted) {
     const resultLink = candidateLinks.nth(rowIndex);
     const masterPopup = context.waitForEvent('page', { timeout: 20000 }).catch(() => null);
     await resultLink.click();
+    cancellation?.throwIfCancelled();
     const masterPage = await masterPopup;
+    cancellation?.throwIfCancelled();
     assert(masterPage, 'Clicking the search result opened no master-record window');
     wirePage(masterPage, 'master-record', recorder);
     await masterPage.waitForLoadState('networkidle', { timeout: 45000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(masterPage, 'master-record');
+    cancellation?.throwIfCancelled();
 
     if (await masterPage.locator('#statusNum').count()) {
       const masterResult = await assertEncodedRender(masterPage, 'master-record', { expectCommunity });
+    cancellation?.throwIfCancelled();
       communityAsserted = communityAsserted || masterResult.communityAsserted;
       await screenshot(masterPage, config.screenshotDir, 'first-nations-master-record');
+    cancellation?.throwIfCancelled();
       coveredMasterRecord = true;
     } else {
       console.log(
@@ -556,7 +568,9 @@ function reportFirstNationsCoverage(coveredMasterRecord, communityAsserted) {
 
     assertNoPageErrors(recorder, ['first-nations-gate', 'master-record']);
     await schedulePage.close();
+    cancellation?.throwIfCancelled();
     await context.close();
+    cancellation?.throwIfCancelled();
     if (!reportFirstNationsCoverage(coveredMasterRecord, communityAsserted)) return;
     console.log(
       `PASS First Nations demographic values render HTML-attribute encoded for demographic ${demographicNo}`
@@ -583,4 +597,4 @@ function reportFirstNationsCoverage(coveredMasterRecord, communityAsserted) {
     cleanupMysqlDefaults();
     await browser.close();
   }
-})();
+});

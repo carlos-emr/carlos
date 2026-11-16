@@ -96,7 +96,8 @@ test('actual main orders durable intent before DML and completes proof only afte
  let imports=0;const html=Buffer.from('synthetic fixture');const sql={value:q=>q.includes('FROM security')?'1':q.startsWith('UPDATE demographic')?'1':q.includes('HEX(form_html)')?html.toString('hex'):failureMode==='name-collision'&&q.includes('SELECT COUNT(*) FROM eform WHERE')?'1':'0',execute(){calls.push('sql.delete')},dispose(){calls.push('sql.dispose')}};
  const context={};const processRef={pid:123,env:{APCACHE_NEGATIVE_FAULT_ARTIFACT_DIR:'/tmp/private'},exitCode:undefined};
  const fakeRequire=()=>({});fakeRequire.resolve=()=>'/fake-helper';
- const sandbox={Date,Set,Buffer,Number,require:fakeRequire,__filename:'/fake-script',__dirname:'/fake-scripts',path,os,process:processRef,
+ const UtcDate=class extends Date {getTimezoneOffset(){return 0}};
+ const sandbox={Date:UtcDate,Set,Buffer,Number,require:fakeRequire,__filename:'/fake-script',__dirname:'/fake-scripts',path,os,process:processRef,
   config:{journalUnit:'carlos-emr.service',probeUrl:'http://localhost/carlos',fixtureHtmlPath:'/fake-fixture',baseUrl:new URL('https://localhost/carlos')},
   LITERAL_LOOKUPS:[{expected:null}],h:{createSqlRunner:()=>sql,readConfig:()=>({mysql:{}}),sqlString:s=>"'"+s+"'"},eformRows:()=>({}),newOwnedMarker:()=>intent.ownedMarker,
   createApNegativeProof(){calls.push('intent');if(failureMode==='create')throw new Error('Synthetic receipt collision');return proof},assert,sha,fs:{readFileSync:()=>html,mkdtempSync:()=>'/tmp/fake',rmSync(){}},

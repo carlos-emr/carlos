@@ -72,9 +72,15 @@ async function searchTicklers(page, needle) {
   await waitForTicklerTable(page);
 }
 
+function requireExclusiveFixture(env = process.env) {
+  if (env.CARLOS_DISPOSABLE_VM !== 'true') throw new h.SkipCheck('The clinic-wide fixture requires CARLOS_DISPOSABLE_VM=true');
+  if (env.EXCLUSIVE !== '1') throw new h.SkipCheck('The clinic-wide Suggested Text fixture requires EXCLUSIVE=1');
+}
+function preflightConfig({env=process.env}={}) {
+  return requireExclusiveFixture(env);
+}
 async function workflow(s) {
-  h.assert(process.env.CARLOS_DISPOSABLE_VM === 'true', 'The clinic-wide fixture requires CARLOS_DISPOSABLE_VM=true');
-  h.assert(process.env.EXCLUSIVE === '1', 'The clinic-wide Suggested Text fixture requires EXCLUSIVE=1');
+  requireExclusiveFixture();
   const { sql, context, config, recorder, patient, provider, marker } = s;
   const contexts = [];
   s.cleanup(async () => { for (const ctx of contexts) await ctx.close().catch(() => {}); });
@@ -219,9 +225,14 @@ async function workflow(s) {
     // Act straight after the schedule's own heartbeat so it cannot notice first.
     await ctxBeats.next({ page: schedule });
     await endSessionElsewhere(ctx);
+    // No blank-page probe on arrival: the rejected click lands on logout.jsp, which posts /logout
+    // 500 ms later and moves on to /index, so the probe could read the document mid-navigation
+    // (an intermittent "blank page" at /index, seen on release/2026.08 too). onLoginForm and
+    // the #ticklerResults check below assert the outcome that matters.
     const { page } = await clickOpensPopupOrNavigates(schedule, schedule.locator('a:has(#oscar_new_tickler)').first(),
-      { context: ctx, recorder, label: 'expired-tickler', timeout: TIMEOUT });
+      { context: ctx, recorder, label: 'expired-tickler', timeout: TIMEOUT, checkErrorPage: false });
     await onLoginForm(page);
+    await h.assertNotErrorPage(page, 'expired-tickler login form');
     h.assert(await page.locator('#ticklerResults').count() === 0, 'Tickler content was served without a session');
     await ctx.close();
   });
@@ -295,5 +306,5 @@ async function workflow(s) {
   });
 }
 
-if (require.main === module) runWorkflow('session-heartbeat-timeout', workflow, { openPatient: true });
-module.exports = { workflow };
+if (require.main === module) runWorkflow('session-heartbeat-timeout', workflow, { openPatient: true, preflightConfig });
+module.exports = { workflow, preflightConfig, requireExclusiveFixture };

@@ -15,6 +15,10 @@ public final class TicklerEditVersion {
 
     private TicklerEditVersion() { }
 
+    public static boolean isPresent(String version) {
+        return version != null && !version.isBlank();
+    }
+
     public static String of(Tickler tickler) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");

@@ -28,6 +28,9 @@
 
 package io.github.carlos_emr.carlos.casemgmt.service;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTemporalReadService;
+import io.github.carlos_emr.carlos.commn.model.PartialDate;
+
 import io.github.carlos_emr.carlos.commn.printing.PdfFonts;
 
 
@@ -59,7 +62,10 @@ import java.text.SimpleDateFormat;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.ResourceBundle;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * PDF generation engine for the case management encounter print workflow. Renders
@@ -85,6 +91,7 @@ import java.util.ResourceBundle;
  * @since 2008-01-22
  */
 public class CaseManagementPrintPdf {
+    private final java.util.function.Supplier<io.github.carlos_emr.carlos.prevention.PreventionDateService> preventionDates;
 
     private HttpServletRequest request;
     private OutputStream os;
@@ -111,8 +118,15 @@ public class CaseManagementPrintPdf {
      * @param os      OutputStream the stream to write the generated PDF to
      */
     public CaseManagementPrintPdf(HttpServletRequest request, OutputStream os) {
+        this(request, os, () -> SpringUtils.getBean(io.github.carlos_emr.carlos.prevention.PreventionDateService.class));
+    }
+
+    /** Legacy constructor resolves the reader only when this optional print section is requested. */
+    public CaseManagementPrintPdf(HttpServletRequest request, OutputStream os,
+            java.util.function.Supplier<io.github.carlos_emr.carlos.prevention.PreventionDateService> preventionDates) {
         this.request = request;
         this.os = os;
+        this.preventionDates = preventionDates;
         formatter = new SimpleDateFormat("dd-MMM-yyyy");
     }
 
@@ -149,6 +163,14 @@ public class CaseManagementPrintPdf {
     }
 
     /**
+     * One patient value for the header, or empty when the caller set none: a missing value prints as a
+     * blank after its label, never as the word "null".
+     */
+    static String headerValue(HttpServletRequest request, String attribute) {
+        return Objects.toString(request.getAttribute(attribute), "");
+    }
+
+    /**
      * Initializes the PDF document and renders the first-page header containing
      * clinic information (left column) and patient demographics (right column),
      * separated by horizontal rules. Optionally uses current program info if
@@ -171,12 +193,12 @@ public class CaseManagementPrintPdf {
 
         //set up document title and header
         ResourceBundle propResource = ResourceBundle.getBundle("oscarResources");
-        String title = propResource.getString("encounter.pdfPrint.title") + " " + (String) request.getAttribute("demoName") + "\n";
-        String gender = propResource.getString("encounter.pdfPrint.gender") + " " + (String) request.getAttribute("demoSex") + "\n";
-        String dob = propResource.getString("encounter.pdfPrint.dob") + " " + (String) request.getAttribute("demoDOB") + "\n";
-        String age = propResource.getString("encounter.pdfPrint.age") + " " + (String) request.getAttribute("demoAge") + "\n";
-        String mrp = propResource.getString("encounter.pdfPrint.mrp") + " " + (String) request.getAttribute("mrp") + "\n";
-        String phn = propResource.getString("encounter.pdfPrint.phn") + " " + (String) request.getAttribute("demoPhn") + "\n";
+        String title = propResource.getString("encounter.pdfPrint.title") + " " + headerValue(request, "demoName") + "\n";
+        String gender = propResource.getString("encounter.pdfPrint.gender") + " " + headerValue(request, "demoSex") + "\n";
+        String dob = propResource.getString("encounter.pdfPrint.dob") + " " + headerValue(request, "demoDOB") + "\n";
+        String age = propResource.getString("encounter.pdfPrint.age") + " " + headerValue(request, "demoAge") + "\n";
+        String mrp = propResource.getString("encounter.pdfPrint.mrp") + " " + headerValue(request, "mrp") + "\n";
+        String phn = propResource.getString("encounter.pdfPrint.phn") + " " + headerValue(request, "demoPhn") + "\n";
 
         String[] info;
         if ("true".equals(CarlosProperties.getInstance().getProperty("print.includeMRP", "true"))) {
@@ -187,9 +209,12 @@ public class CaseManagementPrintPdf {
 
         ClinicData clinicData = new ClinicData();
         clinicData.refreshClinicData();
+        // Each line is trimmed when printed, so only the joined lines need guarding against "null".
         String[] clinic = new String[]{clinicData.getClinicName(), clinicData.getClinicAddress(),
-                clinicData.getClinicCity() + ", " + clinicData.getClinicProvince(),
-                clinicData.getClinicPostal(), "Phone: " + clinicData.getClinicPhone(), "Fax: " + clinicData.getClinicFax()};
+                Stream.of(clinicData.getClinicCity(), clinicData.getClinicProvince()).filter(StringUtils::isNotBlank)
+                        .collect(Collectors.joining(", ")),
+                clinicData.getClinicPostal(), "Phone: " + Objects.toString(clinicData.getClinicPhone(), ""),
+                "Fax: " + Objects.toString(clinicData.getClinicFax(), "")};
 
         if ("true".equals(CarlosProperties.getInstance().getProperty("print.useCurrentProgramInfoInHeader", "false"))) {
             ProgramManager2 programManager2 = SpringUtils.getBean(ProgramManager2.class);
@@ -304,7 +329,7 @@ public class CaseManagementPrintPdf {
                 curFont = normal;
                 phrase = PdfFonts.phrase(LEADING, "", curFont);
                 String refused = prevention.isRefused() ? " (Refused)" : "";
-                 String preventionDate = prevention.getPreventionDate() == null ? "Unknown" : formatter.format(prevention.getPreventionDate());
+                String preventionDate = preventionDates.get().displayDate(prevention, formatter);
                  PdfFonts.addText(phrase, preventionDate + " - ", phrase.getFont());
                 PdfFonts.addText(phrase, prevention.getPreventionType() + refused, phrase.getFont());
                 p.add(phrase);
@@ -364,7 +389,10 @@ public class CaseManagementPrintPdf {
                 p = new Paragraph();
                 p.setAlignment(Paragraph.ALIGN_LEFT);
                 phrase = PdfFonts.phrase(LEADING, "Start Date: ", curFont);
-                PdfFonts.addText(phrase, formatter.format(allergy.getStartDate()), phrase.getFont());
+                String dateLabel = SpringUtils.getBean(CdsTemporalReadService.class).display(
+                        allergy.getStartDate(), PartialDate.ALLERGIES, allergy.getId(),
+                        PartialDate.ALLERGIES_STARTDATE, formatter);
+                PdfFonts.addText(phrase, dateLabel, phrase.getFont());
                 p.add(phrase);
                 document.add(p);
             }
@@ -475,7 +503,10 @@ public class CaseManagementPrintPdf {
             if (drug.isCurrent() && !drug.isArchived()) {
                 curFont = normal;
                 phrase = PdfFonts.phrase(LEADING, "", curFont);
-                PdfFonts.addText(phrase, formatter.format(drug.getRxDate()) + " - ", phrase.getFont());
+                String dateLabel = SpringUtils.getBean(CdsTemporalReadService.class).display(
+                        drug.getRxDate(), PartialDate.DRUGS, drug.getDrugId(),
+                        PartialDate.DRUGS_STARTDATE, formatter);
+                PdfFonts.addText(phrase, dateLabel + " - ", phrase.getFont());
                 PdfFonts.addText(phrase, drug.getFullOutLine().replaceAll(";", " "), phrase.getFont());
                 p.add(phrase);
                 document.add(p);

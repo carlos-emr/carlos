@@ -63,11 +63,17 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
 
     private AutoCloseable mockitoCloseable;
     private BillingClaimSubmissionService service;
+    private io.github.carlos_emr.carlos.commn.model.Demographic patient;
 
     @BeforeEach
     void setUp() {
         mockitoCloseable = MockitoAnnotations.openMocks(this);
         service = new BillingClaimSubmissionService(mockPersister, mockLookupService, mockBillingServiceDao);
+        patient = new io.github.carlos_emr.carlos.commn.model.Demographic();
+        patient.setDemographicNo(123); patient.setLastName("Doe"); patient.setFirstName("Jane");
+        var patientManager = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.DemographicManager.class);
+        when(patientManager.getDemographic(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(123))).thenReturn(patient);
+        registerMock(io.github.carlos_emr.carlos.managers.DemographicManager.class, patientManager);
     }
 
     @org.junit.jupiter.api.AfterEach
@@ -318,7 +324,7 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
         BillingClaimHeaderDto header = (BillingClaimHeaderDto) claim.get(0);
         assertThat(header.getHin()).isEqualTo("1234567890");
         assertThat(header.getVer()).isEqualTo("AB");
-        assertThat(header.demographicName()).isEqualTo("Doe,Jane");
+        assertThat(header.demographicName()).isEqualTo("Doe, Jane");
         assertThat(header.lastName()).isEqualTo("Doe");
         assertThat(header.firstName()).isEqualTo("Jane");
         assertThat(header.getProviderNo()).isEqualTo("999998");
@@ -425,9 +431,10 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldSanitizeSinglePartPatientName_whenCommaIsMissing() {
+    void shouldSanitizeAuthoritativePatientName_ignoringCallerName() {
         MockHttpServletRequest request = standardBillingRequest("HCP", "Save");
-        request.setParameter("demographic_name", "O'Neil-Jane");
+        request.setParameter("demographic_name", "Untrusted, Caller");
+        patient.setLastName("O'Neil-Jane"); patient.setFirstName("");
         request.setParameter("totalItem", "0");
 
         ArrayList claim = service.getBillingClaimObj(request);
@@ -438,7 +445,7 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldUseBlankPatientNameParts_whenDemographicNameIsMissing() {
+    void shouldResolvePatientNameParts_whenCallerNameIsMissing() {
         MockHttpServletRequest request = standardBillingRequest("HCP", "Save");
         request.removeParameter("demographic_name");
         request.setParameter("totalItem", "0");
@@ -446,8 +453,8 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
         ArrayList claim = service.getBillingClaimObj(request);
 
         BillingClaimHeaderDto header = (BillingClaimHeaderDto) claim.get(0);
-        assertThat(header.lastName()).isEmpty();
-        assertThat(header.firstName()).isEmpty();
+        assertThat(header.lastName()).isEqualTo("Doe");
+        assertThat(header.firstName()).isEqualTo("Jane");
     }
 
     @Test

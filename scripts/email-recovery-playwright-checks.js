@@ -13,6 +13,7 @@
 // Credentials: TEST_USER, TEST_PASSWORD, TEST_PIN; MYSQL_HOST/USER/PASSWORD/DATABASE.
 // Run only against a disposable local demo database. Optional EMAIL_RECOVERY_DEMO_NO.
 const { chromium } = require('playwright');
+const legacyHarness = require('./lib/legacy-check');
 const { execFileSync } = require('node:child_process');
 const { randomUUID } = require('node:crypto');
 const { createGracefulSignalCancellation, settleOperations } = require('./graceful-signal-cancellation');
@@ -122,7 +123,7 @@ async function assertResendFooters(compose) {
   return 'edited';
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('email-recovery', async () => {
   const cancellation = createGracefulSignalCancellation();
   const recorder = createRecorder();
   const ids = [];
@@ -236,4 +237,4 @@ async function assertResendFooters(compose) {
       }
     }
   }
-})().catch(() => { console.error('Email recovery cleanup failed'); process.exitCode = process.exitCode || 1; });
+}, { existingSignalHandlers: true });

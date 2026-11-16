@@ -46,6 +46,38 @@ public class EFormGroupDaoImpl extends AbstractDaoImpl<EFormGroup> implements EF
         super(EFormGroup.class);
     }
 
+    @Override
+    // S2077: both table names and predicate variants are fixed literals; the optional patient value is bound.
+    @SuppressWarnings("java:S2077")
+    public List<GroupCount> findActiveGroupCounts(Integer demographicNo) {
+        String table = demographicNo == null ? "eform" : "eform_data";
+        String sql = "SELECT g.group_name, count(*)-1 FROM eform_groups g LEFT JOIN " + table
+                + " f ON f.fid=g.fid WHERE (f.status=1"
+                + (demographicNo == null ? "" : " AND f.demographic_no=?1")
+                + ") OR g.fid=0 GROUP BY g.group_name";
+        Query query = entityManager.createNativeQuery(sql, Object[].class);
+        if (demographicNo != null) query.setParameter(1, demographicNo);
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = query.getResultList();
+        return rows.stream().map(row -> new GroupCount((String) row[0], ((Number) row[1]).longValue())).toList();
+    }
+
+    @Override
+    public boolean containsActiveForm(String name, Integer formId) {
+        return !entityManager.createQuery("SELECT g.id FROM EFormGroup g, EForm f WHERE g.formId=f.id"
+                        + " AND f.current=true AND g.formId=:id AND g.groupName=:name")
+                .setParameter("id", formId).setParameter("name", name).setMaxResults(1).getResultList().isEmpty();
+    }
+
+    @Override
+    public void addActiveFormIfMissing(String name, Integer formId) {
+        if (containsActiveForm(name, formId)) return;
+        EFormGroup group = new EFormGroup();
+        group.setFormId(formId);
+        group.setGroupName(name);
+        persist(group);
+    }
+
     /**
      * Deletes groups with the specified name and, optionally, form ID.
      *

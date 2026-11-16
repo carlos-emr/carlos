@@ -31,6 +31,9 @@ import java.util.TimerTask;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BooleanSupplier;
+import java.util.function.Function;
+import java.sql.SQLException;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -43,6 +46,7 @@ import org.springframework.stereotype.Component;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportMaintenanceService;
 
 /**
  * Spring-managed scheduler for fax polling and status processing cycles.
@@ -85,6 +89,10 @@ public class FaxSchedulerJob {
     private final FaxSender faxSender;
     private final FaxStatusUpdater faxStatusUpdater;
     private final FaxConfigDao faxConfigDao;
+    private final BooleanSupplier clinicalAccessBlocked;
+    private final Function<String, Timer> timers;
+    private boolean initialConfigurationChecked;
+    private volatile boolean closed;
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicLong lastSuccessfulRunEpochMs = new AtomicLong(0L);
     private final AtomicReference<String> lastError = new AtomicReference<>("");
@@ -102,25 +110,76 @@ public class FaxSchedulerJob {
      * @param faxStatusUpdater FaxStatusUpdater outbound status polling service
      * @param faxConfigDao FaxConfigDao DAO for checking active fax configurations
      */
-    @Autowired
     public FaxSchedulerJob(FaxImporter faxImporter, FaxSender faxSender, FaxStatusUpdater faxStatusUpdater,
             FaxConfigDao faxConfigDao) {
+        this(faxImporter, faxSender, faxStatusUpdater, faxConfigDao, () -> false,
+                name -> new Timer(name, true));
+    }
+
+    @Autowired
+    public FaxSchedulerJob(FaxImporter faxImporter, FaxSender faxSender, FaxStatusUpdater faxStatusUpdater,
+            FaxConfigDao faxConfigDao, CdsImportMaintenanceService maintenance) {
+        this(faxImporter, faxSender, faxStatusUpdater, faxConfigDao, maintenance::isClinicalAccessBlocked,
+                name -> new Timer(name, true));
+    }
+
+    FaxSchedulerJob(FaxImporter faxImporter, FaxSender faxSender, FaxStatusUpdater faxStatusUpdater,
+            FaxConfigDao faxConfigDao, BooleanSupplier clinicalAccessBlocked, Function<String, Timer> timers) {
         this.faxImporter = faxImporter;
         this.faxSender = faxSender;
         this.faxStatusUpdater = faxStatusUpdater;
         this.faxConfigDao = faxConfigDao;
+        this.clinicalAccessBlocked = clinicalAccessBlocked;
+        this.timers = timers;
     }
 
     /**
      * Starts scheduler polling after bean initialization if active fax configs exist.
      */
     @PostConstruct
-    public void initialize() {
-        if (hasActiveFaxConfigs()) {
+    public synchronized void initialize() {
+        initialize(false);
+    }
+
+    /** Retry only the unfinished startup lookup, after the normal clinical gate reopens. */
+    public synchronized void retryDeferredInitialization() {
+        initialize(true);
+    }
+
+    private void initialize(boolean retry) {
+        if (closed || initialConfigurationChecked) return;
+        try {
+            if (clinicalAccessBlocked.getAsBoolean()) {
+                lastError.set("Fax scheduler initialization deferred during clinical maintenance");
+                logger.info("Fax scheduler initialization deferred during clinical maintenance");
+                if (retry) throw new IllegalStateException("FAX_STARTUP_DEFERRED");
+                return;
+            }
+        } catch (RuntimeException unavailable) {
+            if (retry) throw unavailable;
+            recordStartupFailure(unavailable);
+            return;
+        }
+        final boolean active;
+        try {
+            active = hasActiveFaxConfigs();
+        } catch (Exception failure) {
+            recordStartupFailure(failure);
+            if (retry) {
+                boolean deferred = isAdmissionRefusal(failure);
+                try { deferred |= clinicalAccessBlocked.getAsBoolean(); }
+                catch (RuntimeException unavailable) { failure.addSuppressed(unavailable); deferred = true; }
+                if (deferred) throw new IllegalStateException("FAX_STARTUP_DEFERRED", failure);
+            }
+            return;
+        }
+        if (active) {
             startTask();
         } else {
             logger.info("No active fax accounts configured - scheduler will start when a fax account is activated");
         }
+        initialConfigurationChecked = true;
+        lastError.set("");
     }
 
     /**
@@ -129,29 +188,43 @@ public class FaxSchedulerJob {
      * @return true if at least one FaxConfig has active=true
      */
     private boolean hasActiveFaxConfigs() {
-        try {
-            List<FaxConfig> configs = faxConfigDao.findAll(null, null);
-            return configs.stream().anyMatch(FaxConfig::isActive);
-        } catch (Exception e) {
-            // Record the failure so the admin status page reports a fatal stop instead of the
-            // benign "no active fax accounts" idle state — active accounts may well exist.
-            lastError.set("Failed to check fax configurations at startup: "
-                    + e.getClass().getSimpleName() + (e.getMessage() == null ? "" : (": " + e.getMessage())));
-            logger.error("Failed to check fax configurations at startup - scheduler will NOT start. "
-                    + "It will start automatically when a fax account is activated via admin UI.", e);
-            return false;
+        List<FaxConfig> configs = faxConfigDao.findAll(null, null);
+        return configs.stream().anyMatch(FaxConfig::isActive);
+    }
+
+    private void recordStartupFailure(Exception e) {
+        // A failed read must never become the successful "no active accounts" state.
+        lastError.set("Failed to check fax configurations at startup: "
+                + e.getClass().getSimpleName() + (e.getMessage() == null ? "" : (": " + e.getMessage())));
+        logger.error("Initial fax configuration lookup failed; scheduler remains stopped. "
+                + "Clinical startup can retry deferred initialization; account activation can start it after configuration is corrected.", e);
+    }
+
+    private static boolean isAdmissionRefusal(Throwable failure) {
+        for (int depth = 0; failure != null && depth < 16; depth++, failure = failure.getCause()) {
+            if (failure instanceof SQLException sql && "45000".equals(sql.getSQLState())
+                    && ("CDS maintenance is entering or active; clinical work requires retry after reopening".equals(sql.getMessage())
+                    || "CDS maintenance or an incomplete chart hold blocks clinical access".equals(sql.getMessage()))) return true;
         }
+        return false;
     }
 
     // Package-private as a test seam: in production this runs only from the Timer task.
     void runCycle() {
+        if (closed) return;
         try {
             faxImporter.poll();
+            if (closed) return;
             faxSender.send();
+            if (closed) return;
             faxStatusUpdater.updateStatus();
-            lastSuccessfulRunEpochMs.set(System.currentTimeMillis());
-            lastError.set("");
-            running.set(true);
+            synchronized (this) {
+                if (!closed) {
+                    lastSuccessfulRunEpochMs.set(System.currentTimeMillis());
+                    lastError.set("");
+                    running.set(true);
+                }
+            }
         } catch (OutOfMemoryError e) {
             // DO NOT attempt restart for OOM - system is in bad state.
             // Auto-restart would likely trigger another OOM, creating a crash loop.
@@ -200,10 +273,11 @@ public class FaxSchedulerJob {
      * and {@link #isRunning()} for monitoring dashboards. Each retry is logged at ERROR level.</p>
      */
     private synchronized void scheduleAutomaticRestart() {
+        if (closed) return;
         long attempt = autoRestartAttempts.incrementAndGet();
 
         if (timer == null) {
-            timer = new Timer("FaxSchedulerJob Recovery Timer", true);
+            timer = timers.apply("FaxSchedulerJob Recovery Timer");
         }
         if (autoRestartTask != null) {
             autoRestartTask.cancel();
@@ -237,6 +311,7 @@ public class FaxSchedulerJob {
      * Cancels any existing timer and starts a new scheduler task.
      */
     public synchronized void restartTask() {
+        if (closed) return;
         cancelTask();
         startTask();
     }
@@ -246,6 +321,7 @@ public class FaxSchedulerJob {
      * when a fax account is activated for the first time.
      */
     public synchronized void startIfNotRunning() {
+        if (closed) return;
         if (!running.get()) {
             logger.info("Starting fax scheduler on demand (triggered by fax account activation)");
             startTask();
@@ -253,6 +329,7 @@ public class FaxSchedulerJob {
     }
 
     private synchronized void startTask() {
+        if (closed) return;
         if (timerTask != null && running.get()) {
             return;
         }
@@ -278,7 +355,7 @@ public class FaxSchedulerJob {
         };
 
         if (timer == null) {
-            timer = new Timer("FaxSchedulerJob Timer", true);
+            timer = timers.apply("FaxSchedulerJob Timer");
         }
         if (autoRestartTask != null) {
             autoRestartTask.cancel();
@@ -294,6 +371,11 @@ public class FaxSchedulerJob {
      * Cancels timer resources during bean shutdown or restart.
      */
     @PreDestroy
+    synchronized void shutdown() {
+        closed = true;
+        cancelTask();
+    }
+
     synchronized void cancelTask() {
         if (timerTask != null) {
             timerTask.cancel();

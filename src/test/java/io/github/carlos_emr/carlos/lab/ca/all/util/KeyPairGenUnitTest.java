@@ -20,9 +20,13 @@
  */
 package io.github.carlos_emr.carlos.lab.ca.all.util;
 
+import io.github.carlos_emr.carlos.commn.dao.OscarKeyDao;
 import io.github.carlos_emr.carlos.commn.dao.PublicKeyDao;
+import io.github.carlos_emr.carlos.commn.model.OscarKey;
 import io.github.carlos_emr.carlos.commn.model.PublicKey;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -38,6 +42,7 @@ import java.util.Base64;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for {@link KeyPairGen}.
@@ -57,10 +62,55 @@ class KeyPairGenUnitTest extends CarlosUnitTestBase {
     @Mock
     private PublicKeyDao mockPublicKeyDao;
 
+    @Mock
+    private OscarKeyDao mockOscarKeyDao;
+
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
         registerMock(PublicKeyDao.class, mockPublicKeyDao);
+        registerMock(OscarKeyDao.class, mockOscarKeyDao);
+    }
+
+    @Test
+    @DisplayName("should return null without logging when the oscar key does not exist")
+    void shouldReturnNull_withoutLoggingForMissingKey() {
+        when(mockOscarKeyDao.find("oscar")).thenReturn(null);
+
+        try (LogCapture logs = LogCapture.forLogger(KeyPairGen.class)) {
+            assertThat(KeyPairGen.getPublic()).isNull();
+            assertThat(logs.events()).isEmpty();
+        }
+        verify(mockOscarKeyDao).find("oscar");
+    }
+
+    @Test
+    @DisplayName("should return the stored public key without logging")
+    void shouldReturnStoredPublicKey() {
+        OscarKey key = new OscarKey();
+        key.setPublicKey("stored public key");
+        when(mockOscarKeyDao.find("oscar")).thenReturn(key);
+
+        try (LogCapture logs = LogCapture.forLogger(KeyPairGen.class)) {
+            assertThat(KeyPairGen.getPublic()).isEqualTo("stored public key");
+            assertThat(logs.events()).isEmpty();
+        }
+    }
+
+    @Test
+    @DisplayName("should log real public-key lookup failures at ERROR with the cause")
+    void shouldLogLookupFailure() {
+        IllegalStateException failure = new IllegalStateException("Synthetic database failure");
+        when(mockOscarKeyDao.find("oscar")).thenThrow(failure);
+
+        try (LogCapture logs = LogCapture.forLogger(KeyPairGen.class)) {
+            assertThat(KeyPairGen.getPublic()).isNull();
+            assertThat(logs.events()).singleElement().satisfies(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+                assertThat(event.getMessage().getFormattedMessage()).isEqualTo("Could not get public key");
+                assertThat(event.getThrown()).isSameAs(failure);
+            });
+        }
     }
 
     @Test

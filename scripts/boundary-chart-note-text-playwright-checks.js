@@ -7,7 +7,8 @@
  * a literal "</textarea>" terminator, a long line, typed between a leading and a trailing blank line, is stored
  * (utf8mb4, no "?" substitution, no entity or encoding damage), the reopened chart shows the whole body in order,
  * and the note's Edit link loads it into the editor as text (the terminator does not close the textarea). The body is compared exactly with the
- * browser's own normalisation of the typed text; whether the application keeps or trims the outer blank lines
+ * browser's own normalisation of the typed text, then edited, signed and reopened without encoding damage;
+ * whether the application keeps or trims the outer blank lines
  * is logged, not asserted (it trims them, which is harmless for a signed note).
  * Fixtures: the owned FAKE- patient; every casemgmt_note row of that patient carrying the run marker (with
  * issue links, ext rows, drafts and locks) is deleted by cleanup, which asserts they are gone.
@@ -16,8 +17,26 @@
 const h = require('./lib/playwright-harness');
 const b = require('./lib/boundary-values');
 const { runWorkflow } = require('./lib/workflow-session');
+const { noteContents, waitVisible } = require('./echart-note-lifecycle-playwright-checks');
 
 const NOTE = 'textarea[name="caseNote_note"]';
+const isEntry = method => response => response.request().method() === 'POST'
+  && /\/CaseManagementEntry(\?|$)/.test(response.url())
+  && new URLSearchParams(response.request().postData() || '').get('method') === method;
+
+async function openSavedNoteEditor(chart, noteId) {
+  h.assert(/^[1-9]\d*$/.test(String(noteId)), 'The saved note has no valid identity');
+  // Edit replaces the display text with a textarea whose .value is not DOM text.
+  // A hasText locator would lose the note as soon as the editor opens (#5642).
+  const note = noteContents(chart, noteId);
+  const edit = note.locator(`a#edit${noteId}`);
+  await waitVisible(edit, 'Boundary note: Edit link');
+  await edit.click();
+  const editor = note.locator(NOTE);
+  await waitVisible(editor, 'Boundary note: editor');
+  h.assert(await editor.count() === 1, 'The Edit link did not open exactly one editor for the note');
+  return editor;
+}
 
 async function workflow(s) {
   const { sql, patient, marker } = s;
@@ -34,9 +53,17 @@ async function workflow(s) {
         DELETE FROM casemgmt_note_link WHERE note_id IN (${list});
         DELETE FROM casemgmt_note WHERE note_id IN (${list}) AND demographic_no=${patient}`);
     }
-    sql.execute(`DELETE FROM casemgmt_tmpsave WHERE demographic_no=${patient}; DELETE FROM casemgmt_note_lock WHERE demographic_no=${patient}`);
+    sql.execute('DELETE FROM casemgmt_tmpsave WHERE demographic_no=?', [patient]);
+    sql.execute('DELETE FROM casemgmt_note_lock WHERE demographic_no=?', [patient]);
+    sql.execute('DELETE FROM eChart WHERE demographicNo=?', [patient]);
   };
-  s.cleanup(() => { wipe(); h.assert(noteIds().length === 0, 'Owned chart notes were not removed'); });
+  s.cleanup(() => {
+    wipe();
+    h.assert(noteIds().length === 0, 'Owned chart notes were not removed');
+    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM casemgmt_tmpsave WHERE demographic_no=?)
+      + (SELECT COUNT(*) FROM casemgmt_note_lock WHERE demographic_no=?)
+      + (SELECT COUNT(*) FROM eChart WHERE demographicNo=?)`, [patient, patient, patient]) === '0', 'Owned chart support rows were not removed');
+  });
   wipe();
 
   const lines = [
@@ -48,7 +75,7 @@ async function workflow(s) {
   // Explicit leading and trailing blank lines: the boundary whitespace is part of what the note must keep.
   const text = `\n\n${lines.join('\n')}\n\n`;
 
-  let typed;
+  let typed, firstId, firstHex, firstUuid, edited;
   await s.step('Sign & Save stores the note text byte for byte', async () => {
     const chart = await s.chart();
     const note = chart.locator(NOTE).first();
@@ -61,8 +88,12 @@ async function workflow(s) {
     const deadline = Date.now() + 25000;
     while (noteIds().length === 0 && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 300));
     h.assert(noteIds().length === 1, 'Sign & Save did not store exactly one note');
+    firstId = noteIds()[0];
+    firstUuid = sql.value("SELECT COALESCE(uuid, '') FROM casemgmt_note WHERE note_id=? AND demographic_no=?", [firstId, patient]);
+    h.assert(firstUuid.trim().length > 0, 'The first saved note has no UUID to compare revisions against');
     const stored = b.readStored(sql, 'casemgmt_note', 'note', `demographic_no=${patient} AND note LIKE ${like}`);
     const storedText = Buffer.from(stored.hex, 'hex').toString('utf8');
+    firstHex = stored.hex;
     const storedLf = storedText.replace(/\r\n/g, '\n');
     const body = typed.trim();
     h.assert(typed.startsWith('\n') && typed.endsWith('\n'), 'The textarea dropped the boundary blank lines before Sign & Save');
@@ -98,20 +129,57 @@ async function workflow(s) {
 
   await s.step('the saved note\'s Edit link loads the body, "</textarea>" included, into the editor as text', async () => {
     const chart = await s.chart();
-    const noteDiv = chart.locator('#encMainDiv div[id^="n"]').filter({ hasText: marker }).last();
-    const editLink = noteDiv.locator('a[id^="edit"]').first();
-    await editLink.waitFor({ state: 'visible', timeout: 30000 });
-    await editLink.click();
-    const editor = noteDiv.locator(NOTE);
-    await editor.first().waitFor({ state: 'visible', timeout: 30000 });
-    h.assert(await editor.count() === 1, 'The Edit link did not open exactly one editor for the note');
+    const [editResponse, issuesResponse, editor] = await Promise.all([
+      chart.waitForResponse(isEntry('edit'), { timeout: 30000 }),
+      chart.waitForResponse(response => /\/encounter\/displayIssues/.test(response.url()), { timeout: 30000 }),
+      openSavedNoteEditor(chart, firstId),
+    ]);
+    h.assert(editResponse.ok() && issuesResponse.ok(), 'Opening the boundary note failed to load its issue controls');
     // A terminator that escaped encoding would end the textarea early: its value would stop before "</textarea>".
     const loaded = (await editor.inputValue()).replace(/\r\n/g, '\n');
-    h.assert(loaded.includes(typed.trim()), 'The editor opened by the Edit link does not hold the saved note body verbatim');
-    // Nothing is saved: closing drops the edit; cleanup removes the lock and any autosave row.
-    await chart.close().catch(() => {});
+    const original = Buffer.from(firstHex, 'hex').toString('utf8').replace(/\r\n/g, '\n');
+    h.assert(loaded === `${original.trim()}\n`, 'The editor opened by the Edit link does not hold the saved note body verbatim');
+    edited = `${loaded.trimEnd()}\n${marker} edited: </textarea> ${T.entity} ${T.cjk} ${T.emoji}`;
+    await editor.fill(edited);
+  });
+
+  let editedId;
+  await s.step('Sign & Save preserves the edited special characters in a new revision', async () => {
+    const chart = await s.chart();
+    const closed = chart.waitForEvent('close', { timeout: 30000 });
+    const [response] = await Promise.all([
+      chart.waitForResponse(isEntry('saveAndExit'), { timeout: 30000 }),
+      // Sign & Save reloads the opener. Arm this before clicking so the next
+      // step cannot inspect the old page while its replacement is loading.
+      s.master.waitForEvent('load', { timeout: 30000 }),
+      chart.locator('#signSaveImg').first().click(),
+      closed,
+    ]);
+    h.assert(response.status() < 400, `Sign & Save of the boundary note answered HTTP ${response.status()}`);
+    const ids = noteIds();
+    h.assert(ids.length === 2, 'The edit did not store exactly one new revision');
+    editedId = ids.find(id => id !== firstId);
+    const [uuid, hex, signed] = sql.rows(`SELECT uuid, HEX(note), signed FROM casemgmt_note
+      WHERE note_id=? AND demographic_no=?`, [editedId, patient])[0];
+    const saved = Buffer.from(hex, 'hex').toString('utf8').replace(/\r\n/g, '\n');
+    h.assert(uuid === firstUuid && signed === '1', 'The edit did not retain the signed note identity');
+    h.assert(saved.startsWith(edited) && /^\s*(\[Signed on [^\]]*\])?\s*$/.test(saved.slice(edited.length)),
+      'Sign & Save changed the edited boundary note text');
+    h.assert(sql.value('SELECT HEX(note) FROM casemgmt_note WHERE note_id=? AND demographic_no=?', [firstId, patient]).toUpperCase()
+      === firstHex.toUpperCase(), 'Editing changed the original stored revision');
+  });
+
+  await s.step('reopening the edited note shows its complete text, including both literal textarea terminators', async () => {
+    await s.master.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
+    await waitVisible(s.master.locator('a').filter({ hasText: /^\s*E-?Chart\s*$/i }).first(),
+      'Boundary note: Master Record E-Chart link');
+    const chart = await s.chart();
+    const note = noteContents(chart, editedId);
+    await waitVisible(note, 'Boundary note: edited revision');
+    const shown = (await note.innerText()).replace(/\s+/g, ' ');
+    h.assert(shown.includes(edited.replace(/\s+/g, ' ')), 'The reopened edited note lost or reordered its special characters');
   });
 }
 
 if (require.main === module) runWorkflow('boundary-chart-note-text', workflow, { openPatient: true });
-module.exports = { workflow };
+module.exports = { workflow, openSavedNoteEditor };

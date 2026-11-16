@@ -53,7 +53,9 @@ public class LookupListManager2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
-    private static LookupListManager lookupListManager = SpringUtils.getBean(LookupListManager.class);
+    private LookupListManager lookupListManager() {
+        return SpringUtils.getBean(LookupListManager.class);
+    }
 
     public LookupListManager2Action() {
         super();
@@ -83,7 +85,7 @@ public class LookupListManager2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String listName = request.getParameter("listName");
         if (listName != null && !listName.isEmpty()) {
-            request.setAttribute("lookupListSingle", lookupListManager.findLookupListByName(loggedInInfo, listName));
+            request.setAttribute("lookupListSingle", lookupListManager().findLookupListByName(loggedInInfo, listName));
         }
 
         return SUCCESS;
@@ -93,7 +95,7 @@ public class LookupListManager2Action extends ActionSupport {
     public String manage() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        request.setAttribute("lookupLists", lookupListManager.findAllActiveLookupLists(loggedInInfo));
+        request.setAttribute("lookupLists", lookupListManager().findAllActiveLookupLists(loggedInInfo));
 
         return SUCCESS;
     }
@@ -114,7 +116,7 @@ public class LookupListManager2Action extends ActionSupport {
                 return refuseAppointmentLocationChange();
             }
 
-            lookupListManager.updateLookupListItemDisplayOrder(loggedInInfo, Integer.parseInt(lookupListItemId),
+            lookupListManager().updateLookupListItemDisplayOrder(loggedInInfo, Integer.parseInt(lookupListItemId),
                     Integer.parseInt(lookupListItemDisplayOrder));
 
         }
@@ -147,7 +149,7 @@ public class LookupListManager2Action extends ActionSupport {
             }
 
             lookupListIdInteger = Integer.parseInt(lookupListId);
-            lookupListItems = lookupListManager.findLookupListItemsByLookupListId(loggedInInfo, lookupListIdInteger);
+            lookupListItems = lookupListManager().findLookupListItemsByLookupListId(loggedInInfo, lookupListIdInteger);
             lookupListItem = new LookupListItem();
             lookupListItem.setActive(true);
             lookupListItem.setCreatedBy(user);
@@ -162,10 +164,10 @@ public class LookupListManager2Action extends ActionSupport {
             lookupListItem.setLookupListId(lookupListIdInteger);
             lookupListItem.setValue(UUID.randomUUID().toString());
 
-            lookupListManager.addLookupListItem(loggedInInfo, lookupListItem);
+            lookupListManager().addLookupListItem(loggedInInfo, lookupListItem);
         }
 
-        request.setAttribute("lookupLists", lookupListManager.findAllActiveLookupLists(loggedInInfo));
+        request.setAttribute("lookupLists", lookupListManager().findAllActiveLookupLists(loggedInInfo));
 
         return SUCCESS;
     }
@@ -188,10 +190,10 @@ public class LookupListManager2Action extends ActionSupport {
             return refuseAppointmentLocationChange();
         }
         if (id > 0) {
-            lookupListManager.removeLookupListItem(loggedInInfo, id);
+            lookupListManager().removeLookupListItem(loggedInInfo, id);
         }
 
-        request.setAttribute("lookupLists", lookupListManager.findAllActiveLookupLists(loggedInInfo));
+        request.setAttribute("lookupLists", lookupListManager().findAllActiveLookupLists(loggedInInfo));
 
         return SUCCESS;
     }
@@ -212,12 +214,12 @@ public class LookupListManager2Action extends ActionSupport {
         if (lookupListId == null) {
             return false;
         }
-        LookupList locations = lookupListManager.findLookupListByName(loggedInInfo, AppointmentLocationResolver.LIST_NAME);
+        LookupList locations = lookupListManager().findLookupListByName(loggedInInfo, AppointmentLocationResolver.LIST_NAME);
         return locations != null && lookupListId.equals(locations.getId());
     }
 
     private boolean isAppointmentLocationItem(LoggedInInfo loggedInInfo, int lookupListItemId) {
-        LookupListItem item = lookupListManager.findLookupListItemById(loggedInInfo, lookupListItemId);
+        LookupListItem item = lookupListManager().findLookupListItemById(loggedInInfo, lookupListItemId);
         return item != null && isAppointmentLocationList(loggedInInfo, item.getLookupListId());
     }
 

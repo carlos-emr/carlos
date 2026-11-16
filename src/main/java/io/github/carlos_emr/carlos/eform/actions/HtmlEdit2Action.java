@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.eform.data.EFormBase;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
+import java.io.IOException;
 import java.util.HashMap;
 
 public class HtmlEdit2Action extends ActionSupport {
@@ -53,7 +54,24 @@ public class HtmlEdit2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
-    public String execute() {
+    /**
+     * Saves or updates an eForm template from a POST with {@code _eform} write privilege.
+     * Other methods receive HTTP 405 before form processing, with {@code Allow: POST}.
+     *
+     * @return String result: {@code NONE} for a rejected method, otherwise {@code SUCCESS}
+     * @throws IOException if the method-rejection response cannot be sent
+     * @throws SecurityException if a POST lacks the required write privilege
+     */
+    @Override
+    public String execute() throws IOException {
+        // This route only saves; the editor view has a separate GET route. CSRFGuard
+        // does not validate GET/HEAD, so reject them before reading or storing a form.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
+
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {
             throw new SecurityException("missing required sec object (_eform)");
         }
