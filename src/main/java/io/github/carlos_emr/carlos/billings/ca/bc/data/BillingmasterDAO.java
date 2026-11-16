@@ -788,7 +788,7 @@ public class BillingmasterDAO {
     }
 
     private List<ExtractClaimRow> readExtractClaims(int billingNo, boolean includeWcb) {
-        String sql = "select bill_amount, billingmaster_no, phn, service_date, billing_code, dx_code1, dx_code2, dx_code3, claimcode, datacenter, payee_no, practitioner_no, name_verify, dependent_num, billing_unit, clarification_code, anatomical_area, after_hour, new_program, payment_mode, service_to_day, submission_code, service_location, referral_flag1, referral_no1, referral_flag2, referral_no2, time_call, service_start_time, service_end_time, birth_date, correspondence_code, mva_claim_code, icbc_claim_no, original_claim, facility_no, facility_sub_no, oin_insurer_code, oin_registration_no, oin_birthdate, oin_first_name, oin_second_name, oin_surname, oin_sex_code, oin_address, oin_address2, oin_address3, oin_address4, oin_postalcode from billingmaster where billing_no=? and "
+        String sql = "select bill_amount, billingmaster_no, phn, service_date, billing_code, dx_code1, dx_code2, dx_code3, claimcode, datacenter, payee_no, practitioner_no, name_verify, dependent_num, billing_unit, clarification_code, anatomical_area, after_hour, new_program, payment_mode, service_to_day, submission_code, service_location, referral_flag1, referral_no1, referral_flag2, referral_no2, time_call, service_start_time, service_end_time, birth_date, correspondence_code, claim_comment, mva_claim_code, icbc_claim_no, original_claim, facility_no, facility_sub_no, oin_insurer_code, oin_registration_no, oin_birthdate, oin_first_name, oin_second_name, oin_surname, oin_sex_code, oin_address, oin_address2, oin_address3, oin_address4, oin_postalcode from billingmaster where billing_no=? and "
                 + (includeWcb ? "billingstatus IN ('O','W')" : "billingstatus='O'");
         return readBcRows(sql, new Object[]{billingNo}, rs -> new ExtractClaimRow(
                 rs.getString("bill_amount"),
@@ -823,6 +823,7 @@ public class BillingmasterDAO {
                 rs.getString("service_end_time"),
                 rs.getString("birth_date"),
                 rs.getString("correspondence_code"),
+                rs.getString("claim_comment"),
                 rs.getString("mva_claim_code"),
                 rs.getString("icbc_claim_no"),
                 rs.getString("original_claim"),

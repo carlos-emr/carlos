@@ -64,6 +64,7 @@
 <%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.dao.*" %>
 <%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.model.HRMReportCriteria" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <!DOCTYPE html>
 
@@ -78,6 +79,23 @@
     String hrmReportTime = "";
     Integer hrmDuplicateNum = null;
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+
+    // Patient access is decided before the report row or its file is read: a report filed to a
+    // patient this provider is locked out of is refused as the chart is. HRMDisplayReport2Action
+    // has already refused a direct request; the check is repeated here because the inbox
+    // (oscarMDS/Page.jsp) includes this page without going through that action. An included page
+    // cannot set a status, so there the refusal is a line of text in place of the report, and
+    // nothing of the report or the patient is written either way.
+    if (!HRMReportAccess.mayReadReport(SpringUtils.getBean(SecurityInfoManager.class),
+            hrmDocumentToDemographicDao, loggedInInfo, hrmReportId)) {
+        if (request.getAttribute(RequestDispatcher.INCLUDE_REQUEST_URI) == null) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+        } else {
+%><div class="hrm-report-refused" role="alert"><fmt:message key="demographic.demographiceditdemographic.accessDenied"/></div><%
+        }
+        return;
+    }
+
     HRMDocument document = hrmDocumentDao.findById(hrmReportId).get(0);
     HRMReport hrmReport = null;
     Map<Integer, Date> dupReportDates = new HashMap<Integer, Date>();
@@ -864,8 +882,15 @@
     </div>
     <div id="descriptionBox">
 
-        Add a description:
+        <label for="descriptionField_<%=hrmReportId %>_hrm">Add a description:</label>
+        <%-- HRMDocument.description holds DESCRIPTION_MAX_LENGTH code points. No maxlength: a browser
+             clips a paste to maxlength in UTF-16 units before any check runs. hrmActions.js
+             setDescription() and HRMModifyDocument2Action refuse a longer description with the
+             message below. --%>
+        <fmt:message key="dms.error.descriptionTooLong" var="hrmDescriptionTooLongText"/>
         <input type="text" id="descriptionField_<%=hrmReportId %>_hrm" size="100"
+               data-max-code-points="<%= HRMDocument.DESCRIPTION_MAX_LENGTH %>"
+               data-too-long-message="${carlos:forHtmlAttribute(hrmDescriptionTooLongText)}"
                value="<carlos:encode value='<%= document.getDescription() %>' context="htmlAttribute"/>"/><br/>
 
         <div class="boxButton">

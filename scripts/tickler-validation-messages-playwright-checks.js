@@ -292,6 +292,12 @@ async function workflow(s) {
       'A rejected GET changed history');
     // An unchanged date-only form must retain a legacy service timestamp.
     sql.execute(`UPDATE tickler SET service_date=${h.sqlString(`${addDate} 14:35:00`)} WHERE tickler_no=${ticklerNo}`);
+    // The form names the version of the tickler it was rendered from, and the service time is
+    // part of it. Render the form again from the row as it now stands; posting the earlier
+    // rendering would be refused as a stale edit, which is another check's subject.
+    await editPopup.reload({ waitUntil: 'domcontentloaded' });
+    await h.assertNotErrorPage(editPopup, 'the edit tickler popup after the stored time changed');
+    await editPopup.locator('form[name="serviceform"]').waitFor({ state: 'visible', timeout: 20000 });
     const unchangedForm = await editPopup.locator('form[name="serviceform"]').evaluate(form => ({
       url: form.action, fields: Object.fromEntries(new FormData(form)),
     }));

@@ -895,6 +895,24 @@ now or later, touches none of those -- though purging the removed old
 renderer later runs its old script, which re-applies the configuration and restarts
 the EMR once, so do it outside clinic hours.
 
+An unfinished CDS import refuses the upgrade. A newer release cannot resume an
+import started by this one, and while an import keeps its maintenance window
+open or holds imported patients the EMR stays closed for clinical use, so the
+preinst refuses the upgrade (before the service is stopped) and names the held
+import runs. Finish the import first (`carlos-ctl cds-import --provider <id>
+--status <run-id>`, then resume it until it completes). A stopped import that
+cannot complete is closed instead by an audited abandon, after cancelling it
+(`carlos-ctl cds-import --provider <id> --abandon --run <run-id>
+--confirm <run-id> --reason "..."`),
+which releases its holds and the maintenance window without changing any
+clinical data; the upgrade then proceeds. An installed version whose import
+engine offers no abandon answers CDS_HANDSHAKE: upgrade anyway (below), then
+cancel and abandon the import with the new version. The check only reads the database and
+continues with a note if the local database cannot be reached. To upgrade anyway,
+for example to install a fix for the import itself:
+    sudo env CARLOS_ALLOW_UPGRADE_DURING_CDS_IMPORT=1 apt install --no-remove <release files>
+See docs/cds-import-operator-guide.md for recovering such an import afterwards.
+
 Your conffiles are offered as three-way merges. Your credential files are left
 alone. Read /usr/share/carlos-emr/skel/ afterwards to see whether new settings
 are available that your files predate.

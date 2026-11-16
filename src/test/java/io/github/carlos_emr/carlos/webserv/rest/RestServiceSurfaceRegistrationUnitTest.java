@@ -115,6 +115,44 @@ class RestServiceSurfaceRegistrationUnitTest {
                 .containsAll(session);
     }
 
+    /**
+     * Every rest-package resource is published as a singleton behind a Spring CGLIB proxy:
+     * {@code WebServiceLoggingAdvice} advises all of them, and some are {@code @Transactional}.
+     * CXF injects a {@code @Context} field or setter into the object it is given, which is the
+     * proxy, while the resource method runs on the proxy's target and reads {@code null}. The
+     * appointment write-mode header was ignored on every deployed request that way. A resource
+     * takes per-request values from {@code AbstractServiceImpl} or a {@code @Context} parameter.
+     */
+    @Test
+    @DisplayName("should not inject @Context into a field or setter of a proxied REST resource")
+    void shouldNotInjectContextIntoMembers_ofProxiedRestResources() throws Exception {
+        Set<String> services = new LinkedHashSet<>(
+                restPackageServices(serviceBeanClasses(SESSION_CONFIG, SESSION_SERVER_ADDRESS)));
+        services.addAll(restPackageServices(serviceBeanClasses(OAUTH_CONFIG, OAUTH_SERVER_ADDRESS)));
+        assertThat(services).contains(REST_PACKAGE_PREFIX + "ScheduleService");
+
+        Set<String> injectedMembers = new LinkedHashSet<>();
+        for (String service : services) {
+            for (Class<?> type = Class.forName(service); type != null && type != Object.class;
+                    type = type.getSuperclass()) {
+                for (java.lang.reflect.Field field : type.getDeclaredFields()) {
+                    if (field.isAnnotationPresent(jakarta.ws.rs.core.Context.class)) {
+                        injectedMembers.add(type.getSimpleName() + "." + field.getName());
+                    }
+                }
+                for (java.lang.reflect.Method method : type.getDeclaredMethods()) {
+                    if (method.isAnnotationPresent(jakarta.ws.rs.core.Context.class)) {
+                        injectedMembers.add(type.getSimpleName() + "." + method.getName() + "()");
+                    }
+                }
+            }
+        }
+
+        assertThat(injectedMembers)
+                .as("@Context fields and setters of resources in %s", REST_PACKAGE_PREFIX)
+                .isEmpty();
+    }
+
     @Test
     @DisplayName("should exclude CXF payload logging from credential-bearing Ocean surfaces")
     void shouldNotLogOceanPayloads_onEitherSurface() throws Exception {

@@ -32,5 +32,22 @@ public interface CdsCliRuntime extends AutoCloseable {
     void cancel(String runId) throws Exception;
     Map<String, Object> summary(String runId) throws Exception;
     Map<String, Object> reports(String runId) throws Exception;
+
+    /**
+     * The code, stage and protected, message-free failure evidence of the diagnostic that stopped
+     * the run (its latest unresolved blocking execution or preflight error, or the failure evidence
+     * of a run stopped before its seal), or null when there is none.
+     */
+    default Map<String, Object> failureEvidence(String runId) throws Exception { return null; }
+
+    /**
+     * Abandons a stopped, cancelled run that cannot complete; see
+     * {@code CdsImportAbandonService}. A runtime without the control refuses it.
+     */
+    default void abandon(String runId, String confirmation, String reason) throws Exception {
+        throw new io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException(
+                "ABANDON_UNSUPPORTED");
+    }
+
     @Override void close() throws Exception;
 }

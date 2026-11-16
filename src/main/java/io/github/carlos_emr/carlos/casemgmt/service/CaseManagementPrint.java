@@ -610,7 +610,7 @@ public class CaseManagementPrint {
 
         EctProviderData.Provider prov = new EctProviderData().getProvider(providerNo);
         if (prov == null) return "";
-        return prov.getFirstName() + " " + prov.getSurname();
+        return (Objects.toString(prov.getFirstName(), "") + " " + Objects.toString(prov.getSurname(), "")).trim();
     }
 
     /**

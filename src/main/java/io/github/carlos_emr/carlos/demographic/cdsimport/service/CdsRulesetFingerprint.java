@@ -36,12 +36,34 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
 
-/** Identifies the actual deployed import implementation, independently of a manually bumped version label. */
+/**
+ * Identifies the actual deployed import implementation, independently of a manually bumped
+ * version label. Every class and resource is hashed as a stream, so no count of classes, nested
+ * classes or resources and no resource size is refused: CARLOS growing never stops every import
+ * and export. What is checked is where each byte came from (the anchor's origin, every named
+ * class present there, one digest per name).
+ */
 public record CdsRulesetFingerprint(String sha256) {
     private static final String BASE = "io/github/carlos_emr/carlos/";
     private static final String ANCHOR =
             BASE + "demographic/cdsimport/service/CdsImportJobService.class";
     private static final String[] NATIVE = {
+        "commn/dto/CdsExportDemographicRowDto",
+        "commn/dto/CdsExportTableSchemaDto",
+        "commn/dto/CdsExportRawCellDto",
+        "commn/dto/CdsExportRawRowDto",
+        "commn/dao/CdsExportPatientTableReadDao",
+        "commn/dao/CdsExportPreventionDataReadDao",
+        "commn/dao/PreventionDao",
+        "commn/dao/PreventionExtDao",
+        "commn/dao/PartialDateDao",
+        "commn/dao/CdsExportPatientTableReadSupport",
+        "commn/dao/CdsExportNativeMetadataReadSupport",
+        "commn/dao/CdsExportExactNumericReadSupport",
+        "commn/dao/CdsExportProviderReadSupport",
+        "commn/dto/CdsExportProviderRowDto",
+        "commn/dto/CdsExportSelectionRowDto",
+        "commn/dto/CdsExportRunOwnerRowDto",
         "commn/dto/CdsProgramContextDto",
         "commn/dto/CdsProgramMembershipDto",
         "commn/dto/CdsImportControlDto",
@@ -233,18 +255,18 @@ public record CdsRulesetFingerprint(String sha256) {
             for (String pattern :
                     new String[] {
                         "demographic/cdsimport/**/*.class",
+                        "demographic/cds/**/*.class",
                         "commn/model/Cds*.class",
                         "commn/dao/Cds*.class"
                     }) {
                 Resource[] resources = resolver.getResources("classpath*:" + BASE + pattern);
-                if (resources.length > 4096) throw unavailable();
                 for (Resource resource : resources) {
                     String url = resource.getURL().toExternalForm();
                     // Test classes or a second artifact on the classpath must not affect production
                     // provenance.
                     if (!url.startsWith(origin + BASE)) continue;
                     String name = url.substring(origin.length());
-                    try (InputStream input = resource.getInputStream()) {
+                    try (InputStream input = opener.open(resource.getURL())) {
                         add(classes, name, input, buffer);
                     }
                 }
@@ -258,15 +280,13 @@ public record CdsRulesetFingerprint(String sha256) {
                     add(classes, BASE + name + ".class", input, buffer);
                 }
                 Resource[] nested = resolver.getResources("classpath*:" + BASE + name + "$*.class");
-                if (nested.length > 256) throw unavailable();
                 for (Resource resource : nested) {
                     String url = resource.getURL().toExternalForm();
                     if (!url.startsWith(origin + BASE)) continue;
-                    try (InputStream input = resource.getInputStream()) {
+                    try (InputStream input = opener.open(resource.getURL())) {
                         add(classes, url.substring(origin.length()), input, buffer);
                     }
                 }
-                if (classes.size() > 8192) throw unavailable();
             }
             for (String name :
                     new String[] {
@@ -303,16 +323,15 @@ public record CdsRulesetFingerprint(String sha256) {
             Map<String, String> classes, String name, InputStream input, byte[] buffer)
             throws IOException {
         MessageDigest digest = CdsImportKeys.digest();
-        long bytes = 0;
         int count;
         while ((count = input.read(buffer)) != -1) {
-            bytes = Math.addExact(bytes, count);
-            if (bytes > (16L << 20)) throw unavailable();
+            // A stream that returns nothing would never end: a broken stream, not a size.
+            if (count == 0) throw unavailable();
             digest.update(buffer, 0, count);
         }
         String hash = java.util.HexFormat.of().formatHex(digest.digest());
         String previous = classes.putIfAbsent(name, hash);
-        if (previous != null && !previous.equals(hash)) throw unavailable();
+        if (previous != null && !CdsImportKeys.sameDigest(previous, hash)) throw unavailable();
     }
 
     private static CdsImportException unavailable() {
