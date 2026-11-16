@@ -1,4 +1,7 @@
-/* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
+/*
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 CARLOS Contributors
+ */
 'use strict';
 const assert = require('node:assert/strict');
 const test = require('node:test');
