@@ -131,7 +131,7 @@ async function workflow(s) {
       `A dose stored as "0.5" with no unit reopened as "${reopened}", and an unchanged save stored "${resaved}"`);
   });
 
-  for (const dose of ['0.5ml', '0.5 unknown', 'half a vial', '0.5  mL', 'Équipe "dose"', '']) {
+  for (const dose of ['0.5ml', '0.5 unknown', 'half a vial', '0.5  mL', 'Équipe "dose"', 'A&B <dose>', '']) {
     await s.step(`the stored dose ${JSON.stringify(dose)} survives reopening and an unchanged save`, async () => {
       editor = await forms.open(id);
       await editor.locator('#dose').fill(dose);

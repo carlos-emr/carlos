@@ -1039,7 +1039,7 @@
                                 <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="din" id="din" value="<carlos:encode value='<%= str((extraData.get("din")), pDIN) %>' context="htmlAttribute"/>"/></div>
                             </div>
                             <%
-                                String dose = str((extraData.get("dose")), "");
+                                String dose = Objects.toString(extraData.get("dose"), "");
                                 // Editing must start from the stored value, including unitless and imported doses (#5431).
                                 String d1 = existingPrevention == null ? pDose : dose;
                                 // The brand picker's unit as the form's own (VIAL is vial, DOSE is dose).
