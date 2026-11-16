@@ -244,8 +244,15 @@ async function workflow(s) {
         const row = matching[0];
         h.assert(row[2] === (claim.serviceDate === '20260230' ? claim.serviceDate : ''), 'Legacy service date was not preserved');
         if (repType === 'REP_ACCOUNT_REC') {
-          h.assert(row.slice(4, 8).every(value => value === '') && row[9] === claim.amount,
-            'An unageable balance was lost or assigned a known age');
+          h.assert(row.slice(4, 8).every(value => value === ''), 'An unageable balance was assigned a known age');
+          if (claim.amount === 'bad') {
+            // An unreadable billed amount is no balance: every bucket stays empty and Status carries the
+            // source text with its diagnostic (docs/spreadsheet-exports.md, Account receivable; #6097).
+            h.assert(row[9] === '' && row[8].includes('Unparsed billed amount: bad'),
+              'A malformed billed amount was given a balance or lost its source text');
+          } else {
+            h.assert(row[9] === claim.amount, 'An unageable balance was lost');
+          }
         } else {
           h.assert(row[7] === claim.amount, 'Invoice lost a legacy amount');
           if (claim.amount === 'bad') h.assert(row[8] === '', 'Invoice invented a balance for a malformed amount');

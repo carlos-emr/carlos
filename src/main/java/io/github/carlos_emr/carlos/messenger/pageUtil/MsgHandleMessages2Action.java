@@ -81,7 +81,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * <ul>
  *   <li>Reply messages prefix lines with '>' character</li>
  *   <li>Original message header includes date, time, and sender</li>
- *   <li>Subject lines are prefixed with "Re:" or "Fwd:" as appropriate</li>
+ *   <li>Subject lines are prefixed with "Re:" or "Fwd:" as appropriate, and cut to
+ *       {@link MessageTbl#SUBJECT_MAX_LENGTH} characters when the prefix makes them longer</li>
  * </ul>
  * 
  * @version 2.0
@@ -246,7 +247,9 @@ public class MsgHandleMessages2Action extends ActionSupport {
             // Set attributes for message composition page
             request.setAttribute("ReText", theSendMessage.toString());
             request.setAttribute("replyList", replyList);
-            request.setAttribute("ReSubject", subject.toString());
+            // "Re:" before a subject that already fills messagetbl.thesubject would be refused on
+            // send: the subject built here is cut to fit, in the compose box where the user sees it.
+            request.setAttribute("ReSubject", MessageTbl.fitSubject(subject.toString()));
             request.setAttribute("archiveMessageId", Integer.parseInt(messageNo));
             keepForwardedAttachments(message.getId());
 
@@ -273,7 +276,8 @@ public class MsgHandleMessages2Action extends ActionSupport {
 
             // Set attributes for message composition page
             request.setAttribute("ReText", theSendMessage.toString());
-            request.setAttribute("ReSubject", subject.toString());
+            // As for a reply: "Fwd:" must not make the built subject longer than the column.
+            request.setAttribute("ReSubject", MessageTbl.fitSubject(subject.toString()));
             request.setAttribute("archiveMessageId", Integer.parseInt(messageNo));
             keepForwardedAttachments(forwardMessage.getId());
             return "reply";

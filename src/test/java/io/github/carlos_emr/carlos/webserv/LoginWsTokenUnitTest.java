@@ -22,6 +22,7 @@ class LoginWsTokenUnitTest extends CarlosUnitTestBase {
     private SecurityDao securityDao;
     private SecurityManager passwords;
     private LoginWs login;
+    private ProviderDao providers;
     private final String loginName = java.util.UUID.randomUUID().toString();
     private final String loginPassword = java.util.UUID.randomUUID().toString();
     private static final String TOKEN = "ct1." + "B".repeat(43);
@@ -31,7 +32,7 @@ class LoginWsTokenUnitTest extends CarlosUnitTestBase {
         tokens = mock(SoapTokenService.class);
         securityDao = mock(SecurityDao.class);
         passwords = mock(SecurityManager.class);
-        var providers = mock(ProviderDao.class);
+        providers = mock(ProviderDao.class);
         registerMock(ProviderDao.class, providers);
         registerMock(SoapTokenService.class, tokens);
         registerMock(SecurityManager.class, passwords);
@@ -62,6 +63,23 @@ class LoginWsTokenUnitTest extends CarlosUnitTestBase {
         assertThat(current.getSecurityTokenKey()).isEqualTo(TOKEN);
         assertThat(current.getProvider()).isNull();
         verify(tokens, times(2)).issue(account);
+    }
+
+    @Test
+    void shouldReturnTheProviderBillingIdentifiers_onLoginWithoutBillingRead() throws Exception {
+        // The registered policy denies every privilege; a login response never depended on _billing.
+        var policy = createAndRegisterMock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+        var provider = new io.github.carlos_emr.carlos.commn.model.Provider();
+        provider.setProviderNo("41"); provider.setLastName("Synthetic");
+        provider.setBillingNo("FAKE-BILLING"); provider.setOhipNo("FAKE-OHIP");
+        provider.setRmaNo("FAKE-RMA"); provider.setHsoNo("FAKE-HSO");
+        account.setProviderNo("41");
+        when(providers.getProvider("41")).thenReturn(provider);
+        when(passwords.validatePassword(loginPassword, account)).thenReturn(true);
+        var result = login.login2(loginName, loginPassword);
+        assertThat(result.getProvider()).extracting("providerNo", "billingNo", "ohipNo", "rmaNo", "hsoNo")
+                .containsExactly("41", "FAKE-BILLING", "FAKE-OHIP", "FAKE-RMA", "FAKE-HSO");
+        verifyNoInteractions(policy);
     }
 
     @Test

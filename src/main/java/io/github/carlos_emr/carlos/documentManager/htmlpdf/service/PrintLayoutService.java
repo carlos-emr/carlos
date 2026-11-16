@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.BundledFontSet
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.LocalOnlyUserAgent;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.support.PrintStylesheet;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.support.SvgReferences;
+import io.github.carlos_emr.carlos.documentManager.htmlpdf.support.XhtmlDom;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 import org.openpdf.text.Document;
@@ -70,6 +71,10 @@ import java.util.function.BiFunction;
  *       copies the document title. Link annotations, bookmarks and tagged structure do not survive
  *       the import; no consumer of these PDFs (fax, print, email attachment, document store) uses them.</li>
  * </ol>
+ *
+ * <p>Each pass parses the XHTML with {@link XhtmlDom}, never with Flying Saucer's own
+ * string loader: the JDK's default XML limits would otherwise fail the pass for a deeply nested
+ * document or one with much escaped text, and the ladder would print it as plain text.</p>
  *
  * <p>A failure of pass 1 or of the placement is reported as an {@link HtmlPdfRenderException} for
  * the caller's ladder; one of pass 2 is absorbed as above. A zoom below
@@ -167,7 +172,11 @@ class PrintLayoutService {
             context.setInteractive(false);
             context.getTextRenderer().setSmoothingThreshold(0);
             renderer.setScaleToFit(scaleToFit);
-            renderer.setDocumentFromString(xhtml, baseUrl(baseDirectory));
+            // Not setDocumentFromString: Flying Saucer would parse the string with a default JDK parser,
+            // whose jaxp.properties limits (depth 100, 200 attributes, 100,000 characters of entity
+            // references) refuse ordinary large documents. The module's parser states its own limits and
+            // refuses any document type; the DOM and the base URL reach the same setDocument either way.
+            renderer.setDocument(XhtmlDom.parse(xhtml), baseUrl(baseDirectory));
             renderer.layout();
             ByteArrayOutputStream out = new ByteArrayOutputStream(64 * 1024);
             renderer.createPDF(out, true);

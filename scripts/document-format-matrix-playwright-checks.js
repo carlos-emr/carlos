@@ -13,6 +13,7 @@ const {masterRecordLink}=require('./lib/master-record-link');
 const {openInbox}=require('./lab-forwarding-rules-playwright-checks');
 const {openSidebar,setMode,search}=require('./inbox-file-forward-playwright-checks');
 const {authenticatedProbe}=require('./lib/authenticated-probe');
+const {clickLabelOutput}=require('./lib/label-file-output');
 const pdf=require('./lib/stored-pdf-documents');
 const {captureUploadFiles,removeUploadFiles}=require('./lib/document-upload-files');
 const {markDocumentResidue,removeDocumentResidue}=require('./lib/document-residue');
@@ -170,11 +171,14 @@ async function workflow(s) {
     await opener.waitFor({state:'visible'});
     h.assert(await opener.count()===1,'Stored upload has an ambiguous native display/download link');
     await closeOutputs();
-    const delivered=await ui.clickDownloadsOrOpens(report,opener,{context:session.context,recorder:s.recorder,label:'matrix-document-output',timeout:30000});
-    h.assert(delivered.url&&new URL(delivered.url).origin===new URL(s.config.baseUrl).origin&&new URL(delivered.url).searchParams.get('doc_no')===stored.id,'Native document output changed application or document identity');
-    const read=await authenticatedProbe({...s,context:session.context},delivered.url);
-    try{record(read.status()===200&&hash(await read.body())===hash(item.bytes),item.key+': native document link returned different bytes');}finally{await read.dispose();}
-    if(delivered.page&&!delivered.page.isClosed())await delivered.page.close();
+    // A format the browser cannot render (RTF) is handed to its download path by the popup itself, whose
+    // own address then stays empty; the completed-output capture reads the address from that download.
+    const delivered=await clickLabelOutput(report,opener,{context:session.context,recorder:s.recorder,label:'matrix-document-output',timeout:30000});
+    try{
+      h.assert(delivered.url&&new URL(delivered.url).origin===new URL(s.config.baseUrl).origin&&new URL(delivered.url).searchParams.get('doc_no')===stored.id,'Native document output changed application or document identity');
+      const read=await authenticatedProbe({...s,context:session.context},delivered.url);
+      try{record(read.status()===200&&hash(await read.body())===hash(item.bytes),item.key+': native document link returned different bytes');}finally{await read.dispose();}
+    }finally{await delivered.dispose();}
     await closeOutputs();
     h.assertStrictPage(s.recorder);
     console.log('  Observed eDoc '+item.key+': '+(item.opaque?'opaque storage; no content-validity claim':'bytes/metadata/native output checked'));

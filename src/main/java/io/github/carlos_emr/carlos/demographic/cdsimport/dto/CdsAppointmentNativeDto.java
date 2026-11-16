@@ -23,7 +23,15 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.dto;
 
 import java.util.List;
 
-/** One bounded calendar projection; unrepresentable source timing remains a clinical category source record. */
+/**
+ * One bounded calendar projection; unrepresentable source timing remains a clinical category
+ * source record.
+ *
+ * @param source what was restored from the sender's {@code CARLOS.Appointment.Source.v1} record,
+ *     or null when the file had none for this appointment or it did not prove itself. With
+ *     {@link CdsAppointmentSourceDto#nativeEnd} the end is the sender's stored (inclusive) end
+ *     clock and may be earlier than the start: the slot then ends on the next day.
+ */
 public record CdsAppointmentNativeDto(
         String date,
         String start,
@@ -33,7 +41,21 @@ public record CdsAppointmentNativeDto(
         String notes,
         String providerNo,
         boolean representable,
-        List<CdsClinicalDiagnosticDto> diagnostics) {
+        List<CdsClinicalDiagnosticDto> diagnostics,
+        CdsAppointmentSourceDto source) {
+    public CdsAppointmentNativeDto(
+            String date,
+            String start,
+            String end,
+            String status,
+            String purpose,
+            String notes,
+            String providerNo,
+            boolean representable,
+            List<CdsClinicalDiagnosticDto> diagnostics) {
+        this(date, start, end, status, purpose, notes, providerNo, representable, diagnostics, null);
+    }
+
     public CdsAppointmentNativeDto {
         diagnostics = List.copyOf(diagnostics);
         bounded(status, 250);
@@ -50,7 +72,7 @@ public record CdsAppointmentNativeDto(
                     || day.getYear() > 9999
                     || begins.getNano() != 0
                     || ends.getNano() != 0
-                    || !ends.isAfter(begins))
+                    || !(source != null && source.nativeEnd()) && !ends.isAfter(begins))
                 throw new IllegalArgumentException("APPOINTMENT_PREPARED_TIMING_INVALID");
         }
     }
