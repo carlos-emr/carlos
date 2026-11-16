@@ -279,6 +279,29 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
                 .thenReturn(List.of(type));
         }
 
+        private void assertNumericValueRejected(String value) {
+            allowMeasurementWrite();
+            when(mockDemographicDao.getDemographicById(123)).thenReturn(new Demographic());
+
+            MeasurementType type = new MeasurementType();
+            type.setType("WT");
+            type.setMeasuringInstruction("");
+            type.setValidation("1");
+
+            when(mockMeasurementTypeDao.findByTypeAndMeasuringInstruction("WT", ""))
+                .thenReturn(List.of(type));
+
+            Validations rule = new Validations();
+            rule.setNumeric(true);
+            when(mockValidationsDao.find(1)).thenReturn(rule);
+
+            Response response = request().path("/measurements/123/new")
+                .post(Entity.json("{\"type\":\"WT\",\"dataField\":\"" + value + "\"}"));
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            verifyNoInteractions(mockMeasurementManager);
+        }
+
         @Test
         @DisplayName("should record a new measurement for an authorized patient")
         void shouldRecordMeasurement_whenAuthorizedForPatient() {
@@ -410,27 +433,19 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
         @Test
         @DisplayName("should reject a nonnumeric value when the configured type requires numeric input")
         void shouldReturn400_whenNumericValidationFails() {
-            allowMeasurementWrite();
-            when(mockDemographicDao.getDemographicById(123)).thenReturn(new Demographic());
+            assertNumericValueRejected("not-a-number");
+        }
 
-            MeasurementType type = new MeasurementType();
-            type.setType("WT");
-            type.setMeasuringInstruction("");
-            type.setValidation("1");
+        @Test
+        @DisplayName("should reject NaN when the configured type requires numeric input")
+        void shouldReturn400_whenNumericValueIsNaN() {
+            assertNumericValueRejected("NaN");
+        }
 
-            when(mockMeasurementTypeDao.findByTypeAndMeasuringInstruction("WT", ""))
-                .thenReturn(List.of(type));
-
-            Validations rule = new Validations();
-            rule.setNumeric(true);
-            when(mockValidationsDao.find(1)).thenReturn(rule);
-
-            Response response = request().path("/measurements/123/new")
-                .post(Entity.json("{\"type\":\"WT\",\"dataField\":\"not-a-number\"}"));
-
-            assertThat(response.getStatus()).isEqualTo(400);
-            verify(mockValidationsDao).find(1);
-            verifyNoInteractions(mockMeasurementManager);
+        @Test
+        @DisplayName("should reject Infinity when the configured type requires numeric input")
+        void shouldReturn400_whenNumericValueIsInfinite() {
+            assertNumericValueRejected("Infinity");
         }
 
         @Test

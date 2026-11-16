@@ -31,7 +31,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {
   SkipCheck, assert, assertNotErrorPage, assertStrictPage, createRecorder, createSqlRunner, insertId,
-  launchBrowser, login, newContext, readConfig, runCheck, sqlString, wireStrictPage,
+  launchBrowser, login, newContext, readConfig, runCheck, wireStrictPage,
 } = require('./lib/playwright-harness');
 const { oauthHeader, pct } = require('./oauth-rest-surfaces-playwright-checks');
 

@@ -331,18 +331,29 @@ public class MeasurementService extends AbstractServiceImpl {
         Integer minLength = rule.getMinLength() == null ? 0 : rule.getMinLength();
         String regex = rule.getRegularExp();
         Boolean numeric = rule.isNumeric();
+        Boolean date = rule.isDate();
 
         try {
-            if (!ectValidation.isInRange(maxValue, minValue, value)
+            if ((Boolean.TRUE.equals(date) && !ectValidation.isDate(value))
+                    || (Boolean.TRUE.equals(numeric)
+                        && (!ectValidation.isNumeric(numeric, value) || !isFiniteNumber(value)))
+                    || !ectValidation.isInRange(maxValue, minValue, value)
                     || !ectValidation.maxLength(maxLength, value)
                     || !ectValidation.minLength(minLength, value)
                     || !ectValidation.matchRegExp(regex, value)
-                    || !ectValidation.isValidBloodPressure(regex, value)
-                    || !ectValidation.isNumeric(numeric, value)) {
+                    || !ectValidation.isValidBloodPressure(regex, value)) {
                 throw new BadRequestException("Measurement value violates its configured validation rules");
             }
         } catch (java.util.regex.PatternSyntaxException e) {
             throw new InternalServerErrorException("Invalid measurement validation configuration");
+        }
+    }
+
+    private boolean isFiniteNumber(String value) {
+        try {
+            return Double.isFinite(Double.parseDouble(value));
+        } catch (NumberFormatException e) {
+            return false;
         }
     }
 }
