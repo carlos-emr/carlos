@@ -60,6 +60,7 @@ async function workflow(s) {
   await s.step('the role privilege form offers the new security object and renders its description literally', async () => {
     const admin = await s.context.newPage();
     await h.gotoApp(admin, config.baseUrl, '/admin/ProviderPrivilege');
+    await admin.locator('#addtbl_filter input[type="search"]').fill(`_queue.${id}`);
     const checkbox = admin.locator(`input[type="checkbox"][name="object$_queue.${id}"]`);
     await checkbox.waitFor();
     const cell = checkbox.locator('..');
