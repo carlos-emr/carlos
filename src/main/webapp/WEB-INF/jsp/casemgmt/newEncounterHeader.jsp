@@ -71,7 +71,7 @@
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
+
 <%@ page import="io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferenceResolver" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferences" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.display.EchartHeaderViewModel" %>

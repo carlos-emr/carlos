@@ -96,7 +96,7 @@
 <%@ page import="io.github.carlos_emr.carlos.appt.ApptData" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.location.AppointmentLocationList" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver" %>
-<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
+
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>

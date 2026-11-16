@@ -37,9 +37,9 @@
   fragment behavior; upload/delete forms submit their image fields to paired actions.
   @since 2026-09-17
 --%>
-<%@page import="java.net.URLEncoder" %>
+
 <%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 

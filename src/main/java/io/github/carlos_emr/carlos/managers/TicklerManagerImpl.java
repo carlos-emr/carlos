@@ -587,7 +587,24 @@ public class TicklerManagerImpl implements TicklerManager {
      */
     @Override
     @Transactional
-    public StatusChange updateStatusIfCurrent(LoggedInInfo loggedInInfo, Integer ticklerId, String provider,
+    public boolean updateStatusIfCurrent(LoggedInInfo loggedInInfo, Integer ticklerId, String provider,
+                                         Tickler.STATUS expectedStatus, Tickler.STATUS status) {
+        checkPrivilege(loggedInInfo, PRIVILEGE_READ);
+        checkPrivilege(loggedInInfo, PRIVILEGE_UPDATE);
+        if (expectedStatus == null || status == null || ticklerId == null || ticklerId <= 0) return false;
+        Tickler tickler = ticklerDao.findForUpdate(ticklerId);
+        if (tickler == null) return false;
+        if (isAssignedPatient(tickler.getDemographicNo())) {
+            requirePatientWrite(loggedInInfo, tickler.getDemographicNo(), PRIVILEGE_UPDATE);
+        }
+        if (tickler.getStatus() != expectedStatus) return false;
+        if (status != expectedStatus) applyStatus(loggedInInfo, tickler, provider, status);
+        return true;
+    }
+
+    @Override
+    @Transactional
+    public StatusChange changeStatusIfCurrent(LoggedInInfo loggedInInfo, Integer ticklerId, String provider,
                                               Tickler.STATUS renderedStatus, Tickler.STATUS status) {
         checkPrivilege(loggedInInfo, PRIVILEGE_UPDATE);
         if (ticklerId == null || ticklerId <= 0) throw new jakarta.ws.rs.BadRequestException("Invalid tickler identifier");

@@ -158,7 +158,17 @@ public interface TicklerManager {
 
     public void updateStatus(LoggedInInfo loggedInInfo, Integer tickler_id, String provider, Tickler.STATUS status);
 
-    /** What {@link #updateStatusIfCurrent} did with one tickler. */
+    /**
+     * Retains develop's conditional status API for callers using its boolean result.
+     *
+     * @return boolean whether the stored status matched the expected status
+     */
+    default boolean updateStatusIfCurrent(LoggedInInfo loggedInInfo, Integer ticklerId, String provider,
+                                          Tickler.STATUS expectedStatus, Tickler.STATUS status) {
+        throw new UnsupportedOperationException("Conditional tickler status changes are not implemented");
+    }
+
+    /** What {@link #changeStatusIfCurrent} did with one tickler. */
     enum StatusChange {
         /** The status was changed and a history row written. */
         APPLIED,
@@ -187,7 +197,7 @@ public interface TicklerManager {
      * @throws jakarta.ws.rs.NotFoundException when there is no such tickler
      * @since 2026-11-12
      */
-    default StatusChange updateStatusIfCurrent(LoggedInInfo loggedInInfo, Integer ticklerId, String provider,
+    default StatusChange changeStatusIfCurrent(LoggedInInfo loggedInInfo, Integer ticklerId, String provider,
                                                Tickler.STATUS renderedStatus, Tickler.STATUS status) {
         throw new UnsupportedOperationException("Conditional tickler status changes are not implemented");
     }

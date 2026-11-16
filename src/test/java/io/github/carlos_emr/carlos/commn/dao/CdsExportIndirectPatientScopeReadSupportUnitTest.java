@@ -146,6 +146,24 @@ class CdsExportIndirectPatientScopeReadSupportUnitTest {
         assertThat(blocked("casemgmt_note_link", 1)).isTrue();
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {
+            "outboundEmailArchiveAttachment", "outboundEmailArchiveLegalHoldEvent"})
+    void shouldScopeArchiveChildrenToTheirPatient_andHoldOrphans(String table) throws Exception {
+        execute("create table outboundEmailArchive(id int primary key,demographicNo int)");
+        execute("create table " + table + "(id int primary key,archiveId int)");
+        execute("insert into outboundEmailArchive values(10,1)");
+        execute("insert into " + table + " values(20,10)");
+        assertThat(blocked(table, 1)).isTrue();
+        assertThat(blocked(table, 2)).isFalse();
+        assertThat(owned(table, 1)).isEqualTo(1);
+        assertThat(owned(table, 2)).isZero();
+        execute("delete from outboundEmailArchive");
+        assertThat(blocked(table, 1)).isTrue();
+        assertThat(blocked(table, 2)).isTrue();
+        assertThat(unattributable(table)).isEqualTo(1);
+    }
+
     private String ownedPredicate(String table, int patient) {
         return CdsExportIndirectPatientScopeReadSupport.owned(table, profile)
                 .replace(":patient", Integer.toString(patient));

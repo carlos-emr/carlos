@@ -24,7 +24,7 @@ import io.github.carlos_emr.carlos.commn.model.Tickler;
  * other user's change (a Deleted task came back as Completed). The lists now also post, in the one
  * field {@value #PARAMETER}, what each ticked row showed ({@code <tickler_no>:<status>} pairs
  * separated by commas), and the bulk actions pass it to
- * {@code TicklerManager.updateStatusIfCurrent}, which compares it with the locked row.</p>
+ * {@code TicklerManager.changeStatusIfCurrent}, which compares it with the locked row.</p>
  *
  * <p>Tasks that were refused are remembered in the session for the next rendering of a task list,
  * which names them ({@code ticklerStaleSelection.jspf}); the others in the same action are still

@@ -124,6 +124,54 @@ public final class ConvertToEdoc {
     private static String realPath;
 
     /**
+     * Converts an eForm to an EDoc through the shared renderer.
+     * The caller owns the generated temporary PDF and must move or delete it.
+     *
+     * @param eform EFormData the form and its document metadata
+     * @return EDoc the rendered document, or null if rendering failed
+     */
+    public static EDoc from(EFormData eform) {
+        synchronized (RENDER_LOCK) {
+            Path path = saveAsTempPDF(eform);
+            if (path == null || !Files.isReadable(path)) return null;
+            String subject = StringUtils.isBlank(eform.getSubject()) ? eform.getFormName() : eform.getSubject();
+            return buildEDoc(path.getFileName().toString(), subject, null, eform.getProviderNo(),
+                    String.valueOf(eform.getDemographicId()), DocumentType.eForm, path.getParent().toString());
+        }
+    }
+
+    /**
+     * Converts a form to an EDoc through the shared renderer, retaining its document metadata.
+     * The caller owns the generated temporary PDF and must move or delete it.
+     *
+     * @param form FormTransportContainer the form HTML and metadata
+     * @return EDoc the rendered document, or null if rendering failed
+     */
+    public static EDoc from(FormTransportContainer form) {
+        synchronized (RENDER_LOCK) {
+            Path path = saveAsTempPDF(form);
+            if (path == null || !Files.isReadable(path)) return null;
+            String providerNo = form.getProviderNo();
+            if (providerNo == null) providerNo = form.getLoggedInInfo().getLoggedInProviderNo();
+            return buildEDoc(path.getFileName().toString(), form.getSubject(), null, providerNo,
+                    form.getDemographicNo(), form.getDocumentType(), path.getParent().toString());
+        }
+    }
+
+    /**
+     * Renders arbitrary form HTML using the same bounded renderer and temporary-file policy.
+     *
+     * @param htmlString String the form HTML
+     * @param filename String the temporary file name prefix
+     * @return Path the generated temporary PDF, or null if rendering failed
+     */
+    public static Path saveAsTempPDF(String htmlString, String filename) {
+        synchronized (RENDER_LOCK) {
+            return execute(htmlString, filename, HtmlPdfRenderSource.FORM);
+        }
+    }
+
+    /**
      * Creates an EDoc from an EForm whose PDF has already been generated at the specified path.
      *
      * @param eForm EFormData the electronic form data providing metadata

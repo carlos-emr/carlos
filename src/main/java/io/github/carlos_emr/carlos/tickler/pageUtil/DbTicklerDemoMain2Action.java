@@ -56,7 +56,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * <p>Handles bulk status updates for patient-level tickler listings. When checkbox values
  * are present, the action loops over each selected tickler ID, determines the target
  * {@link Tickler.STATUS} from the first character of {@code submit_form}, and delegates to
- * {@link TicklerManager#updateStatusIfCurrent} with the status the row showed when the list was
+ * {@link TicklerManager#changeStatusIfCurrent} with the status the row showed when the list was
  * rendered ({@link TicklerRenderedStatus}); a task another user changed in the meantime is not
  * overwritten. Control is then redirected to {@code ticklerMain.jsp} carrying the original view
  * parameters.
@@ -143,7 +143,7 @@ public final class DbTicklerDemoMain2Action extends ActionSupport {
             try {
                 Tickler t = ticklerManager.getTickler(loggedInInfo, Integer.parseInt(ticklerIdStr));
                 if (t != null) {
-                    TicklerManager.StatusChange change = ticklerManager.updateStatusIfCurrent(loggedInInfo, t.getId(),
+                    TicklerManager.StatusChange change = ticklerManager.changeStatusIfCurrent(loggedInInfo, t.getId(),
                             loggedInInfo.getLoggedInProviderNo(), rendered.get(t.getId()), status);
                     if (change == TicklerManager.StatusChange.STALE) {
                         refused.add(t.getId());

@@ -239,6 +239,49 @@ class ConvertToEdocRenderUnitTest extends CarlosUnitTestBase {
 
     // ---- failures ---------------------------------------------------------------------------
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldRetainLegacyEDocEntryPoints_andPointAtTheActualSavedFile(boolean electronicForm) throws Exception {
+        setRealPath(directory.toString());
+        Path saved = directory.resolve("saved.pdf");
+        try (var pdf = new org.apache.pdfbox.pdmodel.PDDocument()) {
+            pdf.addPage(new org.apache.pdfbox.pdmodel.PDPage());
+            pdf.save(saved.toFile());
+        }
+        EDoc document;
+        if (electronicForm) {
+            var form = mock(EFormData.class);
+            when(form.getFormData()).thenReturn(page("<p>FAKE-body</p>"));
+            when(form.getFormName()).thenReturn("FAKE-form");
+            when(form.getSubject()).thenReturn("FAKE-subject");
+            when(form.getDemographicId()).thenReturn(42);
+            when(form.getProviderNo()).thenReturn("999998");
+            document = ConvertToEdoc.from(form);
+        } else {
+            var form = form(page("<p>FAKE-body</p>"), directory.toString(), "FAKE-form");
+            when(form.getSubject()).thenReturn("FAKE-subject");
+            when(form.getDemographicNo()).thenReturn("42");
+            when(form.getProviderNo()).thenReturn("999998");
+            when(form.getDocumentType()).thenReturn(ConvertToEdoc.DocumentType.eForm);
+            document = ConvertToEdoc.from(form);
+        }
+        assertThat(document).isNotNull();
+        assertThat(Path.of(document.getFilePath()).resolve(document.getFileName())).isEqualTo(saved);
+        assertThat(document.getDescription()).isEqualTo("FAKE-subject");
+        assertThat(document.getModuleId()).isEqualTo("42");
+        assertThat(document.getResponsibleId()).isEqualTo("999998");
+        verify(service).render(any());
+        verify(files).saveTempFile(anyString(), any(ByteArrayOutputStream.class));
+    }
+
+    @Test
+    void shouldRetainGenericHtmlConversion_throughTheSharedRenderer() throws Exception {
+        setRealPath(directory.toString());
+        assertThat(ConvertToEdoc.saveAsTempPDF(page("<p>FAKE-body</p>"), "FAKE-prefix"))
+                .isEqualTo(directory.resolve("saved.pdf"));
+        assertThat(requestSentToService().source()).isEqualTo(HtmlPdfRenderSource.FORM);
+    }
+
     @Test
     @DisplayName("should return null and retain diagnostics without filename or HTML content")
     void shouldReturnNullAndLogNoHtml_whenRenderFails() throws Exception {

@@ -170,10 +170,6 @@ public class ConsultationManagerImpl implements ConsultationManager {
     private DocumentAttachmentManager documentAttachmentManager;
     private AttachmentOwnershipService attachmentOwnershipService;
 
-    // Preserve the legacy no-argument construction used by older callers and tests.
-    @Autowired
-
-
     private final Logger logger = MiscUtils.getLogger();
 
     // Setter-injected: the older collaborators above are still field-injected, and the tests

@@ -60,7 +60,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *
  * <p>When checkbox values are present the action loops over each selected tickler ID,
  * determines the target {@link Tickler.STATUS} from the first character of
- * {@code submit_form}, delegates to {@link TicklerManager#updateStatusIfCurrent} with the status
+ * {@code submit_form}, delegates to {@link TicklerManager#changeStatusIfCurrent} with the status
  * the row showed when the list was rendered ({@link TicklerRenderedStatus}), and then redirects to
  * {@code ticklerMain.jsp}. A task another user changed in the meantime is not overwritten.
  *
@@ -146,7 +146,7 @@ public final class DbTicklerMain2Action extends ActionSupport {
             try {
                 Tickler t = ticklerManager.getTickler(loggedInInfo, Integer.parseInt(ticklerIdStr));
                 if (t != null) {
-                    TicklerManager.StatusChange change = ticklerManager.updateStatusIfCurrent(loggedInInfo, t.getId(),
+                    TicklerManager.StatusChange change = ticklerManager.changeStatusIfCurrent(loggedInInfo, t.getId(),
                             loggedInInfo.getLoggedInProviderNo(), rendered.get(t.getId()), status);
                     if (change == TicklerManager.StatusChange.STALE) {
                         refused.add(t.getId());

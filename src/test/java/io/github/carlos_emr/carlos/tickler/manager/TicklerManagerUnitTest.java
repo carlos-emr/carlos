@@ -532,7 +532,7 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
         void shouldLeaveDeletedTask_whenStaleListCompletesIt() {
             Tickler tickler = stored(80, Tickler.STATUS.D);
 
-            var change = ticklerManager.updateStatusIfCurrent(mockLoggedInInfo, 80, TEST_PROVIDER,
+            var change = ticklerManager.changeStatusIfCurrent(mockLoggedInInfo, 80, TEST_PROVIDER,
                     Tickler.STATUS.A, Tickler.STATUS.C);
 
             assertThat(change).isEqualTo(io.github.carlos_emr.carlos.managers.TicklerManager.StatusChange.STALE);
@@ -547,7 +547,7 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
         void shouldLeaveCompletedTask_whenStaleListDeletesIt() {
             Tickler tickler = stored(81, Tickler.STATUS.C);
 
-            var change = ticklerManager.updateStatusIfCurrent(mockLoggedInInfo, 81, TEST_PROVIDER,
+            var change = ticklerManager.changeStatusIfCurrent(mockLoggedInInfo, 81, TEST_PROVIDER,
                     Tickler.STATUS.A, Tickler.STATUS.D);
 
             assertThat(change).isEqualTo(io.github.carlos_emr.carlos.managers.TicklerManager.StatusChange.STALE);
@@ -560,7 +560,7 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
         void shouldApplyChange_whenTaskIsAsRendered() {
             Tickler tickler = stored(82, Tickler.STATUS.A);
 
-            var change = ticklerManager.updateStatusIfCurrent(mockLoggedInInfo, 82, TEST_PROVIDER,
+            var change = ticklerManager.changeStatusIfCurrent(mockLoggedInInfo, 82, TEST_PROVIDER,
                     Tickler.STATUS.A, Tickler.STATUS.C);
 
             assertThat(change).isEqualTo(io.github.carlos_emr.carlos.managers.TicklerManager.StatusChange.APPLIED);
@@ -577,7 +577,7 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
         void shouldReportUnchanged_whenTaskAlreadyHasTheRequestedStatus() {
             stored(83, Tickler.STATUS.C);
 
-            var change = ticklerManager.updateStatusIfCurrent(mockLoggedInInfo, 83, TEST_PROVIDER,
+            var change = ticklerManager.changeStatusIfCurrent(mockLoggedInInfo, 83, TEST_PROVIDER,
                     Tickler.STATUS.A, Tickler.STATUS.C);
 
             assertThat(change).isEqualTo(io.github.carlos_emr.carlos.managers.TicklerManager.StatusChange.UNCHANGED);
@@ -590,7 +590,7 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
         void shouldLeaveDeletedTask_whenCompletedWithoutRenderedStatus() {
             Tickler tickler = stored(84, Tickler.STATUS.D);
 
-            var change = ticklerManager.updateStatusIfCurrent(mockLoggedInInfo, 84, TEST_PROVIDER,
+            var change = ticklerManager.changeStatusIfCurrent(mockLoggedInInfo, 84, TEST_PROVIDER,
                     null, Tickler.STATUS.C);
 
             assertThat(change).isEqualTo(io.github.carlos_emr.carlos.managers.TicklerManager.StatusChange.STALE);
@@ -602,7 +602,7 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
         void shouldRefuseChange_whenNoRenderedStatusIsSupplied() {
             Tickler tickler = stored(85, Tickler.STATUS.C);
 
-            var change = ticklerManager.updateStatusIfCurrent(mockLoggedInInfo, 85, TEST_PROVIDER,
+            var change = ticklerManager.changeStatusIfCurrent(mockLoggedInInfo, 85, TEST_PROVIDER,
                     null, Tickler.STATUS.D);
 
             assertThat(change).isEqualTo(io.github.carlos_emr.carlos.managers.TicklerManager.StatusChange.STALE);
@@ -617,7 +617,7 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
             Tickler tickler = stored(86, Tickler.STATUS.A);
             tickler.setDemographicNo(storedPatient);
 
-            var change = ticklerManager.updateStatusIfCurrent(mockLoggedInInfo, 86, TEST_PROVIDER,
+            var change = ticklerManager.changeStatusIfCurrent(mockLoggedInInfo, 86, TEST_PROVIDER,
                     Tickler.STATUS.A, Tickler.STATUS.C);
 
             assertThat(change).isEqualTo(io.github.carlos_emr.carlos.managers.TicklerManager.StatusChange.APPLIED);
@@ -630,11 +630,30 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
             Tickler tickler = stored(87, Tickler.STATUS.A);
             when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(), eq(TEST_DEMO_NO))).thenReturn(false);
 
-            org.assertj.core.api.Assertions.assertThatThrownBy(() -> ticklerManager.updateStatusIfCurrent(
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> ticklerManager.changeStatusIfCurrent(
                     mockLoggedInInfo, 87, TEST_PROVIDER, Tickler.STATUS.A, Tickler.STATUS.C))
                     .isInstanceOf(io.github.carlos_emr.carlos.commn.exception.AccessDeniedException.class);
             assertThat(tickler.getStatus()).isEqualTo(Tickler.STATUS.A);
             verifyNoInteractions(mockTicklerUpdateDao);
+        }
+
+        @ParameterizedTest
+        @org.junit.jupiter.params.provider.CsvSource({"A,A,C,true,1", "C,A,D,false,0", "C,C,C,true,0"})
+        void shouldRetainDevelopBooleanStatusContract(Tickler.STATUS current, Tickler.STATUS expected,
+                Tickler.STATUS requested, boolean matched, int writes) {
+            stored(88, current);
+            assertThat(ticklerManager.updateStatusIfCurrent(mockLoggedInInfo, 88, TEST_PROVIDER, expected, requested))
+                    .isEqualTo(matched);
+            verify(mockTicklerUpdateDao, times(writes)).persist(any());
+            verify(mockTicklerDao, times(writes)).merge(any());
+        }
+
+        @Test
+        void shouldRetainReadPrivilege_beforeTheBooleanConditionalStatusApi() {
+            when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_tickler", "r", null)).thenReturn(false);
+            assertThatThrownBy(() -> ticklerManager.updateStatusIfCurrent(mockLoggedInInfo, 88, TEST_PROVIDER,
+                    Tickler.STATUS.A, Tickler.STATUS.C)).isInstanceOf(RuntimeException.class);
+            verifyNoInteractions(mockTicklerDao, mockTicklerUpdateDao);
         }
     }
 }

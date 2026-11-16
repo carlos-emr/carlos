@@ -59,7 +59,7 @@
     @since 2002-11-08
 --%>
 
-<%@page import="io.github.carlos_emr.carlos.appt.ApptData" %>
+
 <%@page import="io.github.carlos_emr.carlos.schedule.web.ScheduleCssColors" %>
 <%@page import="io.github.carlos_emr.carlos.schedule.web.ScheduleFlipViewRequest" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>

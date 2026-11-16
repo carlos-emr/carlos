@@ -58,7 +58,7 @@ class DbTicklerMain2ActionTest extends CarlosWebTestBase {
     @Test
     @DisplayName("should preserve schedule navigation after completing selected ticklers")
     void shouldPreserveScheduleNavigation_afterCompletingSelectedTicklers() throws Exception {
-        when(ticklerManager.updateStatusIfCurrent(any(), eq(123), any(), eq(Tickler.STATUS.A), eq(Tickler.STATUS.C)))
+        when(ticklerManager.changeStatusIfCurrent(any(), eq(123), any(), eq(Tickler.STATUS.A), eq(Tickler.STATUS.C)))
                 .thenReturn(TicklerManager.StatusChange.APPLIED);
         mockRequest.addParameter("expectedStatus_123", "A");
         mockRequest.addParameter("checkbox", "123");
@@ -105,15 +105,15 @@ class DbTicklerMain2ActionTest extends CarlosWebTestBase {
         mockRequest.addParameter("expectedStatus_123", "A");
         mockRequest.addParameter("expectedStatus_124", "C");
         mockRequest.addParameter("submit_form", "Delete");
-        when(ticklerManager.updateStatusIfCurrent(any(), eq(123), any(), eq(Tickler.STATUS.A), eq(Tickler.STATUS.D)))
+        when(ticklerManager.changeStatusIfCurrent(any(), eq(123), any(), eq(Tickler.STATUS.A), eq(Tickler.STATUS.D)))
                 .thenReturn(TicklerManager.StatusChange.STALE);
-        when(ticklerManager.updateStatusIfCurrent(any(), eq(124), any(), eq(Tickler.STATUS.C), eq(Tickler.STATUS.D)))
+        when(ticklerManager.changeStatusIfCurrent(any(), eq(124), any(), eq(Tickler.STATUS.C), eq(Tickler.STATUS.D)))
                 .thenReturn(TicklerManager.StatusChange.APPLIED);
 
         new DbTicklerMain2Action().execute();
 
         assertThat(mockResponse.getRedirectedUrl()).isEqualTo("/carlos/tickler/ViewTicklerMain?conflictCount=1");
-        verify(ticklerManager).updateStatusIfCurrent(any(), eq(124), any(), eq(Tickler.STATUS.C), eq(Tickler.STATUS.D));
+        verify(ticklerManager).changeStatusIfCurrent(any(), eq(124), any(), eq(Tickler.STATUS.C), eq(Tickler.STATUS.D));
         verify(ticklerManager, never()).updateStatus(any(), any(), any(), any());
     }
 
@@ -124,14 +124,14 @@ class DbTicklerMain2ActionTest extends CarlosWebTestBase {
         mockRequest.addParameter("checkbox", "123");
         mockRequest.addParameter("submit_form", "Delete");
         if (expected != null) mockRequest.addParameter("expectedStatus_123", expected);
-        when(ticklerManager.updateStatusIfCurrent(any(), eq(123), any(), isNull(), eq(Tickler.STATUS.D)))
+        when(ticklerManager.changeStatusIfCurrent(any(), eq(123), any(), isNull(), eq(Tickler.STATUS.D)))
                 .thenReturn(TicklerManager.StatusChange.STALE);
 
         String result = new DbTicklerMain2Action().execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         verify(ticklerManager).getTickler(any(LoggedInInfo.class), eq(123));
-        verify(ticklerManager).updateStatusIfCurrent(any(LoggedInInfo.class), eq(123), any(), isNull(), eq(Tickler.STATUS.D));
+        verify(ticklerManager).changeStatusIfCurrent(any(LoggedInInfo.class), eq(123), any(), isNull(), eq(Tickler.STATUS.D));
         verifyNoMoreInteractions(ticklerManager);
         assertThat(mockResponse.getRedirectedUrl()).isEqualTo("/carlos/tickler/ViewTicklerMain?conflictCount=1");
     }
@@ -146,9 +146,9 @@ class DbTicklerMain2ActionTest extends CarlosWebTestBase {
         when(ticklerManager.getTickler(any(LoggedInInfo.class), eq(123))).thenReturn(deletedElsewhere);
         when(ticklerManager.getTickler(any(LoggedInInfo.class), eq(124))).thenReturn(untouched);
         // The list showed both Active; 123 has been deleted by someone else since.
-        when(ticklerManager.updateStatusIfCurrent(any(LoggedInInfo.class), eq(123), any(), eq(Tickler.STATUS.A), eq(Tickler.STATUS.C)))
+        when(ticklerManager.changeStatusIfCurrent(any(LoggedInInfo.class), eq(123), any(), eq(Tickler.STATUS.A), eq(Tickler.STATUS.C)))
                 .thenReturn(TicklerManager.StatusChange.STALE);
-        when(ticklerManager.updateStatusIfCurrent(any(LoggedInInfo.class), eq(124), any(), eq(Tickler.STATUS.A), eq(Tickler.STATUS.C)))
+        when(ticklerManager.changeStatusIfCurrent(any(LoggedInInfo.class), eq(124), any(), eq(Tickler.STATUS.A), eq(Tickler.STATUS.C)))
                 .thenReturn(TicklerManager.StatusChange.APPLIED);
         mockRequest.addParameter("checkbox", "123", "124");
         mockRequest.addParameter("submit_form", "Complete");
@@ -157,8 +157,8 @@ class DbTicklerMain2ActionTest extends CarlosWebTestBase {
         String result = new DbTicklerMain2Action().execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
-        verify(ticklerManager).updateStatusIfCurrent(any(LoggedInInfo.class), eq(123), any(), eq(Tickler.STATUS.A), eq(Tickler.STATUS.C));
-        verify(ticklerManager).updateStatusIfCurrent(any(LoggedInInfo.class), eq(124), any(), eq(Tickler.STATUS.A), eq(Tickler.STATUS.C));
+        verify(ticklerManager).changeStatusIfCurrent(any(LoggedInInfo.class), eq(123), any(), eq(Tickler.STATUS.A), eq(Tickler.STATUS.C));
+        verify(ticklerManager).changeStatusIfCurrent(any(LoggedInInfo.class), eq(124), any(), eq(Tickler.STATUS.A), eq(Tickler.STATUS.C));
         // A refused task is not a failed update: the redirect carries no failCount.
         assertThat(mockResponse.getRedirectedUrl()).isEqualTo("/carlos/tickler/ViewTicklerMain?conflictCount=1");
         assertThat(TicklerRenderedStatus.takeRefused(mockRequest.getSession())).containsExactly(123);

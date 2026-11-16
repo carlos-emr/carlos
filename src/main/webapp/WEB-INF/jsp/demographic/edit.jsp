@@ -36,7 +36,7 @@
 
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateCodeDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateDao" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.WaitingListDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.WaitingListNameDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Admission" %>
@@ -51,10 +51,10 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.LookupList" %>
 
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.WaitingListName" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.web.Contact2Action" %>
+
+
+
+
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicMerged" %>
 
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.ProvinceNames" %>
@@ -84,7 +84,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <c:set var="ctx" value="${ pageContext.request.contextPath }"/>
 <%-- Retrieve all variables from request attributes (set by DemographicEdit2Action) --%>

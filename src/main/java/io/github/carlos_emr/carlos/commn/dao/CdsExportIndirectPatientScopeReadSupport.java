@@ -454,6 +454,9 @@ final class CdsExportIndirectPatientScopeReadSupport {
         add(result, "CdsClientFormData", "CdsClientForm", "cdsClientFormId", "id", "clientId");
         add(result, "EFormDocs", "eform_data", "fdid", "fdid", "demographic_no");
         add(result, "casemgmt_note_link", "casemgmt_note", "note_id", "note_id", "demographic_no");
+        // Archive children hold only their owning chart. An orphan still holds every chart.
+        for (String table : List.of("outboundEmailArchiveAttachment", "outboundEmailArchiveLegalHoldEvent"))
+            add(result, table, "outboundEmailArchive", "archiveId", "id", "demographicNo");
         add(
                 result,
                 "consultationRequestExt",
