@@ -23,6 +23,7 @@
 
 package io.github.carlos_emr.carlos.report.pageUtil;
 
+import io.github.carlos_emr.carlos.utility.SpreadsheetCsv;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.commn.dao.AntenatalReportDao;
@@ -479,11 +480,11 @@ public class RptDownloadCSVServlet extends HttpServlet {
             try (CSVPrinter csv = new CSVPrinter(text, format)) {
                 csv.print("id");
                 for (String caption : fieldCaptions) {
-                    csv.print(caption);
+                    csv.print(SpreadsheetCsv.sanitizeCell(caption));
                 }
                 if (extensionColumns.selected) {
                     for (ExtensionColumn extension : selectedExtensionColumns) {
-                        csv.print(extension.caption());
+                        csv.print(SpreadsheetCsv.sanitizeCell(extension.caption()));
                     }
                 }
                 for (int i = 0; i < fieldValues.size(); i++) {
@@ -497,12 +498,12 @@ public class RptDownloadCSVServlet extends HttpServlet {
             csv.println();
             csv.print(String.valueOf(number));
             for (String name : fieldNames) {
-                csv.print(row.getProperty(name, ""));
+                csv.print(SpreadsheetCsv.sanitizeCell(row.getProperty(name, "")));
             }
             if (extensionColumns.selected) {
                 String demographic = row.getProperty(DEMOGRAPHIC_NUMBER);
                 for (ExtensionColumn extension : selectedExtensionColumns) {
-                    csv.print(extensionValues.getOrDefault(new ExtensionValueKey(demographic, extension.key()), ""));
+                    csv.print(SpreadsheetCsv.sanitizeCell(extensionValues.getOrDefault(new ExtensionValueKey(demographic, extension.key()), "")));
                 }
             }
         }

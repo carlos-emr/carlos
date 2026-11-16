@@ -308,7 +308,7 @@ class RptDownloadCSVServletTest {
     }
 
     @Test
-    void shouldKeepPatientsAndDigitLeadingExtensionKeysDistinct() throws Exception {
+    void shouldKeepPatientsAndKeysDistinct_forDigitLeadingExtensionKeys() throws Exception {
         var request = new MockHttpServletRequest();
         request.getSession(true);
         request.setParameter("demoReport", "true");
@@ -345,6 +345,30 @@ class RptDownloadCSVServletTest {
             assertThat(rows.get(1).get(plainKey)).isEmpty();
             assertThat(rows.get(2).get(digitKey)).isEmpty();
             assertThat(rows.get(2).get(plainKey)).isEqualTo("FAKE second value");
+        }
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"=1+1", "+cmd", "-cmd", "@SUM(1)", "  =1+1", "\ttext", "\rtext", "\ntext", "-5", "-0.5e2", "FAKE plain", ""})
+    void shouldGuardSpreadsheetCells_whenRenderingExtensionValues(String value) throws Exception {
+        var request = branchRequest(CsvScenario.EXTENSION);
+        configuredQueryMock.when(() -> ConfiguredReportQuery.read(anyString(), any(Object[].class)))
+                .thenAnswer(call -> new ConfiguredReportQuery.Result(List.of(),
+                        ((String) call.getArgument(0)).startsWith("select x.demographic_no, k.extension_key")
+                                ? List.of(extensionRow("41", "prefer_language", value))
+                                : List.of(new ConfiguredReportQuery.Row(Map.of("demographic_no", "41", "last_name", "FAKE", "first_name", "Patient"), List.of()))));
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        new RptDownloadCSVServlet().service(request, response);
+        assertThat(response.getStatus()).isEqualTo(200);
+        try (var csv = org.apache.commons.csv.CSVParser.parse(response.getContentAsString(),
+                org.apache.commons.csv.CSVFormat.DEFAULT.builder().setDelimiter('\t').get())) {
+            var rows = csv.getRecords();
+            assertThat(rows).hasSize(2);
+            int column = rows.getFirst().toList().indexOf("Preferred Language");
+            assertThat(column).isGreaterThanOrEqualTo(0);
+            String expected = value.isEmpty() || value.equals("FAKE plain") || value.equals("-5") || value.equals("-0.5e2")
+                    ? value : "\t" + value;
+            assertThat(rows.get(1).get(column)).isEqualTo(expected);
         }
     }
 
