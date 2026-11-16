@@ -234,6 +234,9 @@ public class ReportManager {
         return doc;
     }
 
+    private static final java.util.regex.Pattern EMPTY_PARAMETER = java.util.regex.Pattern.compile(
+            "<param(?=[\\s/])(?:[^<>\"']|\"[^\"]*\"|'[^']*')*/\\s*>");
+
     /** Restores empty parameter metadata while retaining the established legacy SQL escaping policy. */
     private static Document parseTemplateXml(String xml) throws JDOMException, IOException {
         Document doc = XmlUtils.createSecureSAXBuilder().build(new StringReader(UtilXML.escapeXML(xml)));
@@ -258,12 +261,35 @@ public class ReportManager {
                 String wrapperXml = new XMLOutputter(Format.getRawFormat().setExpandEmptyElements(true))
                         .outputString(wrapper);
                 String closingTag = "</" + wrapper.getQualifiedName() + ">";
-                String fragmentXml = wrapperXml.replace(closingTag, text.replace("&", "&amp;") + closingTag);
-                Document fragment = XmlUtils.createSecureSAXBuilder().build(new StringReader(fragmentXml));
-                List<Content> restored = fragment.getRootElement().removeContent();
-                boolean hasParameters = restored.stream().anyMatch(part ->
-                        part instanceof Element element && "param".equals(element.getName()));
-                if (hasParameters) {
+                // Recover only complete empty parameter metadata. Other report text may
+                // legitimately contain literal or unmatched <param spellings.
+                var matcher = EMPTY_PARAMETER.matcher(text);
+                List<Content> restored = new ArrayList<>();
+                int cursor = 0;
+                while (matcher.find()) {
+                    String fragmentXml = wrapperXml.replace(closingTag,
+                            matcher.group().replace("&", "&amp;") + closingTag);
+                    Element parameter;
+                    try {
+                        Document fragment = XmlUtils.createSecureSAXBuilder().build(new StringReader(fragmentXml));
+                        parameter = fragment.getRootElement().getChildren().getFirst();
+                    } catch (JDOMException malformedLiteral) {
+                        continue;
+                    }
+                    if (parameter.getAttributeValue("id") == null || parameter.getAttributeValue("type") == null
+                            || parameter.getAttributeValue("description") == null) {
+                        continue;
+                    }
+                    if (matcher.start() > cursor) {
+                        restored.add(new org.jdom2.Text(text.substring(cursor, matcher.start())));
+                    }
+                    restored.add(parameter.detach());
+                    cursor = matcher.end();
+                }
+                if (cursor > 0) {
+                    if (cursor < text.length()) {
+                        restored.add(new org.jdom2.Text(text.substring(cursor)));
+                    }
                     report.removeContent(index);
                     report.addContent(index, restored);
                     index += restored.size() - 1;

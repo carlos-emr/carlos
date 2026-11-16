@@ -80,6 +80,35 @@ class ReportTemplateEmptyParameterUnitTest extends CarlosUnitTestBase {
                 .isEqualTo("SELECT 'FAKE chosen' AS chosen");
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"<param/>", "Literal <param note='placeholder'> text", "Literal <param id='documentation'/> text", "Literal <param id='documentation' type='text'/> text"})
+    void shouldRetainLiteralReportText_withoutInventingParameterMetadata(String text) {
+        var manager = new ReportManager();
+        String xml = "<report title='FAKE literal text' description='Synthetic only'><query>SELECT 1</query>" + text + "</report>";
+        assertThat(manager.addTemplate(null, xml, info)).isEqualTo("Saved Successfully");
+        assertThat(manager.getReportTemplate("17").getParameters()).isEmpty();
+    }
+
+    @Test
+    void shouldRetainBareLiteralTags_whenNoLaterSpaceExists() {
+        assertThat(io.github.carlos_emr.carlos.util.UtilXML.escapeXML("<report><param/></report>"))
+                .isEqualTo("<report>&lt;param/></report>");
+        assertThat(io.github.carlos_emr.carlos.util.UtilXML.escapeXML("<report><param/> text</report>"))
+                .isEqualTo("<report>&lt;param/> text</report>");
+    }
+
+    @Test
+    void shouldRestoreRealMetadata_besideLiteralParameterText() {
+        var manager = new ReportManager();
+        String xml = "<report title='FAKE mixed text' description='Synthetic only'><query>SELECT '{pick}'</query>"
+                + "Literal <param note='placeholder'> and <param/> text "
+                + "<param id='pick' type='text' description='Choice'/></report>";
+        assertThat(manager.addTemplate(null, xml, info)).isEqualTo("Saved Successfully");
+        var parameters = manager.getReportTemplate("17").getParameters();
+        assertThat(parameters).hasSize(1);
+        assertThat(((Parameter) parameters.getFirst()).getParamId()).isEqualTo("pick");
+    }
+
     @Test
     void shouldKeepSiblingChoicesAndAnotherTemplate_whenEditingAnEmptyParameter() {
         var manager = new ReportManager();
