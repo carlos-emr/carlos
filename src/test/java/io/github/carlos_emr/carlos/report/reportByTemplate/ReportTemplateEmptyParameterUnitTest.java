@@ -81,7 +81,7 @@ class ReportTemplateEmptyParameterUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"<param/>", "Literal <param note='placeholder'> text", "Literal <param id='documentation'/> text", "Literal <param id='documentation' type='text'/> text"})
+    @ValueSource(strings = {"<param/>", "Literal <param note='placeholder'> text", "Literal <param id='documentation'/> text", "Literal <param id='documentation' type='text'/> text", "Literal <param id='x' type='text' description='X' missing:hint='literal'/> text"})
     void shouldRetainLiteralReportText_withoutInventingParameterMetadata(String text) {
         var manager = new ReportManager();
         String xml = "<report title='FAKE literal text' description='Synthetic only'><query>SELECT 1</query>" + text + "</report>";
@@ -107,6 +107,19 @@ class ReportTemplateEmptyParameterUnitTest extends CarlosUnitTestBase {
         var parameters = manager.getReportTemplate("17").getParameters();
         assertThat(parameters).hasSize(1);
         assertThat(((Parameter) parameters.getFirst()).getParamId()).isEqualTo("pick");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"' OR 1=1 --", "x'; DELETE FROM FAKE_table; --"})
+    void shouldBindSubmittedSqlSyntax_afterReopeningAnEmptyTextParameter(String submitted) {
+        var manager = new ReportManager();
+        String xml = "<report title='FAKE bound text' description='Synthetic only'><query>SELECT '{pick}' AS chosen</query>"
+                + "<param id='pick' type='text' description='Choice'/></report>";
+        assertThat(manager.addTemplate(null, xml, info)).isEqualTo("Saved Successfully");
+        var report = (ReportObjectGeneric) manager.getReportTemplate("17");
+        var query = report.buildParameterizedSql(Map.of("pick", new String[] {submitted}));
+        assertThat(query.getSql()).isEqualTo("SELECT ? AS chosen");
+        assertThat(query.getParams()).containsExactly(submitted);
     }
 
     @Test
