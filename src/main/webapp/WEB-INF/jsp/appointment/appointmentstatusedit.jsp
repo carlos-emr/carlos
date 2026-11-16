@@ -52,7 +52,8 @@
     <%response.sendRedirect(request.getContextPath() + "/logoutPage");%>
 </security:oscarSec>
 
-<html>
+<!DOCTYPE html>
+<html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
 <head>
     <link rel="icon" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/images/favicon.ico"/>
     <script type="text/javascript" src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/global.js"></script>
@@ -106,7 +107,7 @@
 
 <table border=0 cellspacing=0 cellpadding=0 width="100%">
     <tr bgcolor="#486ebd">
-        <th align="CENTER" NOWRAP><font face="Helvetica" color="#FFFFFF"><fmt:message key="admin.appt.status.mgr.title"/></font></th>
+        <th align="CENTER" NOWRAP><span style="font-family: Helvetica, sans-serif; color: #FFFFFF;"><fmt:message key="admin.appt.status.mgr.title"/></span></th>
     </tr>
 </table>
 
@@ -115,7 +116,7 @@
     <s:actionerror/>
     <input type="hidden" name="dispatch" value="update"/>
     <input type="hidden" name="id" value="${carlos:forHtmlAttribute(id)}"/>
-    <table>
+    <table role="presentation">
         <tr>
             <td class="tdLabel"><label for="apptStatus"><fmt:message key="admin.appt.status.mgr.label.status"/>:</label>
             </td>

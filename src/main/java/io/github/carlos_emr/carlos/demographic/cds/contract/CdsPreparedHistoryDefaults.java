@@ -1,0 +1,65 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.demographic.cds.contract;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+
+/** Transient optional history defaults, applied only after the original payload seal is verified. */
+public final class CdsPreparedHistoryDefaults {
+    private CdsPreparedHistoryDefaults() {}
+
+    public static ObjectNode apply(JsonNode value) {
+        if (value == null
+                || !value.isObject()
+                || value.has("archived") && !value.get("archived").isBoolean())
+            throw new IllegalArgumentException("CDS_PREPARED_HISTORY_DEFAULTS_INVALID");
+        ObjectNode result = ((ObjectNode) value).deepCopy();
+        if (!result.has("archived")) result.put("archived", false);
+        return result;
+    }
+
+    /**
+     * {@link #apply}, for a prepared note or CPP item ({@code CdsHistoryNativeDto}) alone. A
+     * payload sealed before an item filed under several CPP sections was restored, and every
+     * payload of an item of one section, omits {@code additionalIssueCodes}: it is empty there. A
+     * present value that is not an array of text is refused; the record's own check refuses any
+     * other code.
+     */
+    public static ObjectNode applyNative(JsonNode value) {
+        ObjectNode result = apply(value);
+        JsonNode encounter = result.get("encounterType");
+        if (encounter == null) result.putNull("encounterType");
+        else if (!encounter.isNull() && !encounter.isTextual()) throw invalid();
+        JsonNode codes = result.get("additionalIssueCodes");
+        if (codes == null) result.putArray("additionalIssueCodes");
+        else {
+            if (!codes.isArray()) throw invalid();
+            for (JsonNode code : codes) if (!code.isTextual()) throw invalid();
+        }
+        return result;
+    }
+
+    private static IllegalArgumentException invalid() {
+        return new IllegalArgumentException("CDS_PREPARED_HISTORY_DEFAULTS_INVALID");
+    }
+}

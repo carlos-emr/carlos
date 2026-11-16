@@ -41,6 +41,54 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class DemographicMergedDaoImpl extends AbstractDaoImpl<DemographicMerged> implements DemographicMergedDao {
 
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column> readCdsExportReceiptColumns() {
+        return CdsExportNativeMetadataReadSupport.read(entityManager, CdsExportNativeMetadataReadSupport.Table.DEMOGRAPHIC_MERGES);
+    }
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto readCdsExportSourceSchema() {
+        return CdsExportPatientTableReadSupport.schema(entityManager, CdsExportPatientTableReadSupport.Plan.DEMOGRAPHIC_MERGES);
+    }
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public long countCdsExportRows(int patient) {
+        return CdsExportPatientTableReadSupport.count(entityManager, CdsExportPatientTableReadSupport.Plan.DEMOGRAPHIC_MERGES, patient);
+    }
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> findCdsExportRowsAfter(int patient, Long afterId, int limit) {
+        return CdsExportPatientTableReadSupport.page(entityManager, CdsExportPatientTableReadSupport.Plan.DEMOGRAPHIC_MERGES, patient, afterId, limit);
+    }
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public byte[] readCdsExportValueChunk(int patient, long rowId, String column, long offset, int length) {
+        return CdsExportPatientTableReadSupport.chunk(entityManager, CdsExportPatientTableReadSupport.Plan.DEMOGRAPHIC_MERGES, patient, rowId, column, offset, length);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public List<io.github.carlos_emr.carlos.commn.dto.CdsExportMergeLinkRowDto> findCdsExportActiveMergeLinks(
+            List<Integer> charts) {
+        if (charts == null || charts.isEmpty() || charts.size() > 500
+                || charts.stream().anyMatch(value -> value == null || value < 1)
+                || new java.util.HashSet<>(charts).size() != charts.size()) {
+            throw new IllegalArgumentException("CDS_EXPORT_MERGE_QUERY_INVALID");
+        }
+        // Waits for its answer as the selection's other reads do, in the same snapshot.
+        @SuppressWarnings("unchecked")
+        List<io.github.carlos_emr.carlos.commn.dto.CdsExportMergeLinkRowDto> rows =
+                CdsExportStatementWaitReadSupport.waiting(entityManager, entityManager.createQuery(
+                        "select new io.github.carlos_emr.carlos.commn.dto.CdsExportMergeLinkRowDto"
+                                + "(m.id, m.demographicNo, m.mergedTo) from DemographicMerged m"
+                                + " where m.deleted = 0 and (m.demographicNo in :charts"
+                                + " or m.mergedTo in :charts) order by m.id",
+                        io.github.carlos_emr.carlos.commn.dto.CdsExportMergeLinkRowDto.class))
+                        .setParameter("charts", List.copyOf(charts)).getResultList();
+        return rows;
+    }
+
     public DemographicMergedDaoImpl() {
         super(DemographicMerged.class);
     }

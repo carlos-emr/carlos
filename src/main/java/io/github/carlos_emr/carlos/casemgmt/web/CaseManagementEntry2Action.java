@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.casemgmt.web;
 import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
 
 import io.github.carlos_emr.carlos.casemgmt.common.ChartSessionKeys;
+import io.github.carlos_emr.carlos.casemgmt.common.NoteAuditData;
 import io.github.carlos_emr.carlos.casemgmt.dao.*;
 import io.github.carlos_emr.carlos.casemgmt.model.*;
 import io.github.carlos_emr.carlos.commn.dao.*;
@@ -745,7 +746,12 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         logger.debug("The End of Edit " + String.valueOf(current - beginning));
         start = current;
 
-        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.EDIT, LogConst.CON_CME_NOTE, String.valueOf(note.getId()), request.getRemoteAddr(), demono, note.getAuditString());
+        // A saved note loaded into the editor is audited as edit/CME note, by its id. A new note
+        // that has not been saved is not: nothing was read or changed, and the row used to be
+        // written with the text "null" as its note id. No row carries the note text (NoteAuditData).
+        if (note.getId() != null && note.getId() > 0) {
+            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.EDIT, LogConst.CON_CME_NOTE, String.valueOf(note.getId()), request.getRemoteAddr(), demono, NoteAuditData.describe(note));
+        }
 
         //check to see if someone else is editing note in this chart
         String ipAddress = request.getRemoteAddr();
@@ -1655,7 +1661,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             logAction = LogConst.UPDATE;
         }
 
-        LogAction.addLog(providerNo, logAction, LogConst.CON_CME_NOTE, String.valueOf(note.getId()), request.getRemoteAddr(), demo, note.getAuditString());
+        LogAction.addLog(providerNo, logAction, LogConst.CON_CME_NOTE, String.valueOf(note.getId()), request.getRemoteAddr(), demo, NoteAuditData.describe(note));
 
         String f = request.getParameter("forward");
         if (f != null && f.equals("none")) {
@@ -2386,7 +2392,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         request.setAttribute("origNoteId", noteId);
         request.setAttribute("noteTxt", noteTxt);
         LogAction.addLog(providerNo, newNote ? LogConst.ADD : LogConst.UPDATE, LogConst.CON_CME_NOTE,
-                String.valueOf(note.getId()), request.getRemoteAddr(), demo, note.getAuditString());
+                String.valueOf(note.getId()), request.getRemoteAddr(), demo, NoteAuditData.describe(note));
         return ISSUE_LIST_AJAX_RESULT;
     }
 
@@ -3550,7 +3556,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         request.setAttribute("history", note.getHistory());
         setCaseNote_history(note.getHistory());
         LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(),
-                LogConst.READ, LogConst.CON_CME_NOTE, noteid, request.getRemoteAddr(), demono, note.getAuditString());
+                LogConst.READ, LogConst.CON_CME_NOTE, noteid, request.getRemoteAddr(), demono, NoteAuditData.describe(note));
         return "historyview";
     }
 

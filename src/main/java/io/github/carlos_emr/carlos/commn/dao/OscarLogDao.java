@@ -38,6 +38,21 @@ import io.github.carlos_emr.carlos.commn.model.OscarLog;
 
 public interface OscarLogDao extends AbstractDao<OscarLog> {
 
+    /**
+     * Inserts an audit entry in a transaction of its own, which commits before this method returns.
+     *
+     * <p>Unlike {@link #persist}, which joins a transaction the caller has open, the entry does not
+     * depend on that transaction: it is kept when the caller's transaction rolls back, and it is not
+     * written on the caller's connection, which may be read-only. A failure here rolls back only the
+     * entry and leaves the caller's transaction usable. Use it for an audit record that must survive
+     * the failure it reports; use {@link #persist} where the record and the audited change must
+     * commit or roll back together.</p>
+     *
+     * @param oscarLog the entry to insert
+     * @since 2026-11-12
+     */
+    void persistInNewTransaction(OscarLog oscarLog);
+
     public List<OscarLog> findByDemographicId(Integer demographicId);
 
     public List<OscarLog> findByProviderNo(String providerNo);

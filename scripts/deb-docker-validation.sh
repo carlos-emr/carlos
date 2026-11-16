@@ -126,14 +126,23 @@ say() { echo "deb-docker-validation: $*"; }
 
 usage() { sed -n '/^# Usage:/,/^set -euo pipefail/p' "${BASH_SOURCE[0]}" | sed '$d; s/^# \{0,1\}//'; }
 
-case "$CARLOS_PROVINCE" in on|bc|other) ;; *) die "CARLOS_PROVINCE must be on, bc or other (got '$CARLOS_PROVINCE')" ;; esac
-case "$INSTALL_DEMO_DATA" in true|false) ;; *) die "INSTALL_DEMO_DATA must be true or false" ;; esac
-case "$CONTAINER_NETWORK" in host|bridge) ;; *) die "CONTAINER_NETWORK must be host or bridge" ;; esac
+case "$CARLOS_PROVINCE" in
+  on|bc|other) ;;
+  *) die "CARLOS_PROVINCE must be on, bc or other (got '$CARLOS_PROVINCE')" ;;
+esac
+case "$INSTALL_DEMO_DATA" in
+  true|false) ;;
+  *) die "INSTALL_DEMO_DATA must be true or false" ;;
+esac
+case "$CONTAINER_NETWORK" in
+  host|bridge) ;;
+  *) die "CONTAINER_NETWORK must be host or bridge" ;;
+esac
 # Both values are written into shell text that runs as root in the container
 # (and RESET_PASSWORD into /root/suite-env.sh), so refuse anything that quoting
 # could not carry through unchanged.
 case "$RESET_PASSWORD" in
-  *[\'\"\$\`\\]*|'') die "RESET_PASSWORD must not be empty or contain quotes, \$, backticks or backslashes" ;;
+  *"'"*|*'"'*|*'$'*|*'`'*|*'\'*|'') die "RESET_PASSWORD must not be empty or contain quotes, \$, backticks or backslashes" ;;
 esac
 [ -z "$BUILD_PROXY" ] || [[ "$BUILD_PROXY" =~ ^https?://[A-Za-z0-9._:-]+/?$ ]] \
   || die "BUILD_PROXY must be a plain http(s)://host:port URL"
@@ -293,10 +302,15 @@ cmd_up() {
   local state="" i
   for i in $(seq 1 60); do
     state=$(docker exec "$CONTAINER" systemctl is-system-running 2>/dev/null || true)
-    case "$state" in running|degraded) break ;; esac
+    case "$state" in
+      running|degraded) break ;;
+    esac
     sleep 2
   done
-  case "$state" in running|degraded) ;; *) die "systemd did not come up in $CONTAINER (state '${state:-none}')" ;; esac
+  case "$state" in
+    running|degraded) ;;
+    *) die "systemd did not come up in $CONTAINER (state '${state:-none}')" ;;
+  esac
 
   docker exec -e CARLOS_DISPOSABLE_HOST=true "$CONTAINER" \
     bash /root/carlos/scripts/ci/prepare-container-securityfs.sh
@@ -346,6 +360,15 @@ initialize_vascular_dictionary() {
     || die "the Vascular Tracker dictionary initialization failed; see $LOG_DIR/vascular-dictionary.log"
 }
 
+# Whether this install gets runbook fixture d, the three LOCAL_SEED_OBEC_REPORT appointments booked
+# against demo-dataset patients: an install with the demo dataset whose province is not BC.
+# stage_fixtures inserts the rows and write_suite_env names their fixture profile under this ONE
+# condition. Naming the profile where the rows were never inserted (a BC install did) makes
+# patient-list-by-appointment-export read rows that are not there instead of seeding its own.
+seeds_patient_list_fixture() {
+  [ "$CARLOS_PROVINCE" != bc ] && [ "$INSTALL_DEMO_DATA" = true ]
+}
+
 # Runbook section 4 fixtures b, c, d and the CDS export PGP recipient, plus
 # rx_fax_enabled for the Rx fax checks, CONSULTATION_AUTO_INCLUDE_MEDICATIONS
 # for the unique-medication-list check, and login_lock=true. Each is test-only
@@ -355,6 +378,8 @@ initialize_vascular_dictionary() {
 # lockout check (account-lockout-unlock) locks every later check out.
 stage_fixtures() {
   say "staging the runbook fixtures"
+  local seed_patient_list=false
+  if seeds_patient_list_fixture; then seed_patient_list=true; fi
   in_container "
     set -e
     P=/etc/carlos-emr/carlos.properties
@@ -368,7 +393,7 @@ stage_fixtures() {
     done
     install -o carlos -g carlos -m 0640 /root/carlos/release/Document/carlos/eform/images/MissedAppointment.rtl \
       /var/lib/carlos-emr/CarlosDocument/carlos/eform/images/MissedAppointment.rtl
-    if [ '$CARLOS_PROVINCE' != bc ] && [ '$INSTALL_DEMO_DATA' = true ]; then
+    if [ '$seed_patient_list' = true ]; then
       mariadb -u root carlos -e \"
         INSERT INTO appointment (provider_no, appointment_date, start_time, end_time, name, demographic_no,
             notes, reason, location, resources, type, style, billing, status, createdatetime, creator)
@@ -436,12 +461,19 @@ first_login_reset() {
 # (runbook section 2), so it takes the Ontario-compatible checks: leaving it empty would run every
 # province-specific check, the BC billing ones included, against a schema they cannot use.
 suite_province() {
-  case "$CARLOS_PROVINCE" in on|other) printf ON ;; bc) printf BC ;; esac
+  case "$CARLOS_PROVINCE" in
+    on|other) printf ON ;;
+    bc) printf BC ;;
+  esac
 }
 
 write_suite_env() {
-  local suite_province
+  local suite_province patient_list_fixture
   suite_province="$(suite_province)"
+  # Without the profile the check seeds and removes its own three appointments (or SKIPs, naming what the
+  # database lacks). The text goes into an unquoted heredoc, so it holds no quote, dollar or backtick.
+  patient_list_fixture='# PATIENT_LIST_FIXTURE_PROFILE is left unset: this install was not given the LOCAL_SEED_OBEC_REPORT rows.'
+  if seeds_patient_list_fixture; then patient_list_fixture='export PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1'; fi
   in_container "
     set -e
     props=/usr/share/carlos-emr/webapp/carlos/WEB-INF/classes/carlos-build.properties
@@ -466,7 +498,7 @@ export LAB_ROLLBACK_FAULT_ARTIFACT_DIR=/tmp/carlos-lab-rollback-faults
 export PRESCRIPTION_SCRIPT_ID=45 PRESCRIPTION_DEMOGRAPHIC_NO=1
 export CONSULT_DEMO_NO=1 CONSULT_SERVICE_ID=1 CONSULT_REQUEST_ID=1 CONSULT_STAMP_PROVIDER_NO=999998
 export CONSULT_APPLICATION_TEMP_DIR=/var/lib/carlos-emr/catalina/temp/carlos-temp
-export PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1
+$patient_list_fixture
 export BILLING_APPOINTMENT_NO=11 BILLING_DEMOGRAPHIC_NO=1 BILLING_PROVIDER_NO=999998
 export BILLING_APPOINTMENT_DATE=2024-04-16 BILLING_START_TIME=12:00:00
 export RTL_TEMPLATE_NAME=MissedAppointment.rtl
@@ -533,7 +565,9 @@ cmd_suite() {
   active=$(active_profile)
   for arg in "$@"; do [ "$prev" = --profile ] && requested=$arg; prev=$arg; done
   local managed=false
-  case "$requested" in address-lock|no-pin|multisite|caisi-admin|legacy-contacts|private-consent|appointment-options|appointment-lock-expiry|native-pathnet|first-nations|first-nations-encoding) managed=true ;; esac
+  case "$requested" in
+    address-lock|no-pin|multisite|caisi-admin|legacy-contacts|private-consent|appointment-options|appointment-lock-expiry|native-pathnet|first-nations|first-nations-encoding) managed=true ;;
+  esac
   if [ "$managed" = true ]; then
     [ -z "$active" ] || die "restore the manual profile before running an automatic profile"
   else
@@ -645,7 +679,8 @@ PROFILE_WAS='#carlos-validation-profile-was: '
 # Sets PROFILE_KEY and PROFILE_VALUE to the one carlos.properties setting profile $1
 # replaces (none for default). Not in a subshell, so an unknown name stops the script.
 select_profile() {
-  PROFILE_KEY='' PROFILE_VALUE=''
+  PROFILE_KEY=''
+  PROFILE_VALUE=''
   case "$1" in
     legacy-teleplan) PROFILE_KEY=NEW_BC_TELEPLAN; PROFILE_VALUE=no ;;
     default) ;;
