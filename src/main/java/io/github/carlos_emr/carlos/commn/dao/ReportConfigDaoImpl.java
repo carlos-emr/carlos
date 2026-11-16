@@ -48,6 +48,13 @@ public class ReportConfigDaoImpl extends AbstractDaoImpl<ReportConfig> implement
     }
 
     @Override
+    public List<ReportConfig> findByReportIdAndSaveForUpdate(int reportId, String save) {
+        return entityManager.createQuery("select r from ReportConfig r where r.reportId = :reportId and r.save = :save order by r.id", ReportConfig.class)
+                .setParameter("reportId", reportId).setParameter("save", save)
+                .setLockMode(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE).getResultList();
+    }
+
+    @Override
     public List<ReportConfig> findByReportIdAndSave(int reportId, String save) {
         return entityManager.createQuery("select x from ReportConfig x where x.reportId=:reportId and x.save=:save order by coalesce(x.orderNo, 0), x.id", ReportConfig.class)
                 .setParameter(REPORT_ID_PARAMETER, reportId).setParameter("save", save).getResultList();

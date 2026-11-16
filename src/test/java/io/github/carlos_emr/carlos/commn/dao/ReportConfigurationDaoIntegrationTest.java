@@ -211,6 +211,87 @@ class ReportConfigurationDaoIntegrationTest extends CarlosTestBase {
         } finally { cleanup(); }
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"third,second,first:third:second", "first,third,second:first:third"})
+    @Tag("update")
+    void shouldMoveToTheSpecificTarget_whenLegacyOrderNumbersAreTied(String selected, String target, String expected) {
+        cleanup();
+        try {
+            for (String name : java.util.List.of("first", "second", "third")) {
+                new TransactionTemplate(transactionManager).executeWithoutResult(status -> configurations.persist(config(name, 0, "A")));
+            }
+            var before = configurations.findByReportIdAndSave(5549, "A");
+            var selectedRow = before.stream().filter(row -> row.getName().equals(selected)).findFirst().orElseThrow();
+            var targetRow = before.stream().filter(row -> row.getName().equals(target)).findFirst().orElseThrow();
+            new TransactionTemplate(transactionManager).executeWithoutResult(status -> entityManager.createNativeQuery(
+                    "update reportConfig set order_no=NULL where id=?1").setParameter(1, targetRow.getId()).executeUpdate());
+            new RptReportConfigData().updateRecordOrder("A", "5549", selectedRow.getId().toString(), "0", targetRow.getId().toString());
+            var after = configurations.findByReportIdAndSave(5549, "A");
+            assertThat(after).extracting(ReportConfig::getName).containsExactly(expected.split(":"));
+            assertThat(after).extracting(ReportConfig::getId).containsExactlyInAnyOrderElementsOf(before.stream().map(ReportConfig::getId).toList());
+        } finally { cleanup(); }
+    }
+
+    @Test
+    @Tag("update")
+    void shouldLeaveTiedOrdersUnchanged_whenTheSpecificTargetIsTheSelectedRow() {
+        cleanup();
+        try {
+            ReportConfig first = config("first", 0, "A");
+            ReportConfig second = config("second", 0, "A");
+            new TransactionTemplate(transactionManager).executeWithoutResult(status -> {configurations.persist(first); configurations.persist(second);});
+            service.moveBefore(5549, "A", second.getId(), second.getId());
+            assertThat(configurations.findByReportIdAndSave(5549, "A"))
+                    .extracting(ReportConfig::getId, ReportConfig::getOrderNo)
+                    .containsExactly(tuple(first.getId(), 0), tuple(second.getId(), 0));
+            assertThatThrownBy(() -> service.moveBefore(5549, "B", first.getId(), second.getId())).isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(() -> service.moveBefore(5549, "A", first.getId(), -1)).isInstanceOf(IllegalArgumentException.class);
+        } finally { cleanup(); }
+    }
+
+    @Test
+    @Tag("update")
+    void shouldRecomputeFromTheCommittedOrder_whenTwoMovesOverlap() throws Exception {
+        cleanup();
+        var pool = java.util.concurrent.Executors.newFixedThreadPool(2);
+        var firstMoved = new java.util.concurrent.CountDownLatch(1);
+        var commitFirst = new java.util.concurrent.CountDownLatch(1);
+        var secondEntered = new java.util.concurrent.CountDownLatch(1);
+        try {
+            for (int index = 0; index < 3; index++) {
+                var row = config(java.util.List.of("first", "second", "third").get(index), index + 1, "A");
+                new TransactionTemplate(transactionManager).executeWithoutResult(status -> configurations.persist(row));
+            }
+            var rows = configurations.findByReportIdAndSave(5549, "A");
+            var first = pool.submit(() -> new TransactionTemplate(transactionManager).execute(status -> {
+                service.moveBefore(5549, "A", rows.get(2).getId(), rows.get(0).getId());
+                firstMoved.countDown();
+                try { if (!commitFirst.await(10, java.util.concurrent.TimeUnit.SECONDS)) throw new AssertionError("First move was never released"); }
+                catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); throw new AssertionError(interrupted); }
+                return true;
+            }));
+            assertThat(firstMoved.await(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            var second = pool.submit(() -> {
+                secondEntered.countDown();
+                service.moveBefore(5549, "A", rows.get(0).getId(), rows.get(2).getId());
+                return true;
+            });
+            assertThat(secondEntered.await(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            assertThatThrownBy(() -> second.get(250, java.util.concurrent.TimeUnit.MILLISECONDS))
+                    .isInstanceOf(java.util.concurrent.TimeoutException.class);
+            commitFirst.countDown();
+            assertThat(first.get(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            assertThat(second.get(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            assertThat(configurations.findByReportIdAndSave(5549, "A"))
+                    .extracting(ReportConfig::getName).containsExactly("first", "third", "second");
+        } finally {
+            commitFirst.countDown();
+            pool.shutdownNow();
+            assertThat(pool.awaitTermination(15, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            cleanup();
+        }
+    }
+
     @Test
     @Tag("update")
     void shouldKeepEveryOrderNumber_whenMovingAFieldToItsCurrentPosition() {

@@ -84,7 +84,8 @@ public class ReportConfigurationService {
      * @throws IllegalArgumentException if the configuration is missing or belongs to another report or variant
      */
     public void shiftAndRemove(int reportId, String save, int id, int newPosition) {
-        ReportConfig original = configurations.find(id);
+        var locked = configurations.findByReportIdAndSaveForUpdate(reportId, save);
+        ReportConfig original = locked.stream().filter(row -> row.getId() == id).findFirst().orElse(null);
         if (original == null || original.getReportId() != reportId
                 || !java.util.Objects.equals(original.getSave(), save)) {
             throw new IllegalArgumentException("Report configuration does not belong to this saved report");
@@ -98,6 +99,30 @@ public class ReportConfigurationService {
         }
         original.setOrderNo(newPosition);
         configurations.merge(original);
+    }
+
+    /** Moves a field before a specific target row, including legacy tied or NULL positions. */
+    public void moveBefore(int reportId, String save, int id, int targetId) {
+        var rows = new java.util.ArrayList<>(configurations.findByReportIdAndSaveForUpdate(reportId, save));
+        ReportConfig original = rows.stream().filter(row -> row.getId() == id).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Report configuration does not belong to this saved report"));
+        ReportConfig target = rows.stream().filter(row -> row.getId() == targetId).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Target configuration does not belong to this saved report"));
+        if (id == targetId) return;
+        rows.sort(java.util.Comparator.comparingInt(ReportConfig::getOrderNo).thenComparingInt(ReportConfig::getId));
+        int targetPosition = target.getOrderNo();
+        rows.remove(original);
+        rows.add(rows.indexOf(target), original);
+        long next = rows.getFirst() == original ? targetPosition : rows.getFirst().getOrderNo();
+        for (ReportConfig row : rows) {
+            int preferred = row == original ? targetPosition : row.getOrderNo();
+            int position = Math.toIntExact(Math.max(preferred, next));
+            if (row.getOrderNo() != position) {
+                row.setOrderNo(position);
+                configurations.merge(row);
+            }
+            next = (long) position + 1;
+        }
     }
 
     /**

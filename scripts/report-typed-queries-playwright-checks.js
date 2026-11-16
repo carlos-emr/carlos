@@ -100,6 +100,12 @@ async function workflow(s) {
     await move(ids[0], ids[2], [ids[0], ids[2], ids[1]]);
     h.assert(sql.value('SELECT order_no FROM reportConfig WHERE report_id=? AND id=?',
       [reportId, ids[2]]) === '1', 'Moving before a legacy NULL order did not shift its effective zero position');
+    sql.execute('UPDATE reportConfig SET order_no=0 WHERE report_id=? AND save=?', [reportId, initial[0][5]]);
+    await page.goto(orderUrl, {waitUntil: 'domcontentloaded'});
+    await move(ids[2], ids[1], [ids[0], ids[2], ids[1]]);
+    const tiedNoOpBefore = JSON.stringify(rows());
+    await move(ids[2], ids[2], [ids[0], ids[2], ids[1]]);
+    h.assert(JSON.stringify(rows()) === tiedNoOpBefore, 'Moving to the same specific row changed tied positions');
     await page.goto(orderUrl, {waitUntil: 'domcontentloaded'});
     h.assert(await page.locator('input[name="nameSelected"]').count() === 3, 'A moved field disappeared after reload');
   });
