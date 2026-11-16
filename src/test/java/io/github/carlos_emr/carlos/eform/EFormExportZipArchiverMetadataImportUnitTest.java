@@ -17,6 +17,8 @@
  */
 package io.github.carlos_emr.carlos.eform;
 
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -120,10 +122,8 @@ class EFormExportZipArchiverMetadataImportUnitTest {
         entries.put("eform.properties", utf8(properties));
         if (!variant.equals("missing-filename")) entries.put("form.html", utf8(HTML));
         List<EForm> saved = new ArrayList<>();
-        var logger = org.apache.logging.log4j.LogManager.getLogger(EFormExportZip.class);
-        var prior = logger.getLevel();
-        org.apache.logging.log4j.core.config.Configurator.setLevel(logger.getName(), org.apache.logging.log4j.Level.DEBUG);
-        try (MockedStatic<ImageUpload2Action> images = mockStatic(ImageUpload2Action.class);
+        try (var capture = LogCapture.forLogger(EFormExportZip.class);
+             MockedStatic<ImageUpload2Action> images = mockStatic(ImageUpload2Action.class);
              MockedStatic<EFormUtil> forms = mockStatic(EFormUtil.class)) {
             images.when(ImageUpload2Action::getImageFolder).thenReturn(imageFolder.toFile());
             forms.when(() -> EFormUtil.formExistsInDB(any())).thenReturn(variant.equals("existing"));
@@ -137,8 +137,7 @@ class EFormExportZipArchiverMetadataImportUnitTest {
                 assertThat(saved).isEmpty();
             }
             assertThat(publishedNames()).isEmpty();
-        } finally {
-            org.apache.logging.log4j.core.config.Configurator.setLevel(logger.getName(), prior);
+            assertThat(capture.messages()).noneSatisfy(message -> assertThat(message).contains(HTML));
         }
     }
 
