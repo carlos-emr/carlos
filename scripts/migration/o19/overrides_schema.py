@@ -894,8 +894,8 @@ VALUE_EXPRS = {
     # the lookup: a row the helper does not know arrives retired (the
     # ETL refuses to copy at all when there is one).
     "Consent": {
-        "optout": "IFNULL(s.`optout`, 1)",
-        "deleted": "IFNULL((SELECT r.`deleted` FROM "
+        "optout": "COALESCE(s.`optout`, 1)",
+        "deleted": "COALESCE((SELECT r.`deleted` FROM "
                    "{archive}.`Consent__live` r WHERE r.`id` = s.`id`), 1)",
     },
 }

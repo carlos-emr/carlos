@@ -93,6 +93,11 @@ class PreventionPrint2ActionTest extends CarlosUnitTestBase {
     void setUp() {
         mocks = MockitoAnnotations.openMocks(this);
 
+        // Even the unreadable-result logger initializes PreventionData's static DAO fields.
+        registerMock(PreventionDao.class, mock(PreventionDao.class));
+        registerMock(PreventionExtDao.class, mock(PreventionExtDao.class));
+        registerMock(PartialDateDao.class, mock(PartialDateDao.class));
+
         request = new MockHttpServletRequest("POST", "/prevention/printPrevention");
         response = new MockHttpServletResponse();
 

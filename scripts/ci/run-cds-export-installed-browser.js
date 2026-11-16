@@ -12,7 +12,24 @@ async function main() {
     page.setDefaultTimeout(45000);
     let stage = 'LOGIN';
     let acceptedRunId = null;
+    let formAction = null;
     try {
+        // Chromium can discard a streamed no-store body before CDP retrieves it.
+        // Observe a clone in the page so the application's reader keeps its stream
+        // and the assertions still inspect the actual server's JSON response.
+        await page.addInitScript(() => {
+            const originalFetch = globalThis.fetch;
+            globalThis.fetch = async function (...args) {
+                const response = await originalFetch.apply(this, args);
+                const method = args[1]?.method || (args[0] instanceof Request ? args[0].method : 'GET');
+                if (method.toUpperCase() === 'POST'
+                        && new URL(response.url).pathname.endsWith('/form/cdsExportSubmit')) {
+                    globalThis.__cdsExportSubmitJson = response.clone().json()
+                        .then(data => ({ok: true, data}), () => ({ok: false}));
+                }
+                return response;
+            };
+        });
         await page.goto(options.base + '/index', {waitUntil: 'domcontentloaded'});
         await page.locator('#username').fill(options.username);
         await page.locator('#password').fill(options.password);
@@ -38,27 +55,40 @@ async function main() {
         assert.equal(tokenless.status(), 403);
 
         stage = 'REAL_FORM_ACCEPTANCE';
+        formAction = 'PROVIDER';
         await page.locator('#providerNo').fill(options.provider);
+        formAction = 'FACILITY';
         await page.locator('#facilityId').fill('');
+        formAction = 'SELECTION';
         await page.locator('#selection').selectOption('SELECTED_PATIENTS');
+        formAction = 'PATIENTS';
         await page.locator('#patientNos').fill(String(options.patient));
         const wanted = new Set(['Demographics', 'PersonalHistory', 'FamilyHistory', 'PastHealth',
             'ProblemList', 'RiskFactors', 'AlertsAndSpecialNeeds', 'MedicationsAndTreatments', 'LaboratoryResults', 'ClinicalNotes', 'Reports', 'CareElements', 'NewCategory']);
         const categories = page.locator('.export-category');
         for (let i = 0; i < await categories.count(); i++) {
+            formAction = 'CATEGORY_' + i;
             const category = categories.nth(i);
             await category.setChecked(wanted.has(await category.inputValue()));
         }
+        formAction = 'RECIPIENT';
         await page.locator('#recipientId').fill('native');
+        formAction = 'AUDIT_PLAN';
         await page.locator('#auditPlanId').fill('native');
+        formAction = 'SUBMISSION_KEY';
         const key = await page.locator('#submissionKey').inputValue();
         const responsePromise = page.waitForResponse(response =>
             response.url().includes('/form/cdsExportSubmit') && response.request().method() === 'POST');
+        formAction = 'SUBMIT';
         await page.locator('#submitExport').click();
+        formAction = 'ACCEPTANCE_RESPONSE';
         const response = await responsePromise;
         assert.equal(response.status(), 202);
         assert.equal(response.headers()['x-carlos-cds-export-api-version'], '1');
-        const accepted = await response.json();
+        await page.waitForFunction(() => globalThis.__cdsExportSubmitJson !== undefined);
+        const observed = await page.evaluate(() => globalThis.__cdsExportSubmitJson);
+        assert.equal(observed?.ok, true);
+        const accepted = observed.data;
         assert.equal(accepted.ok, true);
         assert.equal(accepted.submissionKey, key);
         assert.equal(accepted.job.state, 'ACCEPTED');
@@ -128,6 +158,11 @@ async function main() {
     } catch (failure) {
         // No page content, credentials, storage state, trace or network body is published.
         const diagnostic = {protocol: 1, status: 'FAILED', stage, failureClass: failure.constructor.name};
+        // Only fixed harness action names and our own source line are published.
+        // Playwright messages/locator dumps can contain form values and remain private.
+        if (stage === 'REAL_FORM_ACCEPTANCE') diagnostic.formAction = formAction;
+        const source = /run-cds-export-installed-browser\.js:(\d+):\d+/.exec(failure.stack || '');
+        if (source) diagnostic.harnessLine = Number(source[1]);
         if (acceptedRunId && /^[0-9a-f-]{36}$/.test(acceptedRunId)) {
             diagnostic.runId = acceptedRunId;
             try {
