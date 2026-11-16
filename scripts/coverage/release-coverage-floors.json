@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "88517fdbdc01c68805fd4e052c5258e5cc2971ec",
-  "comparisonSha256": "443ddb9e5a2faafa2aab94a50b20ab7461a5d970237c5ad7df55b721ae359152",
+  "sourceTree": "e8b00bfeaed55b6f7b20963c084569d7e9ad024f",
+  "comparisonSha256": "c7d4bdf6910147eae491a91e4562f4d62b99fa3131ca39f990dad6b91e03c397",
   "files": {
     "src/main/java/io/github/carlos_emr/AppointmentMainBean.java": {
       "lines": 100.0,
@@ -9710,7 +9710,7 @@
       "lines": 77.35849056603773,
       "instructions": 83.38557993730407,
       "branches": 75.0,
-      "sourceBlob": "809b2ce83223cb3deecd49cb360df807efca7885"
+      "sourceBlob": "dc0ae22fb5b1259b509dc6a5749638e600fd99ae"
     }
   },
   "exclusions": {
@@ -9782,68 +9782,107 @@
     }
   },
   "zeroCoverageWaivers": {},
-  "baselineCommit": "dba53fc7c626e46ffb8331ec608a7adedb5281ca",
-  "baselineSourceTree": "88517fdbdc01c68805fd4e052c5258e5cc2971ec",
-  "baselineReportSha256": "c67245c29c879e996d0e8f445107c4917ff4bfa924dd9142c90b23eeb7257b0c",
-  "baselineLane": "PR #6130 Temurin JDK 25.0.3 focused H2 Maven test jacoco:report execution of every Java test class changed by this PR on merged release/2026.08 source fcd535890666167246ffb885eb8eba1e16891f71. All 30 distinct test cases were counted with the strict Surefire reader; 0 prerequisite/routed skips remain explicit. Zero failures or errors. Existing higher historical floors and required refusal lines are retained. No zero-floor waiver is added. This refresh establishes source freshness and PR regression evidence; it does not qualify the complete native-lane release coverage union. Re-bound WITHOUT a new run to the merge commit 49d8820a21 of release/2026.08 9c2014ef38 into this branch, which adds Java from PRs merged since; the values are from the run above, not re-measured. Re-bound WITHOUT a new run to the merge commit dba53fc7c6 of release/2026.08 0ba9d149d1 into this branch, which adds Java from PRs merged since; the values are from the run above, not re-measured.",
+  "baselineCommit": "9bbaa4d8fc9bc01ff0c29a42b96113aa0548713f",
+  "baselineSourceTree": "e8b00bfeaed55b6f7b20963c084569d7e9ad024f",
+  "baselineReportSha256": "3f123ed47afb271961f399f585ab8395e05a6cd1b235e333a44f6115249c9e96",
+  "baselineLane": "PR #6130 JDK 25.0.3 offline focused H2 Maven test jacoco:report run of all six EmailCompose action/manager test classes after simplifying disposal guards. All distinct cases counted with the strict Surefire reader. Existing coverage floors and refusal requirements retained; this PR changed Java source meets its retained line, instruction and branch floors. Inherited evidence is archived under baselinePriorEvidence and is not an input to this execution. This focused run establishes source freshness and affected regression evidence, not full release coverage or installed-package qualification.",
   "baselineTestCounts": {
-    "tests": 30,
+    "tests": 47,
     "skipped": 0,
     "failures": 0,
     "errors": 0
   },
-  "baselineTestReportsSha256": "e5eda035774d2b04cab32401a322d071160a3fc0a1df2a6dbbc0a0a57e00c8d7",
-  "baselineTestReportsHashFormat": "SHA-256 of canonical sorted JSON name/SHA-256 report manifest, compact separators plus final newline",
+  "baselineTestReportsSha256": "feac4364dce7a6c1374f1e3511ebb4059febdd4fd29b842a09113a3e69c450a0",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
   "baselineReportHeaderCollisions": 0,
   "baselinePriorEvidence": {
-    "baselineCommit": "eebcb76407c608b2065c47a4f77eba67afd3b637",
-    "baselineSourceTree": "8c8c9dde50b332a494164d31cc30d17f5887abd0",
-    "baselineReportSha256": "9ee9338a310a01f8607b5aa7812d87ee82c2753a3f64f2fbd3ac2d704160a46c",
-    "baselineLane": "PR #6145 conflict resolution on release c9945f57acb4b68d6149bdad7cc38a7024e5b192. Temurin JDK 25.0.3 focused Maven test and JaCoCo run on the merged production and test sources: PreventionFormCodesUnitTest, AddPreventionDataBrandCatalogueUnitTest, ImmunizationUnitTest, SurefireIncludeCoverageUnitTest and JspTaglibDeclarationRegressionTest. Both PR Java paths meet their retained 100% changed-line, instruction and branch floors. All 1,592 release floors, required refusal lines, exclusions and zero-coverage review requirements are retained unchanged. Historical release evidence is archived in baselinePriorEvidence; it is not combined with this execution or asserted to cover changed classes. This focused run establishes the merged source identity and PR coverage only, not full release coverage acceptance or a complete same-class lane union.",
+    "baselineCommit": "dba53fc7c626e46ffb8331ec608a7adedb5281ca",
+    "baselineSourceTree": "88517fdbdc01c68805fd4e052c5258e5cc2971ec",
+    "baselineReportSha256": "c67245c29c879e996d0e8f445107c4917ff4bfa924dd9142c90b23eeb7257b0c",
+    "baselineLane": "PR #6130 Temurin JDK 25.0.3 focused H2 Maven test jacoco:report execution of every Java test class changed by this PR on merged release/2026.08 source fcd535890666167246ffb885eb8eba1e16891f71. All 30 distinct test cases were counted with the strict Surefire reader; 0 prerequisite/routed skips remain explicit. Zero failures or errors. Existing higher historical floors and required refusal lines are retained. No zero-floor waiver is added. This refresh establishes source freshness and PR regression evidence; it does not qualify the complete native-lane release coverage union. Re-bound WITHOUT a new run to the merge commit 49d8820a21 of release/2026.08 9c2014ef38 into this branch, which adds Java from PRs merged since; the values are from the run above, not re-measured. Re-bound WITHOUT a new run to the merge commit dba53fc7c6 of release/2026.08 0ba9d149d1 into this branch, which adds Java from PRs merged since; the values are from the run above, not re-measured.",
     "baselineTestCounts": {
-      "tests": 63,
+      "tests": 30,
       "skipped": 0,
       "failures": 0,
       "errors": 0
     },
-    "baselineTestReportsSha256": "fc974c6aedfa8d7d7323b6f1ac31af3dd174dff1af4b916a296472d58eef0413",
+    "baselineTestReportsSha256": "e5eda035774d2b04cab32401a322d071160a3fc0a1df2a6dbbc0a0a57e00c8d7",
     "baselineTestReportsHashFormat": "SHA-256 of canonical sorted JSON name/SHA-256 report manifest, compact separators plus final newline",
     "baselineReportHeaderCollisions": 0,
+    "baselinePriorEvidence": {
+      "baselineCommit": "eebcb76407c608b2065c47a4f77eba67afd3b637",
+      "baselineSourceTree": "8c8c9dde50b332a494164d31cc30d17f5887abd0",
+      "baselineReportSha256": "9ee9338a310a01f8607b5aa7812d87ee82c2753a3f64f2fbd3ac2d704160a46c",
+      "baselineLane": "PR #6145 conflict resolution on release c9945f57acb4b68d6149bdad7cc38a7024e5b192. Temurin JDK 25.0.3 focused Maven test and JaCoCo run on the merged production and test sources: PreventionFormCodesUnitTest, AddPreventionDataBrandCatalogueUnitTest, ImmunizationUnitTest, SurefireIncludeCoverageUnitTest and JspTaglibDeclarationRegressionTest. Both PR Java paths meet their retained 100% changed-line, instruction and branch floors. All 1,592 release floors, required refusal lines, exclusions and zero-coverage review requirements are retained unchanged. Historical release evidence is archived in baselinePriorEvidence; it is not combined with this execution or asserted to cover changed classes. This focused run establishes the merged source identity and PR coverage only, not full release coverage acceptance or a complete same-class lane union.",
+      "baselineTestCounts": {
+        "tests": 63,
+        "skipped": 0,
+        "failures": 0,
+        "errors": 0
+      },
+      "baselineTestReportsSha256": "fc974c6aedfa8d7d7323b6f1ac31af3dd174dff1af4b916a296472d58eef0413",
+      "baselineTestReportsHashFormat": "SHA-256 of canonical sorted JSON name/SHA-256 report manifest, compact separators plus final newline",
+      "baselineReportHeaderCollisions": 0,
+      "baselineCoverageInputs": [
+        {
+          "lane": "pr-6145-focused-merged-source",
+          "sourceCommit": "eebcb76407c608b2065c47a4f77eba67afd3b637",
+          "executionSha256": "f5a851256821a4f06d07ddf28ebf13518c7dd2624134a4bfdc84ae8566937cba",
+          "reportsSha256": "fc974c6aedfa8d7d7323b6f1ac31af3dd174dff1af4b916a296472d58eef0413",
+          "summary": {
+            "tests": 63,
+            "failed": 0,
+            "skipped": 0,
+            "ready": true
+          },
+          "counterCollisionCount": 0,
+          "suiteCount": 5
+        }
+      ]
+    },
     "baselineCoverageInputs": [
       {
-        "lane": "pr-6145-focused-merged-source",
-        "sourceCommit": "eebcb76407c608b2065c47a4f77eba67afd3b637",
-        "executionSha256": "f5a851256821a4f06d07ddf28ebf13518c7dd2624134a4bfdc84ae8566937cba",
-        "reportsSha256": "fc974c6aedfa8d7d7323b6f1ac31af3dd174dff1af4b916a296472d58eef0413",
+        "lane": "pr-6130-merged-focused-h2",
+        "sourceCommit": "fcd535890666167246ffb885eb8eba1e16891f71",
+        "executionSha256": "9925a2a0f7a1ecbde5ae941f2e080ed912223d46086f77dc319aea9f2728ba31",
+        "reportsSha256": "e5eda035774d2b04cab32401a322d071160a3fc0a1df2a6dbbc0a0a57e00c8d7",
         "summary": {
-          "tests": 63,
+          "tests": 30,
           "failed": 0,
           "skipped": 0,
           "ready": true
         },
         "counterCollisionCount": 0,
-        "suiteCount": 5
+        "suiteCount": 2
       }
+    ],
+    "baselineSelectedTestClasses": [
+      "io.github.carlos_emr.carlos.email.action.EmailCompose2ActionUnitTest",
+      "io.github.carlos_emr.carlos.managers.EmailComposeManagerDocumentAttachmentUnitTest"
     ]
   },
   "baselineCoverageInputs": [
     {
-      "lane": "pr-6130-merged-focused-h2",
-      "sourceCommit": "fcd535890666167246ffb885eb8eba1e16891f71",
-      "executionSha256": "9925a2a0f7a1ecbde5ae941f2e080ed912223d46086f77dc319aea9f2728ba31",
-      "reportsSha256": "e5eda035774d2b04cab32401a322d071160a3fc0a1df2a6dbbc0a0a57e00c8d7",
+      "lane": "pr-6130-disposal-guards-focused-h2",
+      "sourceCommit": "9bbaa4d8fc9bc01ff0c29a42b96113aa0548713f",
+      "executionSha256": "d136558f7a6e2e6c07f432b9306febfa1358c694e1fd24a777b082ea0c13e4c7",
+      "reportsSha256": "feac4364dce7a6c1374f1e3511ebb4059febdd4fd29b842a09113a3e69c450a0",
       "summary": {
-        "tests": 30,
+        "tests": 47,
         "failed": 0,
         "skipped": 0,
         "ready": true
       },
       "counterCollisionCount": 0,
-      "suiteCount": 2
+      "suiteCount": 6
     }
   ],
   "baselineSelectedTestClasses": [
     "io.github.carlos_emr.carlos.email.action.EmailCompose2ActionUnitTest",
-    "io.github.carlos_emr.carlos.managers.EmailComposeManagerDocumentAttachmentUnitTest"
+    "io.github.carlos_emr.carlos.managers.EmailComposeManagerAttachmentPatientUnitTest",
+    "io.github.carlos_emr.carlos.managers.EmailComposeManagerDocumentAttachmentUnitTest",
+    "io.github.carlos_emr.carlos.managers.EmailComposeManagerPrivilegeUnitTest",
+    "io.github.carlos_emr.carlos.managers.EmailComposeManagerResendUnitTest",
+    "io.github.carlos_emr.carlos.managers.EmailComposeManagerWiringUnitTest"
   ]
 }
