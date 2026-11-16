@@ -998,16 +998,16 @@ class TestTheConsentRulingIsInTheOverlay(unittest.TestCase):
         cls.exprs = load_overrides().VALUE_EXPRS.get("Consent", {})
 
     def test_a_null_optout_is_stored_as_an_opt_out(self):
-        self.assertEqual(self.exprs.get("optout"), "IFNULL(s.`optout`, 1)")
+        self.assertEqual(self.exprs.get("optout"), "COALESCE(s.`optout`, 1)")
 
     def test_a_row_the_helper_does_not_know_arrives_retired(self):
-        self.assertTrue(self.exprs["deleted"].startswith("IFNULL((SELECT"))
+        self.assertTrue(self.exprs["deleted"].startswith("COALESCE((SELECT"))
         self.assertTrue(self.exprs["deleted"].endswith(", 1)"))
 
     def test_deleted_is_read_from_the_helper_the_etl_builds(self):
         self.assertEqual(
             self.exprs.get("deleted"),
-            "IFNULL((SELECT r.`deleted` FROM {archive}.`Consent__live` r "
+            "COALESCE((SELECT r.`deleted` FROM {archive}.`Consent__live` r "
             "WHERE r.`id` = s.`id`), 1)")
         self.assertIn(o19etl.ARCHIVE_SLOT, self.exprs["deleted"])
         self.assertIn(o19etl.ident(o19etl.consent_live_table()),

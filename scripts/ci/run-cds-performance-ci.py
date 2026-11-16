@@ -482,8 +482,8 @@ def main() -> int:
                             "python3",
                             "-c",
                             "import pathlib;p=pathlib.Path('/etc/carlos-emr/carlos.properties');s=p.read_text();"
-                            "assert 'cds.import.minimumFreeDiskBytes' not in s;"
-                            "p.open('a').write('\\ncds.import.minimumFreeDiskBytes=1\\n')",
+                            + "assert 'cds.import.minimumFreeDiskBytes' not in s;"
+                            + "p.open('a').write('\\ncds.import.minimumFreeDiskBytes=1\\n')",
                         ]
                     )
                 execute(

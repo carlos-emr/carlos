@@ -413,8 +413,8 @@ def main():
                 (not REPOSITORY.is_dir() or any(REPOSITORY.iterdir())))):
             raise EvidenceError('Backup qualification will not prune or alter an existing repository')
         preflight = ['bash', '-c', 'set -ae; . /etc/carlos-emr/backup.env; '
-            'test "$RESTIC_REPOSITORY" = /var/backups/carlos-emr/restic-repo && '
-            'test -z "${CARLOS_BACKUP_ALERT_WEBHOOK:-}" && test -z "${CARLOS_BACKUP_ALERT_EMAIL:-}"']
+            + 'test "$RESTIC_REPOSITORY" = /var/backups/carlos-emr/restic-repo && '
+            + 'test -z "${CARLOS_BACKUP_ALERT_WEBHOOK:-}" && test -z "${CARLOS_BACKUP_ALERT_EMAIL:-}"']
         run(preflight, output / 'private-preflight.log', timeout=20)
         if state.query("SELECT table_name FROM information_schema.tables WHERE table_schema='" + SCRATCH + "'"):
             raise EvidenceError('Restore scratch database is not empty; refusing to remove prior state')
