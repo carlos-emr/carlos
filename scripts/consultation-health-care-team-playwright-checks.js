@@ -60,7 +60,11 @@ async function workflow(s) {
         && new URL(answer.url()).pathname.endsWith('/encounter/RequestConsultation'), {timeout: 90000}),
       form.locator('[name="submitSaveOnly"]').click({noWaitAfter: true}),
     ]);
-    h.assert(response.status() === 200, 'HCT consultation save failed');
+    h.assert(response.status() === 302, 'HCT consultation did not return its save-confirmation redirect');
+    const confirmation = new URL(response.headers().location, form.url());
+    h.assert(confirmation.pathname.endsWith('/encounter/oscarConsultationRequest/ViewConfirmConsultationRequest')
+      && confirmation.searchParams.get('de') === String(patient), 'HCT save redirected to an unexpected destination');
+    await form.waitForURL(url => url.pathname === confirmation.pathname, {timeout: 90000});
     await form.waitForLoadState('domcontentloaded', {timeout: 90000});
     h.assert(/has been\s+Created/i.test(await form.locator('body').innerText()), 'HCT consultation was not confirmed');
     const rows = sql.rows(`SELECT serviceId, demographicContactId, IFNULL(specId,''), reason
