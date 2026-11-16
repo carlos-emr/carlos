@@ -14,6 +14,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -26,6 +27,7 @@ import static org.mockito.Mockito.*;
 /** Both sibling routes must use the clinical package's existing SecurityException-to-403 mapping. */
 @Tag("unit")
 @Tag("dxresearch")
+@Isolated("Temporarily replaces shared action security managers")
 class DxResearchSiblingAuthorizationUnitTest extends CarlosUnitTestBase {
     private AutoCloseable replaceSecurity(boolean items, SecurityInfoManager security) throws Exception {
         Class<?> type = items ? dxResearchLoadQuickListItems2Action.class : dxResearchCodeSearch2Action.class;
