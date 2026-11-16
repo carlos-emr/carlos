@@ -44,6 +44,7 @@ import java.util.TimeZone;
 import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -53,6 +54,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * The ordinary suite also retains independent RFC vectors and legacy date/billing edge cases.
  */
 @Tag("unit")
+@Isolated("Differential oracles temporarily change JVM locale and timezone defaults")
 @EnabledIfSystemProperty(named = "legacy.compatibility.repo", matches = ".+")
 class LegacyDependencyCompatibilityUnitTest {
     private URLClassLoader legacyJar(String artifact) throws Exception {
@@ -62,15 +64,19 @@ class LegacyDependencyCompatibilityUnitTest {
     }
 
     @Test
-    void shouldMatchJavaOtp_forRandomKeysBoundariesAndLocales() throws Exception {
+    void shouldMatchJavaOtpNumericCodes_forRandomKeysBoundariesAndLocales() throws Exception {
         try (URLClassLoader loader = legacyJar("com/eatthepath/java-otp/0.4.0/java-otp-0.4.0.jar")) {
             Class<?> type = loader.loadClass("com.eatthepath.otp.TimeBasedOneTimePasswordGenerator");
             Object oracle = type.getConstructor().newInstance();
-            Method generate = type.getMethod("generateOneTimePasswordString", Key.class, Instant.class);
+            // #5902 corrects the former locale-specific string digits. Preserve independent
+            // cryptographic parity through java-otp's numeric API and require protocol ASCII.
+            Method generate = type.getMethod("generateOneTimePassword", Key.class, Instant.class);
             TotpGenerator replacement = new TotpGenerator();
             Locale previous = Locale.getDefault();
+            Locale previousFormat = Locale.getDefault(Locale.Category.FORMAT);
+            Locale previousDisplay = Locale.getDefault(Locale.Category.DISPLAY);
             try {
-                for (String language : new String[]{"en-US", "ar-EG", "fa-IR", "th-TH"}) {
+                for (String language : new String[]{"en-US", "en-CA", "fr-CA", "ar-EG", "fa-IR", "th-TH", "th-TH-u-nu-thai"}) {
                     Locale.setDefault(Locale.forLanguageTag(language));
                     Random random = new Random(5473);
                     for (int i = 0; i < 128; i++) {
@@ -81,20 +87,24 @@ class LegacyDependencyCompatibilityUnitTest {
                             long boundary = (random.nextLong() % 1_000_000_000L) * 30_000L;
                             for (long delta : new long[]{-1, 0, 1, 29_999}) {
                                 Instant time = Instant.ofEpochMilli(boundary + delta);
-                                assertThat(replacement.generateOneTimePasswordString(key, time))
-                                        .as("locale %s key %s time %s", language, i, time)
-                                        .isEqualTo(generate.invoke(oracle, key, time));
+                                String actual = replacement.generateOneTimePasswordString(key, time);
+                                assertThat(actual).as("locale %s key %s time %s", language, i, time)
+                                        .matches("[0-9]{6}");
+                                assertThat(Integer.parseInt(actual)).isEqualTo((int) generate.invoke(oracle, key, time));
                             }
                         }
                         for (long millis : new long[]{-30_001, -30_000, -29_999, -1, 0, 1, 29_999, 30_000}) {
                             Instant time = Instant.ofEpochMilli(millis);
-                            assertThat(replacement.generateOneTimePasswordString(key, time))
-                                    .isEqualTo(generate.invoke(oracle, key, time));
+                            String actual = replacement.generateOneTimePasswordString(key, time);
+                            assertThat(actual).matches("[0-9]{6}");
+                            assertThat(Integer.parseInt(actual)).isEqualTo((int) generate.invoke(oracle, key, time));
                         }
                     }
                 }
             } finally {
                 Locale.setDefault(previous);
+                Locale.setDefault(Locale.Category.FORMAT, previousFormat);
+                Locale.setDefault(Locale.Category.DISPLAY, previousDisplay);
             }
         }
     }
