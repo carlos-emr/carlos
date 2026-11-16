@@ -157,6 +157,7 @@ public class GenericDownload extends HttpServlet {
         try {
             input = new FileInputStream(curfile);
         } catch (FileNotFoundException unavailable) {
+            DownloadStorageWarnings.reportIfUnavailable(directory);
             res.sendError(HttpServletResponse.SC_NOT_FOUND, "Download file not found.");
             return;
         }
