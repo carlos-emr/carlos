@@ -194,7 +194,8 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
                         violations.add(packageViolation(fileName, packageElement,
                                 "extends " + extendsValue + " instead of carlos-default"));
                     }
-                    if (packageElement.getElementsByTagName("default-interceptor-ref").getLength() > 0) {
+                    if (packageElement.getElementsByTagName("default-interceptor-ref").getLength() > 0
+                            && !isBillingProvinceWrapper(fileName, packageElement)) {
                         violations.add(packageViolation(fileName, packageElement,
                                 "overrides default-interceptor-ref"));
                     }
@@ -213,6 +214,39 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
         assertThat(violations)
                 .as("Struts packages and actions must stay on the exception-logging stacks")
                 .isEmpty();
+    }
+
+    @Test
+    void shouldRefuseActionStackOverrides_insideTheBcProvincePackage()
+            throws IOException, ParserConfigurationException, SAXException {
+        Path billingPath = resolveProjectPath(STRUTS_XML).getParent().resolve("struts-billing.xml");
+        Document document = parseXml(billingPath);
+        Element billing = (Element) document.getElementsByTagName("package").item(0);
+        assertThat(isBillingProvinceWrapper("struts-billing.xml", billing)).isTrue();
+        Element bypass = document.createElement("interceptor-ref");
+        bypass.setAttribute("name", "carlosDefaultStack");
+        ((Element) billing.getElementsByTagName("action").item(0)).appendChild(bypass);
+        assertThat(isBillingProvinceWrapper("struts-billing.xml", billing)).isFalse();
+    }
+
+    /** The sole allowed wrapper must still delegate to the complete logging/security stack. */
+    private static boolean isBillingProvinceWrapper(String file, Element element) {
+        if (!"struts-billing.xml".equals(file) || !"billing".equals(element.getAttribute("name"))) return false;
+        NodeList defaults = element.getElementsByTagName("default-interceptor-ref");
+        if (defaults.getLength() != 1 || !"bcBillingStack".equals(((Element) defaults.item(0)).getAttribute("name"))) return false;
+        NodeList actions = element.getElementsByTagName("action");
+        for (int i = 0; i < actions.getLength(); i++) {
+            NodeList overrides = ((Element) actions.item(i)).getElementsByTagName("interceptor-ref");
+            if (overrides.getLength() > 0) return false;
+        }
+        NodeList stacks = element.getElementsByTagName("interceptor-stack");
+        if (stacks.getLength() != 1) return false;
+        Element stack = (Element) stacks.item(0);
+        if (!"bcBillingStack".equals(stack.getAttribute("name"))) return false;
+        List<String> refs = new ArrayList<>();
+        NodeList children = stack.getElementsByTagName("interceptor-ref");
+        for (int i = 0; i < children.getLength(); i++) refs.add(((Element) children.item(i)).getAttribute("name"));
+        return refs.equals(List.of("carlosException", "bcProvince", "carlosDefaultStack"));
     }
 
     @Test

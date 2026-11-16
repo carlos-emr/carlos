@@ -43,18 +43,31 @@ import org.springframework.transaction.annotation.Transactional;
 /** One typed care observation and bounded metadata, committed only by the native unit owner. */
 @Service
 public class CdsCarePersister {
-    public static final Map<String, String> RESERVED_INSTRUCTIONS = Map.of(
-            "CDS_GOALS", "Source documented goals", "CDS_EXAM", "Source exam performed; result not supplied",
-            "CDS_CARE_VALUE", "Uninterpreted source care value");
+    public static final Map<String, String> RESERVED_INSTRUCTIONS =
+            Map.of(
+                    "CDS_GOALS",
+                    "Source documented goals",
+                    "CDS_EXAM",
+                    "Source exam performed; result not supplied",
+                    "CDS_CARE_VALUE",
+                    "Uninterpreted source care value");
     private final MeasurementDao measurements;
     private final MeasurementsExtDao extensions;
     private final MeasurementTypeDao types;
     private final CdsImportLedgerService ledger;
-    @Value("${cds.import.clinicalZone:}") private String clinicalZone = "";
 
-    public CdsCarePersister(MeasurementDao measurements, MeasurementsExtDao extensions,
-            MeasurementTypeDao types, CdsImportLedgerService ledger) {
-        this.measurements = measurements; this.extensions = extensions; this.types = types; this.ledger = ledger;
+    @Value("${cds.import.clinicalZone:}")
+    private String clinicalZone = "";
+
+    public CdsCarePersister(
+            MeasurementDao measurements,
+            MeasurementsExtDao extensions,
+            MeasurementTypeDao types,
+            CdsImportLedgerService ledger) {
+        this.measurements = measurements;
+        this.extensions = extensions;
+        this.types = types;
+        this.ledger = ledger;
     }
 
     public void validate(CdsCareElementDto value) {
@@ -69,12 +82,18 @@ public class CdsCarePersister {
     }
 
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
-    public Map<String, String> write(String run, long epoch, String unitKey, int patient,
-            CdsRecordDto record, CdsCareElementDto value) {
+    public Map<String, String> write(
+            String run,
+            long epoch,
+            String unitKey,
+            int patient,
+            CdsRecordDto record,
+            CdsCareElementDto value) {
         CdsImportUnitService.requireActive(run, epoch, unitKey);
         validate(value);
         Measurement measurement = candidate(patient, value);
-        measurements.persist(measurement); measurements.flush();
+        measurements.persist(measurement);
+        measurements.flush();
         Map<String, String> references = new LinkedHashMap<>();
         references.put("measurements", measurement.getId().toString());
         List<MeasurementsExt> metadata = new ArrayList<>();
@@ -87,7 +106,12 @@ public class CdsCarePersister {
         add(metadata, measurement, "cdsUninterpreted", value.uninterpreted() ? "true" : null);
         add(metadata, measurement, "cdsValueDigest", value.sourceValueDigest());
         add(metadata, measurement, "cdsSourcePath", record.sourceXPath());
-        if (value.date().appliedShiftDays() != 0) add(metadata, measurement, "cdsShiftDays", Integer.toString(value.date().appliedShiftDays()));
+        if (value.date().appliedShiftDays() != 0)
+            add(
+                    metadata,
+                    measurement,
+                    "cdsShiftDays",
+                    Integer.toString(value.date().appliedShiftDays()));
         for (MeasurementsExt item : metadata) extensions.persist(item);
         extensions.flush();
         for (int index = 0; index < metadata.size(); index++) {
@@ -95,17 +119,34 @@ public class CdsCarePersister {
         }
         String patientKey = ledger.unit(run, unitKey).getPatientKey();
         if (value.date().calendarAnchorAdjusted(zone()))
-            ledger.diagnostic(run, epoch, patientKey, unitKey, "WARNING", "CDS_CALENDAR_STORAGE_ANCHOR_NORMALIZED",
-                    "NORMALIZATION", record.sourceXPath() + "/Date",
+            ledger.diagnostic(
+                    run,
+                    epoch,
+                    patientKey,
+                    unitKey,
+                    "WARNING",
+                    "CDS_CALENDAR_STORAGE_ANCHOR_NORMALIZED",
+                    "NORMALIZATION",
+                    record.sourceXPath() + "/Date",
                     "A native calendar storage anchor preserves the source date and its separate precision; no source clock was asserted",
-                    null, false);
+                    null,
+                    false);
         for (var diagnostic : value.diagnostics()) {
             boolean blocking = diagnostic.code().equals("CDS_CARE_VALUE_NOT_QUANTIFIED");
-            ledger.diagnostic(run, epoch, patientKey, unitKey, blocking ? "REVIEW" : "WARNING", diagnostic.code(),
-                    "NORMALIZATION", record.sourceXPath() + "/" + diagnostic.field(),
-                    blocking ? "Source care value is retained as typed text and requires clinical review before quantitative use"
+            ledger.diagnostic(
+                    run,
+                    epoch,
+                    patientKey,
+                    unitKey,
+                    blocking ? "REVIEW" : "WARNING",
+                    diagnostic.code(),
+                    "NORMALIZATION",
+                    record.sourceXPath() + "/" + diagnostic.field(),
+                    blocking
+                            ? "Source care value is retained as typed text and requires clinical review before quantitative use"
                             : "Source care normalization or bounded native reference is explicit; complete original remains in protected Care Elements",
-                    null, blocking);
+                    null,
+                    blocking);
         }
         return Map.copyOf(references);
     }
@@ -113,24 +154,39 @@ public class CdsCarePersister {
     Measurement candidate(int patient, CdsCareElementDto value) {
         if (patient < 1) throw new IllegalArgumentException("Invalid target patient");
         Measurement row = new Measurement();
-        row.setDemographicId(patient); row.setType(value.measurementType());
-        row.setImportedSourceProviderNo(null); // Source has no author field; the importing actor is audited separately.
+        row.setDemographicId(patient);
+        row.setType(value.measurementType());
+        row.setImportedSourceProviderNo(
+                null); // Source has no author field; the importing actor is audited separately.
         row.setDataField(value.value());
-        row.setMeasuringInstruction(RESERVED_INSTRUCTIONS.getOrDefault(value.measurementType(),
-                value.unit() == null ? "Source assertion" : "in " + value.unit()));
+        row.setMeasuringInstruction(
+                RESERVED_INSTRUCTIONS.getOrDefault(
+                        value.measurementType(),
+                        value.unit() == null ? "Source assertion" : "in " + value.unit()));
         row.setDateObserved(value.date().timestampStorageAnchor(zone()));
-        row.setComments(value.nativeOverflow() ? "CDS_COMPLETE_VALUE_IN_SOURCE"
-                : value.uninterpreted() ? "CDS_UNINTERPRETED_SOURCE_VALUE" : "");
+        row.setComments(
+                value.nativeOverflow()
+                        ? "CDS_COMPLETE_VALUE_IN_SOURCE"
+                        : value.uninterpreted() ? "CDS_UNINTERPRETED_SOURCE_VALUE" : "");
         return row;
     }
+
     private ZoneId zone() {
-        if (clinicalZone == null || clinicalZone.isBlank()) throw new CdsClinicalException("CDS_CLINICAL_ZONE_REQUIRED", "Date");
-        try { return ZoneId.of(clinicalZone); }
-        catch (DateTimeException invalid) { throw new CdsClinicalException("CDS_CLINICAL_ZONE_INVALID", "Date"); }
+        if (clinicalZone == null || clinicalZone.isBlank())
+            throw new CdsClinicalException("CDS_CLINICAL_ZONE_REQUIRED", "Date");
+        try {
+            return ZoneId.of(clinicalZone);
+        } catch (DateTimeException invalid) {
+            throw new CdsClinicalException("CDS_CLINICAL_ZONE_INVALID", "Date");
+        }
     }
-    private static void add(List<MeasurementsExt> metadata, Measurement row, String key, String value) {
+
+    private static void add(
+            List<MeasurementsExt> metadata, Measurement row, String key, String value) {
         if (value == null) return;
         MeasurementsExt extension = new MeasurementsExt(row.getId());
-        extension.setKeyVal(key); extension.setVal(value); metadata.add(extension);
+        extension.setKeyVal(key);
+        extension.setVal(value);
+        metadata.add(extension);
     }
 }

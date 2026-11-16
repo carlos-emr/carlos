@@ -15,6 +15,9 @@
  * Coverage plan: workflow-tickler-suggested-text (tickler suggested text, patient tickler list,
  * WorkFlow). Env: DOCUMENT_DIR (or RX_FAX_DOCUMENT_DIR).
  */
+const {randomBytes}=require('node:crypto');
+const {throwawayLoginFixture}=require('./lib/throwaway-login-fixture');
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const fs = require('node:fs');
 const path = require('node:path');
 const h = require('./lib/playwright-harness');
@@ -48,6 +51,7 @@ function documentStore() {
   return real;
 }
 
+/** Verify suggested-text route dispatch, malformed requests and permission denials with owned preferences and task records. */
 async function workflow(s) {
   const { sql, marker, patient, provider, recorder } = s;
   const suggestion = `${marker} recall suggestion`;
@@ -158,10 +162,88 @@ async function workflow(s) {
 
   await s.step('EditTicklerTextSuggest refuses GET with 405 and changes nothing', async () => {
     const id = sql.value(`SELECT id FROM tickler_text_suggest WHERE suggested_text=${S} AND id>${baselineMax}`);
-    const response = await s.context.request.get(h.appUrl(s.config.baseUrl,
+    const response = await authenticatedProbe(s, h.appUrl(s.config.baseUrl,
       `/tickler/EditTicklerTextSuggest?method=updateTextSuggest&activeText=${id}&inactiveText=0`), { maxRedirects: 0 });
     h.assert(response.status() === 405, `GET EditTicklerTextSuggest answered HTTP ${response.status()}`);
     h.assert(sql.value(ownedSuggestion) === '1:0' && existing() === before, 'A refused GET changed suggestions');
+  });
+
+  const taskSnapshot=()=>JSON.stringify([
+    sql.rows(`SELECT * FROM tickler WHERE tickler_no=${ticklerNo}`),
+    sql.rows(`SELECT * FROM tickler_update WHERE tickler_no=${ticklerNo}`),
+    sql.rows(`SELECT * FROM tickler_comments WHERE tickler_no=${ticklerNo}`),
+    sql.rows(`SELECT * FROM ticklerdocs WHERE tickler_id=${ticklerNo}`),
+  ]);
+  await s.step('Tickler routes refuse cross-operation dispatch and malformed suggested-text lists without writes',async()=>{
+    h.assert(/^[1-9]\d*$/.test(ticklerNo),'Ambiguous owned task identity');
+    const initial=taskSnapshot(),id=sql.value(`SELECT id FROM tickler_text_suggest WHERE suggested_text=${S} AND id>${baselineMax}`);
+    const day=sql.value(`SELECT DATE_FORMAT(service_date,'%Y-%m-%d') FROM tickler WHERE tickler_no=${ticklerNo}`);
+    for(const [route,form] of [
+      ['EditTicklerTextSuggest',{method:'editTickler',ticklerNo,status:'C',priority:'High',assignedToProviders:provider,xml_appointment_date:day}],
+      ['EditTickler',{method:'updateTextSuggest',activeText:id,inactiveText:'0'}],
+      ['EditTicklerTextSuggest',{method:'updateTextSuggest'}],
+    ]) {
+      const response=await authenticatedProbe(s,h.appUrl(s.config.baseUrl,'/tickler/'+route),
+        {method:'POST',allowPost:true,mutatingPost:true,form});
+      try {h.assert(response.status()===400,route+' did not refuse the wrong/malformed operation');}
+      finally {await response.dispose();}
+      h.assert(taskSnapshot()===initial&&sql.value(ownedSuggestion)==='1:0'&&existing()===before,'Refused route changed clinical or suggestion records');
+    }
+  });
+
+  await s.step('revoked Tickler update rights answer 403 and preserve the open draft and all task rows',async()=>{
+    const loginMarker='FAKE-PW'+randomBytes(8).toString('hex'),role=loginMarker+'-ro',q=h.sqlString;
+    const fixture=throwawayLoginFixture({sql,marker:loginMarker,provider,testUser:s.config.testUser});
+    let roleOwned=false;
+    s.cleanup(()=>{
+      fixture.cleanup();
+      if(roleOwned) {
+        h.assert(sql.value(`SELECT COUNT(*) FROM secUserRole WHERE role_name=${q(role)}`)==='0','Owned role still has users');
+        sql.execute(`DELETE FROM secObjPrivilege WHERE roleUserGroup=${q(role)};DELETE FROM secRole WHERE role_name=${q(role)} AND description=${q(loginMarker)}`);
+        h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM secRole WHERE role_name=${q(role)})+(SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup=${q(role)})`)==='0','Owned permission role remains');
+      }
+    });
+    h.assert(sql.value(`SELECT COUNT(*) FROM secRole WHERE role_name=${q(role)}`)==='0','Permission role collision');
+    roleOwned=true;
+    const grants=[['_tickler','w'],['_appointment','r'],['_msg','r'],['_demographic','r'],['_search','r']];
+    sql.execute(`INSERT INTO secRole(role_name,description) VALUES(${q(role)},${q(loginMarker)});
+      INSERT INTO secObjPrivilege(roleUserGroup,objectName,privilege,priority,provider_no)
+      VALUES ${grants.map(([object,right])=>`(${q(role)},${q(object)},${q(right)},0,${q(provider)})`).join(',')}`);
+    fixture.create({roleNames:[role]});
+    const context=await h.newContext(s.context.browser(),s.config);s.cleanup(()=>context.close());
+    context.on('page',page=>h.wireStrictPage(page,'tickler-refusals',recorder));
+    await h.login(context,{...s.config,testUser:fixture.username},recorder);
+    const edit=await context.newPage();
+    const opening=await edit.goto(h.appUrl(s.config.baseUrl,'/tickler/ViewTicklerEdit?tickler_no='+ticklerNo));
+    h.assert(opening.status()===200,'Initial owned write role could not open the editor');
+    const draft=loginMarker+' unsaved permission draft';await edit.locator('#newMessage').fill(draft);
+    const initial=taskSnapshot();
+    sql.execute(`UPDATE secObjPrivilege SET privilege='r' WHERE roleUserGroup=${q(role)} AND objectName='_tickler' AND privilege='w'`);
+    const beforeRefusal={http:new Set(recorder.badResponses),console:new Set(recorder.consoleIssues)};
+    const [response]=await Promise.all([
+      edit.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname.endsWith('/tickler/EditTickler')),
+      edit.locator('input[name="updateTickler"]').click(),
+    ]);
+    h.assert(response.status()===403,'A revoked update privilege did not answer 403');
+    await edit.locator('#error').waitFor({state:'visible'});
+    h.assert(await edit.locator('#newMessage').inputValue()===draft&&!edit.isClosed(),'Permission refusal discarded the draft or closed the editor');
+    h.assert(await edit.locator('#error').innerText()!==''&&taskSnapshot()===initial,'Permission refusal was silent or changed task rows');
+    await require('./lib/tickler-refusal-diagnostics').acknowledgeTickler403(recorder,{
+      before:beforeRefusal,response,page:edit,expectedUrl:h.appUrl(s.config.baseUrl,'/tickler/EditTickler'),ticklerNo,label:'tickler-refusals',
+    });
+    console.log('  PASS tickler-refusals: reconciled the exact owned iframe 403 after UI and no-write checks');
+    const reader={...s,context};
+    for(const [route,options] of [
+      ['/tickler/EditTicklerTextSuggest',{method:'POST',allowPost:true,mutatingPost:true,form:{method:'updateTextSuggest'}}],
+      ['/tickler/AddTickler',{method:'POST',allowPost:true,mutatingPost:true,form:{demo:s.patient,message:loginMarker}}],
+      ['/tickler/ForwardDemographicTickler?demographic_no='+s.patient,{}],
+    ]) {
+      const denied=await authenticatedProbe(reader,h.appUrl(s.config.baseUrl,route),options);
+      try {h.assert(denied.status()===403&&(await denied.text()).includes('carlos-permission-denied'),'Tickler privilege denial did not use the explicit 403 response');}
+      finally {await denied.dispose();}
+      h.assert(taskSnapshot()===initial&&sql.value(ownedSuggestion)==='1:0'&&existing()===before,'Denied action changed owned or control records');
+    }
+    await context.close();
   });
 
   await s.step('literal zero survives adding another suggestion, saving and moving to Inactive', async () => {

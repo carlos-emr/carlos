@@ -57,9 +57,9 @@
 %>
 
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.*" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
+
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewAction" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+
 <%@page import="java.util.Map" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.CheckBoxBean" %>
 

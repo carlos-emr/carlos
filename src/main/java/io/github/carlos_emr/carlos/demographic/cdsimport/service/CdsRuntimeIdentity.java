@@ -42,18 +42,20 @@ import java.util.Map;
 import java.util.TimeZone;
 import java.util.TreeSet;
 
-/** Actual semantic dependency/runtime bytes; no filesystem locations, patient files, or credentials enter the digest. */
+/**
+ * Actual semantic dependency/runtime bytes; no filesystem locations, patient files, or credentials
+ * enter the digest. Jars, the JDK's module image and the time-zone rules are hashed as streams,
+ * so no size or count of a dependency, of the JDK or of its zone data is refused: a larger JDK
+ * distribution never stops every import and export. A file that changes while it is hashed, or a
+ * runtime with no zone data, still is.
+ */
 final class CdsRuntimeIdentity {
-    private static final long JAR_LIMIT = 128L << 20;
-    private static final long MODULE_LIMIT = 512L << 20;
-
     private CdsRuntimeIdentity() {}
 
     /** Literal compile-time dependencies only: no source-controlled reflection or class instantiation. */
     private static Class<?>[] dependencies() {
         return new Class<?>[] {
-            org.apache.xerces.jaxp.SAXParserFactoryImpl.class,
-            org.apache.xerces.jaxp.validation.XMLSchemaFactory.class,
+            // JDK XML implementation bytes are covered by java.runtime.module-image below.
             org.jdom2.input.SAXBuilder.class,
             com.fasterxml.jackson.core.JsonFactory.class,
             com.fasterxml.jackson.databind.ObjectMapper.class,
@@ -74,12 +76,20 @@ final class CdsRuntimeIdentity {
             net.sf.jsqlparser.parser.CCJSqlParserUtil.class,
             org.apache.commons.dbcp2.BasicDataSource.class,
             org.apache.commons.pool2.impl.GenericObjectPool.class,
-            com.mysql.cj.jdbc.Driver.class,
+            org.mariadb.jdbc.Driver.class,
             org.apache.commons.lang3.StringUtils.class,
             org.apache.commons.io.FilenameUtils.class,
             com.google.common.base.Ascii.class,
             com.google.common.base.CharMatcher.class
         };
+    }
+
+    private static Path artifactPath(URL artifact) throws IOException {
+        try {
+            return Path.of(artifact.toURI()).toRealPath();
+        } catch (java.net.URISyntaxException _) {
+            throw unavailable();
+        }
     }
 
     static FrozenRuntime addTo(MessageDigest result, ClassLoader loader, byte[] buffer)
@@ -95,15 +105,10 @@ final class CdsRuntimeIdentity {
                 var source = type.getProtectionDomain().getCodeSource();
                 URL artifact = source == null ? null : source.getLocation();
                 if (artifact == null || !artifact.getProtocol().equals("file")) throw unavailable();
-                Path path;
-                try {
-                    path = Path.of(artifact.toURI()).toRealPath();
-                } catch (java.net.URISyntaxException invalid) {
-                    throw unavailable();
-                }
+                Path path = artifactPath(artifact);
                 String hash = artifacts.get(path);
                 if (hash == null) {
-                    hash = artifactHash(path, JAR_LIMIT, buffer);
+                    hash = artifactHash(path, buffer);
                     artifacts.put(path, hash);
                 }
                 CdsImportKeys.add(result, resource);
@@ -117,7 +122,7 @@ final class CdsRuntimeIdentity {
         for (String property :
                 new String[] {"java.vendor", "java.vm.name", "java.vm.version", "java.vm.vendor"}) {
             String value = System.getProperty(property);
-            if (value == null || value.length() > 1024) throw unavailable();
+            if (value == null) throw unavailable();
             CdsImportKeys.add(result, property);
             CdsImportKeys.add(result, value);
         }
@@ -126,10 +131,7 @@ final class CdsRuntimeIdentity {
         CdsImportKeys.add(result, "java.runtime.module-image");
         CdsImportKeys.add(
                 result,
-                artifactHash(
-                        Path.of(javaHome).resolve("lib/modules").toRealPath(),
-                        MODULE_LIMIT,
-                        buffer));
+                artifactHash(Path.of(javaHome).resolve("lib/modules").toRealPath(), buffer));
         FrozenRuntime frozen = snapshot();
         CdsImportKeys.add(result, "java.default-locale");
         CdsImportKeys.add(result, frozen.locale.toLanguageTag());
@@ -147,17 +149,17 @@ final class CdsRuntimeIdentity {
         return frozen;
     }
 
-    static String artifactHash(Path path, long maximum, byte[] buffer) throws IOException {
+    static String artifactHash(Path path, byte[] buffer) throws IOException {
         if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) throw unavailable();
         long expected = Files.size(path);
-        if (expected > maximum) throw unavailable();
         MessageDigest digest = CdsImportKeys.digest();
         long bytes = 0;
         int read;
         try (InputStream input = Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS)) {
             while ((read = input.read(buffer)) != -1) {
                 bytes = Math.addExact(bytes, read);
-                if (bytes > maximum) throw unavailable();
+                // Past the size it had when hashing began, the file is changing: refused below.
+                if (bytes > expected) throw unavailable();
                 digest.update(buffer, 0, read);
             }
         }
@@ -216,7 +218,7 @@ final class CdsRuntimeIdentity {
                 try {
                     if (!rulesHash.equals(zoneRulesHash()))
                         throw new CdsImportException("IMPORT_FROZEN_RUNTIME_CHANGED");
-                } catch (IOException unavailable) {
+                } catch (IOException _) {
                     throw unavailable();
                 }
                 nextProbe = System.nanoTime() + 1_000_000_000L;
@@ -226,18 +228,15 @@ final class CdsRuntimeIdentity {
 
     static String zoneRulesHash() throws IOException {
         var available = ZoneRulesProvider.getAvailableZoneIds();
-        if (available.isEmpty() || available.size() > 4096) throw unavailable();
+        if (available.isEmpty()) throw unavailable();
         TreeSet<String> zones = new TreeSet<>(available);
         MessageDigest digest = CdsImportKeys.digest();
-        var output = new BoundedRuleOutput(digest);
+        var output = new DigestOutput(digest);
         try (var serialized = new ObjectOutputStream(output)) {
             for (String zone : zones) {
-                if (zone.length() > 128) throw unavailable();
                 var versions = ZoneRulesProvider.getVersions(zone);
-                if (versions.isEmpty() || versions.size() > 16) throw unavailable();
+                if (versions.isEmpty()) throw unavailable();
                 for (var version : versions.entrySet()) {
-                    if (version.getKey().length() > 128) throw unavailable();
-                    output.nextSegment();
                     serialized.writeUTF(zone);
                     serialized.writeUTF(version.getKey());
                     serialized.writeObject(version.getValue());
@@ -250,37 +249,24 @@ final class CdsRuntimeIdentity {
         return java.util.HexFormat.of().formatHex(digest.digest());
     }
 
-    private static final class BoundedRuleOutput extends OutputStream {
+    /** The serialized zone rules go straight into the digest; nothing is kept or counted. */
+    private static final class DigestOutput extends OutputStream {
         // Owned solely by zoneRulesHash's calling thread and its local ObjectOutputStream.
         @SuppressWarnings("java:S9428")
         private final MessageDigest digest;
-        private long total;
-        private long segment;
 
-        BoundedRuleOutput(MessageDigest digest) {
+        DigestOutput(MessageDigest digest) {
             this.digest = digest;
-        }
-
-        void nextSegment() {
-            segment = 0;
         }
 
         @Override
         public void write(int value) {
-            checked(1);
             digest.update((byte) value);
         }
 
         @Override
         public void write(byte[] bytes, int offset, int length) {
-            checked(length);
             digest.update(bytes, offset, length);
-        }
-
-        private void checked(int bytes) {
-            total = Math.addExact(total, bytes);
-            segment = Math.addExact(segment, bytes);
-            if (total > (64L << 20) || segment > (1L << 20)) throw unavailable();
         }
     }
 

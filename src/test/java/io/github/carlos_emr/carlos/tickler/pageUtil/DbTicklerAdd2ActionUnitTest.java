@@ -54,6 +54,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -93,6 +94,11 @@ class DbTicklerAdd2ActionUnitTest extends CarlosUnitTestBase {
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(loggedInInfo);
 
+        var providers = createAndRegisterMock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class);
+        var recipient = new io.github.carlos_emr.carlos.commn.model.Provider();
+        recipient.setProviderNo("999998");
+        recipient.setStatus("1");
+        when(providers.getProvider("999998")).thenReturn(recipient);
         ticklerManager = createAndRegisterMock(TicklerManager.class);
         ticklerAttachmentService = createAndRegisterMock(TicklerAttachmentService.class);
         SecurityInfoManager securityInfoManager = createAndRegisterMock(SecurityInfoManager.class);
@@ -207,5 +213,25 @@ class DbTicklerAdd2ActionUnitTest extends CarlosUnitTestBase {
 
         verify(ticklerAttachmentService, never()).syncAttachments(any(), any(), any());
         assertThat(request.getAttribute("ticklerLinkFailed")).isEqualTo(true);
+    }
+
+    @Test
+    void shouldRejectUnavailableRecipient_beforeSavingTask() throws Exception {
+        request.setParameter("task_assigned_to", "missing-provider");
+        assertThat(new DbTicklerAdd2Action().execute()).isEqualTo("recipientRefused");
+        assertThat(response.getStatus()).isEqualTo(400);
+        verify(ticklerManager, never()).addTickler(any(), any());
+        verifyNoInteractions(ticklerAttachmentService);
+    }
+
+    @Test
+    void shouldRejectInactiveRecipient_beforeSavingTask() throws Exception {
+        var providers = io.github.carlos_emr.carlos.utility.SpringUtils.getBean(
+                io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class);
+        providers.getProvider("999998").setStatus("0");
+        assertThat(new DbTicklerAdd2Action().execute()).isEqualTo("recipientRefused");
+        assertThat(response.getStatus()).isEqualTo(400);
+        verify(ticklerManager, never()).addTickler(any(), any());
+        verifyNoInteractions(ticklerAttachmentService);
     }
 }

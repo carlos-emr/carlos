@@ -58,15 +58,22 @@
 %>
 
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.*" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
+
 
 <%@ taglib prefix="s" uri="/struts-tags" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     // The same shape ClientImage2Action accepts: one positive patient number, no leading zero.
-    String photoDemographicNo = request.getParameter("demographicNo");
-    if (photoDemographicNo == null || !photoDemographicNo.matches("[1-9]\\d{0,9}")) {
-        photoDemographicNo = null;
+    String[] photoPatientValues = request.getParameterValues("demographicNo");
+    String photoDemographicNo = null;
+    if (photoPatientValues != null && photoPatientValues.length == 1
+            && photoPatientValues[0] != null && photoPatientValues[0].matches("[1-9]\\d{0,9}")) {
+        try {
+            Integer.parseInt(photoPatientValues[0]);
+            photoDemographicNo = photoPatientValues[0];
+        } catch (NumberFormatException ignored) {
+            // An overflow names no patient, just as in ClientImage2Action.
+        }
     }
     pageContext.setAttribute("photoDemographicNo", photoDemographicNo);
 %>
@@ -76,6 +83,14 @@
         application.setAttribute("jakarta.servlet.context.tempdir", new java.io.File(tmpDir));
     }
 %>
+<%-- Multipart validation can select input before the action sets a status. --%>
+<s:if test="hasActionErrors() || hasFieldErrors()">
+<%
+    if (response.getStatus() < 400) {
+        response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_BAD_REQUEST);
+    }
+%>
+</s:if>
 <html>
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>

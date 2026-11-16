@@ -1,0 +1,789 @@
+<?xml version='1.0' encoding='UTF-8'?><wsdl:definitions xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:tns="http://ws.oscarehr.org/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:ns1="http://schemas.xmlsoap.org/soap/http" name="ScheduleWsService" targetNamespace="http://ws.oscarehr.org/">
+  <wsdl:types>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:ns0="http://ws.oscarehr.org/" targetNamespace="http://ws.oscarehr.org/">
+  <xsd:complexType name="addAppointment">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="arg0" type="ns0:appointmentTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="addAppointmentResponse">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="return" type="xsd:int"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAllDemographicIdByProgramProvider">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="arg0" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="arg1" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAllDemographicIdByProgramProviderResponse">
+    <xsd:sequence>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="return" type="xsd:int"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAppointment">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="arg0" type="xsd:int"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAppointment2">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="arg0" type="xsd:int"/>
+      <xsd:element name="arg1" type="xsd:boolean"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAppointment2Response">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="return" type="ns0:appointmentTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAppointmentArchivesUpdatedAfterDate">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="arg0" type="xsd:dateTime"/>
+      <xsd:element name="arg1" type="xsd:int"/>
+      <xsd:element name="arg2" type="xsd:boolean"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAppointmentArchivesUpdatedAfterDateResponse">
+    <xsd:sequence>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="return" type="ns0:appointmentArchiveTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAppointmentResponse">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="return" type="ns0:appointmentTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAppointmentTypes"/>
+  <xsd:complexType name="getAppointmentTypesResponse">
+    <xsd:sequence>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="return" type="ns0:appointmentTypeTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAppointmentsByDemographicIdAfter">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="lastUpdate" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="demographicId" type="xsd:int"/>
+      <xsd:element name="useGMTTime" type="xsd:boolean"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAppointmentsByDemographicIdAfterResponse">
+    <xsd:sequence>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="return" type="ns0:appointmentTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAppointmentsByProgramProviderDemographicDate">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="arg0" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="arg1" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="arg2" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="arg3" type="xsd:dateTime"/>
+      <xsd:element name="arg4" type="xsd:int"/>
+      <xsd:element name="arg5" type="xsd:boolean"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAppointmentsByProgramProviderDemographicDateResponse">
+    <xsd:sequence>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="return" type="ns0:appointmentTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAppointmentsForDateRangeAndProvider">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="arg0" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="arg1" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="arg2" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAppointmentsForDateRangeAndProvider2">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="arg0" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="arg1" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="arg2" type="xsd:string"/>
+      <xsd:element name="arg3" type="xsd:boolean"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAppointmentsForDateRangeAndProvider2Response">
+    <xsd:sequence>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="return" type="ns0:appointmentTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAppointmentsForDateRangeAndProviderResponse">
+    <xsd:sequence>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="return" type="ns0:appointmentTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAppointmentsForPatient">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="arg0" type="xsd:int"/>
+      <xsd:element name="arg1" type="xsd:int"/>
+      <xsd:element name="arg2" type="xsd:int"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAppointmentsForPatient2">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="arg0" type="xsd:int"/>
+      <xsd:element name="arg1" type="xsd:int"/>
+      <xsd:element name="arg2" type="xsd:int"/>
+      <xsd:element name="arg3" type="xsd:boolean"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAppointmentsForPatient2Response">
+    <xsd:sequence>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="return" type="ns0:appointmentTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAppointmentsForPatientResponse">
+    <xsd:sequence>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="return" type="ns0:appointmentTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAppointmentsForProvider">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="arg0" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="arg1" type="xsd:dateTime"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAppointmentsForProvider2">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="arg0" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="arg1" type="xsd:dateTime"/>
+      <xsd:element name="arg2" type="xsd:boolean"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAppointmentsForProvider2Response">
+    <xsd:sequence>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="return" type="ns0:appointmentTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAppointmentsForProviderResponse">
+    <xsd:sequence>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="return" type="ns0:appointmentTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAppointmentsUpdatedAfterDate">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="arg0" type="xsd:dateTime"/>
+      <xsd:element name="arg1" type="xsd:int"/>
+      <xsd:element name="arg2" type="xsd:boolean"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAppointmentsUpdatedAfterDateResponse">
+    <xsd:sequence>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="return" type="ns0:appointmentTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getDayWorkSchedule">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="arg0" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="arg1" type="xsd:dateTime"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getDayWorkScheduleResponse">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="return" type="ns0:dayWorkScheduleTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getScheduleTemplateCodes"/>
+  <xsd:complexType name="getScheduleTemplateCodesResponse">
+    <xsd:sequence>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="return" type="ns0:scheduleTemplateCodeTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="testTimeZone_1492_05_12_18_26_32">
+    <xsd:sequence>
+      <xsd:element name="arg0" type="xsd:boolean"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="testTimeZone_1492_05_12_18_26_32Response">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="return" type="xsd:dateTime"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="updateAppointment">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="arg0" type="ns0:appointmentTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="updateAppointmentResponse"/>
+  <xsd:complexType name="appointmentArchiveTransfer">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="appointmentEndDateTime" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="appointmentId" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="appointmentStartDateTime" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="billing" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="bookingSource" type="ns0:bookingSource"/>
+      <xsd:element minOccurs="0" name="createDateTime" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="creator" type="xsd:string"/>
+      <xsd:element name="demographicNo" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="id" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="lastUpdateUser" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="location" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="name" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="notes" type="xsd:string"/>
+      <xsd:element name="programId" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="providerNo" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="reason" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="remarks" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="resources" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="status" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="style" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="type" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="updateDateTime" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="urgency" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="appointmentTransfer">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="appointmentEndDateTime" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="appointmentStartDateTime" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="billing" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="bookingSource" type="ns0:bookingSource"/>
+      <xsd:element minOccurs="0" name="createDateTime" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="creator" type="xsd:string"/>
+      <xsd:element name="demographicNo" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="id" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="lastUpdateUser" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="location" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="name" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="notes" type="xsd:string"/>
+      <xsd:element name="programId" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="providerNo" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="reason" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="remarks" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="resources" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="status" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="style" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="type" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="updateDateTime" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="urgency" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="appointmentTypeTransfer">
+    <xsd:sequence>
+      <xsd:element name="duration" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="id" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="location" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="name" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="notes" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="reason" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="resources" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="calendarScheduleCodePairTransfer">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="date" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="scheduleCode" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="dayWorkScheduleTransfer">
+    <xsd:sequence>
+      <xsd:element name="holiday" type="xsd:boolean"/>
+      <xsd:element minOccurs="0" name="timeSlotDurationMin" type="xsd:int"/>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="timeSlots" nillable="true" type="ns0:calendarScheduleCodePairTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="scheduleTemplateCodeTransfer">
+    <xsd:sequence>
+      <xsd:element name="bookinglimit" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="code" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="color" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="confirm" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="description" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="duration" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="id" type="xsd:int"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:element name="addAppointment" type="ns0:addAppointment"/>
+  <xsd:element name="addAppointmentResponse" type="ns0:addAppointmentResponse"/>
+  <xsd:element name="getAllDemographicIdByProgramProvider" type="ns0:getAllDemographicIdByProgramProvider"/>
+  <xsd:element name="getAllDemographicIdByProgramProviderResponse" type="ns0:getAllDemographicIdByProgramProviderResponse"/>
+  <xsd:element name="getAppointment" type="ns0:getAppointment"/>
+  <xsd:element name="getAppointment2" type="ns0:getAppointment2"/>
+  <xsd:element name="getAppointment2Response" type="ns0:getAppointment2Response"/>
+  <xsd:element name="getAppointmentArchivesUpdatedAfterDate" type="ns0:getAppointmentArchivesUpdatedAfterDate"/>
+  <xsd:element name="getAppointmentArchivesUpdatedAfterDateResponse" type="ns0:getAppointmentArchivesUpdatedAfterDateResponse"/>
+  <xsd:element name="getAppointmentResponse" type="ns0:getAppointmentResponse"/>
+  <xsd:element name="getAppointmentTypes" type="ns0:getAppointmentTypes"/>
+  <xsd:element name="getAppointmentTypesResponse" type="ns0:getAppointmentTypesResponse"/>
+  <xsd:element name="getAppointmentsByDemographicIdAfter" type="ns0:getAppointmentsByDemographicIdAfter"/>
+  <xsd:element name="getAppointmentsByDemographicIdAfterResponse" type="ns0:getAppointmentsByDemographicIdAfterResponse"/>
+  <xsd:element name="getAppointmentsByProgramProviderDemographicDate" type="ns0:getAppointmentsByProgramProviderDemographicDate"/>
+  <xsd:element name="getAppointmentsByProgramProviderDemographicDateResponse" type="ns0:getAppointmentsByProgramProviderDemographicDateResponse"/>
+  <xsd:element name="getAppointmentsForDateRangeAndProvider" type="ns0:getAppointmentsForDateRangeAndProvider"/>
+  <xsd:element name="getAppointmentsForDateRangeAndProvider2" type="ns0:getAppointmentsForDateRangeAndProvider2"/>
+  <xsd:element name="getAppointmentsForDateRangeAndProvider2Response" type="ns0:getAppointmentsForDateRangeAndProvider2Response"/>
+  <xsd:element name="getAppointmentsForDateRangeAndProviderResponse" type="ns0:getAppointmentsForDateRangeAndProviderResponse"/>
+  <xsd:element name="getAppointmentsForPatient" type="ns0:getAppointmentsForPatient"/>
+  <xsd:element name="getAppointmentsForPatient2" type="ns0:getAppointmentsForPatient2"/>
+  <xsd:element name="getAppointmentsForPatient2Response" type="ns0:getAppointmentsForPatient2Response"/>
+  <xsd:element name="getAppointmentsForPatientResponse" type="ns0:getAppointmentsForPatientResponse"/>
+  <xsd:element name="getAppointmentsForProvider" type="ns0:getAppointmentsForProvider"/>
+  <xsd:element name="getAppointmentsForProvider2" type="ns0:getAppointmentsForProvider2"/>
+  <xsd:element name="getAppointmentsForProvider2Response" type="ns0:getAppointmentsForProvider2Response"/>
+  <xsd:element name="getAppointmentsForProviderResponse" type="ns0:getAppointmentsForProviderResponse"/>
+  <xsd:element name="getAppointmentsUpdatedAfterDate" type="ns0:getAppointmentsUpdatedAfterDate"/>
+  <xsd:element name="getAppointmentsUpdatedAfterDateResponse" type="ns0:getAppointmentsUpdatedAfterDateResponse"/>
+  <xsd:element name="getDayWorkSchedule" type="ns0:getDayWorkSchedule"/>
+  <xsd:element name="getDayWorkScheduleResponse" type="ns0:getDayWorkScheduleResponse"/>
+  <xsd:element name="getScheduleTemplateCodes" type="ns0:getScheduleTemplateCodes"/>
+  <xsd:element name="getScheduleTemplateCodesResponse" type="ns0:getScheduleTemplateCodesResponse"/>
+  <xsd:element name="testTimeZone_1492_05_12_18_26_32" type="ns0:testTimeZone_1492_05_12_18_26_32"/>
+  <xsd:element name="testTimeZone_1492_05_12_18_26_32Response" type="ns0:testTimeZone_1492_05_12_18_26_32Response"/>
+  <xsd:element name="updateAppointment" type="ns0:updateAppointment"/>
+  <xsd:element name="updateAppointmentResponse" type="ns0:updateAppointmentResponse"/>
+  <xsd:simpleType name="bookingSource">
+    <xsd:restriction base="xsd:string">
+      <xsd:enumeration value="OSCAR"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+</xsd:schema>
+  </wsdl:types>
+  <wsdl:message name="getAppointmentsForProvider">
+    <wsdl:part element="tns:getAppointmentsForProvider" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAppointmentsByDemographicIdAfter">
+    <wsdl:part element="tns:getAppointmentsByDemographicIdAfter" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAppointmentsForProvider2">
+    <wsdl:part element="tns:getAppointmentsForProvider2" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAppointmentTypesResponse">
+    <wsdl:part element="tns:getAppointmentTypesResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getScheduleTemplateCodesResponse">
+    <wsdl:part element="tns:getScheduleTemplateCodesResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getDayWorkScheduleResponse">
+    <wsdl:part element="tns:getDayWorkScheduleResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAppointmentsByProgramProviderDemographicDateResponse">
+    <wsdl:part element="tns:getAppointmentsByProgramProviderDemographicDateResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAppointmentsForProviderResponse">
+    <wsdl:part element="tns:getAppointmentsForProviderResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAppointmentsForPatient2Response">
+    <wsdl:part element="tns:getAppointmentsForPatient2Response" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="updateAppointment">
+    <wsdl:part element="tns:updateAppointment" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="updateAppointmentResponse">
+    <wsdl:part element="tns:updateAppointmentResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="addAppointmentResponse">
+    <wsdl:part element="tns:addAppointmentResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAllDemographicIdByProgramProviderResponse">
+    <wsdl:part element="tns:getAllDemographicIdByProgramProviderResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getDayWorkSchedule">
+    <wsdl:part element="tns:getDayWorkSchedule" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="testTimeZone_1492_05_12_18_26_32">
+    <wsdl:part element="tns:testTimeZone_1492_05_12_18_26_32" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="addAppointment">
+    <wsdl:part element="tns:addAppointment" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAppointment2">
+    <wsdl:part element="tns:getAppointment2" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAllDemographicIdByProgramProvider">
+    <wsdl:part element="tns:getAllDemographicIdByProgramProvider" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAppointmentsForPatientResponse">
+    <wsdl:part element="tns:getAppointmentsForPatientResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAppointmentsForPatient2">
+    <wsdl:part element="tns:getAppointmentsForPatient2" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAppointmentArchivesUpdatedAfterDateResponse">
+    <wsdl:part element="tns:getAppointmentArchivesUpdatedAfterDateResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAppointmentsForProvider2Response">
+    <wsdl:part element="tns:getAppointmentsForProvider2Response" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAppointmentTypes">
+    <wsdl:part element="tns:getAppointmentTypes" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAppointmentsForDateRangeAndProvider2Response">
+    <wsdl:part element="tns:getAppointmentsForDateRangeAndProvider2Response" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getScheduleTemplateCodes">
+    <wsdl:part element="tns:getScheduleTemplateCodes" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAppointmentArchivesUpdatedAfterDate">
+    <wsdl:part element="tns:getAppointmentArchivesUpdatedAfterDate" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAppointmentsForDateRangeAndProvider">
+    <wsdl:part element="tns:getAppointmentsForDateRangeAndProvider" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAppointmentsForDateRangeAndProviderResponse">
+    <wsdl:part element="tns:getAppointmentsForDateRangeAndProviderResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAppointmentsUpdatedAfterDateResponse">
+    <wsdl:part element="tns:getAppointmentsUpdatedAfterDateResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAppointment2Response">
+    <wsdl:part element="tns:getAppointment2Response" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="testTimeZone_1492_05_12_18_26_32Response">
+    <wsdl:part element="tns:testTimeZone_1492_05_12_18_26_32Response" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAppointmentsByDemographicIdAfterResponse">
+    <wsdl:part element="tns:getAppointmentsByDemographicIdAfterResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAppointmentsByProgramProviderDemographicDate">
+    <wsdl:part element="tns:getAppointmentsByProgramProviderDemographicDate" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAppointmentResponse">
+    <wsdl:part element="tns:getAppointmentResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAppointmentsForPatient">
+    <wsdl:part element="tns:getAppointmentsForPatient" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAppointment">
+    <wsdl:part element="tns:getAppointment" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAppointmentsForDateRangeAndProvider2">
+    <wsdl:part element="tns:getAppointmentsForDateRangeAndProvider2" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAppointmentsUpdatedAfterDate">
+    <wsdl:part element="tns:getAppointmentsUpdatedAfterDate" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:portType name="ScheduleWs">
+    <wsdl:operation name="getAllDemographicIdByProgramProvider">
+      <wsdl:input message="tns:getAllDemographicIdByProgramProvider" name="getAllDemographicIdByProgramProvider">
+    </wsdl:input>
+      <wsdl:output message="tns:getAllDemographicIdByProgramProviderResponse" name="getAllDemographicIdByProgramProviderResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAppointmentsForProvider">
+      <wsdl:input message="tns:getAppointmentsForProvider" name="getAppointmentsForProvider">
+    </wsdl:input>
+      <wsdl:output message="tns:getAppointmentsForProviderResponse" name="getAppointmentsForProviderResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAppointmentsByDemographicIdAfter">
+      <wsdl:input message="tns:getAppointmentsByDemographicIdAfter" name="getAppointmentsByDemographicIdAfter">
+    </wsdl:input>
+      <wsdl:output message="tns:getAppointmentsByDemographicIdAfterResponse" name="getAppointmentsByDemographicIdAfterResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAppointmentsForPatient2">
+      <wsdl:input message="tns:getAppointmentsForPatient2" name="getAppointmentsForPatient2">
+    </wsdl:input>
+      <wsdl:output message="tns:getAppointmentsForPatient2Response" name="getAppointmentsForPatient2Response">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAppointmentsForProvider2">
+      <wsdl:input message="tns:getAppointmentsForProvider2" name="getAppointmentsForProvider2">
+    </wsdl:input>
+      <wsdl:output message="tns:getAppointmentsForProvider2Response" name="getAppointmentsForProvider2Response">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAppointmentTypes">
+      <wsdl:input message="tns:getAppointmentTypes" name="getAppointmentTypes">
+    </wsdl:input>
+      <wsdl:output message="tns:getAppointmentTypesResponse" name="getAppointmentTypesResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getScheduleTemplateCodes">
+      <wsdl:input message="tns:getScheduleTemplateCodes" name="getScheduleTemplateCodes">
+    </wsdl:input>
+      <wsdl:output message="tns:getScheduleTemplateCodesResponse" name="getScheduleTemplateCodesResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAppointmentArchivesUpdatedAfterDate">
+      <wsdl:input message="tns:getAppointmentArchivesUpdatedAfterDate" name="getAppointmentArchivesUpdatedAfterDate">
+    </wsdl:input>
+      <wsdl:output message="tns:getAppointmentArchivesUpdatedAfterDateResponse" name="getAppointmentArchivesUpdatedAfterDateResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAppointmentsForDateRangeAndProvider">
+      <wsdl:input message="tns:getAppointmentsForDateRangeAndProvider" name="getAppointmentsForDateRangeAndProvider">
+    </wsdl:input>
+      <wsdl:output message="tns:getAppointmentsForDateRangeAndProviderResponse" name="getAppointmentsForDateRangeAndProviderResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="updateAppointment">
+      <wsdl:input message="tns:updateAppointment" name="updateAppointment">
+    </wsdl:input>
+      <wsdl:output message="tns:updateAppointmentResponse" name="updateAppointmentResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getDayWorkSchedule">
+      <wsdl:input message="tns:getDayWorkSchedule" name="getDayWorkSchedule">
+    </wsdl:input>
+      <wsdl:output message="tns:getDayWorkScheduleResponse" name="getDayWorkScheduleResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="testTimeZone_1492_05_12_18_26_32">
+      <wsdl:input message="tns:testTimeZone_1492_05_12_18_26_32" name="testTimeZone_1492_05_12_18_26_32">
+    </wsdl:input>
+      <wsdl:output message="tns:testTimeZone_1492_05_12_18_26_32Response" name="testTimeZone_1492_05_12_18_26_32Response">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAppointmentsByProgramProviderDemographicDate">
+      <wsdl:input message="tns:getAppointmentsByProgramProviderDemographicDate" name="getAppointmentsByProgramProviderDemographicDate">
+    </wsdl:input>
+      <wsdl:output message="tns:getAppointmentsByProgramProviderDemographicDateResponse" name="getAppointmentsByProgramProviderDemographicDateResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="addAppointment">
+      <wsdl:input message="tns:addAppointment" name="addAppointment">
+    </wsdl:input>
+      <wsdl:output message="tns:addAppointmentResponse" name="addAppointmentResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAppointment2">
+      <wsdl:input message="tns:getAppointment2" name="getAppointment2">
+    </wsdl:input>
+      <wsdl:output message="tns:getAppointment2Response" name="getAppointment2Response">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAppointmentsForPatient">
+      <wsdl:input message="tns:getAppointmentsForPatient" name="getAppointmentsForPatient">
+    </wsdl:input>
+      <wsdl:output message="tns:getAppointmentsForPatientResponse" name="getAppointmentsForPatientResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAppointment">
+      <wsdl:input message="tns:getAppointment" name="getAppointment">
+    </wsdl:input>
+      <wsdl:output message="tns:getAppointmentResponse" name="getAppointmentResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAppointmentsForDateRangeAndProvider2">
+      <wsdl:input message="tns:getAppointmentsForDateRangeAndProvider2" name="getAppointmentsForDateRangeAndProvider2">
+    </wsdl:input>
+      <wsdl:output message="tns:getAppointmentsForDateRangeAndProvider2Response" name="getAppointmentsForDateRangeAndProvider2Response">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAppointmentsUpdatedAfterDate">
+      <wsdl:input message="tns:getAppointmentsUpdatedAfterDate" name="getAppointmentsUpdatedAfterDate">
+    </wsdl:input>
+      <wsdl:output message="tns:getAppointmentsUpdatedAfterDateResponse" name="getAppointmentsUpdatedAfterDateResponse">
+    </wsdl:output>
+    </wsdl:operation>
+  </wsdl:portType>
+  <wsdl:binding name="ScheduleWsServiceSoapBinding" type="tns:ScheduleWs">
+    <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <wsdl:operation name="getAllDemographicIdByProgramProvider">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getAllDemographicIdByProgramProvider">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getAllDemographicIdByProgramProviderResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAppointmentsForProvider">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getAppointmentsForProvider">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getAppointmentsForProviderResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAppointmentsByDemographicIdAfter">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getAppointmentsByDemographicIdAfter">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getAppointmentsByDemographicIdAfterResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAppointmentsForPatient2">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getAppointmentsForPatient2">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getAppointmentsForPatient2Response">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAppointmentsForProvider2">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getAppointmentsForProvider2">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getAppointmentsForProvider2Response">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAppointmentTypes">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getAppointmentTypes">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getAppointmentTypesResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getScheduleTemplateCodes">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getScheduleTemplateCodes">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getScheduleTemplateCodesResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAppointmentArchivesUpdatedAfterDate">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getAppointmentArchivesUpdatedAfterDate">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getAppointmentArchivesUpdatedAfterDateResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAppointmentsForDateRangeAndProvider">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getAppointmentsForDateRangeAndProvider">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getAppointmentsForDateRangeAndProviderResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="updateAppointment">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="updateAppointment">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="updateAppointmentResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getDayWorkSchedule">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getDayWorkSchedule">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getDayWorkScheduleResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="testTimeZone_1492_05_12_18_26_32">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="testTimeZone_1492_05_12_18_26_32">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="testTimeZone_1492_05_12_18_26_32Response">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAppointmentsByProgramProviderDemographicDate">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getAppointmentsByProgramProviderDemographicDate">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getAppointmentsByProgramProviderDemographicDateResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="addAppointment">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="addAppointment">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="addAppointmentResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAppointment2">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getAppointment2">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getAppointment2Response">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAppointmentsForPatient">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getAppointmentsForPatient">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getAppointmentsForPatientResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAppointment">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getAppointment">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getAppointmentResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAppointmentsForDateRangeAndProvider2">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getAppointmentsForDateRangeAndProvider2">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getAppointmentsForDateRangeAndProvider2Response">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAppointmentsUpdatedAfterDate">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getAppointmentsUpdatedAfterDate">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getAppointmentsUpdatedAfterDateResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:service name="ScheduleWsService">
+    <wsdl:port binding="tns:ScheduleWsServiceSoapBinding" name="ScheduleWsPort">
+      <soap:address location="http://127.0.0.1:18080/carlos/ws/ScheduleService"/>
+    </wsdl:port>
+  </wsdl:service>
+</wsdl:definitions>

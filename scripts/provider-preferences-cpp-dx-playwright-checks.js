@@ -18,6 +18,7 @@
  * Fixtures: the throwaway login, one FAKE- allergy on the owned patient. Cleanup deletes the
  * allergy, the throwaway's ProviderPreference/view rows and the throwaway (property, roles, log).
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
@@ -212,10 +213,10 @@ async function workflow(s) {
 
   await s.step('negative probes: GET on saveWorkView and on the CPP save is refused and changes nothing', async () => {
     const before = `${viewValue('ticklerview')}|${property('cpp.pref.enable')}|${property('cpp.allergy.severity')}`;
-    const view = await context.request.get(h.appUrl(config.baseUrl,
+    const view = await authenticatedProbe({context, config}, h.appUrl(config.baseUrl,
       '/saveWorkView?method=save&view_name=tickler&ticklerview=D'), { maxRedirects: 0 });
     h.assert(view.status() === 405, `GET saveWorkView answered HTTP ${view.status()}, expected 405`);
-    const cpp = await context.request.get(h.appUrl(config.baseUrl,
+    const cpp = await authenticatedProbe({context, config}, h.appUrl(config.baseUrl,
       '/provider/CppPreferences?method=save&cpp.pref.enable=off&cpp.allergy.severity=off'), { maxRedirects: 0 });
     h.assert(`${viewValue('ticklerview')}|${property('cpp.pref.enable')}|${property('cpp.allergy.severity')}` === before,
       'A GET request changed a saved preference');

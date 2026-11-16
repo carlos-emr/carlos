@@ -436,6 +436,10 @@ public class ProviderService extends AbstractServiceImpl {
             throw new WebApplicationException("provider settings may only be saved for the authenticated provider",
                     Response.Status.FORBIDDEN);
         }
+        if (json == null || !io.github.carlos_emr.carlos.utility.ConsultationWarningPeriod
+                .isValid(json.getConsultationTimePeriodWarning())) {
+            throw new WebApplicationException("Invalid consultation warning period in months", Response.Status.BAD_REQUEST);
+        }
         providerManager.updateProviderSettings(getLoggedInInfo(), providerNo, json);
         return RestResponse.successResponse(null);
     }
@@ -475,6 +479,7 @@ public class ProviderService extends AbstractServiceImpl {
     /**
      * The providers as this caller may see them: a provider's whole record goes to that provider and
      * to holders of the administrative read right; everyone else gets {@link #summaryOf(Provider)}.
+     * A whole record includes its billing identifiers, as it always did; no billing right is consulted.
      */
     private List<Provider> visible(LoggedInInfo loggedInInfo, List<Provider> providers) {
         boolean admin = securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null);

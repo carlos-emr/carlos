@@ -497,9 +497,10 @@ class ImageDecodingUnitTest {
         assertThat(vetted).contains("com.sun.imageio.plugins.png.PNGImageReaderSpi", "com.sun.imageio.plugins.jpeg.JPEGImageReaderSpi",
                 "com.sun.imageio.plugins.gif.GIFImageReaderSpi", "com.sun.imageio.plugins.bmp.BMPImageReaderSpi",
                 "com.sun.imageio.plugins.wbmp.WBMPImageReaderSpi", "com.twelvemonkeys.imageio.plugins.tiff.TIFFImageReaderSpi");
-        // The JAI readers of the same formats are on the test class path, and are not read through.
-        assertThat(refused).contains("com.github.jaiimageio.impl.plugins.bmp.BMPImageReaderSpi",
-                "com.github.jaiimageio.impl.plugins.tiff.TIFFImageReaderSpi");
+        // ZXing JavaSE no longer brings JAI ImageIO onto the classpath (#5473).
+        // The provider-injection tests below still prove that unvetted readers are never used.
+        assertThat(Stream.concat(vetted.stream(), refused.stream()))
+                .noneMatch(name -> name.startsWith("com.github.jaiimageio."));
     }
 
     @Test

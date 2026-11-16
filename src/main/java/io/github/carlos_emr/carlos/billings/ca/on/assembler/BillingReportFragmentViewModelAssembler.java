@@ -177,8 +177,6 @@ public class BillingReportFragmentViewModelAssembler {
             String popupUrl = request.getContextPath() + "/billing?billRegion=ON&billForm="
                     + java.net.URLEncoder.encode(defaultView, java.nio.charset.StandardCharsets.UTF_8)
                     + "&hotclick=&appointment_no=" + apptNo
-                    + "&demographic_name="
-                    + java.net.URLEncoder.encode(demoName, java.nio.charset.StandardCharsets.UTF_8)
                     + "&demographic_no=" + demoNo
                     + "&user_no=" + userNo
                     + "&apptProvider_no=" + nullToEmpty(providerView)

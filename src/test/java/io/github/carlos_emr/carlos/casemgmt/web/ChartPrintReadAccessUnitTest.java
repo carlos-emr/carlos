@@ -118,6 +118,53 @@ class ChartPrintReadAccessUnitTest extends CarlosUnitTestBase {
     private EctProgramManager defaultPrograms;
 
     @Test
+    void shouldAuditBeforeDisclosingAnyBytes_whenChartPdfWritesMultipleChunks() throws Exception {
+        logActionMock.when(() -> io.github.carlos_emr.carlos.log.LogAction.addLogStrict(
+                login, "print", "echart", "101", "101", null)).thenAnswer(invocation -> {
+                    assertThat(response.getContentAsByteArray()).isEmpty();
+                    return null;
+                });
+        try (var renderer = mockConstruction(CaseManagementPrint.class, (mock, context) ->
+                doAnswer(invocation -> {
+                    java.io.OutputStream output = invocation.getArgument(13);
+                    output.write(new byte[0]);
+                    logActionMock.verifyNoInteractions();
+                    output.write(new byte[]{'P', 'D'});
+                    output.write('F');
+                    return null;
+                }).when(mock).doPrint(eq(login), eq(101), anyBoolean(), any(String[].class),
+                        anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(),
+                        anyBoolean(), any(), any(), eq(request), any()))) {
+            entry.print();
+            assertThat(renderer.constructed()).hasSize(1);
+        }
+        assertThat(response.getContentAsString()).isEqualTo("PDF");
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogStrict(
+                login, "print", "echart", "101", "101", null));
+    }
+
+    @Test
+    void shouldWithholdThePdf_whenItsAuditCannotBePersisted() throws Exception {
+        logActionMock.when(() -> io.github.carlos_emr.carlos.log.LogAction.addLogStrict(
+                login, "print", "echart", "101", "101", null))
+                .thenThrow(new IllegalStateException("audit unavailable"));
+        try (var renderer = mockConstruction(CaseManagementPrint.class, (mock, context) ->
+                doAnswer(invocation -> {
+                    java.io.OutputStream output = invocation.getArgument(13);
+                    output.write(new byte[]{'P', 'D', 'F'});
+                    return null;
+                }).when(mock).doPrint(eq(login), eq(101), anyBoolean(), any(String[].class),
+                        anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(),
+                        anyBoolean(), any(), any(), eq(request), any()))) {
+            entry.print();
+            assertThat(renderer.constructed()).hasSize(1);
+        }
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(response.getContentAsByteArray()).isEmpty();
+        assertThat(response.getHeader("Content-Disposition")).isNull();
+    }
+
+    @Test
     void shouldRefusePdfBeforeWritingBytes_whenStructuredChartCannotBeProjected() throws Exception {
         org.mockito.Mockito.doThrow(new io.github.carlos_emr.carlos.commn.model.CdsLegacyProjectionException())
                 .when(projections).requireWholeChartSupported(101);

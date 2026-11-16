@@ -158,7 +158,8 @@ function clearOwnedPrescriptionRows(sql, demographicNo, marker) {
     'Invalid prescription fixture identity');
   h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${demographicNo}
     AND last_name=${h.sqlString(marker)}`) === '1', 'Prescription fixture ownership changed');
-  sql.execute(`DELETE FROM prescription WHERE demographic_no=${demographicNo}
+  sql.execute(`DELETE FROM rx_submission_receipt WHERE demographic_no=${demographicNo};
+    DELETE FROM prescription WHERE demographic_no=${demographicNo}
     AND script_no IN (SELECT script_no FROM drugs WHERE demographic_no=${demographicNo}
       AND customName LIKE ${h.sqlString(`${marker}%`)});
     DELETE FROM drugs WHERE demographic_no=${demographicNo} AND customName LIKE ${h.sqlString(`${marker}%`)}`);
@@ -333,8 +334,9 @@ async function workflow(session) {
       refusal = await pending;
       h.assert(refusal.status() === 409, 'a duplicate submission of the same card version was accepted');
     });
-    h.assert(dialogs.length === 1 && dialogs[0].text === await stale.evaluate(() => jsMsg.staleDraft),
-      'duplicate save did not report a stale draft');
+    h.assert((await refusal.json()).error === 'RX_ALREADY_SAVED', 'Duplicate save lost its durable receipt acknowledgement');
+    h.assert(dialogs.length === 1 && dialogs[0].text === await stale.evaluate(() => jsMsg.alreadySaved),
+      'duplicate save did not explain that the prescription was already saved');
     consumeExpectedConflict(session.recorder, refusal, since, session.config.baseUrl);
     h.assert(sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}
       AND customName=${h.sqlString(name)}`) === '1', 'duplicate save created another medication');

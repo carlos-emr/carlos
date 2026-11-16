@@ -34,19 +34,20 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.managers.DocumentManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.webserv.DocumentListProfile;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.BeanUtils;
 
 public final class DocumentTransfer {
-    private static Logger logger = MiscUtils.getLogger();
+    private static final Logger logger = MiscUtils.getLogger();
 
     private Integer documentNo;
     private String doctype;
@@ -174,6 +175,8 @@ public final class DocumentTransfer {
         this.programId = programId;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getUpdatedatetime() {
         return (updatedatetime);
     }
@@ -198,6 +201,8 @@ public final class DocumentTransfer {
         this.contenttype = contenttype;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getContentdatetime() { return contentdatetime; }
     public void setContentdatetime(Date value) { contentdatetime=value; }
     /** Imported source precision; no timestamp is inferred for an absent source clock. */
@@ -212,6 +217,8 @@ public final class DocumentTransfer {
         this.public1 = public1;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getObservationdate() {
         return (observationdate);
     }
@@ -228,6 +235,8 @@ public final class DocumentTransfer {
         this.reviewer = reviewer;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getReviewdatetime() {
         return (reviewdatetime);
     }
@@ -293,6 +302,10 @@ public final class DocumentTransfer {
             justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
                     "known CARLOS types; no user-controlled property name reaches the sink")
     public static DocumentTransfer toTransfer(Document document, CtlDocument ctlDocument) throws IOException {
+        return toTransfer(document, ctlDocument, true);
+    }
+
+    private static DocumentTransfer toTransfer(Document document, CtlDocument ctlDocument, boolean inline) throws IOException {
         if (document == null) return (null);
         requireLegacyProjection(document);
 
@@ -306,12 +319,29 @@ public final class DocumentTransfer {
             documentTransfer.setCtlStatus(ctlDocument.getStatus());
         }
 
-        documentTransfer.setFileContents(document.getDocumentFileContentsAsBytes());
+        if (inline) documentTransfer.setFileContents(document.getDocumentFileContentsAsBytes());
 
         return (documentTransfer);
     }
 
+    /**
+     * Builds one page of a bulk {@code DocumentWs} operation under the caller's
+     * {@link DocumentListProfile}.
+     *
+     * <p>A request without the profile header is an existing client. It receives what the
+     * published operation has always returned: file content inline, with a document whose stored
+     * file cannot be read left out of the page (and reported in the server log). Refusing the whole
+     * page instead would stop such a client at the same page on every retry, so that stricter
+     * outcome is reserved for callers that ask for it with {@code legacy-inline}.</p>
+     *
+     * @param loggedInInfo LoggedInInfo the authenticated caller, used for the document-link lookup
+     * @param documents List&lt;Document&gt; the selected page, already authorized by the manager
+     * @return DocumentTransfer[] the page in the selected profile
+     * @throws org.apache.cxf.binding.soap.SoapFault when the explicit {@code legacy-inline}
+     *         profile meets an unreadable stored file, or a document carries a CDS source precision
+     */
     public static DocumentTransfer[] getTransfers(LoggedInInfo loggedInInfo, List<Document> documents) {
+        DocumentListProfile profile = DocumentListProfile.current();
         // Refuse the whole selected page before allocating any file byte arrays.
         for (Document document:documents) requireLegacyProjection(document);
         DocumentManager documentManager = SpringUtils.getBean(DocumentManager.class);
@@ -321,10 +351,18 @@ public final class DocumentTransfer {
         for (Document document : documents) {
             try {
                 CtlDocument ctlDocument = documentManager.getCtlDocumentByDocumentId(loggedInInfo, document.getId());
-                DocumentTransfer transfer = DocumentTransfer.toTransfer(document, ctlDocument);
+                DocumentTransfer transfer = DocumentTransfer.toTransfer(document, ctlDocument, profile.inline());
                 results.add(transfer);
             } catch (IOException e) {
-                logger.error("Unexpected error", e);
+                if (profile.faultsOnUnreadableContent()) {
+                    throw new org.apache.cxf.binding.soap.SoapFault("Document content could not be read",
+                            org.apache.cxf.binding.soap.SoapFault.FAULT_CODE_SERVER);
+                }
+                // Published header-less behaviour: the page is still answered, without this document.
+                // The failure names a stored file, so only its type and location are logged; the
+                // document number is what an operator needs to find and repair the record.
+                logger.error("Document content could not be read; left out of the bulk response: documentNo={}{}",
+                        LogSafe.sanitizeObject(document.getId()), LogSafe.exceptionTrace(e));
             }
         }
 
@@ -341,6 +379,6 @@ public final class DocumentTransfer {
 
     @Override
     public String toString() {
-        return (ReflectionToStringBuilder.toString(this));
+        return getClass().getSimpleName() + "[protected]";
     }
 }

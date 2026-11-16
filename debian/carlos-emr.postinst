@@ -76,7 +76,7 @@ mark_incomplete() {
     fi
     case "; ${INCOMPLETE_REASONS}; " in
         *"; ${incomplete_reason}; "*) ;;
-        *) INCOMPLETE_REASONS="${INCOMPLETE_REASONS:+${INCOMPLETE_REASONS}; }${incomplete_reason}" ;;
+        *) INCOMPLETE_REASONS="${INCOMPLETE_REASONS:+"${INCOMPLETE_REASONS}; "}${incomplete_reason}" ;;
     esac
     marker_tmp=""
     if mkdir -p "${STATE}" && marker_tmp="$(mktemp "${INCOMPLETE_MARKER}.XXXXXX")" &&
@@ -235,11 +235,11 @@ log_action() {
 # (apache2, a Nextcloud snap, an administrator's own unit, ...) keeps the
 # front door down, so it is stopped and kept off -- after asking, when debconf
 # can ask. carlos-emr/stop-port-conflicts lists exactly what would be stopped;
-# a non-interactive install (or a priority above high) takes the default,
-# true, and goes ahead. Either way every action, and a refusal, goes to stderr
+# a non-interactive install (or a priority above high) leaves services running
+# unless the operator explicitly preseeded true. Every action and refusal goes to stderr
 # and the journal. Declining changes nothing: the nginx step then records
-# what holds the ports, and the install finishes NOT ready. A preseeded false
-# keeps every run hands-off. Sets FRONT_DOOR_FREED to the "stopped:" lines for
+# what holds the ports, and the install finishes NOT ready. Sets
+# FRONT_DOOR_FREED to the "stopped:" lines for
 # the closing note.
 #
 # $1 is the version being upgraded from (empty on a first install). An nginx
@@ -264,9 +264,9 @@ free_front_door() {
     db_fset carlos-emr/stop-port-conflicts seen false || true
     db_input high carlos-emr/stop-port-conflicts || true
     db_go || true
-    RET=true
+    RET=false
     db_get carlos-emr/stop-port-conflicts || true
-    if [ "${RET}" = false ]; then
+    if [ "${RET}" != true ]; then
         printf '%s\n' "${front_door_plan}" | while IFS= read -r planned_line; do
             echo "carlos-emr: NOT stopping (declined): ${planned_line}" >&2
             log_action "front door: declined to stop ${planned_line}"
@@ -1601,17 +1601,17 @@ OAUTH_ACCESS_DEFAULTS
         if [ "${PROVISION_LOCK_HELD}" = 1 ]; then
             free_front_door "${2:-}"
         fi
-        # Disable the distribution's default site before init-config tests
-        # or reloads nginx. Its IPv6 listeners can fail on an IPv4-only host,
-        # recording an incomplete install that the later CARLOS site setup
-        # would otherwise repair in this same configure. Keep the conffile
-        # and any administrator-created real file. As in the later nginx
-        # setup, clean up the stock symlink even when provisioning is deferred.
-        if [ -L /etc/nginx/sites-enabled/default ]; then
-            rm -f /etc/nginx/sites-enabled/default
-        fi
         [ -e /etc/nginx/sites-enabled/carlos-emr ] || export CARLOS_CONFIGURE_FIRST_RUN=1
         if [ "${PROVISION_LOCK_HELD}" = 1 ]; then
+            # Retire Ubuntu's default site BEFORE init-config refreshes the
+            # certificate or tests nginx. Its unconditional [::]:80 listener
+            # fails on IPv6-less hosts even though our rendered listeners are
+            # IPv4-only. Remove only the symlink, never nginx's conffile or an
+            # operator's regular file. The CARLOS site is enabled below once
+            # its generated includes and certificate are in place.
+            if [ -L /etc/nginx/sites-enabled/default ]; then
+                rm -f /etc/nginx/sites-enabled/default
+            fi
             carlos-ctl init-config || {
                 echo "carlos-emr: WARNING: init-config reported a problem applying the front-door" >&2
                 echo "carlos-emr: WARNING: configuration (see above). The install continues; fix the" >&2
@@ -1620,6 +1620,7 @@ OAUTH_ACCESS_DEFAULTS
             }
         fi
         unset CARLOS_CONFIGURE_FIRST_RUN
+
 
         # (The mariadb start + wait that used to sit here is hoisted above
         # the db-name migration check — see the comment there.)
@@ -2001,6 +2002,48 @@ OAUTH_ACCESS_DEFAULTS
             # no marker and nothing for finish-install to retry.
             mark_incomplete "the nginx configuration test failed"
         fi
+
+        # BEGIN MODERN_CHART_CUTOVER
+        # init-config and database-user provisioning may rewrite this file. Persist the mandatory setting
+        # afterwards, as root: the normal root:carlos 0640 configuration cannot
+        # be changed by Tomcat. This is not an optional default or a one-time
+        # sentinel: every configure must leave rollback binaries in modern mode.
+        # Use the same POSIX record lock as Java's FileChannel, not flock(1).
+        # Append in place rather than rename: an encryption-key initializer
+        # already waiting on this inode must not write its key to an unlinked file.
+        if [ "${PROVISION_LOCK_HELD}" = 1 ]; then
+            if ! python3 - "${PROPERTIES}" <<'MODERN_CHART_CUTOVER'
+import fcntl
+import os
+import stat
+import sys
+
+path = sys.argv[1]
+entry = (b"\n\n# Mandatory modern-chart cutover; retain this on rollback (#4793).\n"
+         b"AbandonOldChart=true\n")
+try:
+    # Never create a stub if init-config failed or the operator file disappeared.
+    with open(path, "r+b") as configuration:
+        if not stat.S_ISREG(os.fstat(configuration.fileno()).st_mode):
+            raise OSError("the configuration source is not a regular file")
+        fcntl.lockf(configuration, fcntl.LOCK_EX)
+        if not configuration.read().endswith(entry):
+            configuration.seek(0, os.SEEK_END)
+            configuration.write(entry)
+            configuration.flush()
+            os.fsync(configuration.fileno())
+except OSError as error:
+    print("carlos-emr: ERROR: could not persist AbandonOldChart=true in "
+          + path + ": " + str(error), file=sys.stderr)
+    sys.exit(1)
+MODERN_CHART_CUTOVER
+            then
+                echo "carlos-emr: ERROR: modern-chart cutover failed; the application will not be started." >&2
+                echo "carlos-emr: ERROR: fix ${PROPERTIES}, then run: sudo dpkg --configure -a" >&2
+                exit 1
+            fi
+        fi
+        # END MODERN_CHART_CUTOVER
         ;;
 
     triggered)

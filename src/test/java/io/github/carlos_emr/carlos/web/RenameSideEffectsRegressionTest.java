@@ -88,7 +88,9 @@ class RenameSideEffectsRegressionTest {
     @DisplayName("should link the encounter's OntarioMD disease list to its action")
     void shouldLinkOntarioMdDiseaseList_toItsAction() throws IOException {
         String header = read(JSP.resolve("casemgmt/newEncounterHeader.jsp"));
-        assertThat(header).contains("${carlos:forJavaScript(ctx)}/common/omdDiseaseList?sex=").doesNotContain("/commons/omdDiseaseList");
+        assertThat(header).contains("${carlos:forJavaScriptAttribute(ctx)}/common/omdDiseaseList?sex="
+                + "${carlos:forUriComponent(popupPatientSex)}&amp;age=${carlos:forUriComponent(popupPatientAge)}")
+                .doesNotContain("/commons/omdDiseaseList");
         assertThat(read(Path.of("src/main/webapp/WEB-INF/classes/struts-integration.xml")))
                 .contains("<action name=\"common/omdDiseaseList\"");
     }

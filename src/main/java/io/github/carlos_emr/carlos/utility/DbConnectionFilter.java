@@ -28,29 +28,20 @@
 package io.github.carlos_emr.carlos.utility;
 
 import java.io.IOException;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.Collections;
-import java.util.Set;
-import java.util.WeakHashMap;
-import java.util.concurrent.atomic.AtomicReference;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterConfig;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
-import javax.sql.DataSource;
 
 import org.apache.logging.log4j.Logger;
 
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
-import io.github.carlos_emr.carlos.util.SqlUtils;
 
 /**
  * Request-end safety net for legacy JDBC: after the request finishes, successfully or not, it
- * releases the thread's legacy connection ({@link #getThreadLocalDbConnection()}), any
- * {@link LegacyJdbcQuery} resources a caller left open and every connection still tracked by
+ * releases any {@link LegacyJdbcQuery} resources a caller left open and every connection still tracked by
  * {@link OscarTrackingBasicDataSource} for the thread.
  *
  * <p>The cleanup only works where the filter is mapped (issue #5305). {@code web.xml} maps it as
@@ -69,41 +60,6 @@ import io.github.carlos_emr.carlos.util.SqlUtils;
  */
 public class DbConnectionFilter implements jakarta.servlet.Filter {
     private static final Logger logger = MiscUtils.getLogger();
-
-    private static ThreadLocal<AtomicReference<Connection>> dbConnection = new ThreadLocal<AtomicReference<Connection>>();
-    private static final Set<AtomicReference<Connection>> trackedConnectionHolders = Collections.synchronizedSet(
-            Collections.newSetFromMap(new WeakHashMap<AtomicReference<Connection>, Boolean>()));
-    private static final Set<Connection> trackedConnections = Collections.synchronizedSet(
-            Collections.newSetFromMap(new WeakHashMap<Connection, Boolean>()));
-
-    /**
-     * @deprecated Raw JDBC connections obtained here bypass Spring's transaction
-     * management and run with {@code autoCommit=true}. Use JPA {@link jakarta.persistence.EntityManager}
-     * and {@link jakarta.persistence.EntityManager#createNativeQuery(String)} within an
-     * {@code @Transactional} context instead. Scheduled for removal once remaining
-     * non-DAO callers migrate.
-     */
-    @Deprecated(forRemoval = true)
-    public static Connection getThreadLocalDbConnection() throws SQLException {
-        AtomicReference<Connection> holder = dbConnection.get();
-        if (holder == null) {
-            holder = new AtomicReference<Connection>();
-            dbConnection.set(holder);
-            trackedConnectionHolders.add(holder);
-        }
-
-        Connection c = holder.get();
-        if (c == null || c.isClosed()) {
-            if (c != null) {
-                trackedConnections.remove(c);
-            }
-            c = getDbConnection();
-            holder.set(c);
-            trackedConnections.add(c);
-        }
-
-        return (c);
-    }
 
     public void init(FilterConfig filterConfig) throws ServletException {
         logger.info("Starting Filter : " + getClass().getSimpleName());
@@ -135,26 +91,8 @@ public class DbConnectionFilter implements jakarta.servlet.Filter {
         }
     }
 
-    public static void releaseThreadLocalDbConnection() {
-        AtomicReference<Connection> holder = dbConnection.get();
-        try {
-            Connection c = holder == null ? null : holder.getAndSet(null);
-            SqlUtils.closeResources(c, null, null);
-            if (c != null) {
-                trackedConnections.remove(c);
-            }
-        } catch (Exception e) {
-            logger.error("Error closing db connection.", e);
-        } finally {
-            if (holder != null) {
-                trackedConnectionHolders.remove(holder);
-            }
-            dbConnection.remove();
-        }
-    }
-
+    /** Releases legacy resources for this request or background worker after its transactions finish. */
     public static void releaseAllThreadDbResources() {
-        releaseThreadResource("legacy thread-local database connection", DbConnectionFilter::releaseThreadLocalDbConnection);
         releaseThreadResource("legacy JDBC query resources", LegacyJdbcQuery::releaseThreadResources);
         releaseThreadResource("tracking data source connections", OscarTrackingBasicDataSource::releaseThreadConnections);
     }
@@ -165,55 +103,6 @@ public class DbConnectionFilter implements jakarta.servlet.Filter {
         } catch (RuntimeException e) {
             logger.error("Error releasing {}", resourceName, e);
         }
-    }
-
-    /**
-     * Releases all JDBC resources known to the legacy thread-local connection
-     * tracker. This shutdown-only API first clears the current thread's resources,
-     * then closes and removes every tracked raw connection. It is idempotent and
-     * must not be used during normal request handling.
-     *
-     * @since 2026-05-21
-     */
-    public static void releaseAllKnownDbResources() {
-        releaseAllThreadDbResources();
-        AtomicReference<Connection>[] holders;
-        synchronized (trackedConnectionHolders) {
-            holders = trackedConnectionHolders.toArray(new AtomicReference[0]);
-        }
-        for (AtomicReference<Connection> holder : holders) {
-            Connection c = holder.getAndSet(null);
-            try {
-                SqlUtils.closeResources(c, null, null);
-            } finally {
-                if (c != null) {
-                    trackedConnections.remove(c);
-                }
-                trackedConnectionHolders.remove(holder);
-            }
-        }
-
-        Connection[] connections;
-        synchronized (trackedConnections) {
-            connections = trackedConnections.toArray(new Connection[0]);
-        }
-        for (Connection c : connections) {
-            try {
-                SqlUtils.closeResources(c, null, null);
-            } finally {
-                trackedConnections.remove(c);
-            }
-        }
-    }
-
-    /**
-     * This method should only be called by DbConnectionFilter internally, everyone else should use getThreadLocalDbConnection to obtain a connection.
-     */
-    private static Connection getDbConnection() throws SQLException {
-
-        Connection c = ((DataSource) SpringUtils.getBean(DataSource.class)).getConnection();
-        c.setAutoCommit(true);
-        return (c);
     }
 
     public void destroy() {
