@@ -203,4 +203,33 @@ class EFormExportZipArchiverMetadataImportUnitTest {
         assertThat(EFormExportZip.isArchiverMetadataEntry("__macosx/._form.html")).isTrue();
         assertThat(EFormExportZip.isArchiverMetadataEntry("__macosx/form.html")).isFalse();
     }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"form.name=\n", "form.name=\nform.htmlFilename=\n"})
+    void shouldReportMissingName_whenHtmlFilenameIsAlsoMissing(String properties) throws Exception {
+        Result result = runImport(zip(Map.of("eform.properties", utf8(properties))));
+
+        assertThat(result.errors()).containsExactly("Skipped form because it has no form name.");
+        assertThat(result.saved()).isEmpty();
+        assertThat(publishedNames()).isEmpty();
+        try (Stream<Path> staged = Files.list(imageFolder.resolve("extractFolder"))) {
+            assertThat(staged).isEmpty();
+        }
+    }
+
+    @Test
+    void shouldKeepRejectedHtmlPrivate_whenOnlyTheFormNameIsMissing() throws Exception {
+        Map<String, byte[]> entries = new LinkedHashMap<>();
+        entries.put("eform.properties", utf8("form.name=\nform.htmlFilename=rejected.html\n"));
+        entries.put("rejected.html", utf8(HTML));
+        entries.put("valid/eform.properties", utf8("form.name=Synthetic valid\nform.htmlFilename=valid.html\n"));
+        entries.put("valid.html", utf8(HTML));
+
+        Result result = runImport(zip(entries));
+
+        assertThat(result.errors()).containsExactly("Skipped form because it has no form name.");
+        assertThat(result.saved()).extracting(EForm::getFormName).containsExactly("Synthetic valid");
+        assertThat(result.saved()).extracting(EForm::getFormHtml).containsExactly(HTML);
+        assertThat(publishedNames()).isEmpty();
+    }
 }

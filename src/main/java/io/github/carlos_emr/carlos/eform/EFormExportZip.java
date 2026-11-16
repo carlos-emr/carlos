@@ -385,7 +385,9 @@ public class EFormExportZip {
         if (newEForm.getFormName() == null || newEForm.getFormName().isEmpty()) {
             errors.add("Skipped form because it has no form name.");
             _log.info("Skipped form because it has no form name.");
-            eformTableFailed.put(newEForm.getFormFileName(), newEForm);
+            if (newEForm.getFormFileName() != null && !newEForm.getFormFileName().isEmpty()) {
+                eformTableFailed.put(newEForm.getFormFileName(), newEForm);
+            }
             return textBytes;
         }
         if (newEForm.getFormFileName() == null || newEForm.getFormFileName().isEmpty()) {
