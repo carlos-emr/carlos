@@ -134,8 +134,10 @@ class EFormSignatureViewForPdfGenerationServletUnitTest extends CarlosUnitTestBa
             DigitalSignature signature = new DigitalSignature();
             signature.setSignatureImage(imageBytes);
             signature.setDemographicId(signaturePatient);
+            signature.setModuleType(io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType.E_FORM);
             DigitalSignatureManager manager = mock(DigitalSignatureManager.class);
             when(manager.getDigitalSignature(42)).thenReturn(signature);
+            when(manager.getDigitalSignatureMetadata(42)).thenReturn(signature);
             registerMock(DigitalSignatureManager.class, manager);
             registerMock(EFormDataDao.class, eFormDataDaoFor(4321, 111));
 
