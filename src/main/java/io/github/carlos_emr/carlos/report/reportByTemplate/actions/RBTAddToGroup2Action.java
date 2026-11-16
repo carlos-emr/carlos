@@ -65,7 +65,7 @@ public class RBTAddToGroup2Action extends ActionSupport {
                 int id = Integer.parseInt(templateId);
                 try {
                     rbtGroupManager.addTemplateToGroup(loggedInInfo, groupName, id);
-                } catch (IllegalArgumentException e) {
+                } catch (RBTGroupManager.GroupNameValidationException e) {
                     request.setAttribute("errormsg", e.getMessage());
                     return INPUT;
                 }

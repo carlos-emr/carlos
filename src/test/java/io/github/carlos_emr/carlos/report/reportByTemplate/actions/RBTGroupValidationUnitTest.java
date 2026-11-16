@@ -143,6 +143,17 @@ class RBTGroupValidationUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
+    void shouldPropagateUnexpectedArgumentFailures_forValidNames(boolean create) {
+        request.setParameter("groupName", "Clinic");
+        doThrow(new IllegalArgumentException("synthetic persistence argument failure"))
+                .when(groups).persist(any(RBTGroup.class));
+        assertThatThrownBy(() -> execute(create)).isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("synthetic persistence argument failure");
+        assertThat(request.getAttribute("errormsg")).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
     void shouldKeepTheExistingNoSelectionBehavior_whenNoTemplateIdsAreSubmitted(boolean omitted) {
         request.setParameter("groupName", "Clinic");
         if (omitted) request.removeParameter("tid");
