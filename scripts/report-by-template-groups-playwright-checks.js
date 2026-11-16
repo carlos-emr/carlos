@@ -60,7 +60,13 @@ async function workflow(s) {
     navigated.catch(() => {});
     await form.evaluate((element, value) => {
       if (value === null) element.elements.groupName.remove();
-      else element.elements.groupName.value = value;
+      else {
+        // Text inputs strip newlines. Keep the deliberately malformed submitted
+        // value intact so this probe reaches the manager's control-character check.
+        element.elements.groupName.type = 'hidden';
+        element.elements.groupName.value = value;
+        if (element.elements.groupName.value !== value) throw new Error('Group name fixture was normalized');
+      }
       element.submit();
     }, name);
     await navigated;
