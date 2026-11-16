@@ -293,10 +293,12 @@ class AddPrevention2ActionUnitTest extends CarlosWebTestBase {
         mockRequest.setParameter("id", "100");
         mockRequest.setParameter("dose", original.replace("\r\n", "\n").replace('\r', '\n').replace("\n", "\r\n"));
         mockRequest.setParameter("doseUnit", "");
+        mockRequest.setParameter("comments", "FAKE unrelated comment");
         data.when(() -> PreventionData.getPreventionKeyValues("100")).thenReturn(java.util.Map.of("dose", original));
         data.when(() -> PreventionData.updatetPreventionData(eq("100"), any(), any(), any(), any(), any(), any(),
                 any(), any(), any(), any(), any())).thenAnswer(call -> {
                     java.util.ArrayList<java.util.Map<String, String>> values = call.getArgument(10);
+                    assertThat(values).contains(java.util.Map.of("comments", "FAKE unrelated comment"));
                     assertThat(values.stream().filter(entry -> entry.containsKey("dose")).findFirst().orElseThrow().get("dose"))
                             .isEqualTo(original);
                     return 101;
