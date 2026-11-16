@@ -167,3 +167,5 @@ jobs:
         run: node scripts/ui-scroll-quick-pick-browser-check.js
       - name: Check job type table refresh and save lifecycle in Chromium
         run: node scripts/job-types-datatable-browser-check.js
+      - name: Check job and schedule save acknowledgements in Chromium
+        run: node --test scripts/admin-jobs-save-browser-checks.js

@@ -105,7 +105,66 @@
 
         </style>
 
+        <fmt:message key="admin.jobs.saveError" var="jobsSaveErrorLabel"/>
+        <fmt:message key="admin.jobs.saveUnconfirmed" var="jobsSaveUnconfirmedLabel"/>
+        <fmt:message key="admin.jobs.loadError" var="jobsLoadErrorLabel"/>
         <script>
+            const jobsSaveErrorLabel = "${carlos:forJavaScript(jobsSaveErrorLabel)}";
+            const jobsSaveUnconfirmedLabel = "${carlos:forJavaScript(jobsSaveUnconfirmedLabel)}";
+            const jobsLoadErrorLabel = "${carlos:forJavaScript(jobsLoadErrorLabel)}";
+            const jobSaveState = {pending: false, createUnconfirmed: false};
+            const scheduleSaveState = {pending: false};
+            let jobEditorGeneration = 0;
+            let jobEditorLoading = false;
+            let jobEditorLoadFailed = false;
+
+            function updateJobSaveButton() {
+                $('#new-job').dialog('widget').find('.jobs-save').prop('disabled', jobSaveState.pending
+                    || jobEditorLoading || jobEditorLoadFailed
+                    || (jobSaveState.createUnconfirmed && $('#jobId').val() === '0'));
+            }
+
+            function saveJobDialog(dialog, form, endpoint, expectedId, state) {
+                if (state.pending) return;
+                if (expectedId === '0' && state.createUnconfirmed) {
+                    dialog.find('.save-error').text(jobsSaveUnconfirmedLabel);
+                    return;
+                }
+                const serialized = form.serialize();
+                const controls = form.find(':input').add(dialog.dialog('widget').find('button'));
+                const disabled = controls.map(function () { return this.disabled; }).get();
+                state.pending = true;
+                controls.prop('disabled', true);
+                dialog.find('.save-error').text('');
+                function finish() {
+                    state.pending = false;
+                    controls.each(function (index) { this.disabled = disabled[index]; });
+                    updateJobSaveButton();
+                }
+                function refused() {
+                    if (expectedId === '0') state.createUnconfirmed = true;
+                    finish();
+                    dialog.find('.save-error').text(expectedId === '0' ? jobsSaveUnconfirmedLabel : jobsSaveErrorLabel);
+                }
+                try {
+                    $.ajax({url: endpoint, type: 'POST', data: serialized, dataType: 'json'})
+                        .done(function (data) {
+                            const jobs = data && data.jobs;
+                            const saved = Array.isArray(jobs) ? (jobs.length === 1 ? jobs[0] : null) : jobs;
+                            if (!saved || !/^[1-9][0-9]*$/.test(String(saved.id))
+                                    || (expectedId !== '0' && String(saved.id) !== expectedId)) {
+                                refused();
+                                return;
+                            }
+                            finish();
+                            dialog.dialog('close');
+                            listJobs();
+                        }).fail(refused);
+                } catch (error) {
+                    refused();
+                }
+            }
+
             function cancelJob(jobId) {
                 jQuery.post("<%= request.getContextPath() %>/ws/rs/jobs/cancelJob", {jobId: jobId},
                     function (xml) {
@@ -274,22 +333,44 @@
             }
 
             function editJob(jobId) {
-                jQuery.getJSON("<%= request.getContextPath() %>/ws/rs/jobs/job/" + jobId, {},
-                    function (xml) {
-                        var job = firstJob(xml);
-                        if (job) {
-                            $('#jobName').val(job.name);
-                            $('#jobType').val(job.oscarJobTypeId);
-                            $('#jobDescription').val(job.description);
-                            $('#jobEnabled').prop('checked', job.enabled);
-                            $('#jobProvider').val(job.providerNo);
-                            $('#jobId').val(job.id);
-                        }
-                    });
+                if (jobSaveState.pending) return;
+                const generation = ++jobEditorGeneration;
+                jobEditorLoading = true;
+                jobEditorLoadFailed = false;
+                $('#jobId').val(String(jobId));
+                $('#jobForm :input').prop('disabled', true);
+                $('#new-job .save-error').text('');
                 $('#new-job').dialog('open');
+                updateJobSaveButton();
+                function failedLoad() {
+                    if (generation !== jobEditorGeneration) return;
+                    jobEditorLoading = false;
+                    jobEditorLoadFailed = true;
+                    $('#new-job .save-error').text(jobsLoadErrorLabel);
+                    updateJobSaveButton();
+                }
+                jQuery.getJSON("<%= request.getContextPath() %>/ws/rs/jobs/job/" + jobId, {}, function (xml) {
+                    if (generation !== jobEditorGeneration) return;
+                    var job = firstJob(xml);
+                    if (!job || String(job.id) !== String(jobId)) { failedLoad(); return; }
+                    $('#jobName').val(job.name);
+                    $('#jobType').val(job.oscarJobTypeId);
+                    $('#jobDescription').val(job.description);
+                    $('#jobEnabled').prop('checked', job.enabled);
+                    $('#jobProvider').val(job.providerNo);
+                    jobEditorLoading = false;
+                    $('#jobForm :input').prop('disabled', false);
+                    updateJobSaveButton();
+                }).fail(failedLoad);
             }
 
             function addNewJob() {
+                if (jobSaveState.pending) return;
+                ++jobEditorGeneration;
+                jobEditorLoading = false;
+                jobEditorLoadFailed = false;
+                $('#jobForm :input').prop('disabled', false);
+                $('#new-job .save-error').text(jobSaveState.createUnconfirmed ? jobsSaveUnconfirmedLabel : '');
                 $('#jobName').val('');
                 $('#jobType').val('');
                 $('#jobDescription').val('');
@@ -297,6 +378,7 @@
                 $('#jobProvider').val('<%=provider.getProviderNo()%>');
                 $('#jobId').val('0');
                 $('#new-job').dialog('open');
+                updateJobSaveButton();
             }
 
             function clearJobs() {
@@ -417,12 +499,10 @@
                     modal: true,
                     buttons: {
                         "<fmt:message key="admin.jobs.saveJob"/>": {
-                            class: "btn btn-primary", text: "<fmt:message key="admin.jobs.saveJob"/>", click: function () {
-                                if (validateSaveJob()) {
-                                    $.post('<%= request.getContextPath() %>/ws/rs/jobs/saveJob', $('#jobForm').serialize(), function (data) {
-                                        listJobs();
-                                    });
-                                    $(this).dialog("close");
+                            class: "btn btn-primary jobs-save", text: "<fmt:message key="admin.jobs.saveJob"/>", click: function () {
+                                if (!jobEditorLoading && !jobEditorLoadFailed && validateSaveJob()) {
+                                    saveJobDialog($(this), $('#jobForm'), '<%= request.getContextPath() %>/ws/rs/jobs/saveJob',
+                                        $('#jobId').val(), jobSaveState);
                                 }
 
                             }
@@ -433,9 +513,8 @@
                             }
                         }
                     },
-                    close: function () {
-
-                    }
+                    beforeClose: function () { return !jobSaveState.pending; },
+                    close: function () { ++jobEditorGeneration; }
                 });
 
                 $("#scheduleDialog").dialog({
@@ -449,11 +528,8 @@
                                 if (!scheduleEditable) {
                                     return;
                                 }
-                                //submit the crontab-form , close the dialog.
-                                $.post('<%= request.getContextPath() %>/ws/rs/jobs/saveCrontabExpression', $('#crontab-form').serialize(), function (data) {
-                                    listJobs();
-                                });
-                                $(this).dialog("close");
+                                saveJobDialog($(this), $('#crontab-form'), '<%= request.getContextPath() %>/ws/rs/jobs/saveCrontabExpression',
+                                    $('#scheduleJobId').val(), scheduleSaveState);
 
                             }
                         },
@@ -463,9 +539,8 @@
                             }
                         }
                     },
-                    close: function () {
-
-                    }
+                    beforeClose: function () { return !scheduleSaveState.pending; },
+                    close: function () { ++scheduleRequestSeq; }
                 });
 
                 $(":radio").on('change', function () {
@@ -526,6 +601,7 @@
 
     <div id="new-job" title="<fmt:message key="admin.jobs.editorTitle"/>">
         <p class="validateTips"></p>
+        <p class="save-error text-danger" role="alert" aria-live="polite"></p>
 
         <form id="jobForm">
             <input type="hidden" name="job.id" id="jobId" value="0"/>
@@ -575,6 +651,7 @@
 
     <div id="scheduleDialog" title="<fmt:message key="admin.jobs.scheduleJob"/>">
         <p class="validateTips"></p>
+        <p class="save-error text-danger" role="alert" aria-live="polite"></p>
 
         <form id="crontab-form">
             <input type="hidden" name="scheduleJobId" id="scheduleJobId" value="0"/>
