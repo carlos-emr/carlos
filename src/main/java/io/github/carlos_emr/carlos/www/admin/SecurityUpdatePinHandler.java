@@ -21,9 +21,20 @@ public final class SecurityUpdatePinHandler {
      * @param legacyEncoding whether the existing PIN encoding setting is enabled
      */
     public static void apply(Security security, String submittedPin, boolean legacyEncoding) {
-        if (submittedPin == null || "****".equals(submittedPin)) return;
+        if (keepsStoredPin(submittedPin)) return;
         security.setPin(legacyEncoding ? Misc.encryptPIN(submittedPin) : submittedPin);
         security.setPinUpdateDate(new Date());
+    }
+
+    /**
+     * Whether a submitted PIN keeps the stored one: the control was omitted (disabled while MFA is
+     * ticked, or absent without the legacy PIN section) or it still holds the edit form's sentinel.
+     *
+     * @param submittedPin the raw form value, or null when the control was omitted
+     * @return {@code true} when {@link #apply} leaves the PIN and its update date as they are
+     */
+    public static boolean keepsStoredPin(String submittedPin) {
+        return submittedPin == null || "****".equals(submittedPin);
     }
 
     /**

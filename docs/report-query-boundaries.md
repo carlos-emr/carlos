@@ -35,8 +35,8 @@ SQL through the clinical EntityManager:
 | Workflow | Execution boundary and limits |
 | --- | --- |
 | Query by Example | Unchanged `RptByExampleData` and `ReportingConnectionService`: separate least-privileged reporting account, `QueryByExampleSqlValidator` SQL-shape, schema and sensitive-table checks before execution (including favourites); column restrictions enforced by the reporting-account grant audit and database privileges, 15 second timeout, 1,000 rows, 1,000,000 output characters, cancellation and audit. It fails closed when that account is unavailable. |
-| Configured form/antenatal exports and clinical denominator/numerator SQL | `ConfiguredReportQuery`: validated report SELECT, bound values, managed legacy JDBC datasource, 30 seconds, 10,000 rows, 5 Mi characters per query. Results detach before returning; excess rows/output fail instead of returning partial results. Internal identifier sets use a separate 100,000-ID limit and the same 30 second timeout; the rendered row budget is applied only to result rows. The CSV servlet also rejects downloads exceeding 5 MiB in UTF-8. Existing form-table/column validation and configuration permissions remain in their callers. |
-| Report by Template | Template SQL is validated when saved and again before execution; `ReportObjectGeneric` parameterization and active-template checks remain. `SQLReporter` uses streaming `ReportResultBudget`: one shared 30-second deadline, 10,000 rows, 32 queries, 10 MiB HTML and 5 MiB CSV per report, including all queries in a sequence. Each query result is limited to 256 columns and each cell to 64 Ki characters. Failed sequences discard earlier output. Resources are released on success, timeout, limit rejection and rendering failure. |
+| Configured form/antenatal exports and clinical denominator/numerator SQL | `ConfiguredReportQuery`: validated report SELECT, bound values, managed legacy JDBC datasource, 30 seconds, 10,000 rows, 5 Mi characters per query. Results detach before returning; excess rows/output fail instead of returning partial results. Internal identifier sets use a separate 100,000-ID limit and the same 30 second timeout; the rendered row budget is applied only to result rows. The CSV servlet also rejects downloads exceeding 5 MiB in UTF-8. These five values are defaults: administrators can change them in `carlos.properties` (`configured_report.*`, see [Configured report limits](#configured-report-limits)). Existing form-table/column validation and configuration permissions remain in their callers. |
+| Report by Template | Template SQL is validated when saved and again before execution; `ReportObjectGeneric` parameterization and active-template checks remain. `SQLReporter` uses streaming `ReportResultBudget`: one shared deadline (30 seconds), row limit (10,000), 32 queries and HTML limit (10 MiB) per report, including all queries in a sequence. Each query result is limited to 256 columns and each cell to 64 Ki characters. Administrators can change the deadline, rows, HTML, columns and cell size in `carlos.properties` (`report_by_template.*`, up to 300 seconds, 100,000 rows, 50 MiB, 2,000 columns and 1 Mi characters; see [Report by Template budgets](test/report-template-budgets.md)). Each query's CSV download is limited to 5 MiB (`report_by_template.max_csv_mb`, up to 50 MiB); a larger CSV is held back and the result is still shown with a note. The CSV and XLSX downloads are built on the server from the CSV kept in the session for 30 minutes (the three most recent reports), and the result page carries only a token, never the CSV ([CSV and XLSX downloads](test/report-template-budgets.md#csv-and-xlsx-downloads)). Failed sequences discard earlier output. Resources are released on success, timeout, limit rejection and rendering failure. |
 | Form column discovery | The existing encounterForm table allowlist and bare-identifier validation remain; a zero-row metadata query returns column names without reading field values, including for empty tables. Query failures propagate instead of presenting empty fields. |
 
 Configured clinical and legacy form reports continue using their existing managed
@@ -54,9 +54,47 @@ Configured form/clinical query failures and budget breaches propagate instead of
 empty exports. Clinical denominator/numerator failures abort the report rather than reporting a zero
 population or silently excluding patients; denominators use the 100,000-ID budget. Numerator
 existence/output checks read only their first matching row. Report by Template preserves result-page
-navigation for an ordinary single-query SQL failure and displays the error with no CSV/XLS download;
-limit failures and failed sequences return to configuration. Caption lookup retains its legacy
+navigation for an ordinary single-query SQL failure and displays the error with no CSV/XLSX download;
+limit failures (with a message that names the limit and, while it can still be raised, its setting) and
+failed sequences return to configuration.
+A CSV over its limit is not a failure: the result page shows the report and holds back only that
+query's downloads. Caption lookup retains its legacy
 empty-caption fallback for database failures.
+
+## Configured report limits
+
+The limits of `ConfiguredReportQuery` (form reports and their CSV download, the
+demographic/antenatal CSV export, Clinical Reports numerators and denominators, and
+the antenatal birth-summary cohort) are `carlos.properties` settings. They are read
+each time a query runs, so an operator's edit takes effect at the next restart.
+The rules are those of the Report by Template settings (`ReportLimitSetting`): a
+whole number from 1 to the maximum; a missing or blank setting keeps the default;
+a word, zero, or a negative or decimal number keeps the default and a value above
+the maximum is capped, each with one warning in the log that names the setting; no
+value switches a limit off. Query by Example keeps its own fixed limits.
+
+| Limit | Default | Setting (maximum) |
+| --- | ---: | --- |
+| Rows one report or export may return | 10,000 | `configured_report.max_rows` (100,000) |
+| Patients or records one internal selection may hold (clinical denominators, form-report sub-queries, the birth-summary cohort) | 100,000 | `configured_report.max_identifier_rows` (1,000,000) |
+| Deadline of each query, including the wait for a connection | 30 seconds | `configured_report.timeout_seconds` (300) |
+| Characters of text one query may return | 5,242,880 | `configured_report.max_output_chars` (52,428,800) |
+| Form-report CSV download, UTF-8 | 5 MiB | `configured_report.max_csv_mb` (50) |
+
+Every returned row is detached and held in memory until the page or file has been
+written, so `max_rows` and `max_output_chars` should be raised only with heap to
+spare (allow a few kilobytes per row of a wide report, for each report running at
+once). The packaged nginx proxy stops waiting after 300 seconds.
+
+A breach is a `ConfiguredReportQuery.LimitExceededException` that carries its limit
+and value; a JDBC deadline (`SQLTimeoutException`) is reported as the time limit.
+The report still fails as a whole, with the same HTTP status as before (500, or 413
+for a download over its size limit), and nothing partial is shown or downloaded.
+`ReportLimitNotice` publishes the limit to the shared error page, which shows a
+message in the user's language that names the limit and its value and, while the
+limit is below its maximum, ends with "An administrator can raise this limit with
+the setting `configured_report.…` in carlos.properties.". Only a bundle key, the
+number and the setting's name are published: never the exception, SQL or a value.
 
 ## Jasper and remaining legacy APIs
 

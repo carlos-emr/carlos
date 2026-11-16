@@ -60,6 +60,22 @@ public interface DemographicDao {
             String patientStatus, String sex, String chartNo, String year, String month, String day, String providerNo) { }
 
     List<LabPatientChoice> findLabPatientChoices(String mode, String keyword, String sort, int offset, int limit);
+    /** Read-only export projection; caller owns a bounded consistent transaction and current access checks. */
+    List<io.github.carlos_emr.carlos.commn.dto.CdsExportSelectionRowDto> findCdsExportRosterAfter(
+            List<String> physicianNos, Integer afterDemographicNo, int limit);
+
+    /** Exact selected-patient projection; missing IDs remain visible as a short result, never a substitute patient. */
+    List<io.github.carlos_emr.carlos.commn.dto.CdsExportSelectionRowDto> findCdsExportSelectedPatients(
+            List<Integer> demographicNos);
+
+    /** Raw scalar row, without model/UI defaults. Caller supplies current authorization and the patient read snapshot. */
+    io.github.carlos_emr.carlos.commn.dto.CdsExportDemographicRowDto findCdsExportRawDemographic(int demographicNo);
+
+    /** Ordered actual JDBC column recipe for reproducing an existing native receipt; empty means unavailable. */
+    default java.util.List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column> readCdsExportReceiptColumns() { return java.util.List.of(); }
+
+    /** Exact source metadata under the same read-only patient transaction, pinned until its completion. */
+    io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto readCdsExportDemographicSchema();
 
     /** Maximum number of patient search results returned in one request. */
     int MAX_SEARCH_RESULT_SIZE = 500;
@@ -450,6 +466,22 @@ public interface DemographicDao {
     public List<Demographic> search(ClientSearchFormBean bean, boolean returnOptinsOnly, boolean excludeMerged);
 
     public List<Demographic> search(ClientSearchFormBean bean);
+
+    /**
+     * Searches the filtered client set in ten-row pages, clamping requests beyond its last page.
+     * Equal primary sort values use ascending demographic ID as a stable tie breaker.
+     *
+     * @param bean ClientSearchFormBean the client filters and domain selection
+     * @param page int the nonnegative, zero-based page number
+     * @param sort int 0/1 for ID, 2 for name, 3 for birth date, 4 for gender description,
+     *     5 for chart number, 6 for current-service admission or 7 for health/safety alert presence;
+     *     other values fall back to ID
+     * @param descending boolean whether to reverse the primary sort
+     * @return QueryPage of Demographic containing at most ten rows and the exact filtered total
+     * @throws IllegalArgumentException if the executed page query receives a negative page
+     * @throws ArithmeticException if the last page or row offset exceeds int capacity
+     */
+    QueryPage<Demographic> searchClientPage(ClientSearchFormBean bean, int page, int sort, boolean descending);
 
     public void saveClient(Demographic client);
 

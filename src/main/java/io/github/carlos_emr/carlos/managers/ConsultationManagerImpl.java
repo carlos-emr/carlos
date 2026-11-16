@@ -798,6 +798,12 @@ public class ConsultationManagerImpl implements ConsultationManager {
     @Override
     public ArrayList<HashMap<String, ? extends Object>> getAttachedHRMDocuments(LoggedInInfo loggedInInfo,
             String demographicNo, String requestId, List<ConsultDocs> attachedHRMDocuments) {
+        // An optional attachment lookup is not an attempted direct HRM access. Match HRMUtil's
+        // global gate without generating a false denial audit during an ordinary consult view.
+        if (attachedHRMDocuments.isEmpty()
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", SecurityInfoManager.READ, (String) null)) {
+            return new ArrayList<>();
+        }
         //TODO: refactor HRMUtil so that it's possible to call a function, pass in a particular HRM ID, and return the same information for that HRM that listHRMDocuments does
         //		once this is done, would be possible to simply iterate over attachedHRMDocuments
         //		In the absence of the above refactoring, the following gets the full listHRMDocuments and then filters for only the items that are actually attached to the consult
