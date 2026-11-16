@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.casemgmt.web;
 import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
 
 import io.github.carlos_emr.carlos.casemgmt.common.ChartSessionKeys;
+import io.github.carlos_emr.carlos.casemgmt.common.NoteAuditData;
 import io.github.carlos_emr.carlos.casemgmt.dao.*;
 import io.github.carlos_emr.carlos.casemgmt.model.*;
 import io.github.carlos_emr.carlos.commn.dao.*;
@@ -282,14 +283,14 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         Integer patient;
         try {
             patient = Integer.valueOf(demographicNo);
-        } catch (NumberFormatException invalid) {
+        } catch (NumberFormatException _) {
             throw new SecurityException("missing required patient scope for issue write");
         }
         if (user == null || patient <= 0
                 || !securityInfoManager.hasPrivilege(user, "_demographic", "r", demographicNo)
                 || !securityInfoManager.hasPrivilege(user, "_casemgmt.issues", "w", demographicNo)
                 || !securityInfoManager.isAllowedAccessToPatientRecord(user, patient)) {
-            throw new SecurityException("missing required security object (_casemgmt.issues w)");
+            throw new SecurityException("missing required sec object (_casemgmt.issues)");
         }
         // Read only this session's existing form after numeric patient validation and record authorization;
         // the note/issue owners are checked below before any mutation. No request value is stored here.
@@ -310,6 +311,37 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             }
         }
         return true;
+    }
+
+    /** Authorize the current stored issue, rather than a rendered/session permission snapshot. */
+    private CaseManagementIssue requireCurrentIssueWriteAccess(CaseManagementIssue selected, String patient) {
+        Long issueId = selected == null ? null : selected.getId();
+        CaseManagementIssue current = issueId == null ? null : caseManagementIssueDao.findById(issueId);
+        LoggedInInfo user = LoggedInInfo.getLoggedInInfoFromSession(request);
+        int programId = currentIssueProgram(user);
+        if (current == null || !Integer.valueOf(patient).equals(current.getDemographic_no())
+                || !current.isWriteAccess(user.getLoggedInProviderNo(), programId)) {
+            throw new SecurityException("missing required sec object (_casemgmt.issues)");
+        }
+        return current;
+    }
+
+    private int currentIssueProgram(LoggedInInfo user) {
+        String program = ChartProgramContext.resolve(request);
+        if (program == null || program.isBlank()) {
+            program = new EctProgram(request.getSession()).getProgram(user.getLoggedInProviderNo());
+        }
+        return Integer.parseInt(program);
+    }
+
+    /** Check the replacement role before mutating either the stored issue or the session. */
+    private void requireReplacementIssueWriteAccess(CaseManagementIssue current, Issue replacement) {
+        CaseManagementIssue candidate = new CaseManagementIssue(current);
+        candidate.setIssue(replacement);
+        LoggedInInfo user = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!candidate.isWriteAccess(user.getLoggedInProviderNo(), currentIssueProgram(user))) {
+            throw new SecurityException("missing required sec object (_casemgmt.issues)");
+        }
     }
 
     private String dispatchRequest() throws Exception {
@@ -449,6 +481,21 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             return null;
         }
 
+        Long previousNoteId = null;
+        String previousNote = request.getParameter("previousNoteId");
+        if (previousNote != null) {
+            try {
+                previousNoteId = Long.valueOf(previousNote);
+            } catch (NumberFormatException _) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
+            }
+            if (previousNoteId < 0) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
+            }
+        }
+
         CaseManagementEntryFormBean cform = new CaseManagementEntryFormBean();
         cform.setChain("");
         request.setAttribute("change_flag", "false");
@@ -568,7 +615,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 note.setEncounter_type(bean.encType);
             }
 
-            resetTemp(providerNo, demono, programIdString);
+            // A current-editor reconciliation must not erase its recoverable draft.
+            if (!"true".equals(request.getParameter("preserveIssueEditor"))) {
+                resetTemp(providerNo, demono, programIdString);
+            }
 
         }
         // get the last temp note?
@@ -696,7 +746,12 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         logger.debug("The End of Edit " + String.valueOf(current - beginning));
         start = current;
 
-        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.EDIT, LogConst.CON_CME_NOTE, String.valueOf(note.getId()), request.getRemoteAddr(), demono, note.getAuditString());
+        // A saved note loaded into the editor is audited as edit/CME note, by its id. A new note
+        // that has not been saved is not: nothing was read or changed, and the row used to be
+        // written with the text "null" as its note id. No row carries the note text (NoteAuditData).
+        if (note.getId() != null && note.getId() > 0) {
+            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.EDIT, LogConst.CON_CME_NOTE, String.valueOf(note.getId()), request.getRemoteAddr(), demono, NoteAuditData.describe(note));
+        }
 
         //check to see if someone else is editing note in this chart
         String ipAddress = request.getRemoteAddr();
@@ -704,9 +759,21 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         Long note_id = note.getId() != null && note.getId() >= 0 ? note.getId() : 0L;
         casemgmtNoteLock = isNoteEdited(note_id, demographicNo, providerNo, ipAddress, request.getSession().getId());
 
+        if (previousNoteId != null && (casemgmtNoteLock.isLocked()
+                || !Objects.equals(casemgmtNoteLock.getSessionId(), session.getId()))) {
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
+            return NONE;
+        }
+
         if (casemgmtNoteLock.isLocked()) {
             note = makeNewNote(providerNo, demono, request);
             cform.setCaseNote(note);
+        }
+        // A successful chart replacement may open a different editor. Retire only
+        // the originating editor's lock, after acquiring its replacement, and bind
+        // the delete to the authenticated provider, patient and HTTP session.
+        if (previousNoteId != null && !previousNoteId.equals(note_id)) {
+            casemgmtNoteLockDao.removeForSession(providerNo, demographicNo, previousNoteId, session.getId());
         }
         // The legacy autosave must name the final editor note, including an unsigned
         // fallback or the new note substituted when the originally requested one is locked.
@@ -1594,7 +1661,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             logAction = LogConst.UPDATE;
         }
 
-        LogAction.addLog(providerNo, logAction, LogConst.CON_CME_NOTE, String.valueOf(note.getId()), request.getRemoteAddr(), demo, note.getAuditString());
+        LogAction.addLog(providerNo, logAction, LogConst.CON_CME_NOTE, String.valueOf(note.getId()), request.getRemoteAddr(), demo, NoteAuditData.describe(note));
 
         String f = request.getParameter("forward");
         if (f != null && f.equals("none")) {
@@ -2325,7 +2392,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         request.setAttribute("origNoteId", noteId);
         request.setAttribute("noteTxt", noteTxt);
         LogAction.addLog(providerNo, newNote ? LogConst.ADD : LogConst.UPDATE, LogConst.CON_CME_NOTE,
-                String.valueOf(note.getId()), request.getRemoteAddr(), demo, note.getAuditString());
+                String.valueOf(note.getId()), request.getRemoteAddr(), demo, NoteAuditData.describe(note));
         return ISSUE_LIST_AJAX_RESULT;
     }
 
@@ -2960,43 +3027,48 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         // get issue we're changing
         String strIndex = request.getParameter("change_diagnosis_id");
-        int index = Integer.parseInt(strIndex);
+        int index;
+        try {
+            index = Integer.parseInt(strIndex);
+        } catch (NumberFormatException _) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
 
         // change issue
         List<CheckBoxBean> oldList = this.getIssueCheckList();
+        if (oldList == null || index < 0 || index >= oldList.size()) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        CaseManagementIssue currentIssue = requireCurrentIssueWriteAccess(oldList.get(index).getIssue(), demono);
 
-        CheckIssueBoxBean[] issueList = this.getNewIssueCheckList();
-        CheckIssueBoxBean substitution = null;
+        CheckIssueBoxBean substitution = selectedDiagnosis();
         String origIssueDesc = null;
         String newIssueDesc = null;
-        // find the checked issue
-        for (CheckIssueBoxBean curr : issueList) {
-            if (curr.isChecked()) {
-                substitution = curr;
-                break;
-            }
-        }
 
         if (substitution != null) {
-            for (int x = 0; x < oldList.size(); x++) {
-                if (x == index) {
+            Issue oldIssue = currentIssue.getIssue();
+            origIssueDesc = oldIssue.getDescription();
 
-                    Issue oldIssue = oldList.get(x).getIssue().getIssue();
-                    origIssueDesc = oldIssue.getDescription();
-
-                    Issue newIssue = caseManagementMgr.getIssue(String.valueOf(substitution.getIssue().getId().longValue()));
-                    newIssueDesc = newIssue.getDescription();
-
-                    oldList.get(x).getIssue().setIssue(newIssue);
-                    oldList.get(x).getIssue().setIssue_id(substitution.getIssue().getId().longValue());
-                    oldList.get(x).getIssue().setType(newIssue.getType());
-                    oldList.get(x).getIssueDisplay().setCode(newIssue.getCode());
-                    oldList.get(x).getIssueDisplay().setCodeType(newIssue.getType());
-                    oldList.get(x).getIssueDisplay().setDescription(newIssue.getDescription());
-
-                    caseManagementMgr.saveCaseIssue(oldList.get(x).getIssue());
-                }
+            Issue newIssue = caseManagementMgr.getIssue(String.valueOf(substitution.getIssue().getId().longValue()));
+            if (newIssue == null) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
             }
+            requireReplacementIssueWriteAccess(currentIssue, newIssue);
+            newIssueDesc = newIssue.getDescription();
+
+            CheckBoxBean selected = oldList.get(index);
+            selected.setIssue(currentIssue);
+            selected.getIssue().setIssue(newIssue);
+            selected.getIssue().setIssue_id(substitution.getIssue().getId().longValue());
+            selected.getIssue().setType(newIssue.getType());
+            selected.getIssueDisplay().setCode(newIssue.getCode());
+            selected.getIssueDisplay().setCodeType(newIssue.getType());
+            selected.getIssueDisplay().setDescription(newIssue.getDescription());
+
+            caseManagementMgr.saveCaseIssue(selected.getIssue());
         }
 
         this.setIssueCheckList(oldList);
@@ -3004,6 +3076,16 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             this.caseManagementMgr.changeIssueInCPP(demono, origIssueDesc, newIssueDesc);
 
         return "view";
+    }
+
+    /** Finds the first selected diagnosis while tolerating missing and sparse form selections. */
+    private CheckIssueBoxBean selectedDiagnosis() {
+        CheckIssueBoxBean[] choices = getNewIssueCheckList();
+        if (choices == null) return null;
+        for (CheckIssueBoxBean choice : choices) {
+            if (choice != null && choice.isChecked() && choice.getIssue() != null) return choice;
+        }
+        return null;
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
@@ -3017,17 +3099,34 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         // get issue we're changing
         String strIndex = request.getParameter("change_diagnosis_id");
-        int idx = Integer.parseInt(strIndex);
+        int idx;
+        try {
+            idx = Integer.parseInt(strIndex);
+        } catch (NumberFormatException _) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
 
         String substitution = request.getParameter("newIssueId");
         String sessionFrmName = ChartProgramContext.formKey(request, getDemographicNo(request));
         CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session form bean keyed by validated demographic scope
 
-        List<CheckBoxBean> curIssues = sessionFrm.getIssueCheckList();
+        List<CheckBoxBean> curIssues = sessionFrm == null ? null : sessionFrm.getIssueCheckList();
+        if (curIssues == null || sessionFrm.getCaseNote() == null || idx < 0 || idx >= curIssues.size()) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        CaseManagementIssue currentIssue = requireCurrentIssueWriteAccess(curIssues.get(idx).getIssue(), getDemographicNo(request));
 
-        if (substitution != null && curIssues != null && idx < curIssues.size()) {
+        if (substitution != null) {
 
             Issue iss = caseManagementMgr.getIssue(substitution);
+            if (iss == null) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
+            }
+            requireReplacementIssueWriteAccess(currentIssue, iss);
+            curIssues.get(idx).setIssue(currentIssue);
             curIssues.get(idx).getIssue().setIssue(iss);
             curIssues.get(idx).getIssue().setIssue_id(iss.getId());
             this.caseManagementMgr.saveCaseIssue(curIssues.get(idx).getIssue());
@@ -3041,9 +3140,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             sessionFrm.getCaseNote().setIssues(issueset);
         }
 
-        if (curIssues != null) {
-            sessionFrm.setIssueCheckList(curIssues);
-        }
+        sessionFrm.setIssueCheckList(curIssues);
         request.setAttribute("caseManagementEntryForm", sessionFrm);
 
         return ISSUE_LIST_AJAX_RESULT;
@@ -3109,7 +3206,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
-        CaseManagementIssue removedIssue = oldList.get(index).getIssue();
+        CaseManagementIssue removedIssue = requireCurrentIssueWriteAccess(oldList.get(index).getIssue(), demono);
         if (savesNote) {
             CaseManagementEntryFormBean staged = new CaseManagementEntryFormBean();
             org.springframework.beans.BeanUtils.copyProperties(sessionFrm, staged);
@@ -3173,26 +3270,36 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         HttpSession session = request.getSession();
         if (session.getAttribute("userrole") == null) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
-            return null;
+            return NONE;
         }
-        request.setAttribute("from", sanitizeFromParam(request.getParameter("from")));
-        request.setAttribute("change_flag", "true");
-        request.setAttribute("issueStatusChanged", "true"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         String demono = getDemographicNo(request);
         String sessionFrmName = ChartProgramContext.formKey(request, demono);
         CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session form bean keyed by validated demographic scope
 
-        if (sessionFrm != null && sessionFrm.getCaseNote() != null) times.applyTo(sessionFrm.getCaseNote());
-
+        int ind;
+        try {
+            ind = Integer.parseInt(this.getLineId());
+        } catch (NumberFormatException _) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        if (sessionFrm == null || sessionFrm.getIssueCheckList() == null
+                || ind < 0 || ind >= sessionFrm.getIssueCheckList().size()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        List<CheckBoxBean> oldList = sessionFrm.getIssueCheckList();
+        // Re-read the issue and its current role/program grants. The rendered
+        // IssueDisplay and the session's issue may predate a permission change.
+        CaseManagementIssue currentIssue = requireCurrentIssueWriteAccess(oldList.get(ind).getIssue(), demono);
+        request.setAttribute("from", sanitizeFromParam(request.getParameter("from")));
+        request.setAttribute("change_flag", "true");
+        request.setAttribute("issueStatusChanged", "true"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         request.setAttribute("demoName", getDemoName(demono));
         request.setAttribute("demoAge", getDemoAge(demono));
         request.setAttribute("demoDOB", getDemoDOB(demono));
-
-        String inds = this.getLineId();
-        Integer ind = Integer.valueOf(inds);
-
-        // Get the list from session
-        List<CheckBoxBean> oldList = sessionFrm.getIssueCheckList();
+        if (sessionFrm.getCaseNote() != null) times.applyTo(sessionFrm.getCaseNote());
+        oldList.get(ind).setIssue(currentIssue);
 
         // Read the changed values directly from request parameters
         String acuteParam = request.getParameter("issueCheckList[" + ind + "].issue.acute");
@@ -3217,15 +3324,15 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         List<CaseManagementIssue> iss = new ArrayList<CaseManagementIssue>();
-        oldList.get(ind.intValue()).getIssue().setUpdate_date(new Date());
-        iss.add(oldList.get(ind.intValue()).getIssue());
+        oldList.get(ind).getIssue().setUpdate_date(new Date());
+        iss.add(oldList.get(ind).getIssue());
         caseManagementMgr.saveAndUpdateCaseIssues(iss);
 
         //Change issueDisplay if this issue is successfully saved.
-        sessionFrm.getIssueCheckList().get(ind.intValue()).getIssueDisplay().setAcute(oldList.get(ind.intValue()).getIssue().isAcute() ? "acute" : "chronic");
-        sessionFrm.getIssueCheckList().get(ind.intValue()).getIssueDisplay().setCertain(oldList.get(ind.intValue()).getIssue().isCertain() ? "certain" : "uncertain");
-        sessionFrm.getIssueCheckList().get(ind.intValue()).getIssueDisplay().setMajor(oldList.get(ind.intValue()).getIssue().isMajor() ? "major" : "not major");
-        sessionFrm.getIssueCheckList().get(ind.intValue()).getIssueDisplay().setResolved(oldList.get(ind.intValue()).getIssue().isResolved() ? "resolved" : "unresolved");
+        sessionFrm.getIssueCheckList().get(ind).getIssueDisplay().setAcute(currentIssue.isAcute() ? "acute" : "chronic");
+        sessionFrm.getIssueCheckList().get(ind).getIssueDisplay().setCertain(currentIssue.isCertain() ? "certain" : "uncertain");
+        sessionFrm.getIssueCheckList().get(ind).getIssueDisplay().setMajor(currentIssue.isMajor() ? "major" : "not major");
+        sessionFrm.getIssueCheckList().get(ind).getIssueDisplay().setResolved(currentIssue.isResolved() ? "resolved" : "unresolved");
 
         if (CarlosProperties.getInstance().isCaisiLoaded()) {
             // get access right
@@ -3449,7 +3556,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         request.setAttribute("history", note.getHistory());
         setCaseNote_history(note.getHistory());
         LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(),
-                LogConst.READ, LogConst.CON_CME_NOTE, noteid, request.getRemoteAddr(), demono, note.getAuditString());
+                LogConst.READ, LogConst.CON_CME_NOTE, noteid, request.getRemoteAddr(), demono, NoteAuditData.describe(note));
         return "historyview";
     }
 
@@ -4188,7 +4295,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         try {
             if (raw == null || !raw.matches("[1-9]\\d*")) throw new NumberFormatException();
             id = Integer.valueOf(raw);
-        } catch (NumberFormatException invalid) {
+        } catch (NumberFormatException _) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return null;
         }

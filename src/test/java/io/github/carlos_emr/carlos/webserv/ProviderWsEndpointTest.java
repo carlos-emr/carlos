@@ -23,7 +23,6 @@ package io.github.carlos_emr.carlos.webserv;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 
 import java.util.Collections;
@@ -96,24 +95,24 @@ class ProviderWsEndpointTest extends CarlosSoapTestBase {
     }
 
     @Test
-    void shouldGateAllFourBillingIdentifiers_onSoapDetailAndListResponses() {
-        var policy = billingPolicy;
+    @DisplayName("should return all four billing identifiers on SOAP detail and list responses without billing read")
+    void shouldReturnAllFourBillingIdentifiers_onSoapDetailAndListResponsesWithoutBillingRead() {
+        // The registered policy mock denies every privilege, _billing r included.
         when(mockProvider.getBillingNo()).thenReturn("FAKE-BILLING");
         when(mockProvider.getOhipNo()).thenReturn("FAKE-OHIP");
         when(mockProvider.getRmaNo()).thenReturn("FAKE-RMA");
         when(mockProvider.getHsoNo()).thenReturn("FAKE-HSO");
         when(mockProviderManager.getProviders(any(LoggedInInfo.class), eq(true))).thenReturn(List.of(mockProvider));
         ProviderWs proxy = createClient(ProviderWs.class);
-        for (boolean allowed : List.of(false, true)) {
-            when(policy.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("r"), isNull())).thenReturn(allowed);
-            for (ProviderTransfer response : List.of(proxy.getLoggedInProviderTransfer(), proxy.getProviders2(true)[0])) {
-                assertThat(response.getProviderNo()).isEqualTo("999998");
-                assertThat(response.getBillingNo()).isEqualTo(allowed ? "FAKE-BILLING" : null);
-                assertThat(response.getOhipNo()).isEqualTo(allowed ? "FAKE-OHIP" : null);
-                assertThat(response.getRmaNo()).isEqualTo(allowed ? "FAKE-RMA" : null);
-                assertThat(response.getHsoNo()).isEqualTo(allowed ? "FAKE-HSO" : null);
-            }
+        for (ProviderTransfer response : List.of(proxy.getLoggedInProviderTransfer(), proxy.getProviders2(true)[0],
+                proxy.getProviders(true)[0])) {
+            assertThat(response.getProviderNo()).isEqualTo("999998");
+            assertThat(response.getBillingNo()).isEqualTo("FAKE-BILLING");
+            assertThat(response.getOhipNo()).isEqualTo("FAKE-OHIP");
+            assertThat(response.getRmaNo()).isEqualTo("FAKE-RMA");
+            assertThat(response.getHsoNo()).isEqualTo("FAKE-HSO");
         }
+        org.mockito.Mockito.verifyNoInteractions(billingPolicy);
     }
 
     @Test

@@ -66,6 +66,7 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
         request.setParameter("type", "WT");
         response = new MockHttpServletResponse();
         when(security.hasPrivilege(login, "_measurement", "r", "101")).thenReturn(true);
+        when(security.hasPrivilege(login, "_lab", "r", "101")).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(login, 101)).thenReturn(true);
     }
 
@@ -81,6 +82,24 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRefuseRawSourceGraph_whenLabReadPrivilegeIsMissing() throws Exception {
+        request.setParameter("method", "actualLab");
+        when(security.hasPrivilege(login, "_lab", "r", "101")).thenReturn(false);
+        DemographicNameAgeString nameLookup = mock(DemographicNameAgeString.class);
+        when(nameLookup.getNameAgeString(login, 101)).thenReturn("Synthetic patient");
+        try (var servlet = mockStatic(ServletActionContext.class);
+             var names = mockStatic(DemographicNameAgeString.class);
+             var images = mockStatic(BrowserChartRenderer.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            names.when(DemographicNameAgeString::getInstance).thenReturn(nameLookup);
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> action().execute()).isInstanceOf(SecurityException.class);
+            images.verifyNoInteractions();
+            assertThat(response.getContentAsByteArray()).isEmpty();
+        }
+    }
+
+    @Test
     void shouldAnswer503WithoutImageHeaders_whenTheRendererFails() throws Exception {
         DemographicNameAgeString nameLookup = mock(DemographicNameAgeString.class);
         when(nameLookup.getNameAgeString(login, 101)).thenReturn("Synthetic patient");
@@ -91,7 +110,8 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
             servlet.when(ServletActionContext::getResponse).thenReturn(response);
             names.when(DemographicNameAgeString::getInstance).thenReturn(nameLookup);
             images.when(() -> BrowserChartRenderer.write(any(), any(), any(), anyInt(), anyInt(), anyString()))
-                    .thenThrow(new IOException("Chart rendering failed"));
+                    .thenThrow(new io.github.carlos_emr.carlos.eform.util.ChartRenderFailure(
+                            io.github.carlos_emr.carlos.eform.util.ChartRenderFailure.Reason.UNAVAILABLE, "Chart rendering unavailable"));
 
             assertThat(action().execute()).isEqualTo("none");
 
@@ -166,14 +186,20 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldAnswer503WithoutRendering_whenMeasurementExtensionsCannotBeLoaded() throws Exception {
+    void shouldAnswer500WithoutRendering_whenMeasurementExtensionsCannotBeLoaded() throws Exception {
         request.setParameter("method", "inclRef");
         when(extensions.getMeasurementsExtByMeasurementId(42)).thenThrow(new IllegalStateException("Synthetic database unavailable"));
         AtomicReference<MeasurementChart> rendered = new AtomicReference<>();
-        executeMeasurementChart("63", rendered);
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(MeasurementGraphAction22Action.class)) {
+            executeMeasurementChart("63", rendered);
+            assertThat(logs.messages()).anySatisfy(message -> assertThat(message)
+                    .contains("reason=INTERNAL_ERROR", "exception=java.lang.IllegalStateException")
+                    .doesNotContain("Synthetic database unavailable"));
+            assertThat(logs.events()).allSatisfy(event -> assertThat(event.getThrown()).isNull());
+        }
 
         assertThat(rendered).hasNullValue();
-        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(response.getStatus()).isEqualTo(500);
         assertThat(response.getContentType()).isNotEqualTo("image/png");
         assertThat(response.getContentAsByteArray()).isEmpty();
     }
@@ -189,7 +215,7 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"loinc", "CML"})
+    @ValueSource(strings = {"loinc", "CML", "HL7"})
     @SuppressWarnings("unchecked")
     void shouldPlotLabObservations_whenTheProviderUsesNormalizedCollectionDates(String labType) throws Exception {
         request.setParameter("method", "actualLab");
@@ -199,6 +225,7 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
         request.setParameter("drug", new String[0]);
         Map<String, Serializable> observation = "loinc".equals(labType)
                 ? Map.of("result", "63", "units", "kg", "collDateDate", "2024-01-15 12:00:00")
+                : "HL7".equals(labType) ? Map.of("result", "63", "units", "kg", "collDate", "2024-01-15")
                 : Map.of("result", "63", "units", "kg", "collDate", "15-Jan-24",
                         "collDateDate", new Date(1_705_276_800_000L));
         AtomicReference<MeasurementChart> rendered = new AtomicReference<>();
@@ -207,7 +234,7 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
                 labs.when(() -> CommonLabTestValues.findValuesByLoinc2("101", "synthetic-loinc"))
                         .thenReturn(List.of(observation));
             } else {
-                labs.when(() -> CommonLabTestValues.findValuesForTest("CML", 101, "Synthetic weight", "synthetic-loinc"))
+                labs.when(() -> CommonLabTestValues.findValuesForTest(labType, 101, "Synthetic weight", "synthetic-loinc"))
                         .thenReturn(new ArrayList<>(List.of(observation)));
             }
             executeMeasurementChart(null, rendered);
@@ -218,7 +245,14 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
         assertThat(datasets).singleElement().satisfies(dataset -> {
             assertThat(dataset).containsEntry("label", "Synthetic weight");
             assertThat((List<Map<String, Object>>) dataset.get("data")).singleElement()
-                    .satisfies(point -> assertThat(point).containsEntry("y", 63.0));
+                    .satisfies(point -> {
+                        assertThat(point).containsEntry("y", 63.0);
+                        if ("HL7".equals(labType)) {
+                            long timestamp = ((Number) point.get("x")).longValue();
+                            assertThat(java.time.Instant.ofEpochMilli(timestamp).atZone(java.time.ZoneId.systemDefault()).toLocalDate())
+                                    .isEqualTo(java.time.LocalDate.of(2024, 1, 15));
+                        }
+                    });
         });
     }
 

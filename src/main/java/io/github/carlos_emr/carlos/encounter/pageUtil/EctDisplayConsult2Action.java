@@ -94,11 +94,7 @@ public class EctDisplayConsult2Action extends EctDisplayAction {
             }
 
             Calendar cal = Calendar.getInstance();
-            int countback = -1;
-            if (timeperiod != null) {
-                countback = Integer.parseInt(timeperiod);
-                countback = countback * -1;
-            }
+            int countback = -io.github.carlos_emr.carlos.utility.ConsultationWarningPeriod.monthsOrDefault(timeperiod);
             cal.add(Calendar.MONTH, countback);
             Date cutoffDate = cal.getTime();
 

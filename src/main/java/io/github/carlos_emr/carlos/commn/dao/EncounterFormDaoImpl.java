@@ -55,7 +55,7 @@ public class EncounterFormDaoImpl extends AbstractDaoImpl<EncounterForm> impleme
     private String requireTable(String table) {
         if (table == null || !table.matches("[a-zA-Z][a-zA-Z0-9_]*")
                 || (!Set.of("form", "formGrowth0_36").contains(table) && findByFormTable(table).isEmpty())) {
-            throw new IllegalArgumentException("Unknown encounter form table");
+            throw new UnknownEncounterFormTableException();
         }
         return table;
     }

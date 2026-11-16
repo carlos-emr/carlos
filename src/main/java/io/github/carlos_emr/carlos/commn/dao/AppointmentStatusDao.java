@@ -35,7 +35,7 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
 
-public interface AppointmentStatusDao extends AbstractDao<AppointmentStatus> {
+public interface AppointmentStatusDao extends AbstractDao<AppointmentStatus>, CdsExportPatientTableReadDao {
 
     /**
      * Returns every appointment status, active or not.

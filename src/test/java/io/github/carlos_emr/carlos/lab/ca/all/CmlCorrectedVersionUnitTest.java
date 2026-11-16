@@ -138,6 +138,8 @@ class CmlCorrectedVersionUnitTest extends CarlosUnitTestBase {
         when(infos.findByLabIdViaMagic(12)).thenReturn(List.of(new Object[]{oldInfo, selectedInfo},
                 new Object[]{selectedInfo, selectedInfo}));
         try (var parsers = mockStatic(Factory.class)) {
+            // The selected report is readable; only its historical peer is unavailable.
+            parsers.when(() -> Factory.getHandler("12")).thenReturn(mock(CMLHandler.class));
             assertThatThrownBy(() -> Hl7textResultsData.getMatchingLabs("12"))
                     .isInstanceOf(Hl7textResultsData.IncompleteCmlVersionChainException.class)
                     .hasMessageContaining(missing ? "no stored source" : "cannot be parsed");

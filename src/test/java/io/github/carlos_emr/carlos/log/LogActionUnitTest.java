@@ -23,6 +23,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -183,6 +184,115 @@ class LogActionUnitTest {
                     || event.getMessage().getFormattedMessage().contains("chest-pain-501")
                     || event.getMessage().getFormattedMessage().contains("101"));
         }
+    }
+
+    @Test
+    @Tag("create")
+    void shouldUseDaoOwnTransaction_forIndependentAudit() {
+        OscarLogDao oscarLogDao = mock(OscarLogDao.class);
+        LogAction.setOscarLogDaoForTesting(oscarLogDao);
+        OscarLog entry = new OscarLog();
+        entry.setAction("REST WS: FAILURE: synthetic");
+
+        LogAction.addLogSynchronousInNewTransaction(entry);
+
+        // Not persist(), which would join a transaction the caller has open.
+        verify(oscarLogDao).persistInNewTransaction(entry);
+        verify(oscarLogDao, never()).persist(any());
+    }
+
+    @Test
+    @Tag("create")
+    void shouldPersistCompleteRowInTheCallingThread_fromSynchronousLoggedInInfoAudit() {
+        OscarLogDao oscarLogDao = mock(OscarLogDao.class);
+        LogAction.setOscarLogDaoForTesting(oscarLogDao);
+        java.util.concurrent.ExecutorService executor = mock(java.util.concurrent.ExecutorService.class);
+        LogAction.setExecutorServiceForTesting(executor);
+
+        LogAction.addLogSynchronous(loggedInInfo(), "delete", "appointment", "77", "42", null);
+
+        // Handed to the DAO by the caller's own thread, never queued.
+        org.mockito.Mockito.verifyNoInteractions(executor);
+        verify(oscarLogDao).persist(argThat((OscarLog log) ->
+                "999998".equals(log.getProviderNo())
+                        && "delete".equals(log.getAction())
+                        && "appointment".equals(log.getContent())
+                        && "77".equals(log.getContentId())
+                        && "127.0.0.1".equals(log.getIp())
+                        && Integer.valueOf(42).equals(log.getDemographicId())
+                        && log.getData() == null));
+    }
+
+    @Test
+    @Tag("create")
+    void shouldSwallowPersistenceFailureAndNotLogAuditedData_fromIndependentAudit() {
+        OscarLogDao oscarLogDao = mock(OscarLogDao.class);
+        doThrow(new IllegalStateException("synthetic persistence failure")).when(oscarLogDao)
+                .persistInNewTransaction(any());
+        LogAction.setOscarLogDaoForTesting(oscarLogDao);
+        OscarLog entry = new OscarLog();
+        entry.setAction("read");
+        entry.setContent("Jane Roe 4034-chart");
+        entry.setData(NOTE_TEXT_WITH_PHI);
+
+        try (LogCapture capture = LogCapture.forLogger(LogAction.class)) {
+            assertThatCode(() -> LogAction.addLogSynchronousInNewTransaction(entry)).doesNotThrowAnyException();
+
+            assertThat(capture.events()).anyMatch(event -> event.getMessage().getFormattedMessage().contains("action=read"));
+            assertThat(capture.events()).noneMatch(event -> event.getMessage().getFormattedMessage().contains("Jane Roe")
+                    || event.getMessage().getFormattedMessage().contains("chest pain"));
+        }
+    }
+
+    @Test
+    @Tag("create")
+    void shouldPersistCompleteRowInItsOwnTransaction_fromIndependentLoggedInInfoAudit() {
+        OscarLogDao oscarLogDao = mock(OscarLogDao.class);
+        LogAction.setOscarLogDaoForTesting(oscarLogDao);
+        java.util.concurrent.ExecutorService executor = mock(java.util.concurrent.ExecutorService.class);
+        LogAction.setExecutorServiceForTesting(executor);
+        LoggedInInfo info = loggedInInfo();
+        io.github.carlos_emr.carlos.commn.model.Security security = mock(io.github.carlos_emr.carlos.commn.model.Security.class);
+        when(security.getSecurityNo()).thenReturn(7);
+        when(info.getLoggedInSecurity()).thenReturn(security);
+
+        LogAction.addLogSynchronousInNewTransaction(info, "read", "query_by_example", null, null, "outcome=success");
+
+        // Written by the caller's own thread, in a transaction of its own: never queued, never joined.
+        org.mockito.Mockito.verifyNoInteractions(executor);
+        verify(oscarLogDao, never()).persist(any());
+        verify(oscarLogDao).persistInNewTransaction(argThat((OscarLog log) ->
+                "999998".equals(log.getProviderNo())
+                        && Integer.valueOf(7).equals(log.getSecurityId())
+                        && "127.0.0.1".equals(log.getIp())
+                        && "read".equals(log.getAction())
+                        && "query_by_example".equals(log.getContent())
+                        && log.getContentId() == null
+                        && log.getDemographicId() == null
+                        && "outcome=success".equals(log.getData())));
+    }
+
+    @Test
+    @Tag("create")
+    void shouldSwallowPersistenceFailure_fromIndependentLoggedInInfoAudit() {
+        OscarLogDao oscarLogDao = mock(OscarLogDao.class);
+        doThrow(new IllegalStateException("synthetic persistence failure")).when(oscarLogDao)
+                .persistInNewTransaction(any());
+        LogAction.setOscarLogDaoForTesting(oscarLogDao);
+
+        assertThatCode(() -> LogAction.addLogSynchronousInNewTransaction(loggedInInfo(), "read", "query_by_example",
+                null, null, "outcome=failed")).doesNotThrowAnyException();
+    }
+
+    @Test
+    @Tag("create")
+    void shouldSwallowPersistenceFailure_fromSynchronousLoggedInInfoAudit() {
+        OscarLogDao oscarLogDao = mock(OscarLogDao.class);
+        doThrow(new IllegalStateException("synthetic persistence failure")).when(oscarLogDao).persist(any());
+        LogAction.setOscarLogDaoForTesting(oscarLogDao);
+
+        assertThatCode(() -> LogAction.addLogSynchronous(loggedInInfo(), "delete", "appointment", "77", "42", null))
+                .doesNotThrowAnyException();
     }
 
     private static LoggedInInfo loggedInInfo() {

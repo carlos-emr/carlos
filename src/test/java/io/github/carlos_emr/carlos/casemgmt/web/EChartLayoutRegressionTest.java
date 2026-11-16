@@ -31,6 +31,8 @@ class EChartLayoutRegressionTest {
             Path.of("src/main/webapp/WEB-INF/jsp/casemgmt/newCaseManagementView.jsp");
     private static final Path CHART_NOTES =
             Path.of("src/main/webapp/WEB-INF/jsp/casemgmt/ChartNotes.jsp");
+    private static final Path ENCOUNTER_STYLES =
+            Path.of("src/main/webapp/css/encounterStyles.css");
     private static final Path NOTES_PAGINATION_JS =
             Path.of("src/main/webapp/js/newCaseManagementView.js.jsp");
 
@@ -79,5 +81,32 @@ class EChartLayoutRegressionTest {
         assertThat(jsp).contains("if (issues != null)");
         assertThat(jsp).contains("id=\"encMainDivWrapper\"");
         assertThat(jsp).contains("id=\"newNoteImg\"");
+    }
+
+    @Test
+    @DisplayName("should keep both chart sidebars the same fixed width whatever they hold")
+    void shouldKeepSidebarsSameFixedWidth_whateverTheyHold() throws IOException {
+        String css = Files.readString(ENCOUNTER_STYLES, StandardCharsets.UTF_8);
+
+        // OSCAR 19 lays the chart out 20% / 60% / 20%. With flex-grow and the default min-width:auto,
+        // a sidebar with long rows (documents, consultations) grew wider than the other one; the
+        // sidebars now neither grow nor shrink and long rows truncate inside them.
+        for (String sidebar : new String[] {"div#leftNavBar {", "#rightNavBar {"}) {
+            String rule = rule(css, sidebar);
+            assertThat(rule).as(sidebar)
+                    .contains("flex: 0 0 20%;")
+                    .contains("min-width: 0;")
+                    .doesNotContain("flex-grow")
+                    .doesNotContain("flex-basis");
+        }
+        assertThat(rule(css, "#content {")).contains("flex: 1 1 0;").contains("min-width: 0;")
+                .doesNotContain("flex-grow").doesNotContain("flex-basis");
+    }
+
+    /** The body of the first CSS rule that starts with exactly this selector line. */
+    private static String rule(String css, String opening) {
+        int start = css.indexOf("\n" + opening);
+        assertThat(start).as("rule %s", opening).isNotNegative();
+        return css.substring(start, css.indexOf('}', start));
     }
 }

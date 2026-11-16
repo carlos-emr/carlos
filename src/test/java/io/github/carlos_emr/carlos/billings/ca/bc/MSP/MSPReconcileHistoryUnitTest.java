@@ -105,6 +105,54 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
         assertThat(unknown.getUnparsedAmounts()).isEqualTo(1);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"REP_PAYREF", "REP_PAYREF_SUM"})
+    void shouldDropBlankAmountRowsWithoutFlaggingThem_forHeldRemittanceLines(String reportType) {
+        createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao.class);
+        // The reader the Payments/Refunds PDFs and CSVs use.
+        var reader = spy(new MSPReconcile(true));
+        doReturn(new Provider()).when(reader).getProvider(anyString(), anyInt());
+        // GenTa2Action stores every S04 (held) remittance line with an empty paid amount and no adjustment.
+        when(billingmasterDao.findBcPayments(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean()))
+                .thenReturn(List.of(paymentRow("", "", "", ""), paymentRow("       ", "", "", ""), paymentRow(null, "", "", ""),
+                        paymentRow("001250", "", "", ""), paymentRow("0000000", "", "", ""), paymentRow("12.5", "", "", "")));
+
+        var result = reader.getPayments("ALL", "ALL", "ALL", "", "", false, false, true, false, reportType);
+
+        // As before #6097: zero rows are left out, so a normal date range lists only its payments ...
+        var bills = result.list.stream().map(MSPBill.class::cast).toList();
+        assertThat(bills).hasSize(2);
+        assertThat(bills.get(0).getAmount()).isEqualTo("12.50");
+        assertThat(bills.get(0).getType()).isEqualTo("PMT");
+        assertThat(bills.get(0).getUnparsedAmounts()).isZero();
+        // ... while a field that really is malformed is still listed and counted.
+        assertThat(bills.get(1).getAmount())
+                .isEqualTo(MSPReconcile.REP_PAYREF_SUM.equals(reportType) ? "0.00" : "Unparsed Teleplan amount: 12.5");
+        assertThat(bills.get(1).getUnparsedAmounts()).isEqualTo(1);
+        // The count the PDFs print as "Known amounts only. Unparsed amount fields excluded: N".
+        assertThat(bills.stream().mapToInt(MSPBill::getUnparsedAmounts).sum()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldLeaveNoUnparsedCount_whenOnlyBlankAndValidAmountsAreStored() {
+        createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao.class);
+        var reader = spy(new MSPReconcile(true));
+        doReturn(new Provider()).when(reader).getProvider(anyString(), anyInt());
+        doReturn("Adjustment").when(reader).getAdjustmentCodeDesc(anyString());
+        when(billingmasterDao.findBcPayments(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean()))
+                .thenReturn(List.of(paymentRow("", "", "", ""), paymentRow("001250", "", "", ""),
+                        paymentRow("00050}", "", "", ""), paymentRow("", "AA", "000075", "")));
+
+        var bills = reader.getPayments("ALL", "ALL", "ALL", "", "", false, false, true, false, MSPReconcile.REP_PAYREF)
+                .list.stream().map(MSPBill.class::cast).toList();
+
+        // The payment, the refund, and the zero payment that carries an adjustment; nothing is "unparsed".
+        assertThat(bills).extracting(MSPBill::getAmount).containsExactly("12.50", "-5.00", "0.00");
+        assertThat(bills).extracting(MSPBill::getType).containsExactly("PMT", "RFD", "");
+        assertThat(bills.get(2).getAdjustmentCodeAmt()).isEqualTo("0.75");
+        assertThat(bills.stream().mapToInt(MSPBill::getUnparsedAmounts).sum()).isZero();
+    }
+
     @Test
     void shouldPreserveZeroOutputWithoutLoggingErrors_forSpacePaddedUnpaidAmounts() {
         try (LogCapture logs = LogCapture.forLogger(MSPReconcile.class)) {

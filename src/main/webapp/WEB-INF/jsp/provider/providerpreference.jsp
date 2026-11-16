@@ -943,7 +943,7 @@
     <div id="secConsult" class="accordion-collapse collapse" data-bs-parent="#prefAccordion">
         <div class="accordion-body">
             <div class="pref-row">
-                <div class="pref-label"><fmt:message key="provider.providerpreference.label.consultCutoff"/> <span class="hint"><fmt:message key="provider.providerpreference.hint.days"/></span></div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.consultCutoff"/> <span class="hint"><fmt:message key="provider.consultationWarning.months"/></span></div>
                 <div class="pref-value">
                     <input type="text" name="consultation_time_period_warning"
                            value="<carlos:encode value='<%= consultCutoff %>' context="htmlAttribute"/>"

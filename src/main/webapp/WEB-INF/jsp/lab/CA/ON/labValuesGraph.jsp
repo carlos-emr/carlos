@@ -209,7 +209,21 @@
                             </tr-->
             </table>
 
-            <img src="<%= request.getContextPath() %>/encounter/GraphMeasurements?method=actualLab&demographic_no=<carlos:encode value='<%= demographicNo %>' context="uriComponent"/>&labType=<carlos:encode value='<%= labType %>' context="uriComponent"/>&identifier=<carlos:encode value='<%= identifier %>' context="uriComponent"/>&testName=<carlos:encode value='<%= testName %>' context="uriComponent"/><%=drugForGraph%>"/>
+            <fmt:message key="clinical.graph.alt" var="graphAlt"/>
+            <img id="measurementGraph" alt="${carlos:forHtmlAttribute(graphAlt)}" src="<%= request.getContextPath() %>/encounter/GraphMeasurements?method=actualLab&demographic_no=<carlos:encode value='<%= demographicNo %>' context="uriComponent"/>&labType=<carlos:encode value='<%= labType %>' context="uriComponent"/>&identifier=<carlos:encode value='<%= identifier %>' context="uriComponent"/>&testName=<carlos:encode value='<%= testName %>' context="uriComponent"/><%=drugForGraph%>"/>
+            <p id="graphUnavailable" hidden role="alert"><fmt:message key="clinical.graph.unavailable"/>
+                <button type="button" onclick="window.location.reload()"><fmt:message key="clinical.graph.retry"/></button>
+            </p>
+            <script data-carlos-graph-recovery>
+                (function () {
+                    const image = document.getElementById('measurementGraph');
+                    const warning = document.getElementById('graphUnavailable');
+                    if (!image || !warning) throw new Error('Graph recovery markup is missing');
+                    image.addEventListener('error', function () { warning.hidden = false; });
+                    // A cached failure may finish before the listener is attached.
+                    if (image.complete && image.naturalWidth === 0) warning.hidden = false;
+                }());
+            </script>
 
 
             <table width="100%" border="0" cellspacing="0" cellpadding="3"

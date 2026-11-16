@@ -48,6 +48,8 @@ import io.github.carlos_emr.carlos.commn.model.FlowSheetCustomization;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.commn.model.SecRole;
 import io.github.carlos_emr.carlos.commn.model.Validations;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -291,6 +293,11 @@ public class EctMeasurements2Action extends ActionSupport {
                         m.setDateObserved(ConversionUtils.fromDateString(dateObserved));
                         m.setAppointmentNo(0);
                         dao.persist(m);
+                        // One audit row per reading stored, filed under the patient and named by the
+                        // reading's id. The value, its type and the comment are clinical content and
+                        // stay in the measurements table (this overload has no data column for them).
+                        LogAction.addLog(providerNo, LogConst.ADD, LogConst.CON_MEASUREMENT, String.valueOf(m.getId()),
+                                request.getRemoteAddr(), demographicNo);
 
                         // prepare input values for writing to the encounter form
                         if (mFlowsheet == null) {

@@ -41,13 +41,29 @@ import io.github.carlos_emr.carlos.documentManager.dto.DocumentListItemDTO;
 
 import io.github.carlos_emr.carlos.documentManager.EDocUtil.EDocSort;
 
-public interface DocumentDao extends AbstractDao<Document> {
+public interface DocumentDao extends AbstractDao<Document>, CdsExportPatientTableReadDao {
 
     /** Updates only the page count, preserving concurrent classification/metadata edits. */
     void updatePageCount(Integer documentNo, int pageCount);
 
     /** Current metadata/classification under a row lock for document publication. */
     Document findForPageMutation(Integer documentNo);
+
+    /**
+     * Number of the patient's documents whose content is a stored file the chart shows (live,
+     * status A, no stored HTML). CDS export captures only these files.
+     */
+    long countCdsExportFileRows(int patient);
+
+    /** Keyset page of {@link #countCdsExportFileRows(int)} rows: document_no and docfilename only. */
+    java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> findCdsExportFileRowsAfter(
+            int patient, Long afterId, int limit);
+
+    /**
+     * CDS export restriction metadata only: document number to program for each of the
+     * patient's documents the chart shows only inside a program. No other column is read.
+     */
+    java.util.SortedMap<Integer, Integer> readCdsExportProgramRestrictions(int patient);
 
     public enum Module {
         DEMOGRAPHIC;
