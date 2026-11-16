@@ -788,7 +788,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "81c16b46f64de407abfb37b259a9fef9fd0b88f9"
+      "sourceBlob": "079c267431ef8cf890683dceb659fefdb08ef07e"
     },
     "src/main/java/io/github/carlos_emr/carlos/casemgmt/service/CppTextLoader.java": {
       "lines": 78.57142857142857,
@@ -9603,6 +9603,24 @@
       "instructions": 100.0,
       "branches": 100.0,
       "sourceBlob": "95ddc7e8df3544321372b4162abd7bf7b5f40a2c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/print/OscarChartPrinter.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "caf4bd155b6e97feca90de95be9d4cacf8477742"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/service/CaseManagementPrint.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "5e697759b59738036abddf89410ba3ffb82fdb27"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/service/CaseManagementPrintPdf.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "323990c656bf06d042b05343895b123488231da8"
     }
   },
   "exclusions": {
