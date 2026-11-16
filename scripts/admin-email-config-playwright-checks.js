@@ -345,7 +345,7 @@ async function workflow(s) {
         await manager.locator(`#btnResolve${failedLog}`).click();
         await manager.waitForFunction(() => window.jQuery && window.jQuery.active === 0);
       });
-      h.assert(sql.value(`SELECT status FROM emailLog WHERE id=${failedLog}`) === 'FAILED',
+      h.assert(sql.value('SELECT status FROM emailLog WHERE id=?', [failedLog]) === 'FAILED',
         'The timeout response changed the stored email status');
       h.assert((await manager.locator(`#emailStatus${failedLog}`).innerText()).trim() === 'FAILED'
         && await manager.locator(`#btnResolve${failedLog}`).count() === 1,
