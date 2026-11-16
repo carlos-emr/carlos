@@ -110,6 +110,38 @@ class EFormExportZipArchiverMetadataImportUnitTest {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"nameless", "missing-filename", "existing", "valid"})
+    void shouldRetainFormValidationAndPublicationContracts_withOperationalLoggingEnabled(String variant) throws Exception {
+        String properties = "form.name=" + (variant.equals("nameless") ? "" : "FAKE metadata control") + "\n"
+                + (variant.equals("missing-filename") ? "" : "form.htmlFilename=form.html\n");
+        Map<String, byte[]> entries = new LinkedHashMap<>();
+        entries.put(".DS_Store", utf8("FAKE metadata"));
+        entries.put("eform.properties", utf8(properties));
+        if (!variant.equals("missing-filename")) entries.put("form.html", utf8(HTML));
+        List<EForm> saved = new ArrayList<>();
+        var logger = org.apache.logging.log4j.LogManager.getLogger(EFormExportZip.class);
+        var prior = logger.getLevel();
+        org.apache.logging.log4j.core.config.Configurator.setLevel(logger.getName(), org.apache.logging.log4j.Level.DEBUG);
+        try (MockedStatic<ImageUpload2Action> images = mockStatic(ImageUpload2Action.class);
+             MockedStatic<EFormUtil> forms = mockStatic(EFormUtil.class)) {
+            images.when(ImageUpload2Action::getImageFolder).thenReturn(imageFolder.toFile());
+            forms.when(() -> EFormUtil.formExistsInDB(any())).thenReturn(variant.equals("existing"));
+            forms.when(() -> EFormUtil.saveEForm(any(EForm.class))).thenAnswer(call -> {saved.add(call.getArgument(0)); return "FAKE";});
+            var errors = new EFormExportZip().importForm(new ByteArrayInputStream(zip(entries)));
+            if (variant.equals("valid")) {
+                assertThat(errors).isEmpty();
+                assertThat(saved).singleElement().satisfies(form -> assertThat(form.getFormHtml()).isEqualTo(HTML));
+            } else {
+                assertThat(errors).singleElement().asString().contains("Skipped form");
+                assertThat(saved).isEmpty();
+            }
+            assertThat(publishedNames()).isEmpty();
+        } finally {
+            org.apache.logging.log4j.core.config.Configurator.setLevel(logger.getName(), prior);
+        }
+    }
+
     /** Everything the import left in the image folder, except its own staging parent. */
     private List<String> publishedNames() throws IOException {
         try (Stream<Path> files = Files.list(imageFolder)) {
