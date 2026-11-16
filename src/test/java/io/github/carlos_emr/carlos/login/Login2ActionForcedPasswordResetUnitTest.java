@@ -1066,6 +1066,74 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should audit the accepted sign-in when completing it fails before the facility is known")
+    void shouldAuditTheAcceptedSignIn_whenCompletingItFails() throws Exception {
+        Security security = forcedResetSecurity();
+        security.setForcePasswordReset(Boolean.FALSE);
+        stagePendingMfa(security);
+        stubSuccessfulProviderLogin();
+        // The credentials and the code are accepted and the session is assigned; the lookup that
+        // decides which facility the audit row names then fails.
+        when(providerDao.getFacilityIds("999998")).thenThrow(new IllegalStateException("FAKE facility lookup failure"));
+        when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
+
+        try (MockedConstruction<TotpGenerator> ignored = mockTotpReturning("123456")) {
+            Login2Action action = newAction(null, null, null);
+            action.setCode("123456");
+
+            org.assertj.core.api.Assertions.assertThatThrownBy(action::execute)
+                    .isInstanceOf(IllegalStateException.class).hasMessage("FAKE facility lookup failure");
+
+            logActionMock.verify(() -> LogAction.addLog("999998", "log in", "login", "", request.getRemoteAddr()));
+        }
+    }
+
+    @Test
+    @DisplayName("should report the original failure when the audit of the accepted sign-in fails too")
+    void shouldKeepTheOriginalFailure_whenAuditingTheAcceptedSignInAlsoFails() throws Exception {
+        Security security = forcedResetSecurity();
+        security.setForcePasswordReset(Boolean.FALSE);
+        stagePendingMfa(security);
+        stubSuccessfulProviderLogin();
+        when(providerDao.getFacilityIds("999998")).thenThrow(new IllegalStateException("FAKE facility lookup failure"));
+        when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
+        IllegalStateException auditFailure = new IllegalStateException("FAKE audit failure");
+        logActionMock.when(() -> LogAction.addLog("999998", "log in", "login", "", request.getRemoteAddr()))
+                .thenThrow(auditFailure);
+
+        try (MockedConstruction<TotpGenerator> ignored = mockTotpReturning("123456")) {
+            Login2Action action = newAction(null, null, null);
+            action.setCode("123456");
+
+            // The caller must see why the sign-in failed, not why its audit row could not be written.
+            org.assertj.core.api.Assertions.assertThatThrownBy(action::execute)
+                    .isInstanceOf(IllegalStateException.class).hasMessage("FAKE facility lookup failure")
+                    .satisfies(failure -> assertThat(failure.getSuppressed()).containsExactly(auditFailure));
+        }
+    }
+
+    @Test
+    @DisplayName("should write one sign-in audit row when the sign-in completes")
+    void shouldWriteOneSignInRow_whenTheSignInCompletes() throws Exception {
+        Security security = forcedResetSecurity();
+        security.setForcePasswordReset(Boolean.FALSE);
+        stagePendingMfa(security);
+        stubSuccessfulProviderLogin();
+        when(providerDao.getFacilityIds("999998")).thenReturn(Collections.singletonList(10));
+        when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
+
+        try (MockedConstruction<TotpGenerator> ignored = mockTotpReturning("123456")) {
+            Login2Action action = newAction(null, null, null);
+            action.setCode("123456");
+
+            action.execute();
+
+            logActionMock.verify(() -> LogAction.addLog(eq("999998"), eq("log in"), eq("login"), anyString(),
+                    anyString()), org.mockito.Mockito.times(1));
+        }
+    }
+
+    @Test
     @DisplayName("should record facility assignment when provider has one facility")
     void shouldRecordFacilityAssignment_whenProviderHasOneFacility() throws Exception {
         Security security = forcedResetSecurity();
@@ -1117,6 +1185,104 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
             logActionMock.verify(() -> LogAction.addLog("999998", "log in", "login", "facilityId=42",
                     request.getRemoteAddr()));
             assertPendingMfaCleared();
+        }
+    }
+
+    @Test
+    @DisplayName("should write exactly one log in audit row when provider has one facility")
+    void shouldWriteOneLogInRow_whenProviderHasOneFacility() throws Exception {
+        Security security = forcedResetSecurity();
+        security.setForcePasswordReset(Boolean.FALSE);
+        stagePendingMfa(security);
+        stubSuccessfulProviderLogin();
+        when(providerDao.getFacilityIds("999998")).thenReturn(Collections.singletonList(10));
+        when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
+
+        try (MockedConstruction<TotpGenerator> ignored = mockTotpReturning("123456")) {
+            Login2Action action = newAction(null, null, null);
+            action.setCode("123456");
+
+            action.execute();
+
+            // One sign-in is one audit event: the row that names the facility, not a second bare one.
+            logActionMock.verify(() -> LogAction.addLog(eq("999998"), eq(LogConst.LOGIN), eq(LogConst.CON_LOGIN),
+                    anyString(), anyString()), org.mockito.Mockito.times(1));
+            logActionMock.verify(() -> LogAction.addLog("999998", "log in", "login", "facilityId=10",
+                    request.getRemoteAddr()));
+        }
+    }
+
+    @Test
+    @DisplayName("should write exactly one log in audit row when the fallback facility is assigned")
+    void shouldWriteOneLogInRow_whenFallbackFacilityIsAssigned() throws Exception {
+        Security security = forcedResetSecurity();
+        security.setForcePasswordReset(Boolean.FALSE);
+        Facility fallbackFacility = new Facility();
+        fallbackFacility.setId(42);
+        stagePendingMfa(security);
+        stubSuccessfulProviderLogin();
+        when(facilityDao.findAll(true)).thenReturn(Collections.singletonList(fallbackFacility));
+        when(facilityDao.find(42)).thenReturn(fallbackFacility);
+        when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
+
+        try (MockedConstruction<TotpGenerator> ignored = mockTotpReturning("123456")) {
+            Login2Action action = newAction(null, null, null);
+            action.setCode("123456");
+
+            action.execute();
+
+            logActionMock.verify(() -> LogAction.addLog(eq("999998"), eq(LogConst.LOGIN), eq(LogConst.CON_LOGIN),
+                    anyString(), anyString()), org.mockito.Mockito.times(1));
+            logActionMock.verify(() -> LogAction.addLog("999998", "log in", "login", "facilityId=42",
+                    request.getRemoteAddr()));
+        }
+    }
+
+    @Test
+    @DisplayName("should audit the authentication once when the facility is still to be chosen")
+    void shouldWriteOneLogInRow_whenFacilityIsStillToBeChosen() throws Exception {
+        Security security = forcedResetSecurity();
+        security.setForcePasswordReset(Boolean.FALSE);
+        stagePendingMfa(security);
+        stubSuccessfulProviderLogin();
+        when(providerDao.getFacilityIds("999998")).thenReturn(Arrays.asList(10, 11));
+        when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
+
+        try (MockedConstruction<TotpGenerator> ignored = mockTotpReturning("123456")) {
+            Login2Action action = newAction(null, null, null);
+            action.setCode("123456");
+
+            action.execute();
+
+            // The authentication is recorded even if the provider never picks a facility;
+            // SelectFacility2Action records the facility that is then chosen.
+            logActionMock.verify(() -> LogAction.addLog(eq("999998"), eq(LogConst.LOGIN), eq(LogConst.CON_LOGIN),
+                    anyString(), anyString()), org.mockito.Mockito.times(1));
+            logActionMock.verify(() -> LogAction.addLog("999998", "log in", "login", "",
+                    request.getRemoteAddr()));
+        }
+    }
+
+    @Test
+    @DisplayName("should audit the sign-in once when no facility exists at all")
+    void shouldWriteOneLogInRow_whenNoFacilityExists() throws Exception {
+        Security security = forcedResetSecurity();
+        security.setForcePasswordReset(Boolean.FALSE);
+        stagePendingMfa(security);
+        stubSuccessfulProviderLogin();
+        when(facilityDao.findAll(true)).thenReturn(Collections.emptyList());
+        when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
+
+        try (MockedConstruction<TotpGenerator> ignored = mockTotpReturning("123456")) {
+            Login2Action action = newAction(null, null, null);
+            action.setCode("123456");
+
+            action.execute();
+
+            logActionMock.verify(() -> LogAction.addLog(eq("999998"), eq(LogConst.LOGIN), eq(LogConst.CON_LOGIN),
+                    anyString(), anyString()), org.mockito.Mockito.times(1));
+            logActionMock.verify(() -> LogAction.addLog("999998", "log in", "login", "",
+                    request.getRemoteAddr()));
         }
     }
 
@@ -1701,6 +1867,9 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
             assertThat(result).isEqualTo("error");
             assertThat(request.getAttribute("errormsg")).isNotNull();
             assertThat(pendingSession.isInvalid()).isTrue();
+            // The accepted credentials stay on the audit trail, once, although no session results.
+            logActionMock.verify(() -> LogAction.addLog(eq("999998"), eq(LogConst.LOGIN), eq(LogConst.CON_LOGIN),
+                    anyString(), anyString()), org.mockito.Mockito.times(1));
         }
     }
 

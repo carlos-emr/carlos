@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import org.hibernate.exception.SnapshotIsolationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -200,6 +201,23 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         ArgumentCaptor<CaseManagementNote> submitted = ArgumentCaptor.forClass(CaseManagementNote.class);
         verify(manager).saveCppNoteRevision(submitted.capture(), any(), any(), any(), any());
         assertThat(submitted.getValue().getObservation_date()).isNull();
+    }
+
+    @Test
+    void shouldAuditTheCompactSaveWithoutTheNoteText_whenAjaxSaveSucceeds() throws Exception {
+        when(manager.saveCompactNoteRevision(any(), any(), anyList(), any())).thenAnswer(call -> {
+            CaseManagementNote saved = ((CaseManagementNote) call.getArgument(1)).copyForRevision();
+            saved.setId(600L);
+            return new CaseManagementManager.CompactSaveResult(saved, call.getArgument(2));
+        });
+
+        assertThat(action.ajaxsave()).isEqualTo("issueList_ajax");
+
+        logActionMock.verify(() -> LogAction.addLog("999998", LogConst.UPDATE, LogConst.CON_CME_NOTE, "600",
+                request.getRemoteAddr(), "101", "uuid=" + note.getUuid() + "; signed=false; issues=0"));
+        logActionMock.verify(() -> LogAction.addLog(anyString(), anyString(), anyString(), anyString(), anyString(),
+                anyString(), org.mockito.ArgumentMatchers.argThat((String data) -> data.contains("Unsaved draft")
+                        || data.contains("Original"))), never());
     }
 
     @Test
@@ -668,6 +686,9 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         assertThat(action.issueNoteSave()).isNull();
         logActionMock.verify(() -> LogAction.addLog(eq("999998"), anyString(), anyString(), eq("600"),
                 anyString(), eq("101"), anyString()));
+        // The audit row describes the saved revision; the CPP text and the issue stay in the chart.
+        logActionMock.verify(() -> LogAction.addLog(eq("999998"), anyString(), anyString(), eq("600"),
+                anyString(), eq("101"), eq("uuid=" + note.getUuid() + "; signed=false; issues=1")));
 
         assertThat(response.getContentAsString().trim()).isEqualTo("600");
         assertThat(form.getIssueCheckList()).singleElement()
@@ -996,9 +1017,13 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         lock.setNoteId(502L);
         if ("expiredLock".equals(scenario)) when(locks.find(10L)).thenReturn(null);
         if ("ajaxStaleSelection".equals(scenario)) request.setParameter("ajax", "true");
-        var issue = new CaseManagementIssue();
+        var issue = spy(new CaseManagementIssue());
         issue.setId(71L);
         issue.setDemographic_no(101);
+        doReturn(true).when(issue).isWriteAccess("999998", 7);
+        var issues = mock(io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO.class);
+        when(issues.findById(71L)).thenReturn(issue);
+        injectDependency(action, "caseManagementIssueDao", issues);
         var checkbox = new CheckBoxBean();
         checkbox.setIssue(issue);
         form.getIssueCheckList().add(checkbox);
@@ -1012,6 +1037,8 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         assertThat(note.getNote()).isEqualTo("Window B existing note");
         assertThat(form.getCaseNote()).isSameAs(note);
         assertThat(form.getIssueCheckList()).isSameAs(originalIssues).containsExactly(checkbox);
+        verify(issues, times("expiredLock".equals(scenario) ? 0 : 1)).findById(71L);
+        verify(issue, times("expiredLock".equals(scenario) ? 0 : 1)).isWriteAccess("999998", 7);
         verify(manager, never()).deleteIssueById(any());
         verify(manager, never()).removeIssueFromCPP(any(), any());
         verify(manager, never()).saveCaseManagementNote(any(), any(), any(), any(), any(), anyBoolean(),

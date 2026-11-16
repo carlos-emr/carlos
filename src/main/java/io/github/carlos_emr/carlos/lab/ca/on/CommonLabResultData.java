@@ -487,6 +487,23 @@ public class CommonLabResultData {
     public static int updateReportStatusWithOlderVersions(int labNo, String providerNo, char status,
                                                           String comment, String labType,
                                                           boolean skipCommentOnUpdate, String multiId) {
+        return updateReportStatusWithOlderVersionsDetailed(labNo, providerNo, status, comment,
+                labType, skipCommentOnUpdate, multiId).clearedCount();
+    }
+
+    /**
+     * What one acknowledgement did, as the transaction saw it: the routing rows it cleared from
+     * NEW and the ids of the versions it touched, so the inbox can update exactly those rows.
+     * Every older version is filed with the acknowledged one.
+     */
+    public record ReportChainUpdate(int clearedCount, List<Integer> affectedVersionIds) {
+        public ReportChainUpdate {
+            affectedVersionIds = List.copyOf(affectedVersionIds);
+        }
+    }
+
+    public static ReportChainUpdate updateReportStatusWithOlderVersionsDetailed(int labNo, String providerNo,
+            char status, String comment, String labType, boolean skipCommentOnUpdate, String multiId) {
         // Static legacy callers cannot receive a Spring @Transactional proxy. Start an outer
         // REQUIRED transaction explicitly so all routing/archive DAO calls join one unit.
         TransactionTemplate transaction =
@@ -500,7 +517,7 @@ public class CommonLabResultData {
                 labNo, providerNo, status, comment, labType, skipCommentOnUpdate, multiId));
     }
 
-    private static int updateReportChainInTransaction(int labNo, String providerNo, char status,
+    private static ReportChainUpdate updateReportChainInTransaction(int labNo, String providerNo, char status,
                                                        String comment, String labType,
                                                        boolean skipCommentOnUpdate, String multiId) {
         // Resolve the chain BEFORE the first write. Resolving it queries the database, and if
@@ -541,7 +558,7 @@ public class CommonLabResultData {
                 updateReportStatusInTransaction(version, providerNo, 'F', "", labType, false, true);
             }
         }
-        return clearedFromNew;
+        return new ReportChainUpdate(clearedFromNew, new java.util.ArrayList<>(versions));
     }
 
     /**
@@ -810,7 +827,8 @@ public class CommonLabResultData {
      * Moves imported measurements with their source result on a corrected patient match.
      * Re-importing every version duplicated current measurements and left the old patient's
      * values visible. Existing values and annotations are retained; an unmatched result with
-     * no imported values imports only the final version in the existing clinical version order.
+     * no imported values imports only its current version (see
+     * {@code Hl7textResultsData.populateCurrentVersionMeasurements}).
      * Must join the patient-match transaction.
      */
     private static void reconcileMatchedLabMeasurements(String[] labIds, String demographicNo, String labType) {
@@ -1165,7 +1183,11 @@ public class CommonLabResultData {
 
     public static void populateMeasurementsTable(String labId, String demographicNo, String labType) {
         if (labType.equals(LabResultData.HL7TEXT)) {
-            Hl7textResultsData.populateMeasurementsTable(labId, demographicNo);
+            // A patient match names the last version of the display order. Which version's results
+            // become the measurements is decided by the same rule as at upload: for a source without
+            // revision evidence that is the newest delivery, which a correction with fewer final
+            // results is even though it sorts before the report it corrects.
+            Hl7textResultsData.populateCurrentVersionMeasurements(labId, demographicNo);
         }
     }
 

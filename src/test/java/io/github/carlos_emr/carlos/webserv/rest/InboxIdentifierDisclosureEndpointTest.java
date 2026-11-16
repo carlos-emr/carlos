@@ -33,7 +33,7 @@ class InboxIdentifierDisclosureEndpointTest extends CarlosRestTestBase {
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    void shouldKeepInboxSelectionMetadata_withoutReadingOrReturningHealthCardNumbers(boolean document) {
+    void shouldReturnTheHealthCardNumber_withInboxSelectionMetadata(boolean document) {
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("41");
         var item = mock(LabResultData.class);
         when(item.getSegmentID()).thenReturn("17");
@@ -45,7 +45,7 @@ class InboxIdentifierDisclosureEndpointTest extends CarlosRestTestBase {
         when(item.getPriority()).thenReturn("U");
         when(item.isFinal()).thenReturn(true);
         when(item.getDateTime()).thenReturn("2026-08-01 12:00:00");
-        when(item.getHealthNumber()).thenThrow(new AssertionError("Bulk inbox must not read a health-card identifier"));
+        when(item.getHealthNumber()).thenReturn("FAKE-HIN");
         var page = new InboxManagerResponse(); page.setLabdocs(List.of(item));
         when(inbox.getInboxResults(any(LoggedInInfo.class), any(InboxManagerQuery.class))).thenReturn(page);
         try (Response response = request().path("/inbox/mine").query("limit", 5).get()) {
@@ -62,9 +62,9 @@ class InboxIdentifierDisclosureEndpointTest extends CarlosRestTestBase {
             assertThat(record.path("status").asText()).isEqualTo("Final");
             assertThat(record.path("priority").asText()).isEqualTo("U");
             assertThat(record.path("discipline").asText()).isEqualTo(document ? "Synthetic document type" : "Synthetic laboratory type");
-            assertThat(record.path("hin").isMissingNode() || record.path("hin").isNull()).isTrue();
+            // Inbox clients match a result to its patient by health card number; the published item carries it.
+            assertThat(record.path("hin").asText()).isEqualTo("FAKE-HIN");
         }
-        verify(item, never()).getHealthNumber();
         verify(inbox).getInboxResults(eq(mockLoggedInInfo), argThat(query -> "41".equals(query.getProviderNo())
                 && "41".equals(query.getSearchProviderNo()) && query.getPage() == 0 && query.getPageSize() == 20));
     }

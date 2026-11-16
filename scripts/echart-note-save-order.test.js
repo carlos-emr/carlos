@@ -14,7 +14,7 @@ assert.ok(start > 0 && end > start);
 
 function harness() {
   const updates = []; const panels = []; const alerts = [];
-  const fields = { newIssueId: { value: '42' }, issueAutocomplete: { value: 'fixture' } };
+  const fields = { unresolvedIssues: {}, newIssueId: { value: '42' }, issueAutocomplete: { value: 'fixture' } };
   const context = {
     caseNote: 'editor1', demographicNo: '123', ctx: '/carlos', chartContext: '', savingNoteError: 'save failed',
     document: { forms: { caseManagementEntryForm: { method: {}, ajax: {} } } },
@@ -25,6 +25,7 @@ function harness() {
   };
   vm.createContext(context); vm.runInContext(chartHelper + source.slice(start, end), context);
   context.updateIssueError = 'issue refresh failed';
+  context.issueSidebarRefreshError = 'sidebar refresh failed; saving remains available';
   return { context, updates, panels, alerts, fields };
 }
 
@@ -57,7 +58,7 @@ test('all outstanding issue updates complete before a save resumes', () => {
   assert.equal(saves, 1);
 });
 
-for (const phase of ['issue list', 'panel']) {
+for (const phase of ['issue list']) {
   test(`failed ${phase} refresh prevents saving incomplete issue state and permits retry after recovery`, () => {
     const h = harness(); let saves = 0;
     h.context.ajaxUpdateIssues('edit', 'sig1'); h.context.deferNoteSaveUntilIssues(() => saves++);
@@ -122,9 +123,9 @@ for (const [name, argument, boundary] of [
       h.context.ajaxUpdateIssues('edit', 'sig1');
       assert.equal(h.context[name](argument), false);
       assert.ok(!events.includes('teardown'));
-      h.updates[0].onComplete({ updateSucceeded: true, status: 200 });
+      h.updates[0].onComplete({ updateSucceeded: succeeded, status: succeeded ? 200 : 503 });
       assert.ok(!events.includes('teardown'));
-      h.panels[0](succeeded);
+      if (succeeded) h.panels[0](true);
       assert.equal(events.filter(event => event === 'teardown').length, succeeded ? 1 : 0);
       assert.equal(h.context.caseNote, 'editor1');
     });
@@ -250,13 +251,13 @@ function durationTeardown(values) {
   const events = [];
   const context = {
     document: {getElementById: get, createTextNode: value => ({nodeType: 3, textContent: value})},
-    $: get, $F: id => get(id).value, caseNote: editor.id, ctx: '/carlos', editLabel: 'Edit', largeNote: () => false,
+    $: get, $F: id => get(id).value, caseNote: editor.id, ctx: '/carlos', editLabel: 'Edit', largeNote: () => false, noteIsQeued: () => -1,
     noteIssuesChanged: true, autoSaveTimer: 41, clearTimeout: id => events.push(['clear timer', id]),
     removeLock: id => events.push(['release lock', String(id).match(/\d+/)[0]]), deleteAutoSave: () => events.push(['delete draft']),
     jQuery: () => ({off() {}}), destroyNoteIssueAutocomplete() {}, monitorCaseNote() {}, getActiveText() {},
     Element: {remove(id) { delete fields[id]; }, stopObserving() {}},
   };
-  const from = source.indexOf('    function finishChangeToView(');
+  const from = source.indexOf('    function notePrintButton(');
   const to = source.indexOf('    function escapeNoteText(', from);
   assert.ok(from >= 0 && to > from, 'successful note teardown source exists');
   vm.createContext(context); vm.runInContext(source.slice(from, to), context);
@@ -285,4 +286,190 @@ for (const values of [['1', '12', '2', '34'], ['', '', '', '']]) {
       assert.deepEqual(h.events, [['release lock', '101'], ['clear timer', 41], ['delete draft']]);
     });
   }
+}
+
+for (const failure of ['503', 'unacknowledged 200', 'different patient', 'setup']) {
+  test(`full-chart ${failure} retains the editor and permits retry`, () => {
+    const h = switchHarness();
+    const errors = [];
+    const replacements = [];
+    h.fields.notCPP = { update: html => replacements.push(html) };
+    h.context.caseNote = 'editor1';
+    h.context.noteIssuesChanged = false;
+    h.context.origCaseNote = h.editor.value;
+    h.form.noteId = { value: '48' };
+    Object.assign(h.context, {
+      assembleMainChartParams: () => 'demographicNo=123',
+      showChartLoadError: (id, status) => errors.push(status),
+      destroyNoteIssueAutocomplete: () => h.effects.push('destroy autocomplete'),
+    });
+    vm.runInContext(source.slice(source.indexOf('    var fullChart ='), source.indexOf('    var socHistoryLabel;')), h.context);
+    if (failure === 'setup') h.context.CarlosAjax.request = () => { throw new Error('setup'); };
+    h.context.viewFullChart(true);
+    if (failure !== 'setup') assert.equal(h.updates[0].postBody, 'demographicNo=123&previousNoteId=48');
+    assert.equal(h.editor.value, 'typed clinical text');
+    assert.deepEqual(replacements, []);
+    if (failure !== 'setup') {
+      if (failure === '503') h.updates[0].onFailure({status: 503});
+      else {
+        h.context.DOMParser = class {
+          parseFromString() { return {getElementById: () => failure === 'different patient' ? {getAttribute: () => '999'} : null}; }
+        };
+        h.updates[0].onSuccess({status: 200, responseText: '<html>login or wrong chart</html>'});
+      }
+      h.updates[0].onComplete();
+    }
+    assert.equal(h.context.fullChart, 'false');
+    assert.equal(h.editor.disabled, false);
+    assert.equal(h.context.noteSwitchSavePending, false);
+    assert.deepEqual(replacements, []);
+    assert.equal(h.effects.includes('destroy autocomplete'), false);
+    assert.equal(errors.length, 1);
+    h.context.CarlosAjax.request = (url, options) => h.updates.push(options);
+    h.context.viewFullChart(true);
+    assert.equal(h.context.noteSwitchSavePending, true);
+  });
+}
+
+test('full-chart navigation waits for acknowledgement of an encounter-type-only edit', () => {
+  const h = switchHarness();
+  h.context.caseNote = 'editor1';
+  h.context.origCaseNote = h.editor.value;
+  const markup = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/casemgmt/noteIssueList.jsp'), 'utf8');
+  const select = markup.match(/<select[^>]+class="encTypeCombo"[^>]+>/)[0];
+  vm.runInContext(select.match(/onchange="([^"]+)"/)[1], h.context);
+  let loads = 0;
+  vm.runInContext(source.slice(source.indexOf('    var fullChart ='), source.indexOf('    var socHistoryLabel;')), h.context);
+  h.context.loadFullChart = () => loads++;
+  h.context.viewFullChart(true);
+  assert.equal(loads, 0);
+  assert.equal(new URLSearchParams(h.updates[0].postBody).get('preserveEditor'), 'true',
+    'the acknowledged save must retain editable controls until the chart replaces them');
+  h.updates[0].onFailure({status: 503});
+  h.updates[0].onComplete({status: 503});
+  assert.equal(loads, 0);
+  assert.equal(h.editor.value, 'typed clinical text');
+  assert.equal(h.context.noteIssuesChanged, true);
+});
+
+for (const [index, kind] of ['resolved', 'unresolved'].entries()) {
+  test(`a ${kind} checklist-only edit enters save-on-switch and retains the selection on failure`, () => {
+    const h = switchHarness();
+    h.context.origCaseNote = h.editor.value;
+    const markup = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/casemgmt/noteIssueList.jsp'), 'utf8');
+    const inputs = markup.match(/<input type="checkbox"[^\n]+name="issueCheckList[^\n]+/g);
+    assert.equal(inputs.length, 2);
+    const handler = inputs[index].match(/onchange="([^"]+)"/);
+    assert.ok(handler, 'AJAX-rendered checkboxes must retain their change handler');
+    h.context.changedCheckbox = {form: h.form};
+    vm.runInContext('(function () {' + handler[1] + '}).call(changedCheckbox)', h.context);
+    assert.equal(h.context.noteIssuesChanged, true);
+    h.context.changeToView('editor1');
+    assert.equal(h.updates.length, 1, 'an issue-only change must save before the UI is removed');
+    h.updates[0].onFailure({status: 503});
+    h.updates[0].onComplete({status: 503});
+    assert.equal(h.context.noteIssuesChanged, true);
+    assert.equal(h.effects.includes('teardown'), false);
+  });
+}
+
+test('the first chart load succeeds before a note form or editor exists', () => {
+  const h = switchHarness();
+  h.context.document.forms = {};
+  h.context.caseNote = undefined;
+  const replacements = [];
+  h.fields.notCPP = {update: html => replacements.push(html)};
+  Object.assign(h.context, {
+    assembleMainChartParams: () => 'demographicNo=123',
+    destroyNoteIssueAutocomplete() {}, scrollDownInnerBar() {},
+    DOMParser: class {parseFromString() {return {getElementById: () => ({getAttribute: () => '123'})};}},
+  });
+  vm.runInContext(source.slice(source.indexOf('    var fullChart ='), source.indexOf('    var socHistoryLabel;')), h.context);
+  h.context.viewFullChart(false);
+  assert.equal(h.context.noteSwitchSavePending, true);
+  h.updates[0].onSuccess({status: 200, responseText: 'initial chart'});
+  h.updates[0].onComplete();
+  assert.deepEqual(replacements, ['initial chart']);
+  assert.equal(h.context.noteSwitchSavePending, false);
+});
+
+test('a fresh checklist button opens its AJAX-replaced controls even when the previous editor was expanded', () => {
+  const fields = {'noteIssues-resolved': {style: {display: 'none'}}, 'noteIssues-unresolved': {style: {display: 'none'}}};
+  const context = {$: id => fields[id]};
+  vm.createContext(context);
+  vm.runInContext(source.slice(source.indexOf('    var showIssue ='), source.indexOf('    function showIssues(')), context);
+  const button = () => ({expanded: 'false', getAttribute() {return this.expanded;}, setAttribute(key, value) {this.expanded = value;}});
+  context.toggleIssueChecklist(button());
+  assert.equal(context.showIssue, true);
+  for (const field of Object.values(fields)) field.style.display = 'none';
+  const replacement = button();
+  context.toggleIssueChecklist(replacement);
+  assert.equal(fields['noteIssues-unresolved'].style.display, 'block');
+  assert.equal(fields['noteIssues-resolved'].style.display, 'block');
+  assert.equal(replacement.expanded, 'true');
+  context.toggleIssueChecklist(replacement);
+  assert.equal(fields['noteIssues-unresolved'].style.display, 'none');
+});
+
+test('the editable note Print control follows its committed revision after an acknowledgement renames its id', () => {
+  const calls = [];
+  const context = {nId: '101', ctx: '/carlos', event: {}, control: {id: 'print202'},
+    togglePrint: (id, event) => calls.push(String(id)), noteIsQeued: () => -1};
+  vm.createContext(context);
+  vm.runInContext(source.slice(source.indexOf('    function notePrintButton('), source.indexOf('    function finishChangeToView(')), context);
+  const start = source.indexOf('        var printimg =', source.indexOf('    function editNote('));
+  vm.runInContext(source.slice(start, source.indexOf('\n', start)), context);
+  const handler = context.printimg.match(/onclick='([^']+)'/)[1];
+  vm.runInContext(`(function(event) { ${handler}; }).call(control, event);`, context);
+  assert.deepEqual(calls, ['202']);
+  assert.ok(context.printimg.includes("<button type='button'"));
+  assert.ok(context.printimg.includes("alt='Toggle Print Note'"), 'the image supplies the native button accessible name');
+  assert.doesNotMatch(context.printimg, /role='button'|onkeydown=/, 'native buttons provide keyboard activation');
+});
+
+test('individual and bulk Print selection keep the queue, icon and accessible state consistent', () => {
+  for (const interactive of [false, true]) {
+    const attrs = {};
+    const icon = {};
+    const control = interactive ? {tagName: 'BUTTON', querySelector: () => icon,
+      setAttribute: (name, value) => { attrs[name] = value; }} : icon;
+    const fields = {print101: control, notes2print: {value: ''}};
+    const context = {ctx: '/carlos', $: id => fields[id], $F: id => fields[id].value,
+      Event: {stop() {}}, Image: class {}};
+    vm.createContext(context);
+    vm.runInContext(source.slice(source.indexOf('    function noteIsQeued('), source.indexOf('    var printDateMsg;')), context);
+    context.imgPrintgreen.src = '/carlos/encounter/graphics/printerGreen.png';
+    const event = {preventDefault() {}};
+    for (const select of [() => context.togglePrint('101', event), () => context.addPrintQueue('101')]) {
+      select();
+      assert.equal(fields.notes2print.value, '101');
+      assert.equal(icon.src, context.imgPrintgreen.src);
+      assert.equal(attrs['aria-pressed'], interactive ? 'true' : undefined);
+      context.removePrintQueue('101', 0);
+      assert.equal(fields.notes2print.value, '');
+      assert.equal(icon.src, '/carlos/encounter/graphics/printer.png');
+      assert.equal(attrs['aria-pressed'], interactive ? 'false' : undefined);
+    }
+  }
+});
+
+for (const queue of ['', '101', '202,101']) {
+  test(`opening the saved editor reflects its existing Print queue: ${queue || 'empty'}`, () => {
+    const attrs = {'aria-pressed': 'false'};
+    const icon = {};
+    let insertions = 0;
+    const fields = {notes2print: {value: queue}, n101: {insertAdjacentHTML() { insertions++; }},
+      print101: {tagName: 'BUTTON', querySelector: () => icon, setAttribute: (name, value) => {attrs[name] = value;}}};
+    const context = {nId: '101', ctx: '/carlos', txt: 'n101', printimg: 'production markup',
+      $: id => fields[id], $F: id => fields[id].value};
+    vm.createContext(context);
+    vm.runInContext(source.slice(source.indexOf('    function noteIsQeued('), source.indexOf('    function togglePrint(')), context);
+    const start = source.indexOf('        var strNid =', source.indexOf('    function editNote('));
+    vm.runInContext(source.slice(start, source.indexOf('        if ($F(isFull)', start)), context);
+    const selected = queue.split(',').includes('101');
+    assert.equal(insertions, 1);
+    assert.equal(attrs['aria-pressed'], String(selected));
+    assert.equal(icon.src, `/carlos/encounter/graphics/${selected ? 'printerGreen' : 'printer'}.png`);
+    assert.equal(fields.notes2print.value, queue);
+  });
 }

@@ -12,7 +12,7 @@ The requested scope of this integrated maintenance PR retains #850 alongside the
 
 | Ticket | Resulting behaviour |
 | --- | --- |
-| #5751 | Exact rendered-revision replays consult durable evidence before empty/stale workspace validation. A committed submission returns `RX_ALREADY_SAVED`; it never claims the prescription was not saved. |
+| #5751 | Exact rendered-revision replays consult durable evidence before empty/stale workspace validation. A committed submission returns `RX_ALREADY_SAVED` only when the request also carries the fields that submission stored; the same draft re-posted with edited fields returns `RX_SAVED_EARLIER_VERSION` (see below). Neither claims the prescription was not saved. |
 | #5865 | Flush and callback completion distinguish a callback rollback from a possibly durable COMMIT. A JDBC COMMIT that delegates and then throws retains consumed revisions. |
 | #5753 | A durable `SAVE_ATTEMPT` precedes clinical work. ADD, drug-reason and source-archival audits join the clinical transaction. SAVED receipt, clinical rows and success audits commit or roll back together. Pending evidence remains visible after a restart. Each attempt has its own nonce so failure before clinical work can release only its own durable intent. |
 | #5986 | Authoritative RX audits use the strict synchronous path inside the business transaction, independently of executor capacity. Audit failure aborts the clinical transaction. |
@@ -33,11 +33,26 @@ The requested scope of this integrated maintenance PR retains #850 alongside the
 
 ## Submission evidence and recovery
 
-`rx_submission_receipt` stores an opaque SHA-256 digest of the complete, sorted set of rendered card keys and UUID revisions, scoped to the authenticated provider and authorized patient. It stores no medication text. Its states have deliberately different meanings:
+`rx_submission_receipt` stores an opaque SHA-256 digest of the complete, sorted set of rendered card keys and UUID revisions, scoped to the authenticated provider and authorized patient, and for each saved draft a second digest of the fields that save stored (see "A saved draft posted again" below). It stores no medication text. Its states have deliberately different meanings:
 
 * `PENDING`: a durable intent exists, but success has not been confirmed. A retry reports uncertainty and refreshes the profile; it cannot submit another prescription automatically.
 * `SAVED`: the exact clinical transaction, its strict success audits and its script ID became durable together. A replay reports already saved without clearing a newer draft in another window.
 * `FAILED`: the callback failed, rollback was confirmed, and the intent was released in a fresh transaction. Only this state permits the exact same draft to retry.
+
+### A saved draft posted again: exact replay or edit
+
+The draft receipt identifies which rendered cards a save consumed, not what was typed into them. A card edited after a lost reply is posted with the same revisions as the save that already consumed them, so the receipt alone cannot tell "the same save again" from "a correction the earlier save never saw". Answering the second with "already saved; do not enter it again" silently dropped the correction.
+
+Each save therefore records a second row in `rx_submission_receipt`, in the same clinical transaction and naming the same script: a SHA-256 digest of every submitted field, each name and value length-framed, bound to the draft token. Left out are only the fields that may differ between two posts of an unchanged form (`rand`, the CSRF token, `clearSaved`, `searchString`, and on the SearchDrug3 save its search-filter radios `method` and `wildcard`, which that save never reads). No schema change was needed and no medication text is stored; because the draft token is derived from random revisions, the digest cannot be matched against guessed prescriptions. The row commits or rolls back with the prescription, like the draft receipt.
+
+When a request names a draft whose receipt is `SAVED`:
+
+* **Its content row matches** (an exact replay): `409 RX_ALREADY_SAVED` with the script ID, as before. When the workspace still stages exactly the cards that script saved, the answer also brings the page back in step, as the lost reply would have. After Save And Print it carries their acknowledged `draftRevisions`, so the cards can be saved or removed again. After Save the staged copies are cleared, unless the workspace also holds another window's draft. In every other case the page drops the spent cards. The page offers, and never opens unasked, the saved prescription for printing.
+* **Its content row does not match**: `409 RX_SAVED_EARLIER_VERSION` with the script ID. Nothing is written and the workspace is left as it is. The prescriber is told that an earlier version was saved, that the changes entered afterwards were NOT saved, and to review the medication profile and correct or re-prescribe from there. The edited cards stay on screen to read from, with a standing notice and a button that reopens the prescription page. The legacy Save & Print form renders the same message on its recovery page.
+
+A receipt written before this evidence existed has no content row, so its replay cannot be shown to be exact and gets the cautious `RX_SAVED_EARLIER_VERSION` answer. A prescribing page loaded before the upgrade does not know that code: it shows its uncertain-outcome message after a lost reply, and its generic refusal otherwise.
+
+The standing notice also appears when a save cannot be settled from the open page (`RX_SAVE_OUTCOME_UNKNOWN`, or a conflict after an unconfirmed save), and a card removal refused in that state says that the page must be reopened rather than "please try again": the server holds those cards under revisions the page was never given.
 
 Acknowledging a SAVED pending identity permanently retires its consumed cards, preserving any newer unsaved cards. A request containing newer drafts receives `RX_DRAFT_REVIEW_REQUIRED`, never an acknowledgement that those drafts were saved. Exact receipt replays are checked before stale-card validation on both AJAX and legacy Save & Print; the legacy form renders a localized recovery page.
 

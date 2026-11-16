@@ -81,14 +81,19 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 class CdsHrmRepairAdmissionMariaDbIntegrationTest {
     @Configuration
     @EnableTransactionManagement(proxyTargetClass = true)
-    static class Transactions { }
+    static class Transactions {}
 
     /** Only descriptor pagination is synthetic; the repair's fresh scalar DAO queries execute SQL. */
     public static class DescriptorPage extends HRMDocumentDao {
         private final HRMDocument descriptor;
         private boolean empty;
-        DescriptorPage(HRMDocument descriptor) { this.descriptor = descriptor; }
-        @Override public List<HRMDocument> findAll(int offset, int limit) {
+
+        DescriptorPage(HRMDocument descriptor) {
+            this.descriptor = descriptor;
+        }
+
+        @Override
+        public List<HRMDocument> findAll(int offset, int limit) {
             return empty || offset != 0 ? List.of() : List.of(descriptor);
         }
     }
@@ -114,23 +119,29 @@ class CdsHrmRepairAdmissionMariaDbIntegrationTest {
     @BeforeEach
     void setUp() throws Exception {
         Properties jdbc = new Properties();
-        try (InputStream input = Files.newInputStream(Path.of(System.getProperty("cds.test.properties")))) {
+        try (InputStream input =
+                Files.newInputStream(Path.of(System.getProperty("cds.test.properties")))) {
             jdbc.load(input);
         }
         assertThat(jdbc.getProperty("ownedDisposableDatabase")).isEqualTo("true");
-        assertThat(jdbc.getProperty("jdbcUrl", "")).matches("jdbc:(mysql|mariadb)://[^/]+/carlos_cds_test(?:\\?.*)?");
+        assertThat(jdbc.getProperty("jdbcUrl", ""))
+                .matches("jdbc:(mysql|mariadb)://[^/]+/carlos_cds_test(?:\\?.*)?");
         ordinary = dataSource(jdbc);
         importing = dataSource(jdbc);
-        try (Connection raw = ordinary.openUnpooledCdsMaintenanceConnection(); var sql = raw.createStatement()) {
+        try (Connection raw = ordinary.openUnpooledCdsMaintenanceConnection();
+                var sql = raw.createStatement()) {
             try (var rows = sql.executeQuery("SELECT VERSION()")) {
                 assertThat(rows.next()).isTrue();
                 assertThat(rows.getString(1)).contains("MariaDB");
             }
-            try (var rows = sql.executeQuery("SELECT maintenance_active FROM cds_import_admission WHERE id='clinical-maintenance'")) {
+            try (var rows =
+                    sql.executeQuery(
+                            "SELECT maintenance_active FROM cds_import_admission WHERE id='clinical-maintenance'")) {
                 assertThat(rows.next()).isTrue();
                 assertThat(rows.getBoolean(1)).isFalse();
             }
-            try (var rows = sql.executeQuery("SELECT COUNT(*) FROM cds_import_patient WHERE held=TRUE")) {
+            try (var rows =
+                    sql.executeQuery("SELECT COUNT(*) FROM cds_import_patient WHERE held=TRUE")) {
                 rows.next();
                 assertThat(rows.getLong(1)).isZero();
             }
@@ -143,14 +154,19 @@ class CdsHrmRepairAdmissionMariaDbIntegrationTest {
         ownsFixture = true;
         new CdsJdbcAdmissionInitializer(ordinary, true, "validate").initialize();
         new CdsJdbcAdmissionInitializer(importing, true, "validate").initialize();
-        try (Connection pooled=ordinary.getConnection(); Connection controlled=ordinary.openUnpooledCdsMaintenanceConnection()) {
+        try (Connection pooled = ordinary.getConnection();
+                Connection controlled = ordinary.openUnpooledCdsMaintenanceConnection()) {
             assertThat(pooled.getNetworkTimeout()).isEqualTo(60000);
             assertThat(controlled.getNetworkTimeout()).isEqualTo(60000);
         }
         Properties policy = new Properties();
-        policy.setProperty("cds.import.enabled", "true"); policy.setProperty("cds.import.clinicalZone", java.time.ZoneId.systemDefault().getId());
+        policy.setProperty("cds.import.enabled", "true");
+        policy.setProperty("cds.import.clinicalZone", java.time.ZoneId.systemDefault().getId());
         policy.setProperty("cds.import.maintenanceMode", "true");
-        policy.setProperty("cds.import.drainTimeoutSeconds", "3");
+        // Use the production default while the test schedules its competing workers.
+        // The 200ms blocked-owner assertion and 5s post-release bound below verify
+        // ordering independently; a 3s drain budget can expire during a loaded JVM pause.
+        policy.setProperty("cds.import.drainTimeoutSeconds", "30");
         var configuration = new CdsImportConfigurationService(policy);
         maintenance = new CdsImportMaintenanceService(importing, configuration);
         safety = new CdsImportTargetSafetyService(configuration);
@@ -160,7 +176,10 @@ class CdsHrmRepairAdmissionMariaDbIntegrationTest {
         source = Files.createDirectories(downloads.resolve("20261027/decrypted")).resolve(filename);
         Files.writeString(source, "<synthetic>complete report</synthetic>");
         try (Connection raw = ordinary.openUnpooledCdsMaintenanceConnection();
-                var insert = raw.prepareStatement("INSERT INTO HRMDocument(reportFile) VALUES (?)", Statement.RETURN_GENERATED_KEYS)) {
+                var insert =
+                        raw.prepareStatement(
+                                "INSERT INTO HRMDocument(reportFile) VALUES (?)",
+                                Statement.RETURN_GENERATED_KEYS)) {
             insert.setString(1, filename);
             assertThat(insert.executeUpdate()).isEqualTo(1);
             try (var keys = insert.getGeneratedKeys()) {
@@ -175,18 +194,30 @@ class CdsHrmRepairAdmissionMariaDbIntegrationTest {
         context = new AnnotationConfigApplicationContext();
         context.register(Transactions.class);
         context.registerBean("dataSource", DataSource.class, () -> ordinary);
-        context.registerBean("entityManagerFactory", LocalContainerEntityManagerFactoryBean.class, () -> {
-            var factory = new LocalContainerEntityManagerFactoryBean();
-            factory.setPersistenceUnitName("entityManagerFactory");
-            factory.setDataSource(ordinary);
-            factory.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
-            factory.setManagedTypes(PersistenceManagedTypes.of(Property.class.getName()));
-            factory.setJpaPropertyMap(Map.of("hibernate.hbm2ddl.auto", "none", "hibernate.dialect", "org.hibernate.dialect.MariaDBDialect"));
-            return factory;
-        });
-        context.registerBean("transactionManager", PlatformTransactionManager.class,
+        context.registerBean(
+                "entityManagerFactory",
+                LocalContainerEntityManagerFactoryBean.class,
+                () -> {
+                    var factory = new LocalContainerEntityManagerFactoryBean();
+                    factory.setPersistenceUnitName("entityManagerFactory");
+                    factory.setDataSource(ordinary);
+                    factory.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
+                    factory.setManagedTypes(PersistenceManagedTypes.of(Property.class.getName()));
+                    factory.setJpaPropertyMap(
+                            Map.of(
+                                    "hibernate.hbm2ddl.auto",
+                                    "none",
+                                    "hibernate.dialect",
+                                    "org.hibernate.dialect.MariaDBDialect"));
+                    return factory;
+                });
+        context.registerBean(
+                "transactionManager",
+                PlatformTransactionManager.class,
                 () -> new JpaTransactionManager(context.getBean(EntityManagerFactory.class)));
-        context.registerBean("persistenceAnnotationBeanPostProcessor", PersistenceAnnotationBeanPostProcessor.class);
+        context.registerBean(
+                "persistenceAnnotationBeanPostProcessor",
+                PersistenceAnnotationBeanPostProcessor.class);
         context.registerBean(HRMDocumentDao.class, () -> descriptors);
         context.register(PropertyDaoImpl.class);
         context.refresh();
@@ -214,7 +245,8 @@ class CdsHrmRepairAdmissionMariaDbIntegrationTest {
                 }
                 // Only a freshly owned disposable schema is allowed; leave no test-held window.
                 try (var sql = raw.createStatement()) {
-                    sql.executeUpdate("UPDATE cds_import_admission SET maintenance_active=FALSE,maintenance_owner_token=NULL,maintenance_connection_id=NULL WHERE id='clinical-maintenance'");
+                    sql.executeUpdate(
+                            "UPDATE cds_import_admission SET maintenance_active=FALSE,maintenance_owner_token=NULL,maintenance_connection_id=NULL WHERE id='clinical-maintenance'");
                 }
             }
         }
@@ -226,76 +258,102 @@ class CdsHrmRepairAdmissionMariaDbIntegrationTest {
     @Test
     void shouldDrainAnAlreadyAdmittedCopy_beforeAnotherNodeActivatesMaintenance() throws Exception {
         CountDownLatch copying = new CountDownLatch(1);
-        var helper = helper((file, target) -> {
-            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
-            copies.incrementAndGet();
-            copying.countDown();
-            try {
-                if (!releaseCopy.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("Synthetic copy release timeout");
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                throw new IllegalStateException(interrupted);
-            }
-            Files.copy(file.toPath(), target.toPath().resolve(file.getName()));
-        });
+        var helper =
+                helper(
+                        (file, target) -> {
+                            assertThat(
+                                            TransactionSynchronizationManager
+                                                    .isActualTransactionActive())
+                                    .isTrue();
+                            copies.incrementAndGet();
+                            copying.countDown();
+                            try {
+                                if (!releaseCopy.await(5, TimeUnit.SECONDS))
+                                    throw new IllegalStateException(
+                                            "Synthetic copy release timeout");
+                            } catch (InterruptedException interrupted) {
+                                Thread.currentThread().interrupt();
+                                throw new IllegalStateException(interrupted);
+                            }
+                            Files.copy(file.toPath(), target.toPath().resolve(file.getName()));
+                        });
         var fixing = workers.submit(helper::fixIt);
         assertThat(copying.await(5, TimeUnit.SECONDS)).isTrue();
         var entering = workers.submit(this::acquire);
         awaitAdvisoryOwner();
-        assertThatThrownBy(() -> entering.get(200, TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
+        assertThatThrownBy(() -> entering.get(200, TimeUnit.MILLISECONDS))
+                .isInstanceOf(TimeoutException.class);
         assertThat(Files.exists(documents.resolve(filename))).isFalse();
         releaseCopy.countDown();
         var owner = entering.get(5, TimeUnit.SECONDS);
         safety.verify(owner);
         assertThatThrownBy(() -> fixing.get(5, TimeUnit.SECONDS))
-                .isInstanceOf(ExecutionException.class).hasCauseInstanceOf(HrmReportRepairDeferredException.class);
-        assertThat(Files.readString(documents.resolve(filename))).isEqualTo(Files.readString(source));
+                .isInstanceOf(ExecutionException.class)
+                .hasCauseInstanceOf(HrmReportRepairDeferredException.class);
+        assertThat(Files.readString(documents.resolve(filename)))
+                .isEqualTo(Files.readString(source));
         assertThat(copies).hasValue(1);
         assertThat(markerCount()).isZero();
         owner.allowReopen();
     }
 
     @Test
-    void shouldRetainOrdinaryAdmission_whenDbcpActuallyReclaimsTheJdbcIdleCopyTransaction() throws Exception {
-        CountDownLatch copying=new CountDownLatch(1);
-        AtomicLong pooledId=new AtomicLong();
-        var helper=helper((file, target) -> {
-            pooledId.set(new org.springframework.jdbc.core.JdbcTemplate(ordinary).queryForObject("SELECT CONNECTION_ID()", Long.class));
-            copying.countDown();
-            try {
-                if (!releaseCopy.await(12, TimeUnit.SECONDS)) throw new IllegalStateException("Synthetic copy release timeout");
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                throw new IllegalStateException(interrupted);
-            }
-            copies.incrementAndGet();
-            Files.copy(file.toPath(), target.toPath().resolve(file.getName()));
-        });
-        var fixing=workers.submit(helper::fixIt);
+    void shouldRetainOrdinaryAdmission_whenDbcpActuallyReclaimsTheJdbcIdleCopyTransaction()
+            throws Exception {
+        CountDownLatch copying = new CountDownLatch(1);
+        AtomicLong pooledId = new AtomicLong();
+        var helper =
+                helper(
+                        (file, target) -> {
+                            pooledId.set(
+                                    new org.springframework.jdbc.core.JdbcTemplate(ordinary)
+                                            .queryForObject("SELECT CONNECTION_ID()", Long.class));
+                            copying.countDown();
+                            try {
+                                if (!releaseCopy.await(12, TimeUnit.SECONDS))
+                                    throw new IllegalStateException(
+                                            "Synthetic copy release timeout");
+                            } catch (InterruptedException interrupted) {
+                                Thread.currentThread().interrupt();
+                                throw new IllegalStateException(interrupted);
+                            }
+                            copies.incrementAndGet();
+                            Files.copy(file.toPath(), target.toPath().resolve(file.getName()));
+                        });
+        var fixing = workers.submit(helper::fixIt);
         assertThat(copying.await(5, TimeUnit.SECONDS)).isTrue();
         assertThat(ordinary.getRemoveAbandonedOnBorrow()).isTrue();
         // Only the file operation is paused. Two pressure borrows satisfy DBCP's
         // active>maxTotal-3 / idle<2 reclamation condition after its actual timeout.
         Thread.sleep(2200);
-        try (Connection firstPressure=ordinary.getConnection(); Connection secondPressure=ordinary.getConnection()) {
+        try (Connection firstPressure = ordinary.getConnection();
+                Connection secondPressure = ordinary.getConnection()) {
             assertThat(firstPressure.isClosed()).isFalse();
             assertThat(secondPressure.isClosed()).isFalse();
             assertThat(ordinary.getNumActive()).isEqualTo(2);
-            try (Connection raw=ordinary.openUnpooledCdsMaintenanceConnection();
-                    var query=raw.prepareStatement("SELECT COUNT(*) FROM information_schema.PROCESSLIST WHERE ID=?")) {
+            try (Connection raw = ordinary.openUnpooledCdsMaintenanceConnection();
+                    var query =
+                            raw.prepareStatement(
+                                    "SELECT COUNT(*) FROM information_schema.PROCESSLIST WHERE ID=?")) {
                 query.setLong(1, pooledId.get());
-                try (var rows=query.executeQuery()) { rows.next(); assertThat(rows.getLong(1)).isZero(); }
+                try (var rows = query.executeQuery()) {
+                    rows.next();
+                    assertThat(rows.getLong(1)).isZero();
+                }
             }
-            var entering=workers.submit(this::acquire);
+            var entering = workers.submit(this::acquire);
             awaitAdvisoryOwner();
-            assertThatThrownBy(() -> entering.get(200, TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
+            assertThatThrownBy(() -> entering.get(200, TimeUnit.MILLISECONDS))
+                    .isInstanceOf(TimeoutException.class);
             assertThat(Files.exists(documents.resolve(filename))).isFalse();
             releaseCopy.countDown();
             assertThatThrownBy(() -> fixing.get(5, TimeUnit.SECONDS))
-                    .isInstanceOf(ExecutionException.class).hasCauseInstanceOf(HrmReportRepairDeferredException.class);
-            var owner=entering.get(5, TimeUnit.SECONDS);
+                    .isInstanceOf(ExecutionException.class)
+                    .hasCauseInstanceOf(HrmReportRepairDeferredException.class);
+            var owner = entering.get(5, TimeUnit.SECONDS);
             safety.verify(owner);
-            assertThat(Files.readString(documents.resolve(filename))).isEqualTo(Files.readString(source));
+            assertThat(Files.readString(documents.resolve(filename)))
+                    .isEqualTo(Files.readString(source));
             assertThat(copies).hasValue(1);
             assertThat(markerCount()).isZero();
             owner.allowReopen();
@@ -315,9 +373,11 @@ class CdsHrmRepairAdmissionMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldRefuseTheFinalMarkerForAnEmptyClinicalTable_whenMaintenanceIsActive() throws Exception {
+    void shouldRefuseTheFinalMarkerForAnEmptyClinicalTable_whenMaintenanceIsActive()
+            throws Exception {
         descriptors.empty = true;
-        try (Connection raw = ordinary.openUnpooledCdsMaintenanceConnection(); var sql = raw.prepareStatement("DELETE FROM HRMDocument WHERE id=?")) {
+        try (Connection raw = ordinary.openUnpooledCdsMaintenanceConnection();
+                var sql = raw.prepareStatement("DELETE FROM HRMDocument WHERE id=?")) {
             sql.setInt(1, documentId);
             assertThat(sql.executeUpdate()).isEqualTo(1);
         }
@@ -332,8 +392,15 @@ class CdsHrmRepairAdmissionMariaDbIntegrationTest {
 
     @Test
     void shouldReleaseTheSharedLeaseAndKeepTheMarkerAbsent_whenTheCopyFails() throws Exception {
-        var helper = helper((file, target) -> { copies.incrementAndGet(); throw new IllegalStateException("Synthetic copy failure"); });
-        assertThatThrownBy(helper::fixIt).isInstanceOf(IllegalStateException.class).hasMessage("Synthetic copy failure");
+        var helper =
+                helper(
+                        (file, target) -> {
+                            copies.incrementAndGet();
+                            throw new IllegalStateException("Synthetic copy failure");
+                        });
+        assertThatThrownBy(helper::fixIt)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Synthetic copy failure");
         assertThat(copies).hasValue(1);
         assertThat(markerCount()).isZero();
         var owner = workers.submit(this::acquire).get(5, TimeUnit.SECONDS);
@@ -342,67 +409,89 @@ class CdsHrmRepairAdmissionMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldNeverPublishAPartialCopyOrMarkComplete_whenLegacyCopierFailsWithIo() throws Exception {
-        helper((file, target) -> {
-            assertThat(Files.getPosixFilePermissions(target.toPath()))
-                    .isEqualTo(java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
-            Files.writeString(target.toPath().resolve(file.getName()), "partial");
-            throw new java.io.IOException("Synthetic partial copy");
-        }).fixIt();
+    void shouldNeverPublishAPartialCopyOrMarkComplete_whenLegacyCopierFailsWithIo()
+            throws Exception {
+        helper(
+                        (file, target) -> {
+                            assertThat(Files.getPosixFilePermissions(target.toPath()))
+                                    .isEqualTo(
+                                            java.nio.file.attribute.PosixFilePermissions.fromString(
+                                                    "rwx------"));
+                            Files.writeString(target.toPath().resolve(file.getName()), "partial");
+                            throw new java.io.IOException("Synthetic partial copy");
+                        })
+                .fixIt();
         assertThat(Files.exists(documents.resolve(filename))).isFalse();
         assertThat(markerCount()).isZero();
-        try (var paths=Files.list(documents)) { assertThat(paths.toList()).isEmpty(); }
+        try (var paths = Files.list(documents)) {
+            assertThat(paths.toList()).isEmpty();
+        }
         // The error is retryable without a destructive flag reset or manual file removal.
         helper(this::copy).fixIt();
-        assertThat(Files.readString(documents.resolve(filename))).isEqualTo(Files.readString(source));
+        assertThat(Files.readString(documents.resolve(filename)))
+                .isEqualTo(Files.readString(source));
         assertThat(markerCount()).isEqualTo(1);
     }
 
     @Test
     void shouldPublishAndMarkComplete_forExistingNestedTargetDirectory() throws Exception {
-        String relative="nested/"+filename;
+        String relative = "nested/" + filename;
         Files.createDirectory(documents.resolve("nested"));
-        try (Connection raw=ordinary.openUnpooledCdsMaintenanceConnection();
-                var update=raw.prepareStatement("UPDATE HRMDocument SET reportFile=? WHERE id=?")) {
-            update.setString(1, relative); update.setInt(2, documentId); assertThat(update.executeUpdate()).isEqualTo(1);
+        try (Connection raw = ordinary.openUnpooledCdsMaintenanceConnection();
+                var update =
+                        raw.prepareStatement("UPDATE HRMDocument SET reportFile=? WHERE id=?")) {
+            update.setString(1, relative);
+            update.setInt(2, documentId);
+            assertThat(update.executeUpdate()).isEqualTo(1);
         }
         descriptors.descriptor.setReportFile(relative);
         helper(this::copy).fixIt();
-        assertThat(Files.readString(documents.resolve(relative))).isEqualTo(Files.readString(source));
+        assertThat(Files.readString(documents.resolve(relative)))
+                .isEqualTo(Files.readString(source));
         assertThat(Files.exists(documents.resolve(filename))).isFalse();
         assertThat(markerCount()).isEqualTo(1);
     }
 
     @Test
     void shouldNeverOverwriteTarget_whenItAppearsDuringPrivateCopy() throws Exception {
-        helper((file, target) -> {
-            Files.copy(file.toPath(), target.toPath().resolve(file.getName()));
-            Files.writeString(documents.resolve(filename), "independent target");
-        }).fixIt();
+        helper(
+                        (file, target) -> {
+                            Files.copy(file.toPath(), target.toPath().resolve(file.getName()));
+                            Files.writeString(documents.resolve(filename), "independent target");
+                        })
+                .fixIt();
         assertThat(Files.readString(documents.resolve(filename))).isEqualTo("independent target");
         assertThat(markerCount()).isZero();
-        try (var paths=Files.list(documents)) { assertThat(paths.toList()).containsExactly(documents.resolve(filename)); }
+        try (var paths = Files.list(documents)) {
+            assertThat(paths.toList()).containsExactly(documents.resolve(filename));
+        }
     }
 
     @Test
     void shouldRefuseAnAmbientTransaction_beforeFilesystemOrAdmissionWork() {
-        var tx=new org.springframework.transaction.support.TransactionTemplate(context.getBean(PlatformTransactionManager.class));
-        var helper=helper(this::copy);
+        var tx =
+                new org.springframework.transaction.support.TransactionTemplate(
+                        context.getBean(PlatformTransactionManager.class));
+        var helper = helper(this::copy);
         assertThatThrownBy(() -> tx.executeWithoutResult(status -> helper.fixIt()))
-                .isInstanceOf(HrmReportRepairDeferredException.class).hasMessage("HRM_REPAIR_AMBIENT_TRANSACTION");
+                .isInstanceOf(HrmReportRepairDeferredException.class)
+                .hasMessage("HRM_REPAIR_AMBIENT_TRANSACTION");
         assertThat(copies).hasValue(0);
         assertThat(Files.exists(documents.resolve(filename))).isFalse();
     }
 
     @Test
     void shouldRefuseAChangedReportIdentity_beforeCopyOrCompletionMarker() throws Exception {
-        try (Connection raw = ordinary.openUnpooledCdsMaintenanceConnection(); var sql = raw.prepareStatement("UPDATE HRMDocument SET reportFile=? WHERE id=?")) {
+        try (Connection raw = ordinary.openUnpooledCdsMaintenanceConnection();
+                var sql = raw.prepareStatement("UPDATE HRMDocument SET reportFile=? WHERE id=?")) {
             sql.setString(1, "changed-" + filename);
             sql.setInt(2, documentId);
             assertThat(sql.executeUpdate()).isEqualTo(1);
         }
         HRMFixMissingReportHelper helper = helper(this::copy);
-        assertThatThrownBy(helper::fixIt).isInstanceOf(HrmReportRepairDeferredException.class).hasMessage("HRM_REPAIR_SOURCE_CHANGED");
+        assertThatThrownBy(helper::fixIt)
+                .isInstanceOf(HrmReportRepairDeferredException.class)
+                .hasMessage("HRM_REPAIR_SOURCE_CHANGED");
         assertThat(copies).hasValue(0);
         assertThat(markerCount()).isZero();
         assertThat(Files.exists(documents.resolve(filename))).isFalse();
@@ -412,23 +501,29 @@ class CdsHrmRepairAdmissionMariaDbIntegrationTest {
     void shouldCopyTheCompleteReportAndCommitTheMarker_whenAdmissionStaysOpen() throws Exception {
         helper(this::copy).fixIt();
         assertThat(copies).hasValue(1);
-        assertThat(Files.readString(documents.resolve(filename))).isEqualTo(Files.readString(source));
+        assertThat(Files.readString(documents.resolve(filename)))
+                .isEqualTo(Files.readString(source));
         assertThat(markerCount()).isEqualTo(1);
         var owner = workers.submit(this::acquire).get(5, TimeUnit.SECONDS);
         safety.verify(owner);
         owner.allowReopen();
     }
 
-    private void copy(java.io.File sourceFile, java.io.File targetDirectory) throws java.io.IOException {
+    private void copy(java.io.File sourceFile, java.io.File targetDirectory)
+            throws java.io.IOException {
         copies.incrementAndGet();
         assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
         Files.copy(sourceFile.toPath(), targetDirectory.toPath().resolve(sourceFile.getName()));
     }
 
     private HRMFixMissingReportHelper helper(HRMFixMissingReportHelper.ReportCopier copier) {
-        return new HRMFixMissingReportHelper(downloads.toString(), documents.toString(),
-                context.getBean(HRMDocumentDao.class), context.getBean(PropertyDao.class),
-                context.getBean(PlatformTransactionManager.class), copier);
+        return new HRMFixMissingReportHelper(
+                downloads.toString(),
+                documents.toString(),
+                context.getBean(HRMDocumentDao.class),
+                context.getBean(PropertyDao.class),
+                context.getBean(PlatformTransactionManager.class),
+                copier);
     }
 
     private CdsImportMaintenanceService.Owner acquire() {
@@ -438,25 +533,39 @@ class CdsHrmRepairAdmissionMariaDbIntegrationTest {
     }
 
     private long markerCount() throws Exception {
-        try (Connection raw = ordinary.openUnpooledCdsMaintenanceConnection(); var query = raw.prepareStatement("SELECT COUNT(*) FROM property WHERE name=? AND value='1'")) {
+        try (Connection raw = ordinary.openUnpooledCdsMaintenanceConnection();
+                var query =
+                        raw.prepareStatement(
+                                "SELECT COUNT(*) FROM property WHERE name=? AND value='1'")) {
             query.setString(1, HRMFixMissingReportHelper.SCRIPT_PROPERTY);
-            try (var rows = query.executeQuery()) { rows.next(); return rows.getLong(1); }
+            try (var rows = query.executeQuery()) {
+                rows.next();
+                return rows.getLong(1);
+            }
         }
     }
 
     private long propertyCount() throws Exception {
-        try (Connection raw = ordinary.openUnpooledCdsMaintenanceConnection(); var query = raw.prepareStatement("SELECT COUNT(*) FROM property WHERE name=?")) {
+        try (Connection raw = ordinary.openUnpooledCdsMaintenanceConnection();
+                var query = raw.prepareStatement("SELECT COUNT(*) FROM property WHERE name=?")) {
             query.setString(1, HRMFixMissingReportHelper.SCRIPT_PROPERTY);
-            try (var rows = query.executeQuery()) { rows.next(); return rows.getLong(1); }
+            try (var rows = query.executeQuery()) {
+                rows.next();
+                return rows.getLong(1);
+            }
         }
     }
 
     private void awaitAdvisoryOwner() throws Exception {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
         while (System.nanoTime() < deadline) {
-            try (Connection raw = ordinary.openUnpooledCdsMaintenanceConnection(); var query = raw.prepareStatement("SELECT IS_USED_LOCK(?)")) {
+            try (Connection raw = ordinary.openUnpooledCdsMaintenanceConnection();
+                    var query = raw.prepareStatement("SELECT IS_USED_LOCK(?)")) {
                 query.setString(1, importing.getCdsAdmissionState().lockName());
-                try (var rows = query.executeQuery()) { rows.next(); if (rows.getObject(1) != null) return; }
+                try (var rows = query.executeQuery()) {
+                    rows.next();
+                    if (rows.getObject(1) != null) return;
+                }
             }
             Thread.sleep(10);
         }

@@ -105,7 +105,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * </ul>
  */
 @Service
-public class EFormBrowserPdfService {
+public class EFormBrowserPdfService implements org.springframework.web.context.ServletContextAware {
 
     private static final Logger logger = MiscUtils.getLogger();
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -190,7 +190,7 @@ public class EFormBrowserPdfService {
     private static final int MAX_CONCURRENT_RENDERS = 2;
     private static final Duration RENDER_SLOT_WAIT = Duration.ofSeconds(30);
     static final Semaphore RENDER_SLOTS = new Semaphore(MAX_CONCURRENT_RENDERS, true);
-    private static final Semaphore RENDER_WAITERS = new Semaphore(2 * MAX_CONCURRENT_RENDERS);
+    static final RenderAdmission ADMISSION = new RenderAdmission(RENDER_SLOTS);
 
     /**
      * Filename prefix of the renderer's output PDF. The {@link RenderedEformPdf} guard keys on it
@@ -202,6 +202,18 @@ public class EFormBrowserPdfService {
     static final String RENDER_ARTIFACT_PREFIX = "eform-browser-render-";
 
     private static final String BASE_URL_PROPERTY = "eform_pdf_browser_base_url";
+
+    /**
+     * Context path of the deployed application, recorded when Spring hands the web context over.
+     * Read only by request-less renders; {@code null} outside a servlet container (tests, the CDS
+     * command-line process), which keeps the {@code project_home} fallback.
+     */
+    // Set once by the container thread, read by render threads: volatile publishes it safely.
+    @SuppressWarnings("java:S3077")
+    private volatile String servletContextPath;
+
+    /** Logs the request-less base URL once per JVM, origin only. */
+    private static final AtomicBoolean REQUESTLESS_BASE_LOGGED = new AtomicBoolean(false);
     private static final String CHROME_PATH_PROPERTY = "eform_pdf_browser_chromium_path";
     /**
      * URL of an ALREADY-RUNNING chromedriver on loopback. The application connects to it; it never
@@ -900,7 +912,59 @@ public class EFormBrowserPdfService {
      */
     public RenderedEformPdf renderSavedEformPdf(
             LoggedInInfo loggedInInfo, int fdid, EFormRenderApproval approval) throws PDFGenerationException {
-        EFormData eFormData = SpringUtils.getBean(EFormDataDao.class).find(fdid);
+        return renderSavedEformPdf(loggedInInfo, fdid, approval, SavedEformReads.DIRECT);
+    }
+
+    /**
+     * {@link #renderSavedEformPdf(LoggedInInfo, int, EFormRenderApproval)}, with the reads the
+     * render makes before it starts (the saved record, and the caller's {@code _eform} and
+     * {@code _measurement} privileges for its patient) run by {@code reads}. The reads and the
+     * decisions are this method's own, exactly as above; {@code reads} only decides how each one
+     * is run (the CDS export runs each in a transaction whose statements wait for a slow database
+     * rather than being cut off by the connection's socket timeout).
+     *
+     * @param reads how the record and privilege reads are run; never null
+     * @throws EformContentUnavailableException when the render has unapproved omissions
+     * @throws PDFGenerationException for every other render failure
+     */
+    public RenderedEformPdf renderSavedEformPdf(
+            LoggedInInfo loggedInInfo, int fdid, EFormRenderApproval approval, SavedEformReads reads)
+            throws PDFGenerationException {
+        return renderSaved(loggedInInfo, fdid, approval, reads, null);
+    }
+
+    /**
+     * {@link #renderSavedEformPdf(LoggedInInfo, int, EFormRenderApproval, SavedEformReads)} for a
+     * caller that waits for a render slot as long as it takes instead of the ordinary 30 seconds:
+     * the CDS export, which renders one form at a time, so it never holds more than one of the
+     * slots and a clinician's print or fax always keeps the other. The render keeps its place in
+     * the slot queue, and {@code waitingForSlot} runs about once a second while it waits, outside
+     * every lock; it ends the wait by throwing, and that exception passes through with no render
+     * started. A full queue is still refused at once (the retryable capacity failure).
+     *
+     * @param waitingForSlot the caller's check while it waits for a slot; never null
+     */
+    public RenderedEformPdf renderSavedEformPdf(
+            LoggedInInfo loggedInInfo,
+            int fdid,
+            EFormRenderApproval approval,
+            SavedEformReads reads,
+            Runnable waitingForSlot)
+            throws PDFGenerationException {
+        return renderSaved(
+                loggedInInfo, fdid, approval, reads, Objects.requireNonNull(waitingForSlot));
+    }
+
+    /** The saved-eForm render; {@code waitingForSlot} null for the ordinary 30-second slot wait. */
+    private RenderedEformPdf renderSaved(
+            LoggedInInfo loggedInInfo,
+            int fdid,
+            EFormRenderApproval approval,
+            SavedEformReads reads,
+            Runnable waitingForSlot)
+            throws PDFGenerationException {
+        Objects.requireNonNull(reads);
+        EFormData eFormData = reads.run(() -> SpringUtils.getBean(EFormDataDao.class).find(fdid));
         if (eFormData == null) {
             throw new PDFGenerationException(
                     "EForm PDF generation failed because the eForm was not found.");
@@ -909,8 +973,8 @@ public class EFormBrowserPdfService {
                 ? null : String.valueOf(eFormData.getDemographicId());
         SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
         if (loggedInInfo == null
-                || !securityInfoManager.hasPrivilege(
-                        loggedInInfo, "_eform", SecurityInfoManager.READ, demographicId)) {
+                || !reads.run(() -> securityInfoManager.hasPrivilege(
+                        loggedInInfo, "_eform", SecurityInfoManager.READ, demographicId))) {
             throw new SecurityException("missing required sec object (_eform)");
         }
         String providerId = loggedInInfo.getLoggedInProviderNo();
@@ -918,9 +982,30 @@ public class EFormBrowserPdfService {
         // the render browser carries no identity, so any data-access decision must be made by the
         // initiator and travel with the render. Measurement history reached through an eForm is still
         // measurement data — the route the renderer's adapter replaces enforces _measurement.
-        boolean measurementsPermitted = securityInfoManager.hasPrivilege(
-                loggedInInfo, "_measurement", SecurityInfoManager.READ, demographicId);
-        return renderSavedEformPdfAuthorized(fdid, providerId, approval, measurementsPermitted);
+        boolean measurementsPermitted = reads.run(() -> securityInfoManager.hasPrivilege(
+                loggedInInfo, "_measurement", SecurityInfoManager.READ, demographicId));
+        return renderSavedEformPdfAuthorized(
+                fdid, providerId, approval, measurementsPermitted, waitingForSlot);
+    }
+
+    /**
+     * How a saved-eForm render runs the reads it makes before it starts: the saved record and the
+     * caller's privileges. A runner returns what the read returned and decides nothing; the
+     * render still makes every read and every check itself. {@link #DIRECT} runs each read as it
+     * is, as every caller always has.
+     */
+    public interface SavedEformReads {
+        /** Runs one read and returns its answer. */
+        <T> T run(java.util.function.Supplier<T> read);
+
+        /** Each read run as it is, on whatever transaction the caller holds. */
+        SavedEformReads DIRECT =
+                new SavedEformReads() {
+                    @Override
+                    public <T> T run(java.util.function.Supplier<T> read) {
+                        return read.get();
+                    }
+                };
     }
 
     /**
@@ -936,6 +1021,21 @@ public class EFormBrowserPdfService {
     RenderedEformPdf renderSavedEformPdfAuthorized(
             int fdid, String providerId, EFormRenderApproval approval, boolean measurementsPermitted)
             throws PDFGenerationException {
+        return renderSavedEformPdfAuthorized(fdid, providerId, approval, measurementsPermitted, null);
+    }
+
+    /**
+     * @param waitingForSlot null for the ordinary 30-second slot wait; otherwise the render waits
+     *     for a slot as long as it takes, keeping its place in the queue, and this runs about once
+     *     a second while it waits (see the public overload that takes it)
+     */
+    RenderedEformPdf renderSavedEformPdfAuthorized(
+            int fdid,
+            String providerId,
+            EFormRenderApproval approval,
+            boolean measurementsPermitted,
+            Runnable waitingForSlot)
+            throws PDFGenerationException {
         // Resolve the managed temp root and sweep stale renderer artifacts BEFORE competing for a
         // render slot. The sweep is best-effort housekeeping (a filesystem walk of the shared root);
         // running it while holding one of the scarce MAX_CONCURRENT_RENDERS slots would charge its
@@ -944,8 +1044,17 @@ public class EFormBrowserPdfService {
         Path tempRoot = resolveRendererTempRoot();
         sweepStaleRendererRoots(tempRoot);
 
-        SlotAcquisition acquisition = acquireRenderSlot(RENDER_SLOTS, RENDER_SLOT_WAIT);
-        if (acquisition == SlotAcquisition.TIMED_OUT) {
+        RenderAdmission.Lease lease;
+        try {
+            lease =
+                    waitingForSlot == null
+                            ? ADMISSION.acquire(RenderAdmission.Kind.PDF, RENDER_SLOT_WAIT)
+                            : ADMISSION.acquire(RenderAdmission.Kind.PDF, waitingForSlot);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new PDFGenerationException("Browser rendering was aborted before it started.", true);
+        }
+        if (lease == null) {
             // No render started: either the bounded waiting queue was already full or the
             // admitted caller reached its deadline (fdid only — no PHI, no render URL/token).
             logger.warn("Browser eForm renderer at capacity ({} concurrent slots); rejecting render for fdid={}",
@@ -955,19 +1064,10 @@ public class EFormBrowserPdfService {
             // durable failure without matching on wording — see PDFGenerationException.isRetryable().
             throw new PDFGenerationException("Browser rendering is at capacity; please retry shortly.", true);
         }
-        if (acquisition == SlotAcquisition.INTERRUPTED) {
-            // Distinct from capacity: the waiting thread was interrupted (JVM/app shutdown), so no
-            // slot was ever taken (nothing to release) and the render never started. Still marked
-            // retryable structurally: on a live JVM a retry can still succeed, even though the
-            // message itself omits retry advice since a shutdown-triggered interrupt would make it
-            // misleading.
-            logger.warn("Browser eForm render aborted: waiting thread interrupted (shutdown?): fdid={}", fdid);
-            throw new PDFGenerationException("Browser rendering was aborted before it started.", true);
-        }
         try {
             return renderWithSlot(fdid, providerId, tempRoot, approval, measurementsPermitted);
         } finally {
-            RENDER_SLOTS.release();
+            lease.close();
         }
     }
 
@@ -2827,41 +2927,6 @@ public class EFormBrowserPdfService {
         }
     }
 
-    /**
-     * Outcome of competing for one of the bounded render slots: {@code ACQUIRED} within the wait,
-     * {@code TIMED_OUT} when the waiting queue is full or the admission deadline expires,
-     * or {@code INTERRUPTED} when the
-     * waiting thread was interrupted (shutdown) before a slot was taken. Distinguishing the last two
-     * lets the caller give correct operator guidance — capacity load-shed (retry) versus an aborted
-     * render (no retry) — rather than collapsing both into a single boolean {@code false}.
-     */
-    enum SlotAcquisition { ACQUIRED, TIMED_OUT, INTERRUPTED }
-
-    static SlotAcquisition acquireRenderSlot(Semaphore slots, Duration wait) {
-        return acquireRenderSlot(slots, RENDER_WAITERS, wait);
-    }
-
-    /** Custom semaphores let concurrency tests exercise the real admission policy in isolation. */
-    static SlotAcquisition acquireRenderSlot(Semaphore slots, Semaphore waiting, Duration wait) {
-        try {
-            // A timed zero probe respects FIFO fairness and the interrupted flag. A free
-            // browser needs no waiting token; untimed tryAcquire would barge past a queue.
-            if (slots.tryAcquire(0, TimeUnit.MILLISECONDS)) return SlotAcquisition.ACQUIRED;
-            // Only a small bounded set may occupy servlet threads while waiting. Chromium
-            // needs other servlet threads to load its token-authorized page and resources.
-            if (!waiting.tryAcquire()) return SlotAcquisition.TIMED_OUT;
-            try {
-                return slots.tryAcquire(wait.toMillis(), TimeUnit.MILLISECONDS)
-                        ? SlotAcquisition.ACQUIRED : SlotAcquisition.TIMED_OUT;
-            } finally {
-                waiting.release();
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return SlotAcquisition.INTERRUPTED;
-        }
-    }
-
     private static HttpServletRequest currentRequestOrNull() {
         try {
             return ServletActionContext.getRequest();
@@ -2988,7 +3053,49 @@ public class EFormBrowserPdfService {
         if (request != null) {
             return buildLocalBaseUrl(deriveLoopbackScheme(request), request.getLocalPort(), request.getContextPath());
         }
-        return buildDefaultBaseUrl(projectHome);
+        String derived = buildRequestlessBaseUrl(
+                RendererLoopbackOrigin.connectorPort(java.lang.management.ManagementFactory.getPlatformMBeanServer()),
+                servletContextPath, projectHome);
+        if (REQUESTLESS_BASE_LOGGED.compareAndSet(false, true)) {
+            logger.info("Browser eForm renderer base URL for renders without a request: {} (set {} to override)",
+                    // Origin only (loopback host and port): never a path, token or patient value.
+                    String.valueOf(originOf(derived)),
+                    BASE_URL_PROPERTY);
+        }
+        return derived;
+    }
+
+    /**
+     * Base URL of a render that has no HTTP request (the CDS export worker): 127.0.0.1, the port of
+     * the servlet container's own plain-HTTP connector ({@link RendererLoopbackOrigin}) and the
+     * deployed context path. Nothing comes from a client. Without exactly one such connector the
+     * legacy {@code http://127.0.0.1:8080/<project_home>} default is kept, so a deployment that
+     * worked before keeps working; {@code eform_pdf_browser_base_url} overrides both.
+     *
+     * @param connectorPort the loopback-reachable HTTP connector port, or a value below 1 if unknown
+     * @param contextPath the deployed context path ({@code ""} for the root context), or
+     *        {@code null} when not running in a servlet container
+     * @param projectHome the {@code project_home} property, used when the context path is unknown
+     */
+    static String buildRequestlessBaseUrl(int connectorPort, String contextPath, String projectHome) {
+        if (connectorPort < 1 || connectorPort > 65_535) {
+            return buildDefaultBaseUrl(projectHome);
+        }
+        String context = contextPath;
+        if (context == null) {
+            String home = projectHome == null ? "" : projectHome.strip();
+            int start = 0, end = home.length();
+            while (start < end && home.charAt(start) == '/') start++;
+            while (end > start && home.charAt(end - 1) == '/') end--;
+            context = home.isEmpty() ? "" : "/" + home.substring(start, end);
+        }
+        return buildLocalBaseUrl("http", connectorPort, context);
+    }
+
+    /** Records the deployed context path for request-less renders. */
+    @Override
+    public void setServletContext(jakarta.servlet.ServletContext servletContext) {
+        servletContextPath = servletContext == null ? null : servletContext.getContextPath();
     }
 
     /**

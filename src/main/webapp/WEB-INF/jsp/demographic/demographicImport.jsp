@@ -49,10 +49,15 @@
 <main id="cdsImport" class="container-fluid p-3"
       data-context="${carlos:forHtmlAttribute(pageContext.request.contextPath)}"
       data-owner="${carlos:forHtmlAttribute(model.operatorKey)}"
-      data-max-file-bytes="${carlos:forHtmlAttribute(model.maxFileBytes)}"
-      data-chunk-bytes="${carlos:forHtmlAttribute(model.chunkBytes)}">
+      data-chunk-bytes="${carlos:forHtmlAttribute(model.chunkBytes)}"
+      data-chunk-stall-millis="${carlos:forHtmlAttribute(model.chunkStallMillis)}">
     <h1 class="h3"><fmt:message key="title" bundle="${cds}"/></h1>
     <p><fmt:message key="intro" bundle="${cds}"/></p>
+<% if (io.github.carlos_emr.carlos.demographic.cdsexport.web.CdsExportWebService.mayOpen(
+        io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request),
+        io.github.carlos_emr.carlos.utility.SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class))) { %>
+    <p><a href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/form/cdsExport"><fmt:message key="exportLink" bundle="${cds}"/></a></p>
+<% } %>
     <c:if test="${not model.enabled}">
         <div class="alert alert-warning" role="status"><fmt:message key="disabled" bundle="${cds}"/></div>
     </c:if>

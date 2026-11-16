@@ -183,7 +183,7 @@
                                 <%
                                         } else {
                                 %>
-                                    <font color="red"><carlos:encode value='<%= message %>' context="html"/></font>
+                                    <span style="color: red;"><carlos:encode value='<%= message %>' context="html"/></span>
                                 <%
                                         }
                                     }
@@ -206,11 +206,11 @@
             <td>
                 <table>
                     <tr>
-                        <td>Your service name:</td>
+                        <td><label for="name">Your service name:</label></td>
                         <td><input type="text" id="name" name="name"></td>
                     </tr>
                     <tr>
-                        <td>Lab type:</td>
+                        <td><label for="selection">Lab type:</label></td>
                         <td><select name="type" id="selection" onClick="selectOther()">
                             <option value="ALPHA">ALPHA</option>
                             <option value="CML">CML</option>
@@ -239,7 +239,7 @@
                         </select></td>
                     </tr>
                     <tr id="OTHER" style="visibility: hidden;">
-                        <td>Please specify the other message type:</td>
+                        <td><label for="otherType">Please specify the other message type:</label></td>
                         <td><input type="text" id="otherType" name="otherType"></td>
                     </tr>
                 </table>

@@ -24,40 +24,37 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
 
 import java.util.Objects;
-import java.util.concurrent.TimeUnit;
 import java.util.function.LongSupplier;
 
-/** One run/epoch-bound I/O scope shares fresh ownership polling across all bounded reads. */
+/**
+ * One run/epoch-bound I/O scope shares fresh ownership polling across all bounded reads. Every
+ * bounded read is a checkpoint of the attempt's stall window ({@link CdsImportStallWindow}); the
+ * scope keeps no clock of its own, so a long file is read to its end while it keeps moving.
+ */
 final class CdsImportExecutionControl implements AutoCloseable {
     private final String run;
     private final long epoch;
     private final CdsImportCoordinatorService.Owner coordinator;
     private final CdsImportMaintenanceService.Owner maintenance;
-    private final String timeoutCode;
-    private final long maximumMillis;
     private final LongSupplier nanoTime;
-    private final Runnable attemptBudget;
-    private final long started;
+    private final Runnable attemptCheckpoint;
     private final Thread owner = Thread.currentThread();
     private final CdsFieldParser.ControlScope fields;
     private final CdsControlPollBackoff polls = new CdsControlPollBackoff();
     private boolean closed;
 
     CdsImportExecutionControl(String run, long epoch, CdsImportCoordinatorService.Owner coordinator,
-            String timeoutCode, long maximumMillis, LongSupplier nanoTime, Runnable attemptBudget,
-            CdsFieldParser parser, CdsImportMaintenanceService.Owner maintenance) {
+            LongSupplier nanoTime, Runnable attemptCheckpoint, CdsFieldParser parser,
+            CdsImportMaintenanceService.Owner maintenance) {
         this.run = Objects.requireNonNull(run);
-        if (run.isBlank() || epoch < 1 || maximumMillis < 1)
+        if (run.isBlank() || epoch < 1)
             throw new IllegalArgumentException("Invalid import I/O control binding");
         this.epoch = epoch;
         this.coordinator = Objects.requireNonNull(coordinator);
         this.maintenance = Objects.requireNonNull(maintenance);
-        this.timeoutCode = Objects.requireNonNull(timeoutCode);
-        this.maximumMillis = maximumMillis;
         this.nanoTime = Objects.requireNonNull(nanoTime);
-        this.attemptBudget = Objects.requireNonNull(attemptBudget);
+        this.attemptCheckpoint = Objects.requireNonNull(attemptCheckpoint);
         Objects.requireNonNull(parser);
-        started = nanoTime.getAsLong();
         // A failing initial probe cannot leave an installed ThreadLocal scope.
         check(true);
         fields = parser.controlEveryCheckpoint(() -> check(false));
@@ -71,7 +68,7 @@ final class CdsImportExecutionControl implements AutoCloseable {
 
     void check(boolean force) {
         requireOpen();
-        long now = localBudget();
+        long now = localCheckpoint();
         if (polls.due(force, now)) {
             polls.expire();
             var current = coordinator.control(run);
@@ -81,19 +78,16 @@ final class CdsImportExecutionControl implements AutoCloseable {
                 throw new CdsImportException("OWNER_FENCED");
             if (current.cancelRequested()) throw new CdsImportException("IMPORT_CANCELLED");
             maintenance.heartbeat();
-            localBudget();
+            localCheckpoint();
             // Failure never advances this deadline or becomes a cached success.
             polls.succeeded(now);
         }
     }
 
-    private long localBudget() {
+    private long localCheckpoint() {
         if (Thread.currentThread().isInterrupted()) throw new CdsImportException("IMPORT_CANCELLED");
-        attemptBudget.run();
-        long now = nanoTime.getAsLong();
-        if (TimeUnit.NANOSECONDS.toMillis(now - started) >= maximumMillis)
-            throw new CdsImportException(timeoutCode);
-        return now;
+        attemptCheckpoint.run();
+        return nanoTime.getAsLong();
     }
 
     private void requireOpen() {

@@ -150,6 +150,8 @@
                 // Only proceed with saves if there were no validation errors
                 if (errorDetails == null) {
                     // Save all preferences atomically - if any fail, all fail
+                    io.github.carlos_emr.carlos.utility.ConsultationWarningPeriod.validate(
+                            request.getParameter("consultation_time_period_warning"));
                     providerPreference = ProviderPreferencesUIBean.updateOrCreateProviderPreferences(request);
                     ProviderPropertyAction.updateOrCreateProviderProperties(request);
 

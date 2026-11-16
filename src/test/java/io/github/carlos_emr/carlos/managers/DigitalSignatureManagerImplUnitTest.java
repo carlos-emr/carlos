@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.managers;
 
 import io.github.carlos_emr.carlos.commn.dao.DigitalSignatureDao;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
+import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
 import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 
 import org.junit.jupiter.api.DisplayName;
@@ -31,6 +32,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -49,7 +51,7 @@ import static org.mockito.Mockito.when;
  */
 @Tag("unit")
 @Tag("manager")
-@DisplayName("DigitalSignatureManagerImpl.getDigitalSignature decrypt-failure fallback")
+@DisplayName("DigitalSignatureManagerImpl signature reads and writes")
 class DigitalSignatureManagerImplUnitTest {
 
     private static final int SIGNATURE_ID = 42;
@@ -57,6 +59,32 @@ class DigitalSignatureManagerImplUnitTest {
     // Minimal valid PNG magic prefix (89 50 4E 47) padded past the 4-byte sniff window.
     private static final byte[] PNG_MAGIC =
             {(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
+
+    @Test
+    @DisplayName("metadata reads require the source-verified owner for imported signatures")
+    void shouldUseReadableMetadata_forLegacyCallers() {
+        DigitalSignatureDao dao = mock(DigitalSignatureDao.class);
+        DigitalSignatureManagerImpl manager = new DigitalSignatureManagerImpl(dao);
+        DigitalSignature resolved = new DigitalSignature();
+        resolved.setDemographicId(7);
+        when(dao.findReadableMetadataById(SIGNATURE_ID)).thenReturn(resolved);
+
+        assertThat(manager.getDigitalSignatureMetadata(SIGNATURE_ID)).isSameAs(resolved);
+        verify(dao, never()).findMetadataById(SIGNATURE_ID);
+    }
+
+    @Test
+    @DisplayName("new signatures still require a real patient after the -1 import migration")
+    void shouldRejectNewSignature_whenPatientIsUnassigned() {
+        DigitalSignatureDao dao = mock(DigitalSignatureDao.class);
+        DigitalSignatureManagerImpl manager = new DigitalSignatureManagerImpl(dao);
+        for (Integer patient : new Integer[] {null, -1, 0}) {
+            assertThatThrownBy(() -> manager.saveDigitalSignature(
+                    1, "999998", patient, PNG_MAGIC, ModuleType.CONSULTATION))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+        verify(dao, never()).persist(any());
+    }
 
     @Test
     @DisplayName("should keep stored bytes and never persist when decrypt fails but bytes are image magic")
@@ -134,6 +162,59 @@ class DigitalSignatureManagerImplUnitTest {
 
             assertThat(result).isNotNull();
             assertThat(result.getSignatureImage()).isEqualTo(plaintext);
+        }
+    }
+
+    @Test
+    @DisplayName("should read a stored value as decrypted, legacy plaintext or unreadable")
+    void shouldReadEachStoredForm_throughTheOneDecryptionPath() {
+        byte[] ciphertext = {(byte) 0xAA, (byte) 0xBB, (byte) 0xCC};
+        byte[] plaintext = {0x10, 0x20, 0x30};
+        try (MockedStatic<EncryptionUtils> encryption = mockStatic(EncryptionUtils.class)) {
+            encryption.when(() -> EncryptionUtils.decrypt(ciphertext)).thenReturn(plaintext);
+            encryption.when(() -> EncryptionUtils.decrypt(PNG_MAGIC))
+                    .thenThrow(new RuntimeException("not ciphertext"));
+            byte[] opaque = {0x01, 0x02, 0x03, 0x04, 0x05};
+            encryption.when(() -> EncryptionUtils.decrypt(opaque))
+                    .thenThrow(new RuntimeException("key unavailable"));
+
+            var decrypted = DigitalSignatureManagerImpl.readStoredImage(ciphertext);
+            assertThat(decrypted.form()).isEqualTo(DigitalSignatureManagerImpl.StoredImageForm.DECRYPTED);
+            assertThat(decrypted.image()).isEqualTo(plaintext);
+
+            var legacy = DigitalSignatureManagerImpl.readStoredImage(PNG_MAGIC);
+            assertThat(legacy.form()).isEqualTo(DigitalSignatureManagerImpl.StoredImageForm.LEGACY_PLAINTEXT);
+            assertThat(legacy.image()).isEqualTo(PNG_MAGIC);
+
+            var unreadable = DigitalSignatureManagerImpl.readStoredImage(opaque);
+            assertThat(unreadable.form()).isEqualTo(DigitalSignatureManagerImpl.StoredImageForm.UNREADABLE);
+            assertThat(unreadable.image()).isNull();
+            assertThat(unreadable.failure()).hasMessage("key unavailable");
+        }
+    }
+
+    @Test
+    @DisplayName("should decrypt a value the signature key encrypted, as the chart and the export read it")
+    void shouldDecryptAStoredSignature_withTheConfiguredKey() throws Exception {
+        var props = io.github.carlos_emr.CarlosProperties.getInstance();
+        boolean had = props.containsKey(EncryptionUtils.SECRET_KEY_ENV_VAR);
+        Object previousKey = props.get(EncryptionUtils.SECRET_KEY_ENV_VAR);
+        var specField = EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
+        specField.setAccessible(true);
+        Object previousSpec = specField.get(null);
+        try {
+            props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, EncryptionUtils.generateSecretKey());
+            EncryptionUtils.prepareSecretKeySpec();
+            byte[] stored = EncryptionUtils.encrypt(PNG_MAGIC);
+
+            var read = DigitalSignatureManagerImpl.readStoredImage(stored);
+
+            assertThat(read.form()).isEqualTo(DigitalSignatureManagerImpl.StoredImageForm.DECRYPTED);
+            assertThat(read.image()).isEqualTo(PNG_MAGIC);
+        } finally {
+            if (had) props.put(EncryptionUtils.SECRET_KEY_ENV_VAR, previousKey);
+            else props.remove(EncryptionUtils.SECRET_KEY_ENV_VAR);
+            specField.set(null, previousSpec);
         }
     }
 }
