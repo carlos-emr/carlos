@@ -55,8 +55,9 @@ async function workflow(s) {
   const owned = 'service = ?';
   const ownedParams = [service];
   const contextPath = new URL(config.baseUrl).pathname.replace(/\/+$/, '');
-  // The public key of the CARLOS key pair this run had the page create, read back as soon as
-  // that request returns (the preflight found none). Cleanup removes only that pair: a CARLOS
+  // Read the public key only after this request explicitly confirms successful creation.
+  // Preflight alone cannot establish ownership if another operation creates a key meanwhile.
+  // Cleanup removes only that confirmed pair: a CARLOS
   // key pair it cannot match may be in use, so it is left in place and the cleanup fails.
   let createdCarlosKey = null;
   s.cleanup(() => {
@@ -114,15 +115,11 @@ async function workflow(s) {
   });
 
   await s.step("the page creates the CARLOS key pair under the service name 'oscar'", async () => {
-    let shown;
-    try {
-      shown = await submitForPage('oscar');
-    } finally {
-      // Before any assertion, so cleanup knows the pair this request stored even if it then fails.
-      createdCarlosKey = sql.value(`SELECT COALESCE(pubKey,'') FROM oscarKeys WHERE name='oscar'`) || null;
-    }
-    await shot('2-carlos-key-created');
+    const shown = await submitForPage('oscar');
     h.assert(shown === 'CARLOS key pair created successfully', `Creating the CARLOS key pair showed "${shown}"`);
+    // A refused, interrupted or ambiguous request must never claim another operation's key.
+    createdCarlosKey = sql.value(`SELECT COALESCE(pubKey,'') FROM oscarKeys WHERE name='oscar'`) || null;
+    await shot('2-carlos-key-created');
     h.assert(createdCarlosKey, 'The CARLOS key pair was not stored');
     const publicKey = crypto.createPublicKey({key: der(createdCarlosKey), format: 'der', type: 'spki'});
     h.assert(publicKey.asymmetricKeyType === 'rsa' && publicKey.asymmetricKeyDetails.modulusLength >= 2048,
