@@ -38,8 +38,10 @@ async function workflow(s) {
   await frame.locator('#faxPasswd').fill('FAKE-5783-password');
 
   async function save(name) {
-    await frame.locator('#accountName').fill(name);
-    h.assert(!await frame.locator('#activeCheckbox').isChecked(), 'Owned fax account was enabled');
+    await frame.locator('#accountName').fill('');
+    await frame.locator('#accountName').pressSequentially(name);
+    h.assert(!await frame.locator('#on').isChecked() && await frame.locator('#of').isChecked(),
+      'Owned fax account was enabled');
     h.assert(!await frame.locator('#downloadCheckbox').isChecked(), 'Owned inbound polling was enabled');
     const [response] = await Promise.all([
       schedule.waitForResponse(answer => answer.request().method() === 'POST'
