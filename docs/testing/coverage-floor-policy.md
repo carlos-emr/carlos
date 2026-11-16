@@ -193,6 +193,18 @@ the full H2 suite's 90.45 on this unchanged blob; the focused union reaches
 This run proves source freshness and focused PR coverage only, not acceptance
 of the complete release-lane union.
 
+The `f9b1b18286d8` refresh follows the CodeRabbit fix for a real BIT(1) column
+that `transformedBitIsBoolean=true` reports as BOOLEAN. It changes only the
+driver's source blob. The same focused union, now 460 H2 cases plus the 35
+physical cases (495 in all, no skips, failures or errors), measures the driver
+at 94.00/92.18/85.04. That is above both its release floor and the
+93.89/92.07/84.80 recorded for the previous blob, so those are the new floors.
+`MariaDbJdbcCompatibility.java` is unchanged and keeps 98.27/98.14/90.45, its
+branch floor again the full H2 suite's measurement on that blob. Every other
+row, the release evidence in `baselinePriorEvidence` and the release-lane
+qualification requirements are unchanged; no floor is lowered and no waiver is
+added.
+
 The `dd7321db79ee` PR #6102 merged-source refresh uses Debian 13 and Temurin
 25.0.3. Its complete H2 run records 35,947 actual cases: 35,736 passes,
 211 explicit routed/prerequisite skips, and zero failures or errors. The

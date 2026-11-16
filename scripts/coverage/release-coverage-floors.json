@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "3900bed99e4536268732273af23920a6beb51966",
-  "comparisonSha256": "bf48ae2f34e87553c00a8bf6faec696d4ecbe32ecfeb9a6f1b631da7b5170e50",
+  "sourceTree": "3f9427bfddbf868d6908f571b46a172d9cd88996",
+  "comparisonSha256": "c188a6b6c0384926ac1e5fadf46c02b52201ec62b36598991adb5cbb619523ea",
   "files": {
     "src/main/java/io/github/carlos_emr/AppointmentMainBean.java": {
       "lines": 100.0,
@@ -8693,10 +8693,10 @@
       "sourceBlob": "3da5836aab13fc921b8265500eb6006a13b97df5"
     },
     "src/main/java/io/github/carlos_emr/carlos/utility/MariaDbCompatibilityDriver.java": {
-      "lines": 93.89312977099236,
-      "instructions": 92.06525769373378,
-      "branches": 84.8,
-      "sourceBlob": "8af5b76285c51d866d6c1ff6a366770c5483b2eb"
+      "lines": 94.0,
+      "instructions": 92.17836257309942,
+      "branches": 85.03937007874016,
+      "sourceBlob": "3db3d6deef63708f15e8c5d3636e8d0b3fedfefe"
     },
     "src/main/java/io/github/carlos_emr/carlos/utility/MariaDbJdbcCompatibility.java": {
       "lines": 98.26732673267327,
@@ -9662,17 +9662,17 @@
     }
   },
   "zeroCoverageWaivers": {},
-  "baselineCommit": "79af8359433b66963ba98995c8391faa85a5ec1e",
-  "baselineSourceTree": "3900bed99e4536268732273af23920a6beb51966",
-  "baselineReportSha256": "5fa018a9a0a4c540d15dadb3a1158f03b6b746034c7a73a29e875e60518ed179",
-  "baselineLane": "PR #6113 merge of release 070c90d534de544e57af7e34228910ed8ae4db1a (#6174). Temurin JDK 25.0.5+8 focused Maven tests and JaCoCo 0.8.16 on the merged production and test sources: every H2 test class that names MariaDbCompatibilityDriver or MariaDbJdbcCompatibility (CdsJdbcConnectionTimeoutsUnitTest, CdsRulesetFingerprintMappingUnitTest, JdbcMetadataDefaultUnitTest, MariaDb*UnitTest, OscarTrackingBasicDataSource*), plus the 35-case JdbcConnectorMariaDbIntegrationTest on physical MariaDB 11.8.8; the report is the union of both executions. Only the two PR Java paths change rows: each takes the highest of its release floor, its prior PR measurement on the same blob, and this union. All other floors, required refusal lines, exclusions and zero-coverage review requirements are the release file's, unchanged. Historical evidence is archived in baselinePriorEvidence and is not combined with this execution. This establishes source freshness and focused PR coverage, not complete release-lane coverage acceptance.",
+  "baselineCommit": "f9b1b18286d8d7b7a64f5502f4966adfa458616f",
+  "baselineSourceTree": "3f9427bfddbf868d6908f571b46a172d9cd88996",
+  "baselineReportSha256": "14a04f7a75a4852185e27bfd7a35aa9434623ae0d9b3afec0cd7ceb7afb543a6",
+  "baselineLane": "PR #6113 head f9b1b18286d8d7b7a64f5502f4966adfa458616f (BIT(1) Boolean-metadata fix) on release 070c90d534de544e57af7e34228910ed8ae4db1a (#6174; release 894aa185bc has an identical tree). Temurin JDK 25.0.5+8 focused Maven tests and JaCoCo 0.8.16 on the merged production and test sources: every H2 test class that names MariaDbCompatibilityDriver or MariaDbJdbcCompatibility (CdsJdbcConnectionTimeoutsUnitTest, CdsRulesetFingerprintMappingUnitTest, JdbcMetadataDefaultUnitTest, MariaDb*UnitTest, OscarTrackingBasicDataSource*), plus the 35-case JdbcConnectorMariaDbIntegrationTest on physical MariaDB 11.8.8; the report is the union of both executions. Only the two PR Java paths change rows: each takes the highest of its release floor, its prior PR measurement on the same blob, and this union. All other floors, required refusal lines, exclusions and zero-coverage review requirements are the release file's, unchanged. Historical evidence is archived in baselinePriorEvidence and is not combined with this execution. This establishes source freshness and focused PR coverage, not complete release-lane coverage acceptance.",
   "baselineTestCounts": {
-    "tests": 494,
+    "tests": 495,
     "skipped": 0,
     "failures": 0,
     "errors": 0
   },
-  "baselineTestReportsSha256": "2ad07134bbae32205478209814627d8f407966cccb08e4932679aebd8d2bf0a8",
+  "baselineTestReportsSha256": "6b021c93e8e402fa2a03739ece16a175af5e5661236c9a8c5fa78073e1fe27f6",
   "baselineTestReportsHashFormat": "SHA-256 of json.dumps({TEST-*.xml file name: file SHA-256 hex}, sort_keys=True, separators=(',', ':')) plus a final newline",
   "baselineReportHeaderCollisions": 0,
   "baselinePriorEvidence": {
@@ -9830,17 +9830,17 @@
   "baselineCoverageInputs": [
     {
       "lane": "pr-6113-focused-h2",
-      "sourceCommit": "79af8359433b66963ba98995c8391faa85a5ec1e",
-      "executionSha256": "5dcf88b2a07cf394acbfd2830d70f2caaba920475ca976de386be80ef510966c"
+      "sourceCommit": "f9b1b18286d8d7b7a64f5502f4966adfa458616f",
+      "executionSha256": "3bcf5c6631b7714b512f3131e74ee2cc6f6be386630fe49d4f21d811eb0eb2c3"
     },
     {
       "lane": "pr-6113-focused-h2-plus-mariadb-native-union",
-      "sourceCommit": "79af8359433b66963ba98995c8391faa85a5ec1e",
-      "executionSha256": "112bc6756a89f6b7562aa7c34213d1b7f61770d121170a498292f4eded514cb1",
-      "reportsSha256": "2ad07134bbae32205478209814627d8f407966cccb08e4932679aebd8d2bf0a8",
+      "sourceCommit": "f9b1b18286d8d7b7a64f5502f4966adfa458616f",
+      "executionSha256": "fa5fdcca215b729141c3b6c2bb7a7ab995d6365df796f3423fc599e52401a722",
+      "reportsSha256": "6b021c93e8e402fa2a03739ece16a175af5e5661236c9a8c5fa78073e1fe27f6",
       "suiteCount": 12,
       "summary": {
-        "tests": 494,
+        "tests": 495,
         "failed": 0,
         "skipped": 0
       }
