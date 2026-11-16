@@ -64,7 +64,7 @@ class LegacyDependencyCompatibilityUnitTest {
     }
 
     @Test
-    void shouldMatchJavaOtpNumericCodes_forRandomKeysBoundariesAndLocales() throws Exception {
+    void shouldMatchJavaOtp_forRandomKeysBoundariesAndLocales() throws Exception {
         try (URLClassLoader loader = legacyJar("com/eatthepath/java-otp/0.4.0/java-otp-0.4.0.jar")) {
             Class<?> type = loader.loadClass("com.eatthepath.otp.TimeBasedOneTimePasswordGenerator");
             Object oracle = type.getConstructor().newInstance();
