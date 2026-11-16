@@ -12,6 +12,8 @@
  */
 package io.github.carlos_emr.carlos.documentManager.actions;
 
+import java.util.Hashtable;
+
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
@@ -28,6 +30,8 @@ import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
 import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -55,11 +59,18 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.AbstractPlatformTransactionManager;
+import org.springframework.transaction.support.DefaultTransactionStatus;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -79,6 +90,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.entry;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -87,6 +99,8 @@ import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -143,6 +157,20 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
     private MockHttpServletResponse response;
     private AddEditDocument2Action action;
     private File tempUploadFile;
+    private RecordingTransactions transactions;
+
+    /** Records whether the edit's locked save committed or rolled back. */
+    private static final class RecordingTransactions extends AbstractPlatformTransactionManager {
+        private static final long serialVersionUID = 1L;
+        private int begun;
+        private boolean committed;
+        private boolean rolledBack;
+
+        @Override protected Object doGetTransaction() { return new Object(); }
+        @Override protected void doBegin(Object transaction, TransactionDefinition definition) { begun++; }
+        @Override protected void doCommit(DefaultTransactionStatus status) { committed = true; }
+        @Override protected void doRollback(DefaultTransactionStatus status) { rolledBack = true; }
+    }
 
     @BeforeEach
     void setUp() {
@@ -173,6 +201,9 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(PatientLabRoutingDao.class, mock(PatientLabRoutingDao.class));
         registerMock(QueueDocumentLinkDao.class, mock(QueueDocumentLinkDao.class));
         lenient().when(storedDocuments.find(123)).thenReturn(new io.github.carlos_emr.carlos.commn.model.Document());
+        lenient().when(storedDocuments.findForPageMutation(123)).thenReturn(new io.github.carlos_emr.carlos.commn.model.Document());
+        transactions = new RecordingTransactions();
+        registerMock(PlatformTransactionManager.class, transactions);
         lenient().when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(mockLoggedInInfo, 123)).thenReturn(true);
         lenient().when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_edoc", "w", "123")).thenReturn(true);
         lenient().when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_edoc"), eq("w"), isNull()))
@@ -318,6 +349,232 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
         } finally {
             if (previous == null) CarlosProperties.getInstance().remove("ALLOW_UPDATE_DOCUMENT_CONTENT");
             else CarlosProperties.getInstance().setProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", previous);
+        }
+    }
+
+    /**
+     * Review mode is decided from the stored document under its row lock, never from the flag the
+     * page chose or the reviewer it rendered (issue #6081). Each case posts forged reviewer fields.
+     */
+    @org.junit.jupiter.params.ParameterizedTest(name = "posted reviewDoc={0} extraReviewDoc={1}")
+    @org.junit.jupiter.params.provider.CsvSource({"true,false", "false,true", "true,true"})
+    void shouldRecordFirstReviewBySessionActor_whenStoredReviewWasCleared(boolean reviewDoc, boolean extraReviewDoc) {
+        var stored = new io.github.carlos_emr.carlos.commn.model.Document();
+        var documentsDao = storedDocument(stored);
+        var reviewers = mock(DocumentExtraReviewerDao.class);
+        registerMock(DocumentExtraReviewerDao.class, reviewers);
+        prepareReviewPost(reviewDoc, extraReviewDoc);
+        java.util.Date before = new java.util.Date((System.currentTimeMillis() / 1000) * 1000);
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
+            assertThat(withContentUpdatesDisabled(action::execute2)).isEqualTo("successEdit");
+            var saved = org.mockito.ArgumentCaptor.forClass(EDoc.class);
+            documents.verify(() -> EDocUtil.editDocumentSQL(saved.capture(), eq(true)));
+            assertThat(saved.getValue().getReviewerId()).isEqualTo("999998");
+            java.util.Date reviewed = io.github.carlos_emr.carlos.util.UtilDateUtilities.StringToDate(
+                    saved.getValue().getReviewDateTime(), EDocUtil.REVIEW_DATETIME_FORMAT);
+            assertThat(reviewed).isNotNull().isAfterOrEqualTo(before).isBeforeOrEqualTo(new java.util.Date());
+            org.mockito.Mockito.verifyNoInteractions(reviewers);
+            var order = org.mockito.Mockito.inOrder(documentsDao);
+            order.verify(documentsDao).findForPageMutation(123);
+            logActionMock.verify(() -> LogAction.addLog(eq("999998"), eq(LogConst.REVIEWED), eq(LogConst.CON_DOCUMENT),
+                    eq("123"), any(String.class)));
+            assertThat(transactions.committed).isTrue();
+            assertThat(transactions.rolledBack).isFalse();
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest(name = "posted reviewDoc={0} extraReviewDoc={1}")
+    @org.junit.jupiter.params.provider.CsvSource({"true,false", "false,true", "true,true"})
+    void shouldAddExtraReviewAndKeepFirstReview_whenAnotherProviderAlreadyReviewed(boolean reviewDoc, boolean extraReviewDoc) {
+        var stored = new io.github.carlos_emr.carlos.commn.model.Document();
+        stored.setReviewer("999997");
+        stored.setReviewdatetime(new java.util.Date(1700000000000L));
+        storedDocument(stored);
+        var reviewers = mock(DocumentExtraReviewerDao.class);
+        when(reviewers.findByDocumentNo(123)).thenReturn(List.of(extraReview("999996")));
+        registerMock(DocumentExtraReviewerDao.class, reviewers);
+        prepareReviewPost(reviewDoc, extraReviewDoc);
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
+            assertThat(withContentUpdatesDisabled(action::execute2)).isEqualTo("successEdit");
+            var saved = org.mockito.ArgumentCaptor.forClass(EDoc.class);
+            documents.verify(() -> EDocUtil.editDocumentSQL(saved.capture(), eq(true)));
+            assertThat(saved.getValue().getReviewerId()).isEqualTo("999997");
+            assertThat(saved.getValue().getReviewDateTime()).isEqualTo(
+                    io.github.carlos_emr.carlos.util.UtilDateUtilities.DateToString(
+                            stored.getReviewdatetime(), EDocUtil.REVIEW_DATETIME_FORMAT));
+            verify(reviewers).persist(argThat((io.github.carlos_emr.carlos.commn.model.DocumentExtraReviewer review) ->
+                    review.getDocumentNo() == 123 && "999998".equals(review.getReviewerProviderNo())
+                            && review.getReviewDateTime() != null));
+            logActionMock.verify(() -> LogAction.addLog(eq("999998"), eq(LogConst.REVIEWED), eq(LogConst.CON_DOCUMENT),
+                    eq("123"), any(String.class)));
+            assertThat(transactions.committed).isTrue();
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest(name = "actor is the {0} reviewer")
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"first", "additional"})
+    void shouldNotRecordSecondReview_whenActorAlreadyReviewed(String existingRole) {
+        var stored = new io.github.carlos_emr.carlos.commn.model.Document();
+        stored.setReviewer("first".equals(existingRole) ? "999998" : "999997");
+        stored.setReviewdatetime(new java.util.Date(1700000000000L));
+        storedDocument(stored);
+        var reviewers = mock(DocumentExtraReviewerDao.class);
+        lenient().when(reviewers.findByDocumentNo(123)).thenReturn(
+                "first".equals(existingRole) ? List.of() : List.of(extraReview("999998")));
+        registerMock(DocumentExtraReviewerDao.class, reviewers);
+        // A double click or a second tab posts Reviewed again.
+        prepareReviewPost(true, false);
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
+            assertThat(withContentUpdatesDisabled(action::execute2)).isEqualTo("successEdit");
+            var saved = org.mockito.ArgumentCaptor.forClass(EDoc.class);
+            documents.verify(() -> EDocUtil.editDocumentSQL(saved.capture(), eq(true)));
+            assertThat(saved.getValue().getReviewerId()).isEqualTo(stored.getReviewer());
+            verify(reviewers, never()).persist(any());
+            logActionMock.verify(() -> LogAction.addLog(any(String.class), eq(LogConst.REVIEWED), any(String.class),
+                    any(String.class), any(String.class)), never());
+            logActionMock.verify(() -> LogAction.addLog(eq("999998"), eq(LogConst.UPDATE), eq(LogConst.CON_DOCUMENT),
+                    eq("123"), any(String.class)));
+        }
+    }
+
+    @Test
+    void shouldNotRecordReview_whenOnlyMetadataIsUpdated() {
+        var reviewers = mock(DocumentExtraReviewerDao.class);
+        registerMock(DocumentExtraReviewerDao.class, reviewers);
+        prepareReviewPost(false, false);
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
+            assertThat(withContentUpdatesDisabled(action::execute2)).isEqualTo("successEdit");
+            // A plain Update still clears the stored review, as it always has.
+            documents.verify(() -> EDocUtil.editDocumentSQL(any(EDoc.class), eq(false)));
+            org.mockito.Mockito.verifyNoInteractions(reviewers);
+            logActionMock.verify(() -> LogAction.addLog(any(String.class), eq(LogConst.REVIEWED), any(String.class),
+                    any(String.class), any(String.class)), never());
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest(name = "review requested={0}")
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldReportMissingDocument_whenDocumentVanishesBeforeTheLockedSave(boolean reviewRequested) {
+        var documentsDao = mock(DocumentDao.class);
+        when(documentsDao.find(123)).thenReturn(new io.github.carlos_emr.carlos.commn.model.Document());
+        when(documentsDao.findForPageMutation(123)).thenReturn(null);
+        registerMock(DocumentDao.class, documentsDao);
+        var reviewers = mock(DocumentExtraReviewerDao.class);
+        registerMock(DocumentExtraReviewerDao.class, reviewers);
+        prepareReviewPost(false, reviewRequested);
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
+            assertThat(withContentUpdatesDisabled(action::execute2)).isEqualTo("failEdit");
+            assertThat(request.getAttribute("docerrors")).isEqualTo(
+                    new Hashtable<>(java.util.Map.of("documentmissing", "dms.error.documentMissing")));
+            assertThat(request.getAttribute("editDocumentNo")).isEqualTo("123");
+            documents.verify(() -> EDocUtil.editDocumentSQL(any(EDoc.class), org.mockito.ArgumentMatchers.anyBoolean()),
+                    never());
+            org.mockito.Mockito.verifyNoInteractions(reviewers);
+            logActionMock.verifyNoInteractions();
+            assertThat(transactions.rolledBack).isTrue();
+            assertThat(transactions.committed).isFalse();
+        }
+    }
+
+    @Test
+    void shouldRollBackReviewAndSkipAudit_whenMetadataSaveFails() {
+        var stored = new io.github.carlos_emr.carlos.commn.model.Document();
+        stored.setReviewer("999997");
+        storedDocument(stored);
+        var reviewers = mock(DocumentExtraReviewerDao.class);
+        registerMock(DocumentExtraReviewerDao.class, reviewers);
+        prepareReviewPost(true, false);
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
+            documents.when(() -> EDocUtil.editDocumentSQL(any(EDoc.class), eq(true)))
+                    .thenThrow(new IllegalStateException("synthetic database failure"));
+            assertThat(withContentUpdatesDisabled(action::execute2)).isEqualTo("failEdit");
+            // The extra-reviewer row was written inside the transaction that rolled back.
+            verify(reviewers).persist(any());
+            assertThat(transactions.rolledBack).isTrue();
+            assertThat(transactions.committed).isFalse();
+            logActionMock.verifyNoInteractions();
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"en", "fr", "es", "pl", "pt_BR"})
+    void shouldResolveMissingDocumentMessage_forEveryShippedLocale(String locale) throws IOException {
+        java.util.Properties bundle = new java.util.Properties();
+        try (InputStream in = getClass().getResourceAsStream("/oscarResources_" + locale + ".properties")) {
+            assertThat(in).isNotNull();
+            bundle.load(in);
+        }
+        assertThat(bundle.getProperty("dms.error.documentMissing")).isNotBlank().doesNotContain("\\u");
+    }
+
+    private DocumentDao storedDocument(io.github.carlos_emr.carlos.commn.model.Document stored) {
+        var documentsDao = mock(DocumentDao.class);
+        // Stored-document authorization and the pre-upload existence check read the row; the save locks it.
+        lenient().when(documentsDao.find(123)).thenReturn(stored);
+        when(documentsDao.findForPageMutation(123)).thenReturn(stored);
+        registerMock(DocumentDao.class, documentsDao);
+        return documentsDao;
+    }
+
+    private void prepareReviewPost(boolean reviewDoc, boolean extraReviewDoc) {
+        action.setMode("123");
+        action.setFunction("provider");
+        action.setFunctionId("999998");
+        action.setDocDesc("Synthetic review");
+        action.setDocType("Consultant Report");
+        action.setAppointmentNo("0");
+        action.setReviewDoc(reviewDoc);
+        action.setExtraReviewDoc(extraReviewDoc);
+        // Forged page values: none of them may reach the stored review.
+        action.setReviewerId("999995");
+        action.setExtraReviewerId("999994");
+        action.setReviewDateTime("2001/01/01 00:00:00");
+    }
+
+    private static io.github.carlos_emr.carlos.commn.model.DocumentExtraReviewer extraReview(String provider) {
+        var review = new io.github.carlos_emr.carlos.commn.model.DocumentExtraReviewer();
+        review.setDocumentNo(123);
+        review.setReviewerProviderNo(provider);
+        review.setReviewDateTime(new java.util.Date(1700000500000L));
+        return review;
+    }
+
+    private static <T> T withContentUpdatesDisabled(java.util.concurrent.Callable<T> call) {
+        String previous = CarlosProperties.getInstance().getProperty("ALLOW_UPDATE_DOCUMENT_CONTENT");
+        CarlosProperties.getInstance().setProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", "false");
+        try {
+            return call.call();
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        } finally {
+            if (previous == null) {
+                CarlosProperties.getInstance().remove("ALLOW_UPDATE_DOCUMENT_CONTENT");
+            } else {
+                CarlosProperties.getInstance().setProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", previous);
+            }
+        }
+    }
+
+    @Test
+    void shouldRefuseMissingReviewedDocument_beforePublishingReplacementContent() throws Exception {
+        tempUploadFile = File.createTempFile("missing-reviewed-document", ".txt");
+        Files.writeString(tempUploadFile.toPath(), "synthetic replacement");
+        bindDocFileUpload(tempUploadFile, "replacement.txt", "text/plain");
+        var documentsDao = mock(DocumentDao.class);
+        when(documentsDao.find(123)).thenReturn(new io.github.carlos_emr.carlos.commn.model.Document(), null);
+        registerMock(DocumentDao.class, documentsDao);
+        action.setMode("123"); action.setFunction("provider"); action.setFunctionId("999998");
+        action.setDocDesc("Synthetic review"); action.setDocType("Consultant Report");
+        action.setAppointmentNo("0"); action.setExtraReviewDoc(true);
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class);
+             MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class)) {
+            assertThat(action.execute2()).isEqualTo("failEdit");
+            paths.verifyNoInteractions();
+            documents.verifyNoInteractions();
+            // Issue #6081: the user is told why nothing was saved.
+            assertThat(request.getAttribute("docerrors")).isEqualTo(
+                    new Hashtable<>(java.util.Map.of("documentmissing", "dms.error.documentMissing")));
+            logActionMock.verifyNoInteractions();
         }
     }
 
@@ -945,6 +1202,71 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should file the add/document audit row under the patient the upload is filed onto")
+    void shouldAuditUploadAgainstPatient_whenDocumentIsAddedToAChart() throws Exception {
+        tempUploadFile = File.createTempFile("add-edit-document-audit", ".txt");
+        Files.writeString(tempUploadFile.toPath(), "test");
+        Path documentDir = Files.createTempDirectory("add-edit-document-audit-output");
+        String originalDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
+
+        action.setMode("add");
+        action.setFunction("demographic");
+        action.setFunctionId("987");
+        action.setDocDesc("FAKE-DESCRIPTION consult letter");
+        action.setDocType("Consultant Report");
+        action.setDocCreator("999998");
+        action.setResponsibleId("999998");
+        action.setSource("local");
+        action.setDocPublic("0");
+        action.setObservationDate("2026-05-21");
+        action.setAppointmentNo("45");
+        bindDocFileUpload(tempUploadFile, "consult-note.txt", "text/plain");
+        lenient().when(mockSecurityInfoManager.hasPrivilege(any(), any(), any(), eq("987"))).thenReturn(true);
+        lenient().when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(), eq(987))).thenReturn(true);
+
+        try (MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class, CALLS_REAL_METHODS)) {
+            eDocUtilMock.when(() -> EDocUtil.getDoctypes("demographic"))
+                    .thenReturn(new ArrayList<>(List.of("Consultant Report")));
+            eDocUtilMock.when(() -> EDocUtil.addDocumentSQL(any(EDoc.class))).thenReturn("321");
+
+            // The chart note the upload also files needs the web application context, which this
+            // unit test does not start; the audit row under test is written before that step.
+            action.execute2();
+
+            logActionMock.verify(() -> LogAction.addLog("999998", LogConst.ADD, LogConst.CON_DOCUMENT, "321",
+                    request.getRemoteAddr(), "987"));
+            // Not the five-argument form, which leaves demographic_no empty.
+            logActionMock.verify(() -> LogAction.addLog(any(String.class), eq(LogConst.ADD), eq(LogConst.CON_DOCUMENT),
+                    any(String.class), any(String.class)), never());
+        } finally {
+            if (originalDocumentDir == null) {
+                CarlosProperties.getInstance().remove("DOCUMENT_DIR");
+            } else {
+                CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", originalDocumentDir);
+            }
+            File[] writtenFiles = documentDir.toFile().listFiles();
+            if (writtenFiles != null) {
+                for (File writtenFile : writtenFiles) {
+                    Files.deleteIfExists(writtenFile.toPath());
+                }
+            }
+            Files.deleteIfExists(documentDir);
+        }
+    }
+
+    @Test
+    @DisplayName("should audit an upload that is not filed onto a patient without a patient")
+    void shouldAuditUploadWithoutPatient_whenDocumentIsAddedToAProvider() throws Exception {
+        addDocumentAndCaptureRedirect(false);
+
+        logActionMock.verify(() -> LogAction.addLog("999998", LogConst.ADD, LogConst.CON_DOCUMENT, "321",
+                request.getRemoteAddr()));
+        logActionMock.verify(() -> LogAction.addLog(any(String.class), eq(LogConst.ADD), eq(LogConst.CON_DOCUMENT),
+                any(String.class), any(String.class), any(String.class)), never());
+    }
+
+    @Test
     @DisplayName("should keep scheduleNav on the add-document success redirect")
     void shouldKeepScheduleNav_whenAddDocumentSucceedsInScheduleShell() throws Exception {
         // The document list renders the shared navigation header only while the request carries
@@ -1023,6 +1345,131 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
                 .isAnnotationPresent(StrutsParameter.class)).isFalse();
         assertThat(AddEditDocument2Action.class.getMethod("setDocFileContentType", String.class)
                 .isAnnotationPresent(StrutsParameter.class)).isFalse();
+    }
+
+    /** document.docdesc: a utf8mb4 VARCHAR(255), counted in code points. */
+    private static final int DESCRIPTION_MAX = io.github.carlos_emr.carlos.commn.model.Document.DESCRIPTION_MAX_LENGTH;
+
+    /**
+     * A description longer than document.docdesc was stored cut to 255 characters without a word,
+     * because the packaged database is not strict. The add is refused before
+     * anything is written, with a docerrors message. "\uD83D\uDE00" is one character, two Java chars.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"d", "\uD83D\uDE00"})
+    @DisplayName("should refuse to add a document whose description is one character longer than document.docdesc")
+    @SuppressWarnings("unchecked")
+    void shouldRefuseTheAdd_whenTheDescriptionIsOneCharacterLongerThanTheColumn(String character) {
+        action.setMode("add");
+        action.setFunction("provider");
+        action.setFunctionId("999998");
+        action.setDocDesc(character.repeat(DESCRIPTION_MAX + 1));
+        action.setDocType("Consultant Report");
+
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
+            assertThat(action.execute2()).isEqualTo("failAdd");
+            documents.verifyNoInteractions();
+        }
+
+        Hashtable<String, String> errors = (Hashtable<String, String>) request.getAttribute("docerrors");
+        assertThat(errors).containsExactly(entry("desctoolong", "dms.error.descriptionTooLong"));
+        logActionMock.verifyNoInteractions();
+        assertThat(response.getRedirectedUrl()).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"d", "\uD83D\uDE00"})
+    @DisplayName("should add a document whose description fills document.docdesc exactly, storing it whole")
+    void shouldStoreTheWholeDescription_whenItFillsTheColumnExactly(String character) throws Exception {
+        String description = character.repeat(DESCRIPTION_MAX);
+        tempUploadFile = File.createTempFile("add-edit-document", ".txt");
+        Files.writeString(tempUploadFile.toPath(), "test");
+        Path documentDir = Files.createTempDirectory("add-edit-document-output");
+        String originalDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
+        action.setMode("add");
+        action.setFunction("provider");
+        action.setFunctionId("999998");
+        action.setDocDesc(description);
+        action.setDocType("Consultant Report");
+        action.setDocCreator("999998");
+        action.setResponsibleId("999998");
+        action.setSource("local");
+        action.setDocPublic("0");
+        action.setObservationDate("2026-11-13");
+        action.setAppointmentNo("0");
+        bindDocFileUpload(tempUploadFile, "full-description.txt", "text/plain");
+        ArgumentCaptor<EDoc> stored = ArgumentCaptor.forClass(EDoc.class);
+
+        try (MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class, CALLS_REAL_METHODS)) {
+            eDocUtilMock.when(() -> EDocUtil.getDoctypes("provider"))
+                    .thenReturn(new ArrayList<>(List.of("Consultant Report")));
+            eDocUtilMock.when(() -> EDocUtil.addDocumentSQL(any(EDoc.class))).thenReturn("321");
+
+            assertThat(action.execute2()).isEqualTo(ActionSupport.NONE);
+
+            eDocUtilMock.verify(() -> EDocUtil.addDocumentSQL(stored.capture()));
+        } finally {
+            if (originalDocumentDir == null) {
+                CarlosProperties.getInstance().remove("DOCUMENT_DIR");
+            } else {
+                CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", originalDocumentDir);
+            }
+            File[] writtenFiles = documentDir.toFile().listFiles();
+            if (writtenFiles != null) {
+                for (File writtenFile : writtenFiles) {
+                    Files.deleteIfExists(writtenFile.toPath());
+                }
+            }
+            Files.deleteIfExists(documentDir);
+        }
+        assertThat(stored.getValue().getDescription()).isEqualTo(description);
+        assertThat(request.getAttribute("docerrors")).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"d", "\uD83D\uDE00"})
+    @DisplayName("should refuse an edit whose description is one character longer than document.docdesc, changing nothing")
+    @SuppressWarnings("unchecked")
+    void shouldRefuseTheEdit_whenTheDescriptionIsOneCharacterLongerThanTheColumn(String character) {
+        action.setMode("123");
+        action.setFunction("provider");
+        action.setFunctionId("999998");
+        action.setDocDesc(character.repeat(DESCRIPTION_MAX + 1));
+        action.setDocType("Consultant Report");
+        action.setAppointmentNo("0");
+
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
+            assertThat(action.execute2()).isEqualTo("failEdit");
+            documents.verifyNoInteractions();
+        }
+
+        Hashtable<String, String> errors = (Hashtable<String, String>) request.getAttribute("docerrors");
+        assertThat(errors).containsExactly(entry("desctoolong", "dms.error.descriptionTooLong"));
+        assertThat(request.getAttribute("editDocumentNo")).isEqualTo("123");
+        assertThat(transactions.begun).isZero();
+        logActionMock.verifyNoInteractions();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"d", "\uD83D\uDE00"})
+    @DisplayName("should save an edit whose description fills document.docdesc exactly")
+    void shouldSaveTheEdit_whenTheDescriptionFillsTheColumnExactly(String character) {
+        String description = character.repeat(DESCRIPTION_MAX);
+        action.setMode("123");
+        action.setFunction("provider");
+        action.setFunctionId("999998");
+        action.setDocDesc(description);
+        action.setDocType("Consultant Report");
+        action.setAppointmentNo("0");
+        ArgumentCaptor<EDoc> stored = ArgumentCaptor.forClass(EDoc.class);
+
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
+            assertThat(action.execute2()).isEqualTo("successEdit");
+            documents.verify(() -> EDocUtil.editDocumentSQL(stored.capture(), eq(false)));
+        }
+
+        assertThat(stored.getValue().getDescription()).isEqualTo(description);
     }
 
     @Test

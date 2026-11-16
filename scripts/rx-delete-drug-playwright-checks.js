@@ -16,6 +16,7 @@
 // and rx-stash-deletion covers clearing the staged drugs.
 // Fixtures: the owned FAKE- patient and two marker-named custom drugs. Cleanup removes the patient's drugs,
 // prescriptions, drugReason and DigitalSignature rows, and asserts none remain. The audit log rows stay.
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { stageCustomDrug } = require('./rx-stash-patient-isolation-playwright-checks');
@@ -87,7 +88,7 @@ async function workflow(s) {
   });
 
   await s.step('a GET of the delete is refused and keeps the drug current', async () => {
-    const response = await s.context.request.get(
+    const response = await authenticatedProbe(s,
       h.appUrl(s.config.baseUrl, `/rx/deleteRx?parameterValue=Delete2&deleteRxId=del_${drug}`), { maxRedirects: 0 });
     h.assert(response.status() === 405, `GET rx/deleteRx Delete2 answered HTTP ${response.status()} instead of 405`);
     h.assert(state() === '0||', `A refused GET changed the drug to ${state()}`);

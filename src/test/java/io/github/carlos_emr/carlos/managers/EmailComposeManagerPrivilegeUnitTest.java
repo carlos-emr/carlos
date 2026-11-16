@@ -68,7 +68,7 @@ class EmailComposeManagerPrivilegeUnitTest {
         assertThatThrownBy(() -> emailComposeManager.prepareLabAttachments(null, new String[0]))
                 .isInstanceOf(SecurityException.class).hasMessage("missing required sec object (_lab)");
         assertThatThrownBy(() -> emailComposeManager.prepareFormAttachments(
-                new MockHttpServletRequest(), new MockHttpServletResponse(), new String[0], 1))
+                new MockHttpServletRequest(), new MockHttpServletResponse(), new String[0]))
                 .isInstanceOf(SecurityException.class).hasMessage("missing required sec object (_form)");
         assertThatThrownBy(() -> emailComposeManager.getEmailConsentStatus(null, 1))
                 .isInstanceOf(SecurityException.class).hasMessage("missing required sec object (_email)");

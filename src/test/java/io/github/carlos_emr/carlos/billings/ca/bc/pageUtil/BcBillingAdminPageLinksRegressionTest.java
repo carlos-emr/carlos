@@ -52,8 +52,6 @@ class BcBillingAdminPageLinksRegressionTest {
     private static final Path ADMIN_JSP = Path.of("src/main/webapp/WEB-INF/jsp/admin/admin.jsp");
     private static final Path BC_JSP_DIR = Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC");
     private static final Path STRUTS_BILLING = Path.of("src/main/webapp/WEB-INF/classes/struts-billing.xml");
-    private static final Path TABLE_WRAPPER =
-            Path.of("src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/pageUtil/BillCodesTableWrapper.java");
 
     private static final List<String> PAGES = List.of("billingCodeAdjust.jsp", "billingPrivateCodeAdjust.jsp",
             "billingAddCode.jsp", "billingAddPrivateCode.jsp", "billingEditCode.jsp", "billingManageReferralDoc.jsp",
@@ -113,7 +111,7 @@ class BcBillingAdminPageLinksRegressionTest {
         for (String page : PAGES) {
             assertThat(getMentionsOfWriters(read(BC_JSP_DIR.resolve(page)))).as(page).isEmpty();
         }
-        assertThat(read(TABLE_WRAPPER)).contains("<a href=\\\"ViewBillingEditCode?codeId=").doesNotContain("\"billingEditCode?");
+        assertThat(read(BC_JSP_DIR.resolve("billingPrivateCodeAdjust.jsp"))).contains("<a href=\"ViewBillingEditCode?codeId=").doesNotContain("\"billingEditCode?");
     }
 
     @Test
@@ -128,17 +126,12 @@ class BcBillingAdminPageLinksRegressionTest {
     }
 
     @Test
-    @DisplayName("should build the private code list's sort links on its gate, not the forwarded page path")
-    void shouldSortOnGate_inPrivateCodeList() throws IOException {
-        // A forwarded page's own URI is its WEB-INF path, which displaytag would otherwise use (404).
-        for (String page : PAGES) {
-            Matcher table = Pattern.compile("<display:table\\b[^>]*>").matcher(read(BC_JSP_DIR.resolve(page)));
-            while (table.find()) {
-                assertThat(table.group()).as(page).containsPattern("requestURI=\"/billing/CA/BC/View[A-Za-z]+\"");
-            }
-        }
+    @DisplayName("should render browser sort headers without navigation in the private code list")
+    void shouldRenderBrowserSortHeaders_inPrivateCodeList() throws IOException {
         assertThat(read(BC_JSP_DIR.resolve("billingPrivateCodeAdjust.jsp")))
-                .contains("requestURI=\"/billing/CA/BC/ViewBillingPrivateCodeAdjust\"");
+                .contains("data-table-sort")
+                .contains("data-carlos-table")
+                .doesNotContain("<display:table");
     }
 
     @Test

@@ -101,7 +101,7 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
     /**
      * Returns the active appointment statuses, backed by the DAO-level Spring cache.
      *
-     * @return List of active AppointmentStatus instances (unmodifiable, from cache)
+     * @return unmodifiable list of detached copies of the cached active statuses
      */
     public static List<AppointmentStatus> getCachedActiveStatuses() {
         return getAppointmentStatusDao().findActive();
@@ -112,7 +112,7 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
      * Display lookups (icon, title, colour) need inactive rows too: an appointment keeps a
      * status that was later deactivated in the status editor.
      *
-     * @return List of all AppointmentStatus instances (unmodifiable, from cache)
+     * @return unmodifiable list of detached copies of every cached status
      */
     public static List<AppointmentStatus> getCachedAllStatuses() {
         return getAppointmentStatusDao().findAll();

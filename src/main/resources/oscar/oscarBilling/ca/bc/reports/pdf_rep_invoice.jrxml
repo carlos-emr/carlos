@@ -26,6 +26,7 @@
 	<parameter name="account" class="java.lang.String" forPrompting="false">
 		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
 	</parameter>
+	<parameter name="reportWarning" class="java.lang.String"><defaultValueExpression><![CDATA[""]]></defaultValueExpression></parameter>
 	<field name="providerFirstName" class="java.lang.String" />
 	<field name="providerLastName" class="java.lang.String" />
 	<field name="billingtype" class="java.lang.String" />
@@ -428,7 +429,7 @@
 			<expression><![CDATA["" + $V{PAGE_NUMBER}]]></expression>
 		</element>
 	</pageFooter>
-	<summary height="54" splitType="Stretch">
+	<summary height="74" splitType="Stretch">
 		<element kind="textField" mode="Transparent" x="357" y="0" width="56" height="38" forecolor="#000000" backcolor="#FFFFFF" key="textField-1" hTextAlign="Right" vTextAlign="Top" bold="true" rotation="None" blankWhenNull="false" pattern="">
 			<paragraph lineSpacing="Single" />
 			<box>
@@ -515,5 +516,8 @@
 		<element kind="textField" x="131" y="0" width="48" height="12" vTextAlign="Middle">
 			<expression><![CDATA[$P{demNoCnt}]]></expression>
 		</element>
+		<element kind="textField" x="0" y="54" width="535" height="18" fontSize="9.0">
+            <expression><![CDATA[$P{reportWarning}]]></expression>
+        </element>
 	</summary>
 </jasperReport>

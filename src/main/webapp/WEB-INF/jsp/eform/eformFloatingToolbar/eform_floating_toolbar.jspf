@@ -37,7 +37,7 @@
 <%@ page import=" io.github.carlos_emr.carlos.managers.FaxManager"%>
 <%@ page import=" io.github.carlos_emr.carlos.managers.EmailComposeManager"%>
 <%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
-<%@ taglib prefix = "c" uri = "jakarta.tags.core" %>
+
 <%@ taglib prefix = "fmt" uri = "jakarta.tags.fmt" %>
 <%@ taglib prefix = "carlos" uri = "carlos" %>
 <fmt:setLocale value="<%= LocaleUtils.resolveBundleLocale(request) %>"/>

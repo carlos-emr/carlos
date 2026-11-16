@@ -45,7 +45,7 @@
     }
 %>
 
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.*" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <script>

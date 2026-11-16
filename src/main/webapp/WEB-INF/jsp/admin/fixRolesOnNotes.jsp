@@ -33,13 +33,11 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.SecRole" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.SecRoleDao" %>
-<%@page import="io.github.carlos_emr.carlos.db.*" %>
-<%@page import="java.sql.*" %>
 <%@page import="java.util.*" %>
-<%@page import="org.owasp.encoder.Encode" %>
-<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="io.github.carlos_emr.carlos.log.LogAction" %>
+
+
+
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -106,10 +104,10 @@
     }
 
     CaseManagementNoteDAO noteDao = SpringUtils.getBean(CaseManagementNoteDAO.class);
-    try (Connection conn = LegacyJdbcQuery.getConnection();
-         PreparedStatement pstmt = conn.prepareStatement("update casemgmt_note set reporter_caisi_role = ? where reporter_caisi_role = '0'")) {
-        pstmt.setInt(1, Integer.parseInt(roleTo));
-        pstmt.executeUpdate();
+    if (error.isEmpty() && roles.stream().anyMatch(role -> role.getId().toString().equals(roleTo))) {
+        noteDao.replaceUnassignedReporterRole(Integer.parseInt(roleTo));
+    } else {
+        throw new IllegalArgumentException("Invalid reporter role");
     }
 
 

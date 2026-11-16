@@ -81,6 +81,8 @@ public class ProviderConverter extends AbstractConverter<Provider, ProviderTo1> 
         t.setProviderNo(d.getProviderNo());
         t.setComments(d.getComments());
         t.setPhone(d.getPhone());
+        // The four billing identifiers are published provider properties that existing clients read
+        // without a billing right; callers decide which providers are converted at all.
         t.setBillingNo(d.getBillingNo());
         t.setWorkPhone(d.getWorkPhone());
         t.getAddress().setAddress(d.getAddress());

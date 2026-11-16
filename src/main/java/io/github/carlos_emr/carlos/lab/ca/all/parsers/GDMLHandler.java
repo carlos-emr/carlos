@@ -58,6 +58,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import ca.uhn.hl7v2.HL7Exception;
+import io.github.carlos_emr.carlos.lab.ca.all.util.Hl7Utils;
 import ca.uhn.hl7v2.model.Segment;
 import ca.uhn.hl7v2.model.v23.datatype.XCN;
 import ca.uhn.hl7v2.model.v23.message.ORU_R01;
@@ -480,11 +481,11 @@ public class GDMLHandler implements MessageHandler {
     }
 
     public String getFirstName() {
-        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName().getGivenName().getValue()));
+        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName(0).getGivenName().getValue()));
     }
 
     public String getLastName() {
-        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName().getFamilyName().getValue()));
+        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName(0).getFamilyName().getValue()));
     }
 
     public String getDOB() {
@@ -565,7 +566,8 @@ public class GDMLHandler implements MessageHandler {
             if (msg.getRESPONSE().getORDER_OBSERVATION(0).getOBR().getObr39_CollectorSCommentReps() != 0) {
                 return (getString(msg.getRESPONSE().getORDER_OBSERVATION(0).getOBR().getObr39_CollectorSComment(0).getCe1_Identifier().getValue()));
             }
-        } catch (HL7Exception e) {
+        } catch (RuntimeException e) {
+            Hl7Utils.rethrowUnlessHl7AccessFailure(e);
             logger.error("Error", e);
         }
         return (getString(msg.getMSH().getSendingFacility().getNamespaceID().getValue()));

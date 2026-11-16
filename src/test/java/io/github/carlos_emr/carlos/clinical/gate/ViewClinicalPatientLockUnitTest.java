@@ -9,6 +9,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -80,10 +81,23 @@ class ViewClinicalPatientLockUnitTest extends CarlosUnitTestBase {
         assertThat(execute()).isEqualTo("success");
     }
 
-    @ParameterizedTest @ValueSource(strings={"", "0", "-1", "2147483648", "10 OR 1=1", " 10"})
-    void malformedPatientDoesNotBecomeAnUnboundShell(String value) {
-        request.setParameter("demographic_no", value);
-        assertThatThrownBy(this::execute).isInstanceOf(SecurityException.class);
+    @ParameterizedTest @NullSource
+    @ValueSource(strings={"", "invalid", "0", "-1", "2147483648", "10 OR 1=1", " 10", "10 ", "+10", "1.5", "00000000010"})
+    void shouldReturn400_withMalformedPatient(String value) throws Exception {
+        for (String alias : new String[]{"demographic_no", "demographicNo", "demographicId", "demographicID", "demoNo"}) {
+            request.setParameter(alias, new String[]{value});
+            assertThat(execute()).as(alias).isEqualTo("none");
+            assertThat(response.getStatus()).as(alias).isEqualTo(400);
+            verify(security, never()).isAllowedAccessToPatientRecord(any(), anyInt());
+            request.removeParameter(alias);
+            response = new MockHttpServletResponse();
+        }
+    }
+
+    @Test void shouldDeny_withMalformedPatientWithoutPrivilege() {
+        when(security.hasPrivilege(user, "_eChart", "r", (String) null)).thenReturn(false);
+        request.setParameter("demographicNo", "invalid");
+        assertThatThrownBy(this::execute).isInstanceOf(SecurityException.class).hasMessageContaining("_eChart");
     }
 
     @ParameterizedTest @ValueSource(strings={"POST", "PUT", "DELETE"})

@@ -477,15 +477,15 @@ public class SecurityManager {
             return false;
         }
 
-        if (StringUtils.isEmpty(security.getPassword())) {
+        if (security.getPassword() == null || security.getPassword().trim().isEmpty()) {
             return false;
         }
 
-        if (StringUtils.isEmpty(security.getProviderNo())) {
+        if (security.getProviderNo() == null || security.getProviderNo().trim().isEmpty()) {
             return false;
         }
 
-        if (StringUtils.isEmpty(security.getUserName())) {
+        if (security.getUserName() == null || security.getUserName().trim().isEmpty()) {
             return false;
         }
 

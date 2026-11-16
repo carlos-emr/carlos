@@ -79,7 +79,7 @@ public class CustomInterfaceTag extends TagSupport {
                     JspWriter out = super.pageContext.getOut();
                     out.println(this.getPreferenceBasedEChart(bean));
                 } catch (IOException e) {
-                    logger.error("Error:", e);
+                    logger.error("Error: {}", LogSafe.exceptionTrace(e));
                 }
                 return SKIP_BODY;
             }
@@ -98,7 +98,7 @@ public class CustomInterfaceTag extends TagSupport {
                     // section combinations that are not provided (e.g. the default theme
                     // ships only billing.js). See GitHub issue: 404 on main.js from admin.
                     if (!scriptResourceExists(servletContext, scriptPath)) {
-                        logger.debug("Skipping <oscar:customInterface> script tag; resource not found: " + scriptPath);
+                        logger.debug("Skipping <oscar:customInterface> script tag; resource not found");
                         return SKIP_BODY;
                     }
 
@@ -113,7 +113,7 @@ public class CustomInterfaceTag extends TagSupport {
                     out.println("<script id=\"mainScript\" src=\"" + contextPath + scriptPath + "?no-cache=" + cacheBuster + "&autoRefresh=true\" hide_ConReport=\"" + hide_ConReport + "\" cardswipe=\"" + cardswipe + "\" " + customTag + " ></script>");
                 }
             } catch (IOException e) {
-                logger.error("Error", e);
+                logger.error("Error: {}", LogSafe.exceptionTrace(e));
             }
         }
         return SKIP_BODY;
@@ -137,7 +137,7 @@ public class CustomInterfaceTag extends TagSupport {
                 return true;
             }
         } catch (java.net.MalformedURLException e) {
-            logger.debug("Malformed resource path: " + path, e);
+            logger.debug("Malformed resource path: {}", LogSafe.exceptionTrace(e));
             return false;
         }
         String realPath = servletContext.getRealPath(path);

@@ -60,6 +60,7 @@
  * finds are recorded in docs/ui-tests/app-findings-log.md, not worked around.
  */
 
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const {
   assert, assertStrictPage, createRecorder, launchBrowser, login, newContext, readConfig, runCheck,
 } = require('./lib/playwright-harness');
@@ -67,6 +68,20 @@ const { conditionalMutatorClasses, mutatorRoutes } = require('./lib/mutator-rout
 
 /** What the contract requires, and what each other answer would mean. */
 const EXPECTED_STATUS = 405;
+
+/**
+ * Routes BcBillingProvinceInterceptor (struts-billing.xml, #6097) answers before their action runs.
+ * On an install whose province is not BC it sends 404 for every method and never invokes the
+ * action, so no read method can reach a write: the property this check exists for holds, and a 405
+ * with `Allow: POST` would be untrue there because POST gets the same 404. The predicate is the
+ * interceptor's own. A BC install must still answer 405, and with the installed province unknown
+ * (CARLOS_SUITE_PROVINCE unset) nothing is relaxed.
+ */
+const BC_ONLY_ROUTE = /^(?:billing\/CA\/BC\/.+|quickBillingBC|saveQuickBillingBC)$/;
+const INSTALLED_PROVINCE = String(process.env.CARLOS_SUITE_PROVINCE || '').toUpperCase();
+function refusedByProvince(route, status, province = INSTALLED_PROVINCE) {
+  return status === 404 && province !== '' && province !== 'BC' && BC_ONLY_ROUTE.test(route);
+}
 
 /**
  * Both methods the contract names.
@@ -143,12 +158,13 @@ async function main() {
     const base = String(config.baseUrl).replace(/\/$/, '');
     const failures = [];
     const refused = [];
+    const provinceRefused = [];
     for (const entry of orderedRoutes(routes)) {
       const url = `${base}/${entry.route}`;
       for (const method of PROBED_METHODS) {
         let status;
         try {
-          const response = await context.request.fetch(url, { method, timeout, maxRedirects: 0 });
+          const response = await authenticatedProbe({context, config}, url, { method, timeout, maxRedirects: 0 });
           status = response.status();
         } catch (error) {
           failures.push(`${entry.route} (${entry.simpleName}): the ${method} itself failed -- ${String(error.message).split('\n')[0]}`);
@@ -156,6 +172,10 @@ async function main() {
         }
         if (status === EXPECTED_STATUS) {
           refused.push(`${entry.route} ${method}`);
+          continue;
+        }
+        if (refusedByProvince(entry.route, status)) {
+          provinceRefused.push(`${entry.route} ${method}`);
           continue;
         }
         failures.push(
@@ -180,11 +200,16 @@ async function main() {
     // saying so invites reading it as the whole contract.
     const notProbed = conditionalMutatorClasses().map((name) => name.split('.').pop()).sort();
     console.log(`  ${refused.length} probe(s) across ${routes.length} mutator route(s) refused ${PROBED_METHODS.join('/')} with ${EXPECTED_STATUS}`);
+    if (provinceRefused.length > 0) {
+      console.log(`  ${provinceRefused.length} probe(s) of BC-only route(s) answered 404 before their action ran: `
+        + `this install is ${INSTALLED_PROVINCE}`);
+    }
     console.log(`  ${notProbed.length} conditional mutator(s) NOT probed here, by design -- their GET rejection `
       + 'depends on a mutation-intent parameter and is covered by their own unit tests: '
       + `${notProbed.join(', ')}`);
     return {
-      refused: refused.length, probes, routes: routes.length, conditionalNotProbed: notProbed.length,
+      refused: refused.length, provinceRefused: provinceRefused.length, probes, routes: routes.length,
+      conditionalNotProbed: notProbed.length,
     };
   } finally {
     await browser.close().catch(() => {});
@@ -196,5 +221,5 @@ if (require.main === module) {
 }
 
 module.exports = {
-  EXPECTED_STATUS, PROBED_METHODS, diagnose, main, orderedRoutes,
+  BC_ONLY_ROUTE, EXPECTED_STATUS, PROBED_METHODS, diagnose, main, orderedRoutes, refusedByProvince,
 };

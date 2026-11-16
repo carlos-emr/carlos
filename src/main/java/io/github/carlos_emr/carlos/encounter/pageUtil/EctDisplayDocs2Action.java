@@ -31,6 +31,9 @@
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
 import io.github.carlos_emr.carlos.util.plugin.IsPropertiesOn;
+import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
+import io.github.carlos_emr.carlos.commn.model.UserProperty;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
@@ -46,8 +49,7 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import java.text.DateFormat;
-import java.text.ParseException;
+import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -69,7 +71,7 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
 
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
 
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LoggedInInfo loggedInInfo = getLoggedInInfo(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "r", null)) {
             return true; // documents link won't show up on new CME screen.
@@ -155,19 +157,11 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
                 if (EDocUtil.getDocUrgentFlag(dispDocNo))
                     title = StringUtils.maxLenString("!" + curDoc.getDescription(), MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
 
-                DateFormat formatter = new SimpleDateFormat(dbFormat);
-                String dateStr = curDoc.getObservationDate();
                 NavBarDisplayDAO.Item item = NavBarDisplayDAO.Item();
-                try {
-                    date = formatter.parse(dateStr);
-                    serviceDateStr = DateUtils.formatDate(date, request.getLocale());
-                } catch (ParseException ex) {
-                    MiscUtils.getLogger().debug("EctDisplayDocs2Action: Error creating date " + ex.getMessage());
-                    serviceDateStr = "Error";
-                    date = null;
-                }
+                date = observationDate(curDoc.getObservationDate());
+                serviceDateStr = date == null ? "" : DateUtils.formatDate(date, request.getLocale());
 
-                String user = (String) request.getSession().getAttribute("user");
+                String user = getProviderNo(request);
                 item.setDate(date);
                 hash = Math.abs(winName.hashCode());
 
@@ -199,6 +193,9 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
                     item.setFolder(folderFor(curDoc.getType(), untypedFolder));
                 }
 
+                if (fileByType) {
+                    item.setFolder(folderFor(curDoc.getType(), untypedFolder));
+                }
                 Dao.addItem(item);
 
             }
@@ -206,29 +203,24 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
         }
     }
 
-    /**
-     * The folder a document is filed under: its document type as entered, or the shared folder for
-     * documents with no type. Package-private for unit tests.
-     */
+    /** Documents without a type share the translated catch-all folder. */
     static String folderFor(String documentType, String untypedFolder) {
         String type = org.apache.commons.lang3.StringUtils.trimToEmpty(documentType);
         return type.isEmpty() ? untypedFolder : type;
     }
 
-    private static final void sortByDate(List<EDoc> list) {
-        Collections.sort(list, new Comparator<EDoc>() {
-            public int compare(EDoc mt1, EDoc mt2) {
-                try {
-                    SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
-                    java.util.Date datetime1 = simpleDateFormat.parse(mt1.getObservationDate());
-                    java.util.Date datetime2 = simpleDateFormat.parse(mt2.getObservationDate());
-                    return Long.valueOf(datetime2.getTime()).compareTo(datetime1.getTime());
-                } catch (ParseException e) {
-                    // do nothing
-                }
-                return 0;
-            }
-        });
+    static void sortByDate(List<EDoc> list) {
+        list.sort(Comparator.comparing((EDoc doc) -> observationDate(doc.getObservationDate()),
+                Comparator.nullsLast(Comparator.reverseOrder())));
+    }
+
+    private static Date observationDate(String value) {
+        if (value == null || value.isBlank()) return null;
+        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
+        format.setLenient(false);
+        ParsePosition position = new ParsePosition(0);
+        Date date = format.parse(value, position);
+        return position.getIndex() == value.length() ? date : null;
     }
 
 

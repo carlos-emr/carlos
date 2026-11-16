@@ -30,16 +30,16 @@
 
 package io.github.carlos_emr.carlos.util;
 
-import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
-
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.StringTokenizer;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
+/**
+ * Legacy string contracts used by stored CARLOS data. The blank helpers also
+ * treat trimmed, case-insensitive {@code "null"} text as empty; numeric parsing,
+ * tokenization and locale-sensitive matching intentionally differ from lang3.
+ */
 public class StringUtils {
 
-    private static Logger logger = MiscUtils.getLogger();
     public final static String ELLIPSIS = "...";
 
     /**
@@ -67,55 +67,14 @@ public class StringUtils {
         return ret;
     }
 
-    public static Vector splitString(String str, String delimeter) {
-        Vector result = new Vector();
-        StringTokenizer st = new StringTokenizer(str, delimeter);
-
-        while (st.hasMoreTokens()) {
-            result.addElement(st.nextToken());
-
-        }
-        return result;
-    }
-
-    public static String transformNullInEmptyString(String value) {
-        return ((value == null) ? "" : value);
-    }
-
-    public static String transformNullInOtherString(String value, String str) {
-        return (((value == null) || value.equals("")) ? str : value);
-    }
-
-    public static String preencheBranco(int n) {
-        String espaco = "";
-
-        for (int i = 0; i < n; i++) {
-            espaco = espaco + " ";
-        }
-
-        return espaco;
-    }
-
-    public static String preenchimentoEsquerda(int n, String c, String c1) {
-        String result = "";
-
-        for (int i = 0; i < n; i++) {
-            result = result + c;
-        }
-
-        return result + c1;
-    }
-
-    public static String preenchimento(int n, String c) {
-        String result = "";
-
-        for (int i = 0; i < n; i++) {
-            result = result + c;
-        }
-
-        return result;
-    }
-
+    /**
+     * Returns true for Java null, text empty after {@link String#trim()}, or
+     * trimmed {@code "null"} text in any case. Case conversion uses the default
+     * locale. Unicode whitespace outside {@code trim()}'s range is retained.
+     *
+     * @param obj String to check; may be null
+     * @return boolean true for null, trimmed blanks or trimmed {@code "null"} text
+     */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static boolean isNullOrEmpty(String obj) {
@@ -132,26 +91,11 @@ public class StringUtils {
         }
     }
 
-    public static String replaceChar(char oldChar, char newChar, String word) {
-        return ((word == null) ? null : word.replace(oldChar, newChar));
-    }
-
-    public static String getStrIn(String[] ids) {
-        String id = "";
-
-        for (int i = 0; i < ids.length; i++) {
-            if (i == 0) {
-                id = ids[i];
-            } else {
-                id = id + "," + ids[i];
-            }
-        }
-
-        return id;
-    }
-
     /**
-     * Returns true if the provided string is a numeral
+     * Returns true when {@link #filled(String)} and {@link Double#valueOf(String)}
+     * accepts the value. This includes exponents, hexadecimal floating point,
+     * surrounding ASCII whitespace, NaN and Infinity. Java null, blanks and
+     * case-insensitive {@code "null"} text are rejected.
      *
      * @param str String
      * @return boolean
@@ -171,7 +115,9 @@ public class StringUtils {
     }
 
     /**
-     * Returns true if the provided string is an integer
+     * Returns true when {@link #filled(String)} and {@link Integer#valueOf(String)}
+     * accepts the value. Java null, blanks and {@code "null"} text are rejected;
+     * unlike {@link #isNumeric(String)}, surrounding whitespace is not accepted.
      *
      * @param str String
      * @return boolean
@@ -190,72 +136,15 @@ public class StringUtils {
         return ret;
     }
 
-    public static String returnStringToFirst(String str, String firstChar) {
-        String ret = str;
-        if (str != null) {
-            int i = str.indexOf(firstChar);
-            if (i != -1) {
-                ret = str.substring(0, i);
-            }
-        }
-        return ret;
-    }
-
     /**
-     * Returns true if the specified String represents a valid date
+     * Splits using {@link StringTokenizer}: each delimiter character separates
+     * tokens, and empty tokens are dropped (unlike {@link String#split(String)}).
      *
-     * @param dateString String
-     * @param format     String
-     * @return boolean
+     * @param rawString String to tokenize; must not be null
+     * @param delimiter String containing delimiter characters; must not be null for non-empty input
+     * @return String[] of non-empty tokens in input order
+     * @throws NullPointerException if rawString is null, or delimiter is null for non-empty input
      */
-    public static boolean isValidDate(String dateString, String format) {
-        boolean ret = false;
-        SimpleDateFormat fmt = new SimpleDateFormat(format);
-        try {
-            fmt.parse(dateString);
-            ret = true;
-        } catch (ParseException ex) {
-            MiscUtils.getLogger().error("Looks bad, too bad original author didn't document how bad", ex);
-        }
-        return ret;
-
-    }
-
-    //joins an array into a string; array elements separated by a specified delimiter
-    public static String join(String[] strArray, String delimiter) {
-        StringBuilder result = new StringBuilder();
-        for (int i = 0, arrayLength = strArray.length; i < arrayLength; i++) {
-            result.append(strArray[i]);
-            if (i < arrayLength - 1) {
-                result.append(delimiter);
-            }
-        }
-        return result.toString();
-    }
-
-    //arraylist elements must be string types
-    public static String join(List strArray, String delimiter) {
-        StringBuilder result = new StringBuilder();
-        for (int i = 0, arrayLength = strArray.size(); i < arrayLength; i++) {
-            result.append(strArray.get(i));
-            if (i < arrayLength - 1) {
-                result.append(delimiter);
-            }
-        }
-        return result.toString();
-    }
-
-    public static ArrayList<String> split(String rawString, String delimiter) {
-        ArrayList<String> result = new ArrayList<String>();
-        StringTokenizer st = new StringTokenizer(rawString, delimiter);
-
-        while (st.hasMoreTokens()) {
-            result.add(st.nextToken());
-
-        }
-        return result;
-    }
-
     public static String[] splitToStringArray(String rawString, String delimiter) {
         StringTokenizer st = new StringTokenizer(rawString, delimiter);
         String[] result = new String[st.countTokens()];
@@ -265,22 +154,6 @@ public class StringUtils {
             i++;
         }
         return result;
-    }
-
-    /**
-     * Takes a list of String Objects and returns a String with the all values from the list separated by a comma
-     */
-    public static String getCSV(List l) {
-        StringBuilder ret = new StringBuilder();
-        if (l != null) {
-            for (int i = 0; i < l.size(); i++) {
-                ret.append((String) l.get(i));
-                if (i + 1 < l.size()) {
-                    ret.append(",");
-                }
-            }
-        }
-        return ret.toString();
     }
 
     /**
@@ -324,19 +197,15 @@ public class StringUtils {
         return mystringBuffer.toString();
     }
 
-    public static boolean nullSafeEquals(String s1, String s2) {
-        if (s1 == null && s2 == null) return true;
-        if (s1 != null)
-            return s1.equals(s2);
-        else
-            return s2 == null;
-
-    }
-
-    public static boolean nullSafeEqualsIgnoreCase(String s1, String s2) {
-        return nullSafeEquals(s1.toUpperCase(), s2.toUpperCase());
-    }
-
+    /**
+     * Matches a substring after uppercasing both inputs in the default locale.
+     * Returns false for null inputs; Unicode expansions and locale-specific case
+     * mappings intentionally differ from lang3's region-based matching.
+     *
+     * @param text String to search; may be null
+     * @param searchWord String substring to find; may be null
+     * @return boolean true if the uppercased text contains the uppercased search word
+     */
     public static boolean containsIgnoreCase(String text, String searchWord) {
         if (text == null || searchWord == null) return false;
 
@@ -347,18 +216,33 @@ public class StringUtils {
     }
 
     /**
-     * Legacy blank scrubber. Prefer Apache Commons Lang's
-     * {@code defaultString}, {@code trimToEmpty}, or {@code isBlank} in new code
-     * when those narrower semantics are intended.
+     * Returns empty text for Java null, trimmed blanks and case-insensitive
+     * {@code "null"} text; otherwise returns the original, untrimmed value.
+     * This is not equivalent to lang3's {@code defaultString} or {@code isBlank}.
+     *
+     * @param maybeNullText String to scrub; may be null
+     * @return String containing the original value when filled, or empty text otherwise
      */
     static public String noNull(String maybeNullText) {
         return filled(maybeNullText) ? maybeNullText : "";
     }
 
+    /**
+     * Returns true for Java null, trimmed blanks or {@code "null"} text in any case.
+     *
+     * @param s String to check; may be null
+     * @return boolean true when {@link #isNullOrEmpty(String)} considers the value empty
+     */
     static public boolean empty(String s) {
         return isNullOrEmpty(s);
     }
 
+    /**
+     * Returns false for Java null, trimmed blanks or {@code "null"} text in any case.
+     *
+     * @param s String to check; may be null
+     * @return boolean true when the value is neither null, trimmed blank nor {@code "null"} text
+     */
     static public boolean filled(String s) {
         return !isNullOrEmpty(s);
     }

@@ -206,7 +206,7 @@ class EFormBrowserRendererStartupValidatorUnitTest {
             assertThat(event.getLevel()).isEqualTo(Level.WARN);
             assertThat(event.getMessage().getFormattedMessage())
                     .contains("startup will continue")
-                    .contains("print/fax/archive will fail");
+                    .contains("print/fax/archive and measurement graphs will fail");
         });
     }
 }

@@ -78,7 +78,9 @@ class PreventionServiceUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         loggedInInfo = new LoggedInInfo();
-        service = new PreventionService() {
+        service = new PreventionService(preventionManager,
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.prevention.PreventionDateService.class),
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class)) {
             @Override
             protected LoggedInInfo getLoggedInInfo() {
                 return loggedInInfo;

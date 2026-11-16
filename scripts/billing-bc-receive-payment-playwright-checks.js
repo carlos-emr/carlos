@@ -21,6 +21,7 @@
  * stamped with the run marker; cleanup deletes exactly those rows and the history the payments
  * wrote, and asserts they are gone. BC installs only (billregion=BC).
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
@@ -29,7 +30,9 @@ const { masterRecordLink } = require('./lib/master-record-link');
 const TIMEOUT = 30000;
 
 async function workflow(s) {
-  const { sql, marker, patient, provider } = s;
+  const { sql, marker, patient } = s;
+  const boundariesOnly=process.env.BC_PAYMENT_BOUNDARIES_ONLY==='true';
+  const provider=boundariesOnly?require('./lib/bc-payment-boundaries').seedProvider(s):s.provider;
   const q = h.sqlString;
   let billingNo;
   let billingmasterNo;
@@ -128,7 +131,7 @@ async function workflow(s) {
   });
 
   await s.step('a GET to the save route is refused and records nothing', async () => {
-    const response = await s.context.request.get(h.appUrl(s.config.baseUrl,
+    const response = await authenticatedProbe(s, h.appUrl(s.config.baseUrl,
       `/billing/CA/BC/receivePaymentAction?billingmasterNo=${billingmasterNo}&billNo=${billingNo}&amountReceived=5&paymentMethod=1`),
     { maxRedirects: 0 });
     h.assert(response.status() === 405, `A GET payment answered ${response.status()}, not 405`);
@@ -152,6 +155,8 @@ async function workflow(s) {
     h.assert(await pay.locator('select#paymentMethod option').count() > 0, 'The re-rendered form lost its payment methods');
     h.assert(historyRows() === '0', 'A blank amount wrote billing history');
   });
+
+  if(boundariesOnly)return require('./lib/bc-payment-boundaries').boundaries({s,pay,receipt,billStatus,billingNo,billingmasterNo,submit,status});
 
   await s.step('a part payment is archived and the bill stays open', async () => {
     await submit('10.00', 'part payment');
@@ -182,5 +187,5 @@ async function preflight({ sql }) {
   }
 }
 
-if (require.main === module) runWorkflow('billing-bc-receive-payment', workflow, { openPatient: true, preflight });
+if (require.main === module) runWorkflow(process.env.BC_PAYMENT_BOUNDARIES_ONLY==='true'?'billing-bc-payment-boundaries':'billing-bc-receive-payment', workflow, { openPatient: true, preflight });
 module.exports = { workflow };

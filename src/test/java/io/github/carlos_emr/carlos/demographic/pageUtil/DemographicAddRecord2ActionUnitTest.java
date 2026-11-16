@@ -98,6 +98,24 @@ class DemographicAddRecord2ActionUnitTest extends CarlosWebTestBase {
         }
     }
 
+    @ParameterizedTest
+    @CsvSource({"pronouns,Pronouns,A", "gender,Gender,A", "pronouns,Pronouns,😀", "gender,Gender,😀"})
+    void shouldRejectOverlongFields_whenPostedWithoutBrowserValidation(String field, String label, String character) throws Exception {
+        allowPrivilege("_demographic", "w");
+        mockRequest.setMethod("POST");
+        addRequestParameter("last_name", "FAKE-PATIENT");
+        addRequestParameter("first_name", "Check");
+        addRequestParameter("sex", "F");
+        String invalid = character.repeat(26);
+        addRequestParameter(field, invalid);
+
+        assertThat(executeAction(action)).isEqualTo("validationError");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        assertThat(mockRequest.getAttribute("fieldLengthValidationErrors"))
+                .isEqualTo(List.of(label + " exceeds maximum length of 25 characters."));
+        verify(mockDemographicDao, never()).save(any(Demographic.class));
+    }
+
     @Test
     @DisplayName("should normalize middle names when literal null is submitted")
     void shouldNormalizeMiddleNames_whenLiteralNullIsSubmitted() {
@@ -152,8 +170,8 @@ class DemographicAddRecord2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
-    @DisplayName("should return validationError when last name exceeds thirty characters")
-    void shouldReturnValidationError_whenLastNameExceedsThirtyCharacters() throws Exception {
+    @DisplayName("should return validationError when last name exceeds fifty characters")
+    void shouldReturnValidationError_whenLastNameExceedsFiftyCharacters() throws Exception {
         allowPrivilege("_demographic", "w");
         mockRequest.setMethod("POST");
         addRequestParameter("last_name", "X".repeat(Demographic.LAST_NAME_MAX_LENGTH + 1));
@@ -166,7 +184,7 @@ class DemographicAddRecord2ActionUnitTest extends CarlosWebTestBase {
         List<String> fieldLengthValidationErrors =
                 (List<String>) mockRequest.getAttribute("fieldLengthValidationErrors");
         assertThat(fieldLengthValidationErrors)
-                .contains("Last name exceeds maximum length of 30 characters.");
+                .contains("Last name exceeds maximum length of 50 characters.");
         verify(mockDemographicDao, never()).save(any(Demographic.class));
     }
     @ParameterizedTest

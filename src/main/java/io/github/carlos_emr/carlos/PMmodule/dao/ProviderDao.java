@@ -27,6 +27,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications made by CARLOS Contributors in 2026: add exact bounded source-provider lookups.
  */
 
 package io.github.carlos_emr.carlos.PMmodule.dao;
@@ -44,6 +45,14 @@ import io.github.carlos_emr.carlos.model.security.SecProvider;
 
 @SuppressWarnings("unchecked")
 public interface ProviderDao {
+
+    /** Snapshot-only schema check; includes the complete physical table but no private values. */
+    io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto readCdsExportPublicProviderSchema();
+    /** Counts only providers referenced through the selected patient categories. */
+    long countCdsExportPublicProviders(int patient, java.util.Set<String> categories);
+    /** Bounded binary text-key page; afterKey is the reader's reversible UTF-8 key, never a number. */
+    java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportProviderRowDto> findCdsExportPublicProvidersAfter(
+            int patient, java.util.Set<String> categories, String afterKey, int limit);
 
     public static final String PR_TYPE_DOCTOR = "doctor";
     public static final String PR_TYPE_RESIDENT = "resident";
@@ -140,6 +149,11 @@ public interface ProviderDao {
     public List<Provider> getBillableProvidersOnTeam(Provider p);
 
     public List<Provider> getBillableProvidersByOHIPNo(String ohipNo);
+
+    /** Bounded exact source-author candidates, including inactive historical providers; maximum two IDs. */
+    List<String> findCdsProviderNosByOhip(String ohipNo);
+    List<String> findCdsProviderNosByCpso(String cpsoNo);
+    List<String> findCdsProviderNosByExactName(String firstName, String lastName);
 
     public List<Provider> getProvidersWithNonEmptyOhip(LoggedInInfo loggedInInfo);
 

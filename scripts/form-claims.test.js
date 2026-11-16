@@ -345,9 +345,9 @@ test('shouldNeverPinAStepThatIsADemotedLabel_inAnyManifestEntry', () => {
   // failure elsewhere into a "known failure".
   const demotions = /\((?:precondition|not reached|other browser problems|no outcome)\)$/;
   const pinned = manifest.checks.filter((check) => check.expectedFailure);
-  // Only a sanity floor that the filter finds the pins at all: the count falls each time a pinned finding is
-  // fixed and its pin removed (#6055 took it to 20), so it is not a target to hold.
-  assert.ok(pinned.length >= 10, 'the manifest pins more than a handful of steps');
+  // At least one pin, or the loop below judges nothing. The number itself is not pinned: it falls each time a
+  // finding is fixed and its pin is retired (it stood at 21 when this required "more than 20").
+  assert.ok(pinned.length > 0, 'the manifest pins no step, so no pin was judged');
   for (const check of pinned) {
     assert.doesNotMatch(check.expectedFailure.step, demotions, `${check.name} pins a demoted label`);
   }

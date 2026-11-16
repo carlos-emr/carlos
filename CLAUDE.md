@@ -56,6 +56,19 @@
 - SRFax duplicate prevention policy is unread/read flag based (unread-only pull + mark-as-read), not remote delete.
 - See `docs/fax-provider-configuration-and-ux.md` for implementation and operational details.
 
+## CDS Import Context (AI + Dev)
+
+- Start at `docs/cds-import.md`; server defaults and delegation are in
+  `docs/cds-import-configuration.md`. Admission defaults off. Enabling imports requires the
+  installed qualification and maintenance prerequisites in the operator guide.
+- Browser and trusted CLI imports share `demographic/cdsimport`. Resume intent is a durable
+  audited event. Preserve physical ownership, epochs, receipt verification, patient holds and
+  separate report/cleanup outcomes when changing recovery.
+- Preserve source values and partial-date precision alongside native projections. Read the
+  clinical and legacy-reader contracts before changing persisters or downstream readers.
+- Generate crosswalks and physical schema contracts with their tools. Qualify native changes
+  with the fresh ON/BC MariaDB tier and the actual packaged WAR.
+
 ## eForm Chrome Styling
 
 - eForm pages must not receive a global stylesheet: the renderers (`efmshowform_data.jsp`,
@@ -107,6 +120,46 @@
   font-less chunks, `addCell(String)`, `PdfContentByte.showText*` or OpenPDF's default font.
 - `bash scripts/check-report-fonts.sh` re-runs the report tests under other host fonts in fresh
   JVMs. See `docs/pdf-font-policy.md`.
+- Non-scripted HTML-to-PDF (forms, HRM reports, email, Messenger) goes through
+  `HtmlPdfRenderService`, never a new `ITextRenderer`; see `docs/html-pdf-rendering.md`.
+
+## Container-Provided Jakarta APIs
+
+- Tomcat 11 supplies Servlet 6.1, Pages 4.0, Expression Language 6.0 and Annotations 3.0 and
+  always loads those packages from its own `lib/`, so `pom.xml` keeps them `provided`, even when a
+  library asks for one at compile scope (#5416: EL 5.0.1 shipped beside Tomcat's EL 6.0). JSTL is
+  the exception: Tomcat has none, so the directly declared `jakarta.servlet.jsp.jstl-api`
+  and Glassfish implementation stay `compile`.
+- `ContainerApiPackagingUnitTest` (dependency graph) and `scripts/check-war-container-apis.py`
+  (the built WAR, run by `debian/rules`) enforce this from
+  `scripts/fixtures/tomcat-container-packages.json`. The `jspc` profile compiles with Tomcat 11's
+  Jasper (`${tomcat.version}`), not the plugin's default 10.1. See `docs/container-provided-apis.md`.
+## HAPI HL7 v2 Parsing
+
+- `ca.uhn.hapi` (HL7 v2, 2.6.0; not the `ca.uhn.hapi.fhir` line) reads lab and PHS/STAR messages
+  (#5414). Keep `hapi-base` and the five `hapi-structures-vNN` modules on the one
+  `hapi-hl7.version` property, and never reintroduce a vendored copy under `local_repo/`.
+- Text from outside CARLOS that may be HL7 v2 XML goes through `Hl7XmlMessageValidator` before
+  `GenericParser` / `DefaultXMLParser.parse`: HAPI 2.x no longer loads external entities or DTDs
+  but still expands internal ones. `PipeParser` never reads XML. Tests that need hostile XML use
+  `HostileHl7Xml` (loopback observer, synthetic marker file); never contact a public service.
+- Typed HAPI accessors report a missing repetition as a `RuntimeException` caused by an
+  `HL7Exception`. Where a handler answers such a miss with an empty value, catch `RuntimeException`
+  and call `Hl7Utils.rethrowUnlessHl7AccessFailure`; do not rely on `catch (HL7Exception)`.
+- Do not look repetitions of a generic message up by HAPI's segment names (`"OBR" + n`); use
+  `GenericSegmentNames`. See `docs/hapi-hl7v2-xml-hardening.md`.
+
+## Generic DAO Paging Order
+
+- `AbstractDaoImpl.findAll(offset, limit)` always orders by the entity identifier, read from the
+  JPA metamodel (composite `@EmbeddedId`/`@IdClass` keys expand to every component, by attribute
+  name), so offset pages never overlap or skip on an unchanged table (#5308). Never page with
+  `setFirstResult`/`setMaxResults` over a query without a unique `ORDER BY`: MariaDB returns
+  unordered rows in whatever index order it scans. A DAO needing a business order overrides
+  `getFindAllDomainOrder(alias)`; the identifier is still appended as the tie-breaker, and
+  `getIdentifierOrder(alias)` gives the same tie-breaker to a DAO's own paged queries.
+- Ordering is not a snapshot: see `AbstractDao#findAll` and
+  `docs/architecture/dao-findall-ordering.md` for concurrent inserts/deletes.
 
 ## Debian Packaging and carlos-ctl
 
@@ -471,9 +524,11 @@ token into the form and claim it in the action before validation. Answer a repea
 rendering with the first save's own result page, and map `submissionRefused` to
 `/WEB-INF/jsp/common/formSubmissionRefused.jsp` for the 409 cases. An edit form that posts every
 field must refuse a form rendered from an older version rather than overwrite the newer record;
-`DemographicEditVersion` with `DemographicDao.findForUpdate()` is the reference. Browser checks
-that deliberately replay a captured POST must drop `carlosFormSubmission` and
-`demographicVersion`. See `docs/form-submission-guard.md`.
+`DemographicEditVersion` with `DemographicDao.findForUpdate()` is the reference; the Edit
+Appointment form carries `appointmentVersion` (`AppointmentEditConflict`) and the Edit Tickler
+form `ticklerVersion` (`TicklerEditVersion`). Browser checks that deliberately replay a captured
+POST must drop `carlosFormSubmission`, `demographicVersion`, `appointmentVersion` and
+`ticklerVersion`. See `docs/form-submission-guard.md`.
 
 ## Layer Names — class naming policy
 
@@ -485,6 +540,9 @@ Sanctioned suffixes for new code:
 Forbidden in new code: `*Prep`, `*Manager`, `*Helper`, `*Utils`, compound suffixes except the sanctioned `*ImportService` file-import workflow suffix. DAOs may not inject other DAOs (cross-DAO orchestration goes in a `*Service`).
 
 Full policy + decision rules + retired-suffix migration guidance: **`docs/architecture/layer-names.md`**.
+CDS transfer readers, mappers, field reconcilers, planners, classifiers, resource
+factories, immutable registries and static DAO read support follow the narrowly
+defined additional roles in that policy's "CDS transfer components" section.
 
 ## Healthcare Domain Context
 
@@ -600,13 +658,18 @@ dao.searchNotes("111", "%diabetes%");
 Note: This is standard SQL behavior, NOT a production bug. Callers provide wildcards from the UI layer.
 
 **4. DAO Methods May Override Test Data**
-Some DAO `save*()` methods override fields like `update_date` with `new Date()`. When testing date-based queries, re-set the date after saving:
+Some DAO `save*()` methods override fields like `update_date` with `new Date()`, and some entities stamp
+dates in `@PrePersist`/`@PreUpdate` callbacks. Always check the DAO and the entity before assuming test
+data is persisted as-is. `CaseManagementIssue` (finding 361): the DAO stamps new issues, never writes the
+date a caller's copy of an existing issue carries, and the entity's `@PreUpdate` stamps every UPDATE, so
+re-setting the date after `saveIssue` and flushing does not work. Give the fixture its date on INSERT:
 ```java
-caseManagementIssueDAO.saveIssue(cmi);  // Overwrites update_date with now()
-cmi.setUpdate_date(desiredDate);         // Re-set to test-specific date
-hibernateTemplate.flush();               // Persist the corrected date
+cmi.setUpdate_date(pastDate);   // an INSERT runs no @PreUpdate
+entityManager.persist(cmi);     // or hibernateTemplate.save(cmi)
+entityManager.flush();
 ```
-Always check the DAO implementation before assuming test data is persisted as-is.
+To move an existing issue's date in a test, use a bulk JPQL/SQL `update` (no entity callbacks). See
+`docs/test/test-writing-guide.md` and `CaseManagementIssueUpdateDateIntegrationTest`.
 
 **5. SpringUtils Identity Across Multiple Contexts**
 When running the full test suite, classes with `@TestPropertySource` create separate Spring contexts. `SpringUtils.getBean()` may return instances from a different context than `@Autowired` injection. Do NOT assert instance identity (`isSameAs`/`isEqualTo`). Instead assert type:
@@ -623,6 +686,10 @@ DAO method names can be misleading. For example, `getProviders(boolean active)` 
 
 ## Code Quality Standards
 
+**Library choices for new code**: Follow [Library conventions](docs/architecture/library-conventions.md)
+for common JDK and library APIs, including the HTTP-client decision and legacy compatibility
+exceptions. These conventions do not authorize rewriting existing call sites.
+
 **Security (CodeQL Integration)**:
 - Null-safe CARLOS encoder for all JSP outputs — prefer `<carlos:encode>` tag or `${carlos:forXxx()}` EL functions (see [OWASP Encoding](#owasp-encoding--xss-prevention))
 - Parameterized SQL queries (never concatenation)
@@ -637,7 +704,7 @@ or per-site `@SuppressFBWarnings`; Semgrep uses CARLOS sanitizer-aware rules in 
 rule-specific `nosemgrep` comments only when the code is already encoded/sanitized and the rule
 cannot model that sanitizer. Semgrep CI filters suppressed SARIF results before GitHub Code Scanning
 upload, so `nosemgrep` suppressions must remain specific and justified; do not blanket-disable
-Semgrep Pro or broad rule groups to clear PR noise. The `IMPROPER_UNICODE` detector is
+Semgrep Pro or broad rule groups to clear PR noise. SonarCloud path-traversal false positives (`javasecurity:S2083`/`S6549`/`S6096`) are excluded in `pom.xml` one file at a time, never by package, each with a source-and-helper comment; `SonarPathTraversalExclusionPolicyUnitTest` enforces this (issue #5316, see `docs/static-analysis-workflows.md`). The `IMPROPER_UNICODE` detector is
 *informational* — it flags `equalsIgnoreCase`/`toLowerCase`/`Normalizer` case folding **regardless
 of `Locale`** (so it cannot be cleared by adding `Locale.ROOT`), and almost all hits are intended
 case-insensitive domain comparisons. It is suppressed **per-site** with
@@ -686,7 +753,7 @@ public Example2Action(SomeManager someManager) {
 
 **Standards & Protocols**:
 - **HL7 v2/v3**: Full message processing with MSH, PID, OBX, ORC, OBR segment handlers
-- **FHIR R4**: HAPI FHIR 6.10.5 with resource filters and healthcare provider context
+- **FHIR DSTU3**: HAPI FHIR 8.12.1; core follows HAPI (6.9.12 minimum enforced), Saxon-HE remains 11.6, and outbound JSON retains the legacy blank-primitive contract
 - **SNOMED CT**: Clinical terminology with core dataset loading
 - **ICD-9/ICD-10**: Diagnosis coding systems fully integrated
 - **ATC Codes**: Anatomical Therapeutic Chemical classification for medications

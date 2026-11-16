@@ -62,6 +62,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.verify;
@@ -84,6 +86,7 @@ class ManageEmails2ActionResendUnitTest extends EmailWorkflowUnitTestBase {
     private DocumentAttachmentManager documentAttachmentManager;
     private SecurityInfoManager securityInfoManager;
     private MockHttpServletRequest request;
+    private MockHttpServletResponse response;
     private EmailLog emailLog;
 
     /** A resend of email log 5, for FAKE patient 10001, whose one eForm attachment is 7. */
@@ -126,7 +129,7 @@ class ManageEmails2ActionResendUnitTest extends EmailWorkflowUnitTestBase {
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class);
                 LogCapture capture = LogCapture.forLogger(ManageEmails2Action.class)) {
             servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
-            servletActionContext.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+            servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
             try {
                 return new ManageEmails2Action().resendEmail();
             } finally {
@@ -203,8 +206,8 @@ class ManageEmails2ActionResendUnitTest extends EmailWorkflowUnitTestBase {
     }
 
     @Test
-    @DisplayName("should answer as an invalid id, not open a compose, when no email has that id")
-    void shouldAnswerInvalidId_whenNoEmailHasThatId() {
+    @DisplayName("should answer not found without opening a compose when no email has that id")
+    void shouldAnswerNotFound_whenNoEmailHasThatId() throws Exception {
         prepareResend(true);
         when(emailComposeManager.prepareEmailForResend(any(), eq(5))).thenReturn(null);
 
@@ -217,11 +220,27 @@ class ManageEmails2ActionResendUnitTest extends EmailWorkflowUnitTestBase {
     }
 
     @Test
+    @DisplayName("should report an invalid resend ID without looking up an email log")
+    void shouldAnswerInvalidId_whenResendIdIsMalformed() throws Exception {
+        prepareResend(true);
+        request.setParameter("logId", "invalid");
+
+        String result = resend(new ArrayList<>(), new boolean[1]);
+
+        assertThat(result).isNull();
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getContentAsString()).contains("Invalid email log id");
+        verify(emailComposeManager, never()).prepareEmailForResend(any(), anyInt());
+    }
+
+    @Test
     @DisplayName("should refuse, not show the attachment message, when the user may not read emails")
     void shouldRefuse_whenEmailReadPrivilegeMissing() {
         prepareResend(false);
 
-        assertThatThrownBy(() -> resend(new ArrayList<>(), new boolean[1]))
+        List<String> log = new ArrayList<>();
+        boolean[] anyThrowableLogged = new boolean[1];
+        assertThatThrownBy(() -> resend(log, anyThrowableLogged))
                 .isInstanceOf(SecurityException.class);
         assertThat(request.getAttribute("emailErrorMessage")).isNull();
     }

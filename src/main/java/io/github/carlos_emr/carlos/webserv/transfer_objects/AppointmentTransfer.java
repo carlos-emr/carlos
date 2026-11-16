@@ -91,6 +91,9 @@ public final class AppointmentTransfer {
         this.providerNo = providerNo;
     }
 
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(
+            io.github.carlos_emr.carlos.utility.xml.CalendarDateTimeXmlAdapter.class)
     public Calendar getAppointmentStartDateTime() {
         return (appointmentStartDateTime);
     }
@@ -99,6 +102,9 @@ public final class AppointmentTransfer {
         this.appointmentStartDateTime = appointmentStartDateTime;
     }
 
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(
+            io.github.carlos_emr.carlos.utility.xml.CalendarDateTimeXmlAdapter.class)
     public Calendar getAppointmentEndDateTime() {
         return (appointmentEndDateTime);
     }
@@ -216,6 +222,9 @@ public final class AppointmentTransfer {
         this.status = status;
     }
 
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(
+            io.github.carlos_emr.carlos.utility.xml.CalendarDateTimeXmlAdapter.class)
     public Calendar getCreateDateTime() {
         return (createDateTime);
     }
@@ -224,6 +233,9 @@ public final class AppointmentTransfer {
         this.createDateTime = createDateTime;
     }
 
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(
+            io.github.carlos_emr.carlos.utility.xml.CalendarDateTimeXmlAdapter.class)
     public Calendar getUpdateDateTime() {
         return (updateDateTime);
     }
@@ -273,6 +285,8 @@ public final class AppointmentTransfer {
     }
 
     public Appointment copyTo(Appointment appointment) {
+        // Preserve BeanUtils' null-target contract and make it explicit before date writes.
+        if (appointment == null) throw new IllegalArgumentException("Target must not be null");
 
         // The location code is read-only over SOAP: a client sends text, and a changed text
         // clears a Location List code that no longer names it (AppointmentLocationResolver).
@@ -290,8 +304,11 @@ public final class AppointmentTransfer {
         // not much we can do right now because it's a fault in oscars data structure.
         if (appointmentEndDateTime != null) {
             // also oscar sets end time funny, it is not exclusive so we need to calculate exclusivity ourselves.
-            appointmentEndDateTime.add(Calendar.MILLISECOND, -1);
-            appointment.setEndTime(appointmentEndDateTime.getTime());
+            // Work on a copy: the transfer must keep echoing the end the client sent, and a second
+            // copyTo on the same transfer must not drift by another millisecond.
+            Calendar exclusiveEnd = (Calendar) appointmentEndDateTime.clone();
+            exclusiveEnd.add(Calendar.MILLISECOND, -1);
+            appointment.setEndTime(exclusiveEnd.getTime());
         }
 
         return (appointment);

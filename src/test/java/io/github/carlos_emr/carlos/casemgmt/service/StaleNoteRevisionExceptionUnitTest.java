@@ -1,8 +1,9 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 package io.github.carlos_emr.carlos.casemgmt.service;
 
-import com.mysql.cj.exceptions.MysqlErrorNumbers;
-import com.mysql.cj.jdbc.exceptions.SQLError;
+import org.mariadb.jdbc.Configuration;
+import org.mariadb.jdbc.HostAddress;
+import org.mariadb.jdbc.export.ExceptionFactory;
 import jakarta.persistence.OptimisticLockException;
 import jakarta.persistence.PersistenceException;
 import jakarta.persistence.RollbackException;
@@ -34,17 +35,25 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("unit")
 @Tag("casemgmt")
 class StaleNoteRevisionExceptionUnitTest {
-    private JDBCException convert(int errorCode) {
+    private JDBCException convert(int errorCode) throws SQLException {
         var dialect = new MariaDBDialect(DatabaseVersion.make(11, 8));
         var converter = new StandardSQLExceptionConverter(dialect.buildSQLExceptionConversionDelegate(),
                 new SQLExceptionTypeDelegate(dialect), new SQLStateConversionDelegate(dialect));
-        SQLException sql = SQLError.createSQLException("conversion test",
-                MysqlErrorNumbers.mysqlToSqlstate(errorCode), errorCode, null);
+        // MariaDB sends the SQL state with the error packet; run the connector's actual
+        // exception factory before Hibernate and Spring classify the failure.
+        String sqlState = switch (errorCode) {
+            case 1213 -> "40001";
+            case 1045 -> "28000";
+            case 1062 -> "23000";
+            default -> "HY000";
+        };
+        SQLException sql = new ExceptionFactory(Configuration.parse("jdbc:mariadb://localhost/fixture"),
+                HostAddress.from("localhost", 3306)).create("conversion test", sqlState, errorCode);
         return converter.convert(sql, "locking read", "select 1");
     }
 
     @Test
-    void shouldRecognizeSnapshotConflict_throughActualHibernateAndSpringConversion() {
+    void shouldRecognizeSnapshotConflict_throughActualHibernateAndSpringConversion() throws SQLException {
         JDBCException hibernate = convert(1020);
         assertThat(hibernate).isInstanceOf(SnapshotIsolationException.class);
         RuntimeException spring = new HibernateJpaDialect().translateExceptionIfPossible(hibernate);
@@ -57,7 +66,7 @@ class StaleNoteRevisionExceptionUnitTest {
 
     @ParameterizedTest
     @ValueSource(ints = {1205, 1213})
-    void shouldRecognizeLockTimeoutAndDeadlock_throughActualConversion(int errorCode) {
+    void shouldRecognizeLockTimeoutAndDeadlock_throughActualConversion(int errorCode) throws SQLException {
         JDBCException hibernate = convert(errorCode);
         RuntimeException spring = new HibernateJpaDialect().translateExceptionIfPossible(hibernate);
         assertThat(spring).isInstanceOf(CannotAcquireLockException.class);
@@ -67,7 +76,7 @@ class StaleNoteRevisionExceptionUnitTest {
 
     @ParameterizedTest
     @ValueSource(ints = {1045, 1062})
-    void shouldNotHideAuthenticationOrConstraintFailures_asRevisionConflicts(int errorCode) {
+    void shouldNotHideAuthenticationOrConstraintFailures_asRevisionConflicts(int errorCode) throws SQLException {
         JDBCException hibernate = convert(errorCode);
         RuntimeException spring = new HibernateJpaDialect().translateExceptionIfPossible(hibernate);
         assertThat(spring).isNotNull();

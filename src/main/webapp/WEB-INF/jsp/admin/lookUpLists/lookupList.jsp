@@ -30,7 +30,7 @@
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver" %>

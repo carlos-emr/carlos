@@ -41,6 +41,7 @@ import io.github.carlos_emr.carlos.commn.model.DemographicContact;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -147,8 +148,9 @@ public class EctDisplayContacts2Action extends EctDisplayAction {
                 String itemHeader = StringUtils.maxLenString(name, 20, 17, ELLIPSES) +
                         ((specialty != null && specialty.length() > 0) ? StringUtils.maxLenString("  " + specialty, 14, 11, ELLIPSES) : "") +
                         ((workPhone != null && workPhone.length() > 0) ? StringUtils.maxLenString("  " + workPhone, 17, 14, ELLIPSES) : "");
-                item.setTitle((contact.isConsentToContact() ? "" : "*") + itemHeader);
-                String consent = contact.isConsentToContact() ? "Ok to contact" : "Do not contact";
+                item.setTitle(SafeEncode.forHtmlContent((contact.isConsentToContact() ? "" : "*") + itemHeader));
+                String consent = contact.getConsentToContact() == null ? "Consent unknown"
+                        : contact.isConsentToContact() ? "Ok to contact" : "Do not contact";
                 item.setLinkTitle(name + " " + specialty + " " + workPhone + " " + consent);
 
                 //item.setDate(contact.getUpdateDate());

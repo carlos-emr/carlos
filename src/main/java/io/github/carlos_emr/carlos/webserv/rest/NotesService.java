@@ -87,6 +87,7 @@ import io.github.carlos_emr.carlos.commn.model.ProviderDefaultProgram;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.EncounterUtil;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -161,6 +162,9 @@ public class NotesService extends AbstractServiceImpl {
     private ProgramManager programMgr;
 
     @Autowired
+    private io.github.carlos_emr.carlos.managers.TicklerManager noteTicklerManager;
+
+    @Autowired
     private CaseManagementManager caseManagementMgr;
 
     @Autowired
@@ -187,7 +191,7 @@ public class NotesService extends AbstractServiceImpl {
         NoteSelectionTo1 returnResult = new NoteSelectionTo1();
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         if (logger.isDebugEnabled()) {
-            logger.debug("The config {}", jsonobject);
+            logger.debug("Note selection configuration received");
         }
 
         // Get user role and username - support both session-based and OAuth authentication
@@ -257,13 +261,13 @@ public class NotesService extends AbstractServiceImpl {
         processJsonArray(jsonobject, "filterIssues", criteria.getIssues());
 
         if (logger.isDebugEnabled()) {
-            logger.debug("SEARCHING FOR NOTES WITH CRITERIA: {}", criteria);
+            logger.debug("Searching notes");
         }
 
         NoteSelectionResult result = noteService.findNotes(loggedInInfo, criteria);
 
         if (logger.isDebugEnabled()) {
-            logger.debug("FOUND: {}", result);
+            logger.debug("Note search returned {} records", result.getNotes().size());
             for (NoteDisplay nd : result.getNotes()) {
                 // PHI: do not log note content; log only type, id, and length
                 String noteText = nd.getNote();
@@ -377,7 +381,7 @@ public class NotesService extends AbstractServiceImpl {
             // must keep its dirty in-memory copy to retry. The manager rolls back replacement of
             // the previous draft. (Narrowed from
             // Throwable so JVM Errors are not swallowed.)
-            logger.error("AutoSave failed for the draft note; returning an error so the client retains its unsaved copy", e);
+            logger.error("AutoSave failed for the draft note; returning an error so the client retains its unsaved copy: {}", LogSafe.exceptionTrace(e));
             throw new WebApplicationException("Autosave failed", Response.Status.INTERNAL_SERVER_ERROR);
         }
 
@@ -494,11 +498,11 @@ public class NotesService extends AbstractServiceImpl {
             cpp = new CaseManagementCPP();
             cpp.setDemographic_no(demo);
         }
-        logger.debug("enc TYPE {}", note.getEncounterType());
+        logger.debug("Encounter type supplied");
         caseMangementNote.setEncounter_type(note.getEncounterType());
 
         //caseMangementNote.setHourOfEncounterTime(note.getEncounterTime());
-        logger.debug("this is what the encounter time was {}", note.getEncounterTime());
+        logger.debug("Encounter duration supplied");
 		/*String hourOfEncounterTime = request.getParameter("hourOfEncounterTime");
 		if (hourOfEncounterTime != null && !"".equals(hourOfEncounterTime)) {
 			note.setHourOfEncounterTime(Integer.valueOf(hourOfEncounterTime));
@@ -509,7 +513,7 @@ public class NotesService extends AbstractServiceImpl {
 			note.setMinuteOfEncounterTime(Integer.valueOf(minuteOfEncounterTime));
 		}*/
 
-        logger.debug("this is what the encounter time was {}", note.getEncounterTransportationTime());
+        logger.debug("Encounter transport duration supplied");
 		/*
 		String hourOfEncTransportationTime = request.getParameter("hourOfEncTransportationTime");
 		if (hourOfEncTransportationTime != null && !"".equals(hourOfEncTransportationTime)) {
@@ -539,7 +543,7 @@ public class NotesService extends AbstractServiceImpl {
         try {
             programId = Integer.parseInt(programIdString);
         } catch (Exception e) {
-            logger.warn("Error parsing programId:" + programIdString, e);
+            logger.warn("Invalid note program ID: {}", LogSafe.exceptionTrace(e));
         }
         caseMangementNote.setProgram_no(programIdString);
 
@@ -675,50 +679,14 @@ public class NotesService extends AbstractServiceImpl {
         note.setUpdateDate(caseMangementNote.getUpdate_date());
         note.setObservationDate(caseMangementNote.getObservation_date());
         note.setNote(caseMangementNote.getNote());
-        logger.info("note should return like this " + note.getNote());
+        logger.debug("Note prepared");
         return note;
 		
 		
-		/*
-		//update lock to new note id
-		casemgmtNoteLockSession.setNoteId(note.getId());
-		logger.info("UPDATING NOTE ID in LOCK");
-		casemgmtNoteLockDao.merge(casemgmtNoteLockSession);
-		session.setAttribute("casemgmtNoteLock"+demo, casemgmtNoteLockSession);	
-		*/
 
 
-		/*
-		String sessionFrmName = "caseManagementEntryForm" + demo;
-		CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName);
-		
-		CasemgmtNoteLock casemgmtNoteLockSession = (CasemgmtNoteLock)session.getAttribute("casemgmtNoteLock"+demo);				
-		
-		try {
-			
-			if (casemgmtNoteLockSession == null) {
-				throw new Exception("SESSION CASEMANAGEMENT NOTE LOCK OBJECT IS NULL");
-			}
-			
-			CasemgmtNoteLock casemgmtNoteLock = casemgmtNoteLockDao.find(casemgmtNoteLockSession.getId());
-			//if other window has acquired lock we reject save									
-			if ( !casemgmtNoteLock.getSessionId().equals(casemgmtNoteLockSession.getSessionId()) || !request.getSession().getId().equals(casemgmtNoteLockSession.getSessionId()) ) {
-				logger.info("DO NOT HAVE LOCK FOR " + demo + " PROVIDER " + providerNo + " CONTINUE SAVING LOCAL SESSION " + request.getSession().getId() + " LOCAL IP " + request.getRemoteAddr() + " LOCK SESSION " + casemgmtNoteLockSession.getSessionId() + " LOCK IP " + casemgmtNoteLockSession.getIpAddress());
-				return -1L;
-			}
-		}
-		catch (Exception e ) {
-			//Exception thrown if other window has saved and exited so lock is gone
-			logger.error("Lock not found for " + demo + " providers " + providerNo + " IP " + request.getRemoteAddr(), e);
-			return -1L;
-		}
-		String lastSavedNoteString = (String) session.getAttribute("lastSavedNoteString");
-		
-		String strBeanName = "casemgmt_oscar_bean" + demo;
-		EctSessionBean sessionBean = (EctSessionBean) session.getAttribute(strBeanName);
 
-		return note.getId();
-		*/
+
 
 
     }
@@ -917,7 +885,7 @@ public class NotesService extends AbstractServiceImpl {
         CaseManagementIssueNotesDao cmeIssueNotesDao = (CaseManagementIssueNotesDao) SpringUtils.getBean(CaseManagementIssueNotesDao.class);
         List<CaseManagementIssue> issuesList = cmeIssueNotesDao.getNoteIssues(note.getNoteId());
         for (CaseManagementIssue issueItem : issuesList) {
-            logger.debug("ISSUES LIST {} for note {}", issueItem, newNoteId);
+            logger.debug("Preparing issue for note {}", newNoteId);
         }
 
         if (note.getNoteId() != 0) {
@@ -1209,7 +1177,7 @@ public class NotesService extends AbstractServiceImpl {
         try {
             programId = Integer.parseInt(programIdString);
         } catch (Exception e) {
-            logger.warn("Error parsing programId:" + programIdString, e);
+            logger.warn("Invalid note program ID: {}", LogSafe.exceptionTrace(e));
         }
 
 ///////Not sure what this is about??		
@@ -1242,7 +1210,7 @@ public class NotesService extends AbstractServiceImpl {
                 : EncounterPatientContext.findEncounter(getHttpServletRequest(), String.valueOf(demographicNo));
         String encType = getString(jsonobject, "encType");
 
-        logger.debug("Encounter Type : {}", encType);
+        logger.debug("Encounter type selected");
 
 
         // create a new note
@@ -1360,7 +1328,7 @@ public class NotesService extends AbstractServiceImpl {
         // assume the manager lookups returned a non-null note (behaviour unchanged here).
         if (logger.isDebugEnabled()) {
             logger.debug("note id={}", note.getId());
-            logger.debug("Set Encounter Type: {}", note.getEncounter_type());
+            logger.debug("Encounter type prepared");
             logger.debug("Fetched Note {}", note.getId());
             logger.debug("Populate Note with editors");
         }
@@ -1539,7 +1507,7 @@ public class NotesService extends AbstractServiceImpl {
         for (CaseManagementNoteExt l : lcme) {
             // PHI: do not log note content; log only the key and value length.
             if (logger.isDebugEnabled()) {
-                logger.debug("NOTE EXT key={} valueLength={}", l.getKeyVal(),
+                logger.debug("Note extension valueLength={}",
                         l.getValue() != null ? l.getValue().length() : 0);
             }
 
@@ -1851,6 +1819,15 @@ public class NotesService extends AbstractServiceImpl {
             throw new SecurityException("missing required sec object (_eChart)");
         }
 
+        if (noteId == null || noteId <= 0) throw new jakarta.ws.rs.BadRequestException("Invalid note identifier");
+        CaseManagementNote stored = caseManagementMgr.getNote(noteId.toString());
+        if (stored == null) throw new jakarta.ws.rs.NotFoundException();
+        Integer patient;
+        try { patient = Integer.valueOf(stored.getDemographic_no()); }
+        catch (NumberFormatException invalid) { throw new IllegalStateException("Stored note has no valid patient identity"); }
+        io.github.carlos_emr.carlos.webserv.rest.util.PatientApiAccess.require(
+                getLoggedInInfo(), securityInfoManager, "_eChart", "r", patient);
+
         List<CaseManagementNoteExt> lcme = new ArrayList<CaseManagementNoteExt>();
         lcme.addAll(caseManagementMgr.getExtByNote(noteId));
 
@@ -1860,7 +1837,7 @@ public class NotesService extends AbstractServiceImpl {
         for (CaseManagementNoteExt l : lcme) {
             // PHI: do not log note content; log only the key and value length.
             if (logger.isDebugEnabled()) {
-                logger.debug("NOTE EXT key={} valueLength={}", l.getKeyVal(),
+                logger.debug("Note extension valueLength={}",
                         l.getValue() != null ? l.getValue().length() : 0);
             }
 
@@ -1942,6 +1919,7 @@ public class NotesService extends AbstractServiceImpl {
             throw new RuntimeException("Access Denied");
         }
 
+        Integer patient = requireTicklerPatient(ticklerNo, "r");
         TicklerNoteResponse response = new TicklerNoteResponse();
         CaseManagementNoteLink link = caseManagementMgr.getLatestLinkByTableId(CaseManagementNoteLink.TICKLER, Long.valueOf(ticklerNo));
 
@@ -1950,12 +1928,12 @@ public class NotesService extends AbstractServiceImpl {
 
             CaseManagementNote note = caseManagementMgr.getNote(noteId.toString());
 
-            // Bind the linked note to a patient the caller may access (IDOR hardening,
-            // issue #2839 class): a ticklerNo the caller can reach doesn't by itself
-            // prove they may see the patient the linked note belongs to.
             String providerNo = loggedInInfo.getLoggedInProviderNo();
             String demoNo = note == null ? null : note.getDemographic_no();
             if (note != null && isNoteAccessAllowed(loggedInInfo, providerNo, demoNo)) {
+                if (!patient.toString().equals(note.getDemographic_no())) {
+                    throw new IllegalStateException("Tickler note patient link is inconsistent");
+                }
                 TicklerNoteTo1 tNote = new TicklerNoteTo1();
                 tNote.setNoteId(note.getId().intValue());
                 tNote.setNote(note.getNote());
@@ -1968,42 +1946,43 @@ public class NotesService extends AbstractServiceImpl {
         return response;
     }
 
-    /**
-     * Creates a clinical note from a tickler and links them together.
-     *
-     * @param json request body containing {@code note}, optional {@code noteId}, and a
-     *             {@code tickler} object with {@code id}/{@code demographicNo}
-     * @return the save result
-     * @throws RuntimeException if the caller lacks the {@code _tickler} or {@code _eChart}
-     *         privilege
-     * @throws AccessDeniedException if the caller is not authorized to access the
-     *         tickler's demographicNo, or {@code noteId} references a note that does not
-     *         belong to that same patient
-     */
+    private Integer requireTicklerPatient(Integer ticklerId, String right) {
+        if (ticklerId == null || ticklerId <= 0) throw new jakarta.ws.rs.BadRequestException("Invalid tickler identifier");
+        LoggedInInfo actor = getLoggedInInfo();
+        Integer patient = noteTicklerManager.getTicklerDemographicNo(actor, ticklerId);
+        if (patient == null) throw new jakarta.ws.rs.NotFoundException();
+        io.github.carlos_emr.carlos.webserv.rest.util.PatientApiAccess.require(actor, securityInfoManager, "_tickler", right, patient);
+        io.github.carlos_emr.carlos.webserv.rest.util.PatientApiAccess.require(actor, securityInfoManager, "_eChart", right, patient);
+        return patient;
+    }
+
     @POST
     @Path("/ticklerSaveNote")
     @Produces("application/json")
     @Consumes("application/json")
     public RestResponse<String> ticklerSaveNote(ObjectNode json) {
 
-        LoggedInInfo loggedInInfo = this.getLoggedInInfo();
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "w", null)) {
-            throw new RuntimeException("Access Denied");
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "w", null)) {
+            throw new jakarta.ws.rs.ForbiddenException("Access Denied");
         }
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, SEC_OBJECT_ECHART, "w", null)) {
-            throw new RuntimeException("Access Denied");
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_eChart", "w", null)) {
+            throw new jakarta.ws.rs.ForbiddenException("Access Denied");
         }
 
-        // PHI: the request body carries clinical note text plus patient/tickler identifiers.
-        // Nothing from it is logged here -- a rejected request must not leave the caller's
-        // payload in the log, so authorization runs before any of it is written out.
+        if (json == null || !json.path("tickler").isObject()) throw new jakarta.ws.rs.BadRequestException("Tickler is required");
+        logger.debug("Note configuration received");
+
         String strNote = json.get("note") != null ? json.get("note").asText() : null;
         Integer noteId = json.get("noteId") != null ? json.get("noteId").asInt() : null;
 
+        logger.debug("Saving note id={}", LogSafe.sanitize(String.valueOf(noteId)));
+
         ObjectNode tickler = (ObjectNode) json.get("tickler");
-        Integer ticklerId = (tickler == null || tickler.get("id") == null) ? null : tickler.get("id").asInt();
-        Integer demographicNo = (tickler == null || tickler.get("demographicNo") == null)
-                ? null : tickler.get("demographicNo").asInt();
+        Integer ticklerId = tickler.get("id") != null ? tickler.get("id").asInt() : null;
+        Integer demographicNo = tickler.get("demographicNo") != null ? tickler.get("demographicNo").asInt() : null;
+        Integer storedPatient = requireTicklerPatient(ticklerId, "w");
+        if (!storedPatient.equals(demographicNo)) throw new jakarta.ws.rs.BadRequestException("Tickler patient does not match");
 
         Provider loggedInProvider = loggedInInfo.getLoggedInProvider();
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -2033,6 +2012,9 @@ public class NotesService extends AbstractServiceImpl {
 
         if (noteId != null && noteId.intValue() > 0) {
             CaseManagementNote existingNote = requireOwnedNote(String.valueOf(noteId), demoNo, "w");
+            if (!storedPatient.toString().equals(existingNote.getDemographic_no())) {
+                throw new jakarta.ws.rs.BadRequestException("Note patient does not match");
+            }
 
             revision = String.valueOf(Integer.valueOf(existingNote.getRevision()).intValue() + 1);
             history = strNote + "\n" + existingNote.getHistory();

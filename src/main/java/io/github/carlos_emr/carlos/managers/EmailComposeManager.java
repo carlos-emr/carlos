@@ -79,6 +79,33 @@ public class EmailComposeManager {
     private EmailConsentResolver emailConsentResolver;
     @Autowired
     private NioFileManager nioFileManager;
+    @Autowired
+    private io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService attachmentOwnershipService;
+
+    /** Checks the complete draft before any attachment is rendered or copied. */
+    public void requirePatientAttachments(Integer demographicNo, String fdid, String[] eForms,
+            String[] documents, String[] labs, String[] hrms) throws PDFGenerationException {
+        List<String> selectedEForms = convertToList(eForms);
+        if (!StringUtils.isNullOrEmpty(fdid)) selectedEForms.add(0, fdid);
+        requirePatientAttachmentSelection(DocumentType.EFORM, demographicNo, selectedEForms.toArray(String[]::new));
+        requirePatientAttachmentSelection(DocumentType.DOC, demographicNo, documents);
+        requirePatientAttachmentSelection(DocumentType.LAB, demographicNo, labs);
+        requirePatientAttachmentSelection(DocumentType.HRM, demographicNo, hrms);
+    }
+
+    /** Refuses a missing or foreign record without disclosing its identity. */
+    public void requirePatientAttachmentSelection(DocumentType type, Integer demographicNo, String... selected)
+            throws PDFGenerationException {
+        List<Integer> ids = new ArrayList<>();
+        try {
+            for (String id : convertToList(selected)) ids.add(Integer.parseInt(id));
+        } catch (NumberFormatException invalid) {
+            throw new PDFGenerationException("A selected email attachment could not be rendered");
+        }
+        if (!ids.isEmpty() && !attachmentOwnershipService.allBelongToDemographic(type, demographicNo, ids)) {
+            throw new PDFGenerationException("A selected email attachment could not be rendered");
+        }
+    }
 
     /**
      * Prepares an existing email for resending by retrieving its log entry.

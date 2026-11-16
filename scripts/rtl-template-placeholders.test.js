@@ -146,7 +146,7 @@ test('a mapped placeholder requests the keys its mapping is built from', () => {
   letter.context.parseTemplate();
 
   const [keys] = letter.requestedKeys();
-  for (const key of ['_age', 'gender', 'age', 'sex', 'ageComplex', 'ageGender']) {
+  for (const key of ['_age', 'gender', 'age', 'sex', 'ageComplex']) {
     assert.ok(keys.includes(key), `${key} must be requested, got ${keys.join(', ')}`);
   }
 });

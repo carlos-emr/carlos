@@ -38,13 +38,64 @@ import static org.assertj.core.api.Assertions.assertThat;
 class DemographicFieldLengthUnitTest {
 
     @Test
-    @DisplayName("should return validation error when last name exceeds thirty characters")
-    void shouldReturnValidationError_whenLastNameExceedsThirtyCharacters() {
+    @DisplayName("should preserve pronouns and gender at the column boundary and reject overflow")
+    void shouldPreservePronounsAndGender_atTheirColumnBoundaries() {
+        Demographic demographic = new Demographic();
+        String exact = "😀".repeat(25);
+        demographic.setPronoun(exact);
+        demographic.setGender(exact);
+        assertThat(demographic.validateFieldLengths()).isEmpty();
+
+        demographic.setPronoun(exact + "X");
+        demographic.setGender(exact + "X");
+        assertThat(demographic.validateFieldLengths())
+                .contains("Pronouns exceeds maximum length of 25 characters.",
+                        "Gender exceeds maximum length of 25 characters.");
+        assertThat(demographic.getPronoun()).isEqualTo(exact + "X");
+        assertThat(demographic.getGender()).isEqualTo(exact + "X");
+    }
+
+    @Test
+    @DisplayName("should return validation error when last name exceeds fifty characters")
+    void shouldReturnValidationError_whenLastNameExceedsFiftyCharacters() {
         Demographic demographic = new Demographic();
         demographic.setLastName("X".repeat(Demographic.LAST_NAME_MAX_LENGTH + 1));
 
         assertThat(demographic.validateFieldLengths())
-                .contains("Last name exceeds maximum length of 30 characters.");
+                .contains("Last name exceeds maximum length of 50 characters.");
+    }
+
+    @Test
+    @DisplayName("should accept and retain full fifty-character first and last names")
+    void shouldAcceptFullNames_atActualFiftyCharacterBoundary() {
+        String first = "F".repeat(50);
+        String last = "L".repeat(50);
+        Demographic demographic = new Demographic();
+        demographic.setFirstName(first);
+        demographic.setLastName(last);
+
+        assertThat(demographic.validateFieldLengths()).isEmpty();
+        assertThat(demographic.getFirstName()).isEqualTo(first);
+        assertThat(demographic.getLastName()).isEqualTo(last);
+    }
+
+    @Test
+    @DisplayName("should count supplementary Unicode names by the real VARCHAR/XSD character boundary")
+    void shouldAcceptFiftySupplementaryCharacters_andRefuseFiftyOneWithoutTruncation() {
+        Demographic demographic = new Demographic();
+        String name = "😀".repeat(50);
+        demographic.setFirstName(name);
+        demographic.setLastName(name);
+        assertThat(demographic.validateFieldLengths()).isEmpty();
+        assertThat(demographic.getFirstName()).isEqualTo(name);
+        assertThat(demographic.getLastName()).isEqualTo(name);
+
+        demographic.setFirstName(name + "😀");
+        demographic.setLastName(name + "😀");
+        assertThat(demographic.validateFieldLengths())
+                .contains("First name exceeds maximum length of 50 characters.",
+                        "Last name exceeds maximum length of 50 characters.");
+        assertThat(demographic.getLastName()).isEqualTo(name + "😀");
     }
 
     @Test

@@ -183,8 +183,11 @@ function describeResponse({ status, headers = {}, body = Buffer.alloc(0) }) {
 
 /** One request through a login's browser context; never follows redirects. */
 async function fetchRaw(context, url, { method = 'GET' } = {}) {
-  const response = await context.request.fetch(url, { method, maxRedirects: 0, timeout: 40000, failOnStatusCode: false });
-  return describeResponse({ status: response.status(), headers: response.headers(), body: await response.body() });
+  const response = await context.request.fetch(url, { method, headers: {'Accept-Encoding': 'identity'}, maxRedirects: 0, timeout: 40000, failOnStatusCode: false });
+  const headers = response.headers();
+  h.assert(!headers['content-encoding'] || String(headers['content-encoding']).trim().toLowerCase() === 'identity',
+    'Download returned unexpected Content-Encoding; compressed transfers require a separate wire-length oracle');
+  return describeResponse({ status: response.status(), headers, body: await response.body() });
 }
 
 /** Does the body start like an HTML document (an error page delivered as a "file")? */

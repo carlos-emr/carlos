@@ -75,23 +75,18 @@ class CaseManagementCppSaveRegressionTest {
 
         int callbackStart = js.indexOf("function onIssueUpdate(complete)");
         assertThat(callbackStart).as("CPP issue update callback must exist").isGreaterThan(0);
-        // Bound the slice by the next function declaration rather than by a specific
-        // indentation of the closing brace, which a reformat would silently break.
-        int nextFunction = js.indexOf("function ", callbackStart + 1);
-        int callbackEnd = nextFunction < 0 ? js.length() : nextFunction;
+        int callbackEnd = js.indexOf("    function submitIssue(", callbackStart);
         assertThat(callbackEnd).isGreaterThan(callbackStart);
         String callbackBody = js.substring(callbackStart, callbackEnd);
-
         assertThat(callbackBody)
-                .as("the encounter demographic is already available as module state; the form element is absent")
+                .as("the patient comes from chart state and is encoded as one query component")
                 .doesNotContain("$(\"demographicNo\")")
-                .contains("&& demographicNo")
+                .contains("if (!demographicNo || !modules.length)")
                 .contains("encodeURIComponent(demographicNo)")
-                .as("both query parameters carry encoded values; reloadURL was already "
-                        + "encoded before #3422 and must stay that way")
-                .contains("encodeURIComponent(ctx + \"/encounter/displayIssues\")")
-                .contains("cmd=unresolvedIssues")
-                .contains("loadDiv('unresolvedIssueslist', reloadUrl, 0,");
+                .contains("['unresolvedIssues', 'resolvedIssues']")
+                .contains("'displayResolvedIssues' : 'displayIssues'")
+                .contains("loadDiv(id, reloadUrl, 0,")
+                .doesNotContain("loadDiv('unresolvedIssueslist'");
     }
 
     @Test

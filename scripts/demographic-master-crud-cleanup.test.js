@@ -9,7 +9,7 @@ const vm = require('node:vm');
 const h = require('./lib/playwright-harness');
 
 const source = fs.readFileSync(path.join(__dirname, 'demographic-master-crud-smoke.js'), 'utf8');
-const definitions = source.slice(0, source.indexOf('\nmain().catch('));
+const definitions = source.slice(0, source.indexOf("\nlegacyHarness.runLegacyCheck('demographic-master-crud-smoke'"));
 
 for (const cleanupFails of [false, true]) {
   test(`shouldAttemptPatientCleanup_whenBrowserCloseFails${cleanupFails ? 'AndSqlFails' : ''}`, async () => {
@@ -29,6 +29,8 @@ for (const cleanupFails of [false, true]) {
       process: { env: {} },
       console: { log() {} },
       require(name) {
+        if(name==='./lib/legacy-check')return require('./lib/legacy-check');
+    if (name === './lib/authenticated-probe') return require('./lib/authenticated-probe');
         if (name === 'playwright') return { chromium: { async launch() { return {
           async newContext() { return { setDefaultTimeout() {}, on() {}, async newPage() { return {}; } }; },
           async close() { events.push('browser close attempted'); throw closeError; },
@@ -56,5 +58,22 @@ for (const cleanupFails of [false, true]) {
     assert.deepEqual(events, ['browser close attempted', 'patient cleanup attempted', 'SQL disposed']);
     assert.equal(ownedPatientExists, cleanupFails);
     if (cleanupFails) assert.equal(vm.runInContext('findings.at(-1).detail', context), 'patient cleanup failed');
+  });
+}
+
+for(const failure of ['launch','newContext','newPage']) {
+  test(`demographic setup failure at ${failure} closes acquired resources`,async()=>{
+    const events=[],setupError=new Error(`injected ${failure}`);
+    const browser={async newContext(){if(failure==='newContext')throw setupError;
+      return {setDefaultTimeout(){},on(){},async newPage(){throw setupError;}};},async close(){events.push('closed');}};
+    const sql={rows:()=>[],value:()=> '0',dispose(){events.push('disposed');}};
+    const context=vm.createContext({URL,process:{env:{}},console:{log(){}},require(name){
+      if(name==='playwright')return {chromium:{async launch(){if(failure==='launch')throw setupError;return browser;}}};
+      if(name==='./lib/playwright-harness')return {...h,readConfig:()=>({mysql:{}}),createSqlRunner:()=>sql};
+      return require(name);
+    }});
+    vm.runInContext(definitions,context);
+    await assert.rejects(context.main(),error=>error===setupError);
+    assert.deepEqual(events,failure==='launch'?['disposed']:['closed','disposed']);
   });
 }

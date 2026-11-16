@@ -331,8 +331,8 @@ Clinical forms and data import functionality.
 | formBPMH | io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.web.BpmhFormRetrieve2Action | Retrieves Best Possible Medication History forms |
 | form/formname | io.github.carlos_emr.carlos.form.Frm2Action | Generic form processor |
 | form/forwardshortcutname | io.github.carlos_emr.carlos.form.pageUtil.FormForward2Action | Forwards form shortcuts |
-| form/importLogDownload | io.github.carlos_emr.carlos.demographic.pageUtil.ImportLogDownload2Action | Downloads import logs |
-| form/importUpload | io.github.carlos_emr.carlos.demographic.pageUtil.ImportDemographicDataAction42Action | Uploads demographic import data |
+| form/importLogDownload | legacyCdsImportLog2Action | Expires retired temporary import-log links |
+| form/importUpload | viewCdsImport2Action | Opens the durable CDS import workflow |
 | form/RHPrevention | io.github.carlos_emr.carlos.form.pageUtil.FrmFormRHPrevention2Action | Manages reproductive health prevention forms |
 | form/select | io.github.carlos_emr.carlos.form.pageUtil.FrmSelect2Action | Selects forms |
 | form/SetupForm | io.github.carlos_emr.carlos.form.pageUtil.FrmSetupForm2Action | Sets up new forms |
@@ -714,7 +714,7 @@ Comprehensive reporting functionality.
 | oscarReport/reportByTemplate/actions/tempInGroup | io.github.carlos_emr.carlos.report.reportByTemplate.actions.RBTGetTemplatesInGroup2Action | Gets templates in groups |
 | oscarReport/reportByTemplate/addEditTemplatesAction | io.github.carlos_emr.carlos.report.reportByTemplate.actions.ManageTemplates2Action | Manages report templates |
 | oscarReport/reportByTemplate/exportTemplateAction | io.github.carlos_emr.carlos.report.reportByTemplate.actions.ExportTemplate2Action | Exports report templates |
-| oscarReport/reportByTemplate/generateOutFilesAction | io.github.carlos_emr.carlos.report.reportByTemplate.actions.GenerateOutFiles2Action | Generates output files |
+| oscarReport/reportByTemplate/generateOutFilesAction | io.github.carlos_emr.carlos.report.reportByTemplate.actions.GenerateOutFiles2Action | Builds the CSV/XLSX download from the report result kept on the server for the session (by token) |
 | oscarReport/reportByTemplate/GenerateReportAction | io.github.carlos_emr.carlos.report.reportByTemplate.actions.GenerateReport2Action | Generates template-based reports |
 | oscarReport/reportByTemplate/rbtGroup | io.github.carlos_emr.carlos.report.reportByTemplate.actions.RBTGetGroup2Action | Gets report template groups |
 | oscarReport/reportByTemplate/uploadTemplates | io.github.carlos_emr.carlos.report.reportByTemplate.actions.UploadTemplates2Action | Uploads report templates |

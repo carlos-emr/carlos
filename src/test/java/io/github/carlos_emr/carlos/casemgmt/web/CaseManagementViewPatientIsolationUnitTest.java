@@ -84,6 +84,9 @@ class CaseManagementViewPatientIsolationUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void prepare() {
+        registerMock(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTemporalReadService.class,
+                new io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTemporalReadService(
+                        mock(io.github.carlos_emr.carlos.commn.dao.PartialDateDao.class)));
         action = mock(CaseManagementView2Action.class, CALLS_REAL_METHODS);
         session = new MockHttpSession();
         request = new MockHttpServletRequest();
@@ -378,6 +381,36 @@ class CaseManagementViewPatientIsolationUnitTest extends CarlosUnitTestBase {
 
         assertThat(response.getStatus()).isEqualTo(400);
         verifyNoInteractions(manager);
+    }
+
+    @Test
+    void shouldEncodeCppIssueFieldsIndependently_whenClinicalTextContainsDelimiters() throws Exception {
+        request.setParameter("demographicNo", "101");
+        request.setParameter("providerNo", "4249");
+        request.setParameter("issue_code", "Social");
+        var first = new io.github.carlos_emr.carlos.casemgmt.model.Issue();
+        first.setId(73L);
+        first.setCode("A&B;#+é");
+        first.setDescription("<unsafe>; plus+ space");
+        var second = new io.github.carlos_emr.carlos.casemgmt.model.Issue();
+        second.setId(74L);
+        second.setCode("normal");
+        second.setDescription("plain");
+        when(manager.getIssueInfoByCode(eq("4249"), any(String[].class))).thenReturn(List.of(first, second));
+        when(manager.getActiveNotes(eq("101"), any(String[].class))).thenReturn(List.of());
+
+        try (var constructed = org.mockito.Mockito.mockConstruction(
+                io.github.carlos_emr.carlos.services.security.SecurityManager.class,
+                (guard, context) -> when(guard.hasReadAccess("_Social", "doctor,4249")).thenReturn(true))) {
+            assertThat(action.listNotes()).isEqualTo("listNotes");
+            verify(constructed.constructed().get(0)).hasReadAccess("_Social", "doctor,4249");
+        }
+
+        assertThat(request.getAttribute("cppIssue")).isEqualTo(
+                "73;A%26B%3B%23%2B%C3%A9;%3Cunsafe%3E%3B%20plus%2B%20space;74;normal;plain");
+        assertThat(request.getAttribute("issueIds")).isEqualTo("73,74");
+        verify(manager).getActiveNotes("101", new String[]{"73", "74"});
+        verify(security, org.mockito.Mockito.atLeastOnce()).isAllowedAccessToPatientRecord(user, 101);
     }
 
     @Test

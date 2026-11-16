@@ -4,7 +4,7 @@
 // User path: the VT registration is hidden by default, so the form is opened the way the chart's form list
 // opens it, by its Setup route: /form/SetupForm?formName=VTForm&demographic_no=N&formId=ID.
 // Fixtures: one owned FAKE patient; a measurement row for every VT measurement type whose value carries inert
-// markup; an active allergy and drug; the chart's Ongoing Concerns; and a saved VT record whose smoking and
+// markup; an active allergy and drug; an Ongoing Concerns CPP note; and a saved VT record whose smoking and
 // foot-exam comments carry markup. All of it is INSERTed (bypassing the WAF). Cleanup removes exactly these
 // rows by key.
 // Asserted: literal text visible, no `[data-xp]` element in any frame, no script error, every seeded value the
@@ -55,8 +55,15 @@ async function workflow(s) {
     seed.insert('drugs', { provider_no: '999998', demographic_no: d, rx_date: { raw: 'CURDATE()' }, end_date: { raw: 'DATE_ADD(CURDATE(), INTERVAL 30 DAY)' },
       written_date: { raw: 'CURDATE()' }, customName: P('drug custom name', 60), archived: 0, GCN_SEQNO: 0, script_no: 0, create_date: { raw: 'NOW()' },
       quantity: '1', repeat: 0, long_term: 1 }, { key: 'drugid' });
-    seed.insert('eChart', { timeStamp: { raw: 'NOW()' }, demographicNo: d, providerNo: '999998', subject: '', socialHistory: '', familyHistory: '',
-      medicalHistory: '', ongoingConcerns: P('ongoing concerns', 255), reminders: '', encounter: '' }, { key: 'eChartId' });
+    // Since #5602 the form reads Ongoing Concerns from the modern CPP note, not from the legacy eChart row;
+    // the note is seeded the way xss-poison-echart seeds its CPP notes.
+    const concerns = P('ongoing concerns');
+    const noteId = seed.insert('casemgmt_note', { update_date: { raw: 'NOW()' }, observation_date: { raw: 'NOW()' }, demographic_no: d, provider_no: '999998', note: concerns,
+      signed: 1, include_issue_innote: 0, signing_provider_no: '999998', encounter_type: '', billing_code: '', program_no: '10034',
+      reporter_caisi_role: '2', reporter_program_team: '0', history: concerns, locked: '0', archived: 0, position: 0, uuid: { raw: 'UUID()' } }, { key: 'note_id' });
+    const issueId = s.sql.value("SELECT issue_id FROM issue WHERE code='Concerns'");
+    const caseIssue = seed.insert('casemgmt_issue', { demographic_no: d, issue_id: Number(issueId), acute: 0, certain: 0, major: 0, resolved: 0, program_id: 10034, type: 'nurse', update_date: { raw: 'NOW()' } }, { key: 'id' });
+    seed.insert('casemgmt_issue_notes', { id: Number(caseIssue), note_id: Number(noteId) }, { where: `id=${caseIssue} AND note_id=${noteId}` });
     stored.smoking = P('smoking comment', 25);
     stored.foot = P('foot exam comment', 255);
     formId = seed.insert('formVTForm', { demographic_no: d, provider_no: 999998, formCreated: { raw: 'CURDATE()' }, visitCod: '2026-01-01',

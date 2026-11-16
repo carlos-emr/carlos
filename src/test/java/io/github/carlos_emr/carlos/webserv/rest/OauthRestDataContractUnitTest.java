@@ -163,7 +163,8 @@ class OauthRestDataContractUnitTest extends CarlosUnitTestBase {
     }
 
     private DemographicService newDemographicService() {
-        DemographicService service = new DemographicService() {
+        DemographicService service = new DemographicService(org.mockito.Mockito.mock(
+                io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class)) {
             @Override
             protected LoggedInInfo getLoggedInInfo() {
                 return loggedInInfo;

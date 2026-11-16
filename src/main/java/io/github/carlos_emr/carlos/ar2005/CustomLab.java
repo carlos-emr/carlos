@@ -1,7 +1,5 @@
 package io.github.carlos_emr.carlos.ar2005;
 
-import org.apache.xmlbeans.xml.stream.XMLStreamException;
-import org.apache.xmlbeans.xml.stream.XMLInputStream;
 import org.w3c.dom.Node;
 import javax.xml.stream.XMLStreamReader;
 import java.io.Reader;
@@ -101,27 +99,6 @@ public interface CustomLab extends XmlObject
         public static CustomLab parse(final Node node, final XmlOptions options) throws XmlException {
             return (CustomLab)XmlBeans.getContextTypeLoader().parse(node, CustomLab.type, options);
         }
-        
-        @Deprecated
-        public static CustomLab parse(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return (CustomLab)XmlBeans.getContextTypeLoader().parse(xis, CustomLab.type, (XmlOptions)null);
-        }
-        
-        @Deprecated
-        public static CustomLab parse(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return (CustomLab)XmlBeans.getContextTypeLoader().parse(xis, CustomLab.type, options);
-        }
-        
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, CustomLab.type, (XmlOptions)null);
-        }
-        
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, CustomLab.type, options);
-        }
-        
         private Factory() {
         }
     }

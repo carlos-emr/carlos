@@ -30,20 +30,18 @@ package io.github.carlos_emr.carlos.dashboard.handler;
 
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 
 import org.apache.commons.text.StringEscapeUtils;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.dashboard.query.Column;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SpreadsheetCsv;
 
 public class ExportQueryHandler extends AbstractQueryHandler {
 
     private static Logger logger = MiscUtils.getLogger();
     private static final char SEPARATOR = ',';
-    private static final Pattern FORMULA_PREFIX = Pattern.compile("^[=+\\-@\\t\\r\\n]");
-    private static final Pattern NEGATIVE_NUMBER = Pattern.compile("^-\\d+(?:\\.\\d+)?$");
 
     private String csvFile;
 
@@ -119,10 +117,7 @@ public class ExportQueryHandler extends AbstractQueryHandler {
     }
     /** Neutralizes spreadsheet formulas before applying CSV quoting, retaining plain negative amounts. */
     private static String escapeCell(String text) {
-        if ((FORMULA_PREFIX.matcher(text).find() || FORMULA_PREFIX.matcher(text.stripLeading()).find())
-                && !NEGATIVE_NUMBER.matcher(text).matches()) {
-            text = "\t" + text;
-        }
+        text = SpreadsheetCsv.sanitizeCell(text);
         // A tab alone does not cause escapeCsv to quote a field, but spreadsheet guards need quoting.
         if (text.startsWith("\t")) return "\"" + text.replace("\"", "\"\"") + "\"";
         return StringEscapeUtils.escapeCsv(text);

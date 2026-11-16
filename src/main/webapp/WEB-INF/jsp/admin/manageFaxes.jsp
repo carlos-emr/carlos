@@ -29,7 +29,7 @@
 
 --%>
 <%@ page
-        import="io.github.carlos_emr.carlos.commn.dao.FaxConfigDao, io.github.carlos_emr.carlos.commn.model.FaxConfig, io.github.carlos_emr.carlos.commn.model.FaxJob, io.github.carlos_emr.carlos.commn.dao.FaxJobDao" %>
+        import="io.github.carlos_emr.carlos.commn.dao.FaxConfigDao, io.github.carlos_emr.carlos.commn.model.FaxConfig, io.github.carlos_emr.carlos.commn.model.FaxJob" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao, io.github.carlos_emr.carlos.commn.model.ProviderData" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="java.util.List, java.util.Collections" %>

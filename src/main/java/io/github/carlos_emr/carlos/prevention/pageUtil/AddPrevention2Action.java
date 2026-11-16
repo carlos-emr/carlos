@@ -51,6 +51,8 @@ import io.github.carlos_emr.carlos.commn.model.CVCImmunization;
 import io.github.carlos_emr.carlos.commn.model.Consent;
 import io.github.carlos_emr.carlos.integration.fhir.api.DHIR;
 import io.github.carlos_emr.carlos.integration.fhir.builder.FhirBundleBuilder;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.provider.model.PreventionManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -315,6 +317,15 @@ public class AddPrevention2Action extends ActionSupport {
             closeClaim(claim);
         }
 
+        // One audit row per stored write, filed under the patient: which record was added, replaced
+        // or deleted and by whom. Never the type, comment, lot or result (clinical content). A repeat
+        // of a saved form returns above without writing, so it is not audited a second time.
+        String auditAction = id == null ? LogConst.ADD : (deleting ? LogConst.DELETE : LogConst.UPDATE);
+        // An edit stores a new row and retires the edited one: name the row it replaces.
+        String auditData = id != null && !deleting ? "previousId=" + id : null;
+        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request), auditAction, LogConst.CON_PREVENTION,
+                String.valueOf(preventionId), demographic_no, auditData);
+
         return dhirResult(submitToDhir, snomedId, demographic_no, given, preventionId);
     }
 
@@ -394,7 +405,7 @@ public class AddPrevention2Action extends ActionSupport {
      */
     static final String RH_INJECTION_TYPE = "RH";
 
-    private List<String> validate(String preventionType, String demographic_no, String id, boolean deleting) {
+    private List<String> validate(String preventionType, String demographicNo, String id, boolean deleting) {
         List<String> result = new ArrayList<String>();
 
         if (deleting) {
@@ -409,7 +420,7 @@ public class AddPrevention2Action extends ActionSupport {
 
         // A missing, non-numeric or out-of-range demographic_no is reported as such and never
         // reaches a lookup; an edit or delete must name a prevention record in that patient's chart.
-        Integer demographicId = parseDemographicNo(demographic_no);
+        Integer demographicId = parseDemographicNo(demographicNo);
         if (demographicId == null) {
             result.add("Invalid or missing demographic_no");
             return result;

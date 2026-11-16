@@ -161,8 +161,6 @@ class ProgramServiceUnitTest extends CarlosUnitTestBase {
             grantOnly("r");
             when(mockAdmissionManager.findAdmissionsByProgramAndDate(any(), any(), any(Date.class), anyInt(), anyInt()))
                     .thenReturn(new ArrayList<Admission>());
-            when(mockAdmissionManager.findAdmissionsByProgramAndDateAsCount(any(), any(), any(Date.class)))
-                    .thenReturn(0);
 
             AbstractSearchResponse<AdmissionTo1> response = service.getPatientList("1", null, 0, 10);
 

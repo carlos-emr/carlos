@@ -17,6 +17,7 @@ import io.github.carlos_emr.carlos.commn.OtherIdManager;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.event.EventService;
+import io.github.carlos_emr.carlos.managers.ScheduleManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -42,6 +43,7 @@ class AppointmentTextBoundsUnitTest extends CarlosUnitTestBase {
  private final OscarAppointmentDao appointments=mock(OscarAppointmentDao.class);
  private final AppointmentArchiveDao archives=mock(AppointmentArchiveDao.class);
  private final EventService events=mock(EventService.class);
+ private final ScheduleManager schedule=mock(ScheduleManager.class);
  private final LoggedInInfo info=mock(LoggedInInfo.class);
  private final AtomicReference<Appointment> written=new AtomicReference<>();
  private MockHttpServletRequest request;
@@ -137,7 +139,7 @@ class AppointmentTextBoundsUnitTest extends CarlosUnitTestBase {
   assertThat(written.get().getName()).isEqualTo(name);
  }
  static Stream<Arguments> fields(){
-  return Stream.of(false,true).flatMap(update->Stream.of(new Object[]{"keyword",255},new Object[]{"reason",80},new Object[]{"notes",255},new Object[]{"resources",255})
+  return Stream.of(false,true).flatMap(update->Stream.of(new Object[]{"keyword",255},new Object[]{"reason",80},new Object[]{"notes",32768},new Object[]{"resources",255})
    .map(field->Arguments.of(update,field[0],field[1])));
  }
  private String execute(boolean update)throws Exception{return update?new AppointmentUpdateRecord2Action().execute():new AppointmentAddRecord2Action().execute();}

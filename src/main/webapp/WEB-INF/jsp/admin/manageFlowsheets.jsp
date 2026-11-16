@@ -42,7 +42,7 @@
     @since 2026-07-07
 --%>
 <!DOCTYPE html>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%
     // The action's decision is the only one made here. A second, combined oscarSec tag
     // over the three objects would disagree with it: the tag keeps ONE privilege per role across the
@@ -56,7 +56,7 @@
     boolean canModify = (Boolean) flowsheetWriteAccess;
 %>
 
-<%@ page import="java.util.*,io.github.carlos_emr.carlos.report.reportByTemplate.*" %>
+<%@ page import="java.util.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -66,8 +66,8 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Flowsheet" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.FlowsheetDao" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+
+
 <%-- Enable/disable mutations are handled by ManageFlowsheets2Action (PRG pattern). --%>
 
 

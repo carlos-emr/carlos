@@ -134,6 +134,17 @@ public class EChartPrint2Action extends ActionSupport {
         PatientRecordAccess.require(securityInfoManager, loggedInInfo, demographicNo, "_eChart", "r");
         PatientRecordAccess.require(securityInfoManager, loggedInInfo, demographicNo, "_casemgmt.notes", "r");
 
+        try {
+            SpringUtils.getBean(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class)
+                    .requireWholeChartSupported(Integer.parseInt(demographicNo));
+        } catch (io.github.carlos_emr.carlos.commn.model.CdsLegacyProjectionException unsupported) {
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
+            response.setContentType("text/plain;charset=UTF-8");
+            response.setHeader("Cache-Control", "no-store");
+            response.getWriter().write(unsupported.getMessage());
+            return NONE;
+        }
+
         DemographicDao demographicDao = (DemographicDao) SpringUtils.getBean(DemographicDao.class);
         Demographic demographic = demographicDao.getClientByDemographicNo(Integer.parseInt(demographicNo));
 

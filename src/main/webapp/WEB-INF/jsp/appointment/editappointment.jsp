@@ -33,6 +33,7 @@
 --%>
 <!DOCTYPE html>
 
+<%@ taglib prefix="source" tagdir="/WEB-INF/tags" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -91,6 +92,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.AppointmentTypeDao" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.ApptUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentEditConflict" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.ApptData" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.location.AppointmentLocationList" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver" %>
@@ -116,9 +118,9 @@
 
 <fmt:message key="report.appointmentReceipt.title" var="appointmentReceiptTitle"/>
 <fmt:message key="appointment.editappointment.msgReceiptPending" var="appointmentReceiptPending"/>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib tagdir="/WEB-INF/tags/appointment" prefix="appt" %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
@@ -300,9 +302,12 @@
 
         <style>
 
+    html {
+        overscroll-behavior: none;
+    }
+
     :root *:not(h2):not(h4):not(.input-group > .btn) {
         font-size: 12px;
-        overscroll-behavior: none;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
         line-height: 1 !important;
@@ -924,6 +929,7 @@
             </div>
         </c:if>
 
+    <div><source:cdsSourceFields demographicNo="${not empty pageScope.appointment ? pageScope.appointment.demographicNo : param.demographic_no}" category="Appointments"/></div>
 
 <div id="editAppointment" >
     <div class="container" >
@@ -1166,7 +1172,8 @@
                 </tr>
                 <tr>
             <td></td><td>
-				<textarea id="reason" class="form-control" name="reason" data-code-point-maxlength="80" data-appointment-original="<carlos:encode value='<%= apptFromRequest == null ? "" : StringUtils.defaultString(apptFromRequest.getReason()) %>' context="htmlAttribute"/>" maxlength="80" rows="2" style="resize:none;"><carlos:encode value='<%= StringUtils.defaultString(bFirstDisp?appt.getReason():request.getParameter("reason")) %>' context="html"/></textarea>
+				<label for="reason" class="visually-hidden"><fmt:message key="Appointment.formReason"/></label>
+				<textarea id="reason" class="form-control" name="reason" data-appointment-original="<carlos:encode value='<%= apptFromRequest == null ? "" : StringUtils.defaultString(apptFromRequest.getReason()) %>' context="htmlAttribute"/>" maxlength="80" rows="2" style="resize:none;"><carlos:encode value='<%= StringUtils.defaultString(bFirstDisp?appt.getReason():request.getParameter("reason")) %>' context="html"/></textarea>
 
                     </td>
                 </tr>
@@ -1408,7 +1415,7 @@
                         <label for="notes"><fmt:message key="Appointment.formNotes"/>:</label>
                     </td>
                     <td>
-				<textarea id="notes" name="notes" data-code-point-maxlength="255" data-appointment-original="<carlos:encode value='<%= apptFromRequest == null ? "" : StringUtils.defaultString(apptFromRequest.getNotes()) %>' context="htmlAttribute"/>" class="form-control" maxlength="255" rows="2" style="resize:none;"><carlos:encode value='<%= StringUtils.defaultString(bFirstDisp?appt.getNotes():request.getParameter("notes")) %>' context="html"/></textarea>
+				<textarea id="notes" name="notes" data-appointment-original="<carlos:encode value='<%= apptFromRequest == null ? "" : StringUtils.defaultString(apptFromRequest.getNotes()) %>' context="htmlAttribute"/>" class="form-control" maxlength="65536" data-max-codepoints="32768" rows="2" style="resize:none;"><carlos:encode value='<%= StringUtils.defaultString(bFirstDisp?appt.getNotes():request.getParameter("notes")) %>' context="html"/></textarea>
                     </td>
                 </tr>
                 <tr>
@@ -1457,6 +1464,12 @@
                                value="<carlos:encode value='<%= userlastname+", "+userfirstname %>' context="htmlAttribute"/>">
                         <input type="hidden" name="remarks" value="<carlos:encode value='<%= remarks %>' context="htmlAttribute"/>">
                         <input type="hidden" name="appointment_no" value="<carlos:encode value='<%= appointment_no %>' context="htmlAttribute"/>">
+                        <%-- The version of the appointment this form was rendered from. Every write route the form
+                             posts to compares it with the locked row and refuses a form another user's change has
+                             overtaken (AppointmentEditConflict). A redisplay (patient search, a text-length retry)
+                             shows the posted fields again, so it must keep the version those fields came from. --%>
+                        <input type="hidden" name="<%= AppointmentEditConflict.PARAMETER %>"
+                               value="<carlos:encode value='<%= bFirstDisp ? appt.getEditVersion() : StringUtils.defaultString(request.getParameter(AppointmentEditConflict.PARAMETER)) %>' context="htmlAttribute"/>">
                     </div>
                 </div>
                     </td>
