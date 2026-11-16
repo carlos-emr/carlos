@@ -42,8 +42,9 @@ final class PortalMyCarlosDeliverySyncService {
      * plus 300 s for the difference between the two clocks. It is a courtesy delay, not a bound: an
      * event can reach the feed while the device it names is still being approved, so a younger one
      * is held as before, but {@code occurred_at} is the portal's and a device can still be accepted
-     * later. Passing over is safe because of what each kind applies: an anchor applies nothing, a
-     * delivery CARLOS does not hold has nothing to apply, and a device removal still fences its key.
+     * later. Passing over is safe because none of them has anything to apply: an anchor applies
+     * nothing, a delivery CARLOS does not hold has no copy to change, and a device CARLOS never
+     * accepted has no copies to stop; its later acceptance needs the device's own signed request.
      */
     static final long UNKNOWN_SETTLED_SECONDS = 900;
 
@@ -174,12 +175,12 @@ final class PortalMyCarlosDeliverySyncService {
     }
 
     private Prepared prepare(String clinic, PortalMyCarlosDeliveryClient.Event event) {
-        // Nothing to verify, and holding it would hold every later event of the clinic. A removal
-        // is still applied: the fence needs no binding, and stops sends to that key if it is ever
-        // accepted.
+        // Nothing to verify, and holding it would hold every later event of the clinic. Nothing is
+        // applied either, a removal included: a device CARLOS never accepted has no copies to stop,
+        // and an acceptance always goes through CARLOS with the device's own signed request, so this
+        // unproven event writes no block on its key.
         if (unknownToCarlos(clinic, event) && event.occurredAt() <= now() - UNKNOWN_SETTLED_SECONDS)
-            return new Prepared("device_removed".equals(event.kind())
-                    ? () -> outbox.fenceDevice(clinic, event.deviceKid()) : () -> {}, false, true);
+            return new Prepared(() -> {}, false, true);
         if (event.deliveryId() == null) {
             var device = devices.findByKidForUpdate(event.deviceKid()).orElseThrow(() -> new Untrusted("unknown_binding"));
             var binding = bindings.findByClinicRecipientForUpdate(clinic, event.recipientId()).orElseThrow(() -> new Untrusted("unknown_binding"));

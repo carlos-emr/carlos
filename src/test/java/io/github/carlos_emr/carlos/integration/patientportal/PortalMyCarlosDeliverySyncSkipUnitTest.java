@@ -31,7 +31,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -40,6 +39,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
 import io.github.carlos_emr.carlos.commn.model.Property;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalMyCarlosDeviceApprovalService.Current;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalMyCarlosDeviceApprovalTypes.Bytes;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -202,8 +202,8 @@ class PortalMyCarlosDeliverySyncSkipUnitTest {
         assertEquals(List.of("1:device_removed:false", "2:expired:false"), recorded);
         assertEquals(List.of("clinic-a:1:device_removed", "clinic-a:2:expired"), audited);
         assertTrue(quarantined.isEmpty());
-        // The removal is applied all the same: its key stays fenced if it is ever accepted.
-        verify(outbox).fenceDevice(CLINIC, KID);
+        // Nothing is applied, a removal included: a device CARLOS never accepted gets no block.
+        verify(outbox, never()).fenceDevice(anyString(), anyString());
         verify(outbox, never()).terminal(any(), anyString());
     }
 
@@ -245,6 +245,23 @@ class PortalMyCarlosDeliverySyncSkipUnitTest {
     }
 
     @Test
+    @DisplayName("should still block sends to an accepted device whose removal Portal reports")
+    void shouldBlockSendsToAnAcceptedDevice_whenPortalReportsItsRemoval() throws Exception {
+        var key = PortalMyCarlosDeliveryProducerUnitTest.fixture().at("/keys/device");
+        var device = mock(PortalMyCarlosAcceptedDevice.class);
+        when(device.kid()).thenReturn(key.get("device_key_id").textValue());
+        when(device.x25519()).thenReturn(new Bytes(PortalMyCarlosDeviceApprovalCodec.exact32(key.get("x25519_public_key").textValue())));
+        when(device.ed25519()).thenReturn(new Bytes(PortalMyCarlosDeviceApprovalCodec.exact32(key.get("ed25519_public_key").textValue())));
+        when(devices.findByKidForUpdate(KID)).thenReturn(Optional.of(device));
+        portalSends(deviceRemoved(1, NOW - 86400, KNOWN_RECIPIENT));
+        assertEquals(PortalMyCarlosDeliverySyncService.Result.COLLECTED, collector().poll());
+        assertEquals(List.of(1L), acks);
+        assertEquals(List.of("1:device_removed:false"), recorded);
+        assertTrue(audited.isEmpty());
+        verify(outbox).fenceDevice(CLINIC, KID);
+    }
+
+    @Test
     @DisplayName("should hold an unknown event while the approval request it may belong to can still be open")
     void shouldHoldUnknownEvent_whileItsRequestMayStillBeOpen() throws Exception {
         portalSends(deviceRemoved(1, NOW - 60, UNKNOWN_RECIPIENT));
@@ -268,7 +285,7 @@ class PortalMyCarlosDeliverySyncSkipUnitTest {
         assertEquals(passedOver ? List.of(1L) : List.of(), acks);
         assertEquals(passedOver ? List.of("clinic-a:1:device_removed") : List.of(), audited);
         assertEquals(passedOver ? List.of() : List.of("unknown_binding"), quarantined);
-        verify(outbox, times(passedOver ? 1 : 0)).fenceDevice(CLINIC, KID);
+        verify(outbox, never()).fenceDevice(anyString(), anyString());
     }
 
     @Test
