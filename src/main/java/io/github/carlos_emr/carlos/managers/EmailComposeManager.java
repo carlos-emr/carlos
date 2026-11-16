@@ -240,22 +240,26 @@ public class EmailComposeManager {
             return;
         }
         for (EmailAttachment attachment : prepared) {
-            String filePath = attachment == null ? null : attachment.getFilePath();
-            if (filePath == null || filePath.isBlank()) {
-                continue;
-            }
-            File owned;
-            try {
-                // The checked, canonical file is the one deleted, never the path as stored.
-                owned = PathValidationUtils.validateApplicationTempPath(new File(filePath));
-            } catch (SecurityException outsideTempTree) {
-                continue;
-            }
-            try {
-                nioFileManager.deleteTempFile(owned.getPath());
-            } catch (RuntimeException e) {
-                logger.warn("A prepared email attachment could not be deleted; causeType={}", e.getClass().getName());
-            }
+            discardPreparedAttachment(attachment);
+        }
+    }
+
+    private void discardPreparedAttachment(EmailAttachment attachment) {
+        String filePath = attachment == null ? null : attachment.getFilePath();
+        if (filePath == null || filePath.isBlank()) {
+            return;
+        }
+        File owned;
+        try {
+            // The checked, canonical file is the one deleted, never the path as stored.
+            owned = PathValidationUtils.validateApplicationTempPath(new File(filePath));
+        } catch (SecurityException _) {
+            return;
+        }
+        try {
+            nioFileManager.deleteTempFile(owned.getPath());
+        } catch (RuntimeException e) {
+            logger.warn("A prepared email attachment could not be deleted; causeType={}", e.getClass().getName());
         }
     }
 

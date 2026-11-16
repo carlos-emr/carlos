@@ -206,6 +206,26 @@ class EmailComposeManagerDocumentAttachmentUnitTest {
     }
 
     @Test
+    @DisplayName("should skip unusable paths and stored documents while still deleting later prepared files")
+    void shouldContinueCleanup_whenEarlierAttachmentsCannotBeDiscarded() throws Exception {
+        Path stored = Files.write(documentDir.resolve("FAKE-stored-letter.pdf"),
+                "%PDF-1.4 FAKE stored letter".getBytes(StandardCharsets.US_ASCII));
+        Path prepared = renderedTempFile("FAKE-prepared-eform");
+
+        emailComposeManager.discardPreparedAttachments(java.util.Arrays.asList(
+                null,
+                new EmailAttachment("attachment_001.pdf", null, DocumentType.DOC, 9401),
+                new EmailAttachment("attachment_002.pdf", "  ", DocumentType.DOC, 9402),
+                new EmailAttachment("attachment_003.pdf", stored.toString(), DocumentType.DOC, 9403),
+                new EmailAttachment("attachment_004.pdf", prepared.toString(), DocumentType.EFORM, 9404)));
+
+        assertThat(stored).exists();
+        assertThat(prepared).doesNotExist();
+        verify(nioFileManager).deleteTempFile(prepared.toFile().getCanonicalPath());
+        verify(nioFileManager, never()).deleteTempFile(stored.toString());
+    }
+
+    @Test
     @DisplayName("should delete the checked canonical file, not the attachment's path as it was stored")
     void shouldDeleteCanonicalFile_whenStoredPathIsNotCanonical() throws Exception {
         ByteArrayOutputStream pdf = new ByteArrayOutputStream();
@@ -244,7 +264,7 @@ class EmailComposeManagerDocumentAttachmentUnitTest {
         }
 
         // HRM attachments exist only in Ontario billing regions.
-        try (MockedStatic<CarlosProperties> config = type == DocumentType.HRM ? ontario() : null) {
+        try (MockedStatic<CarlosProperties> _ = type == DocumentType.HRM ? ontario() : null) {
             assertThatThrownBy(() -> prepare(type, new String[]{"9501", "9502", "9503"}, request, response))
                     .isSameAs(failure);
         }
