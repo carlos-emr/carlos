@@ -222,6 +222,7 @@ public class CaseManagementNote extends BaseObject {
 
     @Override
     public boolean equals(Object obj) {
+        if (this == obj) return true;
         if (null == obj) return false;
         if (!(obj instanceof CaseManagementNote)) return false;
         else {
