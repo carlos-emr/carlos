@@ -75,6 +75,24 @@ import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
 
 
+    @Override
+    @Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto readCdsExportPublicProviderSchema() {
+        return io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.schema(entityManager(),
+                io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Plan.PUBLIC_PROVIDERS);
+    }
+    @Override
+    @Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public long countCdsExportPublicProviders(int patient, java.util.Set<String> categories) {
+        return io.github.carlos_emr.carlos.commn.dao.CdsExportProviderReadSupport.count(entityManager(), patient, categories);
+    }
+    @Override
+    @Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportProviderRowDto> findCdsExportPublicProvidersAfter(
+            int patient, java.util.Set<String> categories, String afterKey, int limit) {
+        return io.github.carlos_emr.carlos.commn.dao.CdsExportProviderReadSupport.page(entityManager(), patient, categories, afterKey, limit);
+    }
+
     private static Logger log = MiscUtils.getLogger();
 
     @Override

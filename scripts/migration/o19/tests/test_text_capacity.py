@@ -143,13 +143,23 @@ class TestPhysicalColumnInventory(TestCase):
                     new = columns[tuple(old[:2])]
                     if old[0] == "Consent" and old[1] in ("explicit", "optout", "deleted"):
                         continue  # audited, intentional flag normalization
-                    self.assertEqual(old[:2] + old[3:], new[:2] + new[3:])
+                    # Adding a column before an existing one changes its absolute ordinal.
+                    # Retain every other attribute; relative order is checked below.
+                    self.assertEqual(old[:2] + old[3:-1], new[:2] + new[3:-1])
                     previous, current = capacity_audit.capacity(old[2]), capacity_audit.capacity(new[2])
                     if previous and current:
                         required = previous[1]
                         if current[3] and not previous[3] and previous[0] == "text":
                             required *= 4
                         self.assertGreaterEqual(current[1], required)
+            old_by_table = {}
+            for row in sorted(before["schema"]["columns"], key=lambda row: (row[0], row[-1])):
+                old_by_table.setdefault(row[0], []).append(row[1])
+            for table, old_columns in old_by_table.items():
+                existing = set(old_columns)
+                actual = [row[1] for row in sorted(after["schema"]["columns"], key=lambda row: (row[0], row[-1]))
+                          if row[0] == table and row[1] in existing]
+                self.assertEqual(old_columns, actual, table + ": existing physical columns were reordered")
 
     def test_manifest_columns_equal_independently_exported_physical_columns(self):
         """Ensure each shipped destination inventory matches physical metadata."""
@@ -187,9 +197,13 @@ class TestOscarTextCapacity(TestCase):
                     if case["required_utf8_bytes"]:
                         self.assertGreaterEqual(byte_limits[kind], case["required_utf8_bytes"])
                     else:
-                        size = int(re.search(r"\((\d+)\)", declaration).group(1))
                         expected = int(re.search(r"\((\d+)\)", case["new_type"]).group(1))
-                        self.assertGreaterEqual(size, expected)
+                        if kind in byte_limits:
+                            # A text family upgrade must fit every four-byte UTF-8 scalar.
+                            self.assertGreaterEqual(byte_limits[kind], expected * 4)
+                        else:
+                            size = int(re.search(r"\((\d+)\)", declaration).group(1))
+                            self.assertGreaterEqual(size, expected)
 
 
 @skipUnless(os.environ.get("CARLOS_TEST_O19_REFERENCE_DB")

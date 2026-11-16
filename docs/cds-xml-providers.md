@@ -53,8 +53,8 @@ The JDK also counts every predefined reference (`&amp;`, `&lt;`, `&gt;`, `&quot;
 threshold in large exports, and the parser would refuse the file part way through.
 CDS readers therefore set both counters to `0` (no limit). This is safe only because
 the same readers refuse any DOCTYPE: without a DTD the only entities are those five
-one-character references, which cannot expand, and `maxSourceBytes` already bounds
-how many a source can hold. No finite `int` ceiling fits every permitted source size.
+one-character references, which cannot expand, and their number grows only with
+the source, which is read as a stream. No finite `int` ceiling fits every permitted source size.
 Runtime identity already hashes the JDK module image,
 covering the XML implementation along with the existing runtime compatibility
 checks for prepared imports.
@@ -73,8 +73,20 @@ default `SAXBuilder` reader or a library calling `DocumentBuilderFactory.newInst
 previously reached Xerces and now reaches the JDK, so it also inherits the JDK's
 `jaxp.properties` limits: 100,000 predefined references per document, 200 attributes
 per element and element depth 100. The bundled data files read this way (for example
-the ODB formulary extract) are far below those limits. A caller that must accept larger
-untrusted input should set its own limits beside the parse, as the CDS readers do.
+the ODB formulary extract) are far below those limits.
+
+Not every default-discovery caller reads small bundled files, and a library can be one
+without saying so. Flying Saucer's string loader (`ITextRenderer.setDocumentFromString`)
+calls `SAXParserFactory.newInstance()`, and the HTML-to-PDF service used it for every
+form, HRM report, Messenger message and letter it prints: clinical documents of any
+size. Under the JDK's limits a document nested more than about 98 levels lost its
+layout, tables and images (the service fell back to plain text), and one with more than
+100,000 escaped `&`, `<` and `>` did not print at all. The service now parses that XHTML
+itself (`XhtmlDom`, `DocumentBuilderFactory.newDefaultInstance()`), refuses any document
+type, and states finite limits of its own; see "XML limits" in
+[`html-pdf-rendering.md`](html-pdf-rendering.md). A caller that must accept larger input
+should likewise set its own limits beside the parse, as the CDS readers do, and a
+library that parses on the caller's behalf should be given a document, not a string.
 
 ## Verification
 

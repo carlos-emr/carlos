@@ -37,42 +37,66 @@ import static org.mockito.Mockito.*;
 /** Cache publication is shared across threads; failed schema metadata must remain retryable. */
 @Tag("unit")
 class CdsProviderCharsetCacheUnitTest {
-    @Test void shouldPublishOneImmutableCharsetSnapshot_whenConcurrentReadersArrive() throws Exception {
-        var manager = mock(EntityManager.class); var query = mock(Query.class);
+    @Test
+    void shouldPublishOneImmutableCharsetSnapshot_whenConcurrentReadersArrive() throws Exception {
+        var manager = mock(EntityManager.class);
+        var query = mock(Query.class);
         when(manager.createNativeQuery(anyString())).thenReturn(query);
         when(query.setMaxResults(3)).thenReturn(query);
-        var entered = new CountDownLatch(1); var release = new CountDownLatch(1);
-        when(query.getResultList()).thenAnswer(call -> {
-            entered.countDown();
-            if (!release.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("Test metadata release timed out");
-            return metadata("latin1");
-        });
-        var dao = new ProviderDaoImpl(); ReflectionTestUtils.setField(dao, "entityManager", manager);
+        var entered = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        when(query.getResultList())
+                .thenAnswer(
+                        call -> {
+                            entered.countDown();
+                            if (!release.await(5, TimeUnit.SECONDS))
+                                throw new IllegalStateException("Test metadata release timed out");
+                            return metadata("latin1");
+                        });
+        var dao = new ProviderDaoImpl();
+        ReflectionTestUtils.setField(dao, "entityManager", manager);
         var workers = Executors.newFixedThreadPool(8);
         try {
-            var futures = java.util.stream.IntStream.range(0, 8).mapToObj(ignored -> workers.submit(
-                    () -> ReflectionTestUtils.invokeMethod(dao, "cdsNameCharsets"))).toList();
-            assertTrue(entered.await(5, TimeUnit.SECONDS)); release.countDown();
+            var futures =
+                    java.util.stream.IntStream.range(0, 8)
+                            .mapToObj(
+                                    ignored ->
+                                            workers.submit(
+                                                    () ->
+                                                            ReflectionTestUtils.invokeMethod(
+                                                                    dao, "cdsNameCharsets")))
+                            .toList();
+            assertTrue(entered.await(5, TimeUnit.SECONDS));
+            release.countDown();
             Object first = futures.getFirst().get(5, TimeUnit.SECONDS);
             assertNotNull(first);
             for (var future : futures) assertSame(first, future.get(5, TimeUnit.SECONDS));
             verify(query, times(1)).getResultList();
-        } finally { release.countDown(); workers.shutdownNow(); }
+        } finally {
+            release.countDown();
+            workers.shutdownNow();
+        }
     }
 
-    @Test void shouldRetryAfterInvalidMetadata_withoutPublishingAnUnsafeCharset() {
-        var manager = mock(EntityManager.class); var query = mock(Query.class);
+    @Test
+    void shouldRetryAfterInvalidMetadata_withoutPublishingAnUnsafeCharset() {
+        var manager = mock(EntityManager.class);
+        var query = mock(Query.class);
         when(manager.createNativeQuery(anyString())).thenReturn(query);
         when(query.setMaxResults(3)).thenReturn(query);
         when(query.getResultList()).thenReturn(metadata("latin1;invalid"), metadata("latin1"));
-        var dao = new ProviderDaoImpl(); ReflectionTestUtils.setField(dao, "entityManager", manager);
-        assertThrows(IllegalStateException.class, () -> ReflectionTestUtils.invokeMethod(dao, "cdsNameCharsets"));
+        var dao = new ProviderDaoImpl();
+        ReflectionTestUtils.setField(dao, "entityManager", manager);
+        assertThrows(
+                IllegalStateException.class,
+                () -> ReflectionTestUtils.invokeMethod(dao, "cdsNameCharsets"));
         Object valid = ReflectionTestUtils.invokeMethod(dao, "cdsNameCharsets");
-        assertNotNull(valid); assertSame(valid, ReflectionTestUtils.invokeMethod(dao, "cdsNameCharsets"));
+        assertNotNull(valid);
+        assertSame(valid, ReflectionTestUtils.invokeMethod(dao, "cdsNameCharsets"));
         verify(query, times(2)).getResultList();
     }
 
     private static List<Object[]> metadata(String first) {
-        return List.of(new Object[]{"first_name", first}, new Object[]{"last_name", "latin1"});
+        return List.of(new Object[] {"first_name", first}, new Object[] {"last_name", "latin1"});
     }
 }

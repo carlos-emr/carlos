@@ -130,6 +130,11 @@ class FHIRCommunicationRequestHandlerObservationDateUnitTest extends CarlosUnitT
 
     /** Writes a synthetic CommunicationRequest upload and returns its path. */
     private Path upload(String authoredOn) throws IOException {
+        return upload(authoredOn, "Synthetic referral");
+    }
+
+    /** Writes a synthetic CommunicationRequest upload whose attachment has {@code title}. */
+    private Path upload(String authoredOn, String title) throws IOException {
         CommunicationRequest request = new CommunicationRequest();
         request.addIdentifier().setValue("synthetic/request-1");
         request.setSubject(new Reference("Patient/9001"));
@@ -137,7 +142,7 @@ class FHIRCommunicationRequestHandlerObservationDateUnitTest extends CarlosUnitT
         if (authoredOn != null) {
             request.setAuthoredOnElement(new DateTimeType(authoredOn));
         }
-        request.addPayload().setContent(new Attachment().setTitle("Synthetic referral").setData(onePagePdf()));
+        request.addPayload().setContent(new Attachment().setTitle(title).setData(onePagePdf()));
         Path file = documentDir.resolve("request.json");
         Files.writeString(file, FHIR.newJsonParser().encodeResourceToString(request));
         return file;
@@ -157,6 +162,24 @@ class FHIRCommunicationRequestHandlerObservationDateUnitTest extends CarlosUnitT
         assertThat(result).isEqualTo("success");
         assertThat(filed.getValue().getObservationDate()).isEqualTo("2026-03-01");
         verify(routing).addToProviderInboxStrict("999998", 42, "DOC");
+    }
+
+    /**
+     * The attachment title from the sending system becomes the document description, which
+     * document.docdesc holds to 255 characters (code points). A longer title was cut by the
+     * database without a word; it is now shortened to the column, never inside a surrogate pair.
+     */
+    @Test
+    void shouldFileTheTitleShortenedToTheColumn_whenTheAttachmentTitleIsLonger() throws Exception {
+        int max = io.github.carlos_emr.carlos.commn.model.Document.DESCRIPTION_MAX_LENGTH;
+        String emoji = "\uD83D\uDE00";
+
+        String result = parse(upload("2026-03-01T10:00:00-05:00", "T" + emoji.repeat(300)));
+
+        ArgumentCaptor<EDoc> filed = ArgumentCaptor.forClass(EDoc.class);
+        documents.verify(() -> EDocUtil.addDocumentSQL(filed.capture()));
+        assertThat(result).isEqualTo("success");
+        assertThat(filed.getValue().getDescription()).isEqualTo("T" + emoji.repeat(max - 1));
     }
 
     @Test

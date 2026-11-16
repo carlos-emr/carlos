@@ -55,6 +55,46 @@ public class PreventionReportDisplay implements Comparable {
     public PreventionReportDisplay() {
     }
 
+    /**
+     * The state of a patient whose preventions could not be read. Like the other states it is
+     * the English text the reports have always carried; the report page shows this one through
+     * its {@code prevention.reporting.unreadable} message.
+     */
+    public static final String STATE_UNREADABLE = "Could not be read";
+
+    /** The colour name of an unreadable row; the report page gives it its own badge. */
+    public static final String COLOR_UNREADABLE = "unreadable";
+
+    /**
+     * The report row of a patient whose preventions could not be read. The patient stays in the
+     * report, ranked ahead of every other state so the row is seen first, and is neither counted
+     * as up to date nor offered a follow-up letter or a bonus: nothing is known about them.
+     *
+     * @param demographicNo the patient
+     * @return the row to add to the report in place of a computed one
+     */
+    public static PreventionReportDisplay unreadable(Integer demographicNo) {
+        PreventionReportDisplay row = new PreventionReportDisplay();
+        row.demographicNo = demographicNo;
+        row.rank = 0;
+        row.lastDate = "------";
+        row.state = STATE_UNREADABLE;
+        row.numMonths = "------";
+        row.numShots = "------";
+        row.color = COLOR_UNREADABLE;
+        row.bonusStatus = "N";
+        row.billStatus = "N";
+        row.nextSuggestedProcedure = "----";
+        return row;
+    }
+
+    /**
+     * @return whether this row stands for a patient whose preventions could not be read
+     */
+    public boolean isUnreadable() {
+        return STATE_UNREADABLE.equals(state);
+    }
+
     public int compareTo(Object o) {
 
         int ret = 0;

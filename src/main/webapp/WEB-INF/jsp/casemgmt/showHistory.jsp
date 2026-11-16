@@ -71,8 +71,11 @@
     <title>Note History</title>
 </head>
 <body>
-    <h3 style="text-align: center;">${title}</h3>
-    <h3 style="text-align: center;">${demoName}</h3>
+    <%-- Both headings carry stored text: the issue-history title is built from the issue
+         catalogue's descriptions and demoName from the patient's first and last name. Neither
+         is markup, so both go through the null-safe HTML encoder like the note text below. --%>
+    <h3 style="text-align: center;">${carlos:forHtmlContent(title)}</h3>
+    <h3 style="text-align: center;">${carlos:forHtmlContent(demoName)}</h3>
     <c:if test="${empty history}">
         <p style="text-align: center;"><fmt:message key="casemgmt.showHistory.msgNoHistory"/></p>
     </c:if>

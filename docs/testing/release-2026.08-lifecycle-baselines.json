@@ -76,11 +76,18 @@
     }
   ],
   "candidateCli": {
-    "tag": "1.3.2",
-    "version": "1.3.2",
-    "name": "carlos-ctl_1.3.2_all.deb",
-    "bytes": 351278,
-    "sha256": "ad9163a88b1fc4d4894068b4047cfa50d8165f8d1200b007f4222dd0106bb0a3",
-    "url": "https://github.com/carlos-emr/carlos-ctl/releases/download/1.3.2/carlos-ctl_1.3.2_all.deb"
+    "mode": "source-built",
+    "tag": "1.3.5",
+    "version": "1.3.5",
+    "name": "carlos-ctl_1.3.5_all.deb",
+    "bytes": 370400,
+    "sha256": "a68ee19ff85d4e1e624303097a317465f0e714495804172576d427c80227ba53",
+    "sourceRepository": "https://github.com/carlos-emr/carlos-ctl",
+    "sourceCommit": "6525c85234c29f9c9e3fb599865b599ec32c373f"
+  },
+  "candidateCliEvidence": {
+    "scope": "Two byte-identical local dpkg-buildpackage runs in the digest-pinned Ubuntu 26.04 package container at the exact fallback commit. Each ran 2,057 tests with 207 explicit prerequisite skips. Core CI rebuilds this source and requires this exact package digest. The help-only change describes the actual protected service-user output directory; no release URL or tag publication is asserted.",
+    "workflowRun": 43684366089,
+    "workflowConclusion": "success"
   }
 }

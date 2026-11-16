@@ -26,8 +26,11 @@ async function workflow(s) {
   const physician = bc.createBillingPhysician(s);
   bc.makeBcPatient(s); bc.registerOwnedBcBillCleanup(s);
   const claim = bc.seedOwnedBcBill({ ...s, provider: physician.providerNo }, { amount: '12.34' });
-  sql.execute(`UPDATE billingmaster SET payee_no=${q(physician.payeeNo)},practitioner_no=${q(physician.ohipNo)} WHERE billingmaster_no=${claim.billingmasterNo}`);
+  // The claim comment is C02 field P58; the legacy export once sent it as twenty spaces.
+  const comment = 'LEGACY P58 COMMENT';
+  sql.execute(`UPDATE billingmaster SET payee_no=${q(physician.payeeNo)},practitioner_no=${q(physician.ohipNo)},claim_comment=${q(comment)} WHERE billingmaster_no=${claim.billingmasterNo}`);
   const home = path.resolve(process.env.HOME_DIR);
+  const logMark = Number(sql.value('SELECT COALESCE(MAX(log_no),0) FROM log_teleplantx'));
   s.cleanup(() => {
     const rows = sql.rows(`SELECT ohipfilename,htmlfilename FROM billactivity WHERE providerohipno=${q(physician.ohipNo)}`);
     for (const files of rows) for (const filename of files) {
@@ -35,11 +38,17 @@ async function workflow(s) {
       h.assert(match && match[1] === (match[2] ? physician.payeeNo : physician.ohipNo), 'Unexpected owned legacy filename');
       fs.rmSync(path.join(home, filename), { force: true });
     }
-    // This check requires an exclusive disposable installation: no other generator may run.
-    sql.execute(`DELETE FROM billactivity WHERE providerohipno=${q(physician.ohipNo)}; DELETE FROM log_teleplantx WHERE billingmaster_no=${claim.billingmasterNo}`);
+    // This check requires an exclusive disposable installation: no other generator may run, so every
+    // transmission log row above the mark taken before the first generation is this check's own.
+    sql.execute(`DELETE FROM billactivity WHERE providerohipno=${q(physician.ohipNo)}; DELETE FROM log_teleplantx WHERE log_no>${logMark}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM billactivity WHERE providerohipno=${q(physician.ohipNo)}`) === '0', 'Owned legacy activities remain');
+    h.assert(sql.value(`SELECT COUNT(*) FROM log_teleplantx WHERE log_no>${logMark}`) === '0', 'Owned legacy transmission logs remain');
   });
   const count = () => sql.value(`SELECT COUNT(*) FROM billactivity WHERE providerohipno=${q(physician.ohipNo)}`);
+  // The legacy export logs each line it sends (the VS1 batch header, then every claim record) in
+  // log_teleplantx. It has never filled that table's billingmaster_no column (the rows carry 0; only the
+  // default Teleplan writer links a row to its claim), so the rows are recognised by position and content.
+  const ownedLogs = () => sql.value(`SELECT COUNT(*) FROM log_teleplantx WHERE log_no>${logMark}`);
   const fixturePage = await s.context.newPage();
   h.wireStrictPage(fixturePage, 'legacy-provider-fixture', s.recorder);
   s.cleanup(() => {
@@ -98,15 +107,25 @@ async function workflow(s) {
     h.assert(creator === s.provider, 'The hidden creator overrode the authenticated login');
     h.assert(total === '12.34', 'Legacy activity total differs from the claim');
     h.assert(fs.readFileSync(path.join(home, filename), 'utf8').includes(claim.billingmasterNo.padStart(7, '0')), 'Legacy output lacks the owned claim');
+    // Each record is written as LF, 424 characters, CR. P54 (office folio, the claim number) is characters 140-146
+    // and P58 (the claim comment) characters 148-167.
+    const record = fs.readFileSync(path.join(home, filename), 'utf8').split('\n').map(line => line.replace(/\r$/, ''))
+      .find(line => line.startsWith('C02') && line.slice(139, 146) === claim.billingmasterNo.padStart(7, '0'));
+    h.assert(record && record.length === 424, 'Legacy output lacks a 424-character C02 record for the owned claim');
+    h.assert(record.slice(147, 167) === comment.padEnd(20, ' '), 'The legacy C02 record does not carry the claim comment in P58');
     h.assert(fs.readFileSync(path.join(home, html), 'utf8').includes(claim.billingmasterNo.padStart(7, '0')), 'Legacy HTML lacks the owned claim');
     h.assert(sql.value(`SELECT billingstatus FROM billingmaster WHERE billingmaster_no=${claim.billingmasterNo}`) === 'B', 'Claim was not marked billed');
     h.assert(sql.value(`SELECT status FROM billing WHERE billing_no=${claim.billingNo}`) === 'B', 'Invoice was not marked billed');
-    h.assert(Number(sql.value(`SELECT COUNT(*) FROM log_teleplantx WHERE billingmaster_no=${claim.billingmasterNo}`)) >= 2, 'Legacy logs were not committed');
+    h.assert(sql.value(`SELECT COUNT(*) FROM log_teleplantx WHERE log_no>${logMark} AND CAST(claim AS CHAR) LIKE 'VS1%'`) === '1',
+      'The legacy batch header was not logged exactly once');
+    h.assert(sql.value(`SELECT COUNT(*) FROM log_teleplantx WHERE log_no>${logMark} AND CAST(claim AS CHAR)=${q(record)}`) === '1',
+      'The exported C02 record was not logged exactly once, as it was sent');
+    h.assert(ownedLogs() === '2', 'Legacy logs were not committed as one header and one claim record');
   });
   await s.step('retrying the same legacy selection creates no duplicate activity or claim output', async () => {
-    const logs = sql.value(`SELECT COUNT(*) FROM log_teleplantx WHERE billingmaster_no=${claim.billingmasterNo}`);
+    const logs = ownedLogs();
     await generate(); h.assert(count() === '1', 'Retry created a duplicate activity');
-    h.assert(sql.value(`SELECT COUNT(*) FROM log_teleplantx WHERE billingmaster_no=${claim.billingmasterNo}`) === logs, 'Retry created duplicate claim logs');
+    h.assert(ownedLogs() === logs, 'Retry created duplicate claim logs');
   });
   }, () => saveFixtureProvider(true), () => fixturePage.close());
 }
