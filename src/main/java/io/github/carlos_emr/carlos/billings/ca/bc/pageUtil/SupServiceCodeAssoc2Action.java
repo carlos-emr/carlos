@@ -145,7 +145,13 @@ public class SupServiceCodeAssoc2Action extends ActionSupport {
             renderedErrors.add(stripBreakTags(error));
         }
         request.setAttribute("actionErrors", renderedErrors);
-        request.setAttribute("list", dao.getServiceCodeAssociactions());
+        int requestedPage;
+        try { requestedPage = io.github.carlos_emr.carlos.utility.ServerTablePage.requested(request); }
+        catch (IllegalArgumentException invalidPage) { response.setStatus(400); return NONE; }
+        var page = dao.getServiceCodeAssociationsPage(requestedPage);
+        request.setAttribute("list", page.getRows());
+        io.github.carlos_emr.carlos.utility.ServerTablePage.publish(request, page,
+                "/billing/CA/BC/supServiceCodeAssocAction", "get", java.util.Map.of("actionMode", new String[]{"view"}));
         return SUCCESS;
     }
 

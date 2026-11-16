@@ -90,6 +90,12 @@ public class ClientManagerImpl implements ClientManager {
         return dao.search(criteria);
     }
 
+    @Override
+    public io.github.carlos_emr.carlos.commn.dao.QueryPage<Demographic> searchClientPage(ClientSearchFormBean criteria,
+            int page, int sort, boolean descending) {
+        return dao.searchClientPage(criteria, page, sort, descending);
+    }
+
     public List<ClientReferral> getReferrals() {
         return referralDAO.getReferrals();
     }
