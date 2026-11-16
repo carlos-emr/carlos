@@ -56,7 +56,12 @@ public class ConsultationRequestMergedDemographicDaoImpl extends ConsultationReq
         return template.findMerged(demographicNo, result);
     }
 
+    /**
+     * @deprecated since 2026.08; use {@link #getConsultationListRows(Integer)}, which returns
+     *     {@code List<ConsultationListRow>} instead of {@code List<ConsultationRequest>}
+     */
     @Override
+    @Deprecated(since = "2026.08", forRemoval = false)
     public List<ConsultationRequest> getConsults(Integer demoNo) {
         List<ConsultationRequest> result = super.getConsults(demoNo);
         MergedDemographicTemplate<ConsultationRequest> template = new MergedDemographicTemplate<ConsultationRequest>() {

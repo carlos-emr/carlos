@@ -41,15 +41,22 @@ import io.github.carlos_emr.carlos.PMmodule.web.formbean.ClientSearchFormBean;
 import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
+import io.github.carlos_emr.carlos.commn.dao.QueryPage;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 
 /**
  * Each "attach note to client" popup carries its own note through its search, so a second chart's
@@ -65,6 +72,7 @@ class ClientSearchAttachNoteUnitTest extends CarlosUnitTestBase {
     private final MockHttpSession session = new MockHttpSession();
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockHttpServletRequest request;
+    private ClientManager clients;
 
     @BeforeEach
     void setUp() {
@@ -75,8 +83,9 @@ class ClientSearchAttachNoteUnitTest extends CarlosUnitTestBase {
         when(notes.getNote(11L)).thenReturn(new CaseManagementNote());
         when(notes.getNote(22L)).thenReturn(new CaseManagementNote());
         registerMock(CaseManagementNoteDAO.class, notes);
-        ClientManager clients = mock(ClientManager.class);
-        when(clients.search(any())).thenReturn(List.of());
+        clients = mock(ClientManager.class);
+        when(clients.searchClientPage(any(), anyInt(), anyInt(), anyBoolean()))
+                .thenReturn(new QueryPage<>(List.of(), 0, 0, 25));
         registerMock(ClientManager.class, clients);
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
@@ -117,6 +126,37 @@ class ClientSearchAttachNoteUnitTest extends CarlosUnitTestBase {
         search.attachSearch();
 
         assertThat(request.getAttribute("noteId")).isNull();
+    }
+
+    @Test
+    void shouldKeepTheNoteAndSourceContext_whenPagingAndSortingThePopupSearch() {
+        useSourcePatient();
+        String token = sourceContext("202", "7");
+        newRequest().setParameter("noteId", "11");
+        request.setParameter("sourceChartContext", token);
+        request.setParameter("tablePage", "1");
+        request.setParameter("tableSort", "3");
+        request.setParameter("tableDescending", "true");
+        request.setParameter("criteria.lastName", "FAKE-Patient");
+        ClientSearchFormBean criteria = new ClientSearchFormBean();
+        var rows = List.of(new Demographic());
+        var page = new QueryPage<>(rows, 26, 1, 25);
+        when(clients.searchClientPage(same(criteria), eq(1), eq(3), eq(true))).thenReturn(page);
+        ClientSearchAction22Action search = new ClientSearchAction22Action();
+        search.setCriteria(criteria);
+
+        assertThat(search.attachSearch()).isEqualTo("attachSearch");
+
+        verify(clients).searchClientPage(same(criteria), eq(1), eq(3), eq(true));
+        assertThat(request.getAttribute("clients")).isSameAs(rows);
+        assertThat(request.getAttribute("serverTablePage")).isSameAs(page);
+        assertThat(request.getAttribute("noteId")).isEqualTo("11");
+        assertThat(request.getAttribute("sourceChartContext")).isEqualTo(token);
+        @SuppressWarnings("unchecked")
+        var parameters = (java.util.Map<String, String[]>) request.getAttribute("serverTableParameters");
+        assertThat(parameters.get("noteId")).containsExactly("11");
+        assertThat(parameters.get("sourceChartContext")).containsExactly(token);
+        assertThat(parameters.get("criteria.lastName")).containsExactly("FAKE-Patient");
     }
 
     @Test
