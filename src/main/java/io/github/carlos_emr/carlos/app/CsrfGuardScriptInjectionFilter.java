@@ -349,13 +349,9 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
                         LogSafe.sanitize(e.getMessage()));
             }
         }
-        String encoding = response.getCharacterEncoding();
-        if (encoding == null || encoding.isEmpty()) {
-            encoding = "UTF-8";
-        }
         try {
             // Use getWriter() for text responses. Content-Length is not set here because
-            // the byte count from content.getBytes(encoding) may differ from what the writer
+            // the byte count from encoding content may differ from what the writer
             // sends if the response encoding changes. The container should own the final length.
             response.getWriter().write(content); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer, java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep -- trusted CSRF framework content
             response.getWriter().flush();
@@ -365,7 +361,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             LOGGER.warn("CsrfGuard: response writer unavailable while writing adjusted content; "
                             + "falling back to output stream: uri={}, contentType={}, committed={}",
                     safeRequestUri, response.getContentType(), response.isCommitted(), e);
-            byte[] bytes = content.getBytes(encoding);
+            byte[] bytes = content.getBytes(RequestNegotiation.responseCharset(response));
             response.setContentLength(bytes.length);
             response.getOutputStream().write(bytes); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- trusted CSRF framework content
             response.getOutputStream().flush();
