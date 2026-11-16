@@ -106,12 +106,20 @@ class ProviderProperty2ActionDocQueueUnitTest extends CarlosUnitTestBase {
         assertNotSaved();
     }
 
-    @Test
-    void preservesSelectionOfAnExistingQueue() {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void preservesSelectionOfAnExistingQueue(boolean hasPreviousDefault) {
         request.setParameter("chooseMode", "existing");
         UserProperty choice = new UserProperty();
         choice.setValue("7");
         action.setExistingDefaultDocQueueProperty(choice);
+        if (hasPreviousDefault) {
+            UserProperty previous = new UserProperty();
+            previous.setProviderNo("owner");
+            previous.setName(UserProperty.DOC_DEFAULT_QUEUE);
+            previous.setValue("3");
+            when(properties.getProp("owner", UserProperty.DOC_DEFAULT_QUEUE)).thenReturn(previous);
+        }
 
         action.saveDefaultDocQueue();
 
@@ -123,6 +131,17 @@ class ProviderProperty2ActionDocQueueUnitTest extends CarlosUnitTestBase {
     void reportsMissingModeAsNotSaved() {
         action.saveDefaultDocQueue();
         assertNotSaved();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"new", "existing", "unknown"})
+    void refusesMissingChoicesOrAnUnknownMode(String mode) {
+        request.setParameter("chooseMode", mode);
+        action.setNewDefaultDocQueueProperty(null);
+        action.setExistingDefaultDocQueueProperty(null);
+        action.saveDefaultDocQueue();
+        assertNotSaved();
+        verifyNoInteractions(queues, securityObjects);
     }
 
     @Test
@@ -158,6 +177,7 @@ class ProviderProperty2ActionDocQueueUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
+    @org.junit.jupiter.params.provider.NullSource
     @ValueSource(strings = {"", " ", "\t", "\r\n"})
     void refusesBlankNewQueueNames_beforeCreatingRowsOrChangingTheDefault(String blank) {
         request.setParameter("chooseMode", "new");
