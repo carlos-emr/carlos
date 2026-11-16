@@ -104,6 +104,7 @@ class CsrfGuardForwardCharsetTomcatIntegrationTest {
                     HttpResponse.BodyHandlers.ofByteArray());
             assertThat(response.statusCode()).isEqualTo(200);
             assertThat(response.body()).isEqualTo(expected);
+            assertThat(response.headers().firstValue("Content-Type")).hasValue("text/html;charset=UTF-8");
             assertThat(response.headers().firstValueAsLong("Content-Length")).hasValue(expected.length);
         }
     }

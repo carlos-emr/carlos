@@ -361,7 +361,9 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             LOGGER.warn("CsrfGuard: response writer unavailable while writing adjusted content; "
                             + "falling back to output stream: uri={}, contentType={}, committed={}",
                     safeRequestUri, response.getContentType(), response.isCommitted(), e);
-            byte[] bytes = content.getBytes(RequestNegotiation.responseCharset(response));
+            var charset = RequestNegotiation.responseCharset(response);
+            response.setCharacterEncoding(charset.name());
+            byte[] bytes = content.getBytes(charset);
             response.setContentLength(bytes.length);
             response.getOutputStream().write(bytes); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- trusted CSRF framework content
             response.getOutputStream().flush();
