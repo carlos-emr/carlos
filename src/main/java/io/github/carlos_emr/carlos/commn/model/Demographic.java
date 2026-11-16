@@ -2148,7 +2148,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
             if ("FS".equals(rs)) {
                 return getRes(carlosRes, "demographic.enrollementhistory.feeforservice", "FEE FOR SERVICE");
             }
-            if ("NR".equalsIgnoreCase(rs)) {
+            if ("NR".equals(rs)) {
                 return getRes(carlosRes, "demographic.enrollementhistory.notrostered", "Not Rostered");
             }
             return rs;
