@@ -154,6 +154,22 @@ async function workflow(s) {
       h.assert(storedDose(id) === dose, 'An unchanged save changed the stored dose');
     });
   }
+  for (const original of ['half\nvial', 'half\rvial', 'half\r\nvial', '\nleading\rtrailing\n']) {
+    await s.step(`an unchanged multiline dose retains its exact stored line endings ${JSON.stringify(original)}`, async () => {
+      h.assert(sql.value("SELECT COUNT(*) FROM preventionsExt WHERE prevention_id=? AND keyval='dose'", [id]) === '1',
+        'The owned dose extension is missing or ambiguous');
+      sql.execute("UPDATE preventionsExt SET val=? WHERE prevention_id=? AND keyval='dose'", [original, id]);
+      h.assert(storedDose(id) === original, 'The owned legacy dose was not seeded exactly');
+      editor = await forms.open(id);
+      h.assert(await editor.locator('#dose').evaluate(element => element.tagName) === 'TEXTAREA',
+        'The dose editor cannot retain line breaks');
+      h.assert(await editor.locator('#dose').inputValue() === original.replace(/\r\n?/g, '\n'),
+        'The multiline dose changed in the editor');
+      id = await forms.saveAmendment(editor, id);
+      h.assert(storedDose(id) === original, 'An unchanged multiline dose lost its original line endings');
+    });
+  }
+
 }
 
 if (require.main === module) {

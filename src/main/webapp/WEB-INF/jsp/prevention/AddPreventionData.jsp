@@ -1066,7 +1066,8 @@
 
                             <div class="row g-2 align-items-center mb-1">
                                 <div class="col-sm-4"><label for="dose" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.dose"/></label></div>
-                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="dose" id="dose" value="<carlos:encode value='<%= d1 %>' context="htmlAttribute"/>"/></div>
+                                <div class="col-sm-8"><textarea class="form-control form-control-sm" name="dose" id="dose" rows="1">
+<carlos:encode value='<%= d1 %>'/></textarea></div>
                             </div>
                             <div class="row g-2 align-items-center mb-1">
                                 <div class="col-sm-4"><label for="doseUnit" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.doseunit"/></label></div>
