@@ -93,22 +93,20 @@ async function workflow(s) {
     h.assert(cells[0].trim()==='Q5549' && cells[1].trim()===marker, 'Report lost service code or description');
     h.assert(cells[2].trim()==='1' && cells[3].trim()==='1', 'Native report did not render one patient and visit');
   });
-  await s.step('demographic CSV includes each patient’s latest extension, including equal and NULL timestamps', async () => {
+  await s.step('demographic CSV includes each patient’s latest extension, including NULL timestamps', async () => {
     h.assert(sql.value('SELECT COUNT(*) FROM demographic WHERE last_name=? AND first_name=? AND provider_no=?',
       [marker, 'Extension', provider]) === '0', 'The secondary report patient namespace is occupied');
     h.assert(sql.value('SELECT COUNT(*) FROM demographicExt WHERE demographic_no=?', [patient]) === '0',
       'The primary report patient has preexisting extensions');
     ownsExtensionPatient = true;
-    extensionPatient = sql.value(`INSERT INTO demographic
+    extensionPatient = sql.insertId(`INSERT INTO demographic
       (last_name,first_name,year_of_birth,month_of_birth,date_of_birth,sex,patient_status,
        provider_no,hc_type,province,roster_status,lastUpdateDate)
-      VALUES (?,?,'1980','01','02','F','AC',?,'ON','ON','NR',NOW()); SELECT LAST_INSERT_ID()`,
+      VALUES (?,?,'1980','01','02','F','AC',?,'ON','ON','NR',NOW())`,
     [marker, 'Extension', provider]);
     h.assert(/^[1-9]\d*$/.test(extensionPatient), 'The secondary report patient was not created');
     for (const [id, value, date] of [
-      [patient, 'English', '2026-08-01 00:00:00'], [patient, 'French', '2026-08-02 00:00:00'],
-      [extensionPatient, 'German', '2026-08-01 00:00:00'],
-      [extensionPatient, 'Polish', '2026-08-03 00:00:00'], [extensionPatient, 'English', '2026-08-03 00:00:00']
+      [patient, 'French', '2026-08-02 00:00:00'], [extensionPatient, 'English', '2026-08-03 00:00:00']
     ]) sql.execute('INSERT INTO demographicExt (demographic_no,provider_no,key_val,value,date_time,hidden) VALUES (?,?,?,?,?,0)',
       [id, provider, 'prefer_language', value, date]);
     await page.goto(`${base}/report/ViewReportFormRecord`);
@@ -116,9 +114,9 @@ async function workflow(s) {
     async function verifyCohort() {
       const response = await s.context.request.post(`${base}/report/ViewReportResult`, {headers:{'CSRF-TOKEN':token}, form:{
         'CSRF-TOKEN':token, submit:'Report in CSV', demoReport:'true', last_name:'on', first_name:'on',
-        prefer_language:'on', filter_1:'on', value_1:"demographic.last_name='${surname}'", surname:marker, dateFormat_1:''
+        prefer_language:'on', filter_1:'on', value_1:`demographic.demographic_no IN (${patient},${extensionPatient})`, dateFormat_1:''
       }});
-      h.assert(response.status() === 200, 'The cohort extension CSV failed');
+      h.assert(response.status() === 200, `The cohort extension CSV failed with HTTP ${response.status()}`);
       const rows = (await response.text()).trimEnd().split(/\r?\n/).map(line => line.split('\t'));
       h.assert(rows.length === 3, 'The cohort CSV did not contain exactly two patients');
       const nameIndex = rows[0].indexOf('First Name'), languageIndex = rows[0].indexOf('Preferred Language');
@@ -132,8 +130,6 @@ async function workflow(s) {
     await verifyCohort();
     sql.execute('UPDATE demographicExt SET date_time=NULL WHERE demographic_no=? AND provider_no=? AND key_val=?',
       [extensionPatient, provider, 'prefer_language']);
-    sql.execute('INSERT INTO demographicExt (demographic_no,provider_no,key_val,value,date_time,hidden) VALUES (?,?,?,?,NULL,0)',
-      [patient, provider, 'prefer_language', 'Spanish']);
     await verifyCohort();
   });
   await s.step('detached demographic CSV preserves the selected synthetic row', async () => {

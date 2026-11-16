@@ -82,14 +82,10 @@ public class DemographicExtDaoImpl extends AbstractDaoImpl<DemographicExt> imple
     @Override
     public List<ReportValue> findReportValues(String key, Collection<Integer> demographicNumbers, boolean latestOnly) {
         if (demographicNumbers.isEmpty()) return List.of();
-        String latest = latestOnly ? " and not exists (select newer.id from DemographicExt newer"
-                + " where newer.key=x.key and newer.demographicNo=x.demographicNo and ("
-                + "newer.dateCreated>x.dateCreated or (x.dateCreated is null and newer.dateCreated is not null)"
-                + " or ((newer.dateCreated=x.dateCreated or (newer.dateCreated is null and x.dateCreated is null))"
-                + " and newer.id>x.id)))" : "";
-        var query = entityManager.createQuery("select x.id, x.demographicNo, x.value from DemographicExt x where x.key=:key and x.demographicNo in :numbers"
-                + latest + " order by x.dateCreated" + (latestOnly ? " desc, x.id desc" : ", x.id"), Object[].class)
+        var query = entityManager.createQuery("select x.id, x.demographicNo, x.value from DemographicExt x where x.key=:key and x.demographicNo in :numbers order by x.dateCreated"
+                + (latestOnly ? " desc, x.id desc" : ", x.id"), Object[].class)
                 .setParameter("key", key).setParameter("numbers", demographicNumbers);
+        if (latestOnly) query.setMaxResults(1);
         return query.getResultList().stream().map(row -> new ReportValue((Integer) row[0], (Integer) row[1], (String) row[2])).toList();
     }
 

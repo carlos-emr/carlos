@@ -70,6 +70,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
     String DELIMETER = "\t";
 
     private record GeneratedCsv(String reportName, String content) { }
+    private record ExtensionColumn(String key, String caption) { }
 
     public void service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         HttpSession session = request.getSession(false);
@@ -199,7 +200,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
         private final List<String> dateFormats = new ArrayList<>();
         private final Vector<String> fieldCaptions = new Vector<>();
         private final Vector<String> fieldNames = new Vector<>();
-        private final List<String> selectedExtensionCaptions = new ArrayList<>();
+        private final List<ExtensionColumn> selectedExtensionColumns = new ArrayList<>();
         private final Properties extensionValues = new Properties();
         private Vector<Properties> fieldValues = new Vector<>();
 
@@ -346,13 +347,13 @@ public class RptDownloadCSVServlet extends HttpServlet {
             addDemographicFields();
             fieldValues = new RptReportCreator().query(sql, fieldNames, demographicColumns.parameters.toArray());
             fieldNames.remove(0);
-            readExtensionValues(resultDemographics(), true);
+            readExtensionValues(resultDemographics());
         }
 
         private void queryFilteredExtensions() throws java.sql.SQLException {
             fieldNames.add(DEMOGRAPHIC_NUMBER);
             List<String> demographics = extensionDemographics();
-            readExtensionValues(demographics, true);
+            readExtensionValues(demographics);
             String sql = "select demographic.demographic_no," + demographicColumns.selection + FROM_DEMOGRAPHIC
                     + " demographic.demographic_no in (" + identifierList(demographics) + ") " + ORDER_BY;
             addDemographicFields();
@@ -386,12 +387,12 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 fieldNames.add(DEMOGRAPHIC_NUMBER);
                 queryAntenatalRows(null);
                 fieldNames.remove(0);
-                readExtensionValues(resultDemographics(), false);
+                readExtensionValues(resultDemographics());
             }
             if (antenatalColumns.filtered && extensionColumns.filtered) {
                 fieldNames.add(DEMOGRAPHIC_NUMBER);
                 List<String> demographics = extensionDemographics();
-                readExtensionValues(demographics, true);
+                readExtensionValues(demographics);
                 queryAntenatalRows(demographics);
                 fieldNames.remove(0);
             }
@@ -443,13 +444,15 @@ public class RptDownloadCSVServlet extends HttpServlet {
             return fieldValues.stream().map(row -> row.getProperty(DEMOGRAPHIC_NUMBER)).toList();
         }
 
-        private void readExtensionValues(List<String> demographics, boolean latestOnly) {
+        private void readExtensionValues(List<String> demographics) {
             for (String column : extensionColumns.selection.toString().replaceAll(EXTENSION_PREFIX, "").split(",")) {
-                selectedExtensionCaptions.add(extensionColumns.captions.getProperty(column.trim()));
+                String key = column.trim();
+                selectedExtensionColumns.add(new ExtensionColumn(key, extensionColumns.captions.getProperty(key)));
                 if (!demographics.isEmpty()) {
                     List<Integer> numbers = demographics.stream().map(Integer::valueOf).toList();
-                    for (var extension : SpringUtils.getBean(DemographicExtDao.class).findReportValues(column.trim(), numbers, latestOnly)) {
-                        extensionValues.setProperty(extension.demographicNo() + column,
+                    // The active table is unique by patient/key; latest-only would cap the whole cohort.
+                    for (var extension : SpringUtils.getBean(DemographicExtDao.class).findReportValues(key, numbers, false)) {
+                        extensionValues.setProperty(extension.demographicNo() + key,
                                 extension.value() == null ? "" : extension.value());
                     }
                 }
@@ -469,8 +472,8 @@ public class RptDownloadCSVServlet extends HttpServlet {
                     csv.print(caption);
                 }
                 if (extensionColumns.selected) {
-                    for (String caption : selectedExtensionCaptions) {
-                        csv.print(caption);
+                    for (ExtensionColumn extension : selectedExtensionColumns) {
+                        csv.print(extension.caption());
                     }
                 }
                 for (int i = 0; i < fieldValues.size(); i++) {
@@ -488,8 +491,8 @@ public class RptDownloadCSVServlet extends HttpServlet {
             }
             if (extensionColumns.selected) {
                 String demographic = row.getProperty(DEMOGRAPHIC_NUMBER);
-                for (String caption : selectedExtensionCaptions) {
-                    csv.print(extensionValues.getProperty(demographic + caption.replace(' ', '_'), ""));
+                for (ExtensionColumn extension : selectedExtensionColumns) {
+                    csv.print(extensionValues.getProperty(demographic + extension.key(), ""));
                 }
             }
         }

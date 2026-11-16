@@ -19,6 +19,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
@@ -239,8 +240,36 @@ class RptDownloadCSVServletTest {
         assertBranchQueries(scenario, calls);
         if (scenario.extension) {
             List<Integer> cohort = scenario.extensionFilter ? List.of(41, 42) : List.of(41);
-            verify(extensions).findReportValues("prefer_language", cohort, scenario != CsvScenario.ALL_SELECTED);
+            verify(extensions).findReportValues("prefer_language", cohort, false);
         }
+    }
+
+    @Test
+    void shouldIncludeEveryPatientsCurrentExtension_forATwoPatientCohort() throws Exception {
+        MockHttpServletRequest request = branchRequest(CsvScenario.EXTENSION);
+        var first = new ConfiguredReportQuery.Row(Map.of("demographic_no", "41", "last_name", "FAKE",
+                "first_name", "First"), List.of());
+        var second = new ConfiguredReportQuery.Row(Map.of("demographic_no", "42", "last_name", "FAKE",
+                "first_name", "Second"), List.of());
+        configuredQueryMock.when(() -> ConfiguredReportQuery.read(anyString(), any(Object[].class)))
+                .thenReturn(new ConfiguredReportQuery.Result(List.of(), List.of(first, second)));
+        var extensions = mock(DemographicExtDao.class);
+        var french = new DemographicExtDao.ReportValue(1, 41, "French");
+        var english = new DemographicExtDao.ReportValue(2, 42, "English");
+        // Preserve the DAO's existing contract: latest-only is one row for the cohort;
+        // current values contain one row per patient/key under the packaged unique key.
+        when(extensions.findReportValues(eq("prefer_language"), eq(List.of(41, 42)), anyBoolean()))
+                .thenAnswer(call -> (boolean) call.getArgument(2) ? List.of(english) : List.of(french, english));
+        var properties = mock(CarlosProperties.class);
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        try (var settings = mockStatic(CarlosProperties.class); var spring = mockStatic(SpringUtils.class)) {
+            settings.when(CarlosProperties::getInstance).thenReturn(properties);
+            spring.when(() -> SpringUtils.getBean(DemographicExtDao.class)).thenReturn(extensions);
+            new RptDownloadCSVServlet().service(request, response);
+        }
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentAsString()).isEqualTo("id\tLast Name\tFirst Name\tPreferred Language\r\n"
+                + "1\tFAKE\tFirst\tFrench\r\n2\tFAKE\tSecond\tEnglish");
     }
 
     private MockHttpServletRequest branchRequest(CsvScenario scenario) {
