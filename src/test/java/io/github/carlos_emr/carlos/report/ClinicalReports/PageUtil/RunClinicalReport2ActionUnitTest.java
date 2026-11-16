@@ -3,8 +3,10 @@ package io.github.carlos_emr.carlos.report.ClinicalReports.PageUtil;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.report.ClinicalReports.*;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import java.util.List;
+import org.apache.logging.log4j.Level;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.Tag;
@@ -72,7 +74,8 @@ class RunClinicalReport2ActionUnitTest extends CarlosUnitTestBase {
                 "Clinical report could not be completed; narrow the filters or retry", refusal));
         var numerator = mock(Numerator.class);
         when(reports.getDenominatorById("d")).thenReturn(denominator); when(reports.getNumeratorById("n")).thenReturn(numerator);
-        try (var servlet = mockStatic(ServletActionContext.class); var manager = mockStatic(ClinicalReportManager.class)) {
+        try (var servlet = mockStatic(ServletActionContext.class); var manager = mockStatic(ClinicalReportManager.class);
+             var log = LogCapture.forLogger(RunClinicalReport2Action.class)) {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
             servlet.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
             manager.when(ClinicalReportManager::getInstance).thenReturn(reports);
@@ -85,6 +88,39 @@ class RunClinicalReport2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(request.getAttribute("carlosReportLimitKey")).isEqualTo("report.configured.limitIdentifiers");
             assertThat(request.getAttribute("carlosReportLimitValue")).isEqualTo(100_000);
             assertThat(request.getAttribute("carlosReportLimitSetting")).isEqualTo("configured_report.max_identifier_rows");
+            // A refusal is the user's to fix: one warning, without a trace, and no error.
+            assertThat(messages(log, Level.WARN)).containsExactly("Clinical report refused by its IDENTIFIERS limit of 100000");
+            assertThat(log.events()).allMatch(event -> event.getThrown() == null);
+            assertThat(messages(log, Level.ERROR)).isEmpty();
         }
+    }
+
+    @Test
+    void shouldNeitherWarnNorNameALimit_whenTheReportFailsForAnotherReason() {
+        var security = createAndRegisterMock(SecurityInfoManager.class);
+        when(security.hasPrivilege(any(), eq("_report"), eq("r"), isNull())).thenReturn(true);
+        var request = new MockHttpServletRequest(); request.setParameter("numerator", "n"); request.setParameter("denominator", "d");
+        var reports = mock(ClinicalReportManager.class);
+        var failure = new IllegalStateException("Clinical report could not be completed; narrow the filters or retry",
+                new java.sql.SQLException("synthetic failure"));
+        var denominator = mock(Denominator.class);
+        when(denominator.getDenominatorList()).thenThrow(failure);
+        var numerator = mock(Numerator.class);
+        when(reports.getDenominatorById("d")).thenReturn(denominator); when(reports.getNumeratorById("n")).thenReturn(numerator);
+        try (var servlet = mockStatic(ServletActionContext.class); var manager = mockStatic(ClinicalReportManager.class);
+             var log = LogCapture.forLogger(RunClinicalReport2Action.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+            manager.when(ClinicalReportManager::getInstance).thenReturn(reports);
+            assertThatThrownBy(() -> new RunClinicalReport2Action().execute()).isSameAs(failure);
+            assertThat(request.getAttribute("carlosReportLimitKey")).isNull();
+            assertThat(messages(log, Level.WARN)).isEmpty();
+        }
+    }
+
+    /** The messages a capture holds at one level. */
+    private static List<String> messages(LogCapture log, Level level) {
+        return log.events().stream().filter(event -> event.getLevel() == level)
+                .map(event -> event.getMessage().getFormattedMessage()).toList();
     }
 }

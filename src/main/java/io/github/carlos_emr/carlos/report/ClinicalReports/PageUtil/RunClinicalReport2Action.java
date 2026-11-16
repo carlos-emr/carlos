@@ -206,6 +206,12 @@ public class RunClinicalReport2Action extends ActionSupport {
         } catch (IllegalStateException e) {
             // The report still fails as before. When a configured_report.* limit stopped it, the error
             // page names that limit, so the user can narrow the report or ask for the limit to be raised.
+            // A refusal is the user's to fix, not a defect, so it is logged once, as a warning without the
+            // trace; the report's SQL classes log only other failures, as errors.
+            var refusal = ReportLimitNotice.find(e);
+            if (refusal != null) {
+                MiscUtils.getLogger().warn("Clinical report refused by its {} limit of {}", refusal.limit(), refusal.value());
+            }
             ReportLimitNotice.publish(request, e);
             throw e;
         }
