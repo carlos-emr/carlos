@@ -126,7 +126,8 @@ class AppointmentAuditUnitTest extends CarlosUnitTestBase {
         waitingLists = mockStatic(WaitingList.class);
         waitingLists.when(WaitingList::getInstance).thenReturn(noWaitingList);
 
-        when(security.hasPrivilege(any(LoggedInInfo.class), eq("_appointment"), anyString(), isNull())).thenReturn(true);
+        when(security.hasPrivilege(any(LoggedInInfo.class), eq("_appointment"), anyString(), nullable(String.class))).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(eq(info), org.mockito.ArgumentMatchers.anyInt())).thenReturn(true);
     }
 
     @AfterEach
@@ -147,6 +148,8 @@ class AppointmentAuditUnitTest extends CarlosUnitTestBase {
         appt.setNotes(NOTES);
         appt.setLastUpdateUser("999998");
         when(appointments.find(id)).thenReturn(appt);
+        when(appointments.findForUpdate(id)).thenReturn(appt);
+        request.setParameter(AppointmentEditVersion.PARAMETER, AppointmentEditVersion.of(appt, null));
         // The edit, Delete and Cut buttons go through the manager, which locks the row, applies the
         // edit or archives and removes it, and hands back the row it wrote.
         when(schedule.updateAppointment(eq(info), eq(id), any(), any())).thenAnswer(call -> {
@@ -154,6 +157,10 @@ class AppointmentAuditUnitTest extends CarlosUnitTestBase {
             return appt;
         });
         when(schedule.removeAppointment(eq(info), eq(id), any())).thenReturn(appt);
+        when(schedule.removeAppointment(eq(info), eq(id), any(), any())).thenAnswer(call -> {
+            call.<java.util.function.Consumer<Appointment>>getArgument(3).accept(appt);
+            return appt;
+        });
         return appt;
     }
 
@@ -168,6 +175,9 @@ class AppointmentAuditUnitTest extends CarlosUnitTestBase {
         request.setParameter("reason", REASON + " edited");
         request.setParameter("notes", NOTES);
         request.setParameter("status", status);
+        request.setParameter("duration", "15");
+        for (String name : new String[]{"chart_no", "location", "resources", "type", "remarks"})
+            request.setParameter(name, "");
     }
 
     /** No audit call of any overload may carry the appointment's free text or the patient's name. */
@@ -248,23 +258,22 @@ class AppointmentAuditUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldLeaveTheEditAuditToTheManager_whenAnAppointmentIsUpdated() throws Exception {
+    void shouldAuditTheCommittedEdit_whenAnAppointmentIsUpdated() throws Exception {
         stored(77, 42, "t");
         fillEditForm("42", "t");
 
         String result = new AppointmentUpdateRecord2Action().execute();
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        // The schedule manager writes the edit's one audit row (ScheduleManagerUnitTest); a second
-        // row from the popup action would record the same edit twice.
-        verify(schedule).updateAppointment(eq(info), eq(77), any(), any());
+        logActionMock.verify(() -> LogAction.addLogSynchronous(info, "AppointmentManager.updateAppointment",
+                LogConst.CON_APPT, "77", "42", "appointmentId=77"), times(1));
         logActionMock.verify(() -> LogAction.addLog(any(LoggedInInfo.class), anyString(), anyString(), anyString(),
                 nullable(String.class), nullable(String.class)), never());
         assertNoAppointmentTextIsAudited();
     }
 
     @Test
-    void shouldCancelThroughTheManager_whenTheCancelButtonIsUsed() throws Exception {
+    void shouldAuditCancellation_whenTheCancelButtonIsUsed() throws Exception {
         Appointment appt = stored(77, 42, "t");
         request.setParameter("appointment_no", "77");
         request.setParameter("buttoncancel", "Cancel Appt");
@@ -273,6 +282,8 @@ class AppointmentAuditUnitTest extends CarlosUnitTestBase {
 
         // The status change the manager then names in its audit row.
         assertThat(appt.getStatus()).isEqualTo("C");
+        logActionMock.verify(() -> LogAction.addLogSynchronous(info, "AppointmentManager.updateAppointment",
+                LogConst.CON_APPT, "77", "42", "appointmentId=77; status=C"), times(1));
         logActionMock.verify(() -> LogAction.addLog(any(LoggedInInfo.class), anyString(), anyString(), anyString(),
                 nullable(String.class), nullable(String.class)), never());
     }
@@ -321,7 +332,7 @@ class AppointmentAuditUnitTest extends CarlosUnitTestBase {
     void shouldNotAuditACut_whenAStaleCutIsRefused() throws Exception {
         stored(77, 42, "t");
         request.setParameter("appointment_no", "77");
-        when(schedule.removeAppointment(eq(info), eq(77), any()))
+        when(schedule.removeAppointment(eq(info), eq(77), any(), any()))
                 .thenThrow(new AppointmentUpdateException(AppointmentUpdateException.Reason.STALE_VERSION));
 
         new AppointmentCutRecord2Action().execute();
@@ -334,6 +345,7 @@ class AppointmentAuditUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldKeepTheCutReceiptAndNameThePatient_whenAnAppointmentIsCut() throws Exception {
         stored(77, 42, "t");
+        fillEditForm("42", "t");
         request.setParameter("appointment_no", "77");
 
         String result = new AppointmentCutRecord2Action().execute();

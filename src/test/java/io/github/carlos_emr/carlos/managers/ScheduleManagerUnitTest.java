@@ -432,7 +432,7 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
         scheduleManager.updateAppointment(mockLoggedInInfo, 77, null, row -> row.setReason("changed"));
 
         logActionMock.verify(() -> LogAction.addLogSynchronous(mockLoggedInInfo, "AppointmentManager.updateAppointment",
-                LogConst.CON_APPT, "77", (Integer) null, "appointmentId=77"));
+                LogConst.CON_APPT, "77", (String) null, "appointmentId=77"));
     }
 
     // -----------------------------------------------------------------------
@@ -507,6 +507,37 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_appointment)");
         verifyNoInteractions(mockOscarAppointmentDao, mockAppointmentArchiveDao);
+    }
+
+    @Test
+    void shouldPrepareClipboardFromLockedSource_beforeArchivingAndRemoving() {
+        Appointment current = createTestAppointment(77, TEST_PROVIDER, new Date());
+        current.setUpdateDateTime(new Date(2000));
+        when(mockOscarAppointmentDao.findForUpdate(77)).thenReturn(current);
+        @SuppressWarnings("unchecked")
+        java.util.function.Consumer<Appointment> prepare = mock(java.util.function.Consumer.class);
+
+        scheduleManager.removeAppointment(mockLoggedInInfo, 77, "2000", prepare);
+
+        var ordered = inOrder(mockOscarAppointmentDao, prepare, mockAppointmentArchiveDao);
+        ordered.verify(mockOscarAppointmentDao).findForUpdate(77);
+        ordered.verify(prepare).accept(current);
+        ordered.verify(mockAppointmentArchiveDao).archiveAppointment(current);
+        ordered.verify(mockOscarAppointmentDao).remove(current);
+    }
+
+    @Test
+    void shouldKeepBookingAndArchiveUnchanged_whenClipboardPreparationFails() {
+        Appointment current = createTestAppointment(77, TEST_PROVIDER, new Date());
+        current.setUpdateDateTime(new Date(2000));
+        when(mockOscarAppointmentDao.findForUpdate(77)).thenReturn(current);
+
+        assertThatThrownBy(() -> scheduleManager.removeAppointment(mockLoggedInInfo, 77, "2000", source -> {
+            throw new io.github.carlos_emr.carlos.appt.AppointmentClipboardValidationException();
+        })).isInstanceOf(io.github.carlos_emr.carlos.appt.AppointmentClipboardValidationException.class);
+
+        verifyNoInteractions(mockAppointmentArchiveDao);
+        verify(mockOscarAppointmentDao, never()).remove(any(Appointment.class));
     }
 
     // -----------------------------------------------------------------------

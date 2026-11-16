@@ -22,8 +22,10 @@ import io.github.carlos_emr.carlos.commn.model.Appointment;
  * {@link Appointment#getEditVersion()} as {@value #PARAMETER}; every route the form posts to that
  * writes its fields (Update, Update &amp; Receipt, Cancel, No Show, Delete, Cut, the group and
  * repeat pages) compares it with the row it has just locked and refuses a mismatch with HTTP 409
- * and {@code appointmentEditConflict.jsp} before anything is written. This is the token the REST
- * edit already uses ({@code ScheduleManager.updateAppointment}); no second version scheme exists.</p>
+ * and {@code appointmentEditConflict.jsp} before anything is written. Delete, Cut and recurring
+ * operations use the same timestamp token as the REST edit. The Update form additionally carries
+ * {@link AppointmentEditVersion}, whose full-state comparison detects legacy writers that leave
+ * timestamps unchanged and retains the submitted draft on refusal.</p>
  *
  * <p>A post without the parameter (an older page, a hand-built request) keeps the previous
  * last-writer-wins behaviour, as the REST edit does for clients that send no version.</p>

@@ -53,6 +53,9 @@ import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.event.EventService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.managers.AppointmentPatientAccess;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LocaleUtils;
@@ -123,6 +126,11 @@ public final class AppointmentUpdateRecord2Action extends ActionSupport {
                 });
                 Appointment appt = appointmentDao.findForUpdate(appointmentNo);
                 if (appt == null) return new UpdateResult(HttpServletResponse.SC_NOT_FOUND, null, null);
+                AppointmentPatientAccess.require(loggedInInfo, securityInfoManager, appt.getDemographicNo(), "w");
+                if (!statusOnly) {
+                    AppointmentPatientAccess.require(loggedInInfo, securityInfoManager,
+                            ConversionUtils.fromIntString(request.getParameter("demographic_no")), "w");
+                }
                 String originalVersion = request.getParameter(AppointmentEditVersion.PARAMETER);
                 String currentVersion = AppointmentEditVersion.of(appt,
                         OtherIdManager.getApptOtherId(apptNoStr, "appt_mc_number"));
@@ -138,11 +146,18 @@ public final class AppointmentUpdateRecord2Action extends ActionSupport {
                         : AppointmentLocationResolver.resolvePostedLocation(appt, request);
                 appointmentArchiveDao.archiveAppointment(appt);
                 saved[0] = updateLockedAppointment(request, appt, text, statusOnly, updateuser, apptNoStr, location);
+                LogAction.addLogSynchronous(loggedInInfo, "AppointmentManager.updateAppointment", LogConst.CON_APPT,
+                        String.valueOf(appt.getId()),
+                        appt.getDemographicNo() > 0 ? String.valueOf(appt.getDemographicNo()) : null,
+                        "appointmentId=" + appt.getId()
+                                + (saved[0].changedStatus() == null ? "" : "; status=" + saved[0].changedStatus()));
                 return saved[0];
             });
             if (completion[0] != TransactionSynchronization.STATUS_COMMITTED || result == null) {
                 throw new IllegalStateException("Appointment transaction did not confirm a commit");
             }
+        } catch (jakarta.ws.rs.ForbiddenException denied) {
+            throw new SecurityException("missing required sec object (_appointment)");
         } catch (AppointmentLocationUnavailableException _) {
             return retainDraft(request, response, HttpServletResponse.SC_CONFLICT,
                     AppointmentLocationUnavailableException.MESSAGE_KEY);

@@ -118,6 +118,20 @@ public interface ScheduleManager {
      */
     Appointment removeAppointment(LoggedInInfo loggedInInfo, Integer appointmentId, String expectedVersion);
 
+    /**
+     * Prepares a cut's clipboard from the authorized, locked and version-checked source before
+     * archiving or removing it. A preparation failure rolls back without deleting the booking.
+     * The caller publishes the clipboard only after this transactional operation returns.
+     *
+     * @param loggedInInfo the authenticated caller
+     * @param appointmentId the source appointment number
+     * @param expectedVersion the submitted edit version, or null for an unconditional removal
+     * @param prepare callback that validates and stages the clipboard without changing the session
+     * @return the removed appointment as it was archived
+     */
+    Appointment removeAppointment(LoggedInInfo loggedInInfo, Integer appointmentId, String expectedVersion,
+            Consumer<Appointment> prepare);
+
     public List<Appointment> getAppointmentsForDateRangeAndProvider(LoggedInInfo loggedInInfo, Date startTime, Date endTime, String providerNo);
 
     /**

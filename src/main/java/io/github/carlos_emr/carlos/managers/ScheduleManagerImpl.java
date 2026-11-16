@@ -266,7 +266,8 @@ public class ScheduleManagerImpl implements ScheduleManager {
 
     /**
      * Audits an appointment edit under the appointment and its patient, with the client address.
-     * REST clients and the classic Edit Appointment form both save through this manager; a row
+     * REST clients save through this manager; the classic Edit Appointment form writes the same
+     * audit contract inside its transaction after confirming its full-state edit version. A row
      * without the patient cannot be found from the patient's audit trail. The action name and the
      * {@code appointmentId=N} data are unchanged for readers of earlier rows; an edit that changed
      * the status also names the new one ({@code ; status=C}), never the reason, notes or name. A
@@ -335,6 +336,13 @@ public class ScheduleManagerImpl implements ScheduleManager {
     @Override
     @Transactional
     public Appointment removeAppointment(LoggedInInfo loggedInInfo, Integer appointmentId, String expectedVersion) {
+        return removeAppointment(loggedInInfo, appointmentId, expectedVersion, appointment -> { });
+    }
+
+    @Override
+    @Transactional
+    public Appointment removeAppointment(LoggedInInfo loggedInInfo, Integer appointmentId, String expectedVersion,
+            java.util.function.Consumer<Appointment> prepare) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "d", null)) {
             throw new SecurityException("missing required sec object (_appointment)");
         }
@@ -347,6 +355,7 @@ public class ScheduleManagerImpl implements ScheduleManager {
         if (hasVersion && !current.getEditVersion().equals(expectedVersion)) {
             throw new AppointmentUpdateException(AppointmentUpdateException.Reason.STALE_VERSION);
         }
+        prepare.accept(current);
         // The archive row names who removed an appointment nobody had edited since it was booked.
         if (current.getLastUpdateUser() == null || current.getLastUpdateUser().isEmpty()) {
             current.setLastUpdateUser(loggedInInfo.getLoggedInProviderNo());

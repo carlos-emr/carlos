@@ -38,6 +38,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 import io.github.carlos_emr.carlos.appt.ApptUtil;
+import io.github.carlos_emr.carlos.appt.ApptData;
 import io.github.carlos_emr.carlos.appt.AppointmentClipboardValidationException;
 import io.github.carlos_emr.carlos.appt.location.AppointmentLocationUnavailableException;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
@@ -105,8 +106,11 @@ public final class AppointmentCutRecord2Action extends ActionSupport {
         // (HTTP 409) instead of removing the newer appointment unseen; a post without a version
         // keeps the unconditional removal this route always had.
         Appointment appt;
+        ApptData[] clipboard = new ApptData[1];
         try {
-            appt = scheduleManager.removeAppointment(loggedInInfo, apptNo, AppointmentEditConflict.submittedVersion(request));
+            appt = scheduleManager.removeAppointment(loggedInInfo, apptNo,
+                    AppointmentEditConflict.submittedVersion(request),
+                    source -> clipboard[0] = ApptUtil.prepareAppointmentClipboard(request, source));
         } catch (AppointmentUpdateException refused) {
             if (refused.getReason() == AppointmentUpdateException.Reason.STALE_VERSION) {
                 return AppointmentEditConflict.refuse(request, response);
@@ -119,11 +123,6 @@ public final class AppointmentCutRecord2Action extends ActionSupport {
         } catch (jakarta.ws.rs.BadRequestException invalid) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid appointment_no");
             return NONE;
-        }
-
-        // Copy appointment into session AFTER validation to avoid corrupting session state on bad input
-        try {
-            ApptUtil.copyAppointmentIntoSession(request);
         } catch (AppointmentClipboardValidationException _) {
             ErrorPageMessage.sendError(request, response, HttpServletResponse.SC_CONFLICT,
                     AppointmentClipboardValidationException.MESSAGE_KEY);
@@ -139,6 +138,10 @@ public final class AppointmentCutRecord2Action extends ActionSupport {
                     "appointment.clipboard.sourceUnavailable");
             return NONE;
         }
+
+        // The removal has committed. Publishing the already-validated clipboard needs no source
+        // lookup, and a validation or commit failure leaves the previous clipboard intact.
+        ApptUtil.setAppointmentIntoSession(request, clipboard[0]);
 
         // The action name and "id=N" data are the receipt the cut-recovery flow is checked by; the
         // row also names the appointment, its patient and the client address. It is written in this

@@ -36,6 +36,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockHttpSession;
 
 import io.github.carlos_emr.carlos.appt.ApptUtil;
+import io.github.carlos_emr.carlos.appt.ApptData;
 import io.github.carlos_emr.carlos.commn.OtherIdManager;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.dao.OtherIdDAO;
@@ -78,6 +79,10 @@ class AppointmentStaleEditFormUnitTest extends CarlosUnitTestBase {
         registerMock(OscarAppointmentDao.class, appointments);
         registerMock(EventService.class, events);
         registerMock(ScheduleManager.class, schedule);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao.class,
+                mock(io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao.class));
+        registerMock(org.springframework.transaction.PlatformTransactionManager.class,
+                new AppointmentAddRecord2ActionSubmissionUnitTest.RecordingTransactionManager());
         // OtherIdManager resolves its DAO in a static initializer.
         registerMock(OtherIdDAO.class, mock(OtherIdDAO.class));
         servlet = mockStatic(ServletActionContext.class);
@@ -96,6 +101,7 @@ class AppointmentStaleEditFormUnitTest extends CarlosUnitTestBase {
         existing.setStatus("t");
         existing.setUpdateDateTime(new Date(Long.parseLong(RENDERED_VERSION)));
         when(appointments.find(61)).thenReturn(existing);
+        when(appointments.findForUpdate(61)).thenReturn(existing);
 
         request = new MockHttpServletRequest();
         request.setSession(new MockHttpSession());
@@ -104,9 +110,11 @@ class AppointmentStaleEditFormUnitTest extends CarlosUnitTestBase {
         for (String[] field : new String[][] {{"provider_no", "999998"}, {"appointment_no", "61"},
                 {"appointment_date", "2027-10-21"}, {"start_time", "09:00"}, {"end_time", "09:14"},
                 {"keyword", "FAKE-PATIENT,Check"}, {"reason", "edited by a stale form"}, {"notes", ""},
-                {"resources", ""}, {"demographic_no", ""}, {"status", "t"}}) {
+                {"resources", ""}, {"demographic_no", ""}, {"status", "t"}, {"duration", "15"},
+                {"chart_no", ""}, {"location", ""}, {"type", ""}, {"remarks", ""}}) {
             request.setParameter(field[0], field[1]);
         }
+        request.setParameter(AppointmentEditVersion.PARAMETER, AppointmentEditVersion.of(existing, null));
         response = new MockHttpServletResponse();
     }
 
@@ -118,132 +126,83 @@ class AppointmentStaleEditFormUnitTest extends CarlosUnitTestBase {
     }
 
     private void managerRefusesUpdate(AppointmentUpdateException.Reason reason) {
-        when(schedule.updateAppointment(eq(info), eq(61), any(), any()))
-                .thenThrow(new AppointmentUpdateException(reason));
+        if (reason == AppointmentUpdateException.Reason.NOT_FOUND) {
+            when(appointments.findForUpdate(61)).thenReturn(null);
+        } else {
+            existing.setUpdateDateTime(new Date(Long.parseLong(RENDERED_VERSION) + 1));
+        }
     }
 
     @Test
     void shouldRefuseUpdateWithConflict_whenFormVersionIsStale() throws Exception {
-        request.setParameter(AppointmentEditConflict.PARAMETER, RENDERED_VERSION);
         managerRefusesUpdate(AppointmentUpdateException.Reason.STALE_VERSION);
-
-        String result = new AppointmentUpdateRecord2Action().execute();
-
-        assertThat(result).isEqualTo(AppointmentEditConflict.RESULT);
+        assertThat(new AppointmentUpdateRecord2Action().execute()).isEqualTo(ActionSupport.INPUT);
         assertThat(response.getStatus()).isEqualTo(409);
-        assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
         assertThat(request.getAttribute("success")).isNull();
-        assertThat(request.getAttribute("appointmentConflictNo")).isEqualTo("61");
-        assertThat(request.getAttribute("appointmentConflictProviderNo")).isEqualTo("999998");
-        // Nothing follows a refused save: no MC number, no status event, no direct DAO write.
-        otherIds.verifyNoInteractions();
+        assertThat(request.getAttribute("appointmentReviewRequired")).isEqualTo(true);
+        otherIds.verify(() -> OtherIdManager.saveIdAppointment(anyString(), anyString(), any()), never());
         verifyNoInteractions(events);
         verify(appointments, never()).merge(any());
+        logActionMock.verifyNoInteractions();
     }
 
     @Test
-    void shouldEndAsSavedWithoutWriting_whenStaleFormAlreadyMatchesTheStoredAppointment() throws Exception {
-        // A second click on a form whose first submission was saved: the row now holds exactly
-        // these fields under a newer version.
-        request.setParameter(AppointmentEditConflict.PARAMETER, RENDERED_VERSION);
-        request.setParameter("printReceipt", "1");
-        existing.setAppointmentDate(java.sql.Date.valueOf("2027-10-21"));
-        existing.setStartTime(java.sql.Time.valueOf("09:00:00"));
-        existing.setEndTime(java.sql.Time.valueOf("09:14:00"));
-        existing.setReason("edited by a stale form");
-        existing.setNotes("");
-        existing.setResources("");
-        existing.setUrgency("");
-        existing.setUpdateDateTime(new Date(Long.parseLong(RENDERED_VERSION) + 1000));
-        managerRefusesUpdate(AppointmentUpdateException.Reason.STALE_VERSION);
-
-        String result = new AppointmentUpdateRecord2Action().execute();
-
-        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        assertThat(response.getStatus()).isEqualTo(200);
-        assertThat(request.getAttribute("success")).isEqualTo(true);
-        assertThat(request.getAttribute("printReceipt")).isEqualTo(true);
-        // The first submission already stored the MC number and published the status change.
-        otherIds.verifyNoInteractions();
-        verifyNoInteractions(events);
+    void shouldRequireReview_whenAStaleFormAlreadyMatchesTheStoredAppointment() throws Exception {
+        existing.setReason(request.getParameter("reason"));
+        assertThat(new AppointmentUpdateRecord2Action().execute()).isEqualTo(ActionSupport.INPUT);
+        assertThat(response.getStatus()).isEqualTo(409);
         verify(appointments, never()).merge(any());
-    }
-
-    @Test
-    void shouldEndAsSaved_whenStaleCancelFindsTheAppointmentAlreadyCancelled() throws Exception {
-        request.setParameter(AppointmentEditConflict.PARAMETER, RENDERED_VERSION);
-        request.setParameter("buttoncancel", "Cancel Appt");
-        existing.setStatus("C");
-        managerRefusesUpdate(AppointmentUpdateException.Reason.STALE_VERSION);
-
-        String result = new AppointmentUpdateRecord2Action().execute();
-
-        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
         verifyNoInteractions(events);
-    }
-
-    @Test
-    void shouldPassRenderedVersionToLockedUpdate_whenFormCarriesOne() throws Exception {
-        request.setParameter(AppointmentEditConflict.PARAMETER, RENDERED_VERSION);
-        when(schedule.updateAppointment(eq(info), eq(61), eq(RENDERED_VERSION), any())).thenAnswer(call -> {
-            Consumer<Appointment> edit = call.getArgument(3);
-            edit.accept(existing);
-            return existing;
-        });
-
-        String result = new AppointmentUpdateRecord2Action().execute();
-
-        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        assertThat(existing.getReason()).isEqualTo("edited by a stale form");
-        assertThat(request.getAttribute("success")).isEqualTo(true);
-        verify(schedule).updateAppointment(eq(info), eq(61), eq(RENDERED_VERSION), any());
-    }
-
-    @Test
-    void shouldKeepUnversionedBehaviour_whenFormCarriesNoVersion() throws Exception {
-        when(schedule.updateAppointment(eq(info), eq(61), isNull(), any())).thenReturn(existing);
-
-        String result = new AppointmentUpdateRecord2Action().execute();
-
-        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        verify(schedule).updateAppointment(eq(info), eq(61), isNull(), any());
     }
 
     @Test
     void shouldRefuseStatusOnlyButtons_whenFormVersionIsStale() throws Exception {
-        request.setParameter(AppointmentEditConflict.PARAMETER, RENDERED_VERSION);
-        request.setParameter("buttoncancel", "No Show");
-        managerRefusesUpdate(AppointmentUpdateException.Reason.STALE_VERSION);
-
-        String result = new AppointmentUpdateRecord2Action().execute();
-
-        assertThat(result).isEqualTo(AppointmentEditConflict.RESULT);
+        request.setParameter("buttoncancel", "Cancel Appt");
+        existing.setStatus("C");
+        assertThat(new AppointmentUpdateRecord2Action().execute()).isEqualTo(ActionSupport.INPUT);
         assertThat(response.getStatus()).isEqualTo(409);
-        assertThat(existing.getStatus()).isEqualTo("t");
+        verify(appointments, never()).merge(any());
         verifyNoInteractions(events);
     }
 
     @Test
-    void shouldAnswerNotFound_whenAppointmentIsDeletedBeforeTheLock() throws Exception {
-        request.setParameter(AppointmentEditConflict.PARAMETER, RENDERED_VERSION);
+    void shouldSaveAndAudit_whenTheFullFormVersionIsCurrent() throws Exception {
+        assertThat(new AppointmentUpdateRecord2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(existing.getReason()).isEqualTo("edited by a stale form");
+        assertThat(request.getAttribute("success")).isEqualTo(true);
+        verify(appointments).merge(existing);
+        logActionMock.verify(() -> LogAction.addLogSynchronous(info, "AppointmentManager.updateAppointment",
+                LogConst.CON_APPT, "61", (String) null, "appointmentId=61"));
+    }
+
+    @Test
+    void shouldRefuseMissingOriginalVersion_withoutWriting() throws Exception {
+        request.removeParameter(AppointmentEditVersion.PARAMETER);
+        assertThat(new AppointmentUpdateRecord2Action().execute()).isEqualTo(ActionSupport.INPUT);
+        assertThat(response.getStatus()).isEqualTo(409);
+        verify(appointments, never()).merge(any());
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    void shouldRetainTheDraft_whenAppointmentIsDeletedBeforeTheLock() throws Exception {
         managerRefusesUpdate(AppointmentUpdateException.Reason.NOT_FOUND);
-
-        String result = new AppointmentUpdateRecord2Action().execute();
-
-        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(new AppointmentUpdateRecord2Action().execute()).isEqualTo(ActionSupport.INPUT);
         assertThat(response.getStatus()).isEqualTo(404);
+        assertThat(request.getAttribute("appointmentReviewRequired")).isEqualTo(false);
         otherIds.verifyNoInteractions();
         verifyNoInteractions(events);
     }
 
     @Test
-    void shouldReportPatientDenialAsSecurityException_whenManagerForbidsThePatient() {
-        when(schedule.updateAppointment(eq(info), eq(61), any(), any()))
-                .thenThrow(new jakarta.ws.rs.ForbiddenException("Patient record access denied"));
-
+    void shouldReportPatientDenialAsSecurityException_beforeAnyWrite() {
+        existing.setDemographicNo(42);
+        request.setParameter("demographic_no", "42");
+        request.setParameter(AppointmentEditVersion.PARAMETER, AppointmentEditVersion.of(existing, null));
         assertThatThrownBy(() -> new AppointmentUpdateRecord2Action().execute())
-                .isInstanceOf(SecurityException.class)
-                .hasMessage("missing required sec object (_appointment)");
+                .isInstanceOf(SecurityException.class).hasMessage("missing required sec object (_appointment)");
+        verify(appointments, never()).merge(any());
+        logActionMock.verifyNoInteractions();
     }
 
     @Test
@@ -271,7 +230,7 @@ class AppointmentStaleEditFormUnitTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
         assertThat(request.getAttribute("success")).isEqualTo(true);
         // The fixture appointment names no patient, so the row carries no demographic number.
-        logActionMock.verify(() -> LogAction.addLogSynchronous(info, LogConst.DELETE, LogConst.CON_APPT, "61", (Integer) null, null));
+        logActionMock.verify(() -> LogAction.addLogSynchronous(info, LogConst.DELETE, LogConst.CON_APPT, "61", (String) null, null));
     }
 
     @Test
@@ -288,7 +247,7 @@ class AppointmentStaleEditFormUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldRefuseCutWithoutCopyingTheForm_whenFormVersionIsStale() throws Exception {
         request.setParameter(AppointmentEditConflict.PARAMETER, RENDERED_VERSION);
-        when(schedule.removeAppointment(info, 61, RENDERED_VERSION))
+        when(schedule.removeAppointment(eq(info), eq(61), eq(RENDERED_VERSION), any()))
                 .thenThrow(new AppointmentUpdateException(AppointmentUpdateException.Reason.STALE_VERSION));
 
         String result = new AppointmentCutRecord2Action().execute();
@@ -302,14 +261,34 @@ class AppointmentStaleEditFormUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldCutAndKeepTheFormForPaste_whenFormVersionIsCurrent() throws Exception {
         request.setParameter(AppointmentEditConflict.PARAMETER, RENDERED_VERSION);
-        when(schedule.removeAppointment(info, 61, RENDERED_VERSION)).thenReturn(existing);
+        when(appointments.find(61)).thenThrow(new AssertionError("Cut must not re-fetch a removed source"));
+        when(schedule.removeAppointment(eq(info), eq(61), eq(RENDERED_VERSION), any())).thenAnswer(call -> {
+            assertThat(ApptUtil.getAppointmentFromSession(request)).isNull();
+            call.<Consumer<Appointment>>getArgument(3).accept(existing);
+            assertThat(ApptUtil.getAppointmentFromSession(request)).isNull();
+            return existing;
+        });
 
         String result = new AppointmentCutRecord2Action().execute();
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
         assertThat(ApptUtil.getAppointmentFromSession(request)).isNotNull();
         assertThat(ApptUtil.getAppointmentFromSession(request).getReason()).isEqualTo("edited by a stale form");
-        logActionMock.verify(() -> LogAction.addLogSynchronous(info, "Appointment.cut", LogConst.CON_APPT, "61", (Integer) null,
+        logActionMock.verify(() -> LogAction.addLogSynchronous(info, "Appointment.cut", LogConst.CON_APPT, "61", (String) null,
                 "id=61"));
     }
+    @Test
+    void shouldKeepPreviousClipboard_whenRemovalCommitFails() {
+        ApptData previous = new ApptData();
+        request.getSession().setAttribute("apptBean", previous);
+        when(schedule.removeAppointment(eq(info), eq(61), isNull(), any())).thenAnswer(call -> {
+            call.<Consumer<Appointment>>getArgument(3).accept(existing);
+            throw new IllegalStateException("Injected commit failure");
+        });
+        assertThatThrownBy(() -> new AppointmentCutRecord2Action().execute())
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(ApptUtil.getAppointmentFromSession(request)).isSameAs(previous);
+        logActionMock.verifyNoInteractions();
+    }
+
 }
