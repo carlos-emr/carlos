@@ -10089,43 +10089,7 @@
                 ]
               }
             }
-          },
-          "baselineCoverageInputs": [
-            {
-              "lane": "pr-6134-merged-focused-h2",
-              "sourceCommit": "e1aca6dac93eaf5068748795a4c820905c905abc",
-              "executionSha256": "c0c577290f0a0b42fa0008f5c870a33e3873c17078d9becab5162364a827f4bd",
-              "reportsSha256": "51e52f784015844b74617d2f63e67a7e329c7c39c78f0e53e428fb219ae82db5",
-              "summary": {
-                "tests": 564,
-                "failed": 0,
-                "skipped": 0,
-                "ready": true
-              },
-              "counterCollisionCount": 0,
-              "suiteCount": 18
-            }
-          ],
-          "baselineSelectedTestClasses": [
-            "io.github.carlos_emr.carlos.PMmodule.web.ClientSearchAttachNoteUnitTest",
-            "io.github.carlos_emr.carlos.app.contract.MutatorActionGetRejectionContractUnitTest",
-            "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BcBillingPageLinksRegressionTest",
-            "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SupServiceCodeAssoc2ActionUnitTest",
-            "io.github.carlos_emr.carlos.commn.dao.ConsultationListCorrectionsIntegrationTest",
-            "io.github.carlos_emr.carlos.commn.dao.QueryPageUnitTest",
-            "io.github.carlos_emr.carlos.commn.dao.ServerTablePagingIntegrationTest",
-            "io.github.carlos_emr.carlos.commn.dao.ServerTrayPagingIntegrationTest",
-            "io.github.carlos_emr.carlos.commn.web.BillingreferralEdit2ActionUnitTest",
-            "io.github.carlos_emr.carlos.commn.web.Contact2ActionUnitTest",
-            "io.github.carlos_emr.carlos.commn.web.JstlTableEmptyStateJspRegressionTest",
-            "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationFormPatientResolverUnitTest",
-            "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationHrmAttachmentPersisterIntegrationTest",
-            "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationHrmAttachmentPersisterUnitTest",
-            "io.github.carlos_emr.carlos.managers.ConsultationManagerUnitTest",
-            "io.github.carlos_emr.carlos.managers.DemographicManagerUnitTest",
-            "io.github.carlos_emr.carlos.utility.SpecialistContactAddressUnitTest",
-            "io.github.carlos_emr.carlos.utility.SpecialistContactEditPersisterUnitTest"
-          ]
+          }
         }
       },
       "mergedReleaseEvidence": {
@@ -10389,43 +10353,7 @@
                   ]
                 }
               }
-            },
-            "baselineCoverageInputs": [
-              {
-                "lane": "pr-6134-merged-focused-h2",
-                "sourceCommit": "e1aca6dac93eaf5068748795a4c820905c905abc",
-                "executionSha256": "c0c577290f0a0b42fa0008f5c870a33e3873c17078d9becab5162364a827f4bd",
-                "reportsSha256": "51e52f784015844b74617d2f63e67a7e329c7c39c78f0e53e428fb219ae82db5",
-                "summary": {
-                  "tests": 564,
-                  "failed": 0,
-                  "skipped": 0,
-                  "ready": true
-                },
-                "counterCollisionCount": 0,
-                "suiteCount": 18
-              }
-            ],
-            "baselineSelectedTestClasses": [
-              "io.github.carlos_emr.carlos.PMmodule.web.ClientSearchAttachNoteUnitTest",
-              "io.github.carlos_emr.carlos.app.contract.MutatorActionGetRejectionContractUnitTest",
-              "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BcBillingPageLinksRegressionTest",
-              "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SupServiceCodeAssoc2ActionUnitTest",
-              "io.github.carlos_emr.carlos.commn.dao.ConsultationListCorrectionsIntegrationTest",
-              "io.github.carlos_emr.carlos.commn.dao.QueryPageUnitTest",
-              "io.github.carlos_emr.carlos.commn.dao.ServerTablePagingIntegrationTest",
-              "io.github.carlos_emr.carlos.commn.dao.ServerTrayPagingIntegrationTest",
-              "io.github.carlos_emr.carlos.commn.web.BillingreferralEdit2ActionUnitTest",
-              "io.github.carlos_emr.carlos.commn.web.Contact2ActionUnitTest",
-              "io.github.carlos_emr.carlos.commn.web.JstlTableEmptyStateJspRegressionTest",
-              "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationFormPatientResolverUnitTest",
-              "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationHrmAttachmentPersisterIntegrationTest",
-              "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationHrmAttachmentPersisterUnitTest",
-              "io.github.carlos_emr.carlos.managers.ConsultationManagerUnitTest",
-              "io.github.carlos_emr.carlos.managers.DemographicManagerUnitTest",
-              "io.github.carlos_emr.carlos.utility.SpecialistContactAddressUnitTest",
-              "io.github.carlos_emr.carlos.utility.SpecialistContactEditPersisterUnitTest"
-            ]
+            }
           }
         }
       }
