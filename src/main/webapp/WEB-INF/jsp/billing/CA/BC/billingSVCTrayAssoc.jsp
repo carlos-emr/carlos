@@ -98,12 +98,12 @@
                 Associations
             </legend>
             <p><label for="primaryCode"> Procedure Fee Code: </label>
-                <input type="text" name="primaryCode" id="primaryCode"/> <a href="#"
-                                                                      onClick="popFeeItemList('supServiceCodeAssocActionForm','primaryCode'); return false;">Search</a>
+                <input type="text" name="primaryCode" id="primaryCode"/> <button type="button"
+                                                                      onClick="popFeeItemList('supServiceCodeAssocActionForm','primaryCode'); return false;">Search</button>
             </p>
             <p><label for="secondaryCode"> Tray Fee Code: </label>
-                <input type="text" name="secondaryCode" id="secondaryCode"/> <a href="#"
-                                                                          onClick="popFeeItemList('supServiceCodeAssocActionForm','secondaryCode'); return false;">Search</a>
+                <input type="text" name="secondaryCode" id="secondaryCode"/> <button type="button"
+                                                                          onClick="popFeeItemList('supServiceCodeAssocActionForm','secondaryCode'); return false;">Search</button>
             </p>
             <input type="submit" name="submitButton" value="Save Association"
                    onclick="setMode('edit');"/> <input type="reset" value="Clear"/></fieldset>
@@ -120,7 +120,7 @@
 <tbody><c:forEach var="tableRow" items="${list}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
         <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.billingServiceNo))}" data-sort-type="${carlos:tableSortType(tableRow.billingServiceNo)}">${carlos:forHtml(tableRow.billingServiceNo)}</td>
         <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.billingServiceTrayNo))}" data-sort-type="${carlos:tableSortType(tableRow.billingServiceTrayNo)}">${carlos:forHtml(tableRow.billingServiceTrayNo)}</td>
-        <td><a href="#" onClick="editAssociation('${carlos:forJavaScriptAttribute(tableRow.billingServiceNo)}','${carlos:forJavaScriptAttribute(tableRow.billingServiceTrayNo)}'); return false;">Edit</a><br /><a href="#" onClick="deleteAssociation('${carlos:forJavaScriptAttribute(tableRow.id)}'); return false;">Delete</a></td> <%-- NOSONAR Web:S6844 - the link markup displaytag rendered for this row action, kept as it looked --%>
+        <td><button type="button" onClick="editAssociation('${carlos:forJavaScriptAttribute(tableRow.billingServiceNo)}','${carlos:forJavaScriptAttribute(tableRow.billingServiceTrayNo)}'); return false;">Edit</button><br /><button type="button" onClick="deleteAssociation('${carlos:forJavaScriptAttribute(tableRow.id)}'); return false;">Delete</button></td>
     </tr></c:forEach></tbody>
 </table>
 </c:if>

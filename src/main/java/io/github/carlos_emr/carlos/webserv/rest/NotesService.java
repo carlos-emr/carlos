@@ -161,8 +161,12 @@ public class NotesService extends AbstractServiceImpl {
     @Autowired
     private ProgramManager programMgr;
 
-    @Autowired
     private io.github.carlos_emr.carlos.managers.TicklerManager noteTicklerManager;
+
+    @Autowired
+    public void setNoteTicklerManager(io.github.carlos_emr.carlos.managers.TicklerManager service) {
+        this.noteTicklerManager = java.util.Objects.requireNonNull(service);
+    }
 
     @Autowired
     private CaseManagementManager caseManagementMgr;
@@ -1990,7 +1994,7 @@ public class NotesService extends AbstractServiceImpl {
         // Ownership check (IDOR hardening, issue #2839 class): demographicNo is
         // caller-supplied, so bind it the same way getNotesWithFilter/getIssueNote do
         // before creating or updating any note for this patient.
-        String demoNo = demographicNo == null ? null : String.valueOf(demographicNo);
+        String demoNo = String.valueOf(demographicNo);
         if (!isNoteAccessAllowed(loggedInInfo, providerNo, demoNo)) {
             throw new AccessDeniedException(SEC_OBJECT_ECHART, "w");
         }

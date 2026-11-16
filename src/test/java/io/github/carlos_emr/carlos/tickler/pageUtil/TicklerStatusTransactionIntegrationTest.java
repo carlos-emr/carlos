@@ -86,23 +86,31 @@ class TicklerStatusTransactionIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    void shouldRefreshAnAlreadyManagedTickler_beforeComparingTheExpectedStatus() {
+    void shouldRejectStaleSnapshotOrRefreshIt_beforeComparingTheExpectedStatus() {
         int id = seed();
         try (var audit = mockStatic(LogAction.class)) {
             TicklerManager manager = manager(history, true);
-            new TransactionTemplate(transactions).executeWithoutResult(outer -> {
-                Tickler stale = entities.find(Tickler.class, id);
-                assertThat(stale.getStatus()).isEqualTo(Tickler.STATUS.A);
-                TransactionTemplate other = new TransactionTemplate(transactions);
-                other.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-                other.executeWithoutResult(inner -> {
-                    Tickler changed = ticklers.findForUpdate(id);
-                    changed.setStatus(Tickler.STATUS.D);
-                    ticklers.merge(changed);
+            try {
+                new TransactionTemplate(transactions).executeWithoutResult(outer -> {
+                    Tickler stale = entities.find(Tickler.class, id);
+                    assertThat(stale.getStatus()).isEqualTo(Tickler.STATUS.A);
+                    TransactionTemplate other = new TransactionTemplate(transactions);
+                    other.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+                    other.executeWithoutResult(inner -> {
+                        Tickler changed = ticklers.findForUpdate(id);
+                        changed.setStatus(Tickler.STATUS.D);
+                        ticklers.merge(changed);
+                    });
+                    assertThat(manager.changeStatusIfCurrent(login, id, "999998", Tickler.STATUS.A, Tickler.STATUS.C)).isEqualTo(TicklerManager.StatusChange.STALE);
+                    assertThat(stale.getStatus()).isEqualTo(Tickler.STATUS.D);
                 });
-                assertThat(manager.changeStatusIfCurrent(login, id, "999998", Tickler.STATUS.A, Tickler.STATUS.C)).isEqualTo(TicklerManager.StatusChange.STALE);
-                assertThat(stale.getStatus()).isEqualTo(Tickler.STATUS.D);
-            });
+            } catch (RuntimeException failure) {
+                Throwable cause = org.springframework.core.NestedExceptionUtils.getMostSpecificCause(failure);
+                assertThat(cause).isInstanceOf(java.sql.SQLException.class);
+                assertThat(((java.sql.SQLException) cause).getErrorCode()).isEqualTo(1020);
+            }
+            assertThat(manager.changeStatusIfCurrent(login, id, "999998", Tickler.STATUS.A, Tickler.STATUS.C))
+                    .isEqualTo(TicklerManager.StatusChange.STALE);
             assertRows(id, Tickler.STATUS.D, 0);
         } finally { cleanup(id); }
     }

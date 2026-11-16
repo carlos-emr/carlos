@@ -38,7 +38,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 
 public class DemographicSearchResult {
 
-    private SimpleDateFormat sdf = new SimpleDateFormat(IsoDates.ISO8601_DATE_PATTERN);
+    private final SimpleDateFormat sdf = new SimpleDateFormat(IsoDates.ISO8601_DATE_PATTERN);
 
     private Integer demographicNo;
     private String lastName;

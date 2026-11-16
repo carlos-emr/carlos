@@ -222,9 +222,9 @@
                                name="checked_${carlos:forHtmlAttribute(referral.id)}"
                                onChange="checkUncheck('${carlos:forJavaScriptAttribute(referral.id)}')"/>
                         <label class="table-selection-label" for="referral-select-${carlos:forHtmlAttribute(referral.id)}"><fmt:message key="dms.incomingDocs.select"/> ${carlos:forHtml(referral.firstName)} ${carlos:forHtml(referral.lastName)}</label></td>
-                    <td><a href="javascript:void(0)" <%-- NOSONAR Web:S6844 - the link markup displaytag rendered for this row action, kept as it looked --%>
+                    <td><button type="button"
                                        onclick="openEditSpecialist('${carlos:forJavaScriptAttribute(referral.id)}')"><carlos:encode value='<%= linkName %>'/>
-                    </a></td>
+                    </button></td>
                     <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(referral.firstName))}" data-sort-type="${carlos:tableSortType(referral.firstName)}">${carlos:forHtml(referral.firstName)}</td>
                     <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(referral.lastName))}" data-sort-type="${carlos:tableSortType(referral.lastName)}">${carlos:forHtml(referral.lastName)}</td>
                     <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(referral.specialtyType))}" data-sort-type="${carlos:tableSortType(referral.specialtyType)}">${carlos:forHtml(referral.specialtyType)}</td>

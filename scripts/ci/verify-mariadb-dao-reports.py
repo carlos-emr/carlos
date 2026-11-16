@@ -18,6 +18,12 @@ CRITICAL = {
 # Surefire's default JUnit 5 names distinguish both boolean invocations. Counts
 # alone cannot prove archive-failure or demographic-audit regressions executed.
 REQUIRED_CASES = {
+    "TicklerEditTransactionIntegrationTest": {
+        "shouldRejectStaleHistoryOrRefreshIt_whenAnotherTransactionAppendsAComment",
+    },
+    "TicklerStatusTransactionIntegrationTest": {
+        "shouldRejectStaleSnapshotOrRefreshIt_beforeComparingTheExpectedStatus",
+    },
     "EncounterFormDaoGroupedHistoryIntegrationTest": {
         "shouldGroupPhysicalHistory_onTheNativeTable",
         "shouldRejectUnregisteredTableBeforeHistorySql_whenIdentifierIsOtherwiseValid",
@@ -128,6 +134,8 @@ REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 17,**CRITICAL, 
                           "ScheduleSyncMariaDbIntegrationTest": 9,
                           "RxPrescribeMariaDbIntegrationTest": 4,
                           "TicklerPatientAccessMariaDbIntegrationTest": 12,
+                          "TicklerEditTransactionIntegrationTest": 5,
+                          "TicklerStatusTransactionIntegrationTest": 6,
                           "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
                           "ReportingPatientListAuditMariaDbIntegrationTest": 4,
                           "SoapTokenHousekeepingDaoIntegrationTest": 8,

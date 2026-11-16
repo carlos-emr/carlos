@@ -79,8 +79,12 @@ public class EmailComposeManager {
     private EmailConsentResolver emailConsentResolver;
     @Autowired
     private NioFileManager nioFileManager;
-    @Autowired
     private io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService attachmentOwnershipService;
+
+    @Autowired
+    public void setAttachmentOwnershipService(io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService service) {
+        this.attachmentOwnershipService = java.util.Objects.requireNonNull(service);
+    }
 
     /** Checks the complete draft before any attachment is rendered or copied. */
     public void requirePatientAttachments(Integer demographicNo, String fdid, String[] eForms,

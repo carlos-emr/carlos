@@ -73,8 +73,12 @@ public class PreventionService extends AbstractServiceImpl {
         this.projections = projections;
     }
 
-    @org.springframework.beans.factory.annotation.Autowired
     private SecurityInfoManager securityInfoManager;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public void setSecurityInfoManager(SecurityInfoManager service) {
+        this.securityInfoManager = java.util.Objects.requireNonNull(service);
+    }
 
     /**
      * Returns the active prevention records for a patient.

@@ -99,7 +99,7 @@ class DemographicAddRecord2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @ParameterizedTest
-    @CsvSource({"pronouns,Pronouns,A", "gender,Gender,A", "pronouns,Pronouns,😀", "gender,Gender,😀"})
+    @CsvSource({"pronouns,Pronoun,A", "gender,Gender,A", "pronouns,Pronoun,😀", "gender,Gender,😀"})
     void shouldRejectOverlongFields_whenPostedWithoutBrowserValidation(String field, String label, String character) throws Exception {
         allowPrivilege("_demographic", "w");
         mockRequest.setMethod("POST");

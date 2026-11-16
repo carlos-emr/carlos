@@ -68,8 +68,12 @@ public class AllergyService extends AbstractServiceImpl {
     public void setCdsLegacyProjectionService(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService service) {
         this.legacyProjection = java.util.Objects.requireNonNull(service);
     }
-    @Autowired
     private SecurityInfoManager securityInfoManager;
+
+    @Autowired
+    public void setSecurityInfoManager(SecurityInfoManager service) {
+        this.securityInfoManager = java.util.Objects.requireNonNull(service);
+    }
 
     @GET
     @Path("/active")

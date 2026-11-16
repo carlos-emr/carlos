@@ -199,6 +199,11 @@ public class MsgCreateMessage2Action extends ActionSupport {
                         + " or clear the message.", parsedDemoNo);
             }
 
+            if (!MsgMessageData.pdfAttachmentFits(pdfAtt)) {
+                response.setStatus(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
+                return redisplay(session, staged, MsgAttachPDF2Action.PDFS_TOO_LARGE, parsedDemoNo);
+            }
+
             java.util.ArrayList<MsgProviderData> providerListing;
 
 
@@ -209,8 +214,8 @@ public class MsgCreateMessage2Action extends ActionSupport {
 
             if (subject.codePointCount(0, subject.length()) > MessageTbl.SUBJECT_MAX_LENGTH) {
                 response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                return redisplay(session, staged, "Subject exceeds the maximum length of "
-                        + MessageTbl.SUBJECT_MAX_LENGTH + " characters. Shorten it and send again.", parsedDemoNo);
+                return redisplay(session, staged, io.github.carlos_emr.carlos.utility.LocaleUtils.getMessage(
+                        request, "messenger.CreateMessage.msgSubjectTooLong"), parsedDemoNo);
             }
 
             //FIXME remove MsgMessageData.getDups4/getProviderStructure/sendMessage2/createSentToString (JDBC-based) and migrate to MessagingManager/MessagingManagerImpl (Hibernate-based)

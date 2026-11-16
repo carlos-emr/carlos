@@ -99,28 +99,48 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
     public Tickler lockForAttachmentSync(Integer ticklerNo) {
         // SELECT ... FOR UPDATE on the parent row: a second attachment sync for the same
         // tickler blocks here until the first commits, then reads its rows.
-        return entityManager.find(Tickler.class, ticklerNo, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        return lockCurrentTickler(ticklerNo);
+    }
+
+    private Tickler lockCurrentTickler(Integer id) {
+        if (id == null) {
+            return null;
+        }
+        Tickler tickler = entityManager.find(Tickler.class, id);
+        if (tickler != null && entityManager.getLockMode(tickler) != jakarta.persistence.LockModeType.PESSIMISTIC_WRITE) {
+            // Upgrade during refresh. Hibernate omits FOR UPDATE from a refresh when its
+            // persistence context already records that lock, leaving a repeatable-read
+            // snapshot stale. A row locked by this helper already has its current state.
+            try {
+                entityManager.refresh(tickler, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+            } catch (jakarta.persistence.EntityNotFoundException deletedBeforeLock) {
+                return null;
+            }
+        }
+        return tickler;
     }
 
     @Override
     public Tickler findForUpdate(Integer id) {
-        if (id == null) {
-            return null;
-        }
-        Tickler tickler = entityManager.find(Tickler.class, id, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        Tickler tickler = lockCurrentTickler(id);
         if (tickler == null) {
             return null;
         }
-        // find() only locks an instance this persistence context had already loaded. Read the row
-        // again under the lock so MariaDB REPEATABLE READ also returns the committed state.
-        entityManager.refresh(tickler, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
         // Load what an edit reads on this instance, so the caller needs no later detail query. It
         // must not run find(Integer) on a locked tickler: that query join-fetches the program, and
         // for a tickler stored with program_id 0 (added outside a program; the id names no row)
         // Hibernate then tries to fill the program reference this load created from the all-NULL
         // joined row and fails with a PropertyAccessException.
-        Hibernate.initialize(tickler.getComments());
-        Hibernate.initialize(tickler.getUpdates());
+        // These must also be locking/current reads: a normal collection load still uses
+        // MariaDB's earlier repeatable-read snapshot, even after refreshing the parent.
+        // Snapshot isolation may reject the stale transaction; it must never accept its old version.
+        // Fetch one collection per query and keep the optional program association lazy.
+        entityManager.createQuery("select t from Tickler t left join fetch t.comments where t.id = :id", Tickler.class)
+                .setParameter("id", id).setLockMode(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+                .getSingleResult();
+        entityManager.createQuery("select t from Tickler t left join fetch t.updates where t.id = :id", Tickler.class)
+                .setParameter("id", id).setLockMode(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+                .getSingleResult();
         return tickler;
     }
 

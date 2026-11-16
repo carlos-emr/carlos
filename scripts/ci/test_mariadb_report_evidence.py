@@ -93,6 +93,9 @@ TICKLER_REQUIRED_CASES = {
 
 MERGE_REQUIRED_CASES = {"shouldRefuseDeniedParticipants_beforeAnyDatabaseOrAuditChange"}
 
+TICKLER_EDIT_REQUIRED_CASES = {"shouldRejectStaleHistoryOrRefreshIt_whenAnotherTransactionAppendsAComment"}
+TICKLER_STATUS_REQUIRED_CASES = {"shouldRejectStaleSnapshotOrRefreshIt_beforeComparingTheExpectedStatus"}
+
 IDENTIFIER_REQUIRED_CASES = {
     "shouldStartItsOwnJpaTransaction_andPreserveUndisclosedIdentifiers",
     "shouldRefreshPreviouslyCachedIdentifiers_afterTakingTheWriteLock",
@@ -143,6 +146,8 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                     "ScheduleSyncMariaDbIntegrationTest": SCHEDULE_REQUIRED_CASES,
                     "RxPrescribeMariaDbIntegrationTest": RX_REQUIRED_CASES,
                     "TicklerPatientAccessMariaDbIntegrationTest": TICKLER_REQUIRED_CASES,
+                    "TicklerEditTransactionIntegrationTest": TICKLER_EDIT_REQUIRED_CASES,
+                    "TicklerStatusTransactionIntegrationTest": TICKLER_STATUS_REQUIRED_CASES,
                     "AppointmentUpdateDaoIntegrationTest": APPOINTMENT_REQUIRED_CASES,
                     "ProgramAdmissionAuditMariaDbIntegrationTest": ADMISSION_REQUIRED_CASES,
                     "ReportingPatientListAuditMariaDbIntegrationTest": REPORTING_REQUIRED_CASES,
@@ -210,7 +215,9 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
         self.seed()
         for mode in MODULE.REQUIRED:
             suffix = "" if mode == "generated" else "-" + mode
-            families = [("AppointmentUpdateDaoIntegrationTest", APPOINTMENT_REQUIRED_CASES)] if mode == "generated" else []
+            families = [("AppointmentUpdateDaoIntegrationTest", APPOINTMENT_REQUIRED_CASES),
+                        ("TicklerEditTransactionIntegrationTest", TICKLER_EDIT_REQUIRED_CASES),
+                        ("TicklerStatusTransactionIntegrationTest", TICKLER_STATUS_REQUIRED_CASES)] if mode == "generated" else []
             for family, names in families + [("SoapTokenHousekeepingDaoIntegrationTest", TOKEN_REQUIRED_CASES),
                                   ("DemographicMergeMariaDbIntegrationTest", MERGE_REQUIRED_CASES),
                                   ("DemographicIdentifierPreservationMariaDbIntegrationTest", IDENTIFIER_REQUIRED_CASES),

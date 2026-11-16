@@ -99,6 +99,12 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
     private static final String CODE_NOT_NEEDED = "((" + SETTLED + " AND e.timestamp < :changedBefore) OR "
             + CODE_AGED + ")";
 
+    // Hibernate wraps mutation subqueries in derived tables on MariaDB. They cannot refer to
+    // the update's outer alias; the selected row is already fixed by e.id = :id, so bind the
+    // same id inside every attempt predicate and retain the complete eligibility check.
+    private static final String CODE_NOT_NEEDED_FOR_ID =
+            CODE_NOT_NEEDED.replace(".emailLogId = e.id", ".emailLogId = :id");
+
     /** Commit lifecycle intent before a network operation, even if a caller has a transaction. */
     @org.springframework.transaction.annotation.Transactional(
             propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
@@ -299,7 +305,7 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
     public int replaceBodyIfUnchangedBefore(Integer id, EmailLog.TransactionType type, Date changedBefore,
             Date expiredBefore, Date agedBefore, String replacement) {
         return withSettledParameters(entityManager.createQuery("UPDATE EmailLog e SET e.body = :body "
-                        + "WHERE e.id = :id AND e.transactionType = :type AND " + CODE_NOT_NEEDED
+                        + "WHERE e.id = :id AND e.transactionType = :type AND " + CODE_NOT_NEEDED_FOR_ID
                         + " AND (e.body IS NULL OR e.body <> :body)"),
                 changedBefore, expiredBefore, agedBefore)
                 .setParameter("id", id)

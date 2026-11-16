@@ -50,7 +50,7 @@ import io.github.carlos_emr.carlos.demographic.data.DemographicMerged;
 public class DemographicSearchResultTransformer {
 
     private DemographicDao demographicDao;
-    private SimpleDateFormat sdf = new SimpleDateFormat(IsoDates.ISO8601_DATE_PATTERN);
+    private final SimpleDateFormat sdf = new SimpleDateFormat(IsoDates.ISO8601_DATE_PATTERN);
     private DemographicMerged dm = new DemographicMerged();
 
     public DemographicSearchResultTransformer() {

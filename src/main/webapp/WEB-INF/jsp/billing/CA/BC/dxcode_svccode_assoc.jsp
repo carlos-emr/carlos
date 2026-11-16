@@ -107,7 +107,7 @@
                 %> <%-- Read-only only while editing: the save replaces that service code's diagnoses. --%>
                 <input type="text" name="xml_other1" id="xml_other1" size="40" value="<carlos:encode value='<%= serviceCode %>' context="htmlAttribute"/>" <%= state ? "readonly" : "" %>/> <a href="javascript:OtherScriptAttach()">
                     <img src="<%= request.getContextPath() %>/images/search_code.jpg" border="0" alt="<fmt:message key='global.btnSearch'/>"> </a>
-                <a href="#" onclick="window.open('${pageContext.request.contextPath}/billing/CA/BC/support/BillingCodes?form=bcCodeAssociationForm&amp;field=xml_other1','bcAllCodes','width=820,height=660,scrollbars=yes,resizable=yes'); return false;">All service codes</a> </span></td>
+                <button type="button" onclick="window.open('${pageContext.request.contextPath}/billing/CA/BC/support/BillingCodes?form=bcCodeAssociationForm&amp;field=xml_other1','bcAllCodes','width=820,height=660,scrollbars=yes,resizable=yes'); return false;">All service codes</button> </span></td>
             </tr>
             <tr bgcolor="CCCCFF">
                 <td><strong><fmt:message key="oscar.billing.CA.BC.billingBC.dxcode_svccode_assoc.step2"/></strong></td>

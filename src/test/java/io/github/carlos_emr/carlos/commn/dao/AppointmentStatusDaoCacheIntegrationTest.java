@@ -141,11 +141,17 @@ class AppointmentStatusDaoCacheIntegrationTest extends CarlosTestBase {
     void shouldRetainIndependentEdits_whenAnotherTransactionCommitsFirst() {
         AppointmentStatus seeded = persistSeed("W", "original");
 
-        transactionTemplate.executeWithoutResult(outer -> {
+        // Exercise dirty-column updates at READ_COMMITTED. MariaDB's REPEATABLE_READ
+        // snapshot isolation rejects a stale writer instead; that transaction must be
+        // retried, regardless of which columns Hibernate includes in the update.
+        TransactionTemplate concurrentWrites = new TransactionTemplate(transactionManager);
+        concurrentWrites.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        concurrentWrites.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
+        concurrentWrites.executeWithoutResult(outer -> {
             assertThat(appointmentStatusDao.modifyStyle(seeded.getId(), "new description", null, null)).isTrue();
             // REQUIRES_NEW suspends the first persistence context, reproducing two requests that
             // read the same status before either commits without relying on thread timing.
-            transactionTemplate.executeWithoutResult(inner -> {
+            concurrentWrites.executeWithoutResult(inner -> {
                 assertThat(appointmentStatusDao.modifyStyle(seeded.getId(), null, "#abcdef", "here.gif")).isTrue();
                 appointmentStatusDao.changeStatus(seeded.getId(), 0);
             });
