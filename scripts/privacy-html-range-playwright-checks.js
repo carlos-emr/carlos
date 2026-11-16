@@ -2,11 +2,14 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 // #5782: the installed DefaultServlet's HTML range bytes retain their original framing.
 const fs = require('node:fs');
+const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const {runWorkflow} = require('./lib/workflow-session');
 
 async function workflow(s) {
-  const original = fs.readFileSync('/usr/share/carlos-emr/webapp/carlos/gpl.htm');
+  const fixture = path.join(process.env.CARLOS_INSTALLED_WEBAPP_DIR || '/usr/share/carlos-emr/webapp/carlos', 'gpl.htm');
+  h.assert(fs.existsSync(fixture), 'The installed static HTML fixture is unavailable; run this check on the host serving the packaged install');
+  const original = fs.readFileSync(fixture);
   h.assert(original.length > 100, 'The installed static HTML fixture is unavailable');
   const url = h.appUrl(s.config.baseUrl, '/gpl.htm');
   async function fetch(headers = {}) {
