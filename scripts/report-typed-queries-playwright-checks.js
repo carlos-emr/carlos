@@ -63,13 +63,13 @@ async function workflow(s) {
         page.locator('input[type="submit"][value="Add"]').click()]);
     }
     const rows = () => sql.rows(`SELECT id,name,caption,order_no,table_name,save FROM reportConfig
-      WHERE report_id=${reportId} ORDER BY order_no,id`);
+      WHERE report_id=? ORDER BY order_no,id`, [reportId]);
     const initial = rows();
     h.assert(initial.length === 3 && initial.every(row => /^[1-9]\d*$/.test(row[0])),
       'The three configured fields did not commit');
     const ids = initial.map(row => row[0]);
     const metadata = () => JSON.stringify(sql.rows(`SELECT id,name,caption,table_name,save FROM reportConfig
-      WHERE report_id=${reportId} ORDER BY id`));
+      WHERE report_id=? ORDER BY id`, [reportId]));
     const before = metadata();
     const orderUrl = `${base}/report/ViewReportFormOrder?id=${reportId}&save=${encodeURIComponent(initial[0][5])}&tableName=formAlpha`;
     await page.goto(orderUrl);
