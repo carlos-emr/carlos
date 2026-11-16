@@ -25,6 +25,8 @@ class ProviderProperty2ActionDocQueueUnitTest extends CarlosUnitTestBase {
     private final MockHttpServletRequest request = new MockHttpServletRequest();
     private final MockHttpServletResponse response = new MockHttpServletResponse();
     private final QueueDao queues = mock(QueueDao.class);
+    private final io.github.carlos_emr.carlos.daos.security.SecObjectNameDao securityObjects =
+            mock(io.github.carlos_emr.carlos.daos.security.SecObjectNameDao.class);
     private final UserPropertyDAO properties = mock(UserPropertyDAO.class);
     private MockedStatic<ServletActionContext> servlet;
     private MockedStatic<LoggedInInfo> loggedIn;
@@ -34,7 +36,10 @@ class ProviderProperty2ActionDocQueueUnitTest extends CarlosUnitTestBase {
     void setUp() {
         request.setMethod("POST");
         registerMock(QueueDao.class, queues);
+        registerMock(io.github.carlos_emr.carlos.daos.security.SecObjectNameDao.class, securityObjects);
         registerMock(UserPropertyDAO.class, properties);
+        registerMock(io.github.carlos_emr.carlos.commn.service.ProviderDocumentQueueService.class,
+                new io.github.carlos_emr.carlos.commn.service.ProviderDocumentQueueService(queues, securityObjects, properties));
         registerMock(ProviderManager2.class, mock(ProviderManager2.class));
         registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
         servlet = mockStatic(ServletActionContext.class);
@@ -142,4 +147,27 @@ class ProviderProperty2ActionDocQueueUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("status")).isEqualTo("error");
         assertThat(request.getAttribute("providermsgSuccess")).isEqualTo("provider.setDefaultDocumentQueue.msgNotSaved");
     }
+    @Test
+    void createsTheGrantableSecurityObject_withThePersistedQueueId() {
+        request.setParameter("chooseMode", "new");
+        when(queues.addNewQueueAndGetId("Mine")).thenReturn(42);
+        assertThat(action.saveDefaultDocQueue()).isEqualTo("genDefaultDocQueue");
+        verify(properties).saveProp(argThat(prop -> "42".equals(prop.getValue())));
+        verify(securityObjects).saveOrUpdate(argThat(object -> "_queue.42".equals(object.getObjectname())
+                && "Mine".equals(object.getDescription()) && object.getOrgapplicable() == 0));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", " ", "\t", "\r\n"})
+    void refusesBlankNewQueueNames_beforeCreatingRowsOrChangingTheDefault(String blank) {
+        request.setParameter("chooseMode", "new");
+        action.getNewDefaultDocQueueProperty().setValue(blank);
+        lenient().when(queues.addNewQueueAndGetId(blank)).thenReturn(42);
+        action.saveDefaultDocQueue();
+        assertNotSaved();
+        verify(queues, never()).addNewQueueAndGetId(anyString());
+        verify(properties, never()).saveProp(any(UserProperty.class));
+        verifyNoInteractions(securityObjects);
+    }
+
 }

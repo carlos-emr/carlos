@@ -532,27 +532,28 @@ public class ProviderProperty2Action extends ActionSupport {
         else {
             return defaultDocQueueNotSaved();
         }
+        UserProperty prop;
         if ("new".equalsIgnoreCase(mode)) {
-            try {
-                QueueDao queueDao = SpringUtils.getBean(QueueDao.class);
-                Integer queueId = queueDao.addNewQueueAndGetId(defaultQ);
-                if (queueId == null) {
-                    return defaultDocQueueNotSaved();
-                }
-                defaultQ = queueId.toString();
-            } catch (RuntimeException e) {
-                logger.error("Unable to create default document queue", e);
+            if (defaultQ == null || defaultQ.isBlank()) {
                 return defaultDocQueueNotSaved();
             }
+            try {
+                prop = SpringUtils.getBean(io.github.carlos_emr.carlos.commn.service.ProviderDocumentQueueService.class)
+                        .createDefaultQueue(providerNo, defaultQ);
+            } catch (RuntimeException e) {
+                logger.error("Unable to create default document queue ({})", e.getClass().getSimpleName());
+                return defaultDocQueueNotSaved();
+            }
+        } else {
+            prop = this.userPropertyDAO.getProp(providerNo, UserProperty.DOC_DEFAULT_QUEUE);
+            if (prop == null) {
+                prop = new UserProperty();
+                prop.setName(UserProperty.DOC_DEFAULT_QUEUE);
+                prop.setProviderNo(providerNo);
+            }
+            prop.setValue(defaultQ);
+            this.userPropertyDAO.saveProp(prop);
         }
-        UserProperty prop = this.userPropertyDAO.getProp(providerNo, UserProperty.DOC_DEFAULT_QUEUE);
-        if (prop == null) {
-            prop = new UserProperty();
-            prop.setName(UserProperty.DOC_DEFAULT_QUEUE);
-            prop.setProviderNo(providerNo);
-        }
-        prop.setValue(defaultQ);
-        this.userPropertyDAO.saveProp(prop);
         request.setAttribute("status", "success");
         request.setAttribute("defaultDocQueueProperty", prop);
         request.setAttribute("providertitle", "provider.setDefaultDocumentQueue.title");
