@@ -123,120 +123,225 @@ async function cleanup(state) {
     if (!sql) return;
     try {
       if (marker && providerNo) {
-        const markerSql = sqlString(marker);
-        const providerSql = sqlString(providerNo);
         const patient = state.patientNo || sql.value(`SELECT demographic_no FROM demographic
-          WHERE last_name=${markerSql} AND first_name IN ('AI-Scribe','AI-Scribe Updated')
-            AND provider_no=${providerSql}`);
+          WHERE last_name=? AND first_name IN ('AI-Scribe','AI-Scribe Updated')
+            AND provider_no=?`, [marker, providerNo]);
         if (patient) {
           const id = sqlId(patient, 'owned synthetic demographic id');
-          const ownedRows = sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${id}
-            AND last_name=${markerSql} AND first_name IN ('AI-Scribe','AI-Scribe Updated')
-            AND provider_no=${providerSql}`);
-          assert(ownedRows === '1' || (state.demographicDeleted && ownedRows === '0'),
+          const ownedRows = sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=?
+            AND last_name=? AND first_name IN ('AI-Scribe','AI-Scribe Updated')
+            AND provider_no=?`, [id, marker, providerNo]);
+          assert(ownedRows === '1' || (state.patientNo && ownedRows === '0'),
             'The synthetic demographic ownership check did not match the created patient or its deleted state');
           if (state.labAccession) {
-            const accessionSql = sqlString(state.labAccession);
-            const filePattern = state.labFilePrefix ? sqlString(`%${state.labRunMarker}%`) : null;
+            const filePattern = state.labFilePrefix
+              ? `%${state.labRunMarker}%`
+              : null;
             const fileUploadIds = filePattern
-              ? sql.rows(`SELECT id FROM fileUploadCheck WHERE filename LIKE ${filePattern}`)
+              ? sql.rows(
+                  'SELECT id FROM fileUploadCheck WHERE filename LIKE ?',
+                  [filePattern],
+                )
                   .map(([id]) => id)
                   .filter((id) => /^[1-9]\d*$/.test(id))
               : [];
+            const fileUploadIdPlaceholders = fileUploadIds.map(() => '?').join(',');
             const uploadedLabIds = fileUploadIds.length
-              ? sql.rows(`SELECT lab_id FROM hl7TextMessage
-                    WHERE fileUploadCheck_id IN (${fileUploadIds.join(',')})`)
+              ? sql.rows(
+                  `SELECT lab_id FROM hl7TextMessage
+                    WHERE fileUploadCheck_id IN (${fileUploadIdPlaceholders})`,
+                  fileUploadIds,
+                )
                   .map(([labId]) => labId)
                   .filter((labId) => /^[1-9]\d*$/.test(labId))
               : [];
             const labIds = [...new Set([
-              ...sql.rows(`SELECT lab_no FROM hl7TextInfo WHERE accessionNum=${accessionSql}`)
-                  .map(([labNo]) => labNo)
-                  .filter((labNo) => /^[1-9]\d*$/.test(labNo)),
+              ...sql.rows(
+                'SELECT lab_no FROM hl7TextInfo WHERE accessionNum=?',
+                [state.labAccession],
+              )
+                .map(([labNo]) => labNo)
+                .filter((labNo) => /^[1-9]\d*$/.test(labNo)),
               ...uploadedLabIds,
             ])];
+
             if (labIds.length) {
-              const ids = labIds.join(',');
-              const measurementIds = sql.rows(`SELECT measurement_id FROM measurementsExt
-                  WHERE keyval='lab_no' AND val IN (${ids})`)
-                .map(([measurementId]) => measurementId)
-                .filter((measurementId) => /^[1-9]\d*$/.test(measurementId));
+              const labIdPlaceholders = labIds.map(() => '?').join(',');
+              const measurementIds = [...new Set(
+                sql.rows(
+                  `SELECT measurement_id FROM measurementsExt
+                    WHERE keyval='lab_no' AND val IN (${labIdPlaceholders})`,
+                  labIds,
+                )
+                  .map(([measurementId]) => measurementId)
+                  .filter((measurementId) => /^[1-9]\d*$/.test(measurementId)),
+              )];
+
               if (measurementIds.length) {
-                const measurementList = [...new Set(measurementIds)].join(',');
-                sql.execute(`DELETE FROM measurementsExt WHERE measurement_id IN (${measurementList});
-                  DELETE FROM measurements WHERE id IN (${measurementList})`);
+                const measurementPlaceholders = measurementIds.map(() => '?').join(',');
+                sql.execute(
+                  `DELETE FROM measurementsExt
+                    WHERE measurement_id IN (${measurementPlaceholders})`,
+                  measurementIds,
+                );
+                sql.execute(
+                  `DELETE FROM measurements
+                    WHERE id IN (${measurementPlaceholders})`,
+                  measurementIds,
+                );
               }
-              sql.execute(`DELETE FROM providerLabRoutingLock WHERE lab_no IN (${ids});
-                DELETE FROM providerLabRouting WHERE lab_type='HL7' AND lab_no IN (${ids});
-                DELETE FROM patientLabRouting WHERE lab_type='HL7' AND lab_no IN (${ids});
-                DELETE FROM hl7TextInfo WHERE lab_no IN (${ids});
-                DELETE FROM hl7TextMessage WHERE lab_id IN (${ids})`);
+
+              sql.execute(
+                `DELETE FROM providerLabRoutingLock WHERE lab_no IN (${labIdPlaceholders})`,
+                labIds,
+              );
+              sql.execute(
+                `DELETE FROM providerLabRouting
+                  WHERE lab_type='HL7' AND lab_no IN (${labIdPlaceholders})`,
+                labIds,
+              );
+              sql.execute(
+                `DELETE FROM patientLabRouting
+                  WHERE lab_type='HL7' AND lab_no IN (${labIdPlaceholders})`,
+                labIds,
+              );
+              sql.execute(
+                `DELETE FROM hl7TextInfo WHERE lab_no IN (${labIdPlaceholders})`,
+                labIds,
+              );
+              sql.execute(
+                `DELETE FROM hl7TextMessage WHERE lab_id IN (${labIdPlaceholders})`,
+                labIds,
+              );
             }
+
             if (state.labFilePrefix) {
-              sql.execute(`DELETE FROM fileUploadCheck WHERE filename LIKE ${filePattern}`);
-              assert(sql.value(`SELECT COUNT(*) FROM fileUploadCheck WHERE filename LIKE ${filePattern}`) === '0',
-                'The owned synthetic HL7 upload bookkeeping row was not removed');
+              sql.execute(
+                'DELETE FROM fileUploadCheck WHERE filename LIKE ?',
+                [filePattern],
+              );
+              assert(
+                sql.value(
+                  'SELECT COUNT(*) FROM fileUploadCheck WHERE filename LIKE ?',
+                  [filePattern],
+                ) === '0',
+                'The owned synthetic HL7 upload bookkeeping row was not removed',
+              );
+
               if (fileUploadIds.length) {
-                assert(sql.value(`SELECT COUNT(*) FROM hl7TextMessage
-                  WHERE fileUploadCheck_id IN (${fileUploadIds.join(',')})`) === '0',
-                'The owned synthetic HL7 message rows were not removed');
+                assert(
+                  sql.value(
+                    `SELECT COUNT(*) FROM hl7TextMessage
+                      WHERE fileUploadCheck_id IN (${fileUploadIdPlaceholders})`,
+                    fileUploadIds,
+                  ) === '0',
+                  'The owned synthetic HL7 message rows were not removed',
+                );
+
                 if (uploadedLabIds.length) {
-                  assert(sql.value(`SELECT COUNT(*) FROM hl7TextInfo
-                    WHERE lab_no IN (${uploadedLabIds.join(',')})`) === '0',
-                  'The owned synthetic HL7 lab information rows were not removed');
+                  const uploadedLabPlaceholders = uploadedLabIds.map(() => '?').join(',');
+                  assert(
+                    sql.value(
+                      `SELECT COUNT(*) FROM hl7TextInfo
+                        WHERE lab_no IN (${uploadedLabPlaceholders})`,
+                      uploadedLabIds,
+                    ) === '0',
+                    'The owned synthetic HL7 lab information rows were not removed',
+                  );
                 }
               }
               removeOwnedLabFile(state);
             }
-            assert(sql.value(`SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${accessionSql}`) === '0',
-              'The owned synthetic HL7 lab rows were not removed');
+
+            assert(
+              sql.value(
+                'SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=?',
+                [state.labAccession],
+              ) === '0',
+              'The owned synthetic HL7 lab rows were not removed',
+            );
           }
-          sql.execute(`DELETE FROM drugReason WHERE demographicNo=${id};
-            DELETE FROM drugs WHERE demographic_no=${id};
-            DELETE FROM prescription WHERE demographic_no=${id};
-            DELETE FROM DigitalSignature WHERE demographicId=${id} AND ModuleType='PRESCRIPTION';
-            DELETE FROM measurementsExt WHERE measurement_id IN
-              (SELECT id FROM measurements WHERE demographicNo=${id});
-            DELETE FROM measurements WHERE demographicNo=${id};
-            DELETE FROM demographicExtArchive WHERE demographic_no=${id};
-            DELETE FROM demographicExt WHERE demographic_no=${id};
-            DELETE FROM demographicArchive WHERE demographic_no=${id};
-            DELETE FROM demographiccustArchive WHERE demographic_no=${id};
-            DELETE FROM demographiccust WHERE demographic_no=${id};
-            DELETE FROM admission WHERE client_id=${id};
-            DELETE FROM DemographicContact WHERE demographicNo=${id};
-            DELETE FROM demographicPharmacy WHERE demographic_no=${id};
-            DELETE FROM demographic WHERE demographic_no=${id} AND last_name=${markerSql}
-              AND first_name IN ('AI-Scribe','AI-Scribe Updated') AND provider_no=${providerSql}`);
-          assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${id}`) === '0',
+          sql.execute('DELETE FROM drugReason WHERE demographicNo=?', [id]);
+          sql.execute('DELETE FROM drugs WHERE demographic_no=?', [id]);
+          sql.execute('DELETE FROM prescription WHERE demographic_no=?', [id]);
+          sql.execute(`DELETE FROM DigitalSignature
+            WHERE demographicId=? AND ModuleType='PRESCRIPTION'`, [id]);
+          sql.execute(`DELETE FROM measurementsExt WHERE measurement_id IN
+            (SELECT id FROM measurements WHERE demographicNo=?)`, [id]);
+          sql.execute('DELETE FROM measurements WHERE demographicNo=?', [id]);
+          sql.execute('DELETE FROM demographicExtArchive WHERE demographic_no=?', [id]);
+          sql.execute('DELETE FROM demographicExt WHERE demographic_no=?', [id]);
+          sql.execute('DELETE FROM demographicArchive WHERE demographic_no=?', [id]);
+          sql.execute('DELETE FROM demographiccustArchive WHERE demographic_no=?', [id]);
+          sql.execute('DELETE FROM demographiccust WHERE demographic_no=?', [id]);
+          sql.execute('DELETE FROM admission WHERE client_id=?', [id]);
+          sql.execute('DELETE FROM DemographicContact WHERE demographicNo=?', [id]);
+          sql.execute('DELETE FROM demographicPharmacy WHERE demographic_no=?', [id]);
+          sql.execute(`DELETE FROM demographic WHERE demographic_no=?
+            AND last_name=? AND first_name IN ('AI-Scribe','AI-Scribe Updated')
+            AND provider_no=?`, [id, marker, providerNo]);
+
+          assert(sql.value('SELECT COUNT(*) FROM demographic WHERE demographic_no=?', [id]) === '0',
             'The owned synthetic demographic was not removed');
-          assert(sql.value(`SELECT (SELECT COUNT(*) FROM drugs WHERE demographic_no=${id})
-              + (SELECT COUNT(*) FROM prescription WHERE demographic_no=${id})
-              + (SELECT COUNT(*) FROM measurements WHERE demographicNo=${id})`) === '0',
+          assert(sql.value(`SELECT (SELECT COUNT(*) FROM drugs WHERE demographic_no=?)
+              + (SELECT COUNT(*) FROM prescription WHERE demographic_no=?)
+              + (SELECT COUNT(*) FROM measurements WHERE demographicNo=?)`,
+          [id, id, id]) === '0',
           'Owned clinical test rows remain after cleanup');
         }
       }
     } finally {
       try {
         if (formName && providerNo) {
-          const nameSql = sqlString(formName);
-          const providerSql = sqlString(providerNo);
-          sql.execute(`DELETE FROM eform WHERE form_name=${nameSql} AND form_creator=${providerSql}`);
-          assert(sql.value(`SELECT COUNT(*) FROM eform WHERE form_name=${nameSql} AND form_creator=${providerSql}`) === '0',
-            'The owned synthetic eForm template was not removed');
+          sql.execute(
+            'DELETE FROM eform WHERE form_name=? AND form_creator=?',
+            [formName, providerNo],
+          );
+          assert(
+            sql.value(
+              'SELECT COUNT(*) FROM eform WHERE form_name=? AND form_creator=?',
+              [formName, providerNo],
+            ) === '0',
+            'The owned synthetic eForm template was not removed',
+          );
         }
       } finally {
         try {
           if (consumerKey) {
-            const key = sqlString(consumerKey);
-            const owned = `(SELECT id FROM ServiceClient WHERE clientKey=${key})`;
-            sql.execute(`DELETE FROM ServiceAccessToken WHERE clientId IN ${owned};
-              DELETE FROM ServiceRequestToken WHERE clientId IN ${owned};
-              DELETE FROM ServiceOAuthNonce WHERE consumerKey=${key};
-              DELETE FROM ServiceClient WHERE clientKey=${key}`);
-            assert(sql.value(`SELECT (SELECT COUNT(*) FROM ServiceClient WHERE clientKey=${key})
-                + (SELECT COUNT(*) FROM ServiceOAuthNonce WHERE consumerKey=${key})`) === '0',
-            'The owned OAuth client or its nonces were not removed');
+            const clientIds = sql.rows(
+              'SELECT id FROM ServiceClient WHERE clientKey=?',
+              [consumerKey],
+            ).map(([id]) => id).filter((id) => /^[1-9]\d*$/.test(id));
+
+            if (clientIds.length) {
+              const placeholders = clientIds.map(() => '?').join(',');
+              sql.execute(
+                `DELETE FROM ServiceAccessToken WHERE clientId IN (${placeholders})`,
+                clientIds,
+              );
+              sql.execute(
+                `DELETE FROM ServiceRequestToken WHERE clientId IN (${placeholders})`,
+                clientIds,
+              );
+            }
+
+            sql.execute(
+              'DELETE FROM ServiceOAuthNonce WHERE consumerKey=?',
+              [consumerKey],
+            );
+            sql.execute(
+              'DELETE FROM ServiceClient WHERE clientKey=?',
+              [consumerKey],
+            );
+
+            assert(
+              sql.value(
+                `SELECT (SELECT COUNT(*) FROM ServiceClient WHERE clientKey=?)
+                  + (SELECT COUNT(*) FROM ServiceOAuthNonce WHERE consumerKey=?)`,
+                [consumerKey, consumerKey],
+              ) === '0',
+              'The owned OAuth client or its nonces were not removed',
+            );
           }
         } finally {
           sql.dispose();
@@ -266,8 +371,10 @@ async function main(state = {}) {
   const formName = `PW AI-Scribe ${runMarker}`;
   const consumerKey = crypto.randomBytes(12).toString('hex');
   const consumerSecret = crypto.randomBytes(24).toString('hex');
-  const providerNo = sql.value(`SELECT provider_no FROM security
-    WHERE user_name=${sqlString(config.testUser)} LIMIT 1`);
+  const providerNo = sql.value(
+    'SELECT provider_no FROM security WHERE user_name=? LIMIT 1',
+    [config.testUser],
+  );
   if (!providerNo) throw new SkipCheck(`${config.testUser} has no security row; a real provider login is required`);
   const admissionProgramId = sql.value('SELECT id FROM program ORDER BY id LIMIT 1');
   assert(/^[1-9]\d*$/.test(admissionProgramId),
@@ -277,10 +384,13 @@ async function main(state = {}) {
   state.formName = formName;
   state.providerNo = providerNo;
   state.consumerKey = consumerKey;
-  insertId(sql, `INSERT INTO ServiceClient(name,clientKey,clientSecret,uri,lifetime)
-      VALUES(${sqlString(`PW AI-Scribe ${runMarker}`)},${sqlString(consumerKey)},
-        ${sqlString(consumerSecret)},'oob',3600)`,
-  'AI-Scribe OAuth client');
+  insertId(
+    sql,
+    `INSERT INTO ServiceClient(name,clientKey,clientSecret,uri,lifetime)
+      VALUES(?,?,?,'oob',3600)`,
+    'AI-Scribe OAuth client',
+    [`PW AI-Scribe ${runMarker}`, consumerKey, consumerSecret],
+  );
 
   const recorder = createRecorder();
   const endpointResults = [];
@@ -429,10 +539,12 @@ async function main(state = {}) {
   const measurementComment = `AI-Scribe OAuth measurement ${runMarker}`;
   sql.execute(`INSERT INTO measurements
       (type,demographicNo,providerNo,dataField,measuringInstruction,comments,dateObserved,dateEntered)
-    VALUES ('BP',${patientNo},${sqlString(providerNo)},'121/79','',${sqlString(measurementComment)},NOW(),NOW())`);
+    VALUES ('BP',?,?, '121/79','',?,NOW(),NOW())`,
+  [patientNo, providerNo, measurementComment]);
+
   const measurementId = sql.value(`SELECT id FROM measurements
-    WHERE demographicNo=${patientNo} AND type='BP' AND comments=${sqlString(measurementComment)}`);
-  sqlId(measurementId, 'AI-Scribe measurement fixture id');
+    WHERE demographicNo=? AND type='BP' AND comments=?`,
+  [patientNo, measurementComment]);
 
   const demographicPath = `/ws/services/demographics/${patientNo}`;
   if (shouldRun('demographics')) {
@@ -446,9 +558,9 @@ async function main(state = {}) {
     'Paginated demographic list did not return a result page');
   recordEndpoint('GET', '/ws/services/demographics/', allDemographicsResponse,
     'paginated patient-list response returned');
-  const searchOffset = Number(sql.value(`SELECT COUNT(*) FROM demographic
-    WHERE demographic_no < ${patientNo} AND patient_status = 'AC'`));
-  const patientPageResponse = await signedRequest(
+    const searchOffset = Number(sql.value(`SELECT COUNT(*) FROM demographic
+    WHERE demographic_no < ? AND patient_status = 'AC'`, [patientNo]));
+    const patientPageResponse = await signedRequest(
     'GET', `/ws/services/demographics/?offset=${searchOffset}&limit=1`, fullToken,
   );
   await expectStatus(patientPageResponse, 200, 'OAuth demographic page containing the synthetic patient');
@@ -520,8 +632,8 @@ async function main(state = {}) {
     'OAuth demographic update response did not contain the changed field');
   recordEndpoint('PUT', '/ws/services/demographics/', updateResponse, 'updated field returned');
   const demographicReload = await signedRequest('GET', demographicPath, fullToken);
-  const reloadedDemographic = await demographicReload.json();
   await expectStatus(demographicReload, 200, 'OAuth demographic update read-after-write');
+  const reloadedDemographic = await demographicReload.json();
   assert(reloadedDemographic.firstName === 'AI-Scribe Updated',
     'OAuth demographic update was not persisted');
   recordEndpoint('GET', '/ws/services/demographics/{demographicNo}', demographicReload,
@@ -645,9 +757,10 @@ async function main(state = {}) {
     state.labRunMarker = runMarker;
     state.labAccession = `PWAI-${runMarker}`;
     state.labFilePrefix = `LabUpload.ai-scribe-${runMarker}.xml.`;
-    const accessionSql = sqlString(state.labAccession);
-    assert(sql.value(`SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${accessionSql}`) === '0',
-      'The synthetic lab accession already exists');
+    assert(
+      sql.value('SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=?', [state.labAccession]) === '0',
+      'The synthetic lab accession already exists',
+    );
 
     const hl7Timestamp = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
     const hl7Segments = [
@@ -671,8 +784,10 @@ async function main(state = {}) {
     await expectStatus(uploadLabResponse, 200, 'OAuth synthetic HL7 lab upload');
     const uploadedLab = await uploadLabResponse.json();
     assert(uploadedLab && uploadedLab.fileName, 'HL7 lab upload did not return its saved file name');
-    const labNo = sqlId(sql.value(`SELECT lab_no FROM hl7TextInfo WHERE accessionNum=${accessionSql}`),
-      'stored synthetic HL7 lab id');
+    const labNo = sqlId(
+      sql.value('SELECT lab_no FROM hl7TextInfo WHERE accessionNum=?', [state.labAccession]),
+      'stored synthetic HL7 lab id',
+    );
     recordEndpoint('POST', '/ws/services/labs/hl7LabUpload', uploadLabResponse,
       `synthetic PATHL7 result persisted as lab ${labNo}`);
 
