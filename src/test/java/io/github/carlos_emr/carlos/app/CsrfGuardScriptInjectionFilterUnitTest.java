@@ -786,6 +786,71 @@ class CsrfGuardScriptInjectionFilterUnitTest {
         assertThat(response.getContentLength()).isEqualTo(4);
     }
 
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldPreserveStreamFraming_whenLengthHeadersAreReplacedOrAdded(boolean add) throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/forward");
+        request.setDispatcherType(DispatcherType.FORWARD);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        withEnabledCsrfGuard(() -> filter.doFilter(request, response, (req, res) -> {
+            HttpServletResponse http = (HttpServletResponse) res;
+            http.setHeader("X-Mode", "first");
+            http.addHeader("X-Mode", "second");
+            http.setIntHeader("X-Limit", 1);
+            http.addIntHeader("X-Limit", 2);
+            http.setHeader("Content-Length", "2");
+            if (add) http.addHeader("cOnTeNt-LeNgTh", "4");
+            else http.setHeader("cOnTeNt-LeNgTh", "4");
+            http.addHeader("Content-Length", null);
+            res.setContentType("application/octet-stream");
+            res.getOutputStream().write(new byte[] {0, 1, 2, 3});
+        }));
+        assertThat(response.getContentAsByteArray()).containsExactly(0, 1, 2, 3);
+        assertThat(response.getHeaders("Content-Length")).containsExactly("4");
+        assertThat(response.getHeaders("X-Mode")).containsExactly("first", "second");
+        assertThat(response.getHeaders("X-Limit")).containsExactly("1", "2");
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldPreserveStreamFraming_whenIntegerLengthHeadersAreUsed(boolean add) throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/forward");
+        request.setDispatcherType(DispatcherType.FORWARD);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        withEnabledCsrfGuard(() -> filter.doFilter(request, response, (req, res) -> {
+            HttpServletResponse http = (HttpServletResponse) res;
+            if (add) http.addIntHeader("Content-Length", 4);
+            else http.setIntHeader("Content-Length", 4);
+            res.setContentType("application/octet-stream");
+            res.getOutputStream().write(new byte[] {0, 1, 2, 3});
+        }));
+        assertThat(response.getContentAsByteArray()).containsExactly(0, 1, 2, 3);
+        assertThat(response.getHeaders("Content-Length")).containsExactly("4");
+    }
+
+    @Test
+    void shouldKeepAnUnframedStream_whenItsLengthIsRemovedAndAMalformedValueIsAdded() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/forward");
+        request.setDispatcherType(DispatcherType.FORWARD);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        try (LogCapture capture = LogCapture.forLogger(CsrfGuardScriptInjectionFilter.class)) {
+            withEnabledCsrfGuard(() -> filter.doFilter(request, response, (req, res) -> {
+                HttpServletResponse http = (HttpServletResponse) res;
+                http.setHeader("Content-Length", "4");
+                http.setHeader("Content-Length", null);
+                http.addHeader("Content-Length", "invalid");
+                res.setContentType("application/octet-stream");
+                res.getOutputStream().write(new byte[] {0, 1, 2, 3});
+            }));
+            assertThat(response.getContentAsByteArray()).containsExactly(0, 1, 2, 3);
+            assertThat(response.getHeader("Content-Length")).isNull();
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getMessage().getFormattedMessage()).contains("Ignoring malformed Content-Length");
+            });
+        }
+    }
+
     @Test
     void shouldAllowChannelReselection_afterFullReset() throws Exception {
         for (boolean writerFirst : new boolean[] {false, true}) {
