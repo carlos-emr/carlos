@@ -10308,7 +10308,7 @@
       "timeoutSec": 360,
       "env": [],
       "fixtures": "The runWorkflow FAKE- patient; its preventions and their preventionsExt rows are removed in cleanup. SKIP when cvc.url replaces the brand picker, or without Poppler pdftotext.",
-      "notes": "Issue #5279 section 7. A Tdap recorded through the brand picker (ADACEL 0.5 mL IM) is amended to 1 vial SC: the replacement stores them and keeps the vaccine, DIN, manufacturer, lot, site and comment, the original is archived unchanged, and the reopened form, summary and printout show the new dose. LAST, a dose saved without a unit must reopen with that dose and survive an unchanged save. Also checks legacy compact, unknown-unit, multiword, repeated-space, quoted Unicode, ampersand/markup and blank doses through reopening and unchanged saves (#5431)."
+      "notes": "Issue #5279 section 7. A Tdap recorded through the brand picker (ADACEL 0.5 mL IM) is amended to 1 vial SC: the replacement stores them and keeps the vaccine, DIN, manufacturer, lot, site and comment, the original is archived unchanged, and the reopened form, summary and printout show the new dose. LAST, a dose saved without a unit must reopen with that dose and survive an unchanged save. Also checks legacy compact, unknown-unit, multiword, repeated-space, quoted Unicode, ampersand/markup, trailing-space, nonnumeric, mixed-case unit and blank doses through reopening and unchanged saves (#5431)."
     },
     {
       "name": "prevention-brand-picker-units-routes",
