@@ -15,6 +15,8 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.parallel.Isolated;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -28,6 +30,7 @@ import static org.mockito.Mockito.*;
 @Tag("unit")
 @Tag("dxresearch")
 @Isolated("Temporarily replaces shared action security managers")
+@Execution(ExecutionMode.SAME_THREAD)
 class DxResearchSiblingAuthorizationUnitTest extends CarlosUnitTestBase {
     private AutoCloseable replaceSecurity(boolean items, SecurityInfoManager security) throws Exception {
         Class<?> type = items ? dxResearchLoadQuickListItems2Action.class : dxResearchCodeSearch2Action.class;
