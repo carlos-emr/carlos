@@ -175,6 +175,24 @@ source/report provenance are refreshed. Every other floor and refusal line
 is retained, including the comparison-wide qualification requirements and
 80 unreviewed zero floors. No floor is lowered and no waiver is added.
 
+The `79af8359433b` refresh rebinds PR #6113 to release `070c90d534de` (#6174).
+Merging the release had kept an older release identity and the release's
+adapter blobs, so freshness failed. The rebuilt file starts from the release's
+own floors, which stay authoritative for every row this PR does not change: 1,595
+floors, exclusions, refusal lines and the 76 unreviewed zero floors the release
+reports. Only the two adapter rows change. Each metric takes the highest of the
+release floor, the PR's earlier measurement on the same blob, and a focused
+Temurin JDK 25.0.5+8 JaCoCo union run on the merged sources. That union combines
+every H2 test class that names either adapter (459 cases) with the 35-case
+physical MariaDB 11.8.8 `JdbcConnectorMariaDbIntegrationTest`: 494 cases with
+no skips, failures or errors. The driver's floors become 93.89/92.07/84.80
+(lines/instructions/branches), up from the release's 62.87/57.25/44.39.
+`MariaDbJdbcCompatibility.java` becomes 98.27/98.14/90.45. Its branch floor is
+the full H2 suite's 90.45 on this unchanged blob; the focused union reaches
+90.21. The release's prior evidence is archived in `baselinePriorEvidence`.
+This run proves source freshness and focused PR coverage only, not acceptance
+of the complete release-lane union.
+
 The `dd7321db79ee` PR #6102 merged-source refresh uses Debian 13 and Temurin
 25.0.3. Its complete H2 run records 35,947 actual cases: 35,736 passes,
 211 explicit routed/prerequisite skips, and zero failures or errors. The
