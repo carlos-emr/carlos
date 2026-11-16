@@ -1,23 +1,23 @@
 {
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "baselineCommit": "91b779a5d7e5eba9adce607029daa16f7a13a4a4",
+  "baselineCommit": "5f8ac998184dc7ff0c90947e40575c99bfd5c82a",
   "baselineCoverageInputs": [
     {
-      "lane": "pr-5141-merged-focused-h2",
-      "sourceCommit": "1859e4b68a9fc8be91617bf7223d0eb71ee452c9",
-      "executionSha256": "5674f1d9e40e07576407db2e23e973c55c22676b88970d18218eeffd369775d9",
-      "reportsSha256": "991c5e22ae87af33708cfdfe4ab0b302a24d4ea15dd47202c49a6c422f1fd93b",
+      "lane": "pr-5141-patientless-preview-merged-source",
+      "sourceCommit": "5f8ac998184dc7ff0c90947e40575c99bfd5c82a",
+      "executionSha256": "3ea0a5e7306bb2c5fbe94819c4f2768a0adab5f53c7b4c976886e36bfd5f298a",
+      "reportsSha256": "3bcfc9bbcc43c3f43ba922dd11f899fc879f8c90aee78cf0ad00c677ac4bbae0",
       "summary": {
-        "tests": 307,
+        "tests": 336,
         "failed": 0,
         "skipped": 0,
         "ready": true
       },
       "counterCollisionCount": 0,
-      "suiteCount": 11
+      "suiteCount": 12
     }
   ],
-  "baselineLane": "PR #5141 Temurin JDK 25.0.3 focused H2 Maven test jacoco:report execution of every Java test class changed by this PR on merged release/2026.08 source 1859e4b68a9fc8be91617bf7223d0eb71ee452c9. All 307 distinct test cases were counted with the strict Surefire reader; 0 prerequisite/routed skips remain explicit. Zero failures or errors. Existing higher historical floors and required refusal lines are retained. No zero-floor waiver is added. This refresh establishes source freshness and PR regression evidence; it does not qualify the complete native-lane release coverage union. Re-bound WITHOUT a new run to the merge commit 91b779a5d7 of release/2026.08 9c2014ef38 into this branch, which adds Java from PRs merged since; the values are from the run above, not re-measured.",
+  "baselineLane": "PR 5141 merged-release Java 25 signature and JSP contracts: 336 cases, zero failures/errors/skips; production-script context and signature controls: 43 cases passed; focused evidence only, not full release qualification; all prior floors and refusal requirements retained",
   "baselinePriorEvidence": {
     "baselineCommit": "91b779a5d7e5eba9adce607029daa16f7a13a4a4",
     "baselineSourceTree": "ce19cf1d8d5cd6eccbcba26622163851b22e9403",
@@ -393,7 +393,7 @@
     }
   },
   "baselineReportHeaderCollisions": 0,
-  "baselineReportSha256": "0cc2104df9e54daf4e40bfd9bc4277051493d9612336194bf852d8ebeb46b4f2",
+  "baselineReportSha256": "0a53524b7a2255a460480c34dbcce76e24b6bd668c74549fcd0b2fc654d183fb",
   "baselineSelectedTestClasses": [
     "io.github.carlos_emr.carlos.eform.data.EFormSignatureCodeUnitTest",
     "io.github.carlos_emr.carlos.eform.util.EFormSignatureViewForPdfGenerationServletUnitTest",
@@ -405,18 +405,19 @@
     "io.github.carlos_emr.carlos.signature.action.SaveSignatureUpload2ActionTest",
     "io.github.carlos_emr.carlos.ui.servlet.ImageRenderingPatientAccessUnitTest",
     "io.github.carlos_emr.carlos.ui.servlet.ImageRenderingServletUnitTest",
-    "io.github.carlos_emr.carlos.utility.DigitalSignatureUtilsUnitTest"
+    "io.github.carlos_emr.carlos.utility.DigitalSignatureUtilsUnitTest",
+    "io.github.carlos_emr.carlos.eform.EFormJspMigrationRegressionTest"
   ],
-  "baselineSourceTree": "ce19cf1d8d5cd6eccbcba26622163851b22e9403",
+  "baselineSourceTree": "3ca9f6faa8ad559469852055055c62d9290637eb",
   "baselineTestCounts": {
-    "errors": 0,
+    "tests": 336,
     "failures": 0,
-    "skipped": 0,
-    "tests": 307
+    "errors": 0,
+    "skipped": 0
   },
   "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
-  "baselineTestReportsSha256": "991c5e22ae87af33708cfdfe4ab0b302a24d4ea15dd47202c49a6c422f1fd93b",
-  "comparisonSha256": "1d8ae4c51be1f3a6bc9c38139adee1396ba2b048c9d6784ebb8104c9462eab19",
+  "baselineTestReportsSha256": "3bcfc9bbcc43c3f43ba922dd11f899fc879f8c90aee78cf0ad00c677ac4bbae0",
+  "comparisonSha256": "b477746753b9c0e232d9cae815d3048b6a00dabdbdd3e4ca2c49a733f63e5d47",
   "exclusions": {
     "src/main/java/io/github/carlos_emr/carlos/PMmodule/model/package-info.java": {
       "reason": "Package-level XML/model annotations have no executable Java bytecode; preserved through JAXB/ORM contract tests.",
@@ -10208,6 +10209,6 @@
     }
   },
   "schemaVersion": 1,
-  "sourceTree": "ce19cf1d8d5cd6eccbcba26622163851b22e9403",
+  "sourceTree": "3ca9f6faa8ad559469852055055c62d9290637eb",
   "zeroCoverageWaivers": {}
 }
