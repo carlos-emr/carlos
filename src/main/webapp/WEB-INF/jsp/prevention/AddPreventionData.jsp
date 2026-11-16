@@ -1040,12 +1040,13 @@
                             </div>
                             <%
                                 String dose = Objects.toString(extraData.get("dose"), "");
-                                // Editing must start from the stored value, including unitless and imported doses (#5431).
-                                String d1 = existingPrevention == null ? pDose : dose;
+                                // Initial edits use stored text; a refused submission retains the entered values.
+                                boolean hasSubmittedDose = request.getParameter("dose") != null;
+                                String d1 = (existingPrevention == null || hasSubmittedDose) ? pDose : dose;
                                 // The brand picker's unit as the form's own (VIAL is vial, DOSE is dose).
-                                String d2 = existingPrevention == null ? PreventionFormCodes.doseUnitCode(pUnit) : "";
+                                String d2 = (existingPrevention == null || hasSubmittedDose) ? PreventionFormCodes.doseUnitCode(pUnit) : "";
                                 String[] doseParts = dose.split(" ", -1);
-                                if (doseParts.length == 2
+                                if (!hasSubmittedDose && doseParts.length == 2
                                         && doseParts[0].matches("[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)")) {
                                     String unit = PreventionFormCodes.doseUnitCode(doseParts[1]);
                                     // Splitting must reconstruct the exact stored text on an unchanged save.
