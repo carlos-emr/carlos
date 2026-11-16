@@ -183,6 +183,26 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
         }
     }
 
+    @Test
+    void shouldReadOnlyPermittedNames_whenDiscoveringConsultations() {
+        when(mockSecurityInfoManager.getReadableDemographicIds(mockLoggedInInfo, Set.of(12, 13, 99)))
+                .thenReturn(Set.of(12, 99));
+        when(mockDemographicDao.getDemographicNames(Set.of(12, 99))).thenReturn(List.of(
+                new io.github.carlos_emr.carlos.commn.dao.projection.DemographicName(12, "Allowed", "Patient")));
+        assertThat(manager.getReadableDemographicFormattedNames(mockLoggedInInfo, List.of(12, 13, 99)))
+                .containsOnlyKeys(12, 99).containsEntry(99, "");
+        verify(mockSecurityInfoManager, never()).hasDemographicReadPrivileges(any(), any());
+    }
+
+    @Test
+    void shouldPropagateLookupFailure_whenDiscoveryPolicyCannotBeRead() {
+        when(mockSecurityInfoManager.getReadableDemographicIds(any(), any()))
+                .thenThrow(new IllegalStateException("policy unavailable"));
+        assertThatThrownBy(() -> manager.getReadableDemographicFormattedNames(mockLoggedInInfo, List.of(12)))
+                .isInstanceOf(IllegalStateException.class);
+        verify(mockDemographicDao, never()).getDemographicNames(any());
+    }
+
     // ==================== SECURITY TESTS ====================
 
     /**

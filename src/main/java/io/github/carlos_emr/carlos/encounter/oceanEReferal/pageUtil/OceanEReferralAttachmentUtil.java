@@ -27,13 +27,7 @@ public class OceanEReferralAttachmentUtil {
             return;
         }
 
-        List<EReferAttachmentData> eReferAttachmentDataList = eReferAttachmentData.geteReferAttachment().getAttachments();
-        boolean deleteEReferAttachment = eReferAttachmentDataList.size() == 1;
-
-        eReferAttachmentDataDao.remove(eReferAttachmentData.getId());
-        if (deleteEReferAttachment) {
-            eReferAttachmentDao.remove(eReferAttachmentData.getId().getEReferAttachment().getId());
-        }
+        eReferAttachmentDataDao.removeFromPendingQueue(eReferAttachmentData);
     }
 
     public static void attachOceanEReferralConsult(String documentId, Integer demographicNo, String type) {
