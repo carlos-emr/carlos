@@ -1,4 +1,7 @@
-/* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+/*
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 CARLOS Contributors
+ */
 package io.github.carlos_emr.carlos.casemgmt.model;
 
 import io.github.carlos_emr.carlos.model.BaseObject;
