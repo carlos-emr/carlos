@@ -1,4 +1,7 @@
-/* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
+/*
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 CARLOS Contributors
+ */
 package io.github.carlos_emr.carlos.commn.web;
 
 import io.github.carlos_emr.carlos.commn.dao.FlowSheetCustomizationDao;
@@ -45,11 +48,33 @@ class FlowSheetCustomTemplateUnitTest extends CarlosUnitTestBase {
         save("absent", false, null);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"update", "hide"})
+    void shouldRejectUnknownTemplate_forOtherCustomizationWrites(String method) throws Exception {
+        customize(method, "0", false, "Synthetic template");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"update", "hide"})
+    void shouldRejectMissingTemplate_forOtherCustomizationWrites(String method) throws Exception {
+        customize(method, "0", false, null);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"update", "hide"})
+    void shouldPreserveOtherCustomizationWrites_forExistingTemplates(String method) throws Exception {
+        customize(method, "0", true, "Synthetic template");
+    }
+
     private void save(String count, boolean exists) throws Exception {
         save(count, exists, "Synthetic template");
     }
 
     private void save(String count, boolean exists, String flowsheet) throws Exception {
+        customize("save", count, exists, flowsheet);
+    }
+
+    private void customize(String method, String count, boolean exists, String flowsheet) throws Exception {
         var dao = createAndRegisterMock(FlowSheetCustomizationDao.class);
         createAndRegisterMock(FlowSheetUserCreatedDao.class);
         var customization = createAndRegisterMock(FlowSheetCustomizationService.class);
@@ -62,7 +87,9 @@ class FlowSheetCustomTemplateUnitTest extends CarlosUnitTestBase {
         var request = new MockHttpServletRequest();
         request.setMethod("POST");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), user);
-        request.setParameter("method", "save");
+        request.setParameter("method", method);
+        request.setParameter("measurement_type", "BP");
+        if ("update".equals(method)) request.setParameter("updater", "true");
         if (flowsheet != null) request.setParameter("flowsheet", flowsheet);
         request.setParameter("measurement", "BP");
         request.setParameter("display_name", "Blood pressure");

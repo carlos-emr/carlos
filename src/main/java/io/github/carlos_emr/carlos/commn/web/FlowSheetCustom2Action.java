@@ -360,6 +360,11 @@ public class FlowSheetCustom2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = validateCustomizationPermissions(scope, demographicNo);
 
+        if (flowsheet == null || templateConfig.getFlowSheet(flowsheet) == null) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
+
         logger.debug("Updating flowsheet customization for demographic-scoped request");
 
         if (request.getParameter("updater") != null) {
@@ -481,6 +486,11 @@ public class FlowSheetCustom2Action extends ActionSupport {
         logger.debug("IN HIDE");
         ScopeContext ctx = parseScopeContext();
         LoggedInInfo loggedInInfo = validateCustomizationPermissions(ctx.scope, ctx.demographicNo);
+
+        if (ctx.flowsheet == null || MeasurementTemplateFlowSheetConfig.getInstance().getFlowSheet(ctx.flowsheet) == null) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
 
         // Check for blocking customization from higher level
         CascadeCheckResult cascadeResult = flowSheetCustomizationService.checkCascadingBlocked(
