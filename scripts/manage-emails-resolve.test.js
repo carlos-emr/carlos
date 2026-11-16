@@ -60,6 +60,7 @@ for (const [label, body] of [
   page.receive(body);
   assert.equal(page.state.status, 'FAILED');
   assert.equal(page.state.removed, false);
+  assert.deepEqual(page.state.mutations, []);
   assert.equal(page.state.busy, false);
   assert.deepEqual(page.state.alerts, ['Resolution failed']);
 });
@@ -88,6 +89,7 @@ test('Resolve keeps the unresolved card after a transport refusal', () => {
   page.request().error({status: 403}, 'error', 'Forbidden');
   assert.equal(page.state.status, 'FAILED');
   assert.equal(page.state.removed, false);
+  assert.deepEqual(page.state.mutations, []);
   assert.equal(page.state.busy, false);
   assert.deepEqual(page.state.alerts, ['Resolution failed']);
 });
@@ -99,5 +101,6 @@ test('cancelling Resolve sends no request and leaves the card intact', () => {
   assert.equal(page.request(), undefined);
   assert.equal(page.state.status, 'FAILED');
   assert.equal(page.state.removed, false);
+  assert.deepEqual(page.state.mutations, []);
   assert.equal(page.state.busy, false);
 });
