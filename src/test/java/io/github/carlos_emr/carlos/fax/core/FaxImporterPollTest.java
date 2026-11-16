@@ -429,4 +429,26 @@ class FaxImporterPollTest extends CarlosUnitTestBase {
         config.setQueue(1);
         return config;
     }
+    @Test
+    void shouldRetryOnlyTheResetAccount_atTheNextPollWithoutWaitingForItsOldDeadline() throws Exception {
+        FaxConfig first = createFaxConfig(1, true, true);
+        FaxConfig second = createFaxConfig(2, true, true);
+        when(faxConfigDao.findAll(null, null)).thenReturn(List.of(first, second));
+        when(faxProviderClientFactory.getClient(any())).thenReturn(faxProviderClient);
+        when(faxProviderClient.listInboundFaxes(any())).thenThrow(new FaxProviderException("FAKE unavailable"));
+        for (int attempt = 0; attempt < 7; attempt++) {
+            faxImporter.poll();
+            if (attempt < 6) now.set(faxImporter.getPollingFailures().get(1).nextRetry());
+        }
+        var secondFailure = faxImporter.getPollingFailures().get(2);
+        assertThat(secondFailure.nextRetry()).isEqualTo(now.get().plusSeconds(3600));
+        faxImporter.resetPollingBackoff(1);
+        org.mockito.Mockito.doReturn(List.of()).when(faxProviderClient).listInboundFaxes(first);
+        faxImporter.poll();
+        verify(faxProviderClient, times(8)).listInboundFaxes(first);
+        verify(faxProviderClient, times(7)).listInboundFaxes(second);
+        assertThat(faxImporter.getPollingFailures()).containsOnlyKeys(2);
+        assertThat(faxImporter.getPollingFailures().get(2)).isEqualTo(secondFailure);
+    }
+
 }

@@ -305,6 +305,10 @@ public class ConfigureFax2Action extends ActionSupport {
             // Clear site password from memory after all configuration rows are processed
             sitePasswd = null;
 
+            for (FaxConfig savedAccount : faxConfigList) {
+                resetPollingBackoff(savedAccount.getId());
+            }
+
             jsonObject = objectMapper.createObjectNode();
             jsonObject.put("success", true);
             jsonObject.put("message", "Configuration saved!");
@@ -416,6 +420,7 @@ public class ConfigureFax2Action extends ActionSupport {
             }
             FaxProviderClient client = SpringUtils.getBean(FaxProviderClientFactory.class).getClient(probe);
             client.verifyConnection(probe);
+            resetPollingBackoff(configId);
             sendJsonSuccess(text("admin.configureFax.test.success",
                     "Connection successful. SRFax accepted the account number and password."));
         } catch (ConfigurationValidationException e) {
@@ -789,6 +794,12 @@ public class ConfigureFax2Action extends ActionSupport {
         jsonObject.put("success", false);
         jsonObject.put("message", message);
         JSONUtil.jsonResponse(response, jsonObject);
+    }
+
+    private void resetPollingBackoff(Integer accountId) {
+        if (accountId != null && accountId > 0) {
+            SpringUtils.getBean(FaxImporter.class).resetPollingBackoff(accountId);
+        }
     }
 
 }
