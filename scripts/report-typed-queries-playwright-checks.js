@@ -152,6 +152,22 @@ async function workflow(s) {
       [extensionPatient, provider, 'prefer_language']);
     await verifyCohort();
   });
+  await s.step('demographic CSV guards formula-like extension cells and preserves decimal controls', async () => {
+    const token = await page.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+    for (const [value, expected] of [['=1+1', '"\t=1+1"'], ['-5', '-5']]) {
+      sql.execute('UPDATE demographicExt SET value=? WHERE demographic_no=? AND provider_no=? AND key_val=?',
+        [value, extensionPatient, provider, 'prefer_language']);
+      const response = await s.context.request.post(`${base}/report/ViewReportResult`, {headers:{'CSRF-TOKEN':token}, form:{
+        'CSRF-TOKEN':token, submit:'Report in CSV', demoReport:'true', last_name:'on', first_name:'on',
+        prefer_language:'on', filter_1:'on', value_1:`demographic.demographic_no IN (${patient},${extensionPatient})`, dateFormat_1:''
+      }});
+      h.assert(response.status() === 200, 'The guarded extension CSV failed');
+      const lines = (await response.text()).trimEnd().split(/\r?\n/);
+      h.assert(lines.length === 3 && lines.some(line => line.endsWith(`\tExtension\t${expected}`)),
+        'The exported extension did not preserve the guarded formula or decimal control');
+      await response.dispose();
+    }
+  });
   await s.step('detached demographic CSV preserves the selected synthetic row', async () => {
     // An authenticated form POST exercises the gated CSV dispatch and its download response.
     await page.goto(`${base}/report/ViewReportFormRecord`);
