@@ -199,4 +199,23 @@ class ReportTemplateEmptyParameterUnitTest extends CarlosUnitTestBase {
         assertThat(rows.get(17).getTemplateXml()).contains("m:hint=\"optional\"");
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"root", "list", "prefixed-list"})
+    void shouldRetainTheEmptyParameter_withPrefixedReportRoot(String arrangement) {
+        String xml = "<r:report xmlns:r='urn:report' title='FAKE prefixed' description='Synthetic only'>"
+                + "<query>SELECT 'A&B', '{pick}' AS chosen</query>"
+                + "<param id='pick' type='text' description='Choice'/></r:report>";
+        if ("list".equals(arrangement)) xml = "<report-list>" + xml + "</report-list>";
+        if ("prefixed-list".equals(arrangement)) {
+            xml = "<r:report-list xmlns:r='urn:report'>" + xml + "</r:report-list>";
+        }
+        var manager = new ReportManager();
+        assertThat(manager.addTemplate(null, xml, info)).isEqualTo("Saved Successfully");
+        assertThat(manager.getReportTemplate("17").getParameters()).hasSize(1);
+        assertThat(manager.updateTemplate(null, "17", rows.get(17).getTemplateXml(), info))
+                .isEqualTo("Saved Successfully");
+        assertThat(manager.getReportTemplate("17").getParameters()).hasSize(1);
+        assertThat(manager.getSQL("17")).isEqualTo("SELECT 'A&B', '{pick}' AS chosen");
+    }
+
 }

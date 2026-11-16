@@ -54,7 +54,8 @@ async function workflow(s) {
       const parameter=template.parameterType==='text'
         ? '<param id="pick" type="text" description="Sex" meta:hint="optional"></param>'
         : '<param id="pick" type="list" description="Sex"><choice id="F">Female</choice><choice id="M">Male</choice><choice id="X">No matching patient</choice></param>';
-      const xml=`<report xmlns:meta="urn:carlos:regression-metadata" title="${template.title}" description="${marker} tab isolation" active="1"><query>${escape(template.query)}</query>${parameter}</report>`;
+      const root=template.parameterType==='text'?'r:report':'report';
+      const xml=`<${root} xmlns:r="urn:carlos:report" xmlns:meta="urn:carlos:regression-metadata" title="${template.title}" description="${marker} tab isolation" active="1"><query>${escape(template.query)}</query>${parameter}</${root}>`;
       await library.locator('#uploadReportXml').setInputFiles({name:'owned-report-tabs.xml',mimeType:'text/xml',buffer:Buffer.from(xml)});
       await click(library.locator('input[type="submit"][value^="Upload"]'));
       await library.locator('.alert-success',{hasText:'Saved Successfully'}).waitFor();

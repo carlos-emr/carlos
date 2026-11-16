@@ -238,7 +238,8 @@ public class ReportManager {
     private static Document parseTemplateXml(String xml) throws JDOMException, IOException {
         Document doc = XmlUtils.createSecureSAXBuilder().build(new StringReader(UtilXML.escapeXML(xml)));
         Element root = doc.getRootElement();
-        List<Element> reports = "report".equals(root.getName()) ? List.of(root) : root.getChildren("report");
+        List<Element> reports = "report".equals(root.getName()) ? List.of(root)
+                : root.getChildren().stream().filter(element -> "report".equals(element.getName())).toList();
         for (Element report : reports) {
             for (int index = 0; index < report.getContentSize(); index++) {
                 Content content = report.getContent(index);
@@ -256,7 +257,8 @@ public class ReportManager {
                 }
                 String wrapperXml = new XMLOutputter(Format.getRawFormat().setExpandEmptyElements(true))
                         .outputString(wrapper);
-                String fragmentXml = wrapperXml.replace("</report>", text.replace("&", "&amp;") + "</report>");
+                String closingTag = "</" + wrapper.getQualifiedName() + ">";
+                String fragmentXml = wrapperXml.replace(closingTag, text.replace("&", "&amp;") + closingTag);
                 Document fragment = XmlUtils.createSecureSAXBuilder().build(new StringReader(fragmentXml));
                 List<Content> restored = fragment.getRootElement().removeContent();
                 boolean hasParameters = restored.stream().anyMatch(part ->
