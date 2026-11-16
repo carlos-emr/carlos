@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "437b500997020ddbd6b42725ff4a7660eeef2fa1",
-  "comparisonSha256": "7b91c912c9620c420d3912f0e7baf87778a2d257045b556baf1485a077f85d6e",
+  "sourceTree": "ce19cf1d8d5cd6eccbcba26622163851b22e9403",
+  "comparisonSha256": "1d8ae4c51be1f3a6bc9c38139adee1396ba2b048c9d6784ebb8104c9462eab19",
   "files": {
     "src/main/java/io/github/carlos_emr/AppointmentMainBean.java": {
       "lines": 100.0,
@@ -6570,9 +6570,9 @@
     },
     "src/main/java/io/github/carlos_emr/carlos/eform/data/EForm.java": {
       "lines": 100.0,
-      "instructions": 98.78542510121457,
-      "branches": 91.30434782608695,
-      "sourceBlob": "4309e049cd95a89c9c208e5b7d36d654c18df111"
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "39d530066a8c28c7e16280d50f39b14e7b6cc559"
     },
     "src/main/java/io/github/carlos_emr/carlos/eform/util/BrowserChartRenderer.java": {
       "lines": 100.0,
@@ -6632,7 +6632,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "517439476c28dcf54e2edc5dade8400f4a557f74"
+      "sourceBlob": "f6551057ab3e32b1d0c9b45f940001e9b9b5bfdb"
     },
     "src/main/java/io/github/carlos_emr/carlos/eform/util/RenderAdmission.java": {
       "lines": 100.0,
@@ -6755,10 +6755,10 @@
       "sourceBlob": "51e597e6e2beef4051688bd8e411928dc4984168"
     },
     "src/main/java/io/github/carlos_emr/carlos/encounter/oscarConsultationRequest/pageUtil/EctConsultationFormRequest2Action.java": {
-      "lines": 62.5,
-      "instructions": 59.64912280701754,
-      "branches": 25.0,
-      "sourceBlob": "d657900821bc955511caa413d0bf5e20545045b4"
+      "lines": 85.29411764705883,
+      "instructions": 80.09708737864078,
+      "branches": 82.14285714285714,
+      "sourceBlob": "04687c10414702a23609a205a12c471a7becc6e7"
     },
     "src/main/java/io/github/carlos_emr/carlos/encounter/oscarConsultationRequest/pageUtil/EctConsultationFormRequestPrintAction22Action.java": {
       "lines": 97.05882352941177,
@@ -7772,13 +7772,13 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "2710dfb0127b760927ce3f7df9df8e5c79bdb51e"
+      "sourceBlob": "5042177e054fe2137370972394fcbcecdc50404c"
     },
     "src/main/java/io/github/carlos_emr/carlos/managers/DigitalSignatureManagerImpl.java": {
-      "lines": 55.55555555555556,
-      "instructions": 51.0,
+      "lines": 58.97435897435897,
+      "instructions": 53.333333333333336,
       "branches": 100.0,
-      "sourceBlob": "bcf4db27fa2c7174fe3cde81d58aa3e989c594fd"
+      "sourceBlob": "2e16d16a16645971bb273c4535c89e0619bc2378"
     },
     "src/main/java/io/github/carlos_emr/carlos/managers/DocumentManagerImpl.java": {
       "lines": 66.66666666666667,
@@ -8564,7 +8564,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "85a7c05dd0e611eb62a91e1d231538cc09103e01"
+      "sourceBlob": "6d1dcda7cba6496e9dc1900e4e2f958d5a28e814"
     },
     "src/main/java/io/github/carlos_emr/carlos/tickler/pageUtil/AddTickler2Action.java": {
       "lines": 100.0,
@@ -8621,10 +8621,10 @@
       "sourceBlob": "ace4d92b75e51462f97cd5bad8caccaa137b11de"
     },
     "src/main/java/io/github/carlos_emr/carlos/ui/servlet/ImageRenderingServlet.java": {
-      "lines": 50.0,
-      "instructions": 50.0,
+      "lines": 63.63636363636363,
+      "instructions": 60.0,
       "branches": 100.0,
-      "sourceBlob": "a66f4f16c385e243c2673b625551176ec6808a9c"
+      "sourceBlob": "6f2744c65762ab55b907087781689d267cd140b9"
     },
     "src/main/java/io/github/carlos_emr/carlos/util/BackupDownload.java": {
       "lines": 100.0,
@@ -9705,6 +9705,24 @@
       "instructions": 100.0,
       "branches": 100.0,
       "sourceBlob": "81801574511e707904e5b88eb14174066b82201a"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/pdfservlet/FrmCustomedPDFServlet.java": {
+      "lines": 89.82035928143712,
+      "instructions": 91.32947976878613,
+      "branches": 71.9298245614035,
+      "sourceBlob": "00584aa8048e1b09c63b1043d1402ec3d0dff5bc"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/ConsultationSignatureService.java": {
+      "lines": 100.0,
+      "instructions": 93.54838709677419,
+      "branches": 83.33333333333333,
+      "sourceBlob": "38058668cbc646d72cd9c1ca9b585e310907f0c9"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/DigitalSignatureUtils.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "7cec40039b0c7dd84cb64e928ef44a39a2a4e1d4"
     }
   },
   "exclusions": {
@@ -9776,68 +9794,77 @@
     }
   },
   "zeroCoverageWaivers": {},
-  "baselineCommit": "e1aca6dac93eaf5068748795a4c820905c905abc",
-  "baselineSourceTree": "437b500997020ddbd6b42725ff4a7660eeef2fa1",
-  "baselineReportSha256": "c9ed83876190741c8d493c82b052171ba048dc5fad3971bbe7a2e8bfa73a2dde",
-  "baselineLane": "PR #6134 Temurin JDK 25.0.3 focused H2 Maven test jacoco:report execution of every Java test class changed by this PR on merged release/2026.08 source e1aca6dac93eaf5068748795a4c820905c905abc. All 564 distinct test cases were counted with the strict Surefire reader; 0 prerequisite/routed skips remain explicit. Zero failures or errors. Existing higher historical floors and required refusal lines are retained. No zero-floor waiver is added. This refresh establishes source freshness and PR regression evidence; it does not qualify the complete native-lane release coverage union.",
+  "baselineCommit": "91b779a5d7e5eba9adce607029daa16f7a13a4a4",
+  "baselineSourceTree": "ce19cf1d8d5cd6eccbcba26622163851b22e9403",
+  "baselineReportSha256": "0cc2104df9e54daf4e40bfd9bc4277051493d9612336194bf852d8ebeb46b4f2",
+  "baselineLane": "PR #5141 Temurin JDK 25.0.3 focused H2 Maven test jacoco:report execution of every Java test class changed by this PR on merged release/2026.08 source 1859e4b68a9fc8be91617bf7223d0eb71ee452c9. All 307 distinct test cases were counted with the strict Surefire reader; 0 prerequisite/routed skips remain explicit. Zero failures or errors. Existing higher historical floors and required refusal lines are retained. No zero-floor waiver is added. This refresh establishes source freshness and PR regression evidence; it does not qualify the complete native-lane release coverage union. Re-bound WITHOUT a new run to the merge commit 91b779a5d7 of release/2026.08 9c2014ef38 into this branch, which adds Java from PRs merged since; the values are from the run above, not re-measured.",
   "baselineTestCounts": {
-    "tests": 564,
+    "tests": 307,
     "skipped": 0,
     "failures": 0,
     "errors": 0
   },
-  "baselineTestReportsSha256": "51e52f784015844b74617d2f63e67a7e329c7c39c78f0e53e428fb219ae82db5",
+  "baselineTestReportsSha256": "991c5e22ae87af33708cfdfe4ab0b302a24d4ea15dd47202c49a6c422f1fd93b",
   "baselineTestReportsHashFormat": "SHA-256 of canonical sorted JSON name/SHA-256 report manifest, compact separators plus final newline",
   "baselineReportHeaderCollisions": 0,
   "baselinePriorEvidence": {
-    "baselineCommit": "46ebae44664168d2f4909ef354db8471cd7c025c",
-    "baselineSourceTree": "b2c8c296bd3fc21961f46e1cf1531dc253aba039",
-    "baselineReportSha256": "15db36d32116bf4ce06f5700afcf78c5ce1d995f19a957687ef5e0e9d7f4ad4d",
-    "baselineLane": "PR #6174 conflict resolution on release f96b5b937f50b3b8cfe0ecca6128d35495544c6b. OpenJDK 25.0.3 focused Maven tests and JaCoCo on the merged production and test sources. Existing metric floors, required refusal lines, exclusions and zero-coverage review requirements are retained; new source paths use measured changed-code counters (abstract-only interfaces have no executable lines). Historical release evidence is archived in baselinePriorEvidence and is not combined with this execution. This establishes source freshness and focused regression evidence, not complete release-lane coverage acceptance.",
+    "baselineCommit": "eebcb76407c608b2065c47a4f77eba67afd3b637",
+    "baselineSourceTree": "8c8c9dde50b332a494164d31cc30d17f5887abd0",
+    "baselineReportSha256": "9ee9338a310a01f8607b5aa7812d87ee82c2753a3f64f2fbd3ac2d704160a46c",
+    "baselineLane": "PR #6145 conflict resolution on release c9945f57acb4b68d6149bdad7cc38a7024e5b192. Temurin JDK 25.0.3 focused Maven test and JaCoCo run on the merged production and test sources: PreventionFormCodesUnitTest, AddPreventionDataBrandCatalogueUnitTest, ImmunizationUnitTest, SurefireIncludeCoverageUnitTest and JspTaglibDeclarationRegressionTest. Both PR Java paths meet their retained 100% changed-line, instruction and branch floors. All 1,592 release floors, required refusal lines, exclusions and zero-coverage review requirements are retained unchanged. Historical release evidence is archived in baselinePriorEvidence; it is not combined with this execution or asserted to cover changed classes. This focused run establishes the merged source identity and PR coverage only, not full release coverage acceptance or a complete same-class lane union.",
     "baselineTestCounts": {
-      "tests": 16,
+      "tests": 63,
       "skipped": 0,
       "failures": 0,
       "errors": 0
     },
-    "baselineTestReportsSha256": "8d52860829522abe4e3af0de88b498559396d63393b74fda2f101b280eb91c3f",
+    "baselineTestReportsSha256": "fc974c6aedfa8d7d7323b6f1ac31af3dd174dff1af4b916a296472d58eef0413",
     "baselineTestReportsHashFormat": "SHA-256 of canonical sorted JSON name/SHA-256 report manifest, compact separators plus final newline",
-    "baselineReportHeaderCollisions": 0
+    "baselineReportHeaderCollisions": 0,
+    "baselineCoverageInputs": [
+      {
+        "lane": "pr-6145-focused-merged-source",
+        "sourceCommit": "eebcb76407c608b2065c47a4f77eba67afd3b637",
+        "executionSha256": "f5a851256821a4f06d07ddf28ebf13518c7dd2624134a4bfdc84ae8566937cba",
+        "reportsSha256": "fc974c6aedfa8d7d7323b6f1ac31af3dd174dff1af4b916a296472d58eef0413",
+        "summary": {
+          "tests": 63,
+          "failed": 0,
+          "skipped": 0,
+          "ready": true
+        },
+        "counterCollisionCount": 0,
+        "suiteCount": 5
+      }
+    ]
   },
   "baselineCoverageInputs": [
     {
-      "lane": "pr-6134-merged-focused-h2",
-      "sourceCommit": "e1aca6dac93eaf5068748795a4c820905c905abc",
-      "executionSha256": "c0c577290f0a0b42fa0008f5c870a33e3873c17078d9becab5162364a827f4bd",
-      "reportsSha256": "51e52f784015844b74617d2f63e67a7e329c7c39c78f0e53e428fb219ae82db5",
+      "lane": "pr-5141-merged-focused-h2",
+      "sourceCommit": "1859e4b68a9fc8be91617bf7223d0eb71ee452c9",
+      "executionSha256": "5674f1d9e40e07576407db2e23e973c55c22676b88970d18218eeffd369775d9",
+      "reportsSha256": "991c5e22ae87af33708cfdfe4ab0b302a24d4ea15dd47202c49a6c422f1fd93b",
       "summary": {
-        "tests": 564,
+        "tests": 307,
         "failed": 0,
         "skipped": 0,
         "ready": true
       },
       "counterCollisionCount": 0,
-      "suiteCount": 18
+      "suiteCount": 11
     }
   ],
   "baselineSelectedTestClasses": [
-    "io.github.carlos_emr.carlos.PMmodule.web.ClientSearchAttachNoteUnitTest",
-    "io.github.carlos_emr.carlos.app.contract.MutatorActionGetRejectionContractUnitTest",
-    "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BcBillingPageLinksRegressionTest",
-    "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SupServiceCodeAssoc2ActionUnitTest",
-    "io.github.carlos_emr.carlos.commn.dao.ConsultationListCorrectionsIntegrationTest",
-    "io.github.carlos_emr.carlos.commn.dao.QueryPageUnitTest",
-    "io.github.carlos_emr.carlos.commn.dao.ServerTablePagingIntegrationTest",
-    "io.github.carlos_emr.carlos.commn.dao.ServerTrayPagingIntegrationTest",
-    "io.github.carlos_emr.carlos.commn.web.BillingreferralEdit2ActionUnitTest",
-    "io.github.carlos_emr.carlos.commn.web.Contact2ActionUnitTest",
-    "io.github.carlos_emr.carlos.commn.web.JstlTableEmptyStateJspRegressionTest",
-    "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationFormPatientResolverUnitTest",
-    "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationHrmAttachmentPersisterIntegrationTest",
-    "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationHrmAttachmentPersisterUnitTest",
-    "io.github.carlos_emr.carlos.managers.ConsultationManagerUnitTest",
-    "io.github.carlos_emr.carlos.managers.DemographicManagerUnitTest",
-    "io.github.carlos_emr.carlos.utility.SpecialistContactAddressUnitTest",
-    "io.github.carlos_emr.carlos.utility.SpecialistContactEditPersisterUnitTest"
+    "io.github.carlos_emr.carlos.eform.data.EFormSignatureCodeUnitTest",
+    "io.github.carlos_emr.carlos.eform.util.EFormSignatureViewForPdfGenerationServletUnitTest",
+    "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequest2ActionUnitTest",
+    "io.github.carlos_emr.carlos.form.pdfservlet.FrmCustomedPDFServletUnitTest",
+    "io.github.carlos_emr.carlos.managers.ConsultationSignatureServiceUnitTest",
+    "io.github.carlos_emr.carlos.managers.DigitalSignatureManagerImplUnitTest",
+    "io.github.carlos_emr.carlos.signature.action.SaveSignatureUpload2ActionIssuedKeyUnitTest",
+    "io.github.carlos_emr.carlos.signature.action.SaveSignatureUpload2ActionTest",
+    "io.github.carlos_emr.carlos.ui.servlet.ImageRenderingPatientAccessUnitTest",
+    "io.github.carlos_emr.carlos.ui.servlet.ImageRenderingServletUnitTest",
+    "io.github.carlos_emr.carlos.utility.DigitalSignatureUtilsUnitTest"
   ]
 }
