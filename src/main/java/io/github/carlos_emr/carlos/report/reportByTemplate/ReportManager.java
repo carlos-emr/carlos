@@ -236,7 +236,7 @@ public class ReportManager {
 
     // Disjoint possessive chunks avoid recursive backtracking through long metadata tags.
     private static final java.util.regex.Pattern EMPTY_PARAMETER = java.util.regex.Pattern.compile(
-            "<param(?=[\s/])(?:[^<>\"'/]++|/(?!\s*>)|\"[^\"]*+\"|'[^']*+')*+/\s*+>");
+            "<param(?=[\\s/])(?:[^<>\"'/]++|/(?!\\s*>)|\"[^\"]*+\"|'[^']*+')*+/\\s*+>");
 
     /** Restores empty parameter metadata while retaining the established legacy SQL escaping policy. */
     private static Document parseTemplateXml(String xml) throws JDOMException, IOException {
@@ -267,7 +267,17 @@ public class ReportManager {
                 var matcher = EMPTY_PARAMETER.matcher(text);
                 List<Content> restored = new ArrayList<>();
                 int cursor = 0;
+                int commentStart = text.indexOf("<!--");
+                int commentEnd = commentStart < 0 ? -1 : text.indexOf("-->", commentStart + 4);
                 while (matcher.find()) {
+                    // Walk each comment boundary once; commented-out metadata remains literal text.
+                    while (commentStart >= 0 && commentEnd >= 0 && matcher.start() >= commentEnd + 3) {
+                        commentStart = text.indexOf("<!--", commentEnd + 3);
+                        commentEnd = commentStart < 0 ? -1 : text.indexOf("-->", commentStart + 4);
+                    }
+                    if (commentStart >= 0 && matcher.start() >= commentStart) {
+                        continue;
+                    }
                     String fragmentXml = wrapperXml.replace(closingTag,
                             matcher.group().replace("&", "&amp;") + closingTag);
                     Element parameter;

@@ -122,6 +122,45 @@ class ReportTemplateEmptyParameterUnitTest extends CarlosUnitTestBase {
         assertThat(query.getParams()).containsExactly(submitted);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"\n", "\t", "\r", "\r\n"})
+    void shouldRestoreEmptyMetadata_whenTheTagNameEndsWithXmlWhitespace(String whitespace) {
+        var manager = new ReportManager();
+        String xml = "<report title='FAKE whitespace' description='Synthetic only'><query>SELECT '{pick}'</query>"
+                + "<param" + whitespace + "id='pick' type='text' description='Choice'/></report>";
+        assertThat(manager.addTemplate(null, xml, info)).isEqualTo("Saved Successfully");
+        assertThat(manager.getReportTemplate("17").getParameters()).singleElement()
+                .satisfies(parameter -> assertThat(((Parameter) parameter).getParamId()).isEqualTo("pick"));
+        assertThat(manager.updateTemplate(null, "17", rows.get(17).getTemplateXml(), info)).isEqualTo("Saved Successfully");
+        assertThat(manager.getReportTemplate("17").getParameters()).hasSize(1);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "<!-- <param id='fake' type='text' description='Fake'/> --><param id='real' type='text' description='Real'/>",
+            "<param id='real' type='text' description='Real'/><!-- <param id='fake' type='text' description='Fake'/> -->",
+            "<!-- <param id='fake' type='text' description='Fake'/> --><!-- <param id='fake2' type='text' description='Fake'/> --><param id='real' type='text' description='Real'/>"})
+    void shouldRestoreOnlyActiveMetadata_whenCommentsSurroundRealParameters(String metadata) {
+        var manager = new ReportManager();
+        String xml = "<report title='FAKE comments' description='Synthetic only'><query>SELECT '{real}'</query>" + metadata + "</report>";
+        assertThat(manager.addTemplate(null, xml, info)).isEqualTo("Saved Successfully");
+        assertThat(manager.getReportTemplate("17").getParameters()).singleElement()
+                .satisfies(parameter -> assertThat(((Parameter) parameter).getParamId()).isEqualTo("real"));
+        assertThat(rows.get(17).getTemplateXml()).contains("fake");
+        assertThat(manager.updateTemplate(null, "17", rows.get(17).getTemplateXml(), info)).isEqualTo("Saved Successfully");
+        assertThat(manager.getReportTemplate("17").getParameters()).hasSize(1);
+    }
+
+    @Test
+    void shouldRetainUnclosedCommentText_withoutActivatingItsParameterLiteral() {
+        var manager = new ReportManager();
+        String xml = "<report title='FAKE literal comment' description='Synthetic only'><query>SELECT 1</query>"
+                + "<!-- <param id='fake' type='text' description='Fake'/></report>";
+        assertThat(manager.addTemplate(null, xml, info)).isEqualTo("Saved Successfully");
+        assertThat(manager.getReportTemplate("17").getParameters()).isEmpty();
+        assertThat(rows.get(17).getTemplateXml()).contains("fake");
+    }
+
     @Test
     void shouldRestoreEmptyMetadata_withoutRecursiveMatchingOfLongWhitespace() {
         var manager = new ReportManager();
@@ -228,7 +267,7 @@ class ReportTemplateEmptyParameterUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"<parameter-placeholder ignored='yes'/> ", "<!-- <param id='fake'/> -->"})
+    @ValueSource(strings = {"<parameter-placeholder ignored='yes'/> ", "<!-- <param id='fake'/> -->", "<!-- <param id='fake' type='text' description='Fake'/> -->"})
     void shouldNotInventParameters_fromCommentsOrLookalikeMetadata(String metadata) {
         var manager = new ReportManager();
         String xml = "<report title='FAKE metadata' description='Synthetic only'><query>SELECT 1</query>" + metadata + "</report>";

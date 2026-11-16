@@ -52,7 +52,7 @@ async function workflow(s) {
       await click(library.getByRole('link',{name:'Add Template',exact:true}));
       const escape=value=>value.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
       const parameter=template.parameterType==='text'
-        ? '<param id="pick" type="text" description="Sex" meta:hint="optional"></param>'
+        ? '<param\nid="pick"\ttype="text" description="Sex" meta:hint="optional"/><!-- <param id="commentedOut" type="text" description="Unused"/> -->'
         : '<param id="pick" type="list" description="Sex"><choice id="F">Female</choice><choice id="M">Male</choice><choice id="X">No matching patient</choice></param>';
       const root=template.parameterType==='text'?'r:report':'report';
       const xml=`<${root} xmlns:r="urn:carlos:report" xmlns:meta="urn:carlos:regression-metadata" title="${template.title}" description="${marker} tab isolation" active="1"><query>${escape(template.query)}</query>${parameter}</${root}>`;
@@ -74,6 +74,7 @@ async function workflow(s) {
     await page.waitForLoadState('load');
     h.assert(page.context()===s.context&&new URL(page.url()).searchParams.get('templateid')===template.id,'Report tab lost its session or template');
     await page.locator(template.parameterType==='text'?'input#pick':'select#pick').waitFor();
+    h.assert(await page.locator('#commentedOut').count()===0,'A commented parameter became an input');
     return {page,template};
   }
   const beacons=[];
