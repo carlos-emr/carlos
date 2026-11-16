@@ -152,9 +152,9 @@ public final class GraphFailurePage {
         page.write("</title>\n");
         String context = request.getContextPath();
         page.write("<link rel=\"shortcut icon\" href=\"");
-        page.write(SafeEncode.forHtmlAttribute(context + "/images/favicon.ico"));
+        page.write(SafeEncode.forHtmlAttribute(context + "/images/favicon.ico")); // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss -- the container's context path plus a fixed path, encoded with SafeEncode (null-safe OWASP Encode), which Semgrep does not model
         page.write("\">\n<link rel=\"stylesheet\" href=\"");
-        page.write(SafeEncode.forHtmlAttribute(context + STYLESHEET));
+        page.write(SafeEncode.forHtmlAttribute(context + STYLESHEET)); // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss -- the container's context path plus a fixed path, encoded with SafeEncode (null-safe OWASP Encode), which Semgrep does not model
         page.write("\">\n<style>body { background-color: #F5F5F5; }</style>\n</head>\n<body>\n");
         page.write("<div class=\"container text-center mt-5\">\n");
         // Stored values that cannot be drawn are an error; a busy or stopped service and the rest, a warning.
