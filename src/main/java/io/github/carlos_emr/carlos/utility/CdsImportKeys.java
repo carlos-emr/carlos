@@ -61,6 +61,43 @@ public final class CdsImportKeys {
         return value;
     }
 
+    /**
+     * Whether two content digests are the same text: exactly {@code left.equals(right)} for any
+     * two strings, so a null {@code left} still fails fast and a null {@code right} is unequal.
+     * The comparison goes through {@link MessageDigest#isEqual}, the form static analysis expects
+     * of a digest comparison (FindSecBugs UNSAFE_HASH_EQUALS), and the only form available inside
+     * a lambda body, where SpotBugs cannot apply a per-site suppression. The digests compared in
+     * CDS import and export are unkeyed SHA-256 values of files, rows and manifests, not
+     * secrets; the constant-time comparison is incidental.
+     */
+    public static boolean sameDigest(String left, String right) {
+        byte[] expected = utf16(left);
+        return right != null && MessageDigest.isEqual(expected, utf16(right));
+    }
+
+    // Every char as two bytes. A charset encoder would replace an unpaired surrogate, which
+    // could make two different strings compare equal.
+    private static byte[] utf16(String value) {
+        byte[] bytes = new byte[value.length() * 2];
+        for (int i = 0; i < value.length(); i++) {
+            char unit = value.charAt(i);
+            bytes[2 * i] = (byte) (unit >>> 8);
+            bytes[2 * i + 1] = (byte) unit;
+        }
+        return bytes;
+    }
+
+    /**
+     * Whether {@code value} is the ASCII {@code keyword} in any letter case. Unlike
+     * {@link String#equalsIgnoreCase}, only the ASCII letters fold and no locale is consulted, so
+     * a letter that merely folds to an ASCII one (a dotless i, a long s, the Kelvin sign) is not
+     * taken for it. Use for the status and configuration words that gate a decision. A null
+     * {@code value} is not the keyword.
+     */
+    public static boolean asciiKeyword(String keyword, String value) {
+        return value != null && com.google.common.base.Ascii.equalsIgnoreCase(keyword, value);
+    }
+
     public static String digestValue(String value, String name) {
         if (value == null || !value.matches("[a-f0-9]{64}")) throw new IllegalArgumentException("Invalid " + name);
         return value;

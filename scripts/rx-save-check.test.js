@@ -287,3 +287,189 @@ test('a later login, CSRF, empty or stale refusal cannot erase an earlier uncert
     context.reportRefusedSave({status:409,responseJSON:{error:'RX_ALREADY_SAVED'}});
     assert.equal(alerts.at(-1),refusedMessages.alreadySaved);
 });
+
+// A card edited after a lost reply is posted with the same draft revisions as the save that
+// consumed them. The server tells the two apart by what was posted: RX_ALREADY_SAVED only for an
+// exact replay, RX_SAVED_EARLIER_VERSION when the fields differ from what that save stored.
+const recoveryMessages = {
+    ...refusedMessages, removeRefused: 'still staged; try again',
+    earlierVersionSaved: 'earlier version saved; your changes were NOT saved',
+    reopenToContinue: 'this page can no longer save or remove its cards; reopen it',
+};
+
+function recoveryPage(revisions) {
+    const fields = {};
+    for (const [key, value] of Object.entries(revisions || {})) fields[`draftRevision_${key}`] = { value };
+    const elements = {
+        rxRecoveryNotice: { style: { display: 'none' } },
+        rxRecoveryMessage: { textContent: '' },
+        rxRecoveryOpenSaved: { style: { display: 'none' }, onclick: null },
+        drugForm: { elements: { namedItem: (name) => fields[name] || null } },
+    };
+    const page = { alerts: [], refreshes: 0, cleared: 0, previews: [], fields, elements };
+    page.context = {
+        jsMsg: recoveryMessages,
+        alert(message) { page.alerts.push(message); },
+        refreshDrugProfile() { page.refreshes++; },
+        clearStashDisplay() { page.cleared++; },
+        popForm2(scriptId, saveAndPrint) { page.previews.push([scriptId, saveAndPrint]); },
+        document: { getElementById: (id) => elements[id] || null },
+    };
+    vm.runInNewContext(refusedSave, page.context);
+    return page;
+}
+
+for (const earlier of [null, { status: 0 }, { status: 504 }]) {
+    test(`an edited resubmission of a saved draft is never reported as already saved (after ${JSON.stringify(earlier)})`, () => {
+        const page = recoveryPage({ 42: 'rendered' });
+        if (earlier) page.context.reportRefusedSave(earlier);
+        page.alerts.length = 0;
+        page.context.reportRefusedSave({ status: 409,
+            responseJSON: { error: 'RX_SAVED_EARLIER_VERSION', scriptId: 91, draftRevisions: { 42: 'current' } } });
+        // One plain statement: not the reassurance, and no longer "it may be saved" either.
+        assert.deepEqual(page.alerts, [recoveryMessages.earlierVersionSaved]);
+        assert.equal(page.context.rxSaveNeedsReconciliation, false);
+        assert.equal(page.context.rxPageNeedsReopen, true);
+        // The edited cards stay to read from, untouched and unsaveable; nothing is offered to print.
+        assert.equal(page.cleared, 0);
+        assert.equal(page.fields.draftRevision_42.value, 'rendered');
+        assert.equal(page.elements.rxRecoveryNotice.style.display, '');
+        assert.equal(page.elements.rxRecoveryMessage.textContent, recoveryMessages.earlierVersionSaved);
+        assert.equal(page.elements.rxRecoveryOpenSaved.style.display, 'none');
+        assert.equal(page.elements.rxRecoveryOpenSaved.onclick, null);
+        assert.deepEqual(page.previews, []);
+    });
+}
+
+test('an exact replay of Save And Print takes the acknowledged card versions and offers the saved prescription', () => {
+    const page = recoveryPage({ 42: 'rendered', 43: 'rendered too' });
+    page.context.reportRefusedSave({ status: 0 });
+    page.context.reportRefusedSave({ status: 409, responseJSON: { error: 'RX_ALREADY_SAVED', scriptId: 91,
+        draftRevisions: { 42: 'acknowledged', 43: 'acknowledged too', 'not a key': 'ignored', 99: 'no such card' } } });
+    assert.equal(page.alerts.at(-1), recoveryMessages.alreadySaved);
+    assert.equal(page.context.rxSaveNeedsReconciliation, false);
+    assert.equal(page.context.rxPageNeedsReopen, false, 'the page can carry on');
+    // As the lost reply would have left them: still staged, and saveable or removable again.
+    assert.deepEqual([page.fields.draftRevision_42.value, page.fields.draftRevision_43.value],
+        ['acknowledged', 'acknowledged too']);
+    assert.equal(page.cleared, 0);
+    assert.equal(page.elements.rxRecoveryNotice.style.display, '');
+    assert.equal(page.elements.rxRecoveryMessage.textContent, recoveryMessages.alreadySaved);
+    // Opening for print can sign the prescription, so it is offered and never done unasked.
+    assert.deepEqual(page.previews, []);
+    assert.equal(page.elements.rxRecoveryOpenSaved.style.display, '');
+    page.elements.rxRecoveryOpenSaved.onclick();
+    assert.deepEqual(page.previews, [[91, true]]);
+});
+
+for (const answer of [{ error: 'RX_ALREADY_SAVED', scriptId: 91 }, { error: 'RX_ALREADY_SAVED', scriptId: 91, draftRevisions: {} }]) {
+    test(`an exact replay whose cards the server no longer holds clears them from the page: ${JSON.stringify(answer)}`, () => {
+        const page = recoveryPage({ 42: 'rendered' });
+        page.context.reportRefusedSave({ status: 409, responseJSON: answer });
+        assert.deepEqual(page.alerts, [recoveryMessages.alreadySaved]);
+        assert.equal(page.cleared, 1);
+        assert.equal(page.refreshes, 1);
+        assert.equal(page.context.rxPageNeedsReopen, false);
+        assert.equal(page.elements.rxRecoveryOpenSaved.style.display, '');
+    });
+}
+
+test('a save the server cannot settle says the page must be reopened', () => {
+    const page = recoveryPage({ 42: 'rendered' });
+    page.context.reportRefusedSave({ status: 409, responseJSON: { error: 'RX_SAVE_OUTCOME_UNKNOWN' } });
+    assert.deepEqual(page.alerts, [recoveryMessages.saveUncertain]);
+    assert.equal(page.context.rxPageNeedsReopen, true);
+    assert.equal(page.cleared, 0);
+    assert.equal(page.elements.rxRecoveryNotice.style.display, '');
+    assert.equal(page.elements.rxRecoveryMessage.textContent, recoveryMessages.reopenToContinue);
+    assert.equal(page.elements.rxRecoveryOpenSaved.style.display, 'none');
+    // A further conflict cannot settle it either: the same way on stays in view.
+    page.elements.rxRecoveryNotice.style.display = 'none';
+    page.context.reportRefusedSave({ status: 409, responseJSON: { error: 'STALE_RX_STASH' } });
+    assert.equal(page.alerts.at(-1), recoveryMessages.saveUncertain);
+    assert.equal(page.elements.rxRecoveryNotice.style.display, '');
+});
+
+test('a login or CSRF refusal after a lost reply does not claim the page is spent', () => {
+    const page = recoveryPage({ 42: 'rendered' });
+    page.context.reportRefusedSave({ status: 0 });
+    page.context.reportRefusedSave({ status: 403, responseJSON: null, responseText: 'CSRF validation failed' });
+    assert.deepEqual(page.alerts, [recoveryMessages.saveUncertain, recoveryMessages.saveUncertain]);
+    assert.equal(page.elements.rxRecoveryNotice.style.display, 'none');
+    // The same draft refused as a conflict is: the server no longer accepts these cards from here.
+    page.context.reportRefusedSave({ status: 409, responseJSON: { error: 'STALE_RX_STASH' } });
+    assert.equal(page.elements.rxRecoveryNotice.style.display, '');
+    assert.equal(page.elements.rxRecoveryMessage.textContent, recoveryMessages.reopenToContinue);
+});
+
+test('a lost reply alone leaves the page as it is, so the retry can still settle it', () => {
+    const page = recoveryPage({ 42: 'rendered' });
+    page.context.reportRefusedSave({ status: 0 });
+    assert.equal(page.context.rxPageNeedsReopen, false);
+    assert.equal(page.elements.rxRecoveryNotice.style.display, 'none');
+    assert.equal(page.cleared, 0);
+});
+
+const refusedRemoval = slice('function reportRefusedRemoval(', 'function reportRefusedRequest(');
+for (const [state, transport, expected] of [
+    // No save in doubt: the card is still staged and the removal can simply be tried again.
+    [{}, { status: 409 }, 'removeRefused'],
+    [{ rxSaveNeedsReconciliation: false, rxPageNeedsReopen: false }, { status: 409 }, 'removeRefused'],
+    // An unconfirmed save may never have reached the server; only a conflict shows spent cards.
+    [{ rxSaveNeedsReconciliation: true, rxPageNeedsReopen: false }, { status: 0 }, 'removeRefused'],
+    [{ rxSaveNeedsReconciliation: true, rxPageNeedsReopen: false }, undefined, 'removeRefused'],
+    [{ rxSaveNeedsReconciliation: true, rxPageNeedsReopen: false }, { status: 409 }, 'reopenToContinue'],
+    // The server has said these cards are spent: no removal from this page can work.
+    [{ rxSaveNeedsReconciliation: false, rxPageNeedsReopen: true }, { status: 409 }, 'reopenToContinue'],
+    [{ rxSaveNeedsReconciliation: false, rxPageNeedsReopen: true }, undefined, 'reopenToContinue'],
+]) {
+    test(`a refused card removal says "try again" only while that can work: ${JSON.stringify([state, transport])}`, () => {
+        const alerts = [];
+        const shown = [];
+        const context = { ...state, transport, jsMsg: recoveryMessages,
+            alert: (message) => alerts.push(message), showRxRecoveryNotice: (message) => shown.push(message) };
+        vm.runInNewContext(`${refusedRemoval}\nreportRefusedRemoval(transport);`, context);
+        assert.deepEqual(alerts, [recoveryMessages[expected]]);
+        assert.deepEqual(shown, expected === 'reopenToContinue' ? [recoveryMessages.reopenToContinue] : []);
+    });
+}
+
+test('the reopen action returns to this patient\'s prescribing page', () => {
+    const window = { location: { href: '' } };
+    const context = { jsMsg: recoveryMessages, ctx: '/carlos', window,
+        RxPatientContext: { withPatient: (url) => `${url}?demographicNo=7` } };
+    vm.runInNewContext(refusedSave, context);
+    context.reopenRxPage();
+    assert.equal(window.location.href, '/carlos/rx/choosePatient?demographicNo=7');
+});
+
+test('every locale ships the earlier-version and reopen messages the page reads', () => {
+    assert.match(jsp, /<fmt:message key="oscarRx\.saveEarlierVersionSaved" var="msg_saveEarlierVersionSaved"\/>/);
+    assert.match(jsp, /earlierVersionSaved: '\$\{carlos:forJavaScript\(msg_saveEarlierVersionSaved\)\}',/);
+    assert.match(jsp, /reopenToContinue: '\$\{carlos:forJavaScript\(msg_reopenToContinue\)\}',/);
+    assert.match(jsp, /id="rxRecoveryOpenSaved"[^>]*><fmt:message key="SearchDrug\.recovery\.btnOpenSaved"\/>/);
+    assert.match(jsp, /id="rxRecoveryReopen"[^>]*onclick="reopenRxPage\(\);"><fmt:message key="SearchDrug\.recovery\.btnReopen"\/>/);
+    const read = (locale, key) => {
+        const text = fs.readFileSync(
+            path.join(__dirname, `../src/main/resources/oscarResources_${locale}.properties`), 'utf8');
+        const line = text.split('\n').find((candidate) => candidate.startsWith(`${key}=`));
+        return line ? line.slice(key.length + 1) : undefined;
+    };
+    const keys = ['oscarRx.saveEarlierVersionSaved', 'SearchDrug.js.reopenToContinue',
+        'SearchDrug.recovery.btnReopen', 'SearchDrug.recovery.btnOpenSaved'];
+    const earlier = read('en', keys[0]);
+    assert.match(earlier, /NOT saved/, 'the English message must say the changes were not saved');
+    assert.doesNotMatch(earlier, /do not enter it again/i, 'it must not repeat the already-saved reassurance');
+    assert.match(earlier, /medication profile/);
+    for (const key of keys) {
+        assert.ok(read('en', key), `en has no ${key}`);
+        for (const locale of ['fr', 'es', 'pl', 'pt_BR']) {
+            assert.ok(read(locale, key), `${locale} has no ${key}`);
+            assert.notEqual(read(locale, key), read('en', key), `${locale} ${key} is untranslated`);
+        }
+    }
+    for (const locale of ['en', 'fr', 'es', 'pl', 'pt_BR']) {
+        assert.notEqual(read(locale, keys[0]), read(locale, 'oscarRx.saveAlreadySaved'),
+            `${locale} reuses the already-saved text`);
+    }
+});

@@ -33,23 +33,33 @@
 		<expression><![CDATA["test"]]></expression>
 		<initialValueExpression><![CDATA["test"]]></initialValueExpression>
 	</variable>
+	<!-- A stored amount that is not a Teleplan amount must not fail the whole remittance: totals add known
+	     amounts only (TeleplanAmount.knownOrZero) and the unparsed* variables count the fields left out. -->
 	<variable name="amtTotal" class="java.lang.Double" resetType="Group" resetGroup="practitioner_no" calculation="Sum">
-		<expression><![CDATA[new Double(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_paidamt}))]]></expression>
+		<expression><![CDATA[Double.valueOf(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.knownOrZero($F{t_paidamt}).doubleValue())]]></expression>
+	</variable>
+	<variable name="unparsedInGroup" class="java.lang.Integer" resetType="Group" resetGroup="practitioner_no" calculation="Sum">
+		<expression><![CDATA[Integer.valueOf(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.unparsedCount($F{t_paidamt}))]]></expression>
+		<initialValueExpression><![CDATA[Integer.valueOf(0)]]></initialValueExpression>
+	</variable>
+	<variable name="unparsedTotal" class="java.lang.Integer" calculation="Sum">
+		<expression><![CDATA[Integer.valueOf(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.unparsedCount($F{t_paidamt}))]]></expression>
+		<initialValueExpression><![CDATA[Integer.valueOf(0)]]></initialValueExpression>
 	</variable>
 	<variable name="cnt01" class="java.lang.Double" calculation="Sum">
-		<expression><![CDATA[$F{t_s00type}.equalsIgnoreCase("s01")?new Double(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_paidamt})):new Double(0)]]></expression>
+		<expression><![CDATA["s01".equalsIgnoreCase($F{t_s00type})?Double.valueOf(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.knownOrZero($F{t_paidamt}).doubleValue()):Double.valueOf(0)]]></expression>
 	</variable>
 	<variable name="cnt02" class="java.lang.Double" calculation="Sum">
-		<expression><![CDATA[$F{t_s00type}.equalsIgnoreCase("s02")?new Double(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_paidamt})):new Double(0)]]></expression>
+		<expression><![CDATA["s02".equalsIgnoreCase($F{t_s00type})?Double.valueOf(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.knownOrZero($F{t_paidamt}).doubleValue()):Double.valueOf(0)]]></expression>
 	</variable>
 	<variable name="cnt03" class="java.lang.Double" calculation="Sum">
-		<expression><![CDATA[$F{t_s00type}.equalsIgnoreCase("s03")?new Double(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_paidamt})):new Double(0)]]></expression>
+		<expression><![CDATA["s03".equalsIgnoreCase($F{t_s00type})?Double.valueOf(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.knownOrZero($F{t_paidamt}).doubleValue()):Double.valueOf(0)]]></expression>
 	</variable>
 	<variable name="cnt04" class="java.lang.Double" calculation="Sum">
-		<expression><![CDATA[$F{t_s00type}.equalsIgnoreCase("s04")?new Double(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_paidamt})):new Double(0)]]></expression>
+		<expression><![CDATA["s04".equalsIgnoreCase($F{t_s00type})?Double.valueOf(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.knownOrZero($F{t_paidamt}).doubleValue()):Double.valueOf(0)]]></expression>
 	</variable>
 	<variable name="cnt00" class="java.lang.Double" calculation="Sum">
-		<expression><![CDATA[$F{t_s00type}.equalsIgnoreCase("s00")?new Double(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_paidamt})):new Double(0)]]></expression>
+		<expression><![CDATA["s00".equalsIgnoreCase($F{t_s00type})?Double.valueOf(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.knownOrZero($F{t_paidamt}).doubleValue()):Double.valueOf(0)]]></expression>
 	</variable>
 	<group name="practitioner_no">
 		<expression><![CDATA[$F{t_practitionerno}]]></expression>
@@ -58,13 +68,13 @@
 		</groupHeader>
 		<groupFooter>
 			<band height="19">
-				<element kind="line" mode="Opaque" x="0" y="17" width="535" height="1" forecolor="#000000" backcolor="#FFFFFF" key="line-1">
+				<element kind="line" positionType="Float" mode="Opaque" x="0" y="17" width="535" height="1" forecolor="#000000" backcolor="#FFFFFF" key="line-1">
 					<pen lineWidth="1.0" lineStyle="Solid" />
 				</element>
 				<element kind="line" mode="Opaque" x="0" y="1" width="535" height="1" forecolor="#000000" backcolor="#FFFFFF" key="line-2">
 					<pen lineWidth="1.0" lineStyle="Solid" />
 				</element>
-				<element kind="textField" mode="Opaque" x="0" y="3" width="284" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField-6" hTextAlign="Left" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="">
+				<element kind="textField" mode="Opaque" x="0" y="3" width="535" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField-6" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="false" pattern="">
 					<paragraph lineSpacing="Single" />
 					<box>
 						<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
@@ -72,7 +82,7 @@
 						<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 						<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
 					</box>
-					<expression><![CDATA["Total for: " +$F{first_name} + " " + $F{last_name}+ ": " + NumberFormat.getCurrencyInstance().format($V{amtTotal})]]></expression>
+					<expression><![CDATA["Total for: " +$F{first_name} + " " + $F{last_name}+ ": " + NumberFormat.getCurrencyInstance().format($V{amtTotal}) + ($V{unparsedInGroup}.intValue() > 0 ? " (known amounts only; " + $V{unparsedInGroup} + " unparsed amount field" + ($V{unparsedInGroup}.intValue() == 1 ? "" : "s") + " excluded)" : "")]]></expression>
 				</element>
 			</band>
 		</groupFooter>
@@ -240,7 +250,13 @@
 		</element>
 	</columnHeader>
 	<detail>
-		<band height="10" splitType="Stretch">
+		<band height="22" splitType="Stretch">
+			<!-- Printed only under a row whose paid amount is not a Teleplan amount (its Amount cell shows "?"):
+			     the source text, in the CSV export's wording. On every other row the line takes no space. -->
+			<element kind="textField" positionType="Float" mode="Transparent" x="0" y="10" width="535" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField-unparsed-row" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" removeLineWhenBlank="true">
+				<printWhenExpression><![CDATA[Boolean.valueOf(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.isUnparsed($F{t_paidamt}))]]></printWhenExpression>
+				<expression><![CDATA[io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.unparsedNote("", $F{t_paidamt})]]></expression>
+			</element>
 			<element kind="textField" mode="Transparent" x="31" y="0" width="47" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="" printWhenDetailOverflows="true">
 				<paragraph lineSpacing="Single" />
 				<box>
@@ -319,7 +335,7 @@
 					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
 				</box>
-				<expression><![CDATA[NumberFormat.getCurrencyInstance().format(new Double(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_paidamt})))]]></expression>
+				<expression><![CDATA[io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.isUnparsed($F{t_paidamt}) ? io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.UNPARSED_MARK : NumberFormat.getCurrencyInstance().format(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.knownOrZero($F{t_paidamt}).doubleValue())]]></expression>
 			</element>
 			<element kind="textField" mode="Transparent" x="395" y="0" width="44" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="" printWhenDetailOverflows="true">
 				<paragraph lineSpacing="Single" />
@@ -394,6 +410,10 @@ S04 = In hold process]]></text>
 		</element>
 	</pageFooter>
 	<summary height="113" splitType="Stretch">
+		<element kind="textField" mode="Transparent" x="0" y="84" width="535" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField-unparsed-total" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="true">
+			<printWhenExpression><![CDATA[Boolean.valueOf($V{unparsedTotal}.intValue() > 0)]]></printWhenExpression>
+			<expression><![CDATA["Known amounts only. Unparsed amount fields excluded: " + $V{unparsedTotal}]]></expression>
+		</element>
 		<element kind="staticText" mode="Transparent" x="0" y="19" width="147" height="14" forecolor="#000000" backcolor="#FFFFFF" key="element-101" hTextAlign="Left" vTextAlign="Middle" rotation="None">
 			<paragraph lineSpacing="Single" />
 			<box>

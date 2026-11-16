@@ -70,12 +70,14 @@ public class AntenatalReportDao {
      * @throws ConfiguredReportQuery.LimitExceededException if the cohort exceeds that budget
      */
     public List<Integer> birthSummaryDemographics() throws ConfiguredReportQuery.LimitExceededException {
+        // The same configurable limits as the other configured-report cohorts (configured_report.*).
+        int maximum = ConfiguredReportQuery.maxIdentifierRows();
         List<?> values = entityManager.createNativeQuery("select distinct demographic_no from formBCBirthSumMo")
-                .setMaxResults(ConfiguredReportQuery.MAX_IDENTIFIER_ROWS + 1)
-                .setHint("jakarta.persistence.query.timeout", ConfiguredReportQuery.TIMEOUT_SECONDS * 1000)
+                .setMaxResults(maximum + 1)
+                .setHint("jakarta.persistence.query.timeout", ConfiguredReportQuery.timeoutSeconds() * 1000)
                 .getResultList();
-        if (values.size() > ConfiguredReportQuery.MAX_IDENTIFIER_ROWS) {
-            throw new ConfiguredReportQuery.LimitExceededException("Report identifier budget exceeded; narrow the filters");
+        if (values.size() > maximum) {
+            throw new ConfiguredReportQuery.LimitExceededException(ConfiguredReportQuery.Limit.IDENTIFIERS, maximum);
         }
         return values.stream().map(value -> value == null ? 0 : ((Number) value).intValue()).toList();
     }

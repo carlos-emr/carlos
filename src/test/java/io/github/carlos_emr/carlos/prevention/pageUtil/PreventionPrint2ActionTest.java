@@ -12,6 +12,9 @@
  */
 package io.github.carlos_emr.carlos.prevention.pageUtil;
 
+import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
+import io.github.carlos_emr.carlos.commn.dao.PreventionDao;
+import io.github.carlos_emr.carlos.commn.dao.PreventionExtDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.prevention.pageUtil.PreventionPrintLoader.Entry;
@@ -89,6 +92,11 @@ class PreventionPrint2ActionTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         mocks = MockitoAnnotations.openMocks(this);
+
+        // Even the unreadable-result logger initializes PreventionData's static DAO fields.
+        registerMock(PreventionDao.class, mock(PreventionDao.class));
+        registerMock(PreventionExtDao.class, mock(PreventionExtDao.class));
+        registerMock(PartialDateDao.class, mock(PartialDateDao.class));
 
         request = new MockHttpServletRequest("POST", "/prevention/printPrevention");
         response = new MockHttpServletResponse();
@@ -258,6 +266,27 @@ class PreventionPrint2ActionTest extends CarlosUnitTestBase {
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_prevention)");
         verifyNoInteractions(printLoader);
+    }
+
+    @Test
+    @DisplayName("should print nothing and say the preventions could not be read when a read fails")
+    void shouldRenderUnreadableBanner_whenAPreventionReadFails() throws Exception {
+        selection("42", "false", "Inf", "Td");
+        when(printLoader.load(any(), anyString(), any(), anyBoolean()))
+                .thenThrow(new io.github.carlos_emr.carlos.prevention.dto.PreventionSourceUnavailableException(
+                        new java.io.IOException("synthetic source failure")));
+
+        String result = action.execute();
+
+        // The Preventions page is shown with its own reason, not a download and not a stack trace.
+        assertThat(result).isEqualTo(ActionSupport.ERROR);
+        assertThat(request.getAttribute("printUnreadable")).isEqualTo(Boolean.TRUE);
+        assertThat(request.getAttribute("printError")).isEqualTo(Boolean.TRUE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+        assertThat(response.getContentType()).isNull();
+        assertThat(response.getContentAsByteArray()).isEmpty();
+        assertThat(pdfsCreated).hasValue(0);
+        verifyNoInteractions(pdf);
     }
 
     private void selection(String demographicNo, String immunizationOnly, String... types) {
