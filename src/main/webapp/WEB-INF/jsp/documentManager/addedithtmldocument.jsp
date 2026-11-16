@@ -59,6 +59,7 @@
 <%@ page import="io.github.carlos_emr.carlos.documentManager.data.AddEditDocument2Form" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Document" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%
@@ -201,6 +202,7 @@
     <script type="text/javascript"
             src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
+    <fmt:message key="dms.error.descriptionTooLong" var="msgDescriptionTooLongText"/>
     <script type="text/javascript">
         window.onload = function () {
             if (!NiftyCheck()) return;
@@ -247,7 +249,14 @@
         function submitUpload(object) {
             object.Submit.disabled = true;
             var ans = true;
-            if (object.reviewerId.value != "") {
+            // document.docdesc counts code points (utf8mb4), as Array.from does; AddEditHtml2Action
+            // refuses a longer description too, and that is the check that holds.
+            if (Array.from(object.docDesc.value.replace(/^[\x00-\x20]+|[\x00-\x20]+$/g, '')).length > <%= Document.DESCRIPTION_MAX_LENGTH %>) {
+                alert('${carlos:forJavaScript(msgDescriptionTooLongText)}');
+                object.docDesc.focus();
+                ans = false;
+            }
+            if (ans && object.reviewerId.value != "") {
                 ans = confirm("Re-submitting this HTML will remove reviewer information. Confirm?");
             }
             if (ans && !validDate("observationDate")) {
@@ -362,9 +371,12 @@
             </td>
         </tr>
         <tr>
-            <td>Description:</td>
-            <td><input <% if (linkhtmlerrors.containsKey("descmissing")) {%>
-                    class="warning" <%}%> type="text" name="docDesc" size="30"
+            <td><label for="docDesc">Description:</label></td>
+            <%-- No maxlength: a browser clips a paste to maxlength in UTF-16 units before any check
+                 runs. submitUpload and the action refuse a description longer than
+                 Document.DESCRIPTION_MAX_LENGTH code points. --%>
+            <td><input <% if (linkhtmlerrors.containsKey("descmissing") || linkhtmlerrors.containsKey("desctoolong")) {%>
+                    class="warning" <%}%> type="text" name="docDesc" id="docDesc" size="30"
                     onfocus="checkDefaultValue(this)" value="<carlos:encode value='<%= formdata.getDocDesc() %>' context="htmlAttribute"/>"></td>
         </tr>
         <tr>

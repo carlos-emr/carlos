@@ -43,7 +43,7 @@
 			</box>
 			<expression><![CDATA[new Date()]]></expression>
 		</element>
-		<element kind="line" mode="Opaque" x="0" y="90" width="535" height="1" forecolor="#808080" backcolor="#FFFFFF" key="line">
+		<element kind="line" positionType="Float" mode="Opaque" x="0" y="90" width="535" height="1" forecolor="#808080" backcolor="#FFFFFF" key="line">
 			<pen lineWidth="0.5" lineStyle="Solid" />
 		</element>
 		<element kind="textField" mode="Transparent" x="0" y="74" width="89" height="15" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="dd-MMM-yy">
@@ -84,7 +84,7 @@
 				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 			</box>
-			<expression><![CDATA["$"+io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_amtbilled})]]></expression>
+			<expression><![CDATA[io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.dollars($F{t_amtbilled})]]></expression>
 		</element>
 		<element kind="textField" mode="Transparent" x="356" y="74" width="89" height="15" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="¤ #,##0.00">
 			<paragraph lineSpacing="Single" />
@@ -94,7 +94,7 @@
 				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 			</box>
-			<expression><![CDATA["$"+io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_amtpaid})]]></expression>
+			<expression><![CDATA[io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.dollars($F{t_amtpaid})]]></expression>
 		</element>
 		<element kind="textField" mode="Transparent" x="445" y="74" width="89" height="15" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="¤ #,##0.00">
 			<paragraph lineSpacing="Single" />
@@ -104,7 +104,7 @@
 				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 			</box>
-			<expression><![CDATA["$"+io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode($F{t_cheque})]]></expression>
+			<expression><![CDATA[io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.dollars($F{t_cheque})]]></expression>
 		</element>
 		<element kind="rectangle" mode="Opaque" x="1" y="55" width="534" height="17" forecolor="#000000" backcolor="#000000" key="element-22" radius="0">
 			<pen lineWidth="0.5" lineStyle="Solid" />

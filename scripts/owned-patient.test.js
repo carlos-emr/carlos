@@ -4,7 +4,8 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
-  ALLERGY_ROWS, CONSULTATION_ROWS, PATIENT_KEYED_TABLES, combineRows, createOwnedPatient, eformRows, newOwnedMarker, removeOwnedPatient,
+  ADDED_AFTER_UPGRADE_BASELINE, ALLERGY_ROWS, CONSULTATION_ROWS, PATIENT_KEYED_TABLES, combineRows, createOwnedPatient, eformRows,
+  newOwnedMarker, presentTables, removeOwnedPatient,
 } = require('./lib/owned-patient');
 
 /*
@@ -16,13 +17,15 @@ const {
 
 const MARKER = 'FAKE-PW0123456789abcdef';
 
-function stubSql({ owner = '1', left = '0', gone = '0', inserted = '3891' } = {}) {
+function stubSql({ owner = '1', left = '0', gone = '0', inserted = '3891', missingTables = [] } = {}) {
   const executed = [];
   const queries = [];
   return {
     executed, queries,
     value(query) {
       queries.push(query);
+      const asked = /FROM information_schema\.tables WHERE table_schema=DATABASE\(\) AND table_name='([A-Za-z_]+)'/.exec(query);
+      if (asked) return missingTables.includes(asked[1]) ? '0' : '1';
       if (/^INSERT INTO demographic/.test(query.trim())) return inserted;
       if (/AND last_name=/.test(query) && /SELECT COUNT\(\*\) FROM demographic WHERE/.test(query)) return owner;
       if (/SELECT COUNT\(\*\) FROM demographic WHERE demographic_no=\d+$/.test(query.trim())) return gone;
@@ -169,4 +172,40 @@ test('shouldCombineBundles_withoutRepeatingOrDroppingAnyEntry', () => {
   assert.match(sql.executed.join('\n'), /DELETE FROM allergies WHERE demographic_no=3891/);
   assert.match(sql.executed.join('\n'), /DELETE FROM eform_data WHERE demographic_no=3891/);
   assert.match(sql.executed.join('\n'), /DELETE FROM DigitalSignature WHERE demographicId=3891/);
+});
+
+test('shouldLeaveOutATableANewerMigrationCreates_whenTheUpgradeBaselineLacksIt', () => {
+  // deb-docker-validation.sh upgrade <tag> prepares the older install with this tree's harness; that schema has no
+  // rx_submission_receipt yet, and a DELETE naming it would fail the whole cleanup.
+  const sql = stubSql({ missingTables: ['rx_submission_receipt'] });
+  removeOwnedPatient(sql, '3891', MARKER);
+  const statements = sql.executed.join('\n');
+  assert.doesNotMatch(statements, /rx_submission_receipt/);
+  assert.doesNotMatch(sql.queries.filter((query) => !/information_schema/.test(query)).join('\n'), /rx_submission_receipt/,
+    'the absent table is not counted either');
+  for (const [table, column] of PATIENT_KEYED_TABLES.filter(([name]) => name !== 'rx_submission_receipt')) {
+    assert.match(statements, new RegExp(`DELETE FROM ${table} WHERE ${column}=3891(;|$)`, 'm'));
+  }
+});
+
+test('shouldStillNameEveryOtherTable_whenItIsMissing', () => {
+  // Only the tables a later migration adds may be absent. A missing older table is a renamed or mistyped name,
+  // and the cleanup must go on naming it so the database refuses the statement.
+  assert.deepEqual([...ADDED_AFTER_UPGRADE_BASELINE], ['rx_submission_receipt']);
+  const sql = stubSql({ missingTables: ['casemgmt_cpp', 'eChart'] });
+  const kept = presentTables(sql, PATIENT_KEYED_TABLES);
+  assert.deepEqual(kept, [...PATIENT_KEYED_TABLES]);
+  assert.equal(sql.queries.length, 1, 'only the newer table is looked up');
+  assert.match(sql.queries[0], /table_name='rx_submission_receipt'/);
+});
+
+test('shouldNotLookUpTheSchema_whenNoNewerTableIsNamed', () => {
+  const sql = stubSql();
+  assert.deepEqual(presentTables(sql, [['allergies', 'demographic_no']]), [['allergies', 'demographic_no']]);
+  assert.equal(sql.queries.length, 0);
+});
+
+test('shouldKeepNamingTheTable_whenTheCatalogueCannotBeRead', () => {
+  const sql = { value() { throw new Error('no such table: information_schema.tables'); } };
+  assert.deepEqual(presentTables(sql, PATIENT_KEYED_TABLES), [...PATIENT_KEYED_TABLES]);
 });

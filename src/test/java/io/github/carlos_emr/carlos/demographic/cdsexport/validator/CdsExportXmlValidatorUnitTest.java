@@ -1,0 +1,508 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.demographic.cdsexport.validator;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsLogicalProfile;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsWireSchema;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportReportReferenceDto;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportXmlValidationDto;
+import io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportHeaderComposer;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.HashSet;
+import java.util.HexFormat;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Set;
+import java.util.regex.Pattern;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+
+@Tag("unit")
+@Tag("cds-export")
+class CdsExportXmlValidatorUnitTest {
+    private static final String ID = "E-CDS-CORPUS-202608";
+    private static final String VERSION = "2026.08.0-beta7-SNAPSHOT";
+    private static final CdsLogicalProfile PROFILE = CdsLogicalProfile.ONTARIO_MD_5_2;
+    private final CdsExportXmlValidator validator = new CdsExportXmlValidator();
+
+    @Test
+    void shouldValidatePinnedWireAndCountActualSections_forACompleteSyntheticPatient()
+            throws Exception {
+        byte[] bytes = fixture().getBytes(StandardCharsets.UTF_8);
+        var result =
+                validate(
+                        bytes,
+                        EnumSet.allOf(CdsCategory.class),
+                        new ArrayList<>());
+        assertThat(result.occurrences())
+                .hasSize(16)
+                .containsEntry(CdsCategory.DEMOGRAPHICS, 1L)
+                .containsEntry(CdsCategory.REPORTS, 2L);
+        assertThat(result.senderPatientId()).isEqualTo(ID);
+        assertThat(result.textReports()).isEqualTo(1);
+        assertThat(result.binaryReports()).isEqualTo(1);
+        assertThat(result.externalReferences()).isZero();
+        assertThat(result.xmlBytes()).isEqualTo(bytes.length);
+        assertThat(result.xmlSha256())
+                .isEqualTo(
+                        HexFormat.of()
+                                .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)));
+    }
+
+    @Test
+    void shouldRejectSchemaValidReport_withoutTheRequiredBinaryExtension() throws Exception {
+        String sourceXml = fixture();
+        assertThatThrownBy(
+                        () ->
+                                validate(
+                                        sourceXml.replace(
+                                                "<FileExtensionAndVersion>PNG</FileExtensionAndVersion>",
+                                                "")))
+                .isInstanceOf(IOException.class)
+                .hasMessage("CDS_EXPORT_REPORT_BINARY_EXTENSION_REQUIRED");
+    }
+
+    @Test
+    void shouldRejectBinaryRepresentation_withMismatchedTextFormat() throws Exception {
+        String sourceXml = fixture();
+        assertThatThrownBy(
+                        () ->
+                                validate(
+                                        sourceXml.replace(
+                                                "<Format>Binary</Format>",
+                                                "<Format>Text</Format>")))
+                .hasMessage("CDS_EXPORT_REPORT_FORMAT_MISMATCH");
+    }
+
+    @Test
+    void shouldIndexExactRelativeReferences_forExternalBinaryReports() throws Exception {
+        String xml =
+                fixture()
+                        .replaceAll("<cdsd:Media>[^<]+</cdsd:Media>", "")
+                        .replace(
+                                "<FileExtensionAndVersion>PNG</FileExtensionAndVersion>",
+                                "<FileExtensionAndVersion>PNG</FileExtensionAndVersion><FilePath>Reports/scan.png</FilePath>")
+                        .replaceAll("<Content>\\s*</Content>", "");
+        List<CdsExportReportReferenceDto> references = new ArrayList<>();
+        var result =
+                validate(
+                        xml.getBytes(StandardCharsets.UTF_8),
+                        EnumSet.allOf(CdsCategory.class),
+                        references);
+        assertThat(result.externalReferences()).isEqualTo(1);
+        assertThat(references)
+                .containsExactly(new CdsExportReportReferenceDto(2, "Reports/scan.png", "PNG"));
+    }
+
+    @Test
+    void shouldRejectUnsafeReferences_withoutNormalizingThemToAnotherFile() throws Exception {
+        for (String path :
+                List.of(
+                        "../scan.png",
+                        "/scan.png",
+                        "https://host/a",
+                        "a\\b.png",
+                        "a//b",
+                        "a/./b",
+                        "a./b")) {
+            assertThatThrownBy(() -> CdsExportXmlValidator.relativeReference(path))
+                    .hasMessage("CDS_EXPORT_REPORT_REFERENCE_INVALID");
+        }
+    }
+
+    @Test
+    void shouldRejectNoncanonicalBinaryPadBits_evenWhenTheJdkWouldDecodeThem() throws Exception {
+        String sourceXml = fixture();
+        assertThatThrownBy(
+                        () ->
+                                validate(
+                                        sourceXml.replaceAll(
+                                                "<cdsd:Media>[^<]+</cdsd:Media>",
+                                                "<cdsd:Media>AB==</cdsd:Media>")))
+                .hasMessage("CDS_BASE64_PAD_BITS_INVALID");
+    }
+
+    @Test
+    void shouldRejectMissingOrWrongSchemaHeader_beforeAcceptingThePatientRecord() throws Exception {
+        String xml = fixture();
+        assertThatThrownBy(() -> validate(xml.replace(header(), "")))
+                .hasMessage("CDS_EXPORT_XML_ENVELOPE_INVALID");
+        assertThatThrownBy(() -> validate(xml.replace("version 1.0", "version 5.2")))
+                .hasMessage("CDS_EXPORT_XML_ENVELOPE_INVALID");
+    }
+
+    @Test
+    void shouldRejectWrongPatientIdentity_insteadOfCountingAnotherPatientsFile() throws Exception {
+        String sourceXml = fixture();
+        assertThatThrownBy(() -> validate(sourceXml.replace(ID, "C99")))
+                .hasMessage("CDS_EXPORT_XML_PATIENT_ID_MISMATCH");
+    }
+
+    @Test
+    void shouldRejectUnselectedCategories_evenWhenTheSchemaAllowsThem() throws Exception {
+        byte[] bytes = fixture().getBytes(StandardCharsets.UTF_8);
+        assertThatThrownBy(
+                        () ->
+                                validate(
+                                        bytes,
+                                        Set.of(CdsCategory.DEMOGRAPHICS),
+                                        new ArrayList<>()))
+                .hasMessage("CDS_EXPORT_XML_UNSELECTED_CATEGORY");
+    }
+
+    @Test
+    void shouldRejectInvalidSchemaValues_withoutReturningPatientContentInTheError()
+            throws Exception {
+        String sourceXml = fixture();
+        assertThatThrownBy(
+                        () ->
+                                validate(
+                                        sourceXml.replace(
+                                                "<Gender>F</Gender>",
+                                                "<Gender>SECRET-INVALID</Gender>")))
+                .hasMessage("CDS_EXPORT_XML_SCHEMA_INVALID")
+                .hasNoCause();
+    }
+
+    @Test
+    void shouldRejectDtdAndExternalEntityInput_beforeAnyResolution() throws Exception {
+        String sourceXml = fixture();
+        assertThatThrownBy(
+                        () ->
+                                validate(
+                                        sourceXml.replace(
+                                                "<OmdCds ",
+                                                "<!DOCTYPE OmdCds [<!ENTITY secret SYSTEM 'file:///nonexistent-cds-export-synthetic'>]><OmdCds ")))
+                .hasMessage("CDS_EXPORT_XML_SCHEMA_INVALID");
+    }
+
+    @Test
+    void shouldRequireUtf8Declaration_andRejectOtherEncodings() throws Exception {
+        String sourceXml = fixture();
+        assertThatThrownBy(
+                        () ->
+                                validate(
+                                        sourceXml.replace(
+                                                "encoding=\"UTF-8\"", "encoding=\"UTF-16\"")))
+                .hasMessage("CDS_EXPORT_XML_UTF8_DECLARATION_REQUIRED");
+        assertThatThrownBy(
+                        () ->
+                                validate(
+                                        sourceXml.getBytes(StandardCharsets.UTF_16),
+                                        EnumSet.allOf(CdsCategory.class),
+                                        new ArrayList<>()))
+                .hasMessage("CDS_EXPORT_XML_UTF8_DECLARATION_REQUIRED");
+    }
+
+    @Test
+    void shouldRejectMalformedUtf8_withoutReplacingClinicalCharacters() throws Exception {
+        byte[] bytes = fixture().getBytes(StandardCharsets.UTF_8);
+        bytes[bytes.length - 30] = (byte) 255;
+        assertThatThrownBy(
+                        () ->
+                                validate(
+                                        bytes,
+                                        EnumSet.allOf(CdsCategory.class),
+                                        new ArrayList<>()))
+                .isInstanceOf(IOException.class);
+    }
+
+    @Test
+    void shouldValidateLargeUnboundedText_withoutApplyingAClinicalTruncationLimit()
+            throws Exception {
+        String xml = fixture().replace("Synthetic source report", "x".repeat(4 << 20));
+        assertThat(validate(xml).textReports()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldHoldDictionaryTypedTextToTheSchemaLengthAlone_withoutHoldingTheDictionaryGap()
+            throws Exception {
+        // text1K, text32K and text64K are held to the schema's 1,024, 32,768 and 65,536
+        // characters. Text CARLOS writes keeps the data dictionary's 1,000, 32,000 and 64,000 by
+        // its writer's rule; an imported element retained unchanged may use the rest, so a length
+        // between the two never holds a chart here (it was CDS_EXPORT_DICTIONARY_LENGTH_...).
+        String source = fixture();
+        for (var element :
+                List.of(
+                        java.util.Map.entry("AlertDescription", 1_024),
+                        java.util.Map.entry("NotesFromLab", 32_768),
+                        java.util.Map.entry("NoteAboutPatient", 65_536))) {
+            String name = element.getKey();
+            int schema = element.getValue(), dictionary = schema / 1_024 * 1_000;
+            for (int length : new int[] {dictionary, dictionary + 1, schema})
+                assertThat(validate(withText(source, name, length)).senderPatientId())
+                        .isEqualTo(ID);
+            // Past the schema: refused by the schema check, or for a text64K by the bound of
+            // the longest restricted value the schema admits.
+            assertThatThrownBy(() -> validate(withText(source, name, schema + 1)))
+                    .hasMessageMatching("CDS_EXPORT_XML_SCHEMA_INVALID|CDS_XML_SCALAR_RESOURCE_LIMIT");
+        }
+    }
+
+    /** The fixture with every {@code name} element's text replaced by {@code length} letters. */
+    private static String withText(String xml, String name, int length) {
+        return xml.replaceAll(
+                "<" + name + ">[^<]+</" + name + ">",
+                "<" + name + ">" + "x".repeat(length) + "</" + name + ">");
+    }
+
+    @Test
+    void shouldValidateALargeBinaryValue_withoutAByteBinaryElementOrClockLimit() throws Exception {
+        // #57: the document's bytes, its elements, a binary value and the time the check takes
+        // are not limited (64 GiB, 64 GiB, 20,000,000 elements and two hours were). A stuck check
+        // ends through its checkpoint: cancellation or the job's no-progress stall detector.
+        byte[] media = new byte[3 << 20];
+        new java.util.Random(57).nextBytes(media);
+        String xml =
+                fixture()
+                        .replaceAll(
+                                "<cdsd:Media>[^<]+</cdsd:Media>",
+                                "<cdsd:Media>"
+                                        + java.util.Base64.getEncoder().encodeToString(media)
+                                        + "</cdsd:Media>");
+        var result = validate(xml);
+        assertThat(result.binaryReports()).isEqualTo(1);
+        assertThat(result.xmlBytes()).isGreaterThan(4L << 20);
+    }
+
+    @Test
+    void shouldKeepOnlyIntegrityBounds_thatNoDocumentThePinnedSchemaAdmitsCanReach()
+            throws Exception {
+        var names = new HashSet<String>();
+        int[] deepest = {0}, longest = {0};
+        var identity = new ArrayList<String>();
+        walk(
+                CdsWireSchema.schemaModel().element("cds", "OmdCds"),
+                "cds",
+                "OmdCds",
+                1,
+                names,
+                deepest,
+                longest,
+                identity,
+                Collections.newSetFromMap(new IdentityHashMap<>()));
+        int attributes = 0, restricted = 0;
+        for (String file :
+                List.of("EMR_Data_Migration_Schema.xsd", "EMR_Data_Migration_Schema_DT.xsd")) {
+            try (var input = getClass().getResourceAsStream("/cds-import/schema/" + file)) {
+                String schema = new String(input.readAllBytes(), StandardCharsets.UTF_8);
+                // No type, attribute types included, is an identity type the JDK validator
+                // would keep values of: the former identity bound guarded nothing.
+                assertThat(schema)
+                        .doesNotContainPattern("\"xs:(?:ID|IDREF|IDREFS|ENTITY|ENTITIES)\"");
+                var attribute = Pattern.compile("<xs:attribute name=\"([^\"]+)\"").matcher(schema);
+                while (attribute.find()) {
+                    attributes++;
+                    longest[0] = Math.max(longest[0], attribute.group(1).length());
+                }
+                var length = Pattern.compile("maxLength value=\"([0-9]+)\"").matcher(schema);
+                while (length.find())
+                    restricted = Math.max(restricted, Integer.parseInt(length.group(1)));
+            }
+        }
+        assertThat(identity).isEmpty();
+        assertThat(deepest[0]).isLessThanOrEqualTo(8).isLessThan(CdsExportXmlValidator.MAX_DEPTH);
+        assertThat(names.size() + attributes).isLessThan(CdsExportXmlValidator.MAX_NAMES);
+        assertThat(longest[0]).isLessThan(CdsExportXmlValidator.MAX_NAME);
+        assertThat(restricted).isEqualTo(CdsExportXmlValidator.MAX_RESTRICTED_VALUE);
+        // A captured value the schema admits is far shorter than the capture bound: a name part
+        // past its 50 characters is refused by the schema check, not the bound.
+        String name = "Import";
+        assertThat(CdsExportXmlValidator.MAX_CAPTURE).isGreaterThan(250);
+        assertThatThrownBy(() -> validate(fixture().replace(">" + name + "<", ">" + "N".repeat(51) + "<")))
+                .hasMessage("CDS_EXPORT_XML_SCHEMA_INVALID");
+    }
+
+    private static void walk(
+            io.github.carlos_emr.carlos.demographic.cds.contract.CdsSchemaModel.Type type,
+            String namespace,
+            String local,
+            int depth,
+            Set<String> names,
+            int[] deepest,
+            int[] longest,
+            List<String> identity,
+            Set<Object> open) {
+        names.add(namespace + ":" + local);
+        deepest[0] = Math.max(deepest[0], depth);
+        longest[0] = Math.max(longest[0], local.length());
+        if (type.identity()) identity.add(namespace + ":" + local);
+        if (!open.add(type)) return;
+        for (var child : type.childNames())
+            walk(
+                    type.child(child.namespace(), child.local()),
+                    child.namespace(),
+                    child.local(),
+                    depth + 1,
+                    names,
+                    deepest,
+                    longest,
+                    identity,
+                    open);
+        open.remove(type);
+    }
+
+    @Test
+    void shouldPropagateCancellation_andLeaveInputOwnershipWithTheCaller() throws Exception {
+        class OwnedInput extends ByteArrayInputStream {
+            boolean closed;
+
+            OwnedInput(byte[] bytes) {
+                super(bytes);
+            }
+
+            @Override
+            public void close() {
+                closed = true;
+            }
+        }
+        var input = new OwnedInput(fixture().getBytes(StandardCharsets.UTF_8));
+        validator.validate(
+                input,
+                ID,
+                EnumSet.allOf(CdsCategory.class),
+                VERSION,
+                PROFILE,
+                ignored -> {},
+                () -> {});
+        assertThat(input.closed).isFalse();
+        var cancelled = new OwnedInput(fixture().getBytes(StandardCharsets.UTF_8));
+        assertThatThrownBy(
+                        () ->
+                                validator.validate(
+                                        cancelled,
+                                        ID,
+                                        EnumSet.allOf(CdsCategory.class),
+                                        VERSION,
+                                        PROFILE,
+                                        ignored -> {},
+                                        () -> {
+                                            throw new IllegalStateException("CANCELLED");
+                                        }))
+                .hasMessage("CANCELLED");
+        assertThat(cancelled.closed).isFalse();
+    }
+
+    @Test
+    void shouldBindTheActualLegalNameAndCalendarBirthDate_toTheExactPatientPath() throws Exception {
+        var result = validate(fixture());
+        var file =
+                fileIdentity(
+                        "Import", "FAKE-CDS-CORPUS-202608", java.time.LocalDate.of(1971, 3, 4));
+        var path =
+                new io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                .CdsExportPathComposer()
+                        .compose(file);
+        validator.verifyFileBinding(
+                result, file, path.physicianFolder() + "/" + path.patientXmlFile());
+        assertThat(result.legalFirstName()).isEqualTo("Import");
+        assertThat(result.legalLastName()).isEqualTo("FAKE-CDS-CORPUS-202608");
+        var zoned =
+                validate(
+                        fixture()
+                                .replace(
+                                        "<DateOfBirth>1971-03-04</DateOfBirth>",
+                                        "<DateOfBirth>1971-03-04+14:00</DateOfBirth>"));
+        validator.verifyFileBinding(
+                zoned, file, path.physicianFolder() + "/" + path.patientXmlFile());
+    }
+
+    @Test
+    void shouldRefuseAValidXmlStored_underAnotherPatientsNameOrBirthDate() throws Exception {
+        var result = validate(fixture());
+        for (var wrong :
+                List.of(
+                        fileIdentity(
+                                "Other",
+                                "FAKE-CDS-CORPUS-202608",
+                                java.time.LocalDate.of(1971, 3, 4)),
+                        fileIdentity("Import", "Other", java.time.LocalDate.of(1971, 3, 4)),
+                        fileIdentity(
+                                "Import",
+                                "FAKE-CDS-CORPUS-202608",
+                                java.time.LocalDate.of(1971, 3, 5)))) {
+            var path =
+                    new io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                    .CdsExportPathComposer()
+                            .compose(wrong);
+            assertThatThrownBy(
+                            () ->
+                                    validator.verifyFileBinding(
+                                            result,
+                                            wrong,
+                                            path.physicianFolder() + "/" + path.patientXmlFile()))
+                    .hasMessage("CDS_EXPORT_XML_FILENAME_IDENTITY_MISMATCH");
+        }
+        var correct =
+                fileIdentity(
+                        "Import", "FAKE-CDS-CORPUS-202608", java.time.LocalDate.of(1971, 3, 4));
+        assertThatThrownBy(() -> validator.verifyFileBinding(result, correct, "wrong/file.xml"))
+                .hasMessage("CDS_EXPORT_XML_FILENAME_IDENTITY_MISMATCH");
+    }
+
+    private io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportPatientFileDto
+            fileIdentity(String first, String last, java.time.LocalDate birth) {
+        return new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportPatientFileDto(
+                "Test", "Provider", "123456", first, last, ID, birth);
+    }
+
+    private CdsExportXmlValidationDto validate(String xml) throws IOException {
+        return validate(
+                xml.getBytes(StandardCharsets.UTF_8),
+                EnumSet.allOf(CdsCategory.class),
+                new ArrayList<>());
+    }
+
+    private CdsExportXmlValidationDto validate(
+            byte[] xml, Set<CdsCategory> categories, List<CdsExportReportReferenceDto> references)
+            throws IOException {
+        return validator.validate(
+                new ByteArrayInputStream(xml),
+                ID,
+                categories,
+                VERSION,
+                PROFILE,
+                references::add,
+                () -> {});
+    }
+
+    private String fixture() throws IOException {
+        try (var input =
+                getClass().getResourceAsStream("/demographic/cds-import-all-categories.xml")) {
+            String xml = new String(input.readAllBytes(), StandardCharsets.UTF_8);
+            return xml.replace("?>", "?>\n<!--" + header() + "-->");
+        }
+    }
+
+    private String header() {
+        return new CdsExportHeaderComposer().comment(VERSION, PROFILE);
+    }
+}

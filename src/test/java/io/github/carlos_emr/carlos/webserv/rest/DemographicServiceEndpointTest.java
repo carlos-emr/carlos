@@ -361,6 +361,25 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
         }
 
         @Test
+        @DisplayName("should return the health card number and no SIN for each listed demographic")
+        void shouldReturnTheHealthCardNumberAndNoSin_forEachListedDemographic() {
+            Demographic demo = createTestDemographic(1, "John", "Smith");
+            demo.setHin("FAKE-HIN");
+            demo.setSin("FAKE-SIN");
+            when(mockDemographicManager.getActiveDemographicCount(any(LoggedInInfo.class))).thenReturn(1L);
+            when(mockDemographicManager.getActiveDemographics(any(LoggedInInfo.class), eq(0), eq(10)))
+                .thenReturn(List.of(demo));
+
+            try (Response response = request().path("/demographics").query("offset", 0).query("limit", 10).get()) {
+                assertThat(response.getStatus()).isEqualTo(200);
+                var wireJson = responseJson(response);
+                // Existing list clients read the HIN from this response; it is part of the published contract.
+                assertThat(wireJson.at("/Item/0/hin").textValue()).isEqualTo("FAKE-HIN");
+                assertThat(wireJson.toString()).doesNotContain("FAKE-SIN");
+            }
+        }
+
+        @Test
         @DisplayName("should return 200 with demographics list")
         void shouldReturn200WithDemographics_whenDemographicsExist() {
             Demographic demo = createTestDemographic(1, "John", "Smith");

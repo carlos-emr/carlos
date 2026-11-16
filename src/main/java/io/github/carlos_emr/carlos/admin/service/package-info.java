@@ -22,10 +22,11 @@
 /**
  * Transactional services behind administration pages.
  *
- * <p>Each class owns one administrative write that spans more than one DAO, so the legacy JSP
- * or helper that collects the form keeps only validation and messages, and the rows the write
- * touches commit or roll back together. Authorization stays with the Struts gate in front of
- * the page; services here trust their caller to have checked it.</p>
+ * <p>Each class owns one administrative write that spans more than one DAO, or that must compare
+ * and write under one row lock, so the legacy JSP or helper that collects the form keeps only
+ * validation and messages, and the rows the write touches commit or roll back together.
+ * Authorization stays with the Struts gate in front of the page; services here trust their caller
+ * to have checked it.</p>
  *
  * @since 2026-10-15
  */
