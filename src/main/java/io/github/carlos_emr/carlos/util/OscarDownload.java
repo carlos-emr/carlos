@@ -94,10 +94,10 @@ public class OscarDownload extends GenericDownload {
             if (backupfilepath != null
                     && !backupfilepath.isEmpty()
                     && ((String) session.getAttribute("user")) != null) {
-                // nosemgrep: semgrep.carlos.httpservlet-path-traversal -- Directory comes from an authenticated server-side session under one of three allowlisted keys; client filenames are strictly validated and contained separately below.
+
                 File downloadDir;
                 try {
-                    downloadDir = new File(backupfilepath).getCanonicalFile();
+                    downloadDir = new File(backupfilepath).getCanonicalFile(); // nosemgrep: semgrep.carlos.httpservlet-path-traversal -- Directory comes from an authenticated server-side session under one of three allowlisted keys; client filenames are strictly validated and contained separately below.
                 } catch (IOException unavailable) {
                     res.sendError(HttpServletResponse.SC_NOT_FOUND, "Download file not found.");
                     return;
