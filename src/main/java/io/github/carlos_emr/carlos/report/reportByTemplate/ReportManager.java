@@ -35,14 +35,16 @@
 package io.github.carlos_emr.carlos.report.reportByTemplate;
 
 import java.util.ArrayList;
+import java.io.IOException;
+import java.io.StringReader;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 import org.jdom2.Document;
+import org.jdom2.JDOMException;
 import org.jdom2.Element;
-import org.jdom2.input.SAXBuilder;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 import org.jdom2.output.XMLOutputter;
 import io.github.carlos_emr.carlos.commn.dao.ReportTemplatesDao;
@@ -122,9 +124,7 @@ public class ReportManager {
             boolean sequence = rt.isSequence();
 
             if (!paramXML.equals("")) {
-                paramXML = UtilXML.escapeXML(paramXML); //escapes anomalies such as "date >= {mydate}" the '>' character
-                SAXBuilder parser = XmlUtils.createSecureSAXBuilder(); // NOSONAR java:S2755 — XXE protection applied via XmlUtils.createSecureSAXBuilder()
-                Document doc = parser.build(new java.io.ByteArrayInputStream(paramXML.getBytes()));
+                Document doc = parseTemplateXml(paramXML);
                 Element root = doc.getRootElement();
 
                 List<Element> paramsXml = root.getChildren("param");
@@ -221,10 +221,7 @@ public class ReportManager {
     }
 
     public Document readXml(String xml) throws Exception {
-        SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
-        xml = UtilXML.escapeXML(xml); //escapes anomalies such as "date >= {mydate}" the '>' character
-        //xml  UtilXML.escapeAllXML(xml, "<param-list>");  //escapes all markup in <report> tag, otherwise can't retrieve element.getText()
-        Document doc = parser.build(new java.io.ByteArrayInputStream(xml.getBytes()));
+        Document doc = parseTemplateXml(xml);
         if (doc.getRootElement().getName().equals("report")) {
             Element newRoot = new Element("report-list");
             Element oldRoot = doc.detachRootElement();
@@ -233,6 +230,15 @@ public class ReportManager {
             doc.setRootElement(newRoot);
         }
         return doc;
+    }
+
+    /** Parses standard XML directly, retaining empty elements; accepts legacy raw SQL through the existing escape fallback. */
+    private static Document parseTemplateXml(String xml) throws JDOMException, IOException {
+        try {
+            return XmlUtils.createSecureSAXBuilder().build(new StringReader(xml));
+        } catch (JDOMException malformedXml) {
+            return XmlUtils.createSecureSAXBuilder().build(new StringReader(UtilXML.escapeXML(xml)));
+        }
     }
 
     //returns any error messages

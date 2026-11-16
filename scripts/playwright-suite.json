@@ -5424,7 +5424,7 @@
       ],
       "timeoutSec": 360,
       "env": [],
-      "notes": "#5725: two template schemas and four tabs sharing one context/login. Alternating native runs and actual CSV/XLS downloads prove per-instance parameters, values and cell types. Includes empty results and normal Back clear-session beacons and subsequent tab closure; beacons are never suppressed.",
+      "notes": "#5813: a lone empty text parameter survives native upload, edit, reopen, run and export while the other template stays unchanged. #5725: two template schemas (text and list parameters) and four tabs sharing one context/login. Alternating native runs and actual CSV/XLS downloads prove per-instance parameters, values and cell types. Includes empty results and normal Back clear-session beacons and subsequent tab closure; beacons are never suppressed.",
       "fixtures": "Two natively uploaded marker-owned templates and two owned synthetic patients. Native middle-click opens report instances from the Administration library. Clinical rows remain unchanged; exact owned templates/patient and scratch-download cleanup are verified. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "mutates": [
         "reportTemplates"
