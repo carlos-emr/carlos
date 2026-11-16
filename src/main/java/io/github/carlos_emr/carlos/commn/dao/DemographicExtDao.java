@@ -44,10 +44,11 @@ public interface DemographicExtDao extends AbstractDao<DemographicExt>, CdsExpor
 
     /**
      * Finds demographic extension values for configured report exports in timestamp and identifier order.
-     * latestOnly preserves the legacy single latest row across the entire selected cohort.
+     * With latestOnly, each patient contributes its latest timestamp and then largest identifier;
+     * an undated value is older than every dated value. Historical mode retains all rows.
      * @param key String extension key
      * @param demographicNumbers Collection of Integer patient identifiers
-     * @param latestOnly boolean whether to return only the latest cohort value
+     * @param latestOnly boolean whether to return only each patient's latest value
      * @return List of ReportValue scalar rows, empty for an empty cohort
      */
     List<ReportValue> findReportValues(String key, Collection<Integer> demographicNumbers, boolean latestOnly);

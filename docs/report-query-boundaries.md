@@ -24,8 +24,11 @@ The billed-provider reports use `BilledProviderReportDao` projections. Native
 bound SQL preserves creator restrictions, deleted header/detail exclusions,
 distinct patient/visit counts, service-date code selection, billing-date counts,
 and MariaDB's current-date age expressions. `DemographicExtDao.findReportValues`
-preserves the antenatal export's single latest extension across the selected
-cohort; it intentionally does not reinterpret that query as latest per patient.
+returns the latest extension for each selected patient, ordered by timestamp and
+then identifier. Undated entries are older than dated entries; all-undated ties
+use the largest identifier. Historical mode still returns all entries in ascending
+order. This corrects #5927's cohort-wide limit, which left other patients' CSV
+extension cells blank, without loading every historical extension into memory.
 
 ## Configurable SQL exceptions
 

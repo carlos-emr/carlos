@@ -87,6 +87,76 @@ public class DemographicExtDaoIntegrationTest extends CarlosTestBase {
         return ext;
     }
 
+    private DemographicExt reportExt(int demographicNo, String key, String value, String timestamp) {
+        DemographicExt ext = createExt(demographicNo, key, value);
+        entityManager.flush();
+        // Historical timestamps and NULLs must be seeded below the entity's current-time hooks.
+        if (timestamp == null) {
+            entityManager.createNativeQuery("update demographicExt set date_time=NULL where id=?1")
+                    .setParameter(1, ext.getId()).executeUpdate();
+        } else {
+            entityManager.createNativeQuery("update demographicExt set date_time=?1 where id=?2")
+                    .setParameter(1, java.sql.Timestamp.valueOf(timestamp))
+                    .setParameter(2, ext.getId()).executeUpdate();
+        }
+        entityManager.clear();
+        return ext;
+    }
+
+    @Test
+    void shouldReturnTheLatestExtension_forEveryPatientInTheReportCohort() {
+        String key = "report_cohort";
+        reportExt(DEMO_1, key, "first old", "2026-08-01 00:00:00");
+        var first = reportExt(DEMO_1, key, "first current", "2026-08-02 00:00:00");
+        reportExt(DEMO_2, key, "second old", "2026-08-01 00:00:00");
+        reportExt(DEMO_2, key, "second same-time older ID", "2026-08-03 00:00:00");
+        var second = reportExt(DEMO_2, key, "second current", "2026-08-03 00:00:00");
+
+        assertThat(demographicExtDao.findReportValues(key, List.of(DEMO_1, DEMO_2), true))
+                .containsExactly(new DemographicExtDao.ReportValue(second.getId(), DEMO_2, "second current"),
+                        new DemographicExtDao.ReportValue(first.getId(), DEMO_1, "first current"));
+    }
+
+    @Test
+    void shouldPreferDatedValuesAndStableIds_whenReportHistoryContainsNullTimestamps() {
+        String key = "report_null_dates";
+        var dated = reportExt(DEMO_1, key, "dated", "2026-08-01 00:00:00");
+        reportExt(DEMO_1, key, "undated higher ID", null);
+        reportExt(DEMO_2, key, "undated old", null);
+        var undated = reportExt(DEMO_2, key, "undated current", null);
+
+        assertThat(demographicExtDao.findReportValues(key, List.of(DEMO_1, DEMO_2), true))
+                .containsExactly(new DemographicExtDao.ReportValue(dated.getId(), DEMO_1, "dated"),
+                        new DemographicExtDao.ReportValue(undated.getId(), DEMO_2, "undated current"));
+    }
+
+    @Test
+    void shouldRetainEveryHistoricalValue_whenLatestOnlyIsFalse() {
+        String key = "report_full_history";
+        var first = reportExt(DEMO_1, key, "first", "2026-08-01 00:00:00");
+        var second = reportExt(DEMO_2, key, "second", "2026-08-02 00:00:00");
+        var later = reportExt(DEMO_1, key, "later", "2026-08-03 00:00:00");
+        assertThat(demographicExtDao.findReportValues(key, List.of(DEMO_1, DEMO_2), false))
+                .extracting(DemographicExtDao.ReportValue::id)
+                .containsExactly(first.getId(), second.getId(), later.getId());
+    }
+
+    @Test
+    void shouldExcludeOtherKeysAndPatients_fromTheLatestReportProjection() {
+        String key = "report_isolation";
+        var own = reportExt(DEMO_1, key, "owned", "2026-08-01 00:00:00");
+        reportExt(DEMO_2, key, "other patient", "2026-08-03 00:00:00");
+        reportExt(DEMO_1, "other_report_key", "other key", "2026-08-03 00:00:00");
+        assertThat(demographicExtDao.findReportValues(key, List.of(DEMO_1), true))
+                .containsExactly(new DemographicExtDao.ReportValue(own.getId(), DEMO_1, "owned"));
+    }
+
+    @Test
+    void shouldReturnNoReportValues_forAnEmptyCohort() {
+        assertThat(demographicExtDao.findReportValues("report_empty", List.of(), true)).isEmpty();
+        assertThat(demographicExtDao.findReportValues("report_empty", List.of(), false)).isEmpty();
+    }
+
     @Nested
     @DisplayName("CRUD operations")
     class CrudOperations {
