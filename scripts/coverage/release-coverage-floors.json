@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "8c8c9dde50b332a494164d31cc30d17f5887abd0",
-  "comparisonSha256": "e7dd09de67b1396c5e905f557eeeb6fb48b5a5b7538c3b466e73c32c3e53a842",
+  "sourceTree": "e8029f2a8ed03c967d6eee1a4634bbb280178a4a",
+  "comparisonSha256": "270158ac0b8f7776ce9759d79d7329cdc9582ca0d03b1b652d0ea61a48c631ab",
   "files": {
     "src/main/java/io/github/carlos_emr/AppointmentMainBean.java": {
       "lines": 100.0,
@@ -784,11 +784,29 @@
       "branches": 100.0,
       "sourceBlob": "6ff106bb7fc57d3046b1e0e52ecb87286558a148"
     },
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/print/OscarChartPrinter.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "caf4bd155b6e97feca90de95be9d4cacf8477742"
+    },
     "src/main/java/io/github/carlos_emr/carlos/casemgmt/service/CaseManagementManagerImpl.java": {
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
       "sourceBlob": "079c267431ef8cf890683dceb659fefdb08ef07e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/service/CaseManagementPrint.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "5e697759b59738036abddf89410ba3ffb82fdb27"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/service/CaseManagementPrintPdf.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "323990c656bf06d042b05343895b123488231da8"
     },
     "src/main/java/io/github/carlos_emr/carlos/casemgmt/service/CppTextLoader.java": {
       "lines": 78.57142857142857,
@@ -7264,6 +7282,12 @@
       "branches": 100.0,
       "sourceBlob": "6bd86a2791b42555d28516c471a485a20f669f6d"
     },
+    "src/main/java/io/github/carlos_emr/carlos/integration/fhir/model/Immunization.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "2765e9f6e034f9088e4d4510ad1a25c9688f8169"
+    },
     "src/main/java/io/github/carlos_emr/carlos/integration/fhir/model/Sender.java": {
       "lines": 100.0,
       "instructions": 100.0,
@@ -7340,7 +7364,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "4d33dfc6c9cad057aec118fcb7f12426de874395"
+      "sourceBlob": "152eb6b0b8f5e6ef86f6aed5d85b4ff97f4e500f"
     },
     "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/pageUtil/LabUpload2Action.java": {
       "lines": 60.0,
@@ -8013,6 +8037,12 @@
       "instructions": 99.28057553956835,
       "branches": 95.23809523809524,
       "sourceBlob": "14d50b3662ee1daccccdcc3ef48ae764cb55bd70"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prevention/PreventionFormCodes.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "0c48bb7705dddeb8dc9a30e2e3c62e54bade6f15"
     },
     "src/main/java/io/github/carlos_emr/carlos/prevention/PreventionPageData.java": {
       "sourceBlob": "1b81a69bd9cc0945dcfcd7771f411b740fe19daa",
@@ -9561,66 +9591,6 @@
       "instructions": 100.0,
       "branches": 100.0,
       "sourceBlob": "81801574511e707904e5b88eb14174066b82201a"
-    },
-    "src/main/java/io/github/carlos_emr/carlos/integration/fhir/model/Immunization.java": {
-      "lines": 100.0,
-      "instructions": 100.0,
-      "branches": 100.0,
-      "sourceBlob": "2765e9f6e034f9088e4d4510ad1a25c9688f8169"
-    },
-    "src/main/java/io/github/carlos_emr/carlos/prevention/PreventionFormCodes.java": {
-      "lines": 100.0,
-      "instructions": 100.0,
-      "branches": 100.0,
-      "sourceBlob": "0c48bb7705dddeb8dc9a30e2e3c62e54bade6f15"
-    },
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaModel.java": {
-      "lines": 95.74468085106383,
-      "instructions": 95.49702633814783,
-      "branches": 75.67567567567568,
-      "sourceBlob": "e194a2d6e68fe366a1a98c1287264db548678d29"
-    },
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaTypeCursor.java": {
-      "lines": 100.0,
-      "instructions": 97.2027972027972,
-      "branches": 93.33333333333333,
-      "sourceBlob": "5a7e92304731a14100f2dcf12bf55ea2e992b77b"
-    },
-    "src/main/java/io/github/carlos_emr/carlos/managers/ScheduleSyncBoundaryException.java": {
-      "lines": 100.0,
-      "instructions": 100.0,
-      "branches": 100.0,
-      "sourceBlob": "8ef272c7f68245e5b5451b41a43d797fe3952292"
-    },
-    "src/main/java/io/github/carlos_emr/carlos/webserv/ProviderBillingAccess.java": {
-      "lines": 100.0,
-      "instructions": 100.0,
-      "branches": 87.5,
-      "sourceBlob": "9db7b0f4566a71a6d0714202d490e946243babc7"
-    },
-    "src/main/java/io/github/carlos_emr/carlos/webserv/ProviderWs.java": {
-      "lines": 100.0,
-      "instructions": 100.0,
-      "branches": 100.0,
-      "sourceBlob": "95ddc7e8df3544321372b4162abd7bf7b5f40a2c"
-    },
-    "src/main/java/io/github/carlos_emr/carlos/casemgmt/print/OscarChartPrinter.java": {
-      "lines": 100.0,
-      "instructions": 100.0,
-      "branches": 100.0,
-      "sourceBlob": "caf4bd155b6e97feca90de95be9d4cacf8477742"
-    },
-    "src/main/java/io/github/carlos_emr/carlos/casemgmt/service/CaseManagementPrint.java": {
-      "lines": 100.0,
-      "instructions": 100.0,
-      "branches": 100.0,
-      "sourceBlob": "5e697759b59738036abddf89410ba3ffb82fdb27"
-    },
-    "src/main/java/io/github/carlos_emr/carlos/casemgmt/service/CaseManagementPrintPdf.java": {
-      "lines": 100.0,
-      "instructions": 100.0,
-      "branches": 100.0,
-      "sourceBlob": "323990c656bf06d042b05343895b123488231da8"
     }
   },
   "exclusions": {
@@ -9692,117 +9662,57 @@
     }
   },
   "zeroCoverageWaivers": {},
-  "baselineCommit": "eebcb76407c608b2065c47a4f77eba67afd3b637",
-  "baselineSourceTree": "8c8c9dde50b332a494164d31cc30d17f5887abd0",
-  "baselineReportSha256": "9ee9338a310a01f8607b5aa7812d87ee82c2753a3f64f2fbd3ac2d704160a46c",
-  "baselineLane": "PR #6145 conflict resolution on release c9945f57acb4b68d6149bdad7cc38a7024e5b192. Temurin JDK 25.0.3 focused Maven test and JaCoCo run on the merged production and test sources: PreventionFormCodesUnitTest, AddPreventionDataBrandCatalogueUnitTest, ImmunizationUnitTest, SurefireIncludeCoverageUnitTest and JspTaglibDeclarationRegressionTest. Both PR Java paths meet their retained 100% changed-line, instruction and branch floors. All 1,592 release floors, required refusal lines, exclusions and zero-coverage review requirements are retained unchanged. Historical release evidence is archived in baselinePriorEvidence; it is not combined with this execution or asserted to cover changed classes. This focused run establishes the merged source identity and PR coverage only, not full release coverage acceptance or a complete same-class lane union.",
+  "baselineCommit": "a5df8157b6bb4573c1d7b715465ca2b6d07188dc",
+  "baselineSourceTree": "e8029f2a8ed03c967d6eee1a4634bbb280178a4a",
+  "baselineReportSha256": "821767ebcb804c3d337664609eaeb432f4fba70dffadfb140891ecc4d52a0162",
+  "baselineLane": "PR #6171 Temurin JDK 25.0.3 focused H2 Maven test jacoco:report execution of every Java test class changed by this PR on merged release/2026.08 source a5df8157b6bb4573c1d7b715465ca2b6d07188dc. All 183 distinct test cases were counted with the strict Surefire reader; 0 prerequisite/routed skips remain explicit. Zero failures or errors. Existing higher historical floors and required refusal lines are retained. No zero-floor waiver is added. This refresh establishes source freshness and PR regression evidence; it does not qualify the complete native-lane release coverage union.",
   "baselineTestCounts": {
-    "tests": 63,
+    "tests": 183,
     "skipped": 0,
     "failures": 0,
     "errors": 0
   },
-  "baselineTestReportsSha256": "fc974c6aedfa8d7d7323b6f1ac31af3dd174dff1af4b916a296472d58eef0413",
+  "baselineTestReportsSha256": "70070e13f256da0542a09b0a1d297c347e977b33b630b496806f383d59539096",
   "baselineTestReportsHashFormat": "SHA-256 of canonical sorted JSON name/SHA-256 report manifest, compact separators plus final newline",
   "baselineReportHeaderCollisions": 0,
   "baselineCoverageInputs": [
     {
-      "lane": "pr-6145-focused-merged-source",
-      "sourceCommit": "eebcb76407c608b2065c47a4f77eba67afd3b637",
-      "executionSha256": "f5a851256821a4f06d07ddf28ebf13518c7dd2624134a4bfdc84ae8566937cba",
-      "reportsSha256": "fc974c6aedfa8d7d7323b6f1ac31af3dd174dff1af4b916a296472d58eef0413",
+      "lane": "pr-6171-merged-focused-h2",
+      "sourceCommit": "a5df8157b6bb4573c1d7b715465ca2b6d07188dc",
+      "executionSha256": "d47198f410e0732f4efc9226aa3682732ff0a3dd762a1a700226c365afb5fb7d",
+      "reportsSha256": "70070e13f256da0542a09b0a1d297c347e977b33b630b496806f383d59539096",
       "summary": {
-        "tests": 63,
+        "tests": 183,
         "failed": 0,
         "skipped": 0,
         "ready": true
       },
       "counterCollisionCount": 0,
-      "suiteCount": 5
+      "suiteCount": 1
     }
   ],
   "baselinePriorEvidence": {
-    "sourceTree": "8f73ef6bd202a6b69b5934cc09116e387c216dcf",
-    "comparisonSha256": "9ffeaae124f68363b2714f1e8b0a265596029391eb3dbbc429148e0c9b48dea5",
-    "baselineCommit": "494f6e24cb2051cdf184043637a62bf48cb242ac",
-    "baselineSourceTree": "8f73ef6bd202a6b69b5934cc09116e387c216dcf",
-    "baselineReportSha256": "c4bc4d08b53a65165e2f0e6ff5e113265b7e3bfeb7ca4c01917d86ba62baf343",
-    "baselineLane": "Passing JDK 25 full H2 and 439-suite native execution at ccf1fc0a23cca5adbfec67925240eb88b8529cad, plus final 109-case native deadline/maintenance, 35-case connection policy and five-case non-root permission executions at 494f6e24cb2051cdf184043637a62bf48cb242ac. Earlier executions contribute only exact matching final JaCoCo class IDs (7,646 of 7,653 class files are byte-identical); seven changed class files use final executions only. No missing current-class execution is substituted with an earlier class. These overlapping cases are not unique-test sums. Higher historical floors and all four refusal lines are retained. This source-freshness refresh is not a complete all-release-lane coverage acceptance or zero-floor waiver.",
+    "baselineCommit": "eebcb76407c608b2065c47a4f77eba67afd3b637",
+    "baselineSourceTree": "8c8c9dde50b332a494164d31cc30d17f5887abd0",
+    "baselineReportSha256": "9ee9338a310a01f8607b5aa7812d87ee82c2753a3f64f2fbd3ac2d704160a46c",
+    "baselineLane": "PR #6145 conflict resolution on release c9945f57acb4b68d6149bdad7cc38a7024e5b192. Temurin JDK 25.0.3 focused Maven test and JaCoCo run on the merged production and test sources: PreventionFormCodesUnitTest, AddPreventionDataBrandCatalogueUnitTest, ImmunizationUnitTest, SurefireIncludeCoverageUnitTest and JspTaglibDeclarationRegressionTest. Both PR Java paths meet their retained 100% changed-line, instruction and branch floors. All 1,592 release floors, required refusal lines, exclusions and zero-coverage review requirements are retained unchanged. Historical release evidence is archived in baselinePriorEvidence; it is not combined with this execution or asserted to cover changed classes. This focused run establishes the merged source identity and PR coverage only, not full release coverage acceptance or a complete same-class lane union.",
     "baselineTestCounts": {
-      "tests": 41314,
-      "skipped": 474,
+      "tests": 63,
+      "skipped": 0,
       "failures": 0,
       "errors": 0
     },
-    "baselineTestReportsSha256": "cc287e3859643fd78f8e88fcd8e77eedfe82e3b131baca0d22e50fabd16a9e52",
+    "baselineTestReportsSha256": "fc974c6aedfa8d7d7323b6f1ac31af3dd174dff1af4b916a296472d58eef0413",
     "baselineTestReportsHashFormat": "SHA-256 of canonical sorted JSON name/SHA-256 report manifest, compact separators plus final newline",
-    "baselineReportHeaderCollisions": 54,
-    "baselineReportCounting": "Existing strict read_surefire parser counts each distinct executed container/case; only its explicit Surefire 3.5.6 nested-name header collision rule is accepted. Failures, reruns, duplicates and other counter mismatches remain refusals.",
-    "baselineProductionClassManifestSha256": "2639aa398cfeb7b8f57a827afb46b9740fe7df2ad7ed82bf31773ad877ea6edf",
+    "baselineReportHeaderCollisions": 0,
     "baselineCoverageInputs": [
       {
-        "lane": "security-final-h2",
-        "sourceCommit": "ccf1fc0a23cca5adbfec67925240eb88b8529cad",
-        "executionSha256": "3f7864c1255392752422e36a3d673754e2697513bbb6fed74c5c9b69a8f7dd24",
-        "reportsSha256": "cc287e3859643fd78f8e88fcd8e77eedfe82e3b131baca0d22e50fabd16a9e52",
+        "lane": "pr-6145-focused-merged-source",
+        "sourceCommit": "eebcb76407c608b2065c47a4f77eba67afd3b637",
+        "executionSha256": "f5a851256821a4f06d07ddf28ebf13518c7dd2624134a4bfdc84ae8566937cba",
+        "reportsSha256": "fc974c6aedfa8d7d7323b6f1ac31af3dd174dff1af4b916a296472d58eef0413",
         "summary": {
-          "tests": 41314,
-          "failed": 0,
-          "skipped": 474,
-          "ready": true
-        },
-        "counterCollisionCount": 54,
-        "suiteCount": 3045
-      },
-      {
-        "lane": "security-final-native",
-        "sourceCommit": "ccf1fc0a23cca5adbfec67925240eb88b8529cad",
-        "executionSha256": "2a6532de2d4aad5d1727fd9030267b6f77705ed9a6546525efbf6ef3329c5039",
-        "reportsSha256": "f35104e6b0ac3fb8a7f8abdb3b18c3a3abddbe98e53e42d17ea3e213b9e38f04",
-        "summary": {
-          "tests": 5659,
-          "failed": 0,
-          "skipped": 0,
-          "ready": true
-        },
-        "counterCollisionCount": 0,
-        "suiteCount": 439
-      },
-      {
-        "lane": "final-deadline-stable",
-        "sourceCommit": "494f6e24cb2051cdf184043637a62bf48cb242ac",
-        "executionSha256": "6bf7d5f327302bb6274bd987daf8ab4336cab10821252b44cc867ccec8a5ca15",
-        "reportsSha256": "2fd84d5e9f6802cc41ab3c4f8530645f8ecae6ee0c6d70e6afbc62bab4290322",
-        "summary": {
-          "tests": 109,
-          "failed": 0,
-          "skipped": 0,
-          "ready": true
-        },
-        "counterCollisionCount": 0,
-        "suiteCount": 7
-      },
-      {
-        "lane": "final-ordinary-admission",
-        "sourceCommit": "494f6e24cb2051cdf184043637a62bf48cb242ac",
-        "executionSha256": "ed9ae5c8ec5e5b4c7e4a3e64e0d3d08eea51c1a54f83cf2feb634a072a7fff47",
-        "reportsSha256": "0686805087fc46e64c6ad412e53c8246812ab9e8783d98c2655366e0b4ed6546",
-        "summary": {
-          "tests": 35,
-          "failed": 0,
-          "skipped": 0,
-          "ready": true
-        },
-        "counterCollisionCount": 0,
-        "suiteCount": 1
-      },
-      {
-        "lane": "final-permission-494f6e",
-        "sourceCommit": "494f6e24cb2051cdf184043637a62bf48cb242ac",
-        "executionSha256": "0c1d8fd02af44e95a50a2a7da0f81d73f3dc93deea08c5e97fa7733f4f655041",
-        "reportsSha256": "ef75d8eb5958462b693397d1b6f309e2292feaef8a11f4b95c0269d42c4c37b0",
-        "summary": {
-          "tests": 5,
+          "tests": 63,
           "failed": 0,
           "skipped": 0,
           "ready": true
@@ -9810,19 +9720,9 @@
         "counterCollisionCount": 0,
         "suiteCount": 5
       }
-    ],
-    "baselineClassIdentity": {
-      "currentProductionClassCount": 7653,
-      "identicalEarlierClasses": 7646,
-      "changedClasses": [
-        "io/github/carlos_emr/carlos/commn/dao/CdsExportStatementWaitReadSupport$Network.class",
-        "io/github/carlos_emr/carlos/commn/dao/CdsExportStatementWaitReadSupport$Unit.class",
-        "io/github/carlos_emr/carlos/commn/dao/CdsExportStatementWaitReadSupport.class",
-        "io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsJdbcAdmissionGuard$1Functions.class",
-        "io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsJdbcAdmissionGuard$OrdinaryAdmissionLease.class",
-        "io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsJdbcAdmissionGuard$SqlShape.class",
-        "io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsJdbcAdmissionGuard.class"
-      ]
-    }
-  }
+    ]
+  },
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsDataUnitTest"
+  ]
 }
