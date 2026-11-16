@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.charset.StandardCharsets;
@@ -105,6 +106,10 @@ public class ManageEForm2Action extends ActionSupport implements UploadedFilesAw
             request.setAttribute("input", "import");
             EFormExportZip eFormExportZip = new EFormExportZip();
             errors = eFormExportZip.importForm(zippedFormStream);
+        } catch (IOException e) {
+            MiscUtils.getLogger().debug("eForm ZIP import could not be read", e);
+            request.setAttribute("importErrors", Collections.singletonList(getText("eform.importReadFailed")));
+            return "fail";
         }
         if (!errors.isEmpty()) {
             request.setAttribute("importErrors", errors);
