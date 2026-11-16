@@ -39,7 +39,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * BC billing pages' own links: the service-code tray list pages locally, and the
+ * BC billing pages' own links: the service-code tray list pages on the server, and the
  * reconciliation, dx-code and Teleplan code pages link only stylesheets that exist.
  */
 @Tag("unit")
@@ -73,12 +73,13 @@ class BcBillingPageLinksRegressionTest {
     }
 
     @Test
-    @DisplayName("should page the tray-code list locally without repeating request parameters")
-    void shouldPageTrayList_locally() throws IOException {
+    @DisplayName("should use server paging for the tray-code list without a second client pager")
+    void shouldPageTrayList_onServer() throws IOException {
         String page = read("billingSVCTrayAssoc.jsp");
-        assertThat(page).contains("data-carlos-table").contains("data-page-size=\"50\"")
+        assertThat(page).contains("data-carlos-table").contains("data-page-size=\"0\"")
+                .contains("data-server-page-region").contains("/WEB-INF/jspf/server-table-page.jspf")
                 .doesNotContain("<display:table").doesNotContain("requestURI=");
-        // The view is still entered through its read-only action; paging stays local.
+        // The view is still entered through its read-only action; the DAO bounds each page to fifty rows.
         assertThat(Files.readString(Path.of("src/main/webapp/WEB-INF/classes/struts-billing.xml"), StandardCharsets.UTF_8))
                 .containsSubsequence("<action name=\"billing/CA/BC/supServiceCodeAssocAction\"",
                         "/WEB-INF/jsp/billing/CA/BC/billingSVCTrayAssoc.jsp");
