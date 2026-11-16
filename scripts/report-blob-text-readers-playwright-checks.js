@@ -27,7 +27,7 @@ async function preflight({config}) {
   } catch {
     throw new h.SkipCheck('The reader probe needs the local packaged webapp and access to its private properties');
   }
-  const java = spawnSync('java', ['--list-modules'], {encoding: 'utf8'});
+  const java = spawnSync('java', ['--list-modules'], {encoding: 'utf8', timeout:10000, killSignal:'SIGKILL'});
   const compiler = /^jdk\.compiler@(\d+)/m.exec(java.stdout || '');
   if (java.error || java.status !== 0 || !compiler || Number(compiler[1]) < 25) {
     throw new h.SkipCheck('The installed reader probe requires a local JDK25 or newer');
@@ -57,11 +57,11 @@ async function workflow(s) {
     const result = spawnSync('java', ['--source', '25', '-cp',
       `${path.join(webapp(), 'WEB-INF/classes')}:${path.join(webapp(), 'WEB-INF/lib/*')}`,
       path.join(__dirname, 'fixtures/carlostest5922/ReportBlobReaderProbe.java')],
-    {stdio: 'inherit', env: {...process.env, PROBE_BLOB_FORM_ID: id, PROBE_BLOB_FORM_MARKER: marker}});
+    {stdio: 'inherit', timeout:60000, killSignal:'SIGKILL', env: {...process.env, PROBE_BLOB_FORM_ID: id, PROBE_BLOB_FORM_MARKER: marker}});
     if (result.error) throw result.error;
     h.assert(result.status === 0, 'An installed binary report reader failed the JDBC decoding probe');
   });
 }
 
-if (require.main === module) runWorkflow('report-blob-text-readers', workflow, {openPatient: false, preflight});
+if (require.main === module) runWorkflow('report-blob-text-readers', workflow, {openPatient: false, preflightConfig: preflight});
 module.exports = {workflow, preflight};
