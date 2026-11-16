@@ -919,7 +919,8 @@
         "manual-shared-outcomes-launch",
         "browser-process-oracle",
         "packaged-profile-first-nations",
-        "packaged-profile-first-nations-encoding"
+        "packaged-profile-first-nations-encoding",
+        "packaged-profile-consult-health-care-team"
       ]
     },
     {
@@ -7996,6 +7997,39 @@
         "java": "25"
       },
       "timeoutSeconds": 3600
+    },
+    {
+      "id": "packaged-profile-consult-health-care-team",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--profile",
+        "consult-health-care-team",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "packaged": true,
+      "propertyProfile": "consult-health-care-team",
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_HOST"
+      ],
+      "timeoutSeconds": 7200,
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "requireLockedChromium": true
     }
   ],
   "requireJavaDiscovery": true,
