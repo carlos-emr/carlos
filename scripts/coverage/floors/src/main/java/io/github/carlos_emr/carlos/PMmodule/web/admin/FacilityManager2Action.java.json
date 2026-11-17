@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/PMmodule/web/admin/FacilityManager2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "5e0244e01c8ac65cf93d51055f6e5fe7590200d3"
+  },
+  "evidenceSha256": "641fc2d2415296232c26adb218f7c7d2307da322f111581ff93e6abc2acac015"
+}
