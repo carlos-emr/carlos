@@ -48,6 +48,24 @@ async function workflow(s) {
     h.assert(sql.value(stored)==='0'&&await chart.locator('#informedConsentDiv').isVisible(),'Cancelled consent was recorded');
     h.assert(!await chart.locator('#informedConsentCheck').isChecked(),'Cancelled consent remains selected');
   });
+  await s.step('an unconfirmed informed-consent write clears the box and permits a retry without claiming consent',async()=>{
+    const pattern='**/DemographicExtService';
+    const refuse=route=>route.fulfill({status:200,contentType:'application/json',body:'{"value":"0"}'});
+    await chart.route(pattern,refuse);
+    try {
+      const dialogs=await h.withExpectedDialogs(chart,async()=>{
+        await chart.locator('#informedConsentCheck').click();
+        await chart.waitForFunction(()=>{
+          const box=document.getElementById('informedConsentCheck');
+          return box&&!box.checked&&!box.disabled;
+        });
+      });
+      h.assert(dialogs.length===2&&dialogs[0].type==='confirm'&&dialogs[1].type==='alert'
+        &&/not saved.*try again/i.test(dialogs[1].text),'Unconfirmed consent did not explain the retry');
+      h.assert(sql.value(stored)==='0'&&await chart.locator('#informedConsentDiv').isVisible(),'Unconfirmed consent changed the stored state or hid the banner');
+      h.assert(!await chart.locator('#informedConsentCheck').isChecked()&&await chart.locator('#informedConsentCheck').isEnabled(),'Unconfirmed consent cannot be retried');
+    } finally {await chart.unroute(pattern,refuse);}
+  });
   await s.step('confirmed informed consent stores the originating patient extension and stays collected after reopening',async()=>{
     const [response]=await Promise.all([chart.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname.endsWith('/DemographicExtService')),
       h.withExpectedDialogs(chart,()=>chart.locator('#informedConsentCheck').click())]);

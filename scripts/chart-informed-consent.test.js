@@ -11,10 +11,14 @@ const end = source.indexOf('    window.addEventListener("message"', start);
 assert.ok(start > 0 && end > start, 'The deployed consent handler must be exercised');
 
 function chart({checked = true, attribute, confirm = true} = {}) {
-  const state = {checked, attribute, confirmations: 0, posts: [], removed: false};
+  const state = {checked, attribute, confirmations: 0, posts: [], removed: false, disabled: false, alerts: []};
   const checkbox = {
     is(selector) { assert.equal(selector, ':checked'); return state.checked; },
-    prop(name, value) { assert.equal(name, 'checked'); state.checked = value; },
+    prop(name, value) {
+      assert.ok(['checked', 'disabled'].includes(name));
+      if (arguments.length === 1) return state[name];
+      state[name] = value; return checkbox;
+    },
     // Attribute and live state intentionally differ after a native checkbox click.
     attr(name, value) {
       assert.equal(name, 'checked');
@@ -30,9 +34,11 @@ function chart({checked = true, attribute, confirm = true} = {}) {
   jQuery.post = (url, data, callback, format) => {
     assert.equal(url, '/carlos/DemographicExtService');
     assert.equal(format, 'json');
-    state.posts.push({data, callback});
+    const post = {data, callback};
+    state.posts.push(post);
+    return {fail(callback) { post.failure = callback; return this; }};
   };
-  const context = {ctx: '/carlos', jQuery, window: {confirm() {
+  const context = {ctx: '/carlos', jQuery, window: {alert(message) { state.alerts.push(message); }, confirm() {
     state.confirmations++;
     return typeof confirm === 'function' ? confirm() : confirm;
   }}};
@@ -87,4 +93,36 @@ test('the release ledger retires the repaired consent failure as an active regre
   assert.equal(ledger.browserExpectedFailures.some(row => row.check === 'chart-informed-consent'), false);
   assert.equal(ledger.retiredBrowserExpectations.filter(row =>
     row.check === 'chart-informed-consent' && row.finding === 332).length, 1);
+});
+
+
+test('a failed consent write clears the checkbox, explains retry, and permits another attempt', () => {
+  const c = chart(); c.record();
+  assert.equal(typeof c.state.posts[0].failure, 'function');
+  c.state.posts[0].failure({status: 503});
+  assert.equal(c.state.checked, false);
+  assert.equal(c.state.disabled, false);
+  assert.equal(c.state.removed, false);
+  assert.equal(c.state.alerts.length, 1);
+  assert.match(c.state.alerts[0], /not saved.*try again/i);
+  c.state.checked = true; c.record();
+  assert.equal(c.state.posts.length, 2);
+});
+
+test('an unconfirmed acknowledgement clears the checkbox and leaves a retryable banner', () => {
+  for (const data of [undefined, {}, {value: '0'}, {value: '-1'}, {value: '1garbage'}, {value: [1]}]) {
+    const c = chart(); c.record(); c.state.posts[0].callback(data, 'success');
+    assert.equal(c.state.checked, false);
+    assert.equal(c.state.disabled, false);
+    assert.equal(c.state.removed, false);
+    assert.equal(c.state.alerts.length, 1);
+  }
+});
+
+test('a pending consent write stays unchecked and cannot submit a second attempt', () => {
+  const c = chart(); c.record();
+  assert.equal(c.state.checked, false);
+  assert.equal(c.state.disabled, true);
+  c.state.checked = true; c.record();
+  assert.equal(c.state.posts.length, 1);
 });
