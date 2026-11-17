@@ -83,8 +83,11 @@ For legacy exclusions without explicit blob fields, it also writes an immutable
 companion binding to the original run. Exclusion records must match that binding
 even when the measured Git commit is no longer available.
 It keeps higher active metric floors and all required refusal checks; it does
-not copy unrelated rows from the input. New zero-floor review metadata
-must be explicitly present in the input and refer to the measured source blob.
+not copy unrelated rows from the input. New zero-floor review metadata must be
+explicitly present in the input and refer to the measured source blob. An active
+review persists when reimporting the same zero-floor source blob, retaining its
+original immutable evidence reference. A changed source blob cannot inherit
+that review; a floor raised above zero retires the no-longer-needed waiver.
 Neither importing evidence nor passing freshness establishes release readiness.
 The full ratchet still requires its fresh, passing, same-class native-lane union
 for the complete candidate, even though historical per-source floors compose.

@@ -190,6 +190,42 @@ class CoveragePolicyTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'reviewed base'):
             policy.import_sources(manifest, incoming, [self.source])
 
+    def reviewed_zero_floor(self):
+        self.policy['files'][self.source]['lines'] = 0
+        review = {'reason': 'FAKE reviewed fixture limitation', 'reviewer': 'fixture-reviewer',
+                  'reviewUrl': 'https://github.com/carlos-emr/carlos/pull/1#pullrequestreview-1',
+                  'sourceBlob': self.policy['files'][self.source]['sourceBlob']}
+        self.policy['zeroCoverageWaivers'] = {self.source: review}
+        return review
+
+    def test_unchanged_zero_floor_keeps_its_review_but_changed_source_cannot_inherit_it(self):
+        review = self.reviewed_zero_floor()
+        manifest = self.migrate()
+        seed = policy.read_json(manifest)['seedEvidenceSha256']
+        self.import_source(manifest, self.source, self.measure(self.source, 0))
+        loaded = policy.load_policy(manifest)
+        self.assertEqual(loaded['zeroCoverageWaivers'], {self.source: review})
+        self.assertEqual(loaded['waiverEvidence'][self.source], seed)
+        self.assertEqual(floors.check_freshness(loaded, self.base)['unreviewedZeroFloors'], [])
+        (self.root / self.source).write_text('class Guard { int value = 3; }\n')
+        self.git('commit', '-qam', 'changed reviewed source')
+        self.import_source(manifest, self.source, self.measure(self.source, 0))
+        loaded = policy.load_policy(manifest)
+        self.assertEqual(loaded['zeroCoverageWaivers'], {})
+        self.assertEqual(floors.check_freshness(loaded, self.base)['unreviewedZeroFloors'], [self.source])
+        record_path = self.record_path(manifest)
+        record = policy.read_json(record_path)
+        record.update(zeroCoverageWaiver=review, waiverEvidenceSha256=seed)
+        policy.write_json(record_path, record)
+        with self.assertRaisesRegex(ValueError, 'Zero-coverage review'):
+            policy.load_policy(manifest)
+
+    def test_raised_nonzero_floor_retires_its_no_longer_needed_zero_floor_review(self):
+        self.reviewed_zero_floor()
+        manifest = self.migrate()
+        self.import_source(manifest, self.source, self.measure(self.source, 100))
+        self.assertEqual(policy.load_policy(manifest)['zeroCoverageWaivers'], {})
+
     def test_exclusions_are_source_bound_and_must_remain_nonexecutable(self):
         package = 'src/main/java/example/package-info.java'
         (self.root / package).write_text('/** FAKE package docs */\npackage example;\n')
@@ -204,6 +240,7 @@ class CoveragePolicyTest(unittest.TestCase):
                       floors.check_freshness(policy.load_policy(manifest), self.base)['problems'])
         incoming = self.measure(self.source)
         incoming['exclusions'] = self.policy['exclusions']
+        incoming['files'] = {}  # A focused package-only run has no executable floor rows.
         self.import_source(manifest, package, incoming)
         self.assertTrue(floors.check_freshness(policy.load_policy(manifest), self.base)['ready'])
 

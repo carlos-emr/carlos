@@ -3,7 +3,7 @@
 import hashlib
 import json
 import math
-from pathlib import Path, PurePosixPath
+from pathlib import PurePosixPath
 import re
 import subprocess
 
@@ -81,8 +81,9 @@ def read_evidence(directory, identity, base):
         evidence = dict(evidence, exclusionSourceBlobs=binding['exclusionSourceBlobs'])
     if evidence.get('schemaVersion') != 1 or evidence.get('base') != base:
         raise ValueError('Coverage evidence uses a different schema or reviewed base')
-    if not isinstance(evidence.get('files'), dict) or not evidence['files']:
-        raise ValueError('Coverage evidence requires source-bound floors')
+    if (not isinstance(evidence.get('files'), dict)
+            or not (evidence['files'] or evidence.get('exclusions'))):
+        raise ValueError('Coverage evidence requires source-bound floors or exclusions')
     return evidence
 
 
@@ -99,7 +100,8 @@ def load_policy(path):
     result = {'schemaVersion': 2, 'base': manifest['base'],
               'files': dict(seed['files']), 'exclusions': dict(seed.get('exclusions', {})),
               'zeroCoverageWaivers': dict(seed.get('zeroCoverageWaivers', {})),
-              'sourceEvidence': {}, 'exclusionSourceBlobs': dict(seed.get('exclusionSourceBlobs', {}))}
+              'sourceEvidence': {}, 'exclusionSourceBlobs': dict(seed.get('exclusionSourceBlobs', {})),
+              'waiverEvidence': dict.fromkeys(seed.get('zeroCoverageWaivers', {}), seed_id)}
     if set(result['exclusionSourceBlobs']) != set(result['exclusions']):
         raise ValueError('Seed exclusions require exact source blob bindings')
     result['sourceEvidence'] = dict.fromkeys(set(result['files']) | set(result['exclusions']), seed)
@@ -115,7 +117,7 @@ def load_policy(path):
         kind = record.get('kind')
         if kind not in ('floor', 'exclusion', 'remove'):
             raise ValueError('Unknown source coverage record kind')
-        for key in ('files', 'exclusions', 'zeroCoverageWaivers', 'sourceEvidence', 'exclusionSourceBlobs'):
+        for key in ('files', 'exclusions', 'zeroCoverageWaivers', 'sourceEvidence', 'exclusionSourceBlobs', 'waiverEvidence'):
             result[key].pop(source, None)
         if kind == 'remove':
             continue  # A still-changed source fails the checker's missing-floor check.
@@ -150,9 +152,16 @@ def load_policy(path):
         result['files'][source] = floor
         if 'zeroCoverageWaiver' in record:
             waiver = record['zeroCoverageWaiver']
-            if waiver != evidence.get('zeroCoverageWaivers', {}).get(source):
+            waiver_id = record.get('waiverEvidenceSha256', identity)
+            if waiver_id not in cache:
+                cache[waiver_id] = read_evidence(evidence_directory, waiver_id, manifest['base'])
+            reviewed = cache[waiver_id]
+            if (not isinstance(waiver, dict) or waiver != reviewed.get('zeroCoverageWaivers', {}).get(source)
+                    or waiver.get('sourceBlob') != floor.get('sourceBlob')
+                    or reviewed['files'].get(source, {}).get('sourceBlob') != floor.get('sourceBlob')):
                 raise ValueError('Zero-coverage review is absent from its evidence')
             result['zeroCoverageWaivers'][source] = waiver
+            result['waiverEvidence'][source] = waiver_id
     return result
 
 
@@ -236,7 +245,14 @@ def import_sources(path, incoming_path, sources):
                 floor['requiredRefusalLines'] = refusals
             record.update(kind='floor', floor=floor)
             waiver = incoming.get('zeroCoverageWaivers', {}).get(source)
+            if waiver is None and floor['lines'] == 0:
+                prior_waiver = active['zeroCoverageWaivers'].get(source)
+                if isinstance(prior_waiver, dict) and prior_waiver.get('sourceBlob') == floor.get('sourceBlob'):
+                    waiver = prior_waiver
+                    record['waiverEvidenceSha256'] = active['waiverEvidence'][source]
             if waiver is not None:
+                if not isinstance(waiver, dict) or waiver.get('sourceBlob') != floor.get('sourceBlob') or floor['lines'] != 0:
+                    raise ValueError('Zero-coverage review must match an active zero-floor source blob')
                 record['zeroCoverageWaiver'] = waiver
         elif source in incoming.get('exclusions', {}):
             bindings[source] = exclusion_blob(incoming, source)
