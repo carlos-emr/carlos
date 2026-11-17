@@ -64,7 +64,8 @@ public class ContextStartupListener implements jakarta.servlet.ServletContextLis
     private static final Logger logger = MiscUtils.getLogger();
     private static final CarlosProperties oscarProperties = CarlosProperties.getInstance();
 
-    private ScheduledFuture<?> portalInviteSweep;
+    // Written by the clinical startup thread, cancelled by the container thread in contextDestroyed.
+    private volatile ScheduledFuture<?> portalInviteSweep;
     private ClinicalStartupCoordinator clinicalStartup;
     private CdsImportMaintenanceService maintenance;
 
@@ -158,6 +159,10 @@ public class ContextStartupListener implements jakarta.servlet.ServletContextLis
         requireClinicalAccessOpen();
         SpringUtils.getBean(io.github.carlos_emr.carlos.fax.core.FaxSchedulerJob.class)
                 .retryDeferredInitialization();
+        // Last step, so the sweep is scheduled once: the coordinator never re-runs a finished initialization and a
+        // failed one stops before here. It touches only the email log, but is held back with the other clinical
+        // processes while maintenance is retained, as it was before startup moved into the coordinator.
+        forgetLeftoverPortalInviteCodes();
     }
 
     void initializeDefaultData(PlatformTransactionManager transactionManager) {
