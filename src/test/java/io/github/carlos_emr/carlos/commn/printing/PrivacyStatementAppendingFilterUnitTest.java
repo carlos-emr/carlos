@@ -33,6 +33,8 @@ import org.springframework.mock.web.MockHttpSession;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -58,6 +60,94 @@ class PrivacyStatementAppendingFilterUnitTest {
 
         filter = new PrivacyStatementAppendingFilter();
         filter.init(config);
+    }
+
+    @Test
+    void shouldPreserveStreamCallbacksAndLifecycle_forNonHtmlResponses() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/binary");
+        MockHttpServletResponse response = spy(new MockHttpServletResponse());
+        int initialBuffer = response.getBufferSize();
+        ServletOutputStream delegate = mock(ServletOutputStream.class);
+        doReturn(delegate).when(response).getOutputStream();
+        when(delegate.isReady()).thenReturn(true);
+        var listener = mock(jakarta.servlet.WriteListener.class);
+        byte[] bytes = {1, 2, 3};
+        filter.doFilter(request, response, (req, res) -> {
+            res.setContentType("application/octet-stream");
+            ServletOutputStream stream = res.getOutputStream();
+            assertThat(stream.isReady()).isTrue();
+            stream.setWriteListener(listener);
+            stream.write(42);
+            stream.write(bytes, 0, bytes.length);
+            stream.write(bytes, 0, 0);
+            stream.flush();
+            stream.close();
+        });
+        verify(delegate).setWriteListener(listener);
+        verify(delegate).write(42);
+        verify(delegate).write(bytes, 0, bytes.length);
+        verify(delegate).write(bytes, 0, 0);
+        verify(delegate).flush();
+        verify(delegate).close();
+        assertThat(response.getBufferSize()).isEqualTo(initialBuffer);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"none", "buffer", "full"})
+    void shouldRetainNoticeAndResetRecovery_whenGrowthIsRefusedBeforeCommit(String reset) throws Exception {
+        var properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        Object original = properties.setProperty("confidentiality_statement.v1", "Synthetic recovery notice.");
+        try {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/print");
+            MockHttpServletResponse response = spy(new MockHttpServletResponse());
+            doThrow(new IllegalStateException("Container body already in use"))
+                    .doCallRealMethod().when(response).setBufferSize(APPEND_BUFFER_SIZE_BYTES);
+            filter.doFilter(request, response, (req, res) -> {
+                res.setContentType("text/html;charset=UTF-8");
+                res.setContentLength(4);
+                res.getWriter().write("body");
+                if (!"none".equals(reset)) {
+                    if ("buffer".equals(reset)) res.resetBuffer();
+                    else res.reset();
+                    res.setContentType("text/html;charset=UTF-8");
+                    res.setContentLength(5);
+                    res.getWriter().write("fresh");
+                }
+            });
+            if ("none".equals(reset)) {
+                assertThat(response.getContentAsString()).startsWith("body")
+                        .containsOnlyOnce("Synthetic recovery notice.");
+                assertThat(response.getHeader("Content-Length")).isNull();
+            } else {
+                assertThat(response.getContentAsString()).startsWith("fresh")
+                        .containsOnlyOnce("Synthetic recovery notice.");
+                assertThat(response.getHeader("Content-Length")).isNull();
+            }
+        } finally {
+            if (original == null) properties.remove("confidentiality_statement.v1");
+            else properties.put("confidentiality_statement.v1", original);
+        }
+    }
+
+    @Test
+    void shouldRetainCommittedBodyAndLength_whenItsBufferCannotGrow() throws Exception {
+        var properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        Object original = properties.setProperty("confidentiality_statement.v1", "Synthetic committed notice.");
+        try {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/print");
+            MockHttpServletResponse response = spy(new MockHttpServletResponse());
+            response.setContentType("text/html;charset=UTF-8");
+            response.setContentLength(4);
+            response.setCommitted(true);
+            doThrow(new IllegalStateException("Container response committed"))
+                    .when(response).setBufferSize(APPEND_BUFFER_SIZE_BYTES);
+            filter.doFilter(request, response, (req, res) -> res.getWriter().write("body"));
+            assertThat(response.getContentAsString()).isEqualTo("body");
+            assertThat(response.getContentLength()).isEqualTo(4);
+        } finally {
+            if (original == null) properties.remove("confidentiality_statement.v1");
+            else properties.put("confidentiality_statement.v1", original);
+        }
     }
 
     @Test
@@ -524,7 +614,7 @@ class PrivacyStatementAppendingFilterUnitTest {
         localFilter.doFilter(request, response, chain);
 
         assertThat(response.getContentAsString()).isEqualTo(body);
-        assertThat(response.getLastRequestedBufferSize()).isEqualTo(APPEND_BUFFER_SIZE_BYTES);
+        assertThat(response.getLastRequestedBufferSize()).isZero();
     }
 
     @Test
