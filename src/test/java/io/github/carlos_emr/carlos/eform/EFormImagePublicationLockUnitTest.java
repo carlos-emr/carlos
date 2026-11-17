@@ -43,15 +43,19 @@ class EFormImagePublicationLockUnitTest {
     @TempDir
     Path images;
 
-    @Test
-    void shouldBlockAnotherJvm_whenPublicationIsProvisional() throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldBlockAnotherJvm_whenPublicationIsProvisional(boolean withToolOptions) throws Exception {
         Process child = null;
         try (var lease = EFormImagePublicationLock.acquire(images.toFile())) {
             Path marker = marker();
             assertThat(marker).isRegularFile().isEmptyFile();
             String classpath = System.getProperty("surefire.test.class.path", System.getProperty("java.class.path"));
-            child = new ProcessBuilder(Path.of(System.getProperty("java.home"), "bin", "java").toString(),
-                    "-cp", classpath, LockProbe.class.getName(), marker.toString()).redirectErrorStream(true).start();
+            var builder = new ProcessBuilder(Path.of(System.getProperty("java.home"), "bin", "java").toString(),
+                    "-cp", classpath, LockProbe.class.getName(), marker.toString());
+            builder.environment().remove("JAVA_TOOL_OPTIONS");
+            if (withToolOptions) builder.environment().put("JAVA_TOOL_OPTIONS", "-Dcarlos.eform.lockProbe=FAKE-option-banner");
+            child = builder.redirectErrorStream(true).start();
             try (var output = new BufferedReader(new InputStreamReader(child.getInputStream(), StandardCharsets.UTF_8));
                  var reader = Executors.newSingleThreadExecutor()) {
                 assertThat(reader.submit(output::readLine).get(10, TimeUnit.SECONDS)).isEqualTo("BLOCKED");
