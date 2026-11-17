@@ -4,6 +4,8 @@ package io.github.carlos_emr.carlos.lab.ca.all;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.atMost;
 import static org.mockito.Mockito.doAnswer;
@@ -131,6 +133,24 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         LocalDateTime entered = LocalDateTime.parse("2026-10-13T10:05:19");
         assertThat(fileResult(result, "", "2026-10-09 11:20:29", entered).getDataField())
                 .isEqualTo(result);
+    }
+
+    @ParameterizedTest(name = "result [{0}]")
+    @ValueSource(strings = {"Positive\nSee comment", "Positive\r\nSee comment", "Positive\rSee comment"})
+    @DisplayName("should file a multi-line result whole when the filter setting is absent, as when it is blank (#6171)")
+    void shouldFileTheWholeResult_whenAnAbsentFilterMeetsALineBreak(String result) {
+        LocalDateTime entered = LocalDateTime.parse("2026-10-13T10:05:19");
+        Measurement absent = fileResult(result, null, "2026-10-09 11:20:29", entered);
+        Measurement blank = fileResult(result, "", "2026-10-09 11:20:29", entered);
+        assertThat(absent.getDataField()).isEqualTo(result);
+        assertThat(absent.getDataField()).isEqualTo(blank.getDataField());
+    }
+
+    @Test
+    void shouldFileTheWholeResult_whenTheFilterIsAbsentAndTheResultIsOneLine() {
+        LocalDateTime entered = LocalDateTime.parse("2026-10-13T10:05:19");
+        assertThat(fileResult("5.7 mmol/L", null, "2026-10-09 11:20:29", entered).getDataField())
+                .isEqualTo("5.7 mmol/L");
     }
 
     @Test
@@ -453,9 +473,9 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         CarlosProperties properties = mock(CarlosProperties.class);
         try (var settings = mockStatic(CarlosProperties.class); var logs = LogCapture.forLogger(Hl7textResultsData.class)) {
             settings.when(CarlosProperties::getInstance).thenReturn(properties);
-            when(properties.getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*")).thenReturn("i");
+            when(properties.getProperty("HL7_LAB_MEASUREMENT_FILTER", Hl7textResultsData.NO_FILTER)).thenReturn("i");
             assertThat(value.invoke(null, "İ", null)).isNull();
-            when(properties.getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*")).thenReturn(".*");
+            when(properties.getProperty("HL7_LAB_MEASUREMENT_FILTER", Hl7textResultsData.NO_FILTER)).thenReturn(".*");
             for (String missing : new String[]{null, "", "DNR"}) assertThat(value.invoke(null, missing, null)).isNull();
             assertThat(value.invoke(null, "1".repeat(Measurement.DATA_FIELD_MAX_LENGTH + 1), null)).isNull();
             assertThat(logs.messages()).isEmpty();
@@ -574,7 +594,13 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         when(handler.getTimeStamp(0, 0)).thenReturn(observationTimestamp);
 
         CarlosProperties properties = mock(CarlosProperties.class);
-        when(properties.getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*")).thenReturn(filter);
+        if (filter == null) {
+            // The setting is absent: the property store answers with the default it was given.
+            when(properties.getProperty(eq("HL7_LAB_MEASUREMENT_FILTER"), anyString()))
+                    .thenAnswer(invocation -> invocation.getArgument(1));
+        } else {
+            when(properties.getProperty("HL7_LAB_MEASUREMENT_FILTER", Hl7textResultsData.NO_FILTER)).thenReturn(filter);
+        }
         when(properties.getProperty("MAP_BY_IDENTIFIER_AND_NAME", "false")).thenReturn("false");
         Calendar entryCalendar = GregorianCalendar.from(entryTimestamp.atZone(ZoneId.systemDefault()));
 

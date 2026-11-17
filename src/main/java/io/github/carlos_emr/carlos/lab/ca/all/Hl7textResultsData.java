@@ -486,6 +486,9 @@ public class Hl7textResultsData {
                 : comment.substring(0, comment.offsetByCodePoints(0, Measurement.COMMENTS_MAX_LENGTH));
     }
 
+    /** The filter used when {@code HL7_LAB_MEASUREMENT_FILTER} is unset or blank: the whole result, line breaks included. */
+    static final String NO_FILTER = "(?s).*";
+
     /**
      * The value a result is filed as: the text {@code HL7_LAB_MEASUREMENT_FILTER} matches, in the
      * lab's own case. An unset or blank filter matches the whole result. {@code null} when the filter
@@ -503,11 +506,12 @@ public class Hl7textResultsData {
         String trimmed = StringUtils.trimToEmpty(result).replaceAll("\\<br\\s?/?\\>", "").trim();
         Locale locale = Locale.ROOT;
         String shadow = trimmed.toLowerCase(locale);
-        String filter = CarlosProperties.getInstance().getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*");
-        // A blank setting means no filter, as an unset one does (#6121). As a pattern it would match zero
-        // characters, so every result would be filed as an empty value. (?s) lets the match run past a
-        // line break, so a multi-line result is filed whole, not just its first line.
-        if (StringUtils.isBlank(filter)) filter = "(?s).*";
+        // An unset setting and a blank one both mean no filter (#6121), and both file a multi-line result whole:
+        // (?s) lets the match run past a line break, which a plain ".*" does not (it would file only the first
+        // line). As a blank pattern the filter would match zero characters, so every result would be filed as
+        // an empty value.
+        String filter = CarlosProperties.getInstance().getProperty("HL7_LAB_MEASUREMENT_FILTER", NO_FILTER);
+        if (StringUtils.isBlank(filter)) filter = NO_FILTER;
         Matcher match = Pattern.compile(filter).matcher(shadow);
         if (!match.find()) return null;
         int start = originalBoundary(trimmed, shadow, match.start(), locale);
