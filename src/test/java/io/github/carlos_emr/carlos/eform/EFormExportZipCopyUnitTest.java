@@ -120,7 +120,8 @@ class EFormExportZipCopyUnitTest {
         });
         assertThat(Files.readAllBytes(images.resolve("fixture.png"))).isEqualTo(asset);
         try (var staging = Files.list(images.resolve("extractFolder"))) {
-            assertThat(staging.toList()).isEmpty();
+            assertThat(staging).containsExactly(images.resolve("extractFolder")
+                    .resolve(EFormImagePublicationLock.LOCK_FILE_NAME));
         }
     }
 

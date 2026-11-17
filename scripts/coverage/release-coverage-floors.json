@@ -6536,7 +6536,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 92.85714285714286,
-      "sourceBlob": "75db91104b6d0f377c3a939140ea22438180a227"
+      "sourceBlob": "4c58aba7d9fbe21ee0c4090ddc49e16e2aa01b16"
     },
     "src/main/java/io/github/carlos_emr/carlos/eform/EFormSqlSafety.java": {
       "lines": 100.0,
@@ -9711,6 +9711,21 @@
       "instructions": 100.0,
       "branches": 100.0,
       "sourceBlob": "6639ed1e0e6cf967387083076b1c56410bdd26c2"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/eform/EFormImagePublicationLock.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "5592c76a7b38a282468023fc38ecaed9fb6e40dc",
+      "requiredRefusalLines": [
+        65
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/eform/upload/ImageUpload2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "f3ed2223c80e1d2a0a7999b18fb8e986ef92d4ae"
     }
   },
   "exclusions": {

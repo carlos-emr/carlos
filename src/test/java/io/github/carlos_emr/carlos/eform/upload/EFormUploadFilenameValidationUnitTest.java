@@ -15,6 +15,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.PreventionManager;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.junit.jupiter.api.AfterEach;
@@ -38,6 +39,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
@@ -229,6 +231,46 @@ class EFormUploadFilenameValidationUnitTest extends CarlosUnitTestBase {
                     io.github.carlos_emr.carlos.utility.PathValidationUtils.class, "allowedTempDirectories", previousRoots);
             Files.deleteIfExists(outside);
             Files.deleteIfExists(outsideDir);
+        }
+    }
+
+    @Test
+    @DisplayName("image upload should refuse a source alias changed after destination validation")
+    void shouldRefuseChangedSource_whenAliasEscapesAfterDestinationValidation() throws Exception {
+        Path allowed = Files.createDirectory(tempDir.resolve("uploads"));
+        Path foreign = Files.createDirectory(tempDir.resolve("foreign"));
+        Path images = Files.createDirectory(tempDir.resolve("images"));
+        Path accepted = Files.writeString(allowed.resolve("accepted.png"), "FAKE accepted image");
+        Path outside = Files.writeString(foreign.resolve("outside.png"), "FAKE outside upload root");
+        Path alias = Files.createSymbolicLink(allowed.resolve("upload.tmp"), accepted);
+        Object previousRoots = org.springframework.test.util.ReflectionTestUtils.getField(
+                PathValidationUtils.class, "allowedTempDirectories");
+        try (var folders = mockStatic(ImageUpload2Action.class);
+             var validation = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS)) {
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    PathValidationUtils.class, "allowedTempDirectories", java.util.Set.of(allowed.toRealPath().toString()));
+            folders.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
+            validation.when(() -> PathValidationUtils.validateUpload(alias.toFile(), "diagram.png", images.toFile()))
+                    .thenAnswer(call -> {
+                        // Both validations are real. Move only the alias after the first has
+                        // accepted its original target, before the action opens its input.
+                        Object destination = call.callRealMethod();
+                        Files.delete(alias);
+                        Files.createSymbolicLink(alias, outside);
+                        return destination;
+                    });
+            ImageUpload2Action action = new ImageUpload2Action();
+            action.setImage(alias.toFile());
+            action.setImageFileName("diagram.png");
+
+            assertThat(action.execute()).isEqualTo("error");
+            assertThat(action.getActionErrors()).anySatisfy(error -> assertThat(error).contains("Upload failed"));
+            assertThat(images.resolve("diagram.png")).doesNotExist();
+            assertThat(Files.readString(accepted)).isEqualTo("FAKE accepted image");
+            assertThat(Files.readString(outside)).isEqualTo("FAKE outside upload root");
+        } finally {
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    PathValidationUtils.class, "allowedTempDirectories", previousRoots);
         }
     }
 }

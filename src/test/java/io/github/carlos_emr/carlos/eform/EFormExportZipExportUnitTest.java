@@ -167,7 +167,8 @@ class EFormExportZipExportUnitTest {
         }
         assertThat(saved).containsExactlyInAnyOrderEntriesOf(Map.of("A/B", "first", "A\\B", "second", "a_b", "third"));
         try (var staged = java.nio.file.Files.list(images.resolve("extractFolder"))) {
-            assertThat(staged.toList()).isEmpty();
+            assertThat(staged).containsExactly(images.resolve("extractFolder")
+                    .resolve(EFormImagePublicationLock.LOCK_FILE_NAME));
         }
     }
 
