@@ -4790,6 +4790,155 @@
               "container": ""
             }
           ]
+        },
+        "io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLegacyFlagsMariaDbIntegrationTest": {
+          "check": "java-native-flyway",
+          "cases": [
+            {
+              "name": "shouldLoadNullableFlags_whenReadingANoteById(Boolean, Integer, boolean, int)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteById(Boolean, Integer, boolean, int)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteById(Boolean, Integer, boolean, int)[2]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteById(Boolean, Integer, boolean, int)[3]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteById(Boolean, Integer, boolean, int)[4]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteById(Boolean, Integer, boolean, int)[5]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteById(Boolean, Integer, boolean, int)[6]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteById(Boolean, Integer, boolean, int)[7]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteById(Boolean, Integer, boolean, int)[8]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteById(Boolean, Integer, boolean, int)[9]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldLoadNullableFlags_whenReadingANoteIdList(Boolean, Integer, boolean, int)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteIdList(Boolean, Integer, boolean, int)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteIdList(Boolean, Integer, boolean, int)[2]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteIdList(Boolean, Integer, boolean, int)[3]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteIdList(Boolean, Integer, boolean, int)[4]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteIdList(Boolean, Integer, boolean, int)[5]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteIdList(Boolean, Integer, boolean, int)[6]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteIdList(Boolean, Integer, boolean, int)[7]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteIdList(Boolean, Integer, boolean, int)[8]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteIdList(Boolean, Integer, boolean, int)[9]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldLoadNullableFlags_whenReadingTheNativePatientNoteList(Boolean, Integer, boolean, int)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingTheNativePatientNoteList(Boolean, Integer, boolean, int)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingTheNativePatientNoteList(Boolean, Integer, boolean, int)[2]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingTheNativePatientNoteList(Boolean, Integer, boolean, int)[3]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingTheNativePatientNoteList(Boolean, Integer, boolean, int)[4]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingTheNativePatientNoteList(Boolean, Integer, boolean, int)[5]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingTheNativePatientNoteList(Boolean, Integer, boolean, int)[6]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingTheNativePatientNoteList(Boolean, Integer, boolean, int)[7]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingTheNativePatientNoteList(Boolean, Integer, boolean, int)[8]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingTheNativePatientNoteList(Boolean, Integer, boolean, int)[9]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldPersistExplicitFlagChanges_whenUpdatingALegacyNullNote(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldPersistExplicitFlagChanges_whenUpdatingALegacyNullNote(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldPersistExplicitFlagChanges_whenUpdatingALegacyNullNote(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldUseTheNullablePublishedColumnTypes_onThePhysicalSchema",
+              "container": ""
+            }
+          ]
         }
       },
       "runtimeConstraints": {
