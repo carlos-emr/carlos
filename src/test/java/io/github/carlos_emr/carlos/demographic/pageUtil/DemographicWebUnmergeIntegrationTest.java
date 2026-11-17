@@ -238,6 +238,27 @@ class DemographicWebUnmergeIntegrationTest {
     }
 
     @Test
+    void shouldRefuseARepeatedUnmerge_withoutAnotherAuditOrRecycleWrite() {
+        assertThat(unmerge("999998", Integer.toString(first))).isEqualTo("successUnMerge");
+        assertThat(unmerge("999998", Integer.toString(first))).isEqualTo("failure");
+        assertThat(active(first)).isZero();
+        assertThat(recycled(first)).isEqualTo(1);
+        assertThat(logged(first)).isEqualTo(1);
+        assertStillMerged(second); assertStillMerged(untouched);
+    }
+
+    @Test
+    void shouldRefuseTheEntireSelection_whenALaterPatientIsNoLongerMerged() {
+        sql.update("UPDATE demographic_merged SET deleted=1 WHERE demographic_no=?", second);
+        assertThat(unmerge("999998", Integer.toString(first), Integer.toString(second))).isEqualTo("failure");
+        assertStillMerged(first); assertStillMerged(untouched);
+        assertThat(active(second)).isZero();
+        assertThat(restrictions(second)).isEqualTo(1);
+        assertThat(recycled(second)).isZero();
+        assertThat(logged(second)).isZero();
+    }
+
+    @Test
     void shouldCanonicalizeAndDeduplicate_whenSelectedIdsHaveEquivalentSpellings() {
         assertThat(unmerge("777777", "0" + first, "+" + first, Integer.toString(first))).isEqualTo("successUnMerge");
         assertThat(active(first)).isZero(); assertThat(restrictions(first)).isZero();

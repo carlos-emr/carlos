@@ -150,6 +150,9 @@ public class DemographicMergeRecord2Action extends ActionSupport {
                 return false;
             }
         }
+        if (recordIds.stream().anyMatch(id -> !dmDAO.isMergedSource(id))) {
+            return false;
+        }
         for (Integer id : recordIds) {
             dmDAO.UnMerge(loggedInInfo, id.toString(), loggedInInfo.getLoggedInProviderNo());
         }
