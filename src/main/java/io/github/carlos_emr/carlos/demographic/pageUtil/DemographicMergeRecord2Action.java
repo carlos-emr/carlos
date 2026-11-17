@@ -116,7 +116,7 @@ public class DemographicMergeRecord2Action extends ActionSupport {
             if (Boolean.TRUE.equals(transactions.execute(status -> unmergeRecords(dmDAO, loggedInInfo, records)))) {
                 outcome = "successUnMerge";
             } else {
-                logger.warn("Rejected demographic unmerge: a selected record is not an existing patient");
+                logger.warn("Rejected demographic unmerge: a selected patient is missing or has no active merge");
                 outcome = FAILURE;
             }
 
