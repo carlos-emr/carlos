@@ -41,6 +41,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -186,12 +187,19 @@ class FlowSheetCustom2ActionTest extends CarlosWebTestBase {
         addRequestParameter("flowsheet", "hyptension");
         addRequestParameter("measurement", "DRPW");
 
-        String result = executeAction(new FlowSheetCustom2Action());
-
-        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        assertThat(mockRequest.getAttribute("flowsheet")).isEqualTo("hyptension");
-        assertThat(mockRequest.getAttribute("demographic")).isNull();
-        verify(mockFlowSheetCustomizationDao).persist(any(FlowSheetCustomization.class));
+        var config = mock(io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig.class);
+        when(config.getFlowSheet("hyptension"))
+                .thenReturn(mock(io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet.class));
+        try (var templates = org.mockito.Mockito.mockStatic(
+                io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig.class)) {
+            templates.when(io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig::getInstance)
+                    .thenReturn(config);
+            String result = executeAction(new FlowSheetCustom2Action());
+            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(mockRequest.getAttribute("flowsheet")).isEqualTo("hyptension");
+            assertThat(mockRequest.getAttribute("demographic")).isNull();
+            verify(mockFlowSheetCustomizationDao).persist(any(FlowSheetCustomization.class));
+        }
     }
 
     @Test
