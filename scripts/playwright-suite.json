@@ -4948,12 +4948,32 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Owns one PW<hex>-coded issue (plus a GET-probe code) and the synthetic patient's notes/casemgmt_issue/CPP/eChart rows; adds the issue through Administration > CAISI > Issue Editor and assigns it from the chart's CPP item editor.",
-      "notes": "CAISI profile live validation on 2026-11-01: native starter CPP note passed; native Issue Editor save returned HTTP 403, finding 331. Issue search/assignment and duplicate/refusal assertions remain behind this failure.",
+      "notes": "The #6078 CSRF repair restores native issue creation, chart lookup/assignment and duplicate/GET refusal controls. The remaining silent duplicate-code message is finding 362 (#5479 item 6); the separate admin-issue-editor-save check requires Save/Cancel tokens and continued token-less POST refusal.",
       "profile": "caisi-admin",
       "expectedFailure": {
-        "finding": 331,
-        "step": "Issue Editor adds a coded issue and lists it"
+        "finding": 362,
+        "step": "the refused duplicate shows \"Issue code already exists.\" on the form"
       }
+    },
+    {
+      "name": "admin-issue-editor-save",
+      "script": "scripts/admin-issue-editor-save-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "profile": "caisi-admin",
+      "fixtures": "Three marker-owned issue codes; native Save creates one row, Cancel and the token-less POST create none. Cleanup requires the owned code and marker description.",
+      "notes": "Release repair for #6078, adapted from #6116: the real add form loads the CSRFGuard client, sends its token for Save and Cancel, and still refuses a token-less POST. Kept separate from the broader chart/duplicate-message workflow."
     },
     {
       "name": "security-password-length",
