@@ -208,8 +208,10 @@ public class RunClinicalReport2Action extends ActionSupport {
         } catch (IllegalStateException e) {
             var refusal = ReportLimitNotice.find(e);
             if (refusal == null) {
-                // Any other failure is a defect: rethrown, so the exception mapping logs it once as an
-                // error with its trace and an incident id, and renders the error page with status 500.
+                // Any other failure is a defect: rethrown, so the exception mapping logs it as an error
+                // with its trace and an incident id, and renders the error page with status 500. That is
+                // the mapping's one entry; the numerator or denominator that failed has already logged its
+                // own error line for the query, so an unexpected failure leaves two error entries.
                 throw e;
             }
             // A configured_report.* limit stopped the report. That is the user's to fix (narrow the
