@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright (C) 2026 CARLOS Contributors
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * Copyright (C) 2026 CARLOS Contributors (modifications)
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
