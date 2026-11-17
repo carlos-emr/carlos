@@ -231,9 +231,21 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
         appointment.setLastName("Clinician");
         doReturn(account).when(reconcile).getProvider("12345", 0);
         doReturn(appointment).when(reconcile).getProvider("12345", 1);
+        TeleplanS00 explanation = new TeleplanS00();
+        explanation.setExp1("FAKE-EXPLANATION");
+        explanation.setExp2("");
+        when(teleplanDao.findByOfficeNumber("0000041")).thenReturn(List.of(explanation));
+        doCallRealMethod().when(reconcile).getS00String(anyString());
+        if (MSPReconcile.REP_INVOICE.equals(type)) {
+            Properties current = new Properties();
+            current.setProperty("41", "FAKE-INVOICE-REASON");
+            doReturn(current).when(reconcile).currentC12Records();
+        }
         if (MSPReconcile.REP_REJ.equals(type)) {
             TeleplanC12Dao rejections = createAndRegisterMock(TeleplanC12Dao.class);
             when(rejections.findRejected()).thenReturn(List.of());
+            when(billingmasterDao.findReportPhones(anyCollection())).thenReturn(
+                    Map.of("", new BillingmasterDAO.PatientPhones("555-0100", "555-0101")));
         }
 
         MSPReconcile.BillSearch report = report(type);
@@ -242,6 +254,9 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
         MSPBill bill = (MSPBill) report.list.getFirst();
         assertThat(bill.getAcctInit()).isEqualTo(account.getInitials()).isNotEmpty();
         assertThat(bill.getProvName()).isEqualTo(appointment.getInitials());
+        assertThat(bill.getExpString()).contains("FAKE-EXPLANATION");
+        if (MSPReconcile.REP_INVOICE.equals(type)) assertThat(bill.getReason()).contains("FAKE-INVOICE-REASON");
+        if (MSPReconcile.REP_REJ.equals(type)) assertThat(bill.getDemoPhone()).isEqualTo("555-0100");
         if (MSPReconcile.REP_WO.equals(type)) {
             var output = new java.io.ByteArrayOutputStream();
             io.github.carlos_emr.carlos.report.export.BcBillingCsv.write(output, type, List.of(bill));
