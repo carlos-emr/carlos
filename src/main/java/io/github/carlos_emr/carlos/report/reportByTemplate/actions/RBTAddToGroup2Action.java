@@ -61,8 +61,11 @@ public class RBTAddToGroup2Action extends ActionSupport {
         String groupName = request.getParameter("groupName");
 
         if (templateIdArray != null && templateIdArray.length > 0) {
-            for (String templateId : templateIdArray) {
-                int id = Integer.parseInt(templateId);
+            int[] templateIds = new int[templateIdArray.length];
+            for (int index = 0; index < templateIdArray.length; index++) {
+                templateIds[index] = Integer.parseInt(templateIdArray[index]);
+            }
+            for (int id : templateIds) {
                 try {
                     rbtGroupManager.addTemplateToGroup(loggedInInfo, groupName, id);
                 } catch (RBTGroupManager.GroupNameValidationException e) {

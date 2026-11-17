@@ -170,4 +170,13 @@ class RBTGroupValidationUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("errormsg")).isNull();
         verifyNoInteractions(groups);
     }
+
+    @Test
+    void shouldPersistNoMembership_whenALaterSelectedIdentifierIsMalformed() {
+        request.setParameter("groupName", "Clinic");
+        request.setParameter("tid", "11", "invalid");
+        assertThatThrownBy(() -> execute(false)).isInstanceOf(NumberFormatException.class);
+        assertThat(request.getAttribute("errormsg")).isNull();
+        verifyNoInteractions(groups);
+    }
 }
