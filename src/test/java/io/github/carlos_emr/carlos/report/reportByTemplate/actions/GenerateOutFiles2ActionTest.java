@@ -519,6 +519,18 @@ class GenerateOutFiles2ActionTest extends CarlosUnitTestBase {
     class Failures {
 
         @Test
+        void shouldRefuseBeforeWriting_whenKeptCsvExceedsTheWorksheetRowLimit() throws Exception {
+            // Two MiB of real CSV reaches the preflight guard without constructing a workbook.
+            String rows = "a\n".repeat(io.github.carlos_emr.carlos.report.SpreadsheetExport.MAX_ROWS + 1);
+            requestDownload("getXLS", runReport(rows), "0");
+
+            assertThat(new GenerateOutFiles2Action().execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            assertThat(response.getHeader("Content-Disposition")).isNull();
+            assertThat(response.getContentAsByteArray()).isEmpty();
+        }
+
+        @Test
         @DisplayName("should answer 400 with no attachment when a kept CSV cannot be parsed for the XLSX")
         void shouldRejectMalformedCsv_whenGeneratingXlsx() throws Exception {
             requestDownload("getXLS", runReport("\"unterminated"), "0");
