@@ -307,6 +307,14 @@ The `29104a75e4b4`, `50b73f8f1018` and `1c0835e27d85` refreshes do the same for
 releases `0c9a1d8414a4` (#6234), `8d45b8007ffa` (#6218) and `8b8b058100c9`
 (#6253), with the same measurements and floors.
 
+When #6252 moved the release to per-source records, PR #6113 followed the
+documented open-PR procedure. It saved its v1 document from `f340112577`, kept
+the release's v2 manifest and imported only its two adapter paths. The importer
+archived that document unchanged as evidence `e3805cb4…` and wrote
+`floors/…/MariaDbCompatibilityDriver.java.json` and
+`floors/…/MariaDbJdbcCompatibility.java.json` with the same floors. Unrelated
+release merges no longer require rebinding these records.
+
 The `dd7321db79ee` PR #6102 merged-source refresh uses Debian 13 and Temurin
 25.0.3. Its complete H2 run records 35,947 actual cases: 35,736 passes,
 211 explicit routed/prerequisite skips, and zero failures or errors. The
