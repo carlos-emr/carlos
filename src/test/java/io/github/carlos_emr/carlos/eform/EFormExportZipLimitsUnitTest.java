@@ -100,7 +100,8 @@ class EFormExportZipLimitsUnitTest {
         }
         assertThat(Files.size(images.resolve(asset))).isEqualTo(expectedBytes);
         try (var staged = Files.list(images.resolve("extractFolder"))) {
-            assertThat(staged).isEmpty();
+            assertThat(staged).containsExactly(images.resolve("extractFolder")
+                    .resolve(EFormImagePublicationLock.LOCK_FILE_NAME));
         }
     }
 

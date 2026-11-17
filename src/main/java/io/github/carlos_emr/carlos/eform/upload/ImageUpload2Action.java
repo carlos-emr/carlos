@@ -36,6 +36,7 @@ import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.eform.EFormImagePublicationLock;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -97,18 +98,20 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
                 return ERROR;
             }
 
-            // Validate upload: source file location + destination path traversal protection
-            File destinationFile = PathValidationUtils.validateUpload(image, imageFileName, imageFolder);
-
-            // Upload the file
-            try (InputStream fis = Files.newInputStream(image.toPath());
-                 OutputStream fos = Files.newOutputStream(destinationFile.toPath())) {
-                byte[] buffer = new byte[4096];
-                int bytesRead;
-                while ((bytesRead = fis.read(buffer)) != -1) {
-                    fos.write(buffer, 0, bytesRead);
+            // Wait for any provisional ZIP publication/rollback before replacing this image.
+            // Otherwise a successful in-place upload could keep the staged inode and be
+            // removed by that import's later rollback.
+            try (var _ = EFormImagePublicationLock.acquire(imageFolder)) {
+                File destinationFile = PathValidationUtils.validateUpload(image, imageFileName, imageFolder);
+                try (InputStream fis = Files.newInputStream(image.toPath());
+                     OutputStream fos = Files.newOutputStream(destinationFile.toPath())) {
+                    byte[] buffer = new byte[4096];
+                    int bytesRead;
+                    while ((bytesRead = fis.read(buffer)) != -1) {
+                        fos.write(buffer, 0, bytesRead);
+                    }
+                    fos.flush();
                 }
-                fos.flush();
             }
 
             // Pass sanitization info to JSP for display in success message

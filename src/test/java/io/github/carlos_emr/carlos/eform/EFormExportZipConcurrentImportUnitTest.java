@@ -125,19 +125,18 @@ class EFormExportZipConcurrentImportUnitTest {
         var calls = new java.util.concurrent.atomic.AtomicInteger();
         var refused = new java.util.concurrent.atomic.AtomicInteger();
         var denied = new java.nio.file.AccessDeniedException(blocked.toString());
-        // Root CI bypasses directory permissions. Inject only this failed link;
+        // Root CI bypasses directory permissions. Inject only the later failed link;
         // the earlier hard link, inode identity checks and rollback remain real.
         try (MockedStatic<ImageUpload2Action> folder = mockStatic(ImageUpload2Action.class);
              MockedStatic<Files> filesystem = mockStatic(Files.class, call -> {
                  if (call.getMethod().getName().equals("createLink")
-                         && blocked.equals(call.<Path>getArgument(0).getParent())) {
+                         && calls.incrementAndGet() == 2) {
                      refused.incrementAndGet();
                      throw denied;
                  }
                  return call.callRealMethod();
              })) {
-            folder.when(ImageUpload2Action::getImageFolder).thenAnswer(call ->
-                    calls.incrementAndGet() < 3 ? images.toFile() : blocked.toFile());
+            folder.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
             assertThatThrownBy(() -> new EFormExportZip().importForm(new ByteArrayInputStream(archive)))
                     .isSameAs(denied);
             assertThat(refused.get()).isEqualTo(1);
@@ -183,7 +182,9 @@ class EFormExportZipConcurrentImportUnitTest {
 
     private List<Path> stagingDirectories() throws IOException {
         try (Stream<Path> paths = Files.list(images.resolve("extractFolder"))) {
-            return paths.toList();
+            // The persistent empty lease inode is coordination metadata, not extracted data.
+            return paths.filter(path -> !path.getFileName().toString()
+                    .equals(EFormImagePublicationLock.LOCK_FILE_NAME)).toList();
         }
     }
 

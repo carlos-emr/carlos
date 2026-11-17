@@ -284,6 +284,7 @@ public class EFormExportZip {
         _log.info("Importing eforms");
 
         File imageTempFolderDir = null;
+        File imageFolder = null;
         long textBytes;
         Hashtable<String, EForm> eformTable = new Hashtable<String, EForm>(); //stores eforms constructed from eform.properties, no HTML
         Hashtable<String, EForm> eformTableFailed = new Hashtable<String, EForm>();  //stores eforms that are constructed from eform.properties that alredy exist and do not need to be imported
@@ -295,8 +296,8 @@ public class EFormExportZip {
             //first runthrough, get the properties files, construct eforms, cache files
             try (ZipInputStream zis = new ImportZipInputStream(importInputStream,
                     maxEntryBytes, maxTotalBytes, maxEntries)) {
-                File imageDir = ImageUpload2Action.getImageFolder();
-                File imageExtractDir = PathValidationUtils.validateGeneratedChildPath("extractFolder", imageDir);
+                imageFolder = ImageUpload2Action.getImageFolder();
+                File imageExtractDir = PathValidationUtils.validateGeneratedChildPath("extractFolder", imageFolder);
                 // Each import owns a unique child of the retained, shared staging parent.
                 // Establish stream ownership before staging setup, which can itself fail.
                 Files.createDirectories(imageExtractDir.toPath());
@@ -314,7 +315,11 @@ public class EFormExportZip {
                 }
             }
 
-            publishImportFiles(imageTempFolderDir, eformTable, eformTableFailed, tempFiles, errors);
+            // Existing-image adoption and image uploads use the same publication lease. No
+            // consumer can commit a dependency or overwrite an inode while rollback is possible.
+            try (var _ = EFormImagePublicationLock.acquire(imageFolder)) {
+                publishImportFiles(imageTempFolderDir, imageFolder, eformTable, eformTableFailed, tempFiles, errors);
+            }
             _log.info("Registering: " + eformTable.values().size() + " eforms");
             //write constructed eforms
             for (EForm eform : eformTable.values()) {
@@ -412,7 +417,7 @@ public class EFormExportZip {
     }
 
     /** Loads retained HTML and publishes assets only after all resource preflight checks pass. */
-    private void publishImportFiles(File imageTempFolderDir, Map<String, EForm> eformTable,
+    private void publishImportFiles(File imageTempFolderDir, File imageFolder, Map<String, EForm> eformTable,
             Map<String, EForm> eformTableFailed, Map<String, File> tempFiles, List<String> errors) throws IOException {
         Map<java.nio.file.Path, java.nio.file.Path> publishedAssets = new java.util.LinkedHashMap<>();
         try {
@@ -429,7 +434,7 @@ public class EFormExportZip {
                         eformTable.get(tempFile.getKey()).setFormHtml(html);
                     }
                 } else if (!eformTableFailed.containsKey(tempFile.getKey())) {
-                    publishImportAsset(tempFile, imageTempFolderDir, errors, publishedAssets);
+                    publishImportAsset(tempFile, imageTempFolderDir, imageFolder, errors, publishedAssets);
                 }
             }
         } catch (IOException failure) {
@@ -452,10 +457,10 @@ public class EFormExportZip {
         }
     }
 
-    private void publishImportAsset(Entry<String, File> tempFile, File imageTempFolderDir,
+    private void publishImportAsset(Entry<String, File> tempFile, File imageTempFolderDir, File imageFolder,
             List<String> errors, Map<java.nio.file.Path, java.nio.file.Path> publishedAssets) throws IOException {
         File extractedTempFile = PathValidationUtils.validateExistingPath(tempFile.getValue(), imageTempFolderDir);
-        File imageFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validatePathComponent(tempFile.getKey(), "eform image file"), ImageUpload2Action.getImageFolder());
+        File imageFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validatePathComponent(tempFile.getKey(), "eform image file"), imageFolder);
         try {
             // Publish the complete inode without replacing another import's image.
             // Cleanup unlinks only our private staging name, preserving the public link.
