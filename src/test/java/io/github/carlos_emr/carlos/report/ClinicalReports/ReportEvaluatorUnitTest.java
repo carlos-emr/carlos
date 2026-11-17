@@ -8,6 +8,13 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasureme
 import java.util.List;
 import java.util.Map;
 import java.util.Vector;
+import java.util.Hashtable;
+import java.io.StringReader;
+import org.apache.commons.csv.CSVFormat;
+import io.github.carlos_emr.carlos.mds.data.ProviderData;
+import io.github.carlos_emr.carlos.utility.SpreadsheetCsv;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -16,6 +23,39 @@ import static org.mockito.Mockito.*;
 @Tag("unit")
 @Tag("report")
 class ReportEvaluatorUnitTest extends CarlosUnitTestBase {
+    @ParameterizedTest
+    @ValueSource(strings = {"FAKE,=1+1", "FAKE \"quoted\" provider", "FAKE\r\nsecond line", "=1+1", "+SUM(1,2)", "-1+1", "@SUM(1)", "\uFF1D1+1", "FAKE provider"})
+    void shouldKeepProviderNamesInOneGuardedCsvCell_withStandardNumericColumns(String name) throws Exception {
+        var evaluator = new ReportEvaluator();
+        evaluator.denominator = mock(Denominator.class);
+        evaluator.numeratorCount = 12;
+        evaluator.denominatorCount = 20;
+        when(evaluator.denominator.hasReplaceableValues()).thenReturn(true);
+        Hashtable<String, String> values = new Hashtable<>();
+        values.put("provider_no", "FAKE-provider");
+        when(evaluator.denominator.getReplaceableValues()).thenReturn(values);
+        try (var provider = mockStatic(ProviderData.class)) {
+            provider.when(() -> ProviderData.getProviderName("FAKE-provider")).thenReturn(name);
+            try (var parser = CSVFormat.DEFAULT.parse(new StringReader(evaluator.getCSV()))) {
+                var rows = parser.getRecords();
+                assertThat(rows).hasSize(1);
+                assertThat(rows.getFirst()).containsExactly(SpreadsheetCsv.sanitizeCell(name), "12", "20", "60");
+            }
+        }
+    }
+
+    @Test
+    void shouldWriteOnlyNumericCsvColumns_whenNoProviderIsSelected() throws Exception {
+        var evaluator = new ReportEvaluator();
+        evaluator.denominator = mock(Denominator.class);
+        evaluator.numeratorCount = 12;
+        evaluator.denominatorCount = 20;
+        try (var parser = CSVFormat.DEFAULT.parse(new StringReader(evaluator.getCSV()))) {
+            assertThat(parser.getRecords()).singleElement().satisfies(row ->
+                    assertThat(row).containsExactly("12", "20", "60"));
+        }
+    }
+
     @Test
     void shouldPreserveIndependentNumeratorAndDenominator_whenAdditionalFiltersRejectRows() {
         var denominator = mock(Denominator.class);
