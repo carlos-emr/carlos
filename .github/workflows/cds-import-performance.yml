@@ -3,25 +3,8 @@ name: CDS installed resource contracts
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, edited]
     branches: [main, develop, experimental, 'release/*', 'staging/*', 'hotfix/*']
-    paths:
-      - 'src/main/**'
-      - 'src/test/java/**/cdsimport/**'
-      - 'src/test/resources/demographic/cds-import-*.xml'
-      - 'src/test/resources/demographic/cds-performance-proof-shape.json'
-      - 'database/mysql/migration/**'
-      - 'scripts/ci/*cds*performance*'
-      - 'scripts/ci/*cds*disk*'
-      - 'scripts/ci/cds_war_manifest.py'
-      - 'scripts/ci/test_cds_war_manifest.py'
-      - 'scripts/ci/run-cds-container-recovery.py'
-      - 'scripts/ci/test_cds_container_recovery.py'
-      - 'scripts/ci/CdsImportMariaDbBootstrap.java'
-      - 'scripts/ci/CdsWorkloadValidator.java'
-      - 'scripts/ci/cds-performance-runtime.Dockerfile'
-      - 'debian/carlos-ctl.pin'
-      - 'pom.xml'
-      - '.github/workflows/cds-import-performance.yml'
 
 permissions:
   contents: read
@@ -34,7 +17,12 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  changes:
+    uses: ./.github/workflows/cds-change-detection.yml
+
   installed-resource-profile:
+    needs: changes
+    if: needs.changes.outputs.run-tests == 'true'
     name: Installed CDS ${{ matrix.profile }}
     runs-on: ubuntu-24.04
     timeout-minutes: 120
