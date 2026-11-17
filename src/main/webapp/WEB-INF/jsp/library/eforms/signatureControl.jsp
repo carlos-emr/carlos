@@ -14,6 +14,14 @@
 
 --%>
     <%@ page import="io.github.carlos_emr.CarlosProperties" contentType="text/javascript; charset=UTF-8" pageEncoding="UTF-8"%>
+    <%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
+    <%@ taglib uri="jakarta.tags.fmt" prefix="fmt"%>
+    <%@ taglib uri="carlos" prefix="carlos"%>
+    <%-- Served as text/javascript, but still a JSP: the note below resolves from the user's locale
+         and is written through carlos:forJavaScript, because it lands inside a JS string literal. --%>
+    <fmt:setLocale value="<%= LocaleUtils.resolveBundleLocale(request) %>"/>
+    <fmt:setBundle basename="oscarResources"/>
+    <fmt:message key="tabletSignature.msgSavedSignatureNotShown" var="signatureNotShownNote"/>
 
     <%
     CarlosProperties props = CarlosProperties.getInstance();
@@ -29,7 +37,29 @@
     // The stored-signature address CARLOS gives a signature (tabletSignature.jsp, EForm.setSignatureCode),
     // with the refresh number the pad adds: a root-relative path ending in /imageRenderingServlet, the
     // stored source and a numeric id. A saved value of any other shape is not shown.
-    var storedSignatureAddress = /^(?:\/[A-Za-z0-9._~-]+)*\/imageRenderingServlet\?source=signature_stored&digitalSignatureId=[0-9]+(?:&r=[0-9]+)?$/;
+    // A context-path segment may not be "." or "..".
+    var storedSignatureAddress = /^(?:\/(?!\.{1,2}\/)[A-Za-z0-9._~-]+)*\/imageRenderingServlet\?source=signature_stored&digitalSignatureId=[0-9]+(?:&r=[0-9]+)?$/;
+    // Older eForms saved the same address HTML-escaped ("&amp;" for each "&"), which the old page
+    // decoded by writing it into markup; the PDF path reads that form too
+    // (EFormSignatureViewForPdfGenerationServlet). Only this exact shape is accepted, and only its
+    // "&amp;" separators are turned back into "&" before the check above; nothing else is decoded.
+    var escapedStoredSignatureAddress = /^((?:\/(?!\.{1,2}\/)[A-Za-z0-9._~-]+)*\/imageRenderingServlet\?source=signature_stored)&amp;(digitalSignatureId=[0-9]+)(?:&amp;(r=[0-9]+))?$/;
+    var signatureNotShownNote = "${carlos:forJavaScript(signatureNotShownNote)}";
+    // The stored-signature address a saved value stands for, or null when it is not one.
+    function storedSignatureAddressOf(value) {
+        if (typeof value !== "string") {
+            return null;
+        }
+        if (storedSignatureAddress.test(value)) {
+            return value;
+        }
+        var escaped = escapedStoredSignatureAddress.exec(value);
+        if (escaped == null) {
+            return null;
+        }
+        var address = escaped[1] + "&" + escaped[2] + (escaped[3] ? "&" + escaped[3] : "");
+        return storedSignatureAddress.test(address) ? address : null;
+    }
     // An image size option: a whole number of pixels, or a percentage.
     var signatureImageSize = /^[0-9]+%?$/;
     var signatureControl = {
@@ -81,12 +111,15 @@
                 }
 
                 // Shows the signature at a stored-signature address as an image, its address set as the
-                // image source only. Any other value shows no image.
-                element.showSignature = function (address) {
+                // image source only. Any other value shows a short note instead, so a value that cannot
+                // be shown is not mistaken for an unsigned form. Returns the address shown, or null.
+                element.showSignature = function (value) {
                     var display = jQuery(element.signatureDisplay);
                     display.empty();
-                    if (typeof address !== "string" || !storedSignatureAddress.test(address)) {
-                        return;
+                    var address = storedSignatureAddressOf(value);
+                    if (address == null) {
+                        display.append(jQuery("<span>").text(signatureNotShownNote));
+                        return null;
                     }
                     var image = jQuery("<img>").attr({src: address, alt: "signature"});
                     if (element.imgWidth != null) {
@@ -96,6 +129,7 @@
                         image.attr("height", element.imgHeight);
                     }
                     display.append(image);
+                    return address;
                 };
 
                 var savedSignature = jQuery(element.signatureValue).val();
@@ -105,9 +139,10 @@
 
                 element.refreshImage =
                     function (e) {
-                        var address = e.storedImageUrl + "&r=" + Math.floor(Math.random() * 1001);
-                        element.showSignature(address);
-                        if (jQuery(element.signatureValue)) {
+                        // The form keeps only an address the check accepts; otherwise its saved value
+                        // stays as it was and the note says the signature cannot be shown.
+                        var address = element.showSignature(e.storedImageUrl + "&r=" + Math.floor(Math.random() * 1001));
+                        if (address != null) {
                             jQuery(element.signatureValue).val(address);
                         }
                     };

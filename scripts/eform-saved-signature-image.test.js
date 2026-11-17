@@ -14,6 +14,8 @@ const jsp = fs.readFileSync(path.join(__dirname,
   '../src/main/webapp/WEB-INF/jsp/library/eforms/signatureControl.jsp'), 'utf8');
 const CONTEXT = '/carlos';
 const STORED = `${CONTEXT}/imageRenderingServlet?source=signature_stored&digitalSignatureId=`;
+/** The note's text in the rendered library; the server writes the translated note here. */
+const NOTE = 'FAKE note: the saved signature cannot be shown here.';
 
 /** The library as the server sends it, with eForm signatures on. */
 function render(contextPath) {
@@ -21,8 +23,10 @@ function render(contextPath) {
     .replace(/<%--[\s\S]*?--%>/g, '')
     .replace(/<%@[\s\S]*?%>/g, '')
     .replaceAll('<%= request.getContextPath() %>', contextPath)
-    .replace(/<%[\s\S]*?%>/g, '');
-  assert.doesNotMatch(script, /<%/, 'the library carries a server expression this test does not render');
+    .replace(/<%[\s\S]*?%>/g, '')
+    .replace(/<fmt:[^>]*\/>/g, '')
+    .replaceAll('${carlos:forJavaScript(signatureNotShownNote)}', NOTE);
+  assert.doesNotMatch(script, /<%|<fmt:|\$\{/, 'the library carries a server expression this test does not render');
   return script;
 }
 
@@ -52,6 +56,11 @@ function page(savedValue) {
         return api;
       },
       empty() { if (node) { node.children = []; } return api; },
+      text(value) {
+        if (value === undefined) return node ? node.text || '' : '';
+        if (node) node.text = String(value);
+        return api;
+      },
       append(child) { if (node) node.children.push(child.node); return api; },
       attr(name, value) {
         if (typeof name === 'object') { Object.assign(node.attrs, name); return api; }
@@ -79,6 +88,11 @@ function page(savedValue) {
 /** The images now in the signature display, as tag and attributes. */
 function images(nodes) {
   return nodes['#signatureDisplay'].children.filter(child => child.tag === 'img').map(child => child.attrs);
+}
+
+/** The notes now in the signature display, as text. */
+function notes(nodes) {
+  return nodes['#signatureDisplay'].children.filter(child => child.tag === 'span').map(child => child.text);
 }
 
 /** Every markup string the display was given, with no image built from a saved value. */
@@ -118,21 +132,43 @@ for (const [label, saved] of [
   ['an extra parameter', `${STORED}1&r=2&next=3`],
   ['a fragment', `${STORED}1#top`],
   ['plain text', 'FAKE signature text'],
+  ['a dot segment in the path', `/carlos/../imageRenderingServlet?source=signature_stored&digitalSignatureId=1`],
+  ['an escaped address with markup after the id', `${CONTEXT}/imageRenderingServlet?source=signature_stored&amp;digitalSignatureId=1' data-extra='1`],
+  ['a doubly escaped address', `${CONTEXT}/imageRenderingServlet?source=signature_stored&amp;amp;digitalSignatureId=1`],
+  ['an escape in place of the query mark', `${CONTEXT}/imageRenderingServlet?amp;source=signature_stored&amp;digitalSignatureId=1`],
+  ['an escaped address with an escaped extra parameter', `${CONTEXT}/imageRenderingServlet?source=signature_stored&amp;digitalSignatureId=1&amp;r=2&amp;next=3`],
+  ['an escaped address from another site', `https://example.invalid/imageRenderingServlet?source=signature_stored&amp;digitalSignatureId=1`],
 ]) {
-  test(`a saved value that is ${label} shows no image`, () => {
+  test(`a saved value that is ${label} shows no image, only the note`, () => {
     const { context, nodes } = page(saved);
     context.signatureControl.initialize({ eform: true });
     assert.deepEqual(images(nodes), []);
+    assert.deepEqual(notes(nodes), [NOTE]);
     assert.deepEqual(markupWith(nodes, saved), []);
   });
 }
 
-test('an empty saved value shows nothing', () => {
+test('an empty saved value shows nothing, not even the note', () => {
   const { context, nodes } = page('');
   context.signatureControl.initialize({ eform: true });
   assert.deepEqual(images(nodes), []);
+  assert.deepEqual(notes(nodes), []);
   assert.deepEqual(nodes['#signatureDisplay'].markup, []);
 });
+
+for (const [label, saved, shown] of [
+  ['with its refresh number', `${CONTEXT}/imageRenderingServlet?source=signature_stored&amp;digitalSignatureId=42&amp;r=17`, `${STORED}42&r=17`],
+  ['without the refresh number', `${CONTEXT}/imageRenderingServlet?source=signature_stored&amp;digitalSignatureId=7`, `${STORED}7`],
+]) {
+  test(`an older HTML-escaped stored-signature address ${label} is shown at its plain address`, () => {
+    const { context, nodes } = page(saved);
+    context.signatureControl.initialize({ eform: true });
+    assert.deepEqual(images(nodes), [{ src: shown, alt: 'signature' }]);
+    assert.deepEqual(notes(nodes), []);
+    // The form keeps the value it was saved with until the pad saves a new signature.
+    assert.equal(nodes['#signatureValue'].value, saved);
+  });
+}
 
 test('numeric width and height are set on the image; other values are left out', () => {
   const saved = `${STORED}42`;
@@ -154,4 +190,14 @@ test('a signature saved from the pad is shown and kept as the stored-signature a
   assert.equal(image.alt, 'signature');
   assert.equal(nodes['#signatureValue'].value, image.src);
   assert.deepEqual(markupWith(nodes, '<img'), []);
+});
+
+test('a pad save the check refuses keeps the saved value and shows the note', () => {
+  const saved = `${STORED}5`;
+  const { context, nodes } = page(saved);
+  context.signatureControl.initialize({ eform: true });
+  context.signatureHandler({ isDirty: false, isSave: true, storedImageUrl: `/car los/imageRenderingServlet?source=signature_stored&digitalSignatureId=99` });
+  assert.deepEqual(images(nodes), []);
+  assert.deepEqual(notes(nodes), [NOTE]);
+  assert.equal(nodes['#signatureValue'].value, saved);
 });
