@@ -56,11 +56,11 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import org.owasp.encoder.Encode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.documentManager.DocumentDescription;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
@@ -198,7 +198,7 @@ public class DocumentManagerImpl implements DocumentManager {
             file = createUniqueDocumentFile(normalizedFileName, new File(documentPath), documentData);
             fileName = file.getName();
         } catch (SecurityException e) {
-            logger.error("Document filename failed path validation: {}", Encode.forJava(rawFileName));
+            logger.error("Document filename failed path validation");
             throw new IOException("Document filename failed path validation", e);
         }
 
@@ -216,7 +216,18 @@ public class DocumentManagerImpl implements DocumentManager {
         document.setNumberofpages(numberOfPages);
         document.setDoccreator(loggedInInfo.getLoggedInProviderNo());
         document.setDocfilename(fileName);
-		if (document.getDocdesc() == null || document.getDocdesc().isEmpty()) { document.setDocdesc(fileName); }
+		// document.docdesc holds Document.DESCRIPTION_MAX_LENGTH characters and the packaged database
+		// cuts a longer description without an error. This is the REST API's writer (document
+		// upload endpoints, consultation attachments): an unmodified client that sends a longer
+		// description keeps working, its description is shortened to the column, never inside a
+		// surrogate pair, and the endpoints answer with the description as stored.
+		if (document.getDocdesc() == null || document.getDocdesc().isEmpty()) {
+			document.setDocdesc(DocumentDescription.fitFileName(fileName));
+		} else if (!Document.descriptionFits(document.getDocdesc())) {
+			document.setDocdesc(DocumentDescription.fit(document.getDocdesc()));
+			logger.info("A document description from an API caller was shortened to the {} characters document.docdesc holds",
+					Document.DESCRIPTION_MAX_LENGTH);
+		}
 
         // Creates and saves the document
         saveDocument(document, demographicNo, providerNo);
@@ -466,7 +477,7 @@ public class DocumentManagerImpl implements DocumentManager {
         // Reject filenames containing path separators. Stored filenames are plain basenames;
         // silently stripping a subdirectory component could resolve to a different file.
         if (filename.contains("/") || filename.contains("\\")) {
-            logger.error("Document filename contains path separator, rejected: {}", Encode.forJava(filename));
+            logger.error("Document filename contains path separator, rejected");
             return null;
         }
 
@@ -476,7 +487,7 @@ public class DocumentManagerImpl implements DocumentManager {
         try {
             validatedFile = PathValidationUtils.validatePath(filename, new File(documentDir));
         } catch (SecurityException e) {
-            logger.error("Invalid document filename rejected: {}", Encode.forJava(filename));
+            logger.error("Invalid document filename rejected");
             return null;
         }
 

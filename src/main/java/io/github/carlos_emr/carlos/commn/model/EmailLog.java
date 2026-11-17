@@ -183,7 +183,7 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
         this.fromEmail = fromEmail;
         this.toEmail = toEmail != null ? String.join(";", toEmail) : "";
         this.subject = subject;
-        this.body = Base64.encodeBase64(body.getBytes(StandardCharsets.UTF_8));
+        this.body = java.util.Base64.getEncoder().encode(body.getBytes(StandardCharsets.UTF_8));
         this.status = status;
         this.timestamp = new Date();
     }
@@ -289,7 +289,7 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
      * @param body String the email body content to encode and store
      */
     public void setBody(String body) {
-        this.body = Base64.encodeBase64(body.getBytes(StandardCharsets.UTF_8));
+        this.body = java.util.Base64.getEncoder().encode(body.getBytes(StandardCharsets.UTF_8));
     }
 
     /**
@@ -363,7 +363,7 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
      * @param encryptedMessage String the encrypted message content to encode and store
      */
     public void setEncryptedMessage(String encryptedMessage) {
-        this.encryptedMessage = Base64.encodeBase64(encryptedMessage.getBytes(StandardCharsets.UTF_8));
+        this.encryptedMessage = java.util.Base64.getEncoder().encode(encryptedMessage.getBytes(StandardCharsets.UTF_8));
     }
 
     /**
@@ -476,7 +476,7 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
      * @param internalComment String the internal comment to encode and store
      */
     public void setInternalComment(String internalComment) {
-        this.internalComment = Base64.encodeBase64(internalComment.getBytes(StandardCharsets.UTF_8));
+        this.internalComment = java.util.Base64.getEncoder().encode(internalComment.getBytes(StandardCharsets.UTF_8));
     }
 
     /**

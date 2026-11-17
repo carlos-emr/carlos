@@ -25,19 +25,20 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 package io.github.carlos_emr.carlos.webserv.rest.to.model;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-import org.apache.tools.ant.util.DateUtils;
+import io.github.carlos_emr.carlos.utility.IsoDates;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 
 public class DemographicSearchResult {
 
-    private SimpleDateFormat sdf = new SimpleDateFormat(DateUtils.ISO8601_DATE_PATTERN);
+    private SimpleDateFormat sdf = new SimpleDateFormat(IsoDates.ISO8601_DATE_PATTERN);
 
     private Integer demographicNo;
     private String lastName;

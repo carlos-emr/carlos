@@ -317,6 +317,28 @@ public final class SafeEncode {
         Encode.forCDATA(out, nz(value));
     }
 
+    /**
+     * Encodes JSON string content, including safe embedding of a complete quoted
+     * JSON string in an HTML script element. Does not add the surrounding quotes.
+     *
+     * @param value untrusted text; {@code null} renders as empty
+     * @return JSON string content with context-appropriate escapes
+     */
+    public static String forJson(String value) {
+        return Encode.forJson(nz(value));
+    }
+
+    /**
+     * Writes JSON string content without the surrounding quotes.
+     *
+     * @param out destination writer
+     * @param value untrusted text; {@code null} renders as empty
+     * @throws IOException if writing to the destination fails
+     */
+    public static void forJson(Writer out, String value) throws IOException {
+        Encode.forJson(out, nz(value));
+    }
+
     // -------- Java / JavaScript --------
 
     public static String forJava(String value) {

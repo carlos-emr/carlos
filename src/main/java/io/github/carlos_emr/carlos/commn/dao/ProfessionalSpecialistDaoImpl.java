@@ -1,4 +1,5 @@
 /**
+ * Modifications by CARLOS Contributors, 2026.
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * <p>
  * Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
@@ -33,6 +34,8 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
+import io.github.carlos_emr.carlos.consultation.dto.SpecialistListRow;
+
 import java.util.List;
 
 import jakarta.persistence.Query;
@@ -48,6 +51,16 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
         super(ProfessionalSpecialist.class);
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public List<SpecialistListRow> findListRows() {
+        return entityManager.createQuery("select new io.github.carlos_emr.carlos.consultation.dto.SpecialistListRow("
+                + "x.id, x.firstName, x.lastName, x.professionalLetters, x.streetAddress, x.phoneNumber, "
+                + "x.faxNumber, x.webSite, x.emailAddress, x.specialtyType) "
+                + "from ProfessionalSpecialist x where x.deleted = false order by x.lastName,x.firstName",
+                SpecialistListRow.class).getResultList();
+    }
+
     @Override
     public List<ProfessionalSpecialist> findAll() {
         Query query = entityManager.createQuery("select x from ProfessionalSpecialist x where x.deleted = false order by x.lastName,x.firstName");
@@ -56,6 +69,29 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
         List<ProfessionalSpecialist> results = query.getResultList();
 
         return (results);
+    }
+
+    @Override
+    // S2077 reviewed: every appended predicate is a fixed literal, ordering is fixed, and all
+    // search values are bound. ServerTablePagingIntegrationTest verifies SQL syntax stays data.
+    @SuppressWarnings("java:S2077")
+    public QueryPage<ProfessionalSpecialist> findDirectoryPage(String referralNo, String lastName, String firstName,
+            String specialty, String address, boolean includeHidden, int page) {
+        StringBuilder where = new StringBuilder(" FROM ProfessionalSpecialist x WHERE x.deleted = false");
+        java.util.Map<String, Object> values = new java.util.LinkedHashMap<>();
+        if (referralNo != null) {
+            if (referralNo.isBlank()) where.append(" AND 1 = 0");
+            else { where.append(" AND x.referralNo LIKE :referral"); values.put("referral", referralNo); }
+        }
+        if (lastName != null) { where.append(" AND x.lastName LIKE :last"); values.put("last", "%" + lastName + "%"); }
+        if (firstName != null) { where.append(" AND x.firstName LIKE :first"); values.put("first", "%" + firstName + "%"); }
+        if (specialty != null && !specialty.isEmpty()) { where.append(" AND x.specialtyType LIKE :specialty"); values.put("specialty", "%" + specialty + "%"); }
+        if (address != null && !address.isEmpty()) { where.append(" AND x.streetAddress LIKE :address"); values.put("address", "%" + address + "%"); }
+        if (!includeHidden) where.append(" AND x.hideFromView = false");
+        Query query = entityManager.createQuery("SELECT x" + where);
+        values.forEach(query::setParameter);
+        return QueryPage.load(entityManager, query, "SELECT x" + where, page, 15, "x.lastName, x.firstName, x.id", false,
+                ProfessionalSpecialist.class);
     }
 
     @Override

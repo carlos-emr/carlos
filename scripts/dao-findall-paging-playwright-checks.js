@@ -10,7 +10,8 @@
  * concatenate to the whole directory (no row repeated, none skipped, every owned row
  * present), each page is itself ascending and re-reading a page returns the same rows;
  * an offset past the end returns an empty page; a limit above the 5000-row maximum
- * select size is refused with no rows. A directory larger than one maximum-size page
+ * select size is refused with HTTP 400 (issue #5528). Negative pagination on both the
+ * pharmacy and demographic lists also returns 400. A directory larger than one maximum-size page
  * (an imported provincial list) is handled by paging, not by the first page.
  * Fixtures: seven pharmacies named after the run marker, inserted in reverse name
  * order so name order and id order disagree. Read-only otherwise. Cleanup deletes only
@@ -109,13 +110,32 @@ async function workflow(s) {
       'Re-reading the second page returned different rows');
   });
 
-  await s.step('an offset past the end is empty and an oversized limit is refused', async () => {
+  await s.step('an offset past the end is empty', async () => {
     const past = await listPharmacies(s, { offset: all.length + 10, limit: 3 });
     h.assert(past.status === 200 && past.ids.length === 0, 'An offset past the last row did not return an empty page');
-    const oversized = await listPharmacies(s, { offset: 0, limit: MAX_SELECT + 1 });
-    h.assert(oversized.status >= 400 && oversized.ids === null,
-      `A limit above the ${MAX_SELECT}-row maximum was not refused (HTTP ${oversized.status})`);
   });
+
+  await s.step('omitted and zero pharmacy limits keep their supported behavior', async () => {
+    const defaults = await listPharmacies(s, {});
+    h.assert(defaults.status === 200 && JSON.stringify(defaults.ids) === JSON.stringify(all.slice(0, MAX_SELECT)),
+      'Omitted pagination did not return the maximum-size first page');
+    const zero = await listPharmacies(s, { offset: 0, limit: 0 });
+    h.assert(zero.status === 200 && zero.ids.length === 0, 'A zero pharmacy limit did not return an empty page');
+  });
+
+  for (const [resource, maximum] of [['pharmacies/', MAX_SELECT], ['demographics', 500]]) {
+    // Integer.MAX_VALUE is covered by the CXF endpoint tests: CRS 942220 rejects
+    // that literal with 403 before REST on the packaged front door.
+    for (const params of [{ offset: 0, limit: maximum + 1 }, { offset: 0, limit: maximum * 2 },
+      { offset: 0, limit: -1 }, { offset: -1, limit: 10 }]) {
+      await s.step(`${resource} rejects offset=${params.offset}, limit=${params.limit} with HTTP 400`, async () => {
+        const response = await s.context.request.get(h.appUrl(s.config.baseUrl, `/ws/rs/${resource}`), {
+          params, headers: { Accept: 'application/json' }, failOnStatusCode: false, maxRedirects: 0, timeout: 60000,
+        });
+        h.assert(response.status() === 400, `Invalid ${resource} pagination answered HTTP ${response.status()}, expected 400`);
+      });
+    }
+  }
 }
 
 if (require.main === module) runWorkflow('dao-findall-paging', workflow, { openPatient: false });

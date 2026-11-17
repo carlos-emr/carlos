@@ -221,11 +221,11 @@ public class EFormPDFServlet extends HttpServlet {
                 try {
                     res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid PDF template.");
                 } catch (IOException ioe) {
-                    log.warn("Unable to send 400 for an invalid eForm PDF template", ioe);
+                    log.warn("Unable to send 400 for an invalid eForm PDF template: {}", LogSafe.exceptionTrace(ioe));
                 }
             }
         } catch (Exception e) {
-            log.error("Error generating eForm PDF", e);
+            log.error("Error generating eForm PDF: {}", LogSafe.exceptionTrace(e));
             if (!res.isCommitted()) {
                 res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                     "An internal error occurred. Please try again or contact your system administrator.");
@@ -335,9 +335,9 @@ public class EFormPDFServlet extends HttpServlet {
 
             try {
                 reader = new PdfReader(propFilename);
-                log.debug("Found template at {}", LogSafe.sanitize(propFilename));
+                log.debug("Found form template");
             } catch (Exception dex) {
-                log.warn("Cannot find template at: {}", LogSafe.sanitize(propFilename));
+                log.warn("Cannot find template");
                 throw new IOException("Cannot load PDF template.", dex);
             }
 
@@ -427,13 +427,13 @@ public class EFormPDFServlet extends HttpServlet {
         
         // Final safety check - ensure no path traversal characters remain
         if (cfgFilename.contains("..") || cfgFilename.contains("/") || cfgFilename.contains("\\")) {
-            log.warn("Potential path traversal attempt blocked: {}", LogSafe.sanitize(cfgFilename));
+            log.warn("Potential path traversal attempt blocked");
             return ret;
         }
         
         // Validate filename format - should only be alphanumeric with dots, dashes, underscores
         if (!cfgFilename.matches("^[a-zA-Z0-9._-]+$")) {
-            log.warn("Invalid filename format: {}", LogSafe.sanitize(cfgFilename));
+            log.warn("Invalid filename format");
             return ret;
         }
         
@@ -446,15 +446,15 @@ public class EFormPDFServlet extends HttpServlet {
             File propFile = PathValidationUtils.validatePath(cfgFilename,
                     PathValidationUtils.resolveConfiguredDirectory(
                             CarlosProperties.getInstance().getEformImageDirectory(), "EFORM_IMAGES_DIR"));
-            log.debug("1Looking for the prop file! {}", () -> LogSafe.sanitize(propFile.getPath()));
+            log.debug("1Looking for the prop file!");
             is = new FileInputStream(propFile);
             if (is != null) {
-                log.debug("2Found the prop file! {}", LogSafe.sanitize(cfgFilename));
+                log.debug("2Found the prop file!");
                 ret.load(is);
                 is.close();
             }
         } catch (Exception e) {
-            log.warn("Can't find the prop file: {}", LogSafe.sanitize(cfgFilename));
+            log.warn("Can't find the prop file");
         } finally {
             if (is != null) try {
                 is.close();
@@ -572,7 +572,7 @@ public class EFormPDFServlet extends HttpServlet {
                 try {
                     props = pp.get().process(props);
                 } catch (Exception e) {
-                    log.warn("Post-processor {} failed during execution - form rendered without post-processing", LogSafe.sanitize(postProcessorName), e);
+                    log.warn("Post-processor {} failed during execution - form rendered without post-processing {}", LogSafe.sanitize(postProcessorName), LogSafe.exceptionTrace(e));
                 }
             } else {
                 log.warn("Post-processor '{}' is not on the allowlist and will not be applied", LogSafe.sanitize(postProcessorName));

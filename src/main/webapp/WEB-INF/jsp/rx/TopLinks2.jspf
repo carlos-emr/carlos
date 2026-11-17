@@ -26,11 +26,11 @@
 <%@ page import="com.fasterxml.jackson.databind.ObjectMapper" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.PharmacyInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.*" %>
-<%@ page import="io.github.carlos_emr.carlos.log.*" %>
+
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.RxUtil" %>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <jsp:include page="/WEB-INF/jsp/includes/spinner.jspf" flush="true"/>

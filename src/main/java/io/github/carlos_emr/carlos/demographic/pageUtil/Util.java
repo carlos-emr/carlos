@@ -176,9 +176,9 @@ public class Util {
         } catch (IOException | SecurityException ex) {
             // resolveConfiguredDirectory throws SecurityException on a blank/non-directory dirName;
             // catch it here so this method honours its boolean contract instead of throwing.
-            logger.error("Error", ex);
+            logger.error("Error: {}", LogSafe.exceptionTrace(ex));
         }
-        logger.error("Error! Cannot write to directory [" + dirName + "]");
+        logger.error("Error! Cannot write to directory");
         return false;
     }
 
@@ -202,7 +202,7 @@ public class Util {
             f = PathValidationUtils.validateExistingPath(f, baseDir);
             return cleanFile(f);
         } catch (SecurityException e) {
-            logger.error("Error! Attempted path traversal attack detected for file: {}", LogSafe.sanitize(filename));
+            logger.error("Error! Attempted path traversal attack detected for file");
             return false;
         }
     }
@@ -223,7 +223,7 @@ public class Util {
                     return cleanFile(validatedFile);
                 } catch (SecurityException e) {
                     // File not in this directory, try next configured directory
-                    logger.debug("File validation failed for {}: {}", propName, e.getMessage());
+                    logger.debug("File validation failed: {}", LogSafe.exceptionTrace(e));
                 }
             }
         }
@@ -233,13 +233,13 @@ public class Util {
             return cleanFile(f);
         }
 
-        logger.error("File validation failed - file is outside all allowed directories: {}", filename);
+        logger.error("File validation failed - file is outside all allowed directories");
         return false;
     }
 
     static public boolean cleanFile(File file) {
         if (!file.delete()) {
-            logger.error("Error! Cannot delete file [" + file.getPath() + "]");
+            logger.error("Error! Cannot delete file");
             return false;
         }
         return true;
@@ -259,56 +259,90 @@ public class Util {
         return ret;
     }
 
+    /** How {@link #downloadFile(String, String, HttpServletResponse)} ended. */
+    public enum Download {
+        /** The whole file was written to the response. */
+        COMPLETE,
+        /** Nothing was written and the response is untouched: the caller still owns the answer. */
+        NOT_STARTED,
+        /** The headers, and possibly part of the body, were written before the stream failed. */
+        INTERRUPTED
+    }
+
+    /**
+     * Streams a file from a directory to the response as a download.
+     *
+     * <p>The result says how it went. This method used to return nothing and log its own
+     * failures, so the legacy export, its only caller, reported and audited a download that never
+     * started, or broke off part-way, as a success. It no longer answers for the caller either:
+     * a file that cannot be found leaves the response untouched ({@link Download#NOT_STARTED})
+     * instead of sending a 404 behind the caller's back.
+     *
+     * @param fileName the file's name; any directory part is ignored
+     * @param dirName the directory that must contain it
+     * @param rsp the response to write to
+     * @return how the download ended
+     */
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
-    static public void downloadFile(String fileName, String dirName, HttpServletResponse rsp) {
+    static public Download downloadFile(String fileName, String dirName, HttpServletResponse rsp) {
+        if (rsp == null) return Download.NOT_STARTED;
+        dirName = fixDirName(dirName);
+
+        // Validate filename to prevent path traversal attacks
+        // Extract just the base filename, removing any directory components
+        String safeFileName = FilenameUtils.getName(fileName);
+
+        // If the filename is empty or null after sanitization, reject the request
+        if (safeFileName == null || safeFileName.trim().isEmpty()) {
+            logger.error("Invalid filename provided"); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            return Download.NOT_STARTED;
+        }
+
+        // Create the file object with the sanitized filename
+        File documentDir = new File(dirName);
+        File requestedFile = new File(documentDir, safeFileName);
+
+        // Validate the file path using PathValidationUtils
         try {
-            dirName = fixDirName(dirName);
-            if (rsp == null) return;
+            requestedFile = PathValidationUtils.validateExistingPath(requestedFile, documentDir);
+        } catch (SecurityException e) {
+            logger.error("Path traversal attempt detected for file");
+            return Download.NOT_STARTED;
+        }
 
-            // Validate filename to prevent path traversal attacks
-            // Extract just the base filename, removing any directory components
-            String safeFileName = FilenameUtils.getName(fileName);
-            
-            // If the filename is empty or null after sanitization, reject the request
-            if (safeFileName == null || safeFileName.trim().isEmpty()) {
-                logger.error("Invalid filename provided: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                return;
-            }
-            
-            // Create the file object with the sanitized filename
-            File documentDir = new File(dirName);
-            File requestedFile = new File(documentDir, safeFileName);
+        // Verify the file exists and is readable
+        if (!requestedFile.exists() || !requestedFile.isFile() || !requestedFile.canRead()) {
+            logger.error("Error during file download: file does not exist or is not accessible"); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            return Download.NOT_STARTED;
+        }
 
-            // Validate the file path using PathValidationUtils
-            try {
-                requestedFile = PathValidationUtils.validateExistingPath(requestedFile, documentDir);
-            } catch (SecurityException e) {
-                logger.error("Path traversal attempt detected for file: {}", LogSafe.sanitize(fileName));
-                return;
-            }
-
-            // Verify the file exists and is readable
-            if (!requestedFile.exists() || !requestedFile.isFile() || !requestedFile.canRead()) {
-                logger.error("Error during file download: file does not exist or is not accessible - {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                rsp.sendError(HttpServletResponse.SC_NOT_FOUND);
-                return;
-            }
-
+        InputStream in;
+        try {
+            in = new FileInputStream(requestedFile);
+        } catch (IOException ex) {
+            // Not opened, so nothing has been written yet.
+            logger.error("Error during file download: {}", ex.getClass().getSimpleName());
+            return Download.NOT_STARTED;
+        }
+        try (in) {
             rsp.setContentType("application/octet-stream");
             rsp.setHeader("Content-Disposition", "attachment; filename=\"" + sanitizeHeaderValue(safeFileName) + "\"");
             rsp.setContentLengthLong(requestedFile.length());
-            
-            try (InputStream in = new FileInputStream(requestedFile);
-                OutputStream out = rsp.getOutputStream()) {
+
+            try (OutputStream out = rsp.getOutputStream()) {
                 byte[] buf = new byte[8192];
                 int len;
                 while ((len = in.read(buf)) > 0) {
                     out.write(buf, 0, len); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- application/octet-stream file download
                 }
             }
+            return Download.COMPLETE;
         } catch (IOException ex) {
-            logger.error("Error during file download: {}", LogSafe.sanitize(fileName), ex);
+            // The class only: the message of a failed write names the file, which for an export
+            // archive can hold a patient's name.
+            logger.error("Error during file download: {}", ex.getClass().getSimpleName());
+            return Download.INTERRUPTED;
         }
     }
     
@@ -554,7 +588,7 @@ public class Util {
             // SecurityException is thrown by PathValidationUtils when an output dir/name fails
             // validation; honor this boolean method's contract by returning false rather than
             // letting the unchecked exception escape.
-            logger.error("Error", ex);
+            logger.error("Error: {}", LogSafe.exceptionTrace(ex));
         }
         return false;
     }
@@ -610,7 +644,7 @@ public class Util {
 
                     // Validate the file path
                     if (!isPathWithinDirectory(f, dirName)) {
-                        logger.error("Error! File path is outside the allowed directory: " + f.getAbsolutePath());
+                        logger.error("Error! File path is outside the allowed directory");
                         return false;
                     }
 
@@ -645,7 +679,7 @@ public class Util {
             // SecurityException is thrown by PathValidationUtils when an output dir/name fails
             // validation; honor this boolean method's contract by returning false rather than
             // letting the unchecked exception escape.
-            logger.error("Error", ex);
+            logger.error("Error: {}", LogSafe.exceptionTrace(ex));
         }
         return false;
     }
@@ -874,7 +908,7 @@ public class Util {
         
         // Final validation - ensure no path traversal characters remain
         if (sanitized.contains("..") || sanitized.contains("/") || sanitized.contains("\\")) {
-            logger.error("Invalid filename after sanitization: {}", LogSafe.sanitize(fileName));
+            logger.error("Invalid filename after sanitization");
             return "";
         }
         

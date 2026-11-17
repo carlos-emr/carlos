@@ -38,7 +38,7 @@
 <fmt:setLocale value="<%= io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request) %>"/>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -92,8 +92,8 @@
     }
 %>
 
-<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.demographic.data.DemographicMerged" %>
-<%@ page import="java.lang.System" %>
+<%@ page import="java.util.*, io.github.carlos_emr.carlos.demographic.data.DemographicMerged" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 

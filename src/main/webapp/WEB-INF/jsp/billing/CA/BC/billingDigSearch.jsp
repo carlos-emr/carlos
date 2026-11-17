@@ -32,7 +32,7 @@
 <%
     String user_no = (String) session.getAttribute("user");
 %>
-<%@page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" %>
+<%@page import="java.util.*, java.sql.*" %>
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
@@ -73,6 +73,7 @@
         -->
     </script>
     <style>
+        .diagnostic-code-button { background: none; border: 0; padding: 0; font: inherit; color: #0000ee; text-decoration: underline; cursor: pointer; }
         .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
     </style>
 </head>
@@ -208,9 +209,9 @@
         %>
         <tr bgcolor="<%=color%>">
             <td width="12%"><font face="Arial, Helvetica, sans-serif"
-                                  size="2"> <a
-                    href="#" onclick="CodeAttach('<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(Dcode)%>|<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(DcodeDesc)%>'); return false;"><%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtml(Dcode)%>
-                </a></font></td>
+                                  size="2"> <button type="button" class="diagnostic-code-button"
+                    onclick="CodeAttach('<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(Dcode)%>|<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(DcodeDesc)%>'); return false;"><%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtml(Dcode)%>
+                </button></font></td>
             <td width="88%"><font face="Arial, Helvetica, sans-serif"
                                   size="2"> <label for="dxDescResult<%=intCount%>" class="visually-hidden">Description for <%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtml(Dcode)%></label><input type="text" id="dxDescResult<%=intCount%>" name="<%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(Dcode)%>"
                                                    value="<%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(DcodeDesc)%>" size="60"> <input type="submit"
@@ -236,9 +237,9 @@
         %>
         <tr bgcolor="<%=color%>">
             <td width="12%"><font face="Arial, Helvetica, sans-serif"
-                                  size="2"> <a
-                    href="#" onclick="CodeAttach('<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(Dcode)%>|<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(DcodeDesc)%>'); return false;"><%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtml(Dcode)%>
-                </a></font></td>
+                                  size="2"> <button type="button" class="diagnostic-code-button"
+                    onclick="CodeAttach('<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(Dcode)%>|<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(DcodeDesc)%>'); return false;"><%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtml(Dcode)%>
+                </button></font></td>
             <td width="88%"><font face="Arial, Helvetica, sans-serif"
                                   size="2"> <label for="dxDescText<%=intCount%>" class="visually-hidden">Description for <%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtml(Dcode)%></label><input type="text" id="dxDescText<%=intCount%>" name="<%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(Dcode)%>"
                                                    value="<%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(DcodeDesc)%>" size="60"> <input type="submit"
@@ -263,9 +264,9 @@
         %>
         <tr bgcolor="<%=color%>">
             <td width="12%"><font face="Arial, Helvetica, sans-serif"
-                                  size="2"> <a
-                    href="#" onclick="CodeAttach('<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(Dcode2)%>|<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(DcodeDesc2)%>'); return false;"><%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtml(Dcode2)%>
-                </a></font></td>
+                                  size="2"> <button type="button" class="diagnostic-code-button"
+                    onclick="CodeAttach('<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(Dcode2)%>|<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(DcodeDesc2)%>'); return false;"><%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtml(Dcode2)%>
+                </button></font></td>
             <td width="88%"><font face="Arial, Helvetica, sans-serif"
                                   size="2"> <label for="dxDescCode<%=intCount%>" class="visually-hidden">Description for <%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtml(Dcode2)%></label><input type="text" id="dxDescCode<%=intCount%>" name="<%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(Dcode2)%>"
                                                    value="<%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(DcodeDesc2)%>" size="60"> <input type="submit"

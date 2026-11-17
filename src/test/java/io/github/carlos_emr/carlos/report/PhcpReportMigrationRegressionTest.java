@@ -65,7 +65,7 @@ class PhcpReportMigrationRegressionTest {
 
         assertThat(normalizedReport)
                 .contains("<%@ page errorPage=\"/WEB-INF/jsp/error/errorpage.jsp\" buffer=\"64kb\" %>")
-                .contains("if (bDx) { sql = \"select dxcode, level1, level2 from dxphcpgroup")
+                .contains("reportDao.categories()")
                 .contains("propCatCode.containsKey(serviceCode)")
                 .doesNotContain("Integer.parseInt(serviceCode)")
                 .contains("only unmapped diagnoses are gold")

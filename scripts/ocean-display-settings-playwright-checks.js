@@ -19,6 +19,7 @@
  * Environment (see docs/ui-tests/deb-install-validation.md section 6):
  *   BASE_URL, CHROME_PATH, TEST_USER, TEST_PASSWORD, TEST_PIN, MYSQL_*
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
@@ -129,7 +130,7 @@ async function workflow(s) {
     h.assert(rendered.hidden, 'The Ocean placeholder must stay hidden until the toolbar script shows it');
   });
   await s.step('a GET carrying the save intent is refused and changes nothing', async () => {
-    const response = await s.context.request.get(`${s.config.baseUrl}/admin/EchartDisplaySettings?dboperation=Save&${PREF}=false`,
+    const response = await authenticatedProbe(s, `${s.config.baseUrl}/admin/EchartDisplaySettings?dboperation=Save&${PREF}=false`,
       { maxRedirects: 0, failOnStatusCode: false });
     h.assert(response.status() === 405, `Save-intent GET answered ${response.status()}, expected 405`);
     h.assert(s.sql.value(PREF_QUERY) === 'true', 'A save-intent GET changed the stored preference');

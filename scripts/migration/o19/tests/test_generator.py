@@ -87,6 +87,37 @@ class TestExplicitSourceCommit(unittest.TestCase):
         self.assertEqual(list(schema.tables["sample"]), ["value", "id", "tail"])
         self.assertEqual(schema.tables["sample"]["value"], "MEDIUMTEXT NULL")
 
+    def test_modify_preserves_quoted_identifiers_and_unescapes_backticks(self):
+        schema = load_generator().Schema()
+        schema.feed("CREATE TABLE sample (`Fee Item` VARCHAR(1), `legacy``name` VARCHAR(1), tail INT);"
+                    "ALTER TABLE sample MODIFY COLUMN `FEE ITEM` MEDIUMTEXT NULL FIRST,"
+                    " MODIFY `legacy``name` TEXT NOT NULL AFTER tail;")
+        self.assertEqual(list(schema.tables["sample"]), ["Fee Item", "tail", "legacy`name"])
+        self.assertEqual(schema.tables["sample"]["Fee Item"], "MEDIUMTEXT NULL")
+        self.assertEqual(schema.tables["sample"]["legacy`name"], "TEXT NOT NULL")
+
+    def test_quoted_columns_survive_add_change_and_drop(self):
+        for column_keyword in ("", "COLUMN "):
+            with self.subTest(column_keyword=column_keyword):
+                schema = load_generator().Schema()
+                schema.feed("CREATE TABLE sample (id INT, `Fee Item` TEXT);")
+                schema.apply_alter("sample", f"ADD {column_keyword}`legacy``name` INT PRIMARY KEY AFTER `Fee Item`")
+                self.assertEqual(schema.tables["sample"], {"id": "INT", "Fee Item": "TEXT", "legacy`name": "INT PRIMARY KEY"})
+                self.assertEqual(schema.pks["sample"], ["legacy`name"])
+                schema.apply_alter("sample", f"CHANGE {column_keyword}`LEGACY``NAME` `renamed value` BIGINT")
+                self.assertEqual(schema.tables["sample"], {"id": "INT", "Fee Item": "TEXT", "renamed value": "BIGINT"})
+                self.assertEqual(schema.pks["sample"], ["renamed value"])
+                schema.apply_alter("sample", f"DROP {column_keyword}`RENAMED VALUE`")
+                self.assertEqual(schema.tables["sample"], {"id": "INT", "Fee Item": "TEXT"})
+                self.assertNotIn("sample", schema.pks)
+
+    def test_parenthesized_add_and_drop_accept_quoted_reserved_columns(self):
+        schema = load_generator().Schema()
+        schema.feed("CREATE TABLE sample (id INT);"
+                    "ALTER TABLE sample ADD (`Fee Item` TEXT, `legacy``name` INT, `key` INT);"
+                    "ALTER TABLE sample DROP COLUMN `legacy``name`, DROP COLUMN `key`;")
+        self.assertEqual(schema.tables["sample"], {"id": "INT", "Fee Item": "TEXT"})
+
     def test_empty_or_malformed_source_commit_is_refused_before_generation(self):
         generator = load_generator()
         for commit in ("", "abc", "A" * 40):

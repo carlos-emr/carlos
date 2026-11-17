@@ -134,31 +134,8 @@ const PRINT_SELECTIONS = [
 const PRINT_FLAG_IDS = ['printCPP', 'printRx', 'printLabs', 'printPreventions', 'printAllergies'];
 
 function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-  // Credentials in the URL would travel into Playwright navigations and can
-  // surface in request or failure logging, so reject them outright.
-  if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not contain embedded credentials');
-  }
-
-  // Loopback only without the opt-in. This check is not read-only: the eChart's
-  // draft autosave posts whatever it types into the note as the patient's draft
-  // (casemgmt_tmpsave), so a shared install on a private LAN, host.docker.internal
-  // and the compose name `carlos` all need ALLOW_NON_LOCAL_BASE_URL=true like any
-  // other remote host, the same line clinical-freetext-playwright-checks.js draws.
-  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
-  if (!isLoopback(host) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional, disposable test target`);
-  }
-  // The login sends TEST_USER and TEST_PASSWORD. Off this machine that has to be
-  // over TLS; the opt-in above covers the target, not a cleartext hop to it.
-  if (!isLoopback(host) && parsed.protocol !== 'https:') {
-    throw new Error(`Refusing plain-http BASE_URL to non-loopback host ${host}: the login would send credentials in cleartext`);
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
+  // Delegate host/protocol/credential rules; this legacy caller retains its return shape.
+  const parsed = require('./lib/playwright-harness').validateCredentialBaseUrl(rawBaseUrl);
   return parsed;
 }
 
@@ -230,7 +207,7 @@ function assertBrowserDiagnostics() {
   h.assertStrictPage(recorder);
   // Retain this workflow's stronger pre-migration HTTP contract, including assets
   // that the common recorder treats as a known missing resource.
-  assert(badResponses.length === 0, `unexpected HTTP errors or dialogs: ${JSON.stringify(badResponses, null, 2)}`);
+  assert(badResponses.length === 0, `unexpected HTTP errors or dialogs: ${h.withoutQueryStrings(JSON.stringify(badResponses, null, 2))}`);
 }
 
 /** Observe the real final navigation; never intercept or replace its native lock release. */
@@ -643,7 +620,8 @@ async function printChart(page, noteText, flags, expectAutosave) {
   }
 }
 
-(async () => {
+require('./lib/legacy-check').runLegacyCheck('echart-print',async({cancellation})=>{
+  try {
   const sql = h.createSqlRunner(h.readConfig().mysql);
   const ownedMarker = newOwnedMarker();
   patientMarker = ownedMarker;
@@ -655,7 +633,7 @@ async function printChart(page, noteText, flags, expectAutosave) {
     const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(testUser)}`);
     assert(provider, 'The configured test login has no provider');
     demographicNo = createOwnedPatient(sql, { marker: ownedMarker, provider });
-    browser = await chromium.launch(chromePath ? { executablePath: chromePath } : {});
+    browser = await chromium.launch({...h.NO_PLAYWRIGHT_SIGNAL_HANDLING,...(chromePath ? { executablePath: chromePath } : {})});
     // Certificate verification is only relaxed for loopback, where the packaged
     // install serves its own self-signed cert. A target opted in with
     // ALLOW_NON_LOCAL_BASE_URL must still prove its certificate, because this
@@ -670,7 +648,9 @@ async function printChart(page, noteText, flags, expectAutosave) {
 
     const page = await login(context);
     // Before anything is typed into a chart: refuse a patient that is not test data.
+    cancellation.throwIfCancelled();
     await verifySyntheticPatient(page);
+    cancellation.throwIfCancelled();
     await openEchart(page);
     await page.evaluate(() => {
       window.__chartPrintUnloadEvents = 0;
@@ -702,6 +682,7 @@ async function printChart(page, noteText, flags, expectAutosave) {
     try {
       for (const note of NOTE_BODIES) {
         if (!printsRemainUseful) break;
+        cancellation.throwIfCancelled();
         const { response, pdf, autosaveStatus } = await printChart(page, note.text, [], true);
         printResults.push({
           dimension: 'note body', label: note.label, crs: note.crs,
@@ -714,6 +695,7 @@ async function printChart(page, noteText, flags, expectAutosave) {
       const worstCaseNote = NOTE_BODIES.find((note) => note.label === 'sentence semicolon').text;
       for (const selection of PRINT_SELECTIONS) {
         if (!printsRemainUseful) break;
+        cancellation.throwIfCancelled();
         const { response, pdf, autosaveStatus } = await printChart(page, worstCaseNote, selection.flags, false);
         printResults.push({
           dimension: 'selection', label: selection.label, crs: 'n/a',
@@ -736,7 +718,8 @@ async function printChart(page, noteText, flags, expectAutosave) {
         const pattern = '**/CaseManagementEntry*';
         await context.route(pattern, slowPrint);
         try {
-          const { response, pdf, autosaveStatus } = await printChart(page,
+          cancellation.throwIfCancelled();
+        const { response, pdf, autosaveStatus } = await printChart(page,
             `${worstCaseNote}\n${ownedMarker} delayed print`, [], true);
           printResults.push({ dimension: 'delayed response', label: 'slow print retains editor lock',
             crs: '932100/932110 attack-rce', status: response.status(),
@@ -771,7 +754,8 @@ async function printChart(page, noteText, flags, expectAutosave) {
       // open, record that and let the print failure below stay the headline.
       try {
         if ((await page.locator('textarea[name="caseNote_note"]').count()) === 0) {
-          await openEchart(page);
+          cancellation.throwIfCancelled();
+    await openEchart(page);
         }
         cleanupOutcome = await cleanUpNoteDraft(page, originalNote);
       } catch (error) {
@@ -859,15 +843,16 @@ async function printChart(page, noteText, flags, expectAutosave) {
       }
     }
   }
-})().catch((error) => {
+  } catch(error) {
   console.error('FAIL eChart print Playwright check');
-  console.error(error.stack || error.message);
+  console.error(h.withoutQueryStrings(error.stack || error.message));
   if (printResults.length) {
-    console.error(`Print results: ${JSON.stringify(printResults, null, 2)}`);
+    console.error(`Print results: ${h.withoutQueryStrings(JSON.stringify(printResults, null, 2))}`);
   }
   if (badResponses.length) {
-    console.error(`HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
+    console.error(`HTTP errors: ${h.withoutQueryStrings(JSON.stringify(badResponses, null, 2))}`);
   }
   try { h.assertStrictPage(recorder); } catch (diagnostic) { console.error(diagnostic.message); }
-  process.exit(1);
+  throw require('./lib/legacy-check').sanitizedError(error,cancellation.isCancellation);
+  }
 });

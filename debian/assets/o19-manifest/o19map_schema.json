@@ -12930,7 +12930,8 @@
    "id",
    "demographicNo",
    "hrmDocumentId",
-   "timeAssigned"
+   "timeAssigned",
+   "cds_patient_key"
   ],
   "HRMDocumentToProvider": [
    "id",
@@ -14493,7 +14494,8 @@
    "pharmacyId",
    "cds_currentness",
    "cds_dose_text",
-   "cds_projection_incomplete"
+   "cds_projection_incomplete",
+   "row_version"
   ],
   "dsGuidelineProviderMap": [
    "mapid",
@@ -22115,7 +22117,8 @@
    "textView",
    "rx_comments",
    "digital_signature_id",
-   "lastUpdateDate"
+   "lastUpdateDate",
+   "row_version"
   ],
   "preventions": [
    "id",
@@ -23000,7 +23003,7 @@
   "scheduleholiday": 28,
   "scheduletemplate": 1,
   "scheduletemplatecode": 23,
-  "secObjPrivilege": 514,
+  "secObjPrivilege": 516,
   "secObjectName": 133,
   "secRole": 33,
   "secUserRole": 2,
@@ -24721,15 +24724,9 @@
    "reportgroup"
   ],
   "reportConfig": [
-   "order_no",
    "report_id"
   ],
   "reportFilter": [
-   "order_no",
-   "report_id",
-   "status"
-  ],
-  "reportItem": [
    "status"
   ],
   "reportTemplates": [
@@ -42989,7 +42986,8 @@
      "id",
      "demographicNo",
      "hrmDocumentId",
-     "timeAssigned"
+     "timeAssigned",
+     "cds_patient_key"
     ],
     "HRMDocumentToProvider": [
      "id",
@@ -44517,7 +44515,8 @@
      "pharmacyId",
      "cds_currentness",
      "cds_dose_text",
-     "cds_projection_incomplete"
+     "cds_projection_incomplete",
+     "row_version"
     ],
     "dsGuidelineProviderMap": [
      "mapid",
@@ -56277,7 +56276,8 @@
      "textView",
      "rx_comments",
      "digital_signature_id",
-     "lastUpdateDate"
+     "lastUpdateDate",
+     "row_version"
     ],
     "preventions": [
      "id",
@@ -57415,7 +57415,7 @@
     "scheduleholiday": 28,
     "scheduletemplate": 1,
     "scheduletemplatecode": 23,
-    "secObjPrivilege": 516,
+    "secObjPrivilege": 518,
     "secObjectName": 134,
     "secRole": 33,
     "secUserRole": 2,
@@ -58968,15 +58968,9 @@
      "reportgroup"
     ],
     "reportConfig": [
-     "order_no",
      "report_id"
     ],
     "reportFilter": [
-     "order_no",
-     "report_id",
-     "status"
-    ],
-    "reportItem": [
      "status"
     ],
     "reportTemplates": [

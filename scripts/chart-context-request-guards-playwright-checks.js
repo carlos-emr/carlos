@@ -27,6 +27,7 @@
  * Only this run's two patients, drafts and lock rows are created; cleanup verifies removal.
  */
 'use strict';
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { csrfTokenPresent } = require('./lib/playwright-ui');
@@ -179,11 +180,11 @@ async function workflow(s) {
       } finally { await response.dispose(); }
       h.assert(drafts(sql, [A, B]) === stable, `${label} autosave changed a draft`);
     }
-    const get = await context.request.get(`${endpoint}?${new URLSearchParams(baseFields)}`, { maxRedirects: 0 });
+    const get = await authenticatedProbe({context, config: s.config}, `${endpoint}?${new URLSearchParams(baseFields)}`, { maxRedirects: 0 });
     try { await applicationStatus(get, 405, 'GET autosave'); }
     finally { await get.dispose(); }
     for (const method of ['edit', 'notehistory', 'history']) {
-      const response = await context.request.get(`${endpoint}?${new URLSearchParams({
+      const response = await authenticatedProbe({context, config: s.config}, `${endpoint}?${new URLSearchParams({
         method, demographicNo: A, chartContext: token, noteId: foreignNote, from: 'casemgmt', forceNote: 'true',
       })}`, { maxRedirects: 0 });
       try {

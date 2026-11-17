@@ -1,4 +1,5 @@
 /**
+ * Modifications by CARLOS Contributors, 2026.
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * <p>
  * Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
@@ -30,6 +31,8 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import io.github.carlos_emr.carlos.consultation.dto.SpecialistListRow;
+
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
@@ -37,6 +40,31 @@ import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 public interface ProfessionalSpecialistDao extends AbstractDao<ProfessionalSpecialist> {
 
     List<ProfessionalSpecialist> findAll();
+
+    /**
+     * Finds active specialists in fifteen-row pages ordered by surname, first name and ID ascending.
+     * Requests beyond the filtered result window are clamped to its last page.
+     *
+     * @param referralNo String the referral-number filter, or null/empty to omit it
+     * @param lastName String a surname substring, or null to omit it
+     * @param firstName String a first-name substring, or null to omit it
+     * @param specialty String a specialty substring, or null/empty to omit it
+     * @param address String an address substring, or null/empty to omit it
+     * @param includeHidden boolean whether hidden directory rows are included
+     * @param page int the nonnegative, zero-based page number
+     * @return QueryPage of ProfessionalSpecialist with at most fifteen rows and the exact total
+     * @throws IllegalArgumentException if page is negative
+     * @throws ArithmeticException if the last page or row offset exceeds int capacity
+     */
+    QueryPage<ProfessionalSpecialist> findDirectoryPage(String referralNo, String lastName, String firstName,
+            String specialty, String address, boolean includeHidden, int page);
+
+    /**
+     * Returns active directory rows in last-name, first-name order without eager associations.
+     *
+     * @return {@code List<SpecialistListRow>} of specialists not marked deleted; empty if none match
+     */
+    List<SpecialistListRow> findListRows();
 
     List<ProfessionalSpecialist> findByFullName(String lastName, String firstName);
 

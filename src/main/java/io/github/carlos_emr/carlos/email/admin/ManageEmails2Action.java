@@ -63,6 +63,13 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * @since 2026-01-24
  */
 public class ManageEmails2Action extends ActionSupport {
+    private static final String EMAIL_SECURITY_OBJECT = "_email";
+    private static final String MISSING_EMAIL_PRIVILEGE_MESSAGE =
+            "missing required sec object (" + EMAIL_SECURITY_OBJECT + ")";
+    private static final String ERROR_MESSAGE_KEY = "errorMessage";
+    private static final String INVALID_EMAIL_LOG_ID_MESSAGE = "Invalid email log id";
+    private static final String EMAIL_LOG_NOT_FOUND_MESSAGE = "Email log not found";
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
     private static final Logger logger = MiscUtils.getLogger();
@@ -81,23 +88,32 @@ public class ManageEmails2Action extends ActionSupport {
      *
      * This method examines the "method" parameter from the HTTP request and delegates to
      * the corresponding method handler. Supported methods include "fetchEmails" for retrieving
-     * email logs based on search criteria, and "resendEmail" for preparing a previously sent
-     * email for resending.
+     * email logs based on search criteria, "setResolved" for resolving a failed email, and
+     * "resendEmail" for preparing a previously sent email for resending.
      *
      * If no method parameter is provided or the method is not recognized, defaults to displaying
      * the email management interface via {@link #showEmailManager()}.
      *
-     * @return String Struts2 result name ("show", "emailstatus", "compose", or null for errors)
+     * @return String Struts2 result name ("show", "emailstatus", "compose", or null for errors);
+     *         {@code NONE} ("none") for a direct Resolve response
+     * @throws SecurityException if a required {@code _email} READ or WRITE privilege is missing
      * @see #fetchEmails()
      * @see #resendEmail()
      * @see #showEmailManager()
      */
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, EMAIL_SECURITY_OBJECT, SecurityInfoManager.READ, null)) {
+            throw new SecurityException(MISSING_EMAIL_PRIVILEGE_MESSAGE);
+        }
         String mtd = request.getParameter("method");
         if ("fetchEmails".equals(mtd)) {
             return fetchEmails();
         } else if ("resendEmail".equals(mtd)) {
             return resendEmail();
+        } else if ("setResolved".equals(mtd)) {
+            setResolved();
+            return NONE;
         }
 
         return showEmailManager();
@@ -107,7 +123,7 @@ public class ManageEmails2Action extends ActionSupport {
      * Displays the email management interface with available email statuses and sender accounts.
      *
      * This method prepares the initial view for the email management page by populating
-     * request attributes with all possible email statuses (SENT, FAILED, PENDING, RESOLVED)
+     * request attributes with all possible email statuses (SUCCESS, FAILED, RESOLVED)
      * and the list of configured sender email accounts. This data is used to populate
      * the filter dropdowns on the email management interface.
      *
@@ -180,25 +196,43 @@ public class ManageEmails2Action extends ActionSupport {
     /**
      * Marks a specific email log entry as resolved.
      *
-     * This method updates the status of an email log to RESOLVED, typically used when
-     * an administrator has addressed a failed or problematic email. The method validates
-     * the provided log ID to ensure it is a valid integer before processing.
+     * Only FAILED rows transition to RESOLVED, clearing the error and preserving the stored send time.
+     * Missing logs return HTTP 404; any refreshed status other than RESOLVED returns HTTP 409.
+     * Repeated resolution of a RESOLVED log succeeds without another update.
      *
-     * If the log ID is invalid (not an integer), the method returns a JSON error response
-     * to the client and does not modify any data. Upon successful validation, the email
-     * status is updated via {@link EmailManager#updateEmailStatus}.
+     * Invalid log IDs return JSON HTTP 400 without modifying data. Eligible rows are updated
+     * via {@link EmailManager#updateEmailStatus}; the refreshed stored state determines the response.
+     * Later transport outcomes can supersede a resolution.
+     * Only POST is accepted so the mutation is covered by CSRFGuard.
      *
+     * @throws SecurityException if the user lacks {@code _email} WRITE privilege
      * @see EmailManager#updateEmailStatus
      * @see EmailStatus#RESOLVED
      */
     public void setResolved() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String emailLogId = request.getParameter("logId");
-        if (!StringUtils.isInteger(emailLogId)) {
-            JSONUtil.errorResponse(response, "errorMessage", "Invalid email log id");
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, EMAIL_SECURITY_OBJECT, SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException(MISSING_EMAIL_PRIVILEGE_MESSAGE);
+        }
+        if (!"POST".equals(request.getMethod())) {
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            response.setHeader("Allow", "POST");
             return;
         }
-        emailManager.updateEmailStatus(loggedInInfo, Integer.parseInt(emailLogId), EmailStatus.RESOLVED, null);
+        String emailLogId = request.getParameter("logId");
+        if (!StringUtils.isInteger(emailLogId)) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            JSONUtil.jsonResponse(response, ERROR_MESSAGE_KEY, INVALID_EMAIL_LOG_ID_MESSAGE);
+            return;
+        }
+        EmailLog emailLog = emailManager.updateEmailStatus(loggedInInfo, Integer.parseInt(emailLogId), EmailStatus.RESOLVED, null);
+        if (emailLog == null) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            JSONUtil.jsonResponse(response, ERROR_MESSAGE_KEY, EMAIL_LOG_NOT_FOUND_MESSAGE);
+        } else if (emailLog.getStatus() != EmailStatus.RESOLVED) {
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
+            JSONUtil.jsonResponse(response, ERROR_MESSAGE_KEY, "Only failed emails can be resolved");
+        }
     }
 
     /**
@@ -222,13 +256,14 @@ public class ManageEmails2Action extends ActionSupport {
      *
      * If PDF regeneration fails for any attachment, an error message is set and the user
      * is advised to create a new email instead of resending. The method returns null in
-     * case of validation errors (invalid log ID).
+     * case of an invalid log ID (HTTP 400) or a missing email log (HTTP 404).
      *
      * All email data including encryption settings, password protection, chart display options,
      * and additional parameters are preserved from the original email for potential modification
      * before resending.
      *
-     * @return String Struts2 result name "compose" to display the email composition page, or null if validation fails
+     * @return String Struts2 result name "compose" to display the email composition page, or null for invalid/missing logs
+     * @throws SecurityException if the user lacks {@code _email} READ privilege
      * @see EmailComposeManager#prepareEmailForResend
      * @see #refreshEmailAttachments
      * @see EmailLog
@@ -238,7 +273,8 @@ public class ManageEmails2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String emailLogId = request.getParameter("logId");
         if (!StringUtils.isInteger(emailLogId)) {
-            JSONUtil.errorResponse(response, "errorMessage", "Invalid email log id");
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            JSONUtil.jsonResponse(response, ERROR_MESSAGE_KEY, INVALID_EMAIL_LOG_ID_MESSAGE);
             return null;
         }
 
@@ -247,7 +283,8 @@ public class ManageEmails2Action extends ActionSupport {
          */
         EmailLog emailLog = emailComposeManager.prepareEmailForResend(loggedInInfo, Integer.parseInt(emailLogId));
         if (emailLog == null) {
-            JSONUtil.errorResponse(response, "errorMessage", "Invalid email log id");
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            JSONUtil.jsonResponse(response, ERROR_MESSAGE_KEY, EMAIL_LOG_NOT_FOUND_MESSAGE);
             return null;
         }
         List<EmailAttachment> emailAttachmentList = new ArrayList<>();
@@ -345,8 +382,8 @@ public class ManageEmails2Action extends ActionSupport {
      */
     private List<EmailAttachment> refreshEmailAttachments(HttpServletRequest request, HttpServletResponse response, EmailLog emailLog) throws PDFGenerationException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_email)");
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, EMAIL_SECURITY_OBJECT, SecurityInfoManager.READ, null)) {
+            throw new SecurityException(MISSING_EMAIL_PRIVILEGE_MESSAGE);
         }
 
         List<EmailAttachment> emailAttachmentList = emailLog.getEmailAttachments();

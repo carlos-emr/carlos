@@ -199,6 +199,20 @@ public class CMLHandler implements MessageHandler {
         }
     }
 
+    /**
+     * The lab's revision time (OBR-22), empty when absent or unreadable. Collection/observation
+     * times (OBR-7/OBX-14) and transport time (MSH-7) cannot date a correction.
+     */
+    public String getRevisionTimestamp(int obrIndex, int obxIndex) {
+        try {
+            Segment obr = msg.getRESPONSE().getORDER_OBSERVATION(obrIndex).getOBR();
+            String revision = Terser.get(obr, 22, 0, 1, 1);
+            return revision == null ? "" : revision;
+        } catch (Exception unreadable) {
+            return "";
+        }
+    }
+
     @Override
     public String getOBXValueType(int i, int j){
         try{
@@ -273,7 +287,10 @@ public class CMLHandler implements MessageHandler {
         for (int i=0; i < obrCount; i++){
             obxCount = getOBXCount(i);
             for (int j=0; j < obxCount; j++){
-                if (getOBXResultStatus(i, j).equals("Final"))
+                String status = getOBXResultStatus(i, j);
+                // HL7 C amends a final result; it is complete, not a preliminary observation.
+                if ("Final".equals(status) || "F".equals(status) || "f".equals(status)
+                        || "C".equals(status) || "c".equals(status))
                     count++;
             }
         }
@@ -619,6 +636,8 @@ public class CMLHandler implements MessageHandler {
                 // Should not reach here due to regex check above
                 return "";
         }
+        try { io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.timestamp(trimmed); }
+        catch (java.time.DateTimeException | IllegalArgumentException invalid) { return ""; }
         Date date = UtilDateUtilities.StringToDate(trimmed, dateFormat);
         return UtilDateUtilities.DateToString(date, stringFormat);
     }

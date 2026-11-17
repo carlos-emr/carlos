@@ -44,15 +44,15 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
 <%@ page import="java.util.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
@@ -308,6 +308,8 @@
             <fmt:message key="encounter.LeftNavBar.AllLabs" var="msgAllLabs"/>
             <fmt:message key="tickler.ticklerMain.errorLoadFailed" var="msgErrorLoadFailed"/>
             <fmt:message key="tickler.ticklerMain.errorSaveViewFailed" var="msgErrorSaveViewFailed"/>
+            <fmt:message key="tickler.ticklerMain.msgConfirmDelete" var="msgConfirmDelete"/>
+            const i18nConfirmDelete = '<carlos:encode value='<%= (String) pageContext.getAttribute("msgConfirmDelete") %>' context="javaScriptBlock"/>';
             const i18nAllLabs = '<carlos:encode value='<%= (String) pageContext.getAttribute("msgAllLabs") %>' context="javaScriptBlock"/>';
             const i18nErrorLoadFailed = '<carlos:encode value='<%= (String) pageContext.getAttribute("msgErrorLoadFailed") %>' context="javaScriptBlock"/>';
             const i18nErrorSaveViewFailed = '<carlos:encode value='<%= (String) pageContext.getAttribute("msgErrorSaveViewFailed") %>' context="javaScriptBlock"/>';
@@ -377,8 +379,10 @@
                         {
                             data: 'id',
                             orderable: false,
-                            render: function(data) {
-                                return '<input type="checkbox" name="checkbox" value="' + escapeHtml(String(data)) + '" class="noprint">';
+                            render: function(data, type, row) {
+                                // data-rendered-status: what this row showed, posted with a bulk action so a task
+                                // someone else has changed since is not overwritten (ticklerStaleSelection.jspf).
+                                return '<input type="checkbox" name="checkbox" value="' + escapeHtml(String(data)) + '" data-rendered-status="' + escapeHtml(String((row && row.status) || '')) + '" class="noprint">';
                             }
                         },
                         {
@@ -686,6 +690,21 @@
                     var e = ml.elements[i];
                     if (e.name === "checkbox") Clear(e);
                 }
+            }
+
+            /**
+             * Asks before Delete changes the status of the ticked tasks (#5683). Returns false when the
+             * clinician dismisses the prompt, so the caller must not submit. With nothing ticked the
+             * server only redirects back (DbTicklerMain2Action), so there is nothing to confirm.
+             */
+            function confirmDeleteSelected() {
+                var ml = document.ticklerform;
+                var len = ml.elements.length;
+                for (var i = 0; i < len; i++) {
+                    var e = ml.elements[i];
+                    if (e.name === "checkbox" && e.checked) return confirm(i18nConfirmDelete);
+                }
+                return true;
             }
 
             function saveView() {
@@ -1003,6 +1022,7 @@
             <%-- Complete/delete posts also reload this view, so preserve the schedule shell flag there too. --%>
             <input type="hidden" name="scheduleNav" value="1">
             <% } %>
+            <%@ include file="/WEB-INF/jsp/tickler/ticklerStaleSelection.jspf" %>
             <table id="ticklerResults" class="table table-striped table-sm" style="width:100%">
                 <thead>
                 <tr>
@@ -1039,7 +1059,7 @@
                         <input type="button" class="btn btn-danger status-action-live" id="deleteButton"
                                value="<fmt:message key="tickler.ticklerMain.btnDelete"/>"
                                hidden
-                               onclick="document.forms['ticklerform'].submit_form.value='Delete'; document.forms['ticklerform'].submit();">
+                               onclick="if (!confirmDeleteSelected()) return false; document.forms['ticklerform'].submit_form.value='Delete'; document.forms['ticklerform'].submit();">
                         <input type="button" class="btn btn-primary"
                                value="<fmt:message key='tickler.ticklerMain.btnAddTickler'/>"
                                onClick="popupPage('500','800', '<%= request.getContextPath() %>/tickler/ViewAddTickler?updateParent=true&parentAjaxId=<carlos:encode value='<%= parentAjaxId != null ? parentAjaxId : "" %>' context="uriComponent"/>&bFirstDisp=false&messageID=null&demographic_no=<carlos:encode value='<%= demoviewParam != null ? demoviewParam : "" %>' context="uriComponent"/>')">

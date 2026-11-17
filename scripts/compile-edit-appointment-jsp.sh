@@ -28,9 +28,27 @@ java_command=java
 if [ -n "${JAVA_HOME:-}" ]; then
     java_command=$JAVA_HOME/bin/java
 fi
+# Standalone JspC still extends Ant's Task. Resolve that build tool separately;
+# it must not depend on Ant being shipped in the application's WEB-INF/lib.
+# Offline builders may supply a pre-provisioned Ant/launcher classpath instead.
+ant_classpath=${JSPC_ANT_CLASSPATH:-}
+if [ -z "$ant_classpath" ]; then
+    if ! command -v mvn >/dev/null 2>&1; then
+        echo "JspC needs build-only Ant: install Maven or set JSPC_ANT_CLASSPATH." >&2
+        exit 1
+    fi
+    for artifact in ant ant-launcher; do
+        mvn --batch-mode --no-transfer-progress \
+            org.apache.maven.plugins:maven-dependency-plugin:3.11.0:copy \
+            "-Dartifact=org.apache.ant:$artifact:1.10.18" \
+            "-DoutputDirectory=$output/ant"
+    done
+    ant_classpath=$output/ant/*
+fi
+
 # Use Jasper's defaults, as the runtime does. The application JDK can exceed
 # the source/target levels this distribution's JDTCompiler accepts.
-"$java_command" -cp "$tomcat/lib/*:$tomcat/bin/*:$webapp/WEB-INF/lib/*:$webapp/WEB-INF/classes" \
+"$java_command" -cp "$tomcat/lib/*:$tomcat/bin/*:$ant_classpath:$webapp/WEB-INF/lib/*:$webapp/WEB-INF/classes" \
     org.apache.jasper.JspC -uriroot "$webapp" -d "$output" \
     -compile -failFast -die1 "$jsp"
 

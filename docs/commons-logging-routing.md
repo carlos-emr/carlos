@@ -9,7 +9,7 @@ fixed route each:
 | API | Used by | Route to Log4j 2 |
 |-----|---------|------------------|
 | Log4j 2 API | CARLOS code (`MiscUtils.getLogger()`) | direct |
-| Commons Logging (JCL) | Spring 7, PDFBox, JasperReports, the Commons libraries, the HttpClient 4 under CXF's HTTP transport, JSPs that call `LogFactory.getLog` | `commons-logging` 1.4 → `Log4jApiLogFactory` → Log4j 2 |
+| Commons Logging (JCL) | Spring 7, PDFBox, JasperReports, the Commons libraries, JSPs that call `LogFactory.getLog` | `commons-logging` 1.4 → `Log4jApiLogFactory` → Log4j 2 |
 | SLF4J 2 | CSRFGuard, HAPI FHIR and others | `log4j-slf4j2-impl` → Log4j 2 |
 
 ## One Commons Logging implementation
@@ -26,9 +26,10 @@ no adapter jar is needed.
 With both jars in `WEB-INF/lib`, which `LogFactory` class loaded, and so which route JCL took,
 depended on class-loader order.
 
-It is now excluded from `apache-cxf` and `hapi-fhir-base`, the two dependencies that declare it.
-The exclusions on `poi`, `displaytag` and `javamelody-core` predate this and are kept as defence
-in depth; their current releases do not bring it.
+The release no longer declares the `apache-cxf` aggregate or ships its HttpClient 4
+transport. Only `hapi-fhir-base` still needs the `jcl-over-slf4j` exclusion. The
+`javamelody-core` exclusion is retained as defence in depth; its current release
+does not bring the bridge. Production POI and displaytag dependencies have been removed.
 
 ## Guards
 

@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.report;
 
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Calendar;
@@ -62,6 +64,35 @@ public final class UsageReportSupport {
     public static Date inclusiveEnd(Date endDate) {
         Date nextDay = exclusiveEnd(endDate);
         return nextDay == null ? null : new Date(nextDay.getTime() - 1);
+    }
+
+    /**
+     * The report's Billing figure: how many distinct patients the provider invoiced in the range.
+     *
+     * <p>It is counted from the Ontario bill header {@code billing_on_cheader1}, which only the
+     * Ontario schema creates. On any other billing region ({@code billregion}, read through
+     * {@link CarlosProperties#isOntarioBillingRegion()}) the table does not exist, and asking for
+     * it failed the whole report with HTTP 500, so there the figure is not available and the
+     * database is not asked.</p>
+     *
+     * @param invoices Ontario bill header DAO
+     * @param providerNo provider the report is for
+     * @param startDate first instant of the range
+     * @param endDate last instant of the range (inclusive)
+     * @return the count, or {@code null} when the installation does not bill Ontario
+     */
+    public static Integer billedPatientCount(BillingONCHeader1Dao invoices, String providerNo,
+                                             Date startDate, Date endDate) {
+        return billedPatientCount(CarlosProperties.getInstance().isOntarioBillingRegion(), invoices, providerNo,
+                startDate, endDate);
+    }
+
+    static Integer billedPatientCount(boolean ontarioBillingRegion, BillingONCHeader1Dao invoices,
+                                      String providerNo, Date startDate, Date endDate) {
+        if (!ontarioBillingRegion) {
+            return null;
+        }
+        return invoices.getNumberOfDemographicsWithInvoicesForProvider(providerNo, startDate, endDate, true);
     }
 
     /**

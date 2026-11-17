@@ -56,19 +56,20 @@
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="consultation.hrm.removeFailed" var="hrmDetachFailureText"/>
 
-<%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
+
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
-<%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
+
 <!-- end -->
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 
 <%@page import="java.util.ArrayList, java.util.List, java.util.*, io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.lab.ca.on.*" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager,io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote,io.github.carlos_emr.carlos.casemgmt.model.Issue,io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO,org.springframework.web.context.support.*,org.springframework.web.context.*" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager, io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote, io.github.carlos_emr.carlos.casemgmt.model.Issue, io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO, org.springframework.web.context.support.*" %>
 
 <%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
@@ -95,16 +96,16 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ConsultationRequestExtDao" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.ConsultationManager" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.PathValidationUtils" %>
 <%@ page import="java.io.File" %>
-<%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
+
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType" %>
-<%@ page import="io.github.carlos_emr.carlos.demographic.data.EctInformation" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CppTextLoader" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.RxInformation" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.LabResultData" %>
@@ -117,6 +118,29 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationFormPatientResolver" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao" %>
+<%
+    Integer verifiedConsultPatient;
+    String suppliedPatient = request.getParameter("de");
+    if (suppliedPatient == null || suppliedPatient.isBlank()) suppliedPatient = (String) request.getAttribute("demographicId");
+    String suppliedRequest = request.getParameter("requestId");
+    if (suppliedRequest == null || suppliedRequest.isBlank()) suppliedRequest = (String) request.getAttribute("reqId");
+    try {
+        verifiedConsultPatient = new ConsultationFormPatientResolver(SpringUtils.getBean(ConsultationRequestDao.class),
+                SpringUtils.getBean(SecurityInfoManager.class)).resolve(
+                LoggedInInfo.getLoggedInInfoFromSession(request), suppliedRequest, suppliedPatient);
+    } catch (SecurityException deniedConsultPatient) {
+        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN);
+        return;
+    } catch (java.util.NoSuchElementException missingConsultation) {
+        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_NOT_FOUND);
+        return;
+    } catch (IllegalArgumentException invalidConsultation) {
+        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_BAD_REQUEST);
+        return;
+    }
+%>
 <jsp:useBean id="displayServiceUtil" scope="request"
              class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConDisplayServiceUtil"/>
 <!DOCTYPE html>
@@ -156,8 +180,9 @@
             }
         }
         String demo_mrp = null;
-        String demo = StringUtils.isNullOrEmpty(request.getParameter("de")) ? ((String) request.getAttribute("demographicId")) : request.getParameter("de");
+        String demo = verifiedConsultPatient == null ? null : verifiedConsultPatient.toString();
         String requestId = StringUtils.isNullOrEmpty(request.getParameter("requestId")) ? ((String) request.getAttribute("reqId")) : request.getParameter("requestId");
+        if (requestId != null && (requestId.isBlank() || "null".equals(requestId))) requestId = null;
         // segmentId is != null when viewing a remote consultation request from an hl7 source
         String segmentId = request.getParameter("segmentId");
         String team = request.getParameter("teamVar");
@@ -300,9 +325,24 @@
             CommonLabResultData commonLabResultData = new CommonLabResultData();
             List<LabResultData> attachedLabs = commonLabResultData.populateLabResultsData(loggedInInfo, demo, requestId, CommonLabResultData.ATTACHED);
             ConsultationManager consultationManager = SpringUtils.getBean(ConsultationManager.class);
-            List<EctFormData.PatientForm> attachedForms = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(requestId), Integer.parseInt(demo));
+            // Share the stored relationships between the visible panels and the omission notice.
+            List<ConsultDocs> storedForms = consultationManager.getAttachedDocumentsByType(loggedInInfo, Integer.parseInt(requestId), ConsultDocs.DOCTYPE_FORM);
+            List<ConsultDocs> storedHRMDocuments = consultationManager.getAttachedDocumentsByType(loggedInInfo, Integer.parseInt(requestId), ConsultDocs.DOCTYPE_HRM);
+            List<EctFormData.PatientForm> attachedForms = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(requestId), Integer.parseInt(demo), storedForms);
             List<EFormData> attachedEForms = consultationManager.getAttachedEForms(requestId);
-            ArrayList<HashMap<String, ? extends Object>> attachedHRMDocuments = consultationManager.getAttachedHRMDocuments(loggedInInfo, demo, requestId);
+            ArrayList<HashMap<String, ? extends Object>> attachedHRMDocuments = consultationManager.getAttachedHRMDocuments(loggedInInfo, demo, requestId, storedHRMDocuments);
+            if (canWriteConsult && CarlosProperties.getInstance().isOntarioBillingRegion()
+                    && securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", SecurityInfoManager.READ, (String) null)) {
+                java.util.Set<String> availableHrmIds = attachedHRMDocuments.stream()
+                        .map(row -> String.valueOf(row.get("id"))).collect(java.util.stream.Collectors.toSet());
+                java.util.Map<Integer, ConsultDocs> unavailable = new java.util.LinkedHashMap<>();
+                for (ConsultDocs stored : storedHRMDocuments) {
+                    if (!availableHrmIds.contains(Integer.toString(stored.getDocumentNo())))
+                        unavailable.putIfAbsent(stored.getDocumentNo(), stored);
+                }
+                request.setAttribute("unavailableConsultHrms", unavailable.values());
+            }
+
 
             Collections.sort(attachedLabs);
             List<LabResultData> attachedLabsSortedByVersions = new ArrayList<>();
@@ -341,6 +381,10 @@
             pageContext.setAttribute("attachedForms", attachedForms);
             pageContext.setAttribute("attachedEForms", attachedEForms);
             pageContext.setAttribute("attachedHRMDocuments", attachedHRMDocuments);
+            request.setAttribute(io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationAttachmentsNotIncluded.REQUEST_ATTRIBUTE,
+                io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationAttachmentsNotIncluded.describe(
+                    storedForms, storedHRMDocuments, attachedForms, attachedHRMDocuments,
+                    io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request)));
 
         }
     %>
@@ -972,6 +1016,35 @@
         //-------------------------------------------------------------------
 
         //-----------------disableDateFields() disables date fields if "Patient Will Book" selected
+        document.addEventListener('click', async function (event) {
+            const button = event.target.closest('.remove-unavailable-hrm');
+            if (!button || button.disabled) return;
+            event.preventDefault();
+            const result = button.parentElement.querySelector('.hrm-detach-result');
+            const token = document.querySelector('#EctConsultationFormRequest2Form input[name="CSRF-TOKEN"]');
+            button.disabled = true;
+            try {
+                if (!token || !token.value) throw new Error('Missing CSRF token');
+                const response = await fetch('<carlos:encode value='<%= request.getContextPath() + "/encounter/DetachConsultationHrm" %>' context="javaScript"/>', {
+                    method: 'POST', credentials: 'same-origin',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': token.value},
+                    body: new URLSearchParams({requestId: button.dataset.request, associationId: button.dataset.association})
+                });
+                if (response.status !== 204) throw new Error('Detach refused');
+                await response.text();
+                button.closest('tr').remove();
+                if (!document.querySelector('.remove-unavailable-hrm')) {
+                    document.querySelectorAll('#consultAttachmentsNotIncluded li[data-hrm-omission="true"]').forEach(row => row.remove());
+                    const notice = document.getElementById('consultAttachmentsNotIncluded');
+                    if (notice && !notice.querySelector('li')) notice.remove();
+                }
+            } catch (error) {
+                result.textContent = '<carlos:encode value="${hrmDetachFailureText}" context="javaScript"/>';
+                button.disabled = false;
+            }
+        });
+
         var readOnlyConsult = <%= canWriteConsult ? "false" : "true" %>;
         var disableFields = readOnlyConsult;
 
@@ -2437,8 +2510,15 @@ if (userAgent != null) {
 
                         if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_MEDICATIONS", "true"))) {
                             if (props.getProperty("currentMedications", "").equalsIgnoreCase("otherMedications")) {
-                                EctInformation EctInfo = new EctInformation(loggedInInfo, demo);
-                                thisForm.setCurrentMedications(EctInfo.getFamilyHistory());
+                                if (securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", demo)
+                                        && securityInfoManager.hasPrivilege(loggedInInfo, "_eChart", "r", demo)
+                                        && securityInfoManager.hasPrivilege(loggedInInfo, "_casemgmt.notes", "r", demo)) {
+                                    String otherMedications = new CppTextLoader(SpringUtils.getBean(CaseManagementManager.class), securityInfoManager)
+                                            .load(request, loggedInInfo, demo, CaseManagementManager.IssueType.OMEDS);
+                                    thisForm.setCurrentMedications(otherMedications);
+                                } else {
+                                    request.setAttribute("consultationCppUnavailable", Boolean.TRUE);
+                                }
                             } else {
                                 thisForm.setCurrentMedications(RxInfo.getCurrentMedication(demo));
                             }
@@ -2552,6 +2632,7 @@ if (userAgent != null) {
                     </div>
 
                     <div class="card mb-2 consult-attachments">
+                        <%@ include file="/WEB-INF/jsp/encounter/oscarConsultationRequest/attachmentsNotIncludedNotice.jspf" %>
                         <div class="card-body p-2">
                                 <table id="attachedDocumentTable" style="border:none;background:transparent;">
                                     <tr>
@@ -2669,6 +2750,17 @@ if (userAgent != null) {
                                                 <tr>
                                                     <td><h3><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.sectionHRM"/></h3></td>
                                                 </tr>
+                                                <c:forEach items="${unavailableConsultHrms}" var="unavailableHrm">
+                                                    <tr class="unavailable-consult-hrm"><td>
+                                                        <fmt:message key="consultation.hrm.unavailable"/>
+                                                        <button type="button" class="remove-unavailable-hrm btn btn-sm btn-outline-secondary"
+                                                            data-request="<carlos:encode value='<%= requestId %>' context="htmlAttribute"/>"
+                                                            data-association="${carlos:forHtmlAttribute(unavailableHrm.id)}">
+                                                            <fmt:message key="consultation.hrm.remove"/>
+                                                        </button>
+                                                        <span class="hrm-detach-result" role="status"></span>
+                                                    </td></tr>
+                                                </c:forEach>
                                                 <c:forEach items="${ attachedHRMDocuments }" var="attachedHrm">
                                                     <tr id="entry_hrmNo${ attachedHrm['id'] }">
                                                         <td>
@@ -3413,6 +3505,9 @@ if (userAgent != null) {
                                 </div>
                         </div>
                                 <div class="collapse show" id="collapseMedications">
+                                <c:if test="${requestScope.consultationCppUnavailable}">
+                                    <output class="alert alert-warning d-block"><fmt:message key="encounter.oscarConsultationRequest.cppPrefillUnavailable"/></output>
+                                </c:if>
                                 <textarea rows="6" id="currentMedications" class="form-control"
                                                name="currentMedications"><carlos:encode value='<%= thisForm.getCurrentMedications() %>' context="html"/></textarea>
                                 </div>

@@ -79,7 +79,7 @@ permissions:
 jobs:
   spotbugs:
     name: SpotBugs + Find Security Bugs
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     if: github.actor != 'dependabot[bot]'
     steps:
@@ -180,8 +180,10 @@ jobs:
 
       - name: Report summary
         if: always()
+        env:
+          SPOTBUGS_REPORT_PATH: ${{ steps.resolve_spotbugs_report.outputs.report }}
         run: |
-          REPORT="${{ steps.resolve_spotbugs_report.outputs.report }}"
+          REPORT="$SPOTBUGS_REPORT_PATH"
           METRICS="spotbugs-security-metrics.env"
           echo "### SpotBugs + Find Security Bugs Results" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"

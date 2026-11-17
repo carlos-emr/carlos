@@ -32,6 +32,7 @@ function fixture({ clickDialogs = [{ type: 'confirm', text: 'Delete this appoint
     accept: async () => { accepted += 1; }, dismiss: async () => { dismissals += 1; },
   });
   h.wireStrictPage(page, 'owned-appointment', recorder, { baseline: [] });
+  const permanentRequestListeners = [...(listeners.get('request') || [])];
   const sandbox = vm.createContext({
     assert: h.assert, recorder, withExpectedDialogs: h.withExpectedDialogs,
     openEditPopup: async (...args) => {
@@ -43,7 +44,8 @@ function fixture({ clickDialogs = [{ type: 'confirm', text: 'Delete this appoint
   return {
     recorder, run: () => run({}, {}, '321', '#deleteButton', /\/appointment\/DeleteRecord$/),
     counts: () => ({ accepted, dismissals }),
-    requestListeners: () => (listeners.get('request') || []).length,
+    permanentRequestListeners,
+    requestListeners: () => [...(listeners.get('request') || [])],
   };
 }
 
@@ -53,7 +55,8 @@ test('the actual owned dismissal click answers exactly one confirm without accep
   assert.equal(outcome.confirmText, 'Delete this appointment?');
   assert.equal(outcome.posts, 0);
   assert.deepEqual(f.counts(), { accepted: 0, dismissals: 1 });
-  assert.equal(f.requestListeners(), 1, 'only the permanent strict request observer remains');
+  assert.deepEqual(f.requestListeners(), f.permanentRequestListeners,
+    'the temporary POST observer is removed and every permanent strict observer remains');
   h.assertStrictPage(f.recorder);
 });
 
@@ -65,7 +68,8 @@ for (const [name, clickDialogs] of [
   test(`the actual native control rejects ${name}`, async () => {
     const f = fixture({ clickDialogs });
     await assert.rejects(f.run(), /exactly one confirmation/);
-    assert.equal(f.requestListeners(), 1, 'only the permanent strict observer remains after failure');
+    assert.deepEqual(f.requestListeners(), f.permanentRequestListeners,
+      'the temporary POST observer is removed after failure and every permanent observer remains');
     assert.equal(f.counts().accepted, 0);
   });
 }

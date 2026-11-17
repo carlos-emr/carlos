@@ -225,20 +225,45 @@ class DocumentUpload2ActionFilenameValidationTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("document upload I/O failure should retain diagnostic exception logging")
     void documentUploadIoFailureShouldRetainDiagnosticLogging() throws Exception {
-        tempUploadFile = File.createTempFile("document-upload-missing", ".pdf");
+        tempUploadFile = File.createTempFile("FAKE-PRIVATE-PATIENT-missing", ".pdf");
         Files.delete(tempUploadFile.toPath());
         tempDestinationDirectory = Files.createTempDirectory("document-store").toFile();
         CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", tempDestinationDirectory.getPath());
 
         DocumentUpload2Action action = new DocumentUpload2Action();
         try (LogCapture logs = LogCapture.forLogger(DocumentUpload2Action.class)) {
-            assertThatThrownBy(() -> action.writeLocalFile(tempUploadFile, "diagnostic.pdf"))
-                    .isInstanceOf(IOException.class);
+            Throwable failure = org.assertj.core.api.Assertions.catchThrowable(
+                    () -> action.writeLocalFile(tempUploadFile, "FAKE-PRIVATE-PATIENT.pdf"));
+            assertThat(failure).isInstanceOf(IOException.class);
 
             assertThat(logs.events()).singleElement().satisfies(event -> {
-                assertThat(event.getThrown()).isInstanceOf(IOException.class);
-                assertThat(event.getMessage().getFormattedMessage()).isEqualTo("Error writing local file");
+                assertThat(event.getThrown()).isNull();
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("Error writing local file", failure.getClass().getName(), "DocumentUpload2Action.writeLocalFile:")
+                        .doesNotContain("FAKE-PRIVATE-PATIENT", tempUploadFile.getPath(), tempDestinationDirectory.getPath());
             });
+        }
+    }
+
+    @Test
+    void shouldReportLostIncomingSource_withoutPublishingOrReplacingExistingFiles() throws Exception {
+        DocumentUpload2Action action = incomingDocsAction("FAKE-PRIVATE-NAME.pdf");
+        tempDestinationDirectory = Files.createTempDirectory("incoming-failure-target").toFile();
+        tempDestinationFile = tempDestinationDirectory.toPath().resolve("existing.pdf").toFile();
+        Files.writeString(tempDestinationFile.toPath(), "SYNTHETIC prior scan");
+        try (MockedStatic<IncomingDocUtil> incoming = mockStatic(IncomingDocUtil.class);
+                LogCapture logs = LogCapture.forLogger(DocumentUpload2Action.class)) {
+            incoming.when(() -> IncomingDocUtil.getAndCreateIncomingDocumentFilePath("1", null)).thenAnswer(call -> {
+                Files.delete(tempUploadFile.toPath()); // a temp-cleanup race after the initial validation
+                return tempDestinationDirectory.getPath();
+            });
+            assertThat(action.executeUpload()).isNull();
+            assertThat(response.getContentAsString()).contains("Failed to write file").doesNotContain("\"size\"");
+            assertThat(tempDestinationDirectory.toPath().resolve("FAKE-PRIVATE-NAME.pdf")).doesNotExist();
+            assertThat(Files.readString(tempDestinationFile.toPath())).isEqualTo("SYNTHETIC prior scan");
+            assertThat(tempUploadFile).doesNotExist();
+            assertThat(logs.messages().toString()).contains("Error writing file to incoming docs")
+                    .doesNotContain("FAKE-PRIVATE-NAME", tempUploadFile.getPath(), tempDestinationDirectory.getPath());
         }
     }
 

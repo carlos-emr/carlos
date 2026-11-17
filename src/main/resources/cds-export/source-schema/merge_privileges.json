@@ -1,0 +1,50 @@
+{
+  "table": "secObjPrivilege",
+  "engine": "InnoDB",
+  "columns": [
+    {
+      "name": "objectName",
+      "type": "varchar(100)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "priority",
+      "type": "int(2)",
+      "nullable": "YES",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "privilege",
+      "type": "varchar(100)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "provider_no",
+      "type": "varchar(6)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "roleUserGroup",
+      "type": "varchar(30)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    }
+  ],
+  "primaryKeyColumns": [
+    "roleUserGroup",
+    "objectName"
+  ]
+}

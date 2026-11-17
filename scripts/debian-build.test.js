@@ -10,7 +10,7 @@ test('source Debian build clears stale versioned WARs before selecting its outpu
   assert.match(rules, /\$\(MVN\) \$\(MVN_FLAGS\) clean package; \\\n\s*cp -f target\/carlos-\*\.war/);
   // A supplied, independently verified WAR remains usable without compiling.
   assert.match(rules, /if \[ -n "\$\$CARLOS_WAR" \]; then/);
-  assert.match(rules, /\$\(MVN\) -f "\$\$src\/pom\.xml" \$\(MVN_FLAGS\) -Dmaven\.test\.skip=true clean package; \\\n\s*cp -f "\$\$src"\/target\/drugref2\*\.war/);
+  assert.match(rules, /\$\(MVN\) -f "\$\$src\/pom\.xml"[^;]*\bclean package; \\\n\s*cp -f "\$\$src"\/target\/drugref2\*\.war/);
 });
 
 // The carlos-ctl(8) render gate moved to the carlos-ctl package with the man
@@ -191,4 +191,14 @@ test('render browser names avoid everything the old renderer purge touches', () 
   ].join('\n');
   assert.doesNotMatch(shipped, /carlos-emr-chromedriver|render-browser\.env|\/var\/lib\/carlos-emr\/render(?![a-z])/);
   assert.match(shipped, /carlos-emr-render-browser/);
+});
+
+test('source builds retain both dependency-lock gates', () => {
+  const rules = fs.readFileSync(path.join(__dirname, '..', 'debian', 'rules'), 'utf8');
+  const flags = rules.match(/^MVN_FLAGS\s*:=([^\n]*)/m)[1];
+  assert.doesNotMatch(flags, /skip-dependency-lock/);
+  const recipe = rules.match(/\$\(MVN\) -f "\$\$src\/pom\.xml"[\s\S]*?clean package;/)[0];
+  assert.match(recipe, /se\.vandmo:dependency-lock-maven-plugin:1\.1\.1:check/);
+  assert.match(recipe, /-DdependencyLock\.filename=\$\$lock/);
+  assert.match(rules, /lock=.*debian\/drugref-dependencies-lock\.json/);
 });

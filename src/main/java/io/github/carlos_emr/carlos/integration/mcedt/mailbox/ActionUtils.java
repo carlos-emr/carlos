@@ -28,6 +28,8 @@
  */
 package io.github.carlos_emr.carlos.integration.mcedt.mailbox;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import static io.github.carlos_emr.carlos.integration.mcedt.McedtConstants.REQUEST_ATTR_KEY_RESOURCE_ID;
 import static io.github.carlos_emr.carlos.integration.mcedt.McedtConstants.SESSION_KEY_MCEDT_UPDATES;
 import static io.github.carlos_emr.carlos.integration.mcedt.McedtConstants.SESSION_KEY_MCEDT_UPLOADS;
@@ -288,7 +290,7 @@ public class ActionUtils {
         String suffix = filename.substring(filename.lastIndexOf(".") + 1);
         String prefix = "";
         if (filename.length() < 4) {
-            logger.warn("Checked for OBEC file, found one with too short name: " + filename);
+            logger.warn("Checked for OBEC file, found one with too short name");
         } else {
             prefix = filename.substring(0, 4);
         }
@@ -352,7 +354,7 @@ public class ActionUtils {
             };
             listed = generatedFiles.listFiles(fileFilter);
         } catch (Exception e) {
-            logger.error("Unable to copy OHIP files to outbox", e);
+            logger.error("Unable to copy OHIP files to outbox: {}", LogSafe.exceptionTrace(e));
             return startDate;
         }
         if (listed == null) {
@@ -373,7 +375,7 @@ public class ActionUtils {
                 try {
                     copyFileToDirectory(claimFile.file(), outbox, false, true);
                 } catch (Exception e) {
-                    logger.error("Unable to copy OHIP files to outbox", e);
+                    logger.error("Unable to copy OHIP files to outbox: {}", LogSafe.exceptionTrace(e));
                     return new Date(claimFile.modified() - 1);
                 }
             }
@@ -413,7 +415,7 @@ public class ActionUtils {
             }
 
         } catch (Exception e) {
-            logger.error("Unable to copy OBEC files to outbox", e);
+            logger.error("Unable to copy OBEC files to outbox: {}", LogSafe.exceptionTrace(e));
         }
     }
 
@@ -475,7 +477,7 @@ public class ActionUtils {
                     + " generated before this open are not copied to the outbox. Add any still to be sent"
                     + " from the Upload tab.");
         } catch (Exception e) {
-            logger.error("Unable to open outbox timestamp file", e);
+            logger.error("Unable to open outbox timestamp file: {}", LogSafe.exceptionTrace(e));
         }
         return new LastOpen(now, false);
     }
@@ -485,7 +487,7 @@ public class ActionUtils {
             bw.write(endDate.toInstant().toString());
             return true;
         } catch (Exception e) {
-            logger.error("Unable to open outbox timestamp file", e);
+            logger.error("Unable to open outbox timestamp file: {}", LogSafe.exceptionTrace(e));
             return false;
         }
     }
@@ -495,7 +497,7 @@ public class ActionUtils {
             Path record = outboxTimestampFile().toPath();
             return Files.isRegularFile(record) && Files.isWritable(record);
         } catch (Exception e) {
-            logger.error("Unable to open outbox timestamp file", e);
+            logger.error("Unable to open outbox timestamp file: {}", LogSafe.exceptionTrace(e));
             return false;
         }
     }
@@ -522,7 +524,7 @@ public class ActionUtils {
                 result = delegate.getTypeList();
                 setTypeList(request, result);
             } catch (Exception e) {
-                logger.error("Unable to load type list", e);
+                logger.error("Unable to load type list: {}", LogSafe.exceptionTrace(e));
 
                 //saveErrors(request, ActionUtils.addMessage("resourceAction.getTypeList.fault", McedtMessageCreator.exceptionToString(e)));
             }

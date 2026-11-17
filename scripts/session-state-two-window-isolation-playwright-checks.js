@@ -81,6 +81,7 @@
  * it) and the prescription pages (rx-drug-pick-patient-isolation, rx-stash-patient-isolation and the
  * other Rx checks with DrugRef; rx-preview-visit-site-isolation, the multisite print window, without).
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const fs = require('node:fs');
 const h = require('./lib/playwright-harness');
 const {captureScheduleContext, assertScheduleContext} = require('./lib/native-schedule-context');
@@ -315,7 +316,7 @@ async function healthTrackerVisits(s, A, B) {
         h.assert(refused.status() === 400, `The day sheet's visit store with ${label} answered HTTP ${refused.status()}, not 400`);
       } finally { await refused.dispose(); }
     }
-    const read = await context.request.get(`${store}?appointment_no=${appointmentOf.A}`, { maxRedirects: 0, failOnStatusCode: false });
+    const read = await authenticatedProbe({context, config: s.config}, `${store}?appointment_no=${appointmentOf.A}`, { maxRedirects: 0, failOnStatusCode: false });
     try {
       h.assert(read.status() === 405, `The day sheet's visit store answered a GET with HTTP ${read.status()}, not 405`);
     } finally { await read.dispose(); }
