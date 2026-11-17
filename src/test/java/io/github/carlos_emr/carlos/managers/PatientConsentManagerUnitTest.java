@@ -382,6 +382,36 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
     class AddConsentType {
 
         @Test
+        void shouldAuditThePersistedConsentTypeId_afterIdentityAssignment() {
+            ConsentType consentType = new ConsentType();
+            consentType.setType("FAKE_AUDIT_TYPE");
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin"),
+                    eq(SecurityInfoManager.WRITE), nullable(String.class))).thenReturn(true);
+            when(loggedInInfo.getLoggedInProviderNo()).thenReturn("900001");
+            doAnswer(call -> { consentType.setId(817); return null; }).when(mockConsentTypeDao).persist(consentType);
+
+            manager.addConsentType(loggedInInfo, consentType);
+
+            var data = org.mockito.ArgumentCaptor.forClass(String.class);
+            logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLog(eq("900001"),
+                    eq("PatientConsentManager.addConsentType"), eq("FAKE_AUDIT_TYPE"), data.capture()));
+            assertThat(data.getValue()).isEqualTo("consentTypeId=817");
+        }
+
+        @Test
+        void shouldWriteNoCreationAudit_whenConsentTypePersistenceFails() {
+            ConsentType consentType = new ConsentType();
+            consentType.setType("FAKE_AUDIT_TYPE");
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin"),
+                    eq(SecurityInfoManager.WRITE), nullable(String.class))).thenReturn(true);
+            doThrow(new IllegalStateException("FAKE persistence failure")).when(mockConsentTypeDao).persist(consentType);
+
+            assertThatThrownBy(() -> manager.addConsentType(loggedInInfo, consentType))
+                    .isInstanceOf(IllegalStateException.class);
+            logActionMock.verifyNoInteractions();
+        }
+
+        @Test
         @DisplayName("should persist consent type and return it")
         void shouldPersistAndReturn_theSavedEntity() {
             ConsentType ct = createActiveConsentType(0, "NEW_TYPE");

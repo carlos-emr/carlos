@@ -219,7 +219,9 @@ public class ScheduleManagerImpl implements ScheduleManager {
         oscarAppointmentDao.persist(appointment);
 
         //--- log action ---
-        LogAction.addLogSynchronous(loggedInInfo, "AppointmentManager.addAppointment", appointment.toString());
+        LogAction.addLogSynchronous(loggedInInfo, "AppointmentManager.addAppointment",
+                "appointmentId=" + appointment.getId() + ";demographicNo=" + appointment.getDemographicNo()
+                        + ";providerNo=" + io.github.carlos_emr.carlos.utility.LogSafe.sanitize(appointment.getProviderNo()));
     }
 
     public List<Appointment> getAppointmentsForPatient(LoggedInInfo loggedInInfo, Integer demographicId, int startIndex, int itemsToReturn) {

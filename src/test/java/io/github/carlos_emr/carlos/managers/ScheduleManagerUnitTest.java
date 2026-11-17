@@ -300,6 +300,24 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
     class AddAppointment {
 
         @Test
+        void shouldIdentifyTheCreatedAppointment_withoutRecordingClinicalText() {
+            Appointment appointment = createTestAppointment(null, TEST_PROVIDER, new Date());
+            appointment.setDemographicNo(42);
+            appointment.setName("PRIVATE_APPOINTMENT_NAME");
+            appointment.setNotes("PRIVATE_APPOINTMENT_NOTE");
+            Security security = new Security();
+            security.setId(100);
+            security.setUserName("FAKE_USER");
+            doAnswer(call -> { appointment.setId(71); return null; }).when(mockOscarAppointmentDao).persist(appointment);
+            scheduleManager.addAppointment(mockLoggedInInfo, security, appointment);
+            var data = org.mockito.ArgumentCaptor.forClass(String.class);
+            logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogSynchronous(
+                    eq(mockLoggedInInfo), eq("AppointmentManager.addAppointment"), data.capture()));
+            assertThat(data.getValue()).contains("appointmentId=71", "demographicNo=42", "providerNo=" + TEST_PROVIDER)
+                    .doesNotContain("PRIVATE_APPOINTMENT");
+        }
+
+        @Test
         @DisplayName("should persist appointment with security credentials")
         void shouldPersistAppointment_withSecurityCredentials() {
             // Given

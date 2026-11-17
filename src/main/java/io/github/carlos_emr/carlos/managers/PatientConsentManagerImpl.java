@@ -264,9 +264,9 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
             throw new SecurityException("missing required sec object (_admin)");
         }
 
-        LogAction.addLog(loggedinInfo.getLoggedInProviderNo(), "PatientConsentManager.addConsentType", consentType.getType(), consentType.toString());
-
         consentTypeDao.persist(consentType);
+        LogAction.addLog(loggedinInfo.getLoggedInProviderNo(), "PatientConsentManager.addConsentType",
+                consentType.getType(), "consentTypeId=" + consentType.getId());
         return consentType;
     }
 

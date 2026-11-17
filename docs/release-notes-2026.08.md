@@ -1,5 +1,18 @@
 # CARLOS 2026.08 release notes
 
+## Audit identifiers after model diagnostic redaction
+
+Demographic-extension, consent-type, appointment and disease-registry creation audit
+rows now identify their affected records explicitly. Newly saved extensions and
+consent types are logged after persistence assigns their ids; a failed consent-type
+save emits no creation event. Extension events retain the sanitized field key,
+appointments retain patient/provider identifiers, and diagnoses retain the coding
+system and entry id. Extension values, appointment text and diagnosis codes are not
+added to audit data. Existing historical audit rows are unchanged.
+
+These events no longer depend on entity `toString()` formatting. The model diagnostic
+redactions remain in place. See [the audit contract](security-object-diagnostics.md).
+
 ## Measurement charts, CML revisions and CDM forms
 
 Single-point and constant-value measurement charts now draw useful markers and axes.
