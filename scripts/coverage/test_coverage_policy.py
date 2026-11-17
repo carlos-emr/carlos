@@ -113,6 +113,36 @@ class CoveragePolicyTest(unittest.TestCase):
         self.git('add', other); self.git('commit', '-qm', 'missing source evidence')
         self.assertIn('missingSourceFloor:' + other, floors.check_freshness(loaded, self.base)['problems'])
 
+    def test_shifted_refusals_require_explicit_mapping_and_cover_the_new_statement(self):
+        self.policy['files'][self.source]['requiredRefusalLines'] = [1]
+        previous_blob = self.policy['files'][self.source]['sourceBlob']
+        manifest = self.migrate()
+        (self.root / self.source).write_text('// FAKE comment shifts refusal\nclass Guard { int value = 2; }\n')
+        self.git('commit', '-qam', 'shift guarded statement')
+        incoming = self.measure(self.source)
+        incoming['files'][self.source]['requiredRefusalLines'] = [2]
+        with self.assertRaisesRegex(ValueError, 'explicit refusal-line mapping'):
+            self.import_source(manifest, self.source, incoming)
+        for mapping in ({'fromSourceBlob': 'b' * 40, 'lines': {'1': 2}},
+                        {'fromSourceBlob': previous_blob, 'lines': {}},
+                        {'fromSourceBlob': previous_blob, 'lines': {'1': 1}},
+                        {'fromSourceBlob': previous_blob, 'lines': {'1': True}}):
+            incoming['refusalLineMappings'] = {self.source: mapping}
+            with self.subTest(mapping=mapping), self.assertRaises(ValueError):
+                self.import_source(manifest, self.source, incoming)
+        self.assertFalse(self.record_path(manifest).exists())
+        incoming['refusalLineMappings'] = {self.source: {
+            'fromSourceBlob': previous_blob, 'lines': {'1': 2}}}
+        self.import_source(manifest, self.source, incoming)
+        loaded = policy.load_policy(manifest)
+        self.assertEqual(loaded['files'][self.source]['requiredRefusalLines'], [2])
+        self.assertTrue(floors.check_freshness(loaded, self.base)['ready'])
+        report = self.root / 'jacoco.xml'
+        report.write_text('<report><package name="example"><sourcefile name="Guard.java">'
+                          '<line nr="2" ci="1" mi="0" cb="0" mb="0"/></sourcefile></package></report>')
+        diff = self.git('diff', '--no-renames', '-U0', self.base, 'HEAD', '--', 'src/main/java')
+        self.assertTrue(floors.check_floors(report, loaded, diff)['ready'])
+
     def test_source_records_preserve_freshness_after_squash_and_pruned_history(self):
         self.policy['baselineSourceTree'] = self.policy['sourceTree']
         manifest = self.migrate()
@@ -189,6 +219,34 @@ class CoveragePolicyTest(unittest.TestCase):
         self.git('checkout', self.base, '--', self.source)
         self.git('commit', '-qm', 'revert source to comparison base')
         self.assertTrue(floors.check_freshness(policy.load_policy(manifest), self.base)['ready'])
+
+    def test_exclusion_cannot_be_rebound_after_its_measured_commit_is_pruned(self):
+        package = 'src/main/java/example/package-info.java'
+        (self.root / package).write_text('/** FAKE package docs */\npackage example;\n')
+        self.git('add', package); self.git('commit', '-qm', 'package docs')
+        self.policy.update(floors.source_identity(self.base), baselineCommit=self.git('rev-parse', 'HEAD'),
+                           baselineSourceTree=self.git('rev-parse', 'HEAD:src/main/java'))
+        exclusions = {package: {'reason': 'FAKE package docs', 'tests': ['FAKE contract test']}}
+        self.policy['exclusions'] = exclusions
+        manifest = self.migrate()
+        incoming = self.measure(self.source)
+        incoming.update(exclusions=exclusions,
+                        exclusionSourceBlobs={package: self.git('rev-parse', 'HEAD:' + package)})
+        self.import_source(manifest, package, incoming)
+        measured = incoming['baselineCommit']
+        self.git('add', 'coverage'); self.git('commit', '-qm', 'keep source evidence')
+        self.git('reset', '--soft', self.base); self.git('commit', '-qm', 'squashed candidate')
+        self.git('reflog', 'expire', '--expire=now', '--all'); self.git('gc', '--prune=now')
+        self.assertNotEqual(subprocess.run(['git', 'cat-file', '-e', measured], capture_output=True).returncode, 0)
+        self.assertTrue(floors.check_freshness(policy.load_policy(manifest), self.base)['ready'])
+        (self.root / package).write_text('/** FAKE unmeasured annotations */\npackage example;\n')
+        self.git('commit', '-qam', 'unmeasured package change')
+        record_path = self.record_path(manifest, package)
+        record = policy.read_json(record_path)
+        record['sourceBlob'] = self.git('rev-parse', 'HEAD:' + package)
+        policy.write_json(record_path, record)
+        with self.assertRaisesRegex(ValueError, 'immutable evidence'):
+            policy.load_policy(manifest)
 
     def test_cli_keeps_zero_floors_refusal_and_partial_coverage_failures_separate_from_freshness(self):
         self.policy['files'][self.source].update(lines=0, requiredRefusalLines=[1])

@@ -7,8 +7,9 @@ It does not approve a coverage waiver or establish release readiness.
 
 `scripts/coverage/release-coverage-floors.json` is a stable v2 manifest. It pins
 the reviewed comparison base and the SHA-256 of a frozen seed in `evidence/`.
-That seed is the entire former policy, byte for byte, including its floors,
-refusal lines, exclusions, test counts and nested prior evidence. Migration
+The seed retains the entire former policy, byte for byte, including its floors,
+refusal lines, exclusions, test counts and nested prior evidence. A small
+immutable companion binds legacy exclusions to their exact source blobs. Migration
 does not create a new coverage measurement or qualify existing coverage gaps.
 
 Future updates go in `scripts/coverage/floors/<source-path>.json`, one record
@@ -78,12 +79,35 @@ python3 scripts/coverage/manage-coverage-floors.py \
 ```
 
 The importer archives the input unchanged and writes only those source records.
-It keeps higher active metric floors and the union of required refusal lines;
-it does not copy unrelated rows from the input. New zero-floor review metadata
+For legacy exclusions without explicit blob fields, it also writes an immutable
+companion binding to the original run. Exclusion records must match that binding
+even when the measured Git commit is no longer available.
+It keeps higher active metric floors and all required refusal checks; it does
+not copy unrelated rows from the input. New zero-floor review metadata
 must be explicitly present in the input and refer to the measured source blob.
 Neither importing evidence nor passing freshness establishes release readiness.
 The full ratchet still requires its fresh, passing, same-class native-lane union
 for the complete candidate, even though historical per-source floors compose.
+
+Refusal lines are absolute positions within a particular source blob. For
+unchanged source bytes the importer retains their union. When that source
+changes, the run document must explicitly map every active refusal to its
+measured position in the new source, for example:
+
+```json
+"refusalLineMappings": {
+  "src/main/java/example/Changed.java": {
+    "fromSourceBlob": "<previous-source-blob>",
+    "lines": {"58": 60, "59": 61}
+  }
+}
+```
+
+Every destination must also appear in that source's measured
+`requiredRefusalLines`. Missing mappings, mappings from another blob or dropped
+requirements are refused before any source record is updated. Review these
+mappings against the source change; old line numbers are never carried blindly
+to different source bytes.
 
 If a source is deleted or restored exactly to the reviewed comparison base,
 add a source record at its normal path with `schemaVersion: 1`, its `path` and

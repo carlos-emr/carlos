@@ -56,13 +56,29 @@ def policy_directory(manifest, value):
     return directory
 
 
-def read_evidence(directory, identity, base):
+def read_snapshot(directory, identity):
     if not isinstance(identity, str) or not re.fullmatch(r'[0-9a-f]{64}', identity):
         raise ValueError('Coverage evidence requires a SHA-256 identity')
     path = directory / (identity + '.json')
     if path.is_symlink() or hashlib.sha256(path.read_bytes()).hexdigest() != identity:
         raise ValueError('Coverage evidence digest mismatch: ' + identity)
-    evidence = read_json(path)
+    return read_json(path)
+
+
+def read_evidence(directory, identity, base):
+    evidence = read_snapshot(directory, identity)
+    if 'originalEvidenceSha256' in evidence:
+        binding = evidence
+        if (set(binding) != {'schemaVersion', 'originalEvidenceSha256', 'exclusionSourceBlobs'}
+                or binding['schemaVersion'] != 1 or not isinstance(binding['exclusionSourceBlobs'], dict)):
+            raise ValueError('Invalid exclusion evidence binding')
+        evidence = read_snapshot(directory, binding['originalEvidenceSha256'])
+        if 'originalEvidenceSha256' in evidence:
+            raise ValueError('Exclusion evidence bindings cannot be chained')
+        original = evidence.get('exclusionSourceBlobs', {})
+        if any(binding['exclusionSourceBlobs'].get(path) != blob for path, blob in original.items()):
+            raise ValueError('Exclusion binding cannot replace recorded source blobs')
+        evidence = dict(evidence, exclusionSourceBlobs=binding['exclusionSourceBlobs'])
     if evidence.get('schemaVersion') != 1 or evidence.get('base') != base:
         raise ValueError('Coverage evidence uses a different schema or reviewed base')
     if not isinstance(evidence.get('files'), dict) or not evidence['files']:
@@ -83,7 +99,7 @@ def load_policy(path):
     result = {'schemaVersion': 2, 'base': manifest['base'],
               'files': dict(seed['files']), 'exclusions': dict(seed.get('exclusions', {})),
               'zeroCoverageWaivers': dict(seed.get('zeroCoverageWaivers', {})),
-              'sourceEvidence': {}, 'exclusionSourceBlobs': dict(manifest.get('seedExclusionSourceBlobs', {}))}
+              'sourceEvidence': {}, 'exclusionSourceBlobs': dict(seed.get('exclusionSourceBlobs', {}))}
     if set(result['exclusionSourceBlobs']) != set(result['exclusions']):
         raise ValueError('Seed exclusions require exact source blob bindings')
     result['sourceEvidence'] = dict.fromkeys(set(result['files']) | set(result['exclusions']), seed)
@@ -112,8 +128,12 @@ def load_policy(path):
             exclusion = record.get('exclusion')
             if exclusion != evidence.get('exclusions', {}).get(source) or not isinstance(exclusion, dict):
                 raise ValueError('Exclusion is absent from its coverage evidence')
+            blob = record.get('sourceBlob')
+            if (not isinstance(blob, str) or not re.fullmatch(r'[0-9a-f]{40}', blob)
+                    or blob != evidence.get('exclusionSourceBlobs', {}).get(source)):
+                raise ValueError('Exclusion source blob disagrees with immutable evidence')
             result['exclusions'][source] = exclusion
-            result['exclusionSourceBlobs'][source] = record.get('sourceBlob')
+            result['exclusionSourceBlobs'][source] = blob
             continue
         floor = record.get('floor')
         measured = evidence['files'].get(source)
@@ -153,17 +173,42 @@ def archive_evidence(directory, raw):
     return identity
 
 
+def archive_bound_evidence(directory, raw, bindings):
+    """Keep original run bytes; bind legacy exclusions in a small immutable companion."""
+    identity = archive_evidence(directory, raw)
+    original = json.loads(raw).get('exclusionSourceBlobs', {})
+    if bindings == original:
+        return identity
+    binding = {'schemaVersion': 1, 'originalEvidenceSha256': identity,
+               'exclusionSourceBlobs': bindings}
+    return archive_evidence(directory, (json.dumps(binding, indent=2) + '\n').encode('utf-8'))
+
+
 def migrate_policy(path):
     """Preserve the complete legacy document byte for byte; never remeasure it."""
     legacy = read_json(path)
     if legacy.get('schemaVersion') != 1 or not legacy.get('files'):
         raise ValueError('Migration requires a nonempty legacy coverage policy')
-    identity = archive_evidence(path.parent / 'evidence', path.read_bytes())
+    bindings = {source: exclusion_blob(legacy, source) for source in sorted(legacy.get('exclusions', {}))}
+    identity = archive_bound_evidence(path.parent / 'evidence', path.read_bytes(), bindings)
     write_json(path, {'schemaVersion': 2, 'base': legacy['base'],
                      'seedEvidenceSha256': identity,
-                     'recordsDirectory': 'floors', 'evidenceDirectory': 'evidence',
-                     'seedExclusionSourceBlobs': {source: exclusion_blob(legacy, source)
-                         for source in sorted(legacy.get('exclusions', {}))}})
+                     'recordsDirectory': 'floors', 'evidenceDirectory': 'evidence'})
+
+
+def retained_refusals(incoming, source, previous, floor):
+    retained = previous.get('requiredRefusalLines', [])
+    if retained and previous.get('sourceBlob') != floor.get('sourceBlob'):
+        mapping = incoming.get('refusalLineMappings', {}).get(source)
+        if not isinstance(mapping, dict) or mapping.get('fromSourceBlob') != previous.get('sourceBlob'):
+            raise ValueError('Changed source requires an explicit refusal-line mapping: ' + source)
+        lines = mapping.get('lines')
+        if (not isinstance(lines, dict) or set(lines) != {str(line) for line in retained}
+                or any(type(line) is not int or line < 1 for line in lines.values())
+                or not set(lines.values()) <= set(floor.get('requiredRefusalLines', []))):
+            raise ValueError('Every previous refusal needs a measured destination line: ' + source)
+        retained = list(lines.values())
+    return sorted(set(floor.get('requiredRefusalLines', [])) | set(retained))
 
 
 def import_sources(path, incoming_path, sources):
@@ -175,19 +220,18 @@ def import_sources(path, incoming_path, sources):
     incoming = read_json(incoming_path)
     if incoming.get('schemaVersion') != 1 or incoming.get('base') != manifest['base']:
         raise ValueError('Incoming evidence uses a different schema or reviewed base')
-    identity = hashlib.sha256(incoming_path.read_bytes()).hexdigest()
+    bindings = dict(incoming.get('exclusionSourceBlobs', {}))
     updates = []
     for source in sorted(set(sources)):
         source_path(source)
-        record = {'schemaVersion': 1, 'path': source, 'evidenceSha256': identity}
+        record = {'schemaVersion': 1, 'path': source}
         if source in incoming.get('files', {}):
             floor = dict(incoming['files'][source])
             validate_floor(floor)
             previous = active['files'].get(source, {})
             for metric in ('lines', 'instructions', 'branches'):
                 floor[metric] = max(floor[metric], previous.get(metric, 0))
-            refusals = sorted(set(floor.get('requiredRefusalLines', []))
-                              | set(previous.get('requiredRefusalLines', [])))
+            refusals = retained_refusals(incoming, source, previous, floor)
             if refusals:
                 floor['requiredRefusalLines'] = refusals
             record.update(kind='floor', floor=floor)
@@ -195,14 +239,17 @@ def import_sources(path, incoming_path, sources):
             if waiver is not None:
                 record['zeroCoverageWaiver'] = waiver
         elif source in incoming.get('exclusions', {}):
+            bindings[source] = exclusion_blob(incoming, source)
             record.update(kind='exclusion', exclusion=incoming['exclusions'][source],
-                          sourceBlob=exclusion_blob(incoming, source))
+                          sourceBlob=bindings[source])
         else:
             raise ValueError('Selected source needs a measured floor or documented exclusion: ' + source)
         updates.append((source, record))
     if not updates:
         raise ValueError('Select at least one source to import')
-    archive_evidence(policy_directory(path, manifest['evidenceDirectory']), incoming_path.read_bytes())
+    identity = archive_bound_evidence(policy_directory(path, manifest['evidenceDirectory']),
+                                      incoming_path.read_bytes(), bindings)
     directory = policy_directory(path, manifest['recordsDirectory'])
     for source, record in updates:
+        record['evidenceSha256'] = identity
         write_json(directory / (source + '.json'), record)
