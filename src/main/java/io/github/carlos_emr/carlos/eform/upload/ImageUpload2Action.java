@@ -52,6 +52,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
@@ -108,26 +109,29 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
                 File destinationFile = PathValidationUtils.validateUpload(image, imageFileName, imageFolder);
                 var destination = destinationFile.toPath();
                 boolean posix = Files.getFileStore(imageFolder.toPath()).supportsFileAttributeView(PosixFileAttributeView.class);
-                // Capture the normal creation mode (including the process umask), then keep the
-                // staged bytes private until the complete copy and both stream closes succeed.
-                var staged = posix
-                        ? Files.createTempFile(imageFolder.toPath(), ".carlos-image-", ".tmp",
-                                PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-rw-rw-")))
-                        : Files.createTempFile(imageFolder.toPath(), ".carlos-image-", ".tmp");
-                try (java.io.Closeable cleanup = () -> Files.deleteIfExists(staged)) {
-                    var permissions = posix ? Files.getPosixFilePermissions(Files.exists(destination) ? destination : staged) : null;
-                    if (posix) Files.setPosixFilePermissions(staged, PosixFilePermissions.fromString("rw-------"));
-                    try (InputStream fis = PathValidationUtils.openValidatedUploadInputStream(image);
-                         OutputStream fos = Files.newOutputStream(staged)) {
-                        byte[] buffer = new byte[4096];
-                        int bytesRead;
-                        while ((bytesRead = fis.read(buffer)) != -1) {
-                            fos.write(buffer, 0, bytesRead);
+                // A private directory makes the staged file inaccessible from its creation.
+                // Normal file creation inside it retains the process umask for a new image.
+                var stagingDirectory = posix
+                        ? Files.createTempDirectory(imageFolder.toPath(), ".carlos-image-",
+                                PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------")))
+                        : Files.createTempDirectory(imageFolder.toPath(), ".carlos-image-");
+                try (java.io.Closeable directoryCleanup = () -> Files.deleteIfExists(stagingDirectory)) {
+                    var staged = stagingDirectory.resolve("image");
+                    try (java.io.Closeable fileCleanup = () -> Files.deleteIfExists(staged)) {
+                        try (InputStream fis = PathValidationUtils.openValidatedUploadInputStream(image);
+                             OutputStream fos = Files.newOutputStream(staged, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+                            byte[] buffer = new byte[4096];
+                            int bytesRead;
+                            while ((bytesRead = fis.read(buffer)) != -1) {
+                                fos.write(buffer, 0, bytesRead);
+                            }
+                            fos.flush();
                         }
-                        fos.flush();
+                        if (posix && Files.exists(destination)) {
+                            Files.setPosixFilePermissions(staged, Files.getPosixFilePermissions(destination));
+                        }
+                        Files.move(staged, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
                     }
-                    if (posix) Files.setPosixFilePermissions(staged, permissions);
-                    Files.move(staged, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
                 }
             }
 

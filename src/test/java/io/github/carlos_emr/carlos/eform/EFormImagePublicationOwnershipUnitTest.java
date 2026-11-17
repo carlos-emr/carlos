@@ -132,7 +132,7 @@ class EFormImagePublicationOwnershipUnitTest {
                              call.getArgument(0).toString(), call.getArgument(1).toString(), "FAKE unsupported atomic publication");
                  }
                  if (failureMode == CopyFailure.WRITE && call.getMethod().getName().equals("newOutputStream")
-                         && images.equals(call.<Path>getArgument(0).getParent())) {
+                         && call.<Path>getArgument(0).startsWith(images)) {
                      return new java.io.FilterOutputStream((java.io.OutputStream) call.callRealMethod()) {
                          @Override public void write(byte[] bytes, int offset, int length) throws IOException {
                              super.write(bytes, offset, length);
@@ -180,11 +180,11 @@ class EFormImagePublicationOwnershipUnitTest {
         var closed = new AtomicInteger();
         try (var folder = mockStatic(ImageUpload2Action.class);
              var files = mockStatic(Files.class, call -> {
-                 if (call.getMethod().getName().equals("newOutputStream") && images.equals(call.<Path>getArgument(0).getParent())) {
+                 if (call.getMethod().getName().equals("newOutputStream") && call.<Path>getArgument(0).startsWith(images)) {
                      Path staged = call.getArgument(0);
                      assertThat(staged).isNotEqualTo(shared);
-                     if (posix) assertThat(Files.getPosixFilePermissions(staged))
-                             .isEqualTo(java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));
+                     if (posix) assertThat(Files.getPosixFilePermissions(staged.getParent()))
+                             .isEqualTo(java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
                      return new java.io.FilterOutputStream((java.io.OutputStream) call.callRealMethod()) {
                          @Override public void close() throws IOException {
                              super.close();
