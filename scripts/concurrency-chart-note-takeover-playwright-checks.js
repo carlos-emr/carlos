@@ -118,10 +118,10 @@ async function workflow(s) {
     const kept = await editor.count() > 0 && await editor.inputValue() === textA;
     const body = await aChart.locator('body').innerText();
     h.assert(kept, `The stale window's refused Save lost the editor or its typed text (${alerts.length} alert(s) raised)`);
-    // The Save handler appends the status to a localized failure message (English: "Failed to save note! 409").
+    // A generic status-only save failure does not explain how to recover a lost note lock.
     const told = alerts.some(alert => alert.type === 'alert'
-      && (/lock/i.test(alert.text) || /\s409$/.test(alert.text))) || /note lock/i.test(body);
-    h.assert(told, 'The stale window kept its editor but gave the user no alert or visible message that the save was refused');
+      && /lock/i.test(alert.text)) || /note lock/i.test(body);
+    h.assert(told, 'The stale window kept its editor but gave the user no lock-specific alert or visible message explaining the refusal');
   });
 }
 

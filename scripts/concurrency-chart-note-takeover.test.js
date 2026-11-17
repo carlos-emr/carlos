@@ -11,7 +11,7 @@ const support = require('./lib/concurrency-support');
 async function run({ status = 409, extraResponse, extraConsole, revision = false,
   changedText = false, changedIdentity = false, missingB = false, persistedStale = false, kept = true,
   responseUrl,
-  alerts = [{ type: 'alert', text: 'Failed to save note! 409' }] } = {}) {
+  alerts = [{ type: 'alert', text: 'Your note lock has been lost. Copy your text and reopen the chart.' }] } = {}) {
   const recorder = h.createRecorder();
   const marker = 'FAKE-PW-takeover';
   const textB = `${marker} note typed in the window that took the lock`;
@@ -98,8 +98,8 @@ test('one expected save 409 and its console error reach the note and editor asse
   await run();
 });
 
-test('localized save refusal feedback is recognized by its HTTP status', async () => {
-  await run({ alerts: [{ type: 'alert', text: 'Échec de la sauvegarde de la note ! 409' }] });
+test('a generic status-only refusal cannot qualify lost-lock feedback', async () => {
+  await assert.rejects(run({ alerts: [{ type: 'alert', text: 'Failed to save note! 409' }] }), /no lock-specific alert/);
 });
 
 for (const status of [200, 403, 500]) {
@@ -159,5 +159,5 @@ test('losing the editor after refusal still fails', async () => {
 });
 
 test('silently refusing the save still fails', async () => {
-  await assert.rejects(run({ alerts: [] }), /no alert or visible message/);
+  await assert.rejects(run({ alerts: [] }), /no lock-specific alert or visible message/);
 });

@@ -323,6 +323,7 @@ test('toolbar Save retains the dirty editor and selected issues on a stale-revis
   vm.runInContext(block('    function saveNoteAjax(', '    function savePage('), h.context);
   Object.assign(h.context, { caseNote: 'editor', caisiEnabled: false, deferNoteSaveUntilIssues: () => false,
     $F: () => 'dirty draft', clearAutoSaveTimer() {}, setTimer() { timers++; }, savingNoteError: 'Save failed',
+    noteLockLostError: 'Your note lock has been lost; copy your text and reopen the chart.', lostNoteLock: false,
     beginNoteSwitchSave: () => () => { restored++; }, Form: { serialize: () => 'note=dirty&issue=12' },
     CarlosAjax: { request: (url, options) => requests.push(options) } });
   h.fields.notCPP = { update() { replaced++; } };
@@ -331,8 +332,9 @@ test('toolbar Save retains the dirty editor and selected issues on a stale-revis
   assert.equal(replaced, 0, 'Editor must survive while Save is pending');
   requests[0].onFailure({ status: 409, responseText: '<h1>Conflict</h1>' });
   requests[0].onComplete();
-  assert.equal(replaced, 0); assert.equal(restored, 1); assert.equal(timers, 1);
-  assert.deepEqual(h.alerts, ['Save failed 409']);
+  assert.equal(replaced, 0); assert.equal(restored, 1); assert.equal(timers, 0);
+  assert.equal(h.context.lostNoteLock, true);
+  assert.deepEqual(h.alerts, [h.context.noteLockLostError]);
 });
 
 test('CPP save conflict reopens the filled dialog without replacing the saved row', () => {

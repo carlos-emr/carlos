@@ -1,5 +1,11 @@
 # CARLOS 2026.08 release notes
 
+## Note lock recovery
+
+When another window takes a note lock, a refused toolbar save now explains that
+the lock was lost and tells the clinician to copy their text and reopen the chart.
+The draft remains available, and autosave stops for that editor.
+
 ## Measurement charts, CML revisions and CDM forms
 
 Single-point and constant-value measurement charts now draw useful markers and axes.

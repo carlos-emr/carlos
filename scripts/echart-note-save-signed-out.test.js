@@ -64,7 +64,8 @@ function harness(heartbeat = valid) {
   const context = {
     caseNote: 'editor1', ctx: '/carlos', chartContext: '', demographicNo: '123', fullChart: 'false',
     caisiEnabled: false, savingNoteError: 'save failed', invalidObservationDateError: 'invalid date',
-    sessionEndedNotSavedError: SIGNED_OUT,
+    sessionEndedNotSavedError: SIGNED_OUT, lostNoteLock: false,
+    noteLockLostError: 'Your note lock has been lost; copy your text and reopen the chart.',
     URL, AbortController, window: { location: { href: `${ORIGIN}/carlos/CaseManagementEntry?method=edit` } },
     setTimeout: (fn, ms) => { timers.push({ fn, ms }); return timers.length; },
     clearTimeout: id => { timers[id - 1].cleared = true; },
@@ -120,6 +121,22 @@ test('Save refused with 401 keeps the editor and says to sign in again', () => {
   assert.deepEqual(h.alerts, [SIGNED_OUT]);
   assert.equal(h.editor.disabled, false);
 });
+
+for (const signed of [false, true]) {
+  test(`Save with ${signed ? 'a signing choice' : 'no signing choice'} explains a lost lock and stops autosave`, () => {
+    const h = harness();
+    if (signed) h.entryForm.elements.sign.value = 'on';
+    h.context.saveNoteAjax('save', 'list');
+    h.requests[0].options.onFailure({ status: 409 });
+    h.requests[0].options.onComplete({ status: 409 });
+    assert.equal(h.context.lostNoteLock, true);
+    assert.deepEqual(h.alerts, [h.context.noteLockLostError]);
+    assert.equal(h.editor.value, TYPED);
+    assert.equal(h.editor.disabled, false);
+    assert.deepEqual(h.replaced, []);
+    assert.equal(h.effects.includes('resume autosave'), false);
+  });
+}
 
 test('Save refused for another reason still names the status', () => {
   const h = harness();

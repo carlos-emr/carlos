@@ -3146,9 +3146,14 @@ function updateCPPNote() {
                 onFailure: function (request) {
                     // In particular, a stale-revision 409 must leave the clinician's
                     // text and selected issues available to copy or recover.
-                    if (request.status == 401) alertSessionEndedNotSaved();
-                    else alert(request.status == 400 ? invalidObservationDateError : savingNoteError + " " + request.status);
-                    setTimer();
+                    if (request.status == 409) {
+                        lostNoteLock = true;
+                        alert(noteLockLostError);
+                    } else {
+                        if (request.status == 401) alertSessionEndedNotSaved();
+                        else alert(request.status == 400 ? invalidObservationDateError : savingNoteError + " " + request.status);
+                        setTimer();
+                    }
                 },
                 onComplete: function () { restoreControls(); }
             }
