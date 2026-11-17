@@ -323,6 +323,73 @@ class JdbcConnectorMariaDbIntegrationTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
+    @ResourceLock("java.util.TimeZone")
+    void shouldUseCurrentJvmZoneForDateWrites_afterConnectionWasOpened(boolean legacy) throws Exception {
+        TimeZone previous = TimeZone.getDefault();
+        try {
+            for (boolean serverPrepared : java.util.List.of(false, true)) {
+                TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+                try (var source = source(legacy, "connectionTimeZone=America/Toronto&useServerPrepStmts=" + serverPrepared);
+                     var connection = source.getConnection(); var statement = connection.createStatement()) {
+                    statement.execute("CREATE TEMPORARY TABLE jdbc_current_zone(id INT PRIMARY KEY,value DATE)");
+                    TimeZone.setDefault(TimeZone.getTimeZone("Asia/Tokyo"));
+                    Date date = Date.valueOf("2026-11-07");
+                    try (var insert = connection.prepareStatement("INSERT INTO jdbc_current_zone VALUES (?,?)")) {
+                        for (int id = 1; id <= 4; id++) {
+                            insert.setInt(1, id);
+                            switch (id) {
+                                case 1 -> insert.setDate(2, date);
+                                case 2 -> insert.setDate(2, date, null);
+                                case 3 -> insert.setObject(2, date, java.sql.JDBCType.DATE);
+                                case 4 -> insert.setDate(2, null);
+                                default -> throw new AssertionError(id);
+                            }
+                            assertThat(insert.executeUpdate()).isEqualTo(1);
+                        }
+                    }
+                    try (var rows = statement.executeQuery("SELECT COUNT(value),MIN(CAST(value AS CHAR)),MAX(CAST(value AS CHAR)) FROM jdbc_current_zone")) {
+                        assertThat(rows.next()).isTrue();
+                        assertThat(rows.getInt(1)).isEqualTo(3);
+                        assertThat(rows.getString(2)).isEqualTo("2026-11-07");
+                        assertThat(rows.getString(3)).isEqualTo("2026-11-07");
+                    }
+                    // Prepared updatable results must preserve both DATE and NULL writes,
+                    // including the server-prepared execution path.
+                    try (var update = connection.prepareStatement("SELECT id,value FROM jdbc_current_zone ORDER BY id",
+                            ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_UPDATABLE);
+                         var rows = update.executeQuery()) {
+                        while (rows.next()) {
+                            if (rows.getInt(1) % 2 == 0) rows.updateDate("value", date);
+                            else rows.updateDate(2, date);
+                            rows.updateRow();
+                        }
+                        try (var stored = statement.executeQuery("SELECT COUNT(value),MIN(CAST(value AS CHAR)),MAX(CAST(value AS CHAR)) FROM jdbc_current_zone")) {
+                            assertThat(stored.next()).isTrue();
+                            assertThat(stored.getInt(1)).isEqualTo(4);
+                            assertThat(stored.getString(2)).isEqualTo("2026-11-07");
+                            assertThat(stored.getString(3)).isEqualTo("2026-11-07");
+                        }
+                        rows.beforeFirst();
+                        while (rows.next()) {
+                            if (rows.getInt(1) % 2 == 0) rows.updateDate("value", null);
+                            else rows.updateDate(2, null);
+                            rows.updateRow();
+                        }
+                    }
+                    try (var rows = statement.executeQuery("SELECT COUNT(*),COUNT(value) FROM jdbc_current_zone")) {
+                        assertThat(rows.next()).isTrue();
+                        assertThat(rows.getInt(1)).isEqualTo(4);
+                        assertThat(rows.getInt(2)).isZero();
+                    }
+                }
+            }
+        } finally {
+            TimeZone.setDefault(previous);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
     void shouldPreserveNullDateWrites_withEveryCalendarOverload(boolean legacy) throws Exception {
         for (boolean prepared : java.util.List.of(false, true)) {
             try (var source = source(legacy, "connectionTimeZone=America/Toronto&useServerPrepStmts=" + prepared);

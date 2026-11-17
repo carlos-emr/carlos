@@ -2660,6 +2660,20 @@
                   "container": ""
                 }
               ]
+            },
+            {
+              "name": "shouldUseCurrentJvmZoneForDateWrites_afterConnectionWasOpened(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldUseCurrentJvmZoneForDateWrites_afterConnectionWasOpened(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldUseCurrentJvmZoneForDateWrites_afterConnectionWasOpened(boolean)[2]",
+                  "container": ""
+                }
+              ]
             }
           ]
         },
@@ -4899,7 +4913,7 @@
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
         "DemographicMergeMariaDbIntegrationTest": 9,
-        "JdbcConnectorMariaDbIntegrationTest": 38,
+        "JdbcConnectorMariaDbIntegrationTest": 40,
         "BilledProviderReportDaoIntegrationTest": 2,
         "MariaDbDaoHarnessIntegrationTest": 1,
         "MeasurementDaoIntegrationTest": 1,

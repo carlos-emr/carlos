@@ -141,7 +141,7 @@ public final class MariaDbCompatibilityDriver implements Driver {
                 if (name.equals("setDate") && args.length == 3 && args[2] != null) return invokeNative(method, args);
                 // A SQL DATE is a wall-clock date in the caller's zone. MariaDB's
                 // text codec otherwise formats it in the connection's zone.
-                Calendar zone = Calendar.getInstance(policy.defaultZone(), Locale.US);
+                Calendar zone = Calendar.getInstance(TimeZone.getDefault(), Locale.US);
                 if (args[0] instanceof Integer index) prepared.setDate(index, (java.sql.Date) args[1], zone);
                 else ((CallableStatement) prepared).setDate((String) args[0], (java.sql.Date) args[1], zone);
                 return null;
@@ -187,7 +187,7 @@ public final class MariaDbCompatibilityDriver implements Driver {
                 return;
             }
             var format = new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.ROOT);
-            format.setTimeZone(policy.defaultZone());
+            format.setTimeZone(TimeZone.getDefault());
             String date = format.format(value);
             if (column instanceof Integer index) rows.updateString(index, date);
             else rows.updateString((String) column, date);
