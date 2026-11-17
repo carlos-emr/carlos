@@ -30,7 +30,9 @@ Improvements over the original version:
 - No file-wide bypass: setParameter usage elsewhere never whitelists other matches
 - Requires SQL structure or an explicit query context before treating words
   such as FROM, SET and VALUES as SQL rather than ordinary English
-- For Edit/MultiEdit, reconstructs the full post-edit file before scanning
+- For Edit/MultiEdit, reconstructs from one pre-edit snapshot, warns about
+  unchanged legacy findings, and blocks new/modified unsafe statements; Write
+  continues to scan the complete supplied content
 
 Exit codes:
 - 0: Safe patterns detected or non-applicable file
@@ -38,8 +40,10 @@ Exit codes:
 """
 
 import json
+import hashlib
 import re
 import sys
+from collections import Counter
 from pathlib import Path
 
 
@@ -147,6 +151,13 @@ def mask_literal_statement_delimiters(content: str) -> str:
     )
 
 
+def statement_bounds(content: str, start: int, end: int, boundaries: str) -> tuple[int, int]:
+    begin = max(boundaries.rfind(';', 0, start), boundaries.rfind('{', 0, start),
+                boundaries.rfind('}', 0, start)) + 1
+    term = boundaries.find(';', end)
+    return begin, len(content) if term == -1 else term + 1
+
+
 def get_statement_containing(
     content: str, start: int, end: int, boundaries: str | None = None
 ) -> str:
@@ -160,15 +171,47 @@ def get_statement_containing(
     """
     if boundaries is None:
         boundaries = mask_literal_statement_delimiters(content)
-    begin = max(
-        boundaries.rfind(';', 0, start),
-        boundaries.rfind('{', 0, start),
-        boundaries.rfind('}', 0, start),
-    ) + 1
-    term = boundaries.find(';', end)
-    if term == -1:
-        term = len(content)
-    return content[begin:term + 1]
+    begin, term = statement_bounds(content, start, end, boundaries)
+    return content[begin:term]
+
+
+def canonical_java(fragment: str) -> list:
+    """Ignore layout outside literals while retaining every literal byte."""
+    tokens, cursor = [], 0
+    pattern = r'[\w$]+|>>>|>>|<<|==|!=|<=|>=|&&|\|\||\+\+|--|->|::|[^\s]'
+    for literal in _ONLY_STRING_LITERAL.finditer(fragment):
+        tokens.extend(['code', token] for token in re.findall(pattern, fragment[cursor:literal.start()]))
+        tokens.append(['literal', literal.group()])
+        cursor = literal.end()
+    tokens.extend(['code', token] for token in re.findall(pattern, fragment[cursor:]))
+    return tokens
+
+
+def finding_fingerprint(content: str, code: str, boundaries: str, match, description: str) -> str:
+    """Bind a finding to its complete statement and enclosing Java blocks.
+
+    Offsets and comments may move during an unrelated edit. A changed statement,
+    duplicate occurrence or move into another method must still be treated as new.
+    """
+    begin, end = statement_bounds(content, match.start(), match.end(), boundaries)
+    scopes, previous, parentheses = [], 0, 0
+    for token in re.finditer(r'[{};()]', code[:begin]):
+        value, position = token.group(), token.start()
+        if value == '(':
+            parentheses += 1
+        elif value == ')':
+            parentheses = max(0, parentheses - 1)
+        elif value == '{':
+            scopes.append(canonical_java(content[previous:position]))
+            previous = position + 1
+        elif value == '}':
+            if scopes:
+                scopes.pop()
+            previous = position + 1
+        elif not parentheses:
+            previous = position + 1
+    evidence = [description, scopes, canonical_java(content[begin:end])]
+    return hashlib.sha256(json.dumps(evidence, separators=(',', ':')).encode()).hexdigest()
 
 
 def _mask_string_literals(text: str) -> str:
@@ -540,14 +583,15 @@ def _apply_edit(content: str, old_string: str, new_string: str, replace_all: boo
     return content.replace(old_string, new_string) if replace_all else content.replace(old_string, new_string, 1)
 
 
-def get_file_content_from_input(tool_input: dict, tool_name: str) -> tuple[str, str]:
+def get_file_content_from_input(tool_input: dict, tool_name: str,
+                                existing_content: str | None = None) -> tuple[str, str]:
     """Extract file path and reconstruct the full post-edit content when possible."""
     file_path = tool_input.get("file_path", "")
 
     if tool_name == "Write":
         return file_path, tool_input.get("content", "")
 
-    content = _read_existing_file(file_path)
+    content = _read_existing_file(file_path) if existing_content is None else existing_content
     if tool_name == "Edit":
         content = _apply_edit(
             content,
@@ -682,7 +726,7 @@ def has_sql_context(statement: str) -> bool:
     )
 
 
-def check_sql_injection_patterns(content: str) -> list[str]:
+def check_sql_injection_patterns(content: str, findings: list | None = None) -> list[str]:
     """def check_sql_injection_patterns(content: str) -> list[str]:
     
     Check Java content for SQL injection vulnerabilities.  This function analyzes
@@ -705,6 +749,9 @@ def check_sql_injection_patterns(content: str) -> list[str]:
     # Compute this once per file: SQL punctuation is literal data, not a Java
     # boundary, and rescanning literals for every candidate is needlessly costly.
     boundaries = mask_literal_statement_delimiters(content)
+    # Braces/parentheses inside literal data must not invent Java scope. Only
+    # metadata-producing edit comparisons need this second offset-preserving view.
+    code = _ONLY_STRING_LITERAL.sub(lambda m: re.sub(r'[^\n]', ' ', m.group()), content) if findings is not None else ''
 
     # Broad candidates are confirmed against statement-local SQL context below.
     sql_keywords = r'\b(?:SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|INTO|VALUES|SET|JOIN|ORDER\s+BY|GROUP\s+BY)\b'
@@ -807,6 +854,9 @@ def check_sql_injection_patterns(content: str) -> list[str]:
                     f"  Found: ...{context}...\n"
                     f"  This is vulnerable to SQL injection."
                 )
+                if findings is not None:
+                    findings.append({'message': issues[-1], 'fingerprint':
+                        finding_fingerprint(content, code, boundaries, match, description)})
 
     # Additional check: Look for dangerous patterns in query construction
     raw_query_patterns = [
@@ -843,11 +893,14 @@ def check_sql_injection_patterns(content: str) -> list[str]:
                     f"  Found: ...{context}...\n"
                     f"  This is vulnerable to SQL injection."
                 )
+                if findings is not None:
+                    findings.append({'message': issues[-1], 'fingerprint':
+                        finding_fingerprint(content, code, boundaries, match, description)})
 
     return issues
 
 
-def validate_content(file_path: str, content: str) -> tuple[bool, list[str]]:
+def validate_content(file_path: str, content: str, findings: list | None = None) -> tuple[bool, list[str]]:
     """
     Validate file content for SQL injection vulnerabilities.
 
@@ -861,7 +914,7 @@ def validate_content(file_path: str, content: str) -> tuple[bool, list[str]]:
 
     # Only check Java files
     if file_path.endswith('.java'):
-        issues.extend(check_sql_injection_patterns(content))
+        issues.extend(check_sql_injection_patterns(content, findings))
 
     # All SQL injection issues are critical
     has_critical = len(issues) > 0
@@ -883,15 +936,36 @@ def main():
         if tool_name not in ("Edit", "Write", "MultiEdit"):
             sys.exit(0)
 
-        # Get file path and content
-        file_path, content = get_file_content_from_input(tool_input, tool_name)
+        # Read one immutable pre-edit snapshot for both reconstruction and the
+        # comparison. Write always scans the entire supplied replacement.
+        compare_existing = tool_name in ('Edit', 'MultiEdit')
+        previous = _read_existing_file(tool_input.get('file_path', '')) if compare_existing else None
+        file_path, content = get_file_content_from_input(tool_input, tool_name, previous)
 
         # Only check Java files
         if not file_path.endswith('.java'):
             sys.exit(0)
 
         # Validate content
-        is_safe, issues = validate_content(file_path, content)
+        findings = [] if compare_existing else None
+        is_safe, issues = validate_content(file_path, content, findings)
+        if compare_existing:
+            old_findings = []
+            validate_content(file_path, previous, old_findings)
+            available = Counter(finding['fingerprint'] for finding in old_findings)
+            introduced, unchanged = [], 0
+            for finding in findings:
+                identity = finding['fingerprint']
+                if available[identity]:
+                    available[identity] -= 1
+                    unchanged += 1
+                else:
+                    introduced.append(finding['message'])
+            issues = introduced
+            is_safe = not introduced
+            if unchanged:
+                print(f"WARNING: {unchanged} pre-existing SQL finding(s) remain in unchanged statements; "
+                      "this edit is blocked only for new or modified unsafe SQL.", file=sys.stderr)
 
         if issues:
             # Output feedback to stderr
