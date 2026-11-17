@@ -219,8 +219,9 @@ The `b75252bf2c47` refresh repeats that procedure for release `0ba9d149d105`
 same 495-case union on the merged sources measures both unchanged adapter blobs
 exactly as before, so their floors stand.
 
-The `29104a75e4b4` refresh does the same for release `0c9a1d8414a4` (#6234), with
-the same measurements and floors.
+The `29104a75e4b4` and `50b73f8f1018` refreshes do the same for releases
+`0c9a1d8414a4` (#6234) and `8d45b8007ffa` (#6218), with the same measurements
+and floors.
 
 The `dd7321db79ee` PR #6102 merged-source refresh uses Debian 13 and Temurin
 25.0.3. Its complete H2 run records 35,947 actual cases: 35,736 passes,
