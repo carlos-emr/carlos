@@ -93,7 +93,7 @@ class ContextStartupListenerUnitTest {
         }
     }
 
-    @Test void shouldScheduleThePortalInviteSweepOnce_andCancelItOnShutdown() {
+    @Test void shouldScheduleThePortalInviteSweepOnce_evenWhenInitializationRunsTwice_andCancelItOnShutdown() {
         var maintenance = mock(CdsImportMaintenanceService.class);
         var emailLogs = mock(EmailLogDao.class);
         var scheduler = mock(TaskScheduler.class);
@@ -114,8 +114,10 @@ class ContextStartupListenerUnitTest {
             spring.when(() -> SpringUtils.getBean(TaskScheduler.class)).thenReturn(scheduler);
 
             ReflectionTestUtils.invokeMethod(listener, "initializeClinicalProcesses");
+            // The coordinator re-runs the whole initialization after maintenance returns or a gate read fails.
+            ReflectionTestUtils.invokeMethod(listener, "initializeClinicalProcesses");
 
-            // The sweep that clears invitation codes from saved emails is scheduled, with its own interval.
+            // The sweep that clears invitation codes from saved emails is scheduled once, with its own interval.
             verify(scheduler, times(1)).scheduleWithFixedDelay(any(PortalInviteCodeSweeper.class), any(Instant.class),
                     eq(PortalInviteCodeSweeper.INTERVAL));
             listener.contextDestroyed(new ServletContextEvent(new MockServletContext()));
@@ -123,7 +125,9 @@ class ContextStartupListenerUnitTest {
         } finally { MiscUtils.setShutdownSignaled(false); }
     }
 
-    @Test void shouldNotScheduleThePortalInviteSweep_whenClinicalStartupIsDeferred() {
+    // A phase guard rather than a regression test for the restored call: it also passes without the call, and fails
+    // if the call is ever moved ahead of the maintenance gate.
+    @Test void shouldHoldThePortalInviteSweepBack_whileClinicalStartupIsDeferred() {
         var maintenance = mock(CdsImportMaintenanceService.class);
         when(maintenance.isClinicalAccessBlocked()).thenReturn(true);
         var scheduler = mock(TaskScheduler.class);
@@ -138,6 +142,31 @@ class ContextStartupListenerUnitTest {
 
             verifyNoInteractions(scheduler);
         }
+    }
+
+    @Test void shouldNotScheduleThePortalInviteSweep_afterTheContextWasDestroyed() {
+        var maintenance = mock(CdsImportMaintenanceService.class);
+        var scheduler = mock(TaskScheduler.class);
+        var transactionManager = mock(PlatformTransactionManager.class);
+        var listener = spy(new ContextStartupListener());
+        doNothing().when(listener).initializeDefaultData(transactionManager);
+        doNothing().when(listener).loadCaches();
+        ReflectionTestUtils.setField(listener, "maintenance", maintenance);
+        ReflectionTestUtils.setField(listener, "clinicalStartup", mock(ClinicalStartupCoordinator.class));
+        try (var spring = mockStatic(SpringUtils.class);
+                var jobs = mockStatic(OscarJobUtils.class);
+                var hrm = mockConstruction(HRMFixMissingReportHelper.class)) {
+            spring.when(() -> SpringUtils.getBean(PlatformTransactionManager.class)).thenReturn(transactionManager);
+            spring.when(() -> SpringUtils.getBean(FaxSchedulerJob.class)).thenReturn(mock(FaxSchedulerJob.class));
+            spring.when(() -> SpringUtils.getBean(EmailLogDao.class)).thenReturn(mock(EmailLogDao.class));
+            spring.when(() -> SpringUtils.getBean(TaskScheduler.class)).thenReturn(scheduler);
+            listener.contextDestroyed(new ServletContextEvent(new MockServletContext()));
+
+            // A startup that was still running on the clinical thread when shutdown began must not start a timer.
+            ReflectionTestUtils.invokeMethod(listener, "initializeClinicalProcesses");
+
+            verifyNoInteractions(scheduler);
+        } finally { MiscUtils.setShutdownSignaled(false); }
     }
 
     @Test void shouldNotStartFax_whenMaintenanceReentersAtTheFinalStartupBoundary() {

@@ -64,8 +64,9 @@ public class ContextStartupListener implements jakarta.servlet.ServletContextLis
     private static final Logger logger = MiscUtils.getLogger();
     private static final CarlosProperties oscarProperties = CarlosProperties.getInstance();
 
-    // Written by the clinical startup thread, cancelled by the container thread in contextDestroyed.
-    private volatile ScheduledFuture<?> portalInviteSweep;
+    // Both guarded by this: the clinical startup thread schedules, the container thread cancels in contextDestroyed.
+    private ScheduledFuture<?> portalInviteSweep;
+    private boolean sweepsStopped;
     private ClinicalStartupCoordinator clinicalStartup;
     private CdsImportMaintenanceService maintenance;
 
@@ -112,13 +113,23 @@ public class ContextStartupListener implements jakarta.servlet.ServletContextLis
         }
     }
 
-    /** Start cleanup independently of invitation traffic; cancel it when this webapp stops. */
+    /**
+     * Start cleanup independently of invitation traffic; cancel it when this webapp stops. Safe to call again:
+     * the coordinator can run the whole clinical initialization a second time (maintenance returning right after it,
+     * or a failed gate read), and after shutdown has begun nothing is scheduled.
+     */
     private void forgetLeftoverPortalInviteCodes() {
+        synchronized (this) { if (sweepsStopped || portalInviteSweep != null) return; }
         try {
             PortalInviteCodeSweeper sweeper = new PortalInviteCodeSweeper(SpringUtils.getBean(EmailLogDao.class));
             sweeper.run();
-            portalInviteSweep = SpringUtils.getBean(TaskScheduler.class).scheduleWithFixedDelay(
+            ScheduledFuture<?> scheduled = SpringUtils.getBean(TaskScheduler.class).scheduleWithFixedDelay(
                     sweeper, Instant.now().plus(PortalInviteCodeSweeper.INTERVAL), PortalInviteCodeSweeper.INTERVAL);
+            // Shutdown or another run may have got here while the first pass ran: keep exactly one live timer.
+            synchronized (this) {
+                if (sweepsStopped || portalInviteSweep != null) scheduled.cancel(false);
+                else portalInviteSweep = scheduled;
+            }
         } catch (RuntimeException e) {
             logger.warn("patient portal invitation code sweep could not be scheduled: {}", e.getClass().getSimpleName());
         }
@@ -159,9 +170,9 @@ public class ContextStartupListener implements jakarta.servlet.ServletContextLis
         requireClinicalAccessOpen();
         SpringUtils.getBean(io.github.carlos_emr.carlos.fax.core.FaxSchedulerJob.class)
                 .retryDeferredInitialization();
-        // Last step, so the sweep is scheduled once: the coordinator never re-runs a finished initialization and a
-        // failed one stops before here. It touches only the email log, but is held back with the other clinical
-        // processes while maintenance is retained, as it was before startup moved into the coordinator.
+        // After clinical initialization, so it is held back with the other clinical processes while maintenance is
+        // retained, as it was before startup moved into the coordinator. This initialization can run more than once
+        // (the coordinator retries it), so the call is idempotent.
         forgetLeftoverPortalInviteCodes();
     }
 
@@ -268,8 +279,11 @@ public class ContextStartupListener implements jakarta.servlet.ServletContextLis
 
     @Override
     public void contextDestroyed(jakarta.servlet.ServletContextEvent sce) {
-        if (portalInviteSweep != null) {
-            portalInviteSweep.cancel(false);
+        synchronized (this) {
+            sweepsStopped = true;
+            if (portalInviteSweep != null) {
+                portalInviteSweep.cancel(false);
+            }
         }
         logger.info("Server processes stopping. context=" + sce.getServletContext().getContextPath());
 
