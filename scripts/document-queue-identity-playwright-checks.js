@@ -12,12 +12,15 @@ const NAME = 'document-queue-identity';
 async function workflow(s) {
   const { sql, marker, provider } = s;
   const q = h.sqlString;
-  const adminName = `Q${marker.slice(-16)}A`;
+  const adminName = `Q${marker.slice(-16)}A & + % Équipe`;
   const providerName = `Q${marker.slice(-16)}P`;
   const rollbackName = `Q${marker.slice(-16)}R`;
   const trigger = `pw_queue_${marker.slice(-16)}`;
   h.assert(/^pw_queue_[a-f0-9]{16}$/.test(trigger), 'Invalid queue fault scope');
-  const names = `${q(adminName)},${q(providerName)},${q(rollbackName)}`;
+  // Older pages submitted the raw ampersand as a parameter separator. Own and
+  // remove that truncated spelling too when qualifying the pre-fix package.
+  const truncatedName = adminName.split('&')[0];
+  const names = [adminName, truncatedName, truncatedName.trim(), providerName, rollbackName].map(q).join(',');
   let triggerMayExist = false;
   const predicate = `provider_no=${q(provider)} AND name='doc_default_queue'`;
   const snapshot = () => sql.rows(`SELECT id,COALESCE(HEX(value),''),value IS NULL FROM property WHERE ${predicate} ORDER BY id`);
@@ -64,9 +67,18 @@ async function workflow(s) {
     await revealAuditLink(admin, link, 20000);
     await link.click();
     await admin.locator('#dynamic-content #newQueueName').fill(adminName);
-    await admin.locator('#dynamic-content #add-btn').click();
+    const [response] = await Promise.all([
+      admin.waitForResponse(r => new URL(r.url()).pathname.endsWith('/documentManager/inboxManage')
+        && r.request().method() === 'POST'),
+      admin.locator('#dynamic-content #add-btn').click(),
+    ]);
+    h.assert(response.status() === 200 && (await response.json()).addNewQueue === true,
+      'Administration did not confirm queue creation');
+    const posted = new URLSearchParams(response.request().postData());
+    h.assert(posted.get('newQueueName') === adminName && posted.getAll('method').length === 1,
+      'Queue punctuation or Unicode changed in the submitted form body');
     await expectValue(sql, `SELECT COUNT(*) FROM queue q JOIN secObjectName s ON s.objectName=CONCAT('_queue.',q.id)
-      WHERE q.name=${q(adminName)} AND s.description=${q(adminName)}`, '1', 'Security object belongs to a different queue');
+      WHERE BINARY q.name=BINARY ${q(adminName)} AND BINARY s.description=BINARY ${q(adminName)}`, '1', 'Security object belongs to a different queue');
     h.assert(sql.value('SELECT MAX(id) FROM queue') !== providerId, 'A later queue is required for the failure regression');
   });
 
