@@ -306,6 +306,13 @@ public class EFormExportZip {
                 textBytes = stageImportEntries(zis, imageTempFolderDir, eformTable, eformTableFailed, tempFiles, errors);
             }
 
+            // An empty failed-form key means rejected metadata could not identify its HTML.
+            // No extracted asset can then safely be attributed to that form. Refuse publication
+            // before linking assets or saving any other form, and let finally clear staging.
+            if (eformTableFailed.containsKey("")) {
+                return errors;
+            }
+
             // Check every retained HTML entry before the publication loop can expose an
             // asset. Match by the properties filename, not by an attacker-chosen extension.
             for (Entry<String, File> tempFile : tempFiles.entrySet()) {
@@ -390,7 +397,7 @@ public class EFormExportZip {
         if (newEForm.getFormName() == null || newEForm.getFormName().isEmpty()) {
             errors.add("Skipped form because it has no form name.");
             _log.info("Skipped form because it has no form name.");
-            eformTableFailed.put(newEForm.getFormFileName(), newEForm);
+            eformTableFailed.put(newEForm.getFormFileName() == null ? "" : newEForm.getFormFileName(), newEForm);
             return textBytes;
         }
         if (newEForm.getFormFileName() == null || newEForm.getFormFileName().isEmpty()) {
@@ -398,6 +405,7 @@ public class EFormExportZip {
             if (_log.isInfoEnabled()) {
                 _log.info("Skipped form because it has no form filename");
             }
+            eformTableFailed.put("", newEForm);
             return textBytes;
         }
         if (EFormUtil.formExistsInDB(newEForm.getFormName())) {
