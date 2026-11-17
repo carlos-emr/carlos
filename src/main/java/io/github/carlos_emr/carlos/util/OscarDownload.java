@@ -103,6 +103,11 @@ public class OscarDownload extends GenericDownload {
                     return;
                 }
                 if (!downloadDir.isDirectory()) {
+                    if (!downloadDir.exists()) {
+                        DownloadStorageWarnings.reportIfUnavailable(downloadDir);
+                        res.sendError(HttpServletResponse.SC_NOT_FOUND, "Download file not found.");
+                        return;
+                    }
                     log.warn("OscarDownload rejected non-directory path from {}", LogSafe.sanitize(req.getRemoteAddr()));
                     res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid download directory.");
                     return;

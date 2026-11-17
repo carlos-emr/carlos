@@ -71,6 +71,32 @@ class DownloadMissingFileUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void shouldReportUnavailableStorage_whenTheSessionDirectoryDisappears(boolean backup) throws Exception {
+        Path missingDirectory = Files.createDirectory(directory.resolve("FAKE-private-mount"));
+        Files.delete(missingDirectory);
+        try (var warnings = mockStatic(DownloadStorageWarnings.class)) {
+            var response = download(backup, "missing.txt", missingDirectory.toString());
+            assertThat(response.getStatus()).isEqualTo(404);
+            assertThat(response.getHeader("Content-Disposition")).isNull();
+            assertThat(response.getHeader("Content-Length")).isNull();
+            assertThat(response.getContentAsByteArray()).isEmpty();
+            warnings.verify(() -> DownloadStorageWarnings.reportIfUnavailable(missingDirectory.toFile().getCanonicalFile()));
+        }
+    }
+
+    @Test
+    void shouldRetainTheInvalidDirectoryRefusal_whenTheSessionNamesARegularFile() throws Exception {
+        Path configuredFile = Files.createFile(directory.resolve("FAKE-configured-file"));
+        try (var warnings = mockStatic(DownloadStorageWarnings.class)) {
+            var response = download(false, "missing.txt", configuredFile.toString());
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(response.getHeader("Content-Disposition")).isNull();
+            warnings.verifyNoInteractions();
+        }
+    }
+
     private MockHttpServletResponse download(boolean backup, String filename) throws Exception {
         return download(backup, filename, directory.toString());
     }
