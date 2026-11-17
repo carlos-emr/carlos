@@ -15,8 +15,6 @@ package io.github.carlos_emr.carlos.report.pageUtil;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
@@ -55,8 +53,6 @@ import io.github.carlos_emr.carlos.report.data.RptReportConfigData;
 import io.github.carlos_emr.carlos.report.data.RptReportCreator;
 import io.github.carlos_emr.carlos.report.data.RptReportItem;
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Regression tests for demographic SQL construction and the report CSV servlet response contract.
@@ -204,12 +200,18 @@ class RptDownloadCSVServletTest {
     void shouldPreserveSelectedColumnsAndCohorts_acrossCsvQueryBranches(CsvScenario scenario) throws Exception {
         MockHttpServletRequest request = branchRequest(scenario);
         List<SqlCall> calls = new ArrayList<>();
+        List<SqlCall> extensionCalls = new ArrayList<>();
         Map<String, String> values = Map.of("demographic_no", "41", "last_name", "O'Neil",
                 "first_name", "Zoë", "c_EDD", "2026-11-01");
         var row = new ConfiguredReportQuery.Row(values, List.of());
         configuredQueryMock.when(() -> ConfiguredReportQuery.read(anyString(), any(Object[].class)))
                 .thenAnswer(call -> {
-                    calls.add(new SqlCall(call.getArgument(0), extractBindParameters(call.getArguments())));
+                    String sql = call.getArgument(0);
+                    if (sql.startsWith("select x.demographic_no, k.extension_key")) {
+                        extensionCalls.add(new SqlCall(sql, extractBindParameters(call.getArguments())));
+                        return new ConfiguredReportQuery.Result(List.of(), List.of(extensionRow("41", "prefer_language", "French")));
+                    }
+                    calls.add(new SqlCall(sql, extractBindParameters(call.getArguments())));
                     return new ConfiguredReportQuery.Result(List.of(), List.of(row));
                 });
         configuredQueryMock.when(() -> ConfiguredReportQuery.identifiers(anyString(), any(Object[].class)))
@@ -220,13 +222,9 @@ class RptDownloadCSVServletTest {
         var properties = mock(CarlosProperties.class);
         when(properties.getProperty("demographicExt")).thenReturn("prefer language");
         when(properties.getProperty("demographicExt", "")).thenReturn("prefer language");
-        var extensions = mock(DemographicExtDao.class);
-        when(extensions.findReportValues(anyString(), anyCollection(), anyBoolean()))
-                .thenReturn(List.of(new DemographicExtDao.ReportValue(1, 41, "French")));
         var response = new org.springframework.mock.web.MockHttpServletResponse();
-        try (var settings = mockStatic(CarlosProperties.class); var spring = mockStatic(SpringUtils.class)) {
+        try (var settings = mockStatic(CarlosProperties.class)) {
             settings.when(CarlosProperties::getInstance).thenReturn(properties);
-            spring.when(() -> SpringUtils.getBean(DemographicExtDao.class)).thenReturn(extensions);
             new RptDownloadCSVServlet().service(request, response);
         }
 
@@ -239,8 +237,198 @@ class RptDownloadCSVServletTest {
         assertBranchQueries(scenario, calls);
         if (scenario.extension) {
             List<Integer> cohort = scenario.extensionFilter ? List.of(41, 42) : List.of(41);
-            verify(extensions).findReportValues("prefer_language", cohort, scenario != CsvScenario.ALL_SELECTED);
+            List<Object> parameters = new ArrayList<>(List.of("prefer_language"));
+            parameters.addAll(cohort);
+            assertThat(extensionCalls).singleElement().satisfies(call ->
+                    assertThat(call.params()).containsExactlyElementsOf(parameters));
         }
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"English", "  English  "})
+    void shouldIncludeEveryPatientsCurrentExtension_forATwoPatientCohort(String secondValue) throws Exception {
+        MockHttpServletRequest request = branchRequest(CsvScenario.EXTENSION);
+        var first = new ConfiguredReportQuery.Row(Map.of("demographic_no", "41", "last_name", "FAKE",
+                "first_name", "First"), List.of());
+        var second = new ConfiguredReportQuery.Row(Map.of("demographic_no", "42", "last_name", "FAKE",
+                "first_name", "Second"), List.of());
+        configuredQueryMock.when(() -> ConfiguredReportQuery.read(anyString(), any(Object[].class)))
+                .thenAnswer(call -> new ConfiguredReportQuery.Result(List.of(),
+                        ((String) call.getArgument(0)).startsWith("select x.demographic_no, k.extension_key")
+                                ? List.of(extensionRow("41", "prefer_language", "French"), extensionRow("42", "prefer_language", secondValue))
+                                : List.of(first, second)));
+        var properties = mock(CarlosProperties.class);
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        try (var settings = mockStatic(CarlosProperties.class)) {
+            settings.when(CarlosProperties::getInstance).thenReturn(properties);
+            new RptDownloadCSVServlet().service(request, response);
+        }
+        assertThat(response.getStatus()).isEqualTo(200);
+        try (var csv = org.apache.commons.csv.CSVParser.parse(response.getContentAsString(),
+                org.apache.commons.csv.CSVFormat.DEFAULT.builder().setDelimiter('\t').get())) {
+            var rows = csv.getRecords();
+            assertThat(rows).hasSize(3);
+            assertThat(rows.get(0).get(3)).isEqualTo("Preferred Language");
+            assertThat(rows.get(1).get(3)).isEqualTo("French");
+            assertThat(rows.get(2).get(3)).isEqualTo(secondValue == null ? "" : secondValue);
+        }
+    }
+
+    @Test
+    void shouldBindAllSelectedKeys_inOneBoundedExtensionRead() throws Exception {
+        MockHttpServletRequest request = branchRequest(CsvScenario.EXTENSION);
+        request.setParameter("custom_key", "on");
+        var properties = mock(CarlosProperties.class);
+        when(properties.getProperty("demographicExt")).thenReturn("custom key");
+        List<SqlCall> extensionCalls = new ArrayList<>();
+        var demographic = new ConfiguredReportQuery.Row(Map.of("demographic_no", "41", "last_name", "FAKE",
+                "first_name", "First"), List.of());
+        configuredQueryMock.when(() -> ConfiguredReportQuery.read(anyString(), any(Object[].class)))
+                .thenAnswer(call -> {
+                    String sql = call.getArgument(0);
+                    if (!sql.startsWith("select x.demographic_no, k.extension_key")) {
+                        return new ConfiguredReportQuery.Result(List.of(), List.of(demographic));
+                    }
+                    extensionCalls.add(new SqlCall(sql, extractBindParameters(call.getArguments())));
+                    return new ConfiguredReportQuery.Result(List.of(), List.of(
+                            extensionRow("41", "prefer_language", "French"), extensionRow("41", "custom_key", "custom value")));
+                });
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        try (var settings = mockStatic(CarlosProperties.class)) {
+            settings.when(CarlosProperties::getInstance).thenReturn(properties);
+            new RptDownloadCSVServlet().service(request, response);
+        }
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentAsString()).contains("Preferred Language\tcustom key", "French\tcustom value");
+        assertThat(extensionCalls).singleElement().satisfies(call -> {
+            assertThat(call.sql()).contains("SELECT ? AS extension_key UNION ALL SELECT ? AS extension_key", "in (?)");
+            assertThat(call.params()).containsExactly("prefer_language", "custom_key", 41);
+        });
+    }
+
+    @Test
+    void shouldKeepPatientsAndKeysDistinct_forDigitLeadingExtensionKeys() throws Exception {
+        var request = new MockHttpServletRequest();
+        request.getSession(true);
+        request.setParameter("demoReport", "true");
+        request.setParameter("first_name", "on");
+        request.setParameter("2custom", "on");
+        request.setParameter("custom", "on");
+        request.setParameter("filter_1", "on");
+        request.setParameter("value_1", "demographic.first_name='FAKE'");
+        request.setParameter("dateFormat_1", "");
+        var first = new ConfiguredReportQuery.Row(Map.of("demographic_no", "41", "first_name", "FAKE first"), List.of());
+        var second = new ConfiguredReportQuery.Row(Map.of("demographic_no", "412", "first_name", "FAKE second"), List.of());
+        configuredQueryMock.when(() -> ConfiguredReportQuery.read(anyString(), any(Object[].class)))
+                .thenAnswer(call -> new ConfiguredReportQuery.Result(List.of(),
+                        ((String) call.getArgument(0)).startsWith("select x.demographic_no, k.extension_key")
+                                ? List.of(extensionRow("41", "2custom", "FAKE first value"), extensionRow("412", "custom", "FAKE second value"))
+                                : List.of(first, second)));
+        var properties = mock(CarlosProperties.class);
+        when(properties.getProperty("demographicExt")).thenReturn("2custom|custom");
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        try (var settings = mockStatic(CarlosProperties.class)) {
+            settings.when(CarlosProperties::getInstance).thenReturn(properties);
+            new RptDownloadCSVServlet().service(request, response);
+        }
+        assertThat(response.getStatus()).isEqualTo(200);
+        try (var csv = org.apache.commons.csv.CSVParser.parse(response.getContentAsString(),
+                org.apache.commons.csv.CSVFormat.DEFAULT.builder().setDelimiter('\t').get())) {
+            var rows = csv.getRecords();
+            assertThat(rows).hasSize(3);
+            int digitKey = rows.getFirst().toList().indexOf("2custom");
+            int plainKey = rows.getFirst().toList().indexOf("custom");
+            assertThat(digitKey).isGreaterThanOrEqualTo(0);
+            assertThat(plainKey).isGreaterThanOrEqualTo(0);
+            assertThat(rows.get(1).get(digitKey)).isEqualTo("FAKE first value");
+            assertThat(rows.get(1).get(plainKey)).isEmpty();
+            assertThat(rows.get(2).get(digitKey)).isEmpty();
+            assertThat(rows.get(2).get(plainKey)).isEqualTo("FAKE second value");
+        }
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"=1+1", "+cmd", "-cmd", "@SUM(1)", "  =1+1", "\ttext", "\rtext", "\ntext", "-5", "-0.5e2", "FAKE plain", ""})
+    void shouldGuardSpreadsheetCells_whenRenderingExtensionValues(String value) throws Exception {
+        var request = branchRequest(CsvScenario.EXTENSION);
+        configuredQueryMock.when(() -> ConfiguredReportQuery.read(anyString(), any(Object[].class)))
+                .thenAnswer(call -> new ConfiguredReportQuery.Result(List.of(),
+                        ((String) call.getArgument(0)).startsWith("select x.demographic_no, k.extension_key")
+                                ? List.of(extensionRow("41", "prefer_language", value))
+                                : List.of(new ConfiguredReportQuery.Row(Map.of("demographic_no", "41", "last_name", "FAKE", "first_name", "Patient"), List.of()))));
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        new RptDownloadCSVServlet().service(request, response);
+        assertThat(response.getStatus()).isEqualTo(200);
+        try (var csv = org.apache.commons.csv.CSVParser.parse(response.getContentAsString(),
+                org.apache.commons.csv.CSVFormat.DEFAULT.builder().setDelimiter('\t').get())) {
+            var rows = csv.getRecords();
+            assertThat(rows).hasSize(2);
+            int column = rows.getFirst().toList().indexOf("Preferred Language");
+            assertThat(column).isGreaterThanOrEqualTo(0);
+            String expected = value.isEmpty() || value.equals("FAKE plain") || value.equals("-5") || value.equals("-0.5e2")
+                    ? value : "\t" + value;
+            assertThat(rows.get(1).get(column)).isEqualTo(expected);
+        }
+    }
+
+    @Test
+    void shouldSkipExtensionRetrieval_whenTheCohortIsEmpty() throws Exception {
+        var request = branchRequest(CsvScenario.EXTENSION);
+        List<SqlCall> calls = new ArrayList<>();
+        configuredQueryMock.when(() -> ConfiguredReportQuery.read(anyString(), any(Object[].class)))
+                .thenAnswer(call -> {
+                    calls.add(new SqlCall(call.getArgument(0), extractBindParameters(call.getArguments())));
+                    return new ConfiguredReportQuery.Result(List.of(), List.of());
+                });
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        try (var settings = mockStatic(CarlosProperties.class)) {
+            settings.when(CarlosProperties::getInstance).thenReturn(mock(CarlosProperties.class));
+            new RptDownloadCSVServlet().service(request, response);
+        }
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentAsString()).contains("Preferred Language");
+        assertThat(calls).noneMatch(call -> call.sql().contains("from demographicExt x"));
+    }
+
+    private static ConfiguredReportQuery.Row extensionRow(String patient, String key, String value) {
+        Map<String, String> values = new java.util.HashMap<>();
+        values.put("demographic_no", patient);
+        values.put("extension_key", key);
+        values.put("value", value);
+        return new ConfiguredReportQuery.Row(values, List.of());
+    }
+
+    @Test
+    void shouldKeepLastDateAndIdOrderedValue_forLegacyDuplicateRows() throws Exception {
+        var request = branchRequest(CsvScenario.EXTENSION);
+        var demographic = new ConfiguredReportQuery.Row(Map.of("demographic_no", "41", "last_name", "FAKE",
+                "first_name", "First"), List.of());
+        List<SqlCall> extensionCalls = new ArrayList<>();
+        configuredQueryMock.when(() -> ConfiguredReportQuery.read(anyString(), any(Object[].class)))
+                .thenAnswer(call -> {
+                    String sql = call.getArgument(0);
+                    if (!sql.startsWith("select x.demographic_no, k.extension_key")) {
+                        return new ConfiguredReportQuery.Result(List.of(), List.of(demographic));
+                    }
+                    extensionCalls.add(new SqlCall(sql, extractBindParameters(call.getArguments())));
+                    // The physical ordering puts NULL dates first and the highest ID last on a date tie.
+                    return new ConfiguredReportQuery.Result(List.of(), List.of(
+                            extensionRow("41", "prefer_language", "null-date"),
+                            extensionRow("41", "prefer_language", "earlier-date"),
+                            extensionRow("41", "prefer_language", "same-date-lower-id"),
+                            extensionRow("41", "prefer_language", "same-date-higher-id")));
+                });
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        try (var settings = mockStatic(CarlosProperties.class)) {
+            settings.when(CarlosProperties::getInstance).thenReturn(mock(CarlosProperties.class));
+            new RptDownloadCSVServlet().service(request, response);
+        }
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentAsString()).contains("\tsame-date-higher-id")
+                .doesNotContain("null-date", "earlier-date", "same-date-lower-id");
+        assertThat(extensionCalls).singleElement().satisfies(call ->
+                assertThat(call.sql()).endsWith("order by x.date_time, x.id"));
     }
 
     private MockHttpServletRequest branchRequest(CsvScenario scenario) {
