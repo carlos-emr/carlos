@@ -31,9 +31,11 @@ package io.github.carlos_emr.carlos.hospitalReportManager.v2018;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -45,6 +47,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.logging.log4j.Logger;
 
+import io.github.carlos_emr.carlos.hospitalReportManager.HRMReportAccess;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMCategoryDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
@@ -171,7 +174,10 @@ public class HRM2Action extends ActionSupport {
             int catId = Integer.parseInt(categoryId);
             int docId = Integer.parseInt(hrmDocumentId);
             category = hrmCategoryDao.find(catId);
-            if (category != null) {
+            // A report filed to a patient this provider is locked out of is not theirs to change:
+            // the request is answered like one that named no report.
+            if (category != null
+                    && HRMReportAccess.mayReadReport(securityInfoManager, hrmDocumentToDemographicDao, loggedInInfo, docId)) {
                 doc = hrmDocumentDao.find(docId);
 
                 if (doc != null) {
@@ -295,13 +301,23 @@ public class HRM2Action extends ActionSupport {
 
             SimpleDateFormat fmt = new SimpleDateFormat("yyyy-MM-dd HH:mm");
 
+            // A row is a patient's name, birth date and health number. One filed to a patient this
+            // provider is locked out of is left out of the page, as the chart would refuse it;
+            // the totals still count it, so a page can be shorter than its size.
+            Predicate<Collection<HRMDocumentToDemographic>> listable =
+                    HRMReportAccess.listFilter(securityInfoManager, loggedInInfo, true);
+
             for (HRMDocument d : docs) {
+                List<HRMDocumentToDemographic> ptList = hrmDocumentToDemographicDao.findByHrmDocumentId(d.getId().toString());
+                if (!listable.test(ptList)) {
+                    continue;
+                }
+
                 HRMCategory category = null;
                 if (d.getHrmCategoryId() != null) {
                     category = hrmCategoryDao.find(d.getHrmCategoryId());
                 }
 
-                List<HRMDocumentToDemographic> ptList = hrmDocumentToDemographicDao.findByHrmDocumentId(d.getId().toString());
                 Integer demographicNo = (ptList != null && !ptList.isEmpty()) ? ptList.get(0).getDemographicNo() : null;
                 ObjectNode data1 = objectMapper.createObjectNode();
                 data1.put("id", d.getId() + "");

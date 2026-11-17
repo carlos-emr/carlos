@@ -1,81 +1,80 @@
 <%-- edit-form-personal.jsp: Edit form personal info, address, HIN (extracted from demographiceditdemographic.jsp lines 2610-3855) --%>
 <%@ page import="java.util.*" %>
-<%@ page import="java.net.*" %>
+
 <%@ page import="java.text.DecimalFormat" %>
-<%@ page import="java.nio.charset.StandardCharsets" %>
+
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.AppointmentMainBean" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="io.github.carlos_emr.SxmlMisc" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.Gender" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.ISO36612" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.OtherIdManager" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.ContactDao" %>
+
+
+
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.CountryCodeDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicArchiveDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicContactDao" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicCustDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicExtArchiveDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicExtDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateCodeDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateDao" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.WaitingListDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.WaitingListNameDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Admission" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicArchive" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicExtArchive" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.model.CountryCode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicContact" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicCust" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.LookupList" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.LookupListItem" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.WaitingListName" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.web.Contact2Action" %>
-<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicMerged" %>
-<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicRelationship" %>
+
+
+
+
+
+
+
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.ProvinceNames" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicEditHelper" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.Util" %>
-<%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
-<%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.PatientConsentManager" %>
+
 <%@ page import="io.github.carlos_emr.carlos.managers.ProgramManager2" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
-<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
-<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <c:set var="ctx" value="${ pageContext.request.contextPath }"/>
 <%-- Retrieve all variables from request attributes (set by DemographicEdit2Action) --%>
@@ -155,10 +154,6 @@
         printLabLbl = demoPath + "printClientLabLabelAction?demographic_no=";
     }
 
-    String wLReadonly = "";
-    if (oscarProps != null && "true".equals(oscarProps.getProperty("DEMOGRAPHIC_WAITING_LIST"))) {
-        wLReadonly = "readonly";
-    }
     
     String warningLevel = demoExt != null ? demoExt.get("rxInteractionWarningLevel") : null;
     if (warningLevel == null) warningLevel = "0";
@@ -344,14 +339,14 @@
                                                         </b></td>
                                                         <td align="left"><input type="text"
                                                                                 name="nameUsed" <%=getDisabled("nameUsed")%>
-                                                                                size="30"
+                                                                                size="30" maxlength="<%= Demographic.ALIAS_MAX_LENGTH %>"
                                                                                 value="<carlos:encode value='<%= demographic.getAlias() %>' context="htmlAttribute"/>"
                                                                                 onBlur="upCaseCtrl(this)"></td>
                                                         <td style="text-align: right;">
                                                             <strong><fmt:message key="demographic.demographicaddrecordhtm.formPronouns"/></strong>
                                                         </td>
                                                         <td style="text-align: left;">
-                                                            <input type="text" id="patientPronouns" name="pronouns"
+                                                            <input type="text" id="patientPronouns" name="pronouns" maxlength="<%=Demographic.PRONOUN_MAX_LENGTH%>"
                                                                    value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getPronoun()) %>' context="htmlAttribute"/>"/>
                                                         </td>
                                                     </tr>
@@ -656,7 +651,8 @@
                                                                 } %> : </b></td>
                                                         <td align="left"><input type="text" name="postal"
                                                                                 size="30" <%=getDisabled("postal")%>
-                                                                                value="<%=StringUtils.trimToEmpty(demographic.getPostal())%>"
+                                                                                data-original-province="<carlos:encode value='<%= StringUtils.trimToEmpty(province) %>' context="htmlAttribute"/>"
+                                                                                value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getPostal()) %>' context="htmlAttribute"/>"
                                                                                 onBlur="upCaseCtrl(this)"
                                                                                 onChange="isPostalCode()"></td>
                                                     </tr>
@@ -943,7 +939,7 @@
                                                             <input type="text" name="phone"
                                                                    onblur="formatPhoneNum(this);" <%=getDisabled("phone")%>
                                                                    style="display: inline; width: auto;"
-                                                                   value="<%=StringUtils.trimToEmpty(StringUtils.trimToEmpty(demographic.getPhone()))%>">
+                                                                   value="<carlos:encode value='<%= StringUtils.trimToEmpty(StringUtils.trimToEmpty(demographic.getPhone())) %>' context="htmlAttribute"/>">
                                                             <label for="hPhoneExt"><fmt:message key="demographic.demographiceditdemographic.msgExt"/>:</label>
                                                             <input type="text" style="width:50% !important;"
                                                                    name="hPhoneExt"
@@ -959,7 +955,7 @@
                                                                                 name="phone2" <%=getDisabled("phone2")%>
                                                                                 onblur="formatPhoneNum(this);"
                                                                                 style="display: inline; width: auto;"
-                                                                                value="<%=StringUtils.trimToEmpty(demographic.getPhone2())%>">
+                                                                                value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getPhone2()) %>' context="htmlAttribute"/>">
                                                             <label for="wPhoneExt"><fmt:message key="demographic.demographiceditdemographic.msgExt"/>:</label>
                                                             <input type="text" style="width:50% !important;"
                                                                    name="wPhoneExt"
@@ -1018,19 +1014,19 @@
                                                             <td align="left">
 
                                                                 <select name="aboriginal" <%=getDisabled("aboriginal")%>>
-                                                                    <option value="" ${ pageScope.demoExtended["aboriginal"] eq '' ? 'selected' : '' } >
+                                                                    <option value="" ${ requestScope.demoExt["aboriginal"] eq '' ? 'selected' : '' } >
                                                                         Unknown
                                                                     </option>
-                                                                    <option value="No" ${ pageScope.demoExtended["aboriginal"] eq 'No' ? 'selected' : '' } >
+                                                                    <option value="No" ${ requestScope.demoExt["aboriginal"] eq 'No' ? 'selected' : '' } >
                                                                         No
                                                                     </option>
-                                                                    <option value="Yes" ${ pageScope.demoExtended["aboriginal"] eq 'Yes' ? 'selected' : '' } >
+                                                                    <option value="Yes" ${ requestScope.demoExt["aboriginal"] eq 'Yes' ? 'selected' : '' } >
                                                                         Yes
                                                                     </option>
 
                                                                 </select>
                                                                 <input type="hidden" name="aboriginalOrig"
-                                                                       value="${ pageScope.demoExtended["aboriginal"] }"/>
+                                                                       value="${carlos:forHtmlAttribute(requestScope.demoExt['aboriginal'])}"/>
                                                             </td>
                                                         </oscar:oscarPropertiesCheck>
                                                     </tr>
@@ -1045,7 +1041,7 @@
                                                             <strong><fmt:message key="demographic.demographicaddrecordhtm.formGender"/></strong>
                                                         </td>
                                                         <td style="text-align: left;">
-                                                            <input type="text" id="patientGender" name="gender"
+                                                            <input type="text" id="patientGender" name="gender" maxlength="<%=Demographic.GENDER_MAX_LENGTH%>"
                                                                    value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getGender()) %>' context="htmlAttribute"/>"/>
                                                         </td>
                                                     </tr>
@@ -1104,12 +1100,12 @@
                                                         </td>
                                                         <td align="left" nowrap><input type="text" name="hin"
                                                                                        id="hinBox" <%=getDisabled("hin")%>
-                                                                                       value="<%=StringUtils.trimToEmpty(demographic.getHin())%>"
+                                                                                       value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getHin()) %>' context="htmlAttribute"/>"
                                                                                        size="17">
                                                             <fmt:message key="demographic.demographiceditdemographic.formVer"/><input
                                                                     type="text" name="ver"
                                                                     style="width:20% !important;" <%=getDisabled("ver")%>
-                                                                    value="<%=StringUtils.trimToEmpty(demographic.getVer())%>"
+                                                                    value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getVer()) %>' context="htmlAttribute"/>"
                                                                     onBlur="upCaseCtrl(this)" id="verBox">
                                                             <%if ("online".equals(oscarProps.getProperty("hcv.type", "simple"))) { %>
                                                             <input type="button" value="Validate"

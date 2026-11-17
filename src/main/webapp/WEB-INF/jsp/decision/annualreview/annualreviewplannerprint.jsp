@@ -36,7 +36,7 @@
     String curUser_no = (String) session.getAttribute("user");
 %>
 <%@ page
-        import="java.util.*, java.sql.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, java.text.*, java.lang.*,java.net.*"
+        import="java.util.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, java.lang.*"
         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <jsp:useBean id="riskDataBean" class="java.util.Properties" scope="page"/>
@@ -55,7 +55,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.XmlUtils" %>
 <%@ page import="java.io.StringReader" %>
 <%@ page import="org.xml.sax.InputSource" %>
@@ -153,7 +153,7 @@
         StringBuilder checkedJson = new StringBuilder("[");
         for (int ci = 0; ci < checkedFieldNames.size(); ci++) {
             if (ci > 0) checkedJson.append(",");
-            checkedJson.append("\"").append(SafeEncode.forJavaScript(checkedFieldNames.get(ci))).append("\"");
+            checkedJson.append("\"").append(SafeEncode.forJson(checkedFieldNames.get(ci))).append("\"");
         }
         checkedJson.append("]");
         out.print(checkedJson.toString());

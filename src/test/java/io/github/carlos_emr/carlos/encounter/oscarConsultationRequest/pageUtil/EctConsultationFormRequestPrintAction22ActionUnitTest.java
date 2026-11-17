@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -28,16 +30,21 @@ import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.HashMap;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -69,6 +76,9 @@ import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.FaxManager;
+import io.github.carlos_emr.carlos.hospitalReportManager.HRMPDFCreator;
+import io.github.carlos_emr.carlos.managers.NioFileManager;
+import io.github.carlos_emr.carlos.managers.NioFileManagerImpl;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -82,6 +92,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
@@ -110,6 +123,8 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
     private MockedConstruction<CommonLabResultData> commonLabResultDataConstruction;
     private MockedConstruction<ConsultationPDFCreator> consultationPdfCreatorConstruction;
 
+    @org.junit.jupiter.api.io.TempDir private Path documentDirectory;
+    private String previousDocumentDirectory;
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
     private LoggedInInfo loggedInInfo;
@@ -126,6 +141,8 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
 
     @BeforeEach
     void setUp() {
+        previousDocumentDirectory = io.github.carlos_emr.CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        io.github.carlos_emr.CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDirectory.toString());
         request = new MockHttpServletRequest("POST", "/encounter/PrintConsultation");
         request.setParameter("reqId", "42");
         request.setParameter("demographicNo", "1");
@@ -138,6 +155,7 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(ConsultationManager.class, consultationManager);
         registerMock(FaxManager.class, faxManager);
+        registerMock(NioFileManager.class, new NioFileManagerImpl());
         // CommonLabResultData resolves these DAOs in its static initializer; register them so the
         // class can initialize when Mockito instruments it for mocked construction below.
         patientLabRoutingDao = mock(PatientLabRoutingDao.class);
@@ -199,6 +217,8 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
 
     @AfterEach
     void tearDown() {
+        if (previousDocumentDirectory == null) io.github.carlos_emr.CarlosProperties.getInstance().remove("DOCUMENT_DIR");
+        else io.github.carlos_emr.CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", previousDocumentDirectory);
         ReflectionTestUtils.setField(
                 EctConsultationFormRequestPrintAction22Action.class, "faxManager", originalStaticFaxManager);
         if (consultationPdfCreatorConstruction != null) {
@@ -215,6 +235,173 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
         }
         if (servletActionContextMock != null) {
             servletActionContextMock.close();
+        }
+    }
+
+    /** A verification failure must leave no printable consultation PDF behind. */
+    @Test
+    @DisplayName("should refuse direct printing when the stored consultation signature cannot be verified")
+    void shouldRefuseDirectPrint_whenStoredSignatureCannotBeVerified() {
+        consultationPdfCreatorConstruction.close();
+        consultationPdfCreatorConstruction = mockConstruction(ConsultationPDFCreator.class,
+                (mock, context) -> doAnswer(invocation -> {
+                    throw ConsultationPDFCreator.reportSignaturePrintFailure(request,
+                            new ConsultationPDFCreator.SignatureRenderingException(
+                                    "signature ownership cannot be established", null));
+                }).when(mock).printPdf(any()));
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo("error");
+        assertThat(request.getAttribute("printError")).isEqualTo(Boolean.TRUE);
+        assertThat((String) request.getAttribute("errorMessage"))
+                .contains("stored signature could not be verified or rendered");
+        assertThat(response.getContentAsByteArray()).isEmpty();
+        assertThat(response.getContentType()).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1, 31, 32, 33, 1025})
+    @SuppressWarnings("unchecked")
+    void shouldPreserveExactPdfBytes_whenBuffersHaveUnusedCapacity(int length) throws Exception {
+        byte[] payload = new byte[length];
+        for (int index = 0; index < length; index++) {
+            payload[index] = (byte) (index * 31 + length);
+        }
+        consultationPdfCreatorConstruction.close();
+        consultationPdfCreatorConstruction = mockConstruction(ConsultationPDFCreator.class, (creator, context) ->
+                doAnswer(invocation -> {
+                    ((OutputStream) context.arguments().get(1)).write(payload);
+                    return null;
+                }).when(creator).printPdf(any()));
+
+        EDoc image = mock(EDoc.class);
+        when(image.getDocId()).thenReturn("10");
+        Path imageRoot = Path.of(io.github.carlos_emr.CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
+        Files.createDirectories(imageRoot);
+        Path imageFile = Files.createTempFile(imageRoot, "consult-image-", ".png");
+        when(image.getFileName()).thenReturn(imageFile.getFileName().toString());
+        when(image.isPrintable()).thenReturn(true);
+        when(image.isImage()).thenReturn(true);
+        eDocUtilMock.when(() -> EDocUtil.listDocs(any(), eq("1"), eq("42"), anyBoolean()))
+                .thenReturn(new ArrayList<>(List.of(image)));
+        when(ctlDocumentDao.findDocumentNosForDemographic(eq(1), anyCollection())).thenReturn(List.of(10));
+        commonLabResultDataConstruction.close();
+        LabResultData lab = new LabResultData(LabResultData.HL7TEXT);
+        lab.setSegmentID("30");
+        commonLabResultDataConstruction = mockConstruction(CommonLabResultData.class, (data, context) ->
+                when(data.populateLabResultsData(any(), eq("1"), eq("42"), anyBoolean()))
+                        .thenReturn(new ArrayList<>(List.of(lab))));
+        when(patientLabRoutingDao.findLabNosForDemographic(eq(1), eq(PatientLabRoutingDao.HL7), anyCollection()))
+                .thenReturn(List.of(30));
+        HashMap<String, Object> hrm = new HashMap<>();
+        hrm.put("id", 7);
+        when(consultationManager.getAttachedHRMDocuments(loggedInInfo, "1", "42"))
+                .thenReturn(new ArrayList<>(List.of(hrm)));
+
+        List<Path> labFiles = new ArrayList<>();
+        NioFileManager fileManager = spy(new NioFileManagerImpl());
+        doAnswer(invocation -> {
+            Path file = (Path) invocation.callRealMethod();
+            labFiles.add(file);
+            return file;
+        }).when(fileManager).saveTempFile(eq("consultationLab"), any(ByteArrayOutputStream.class));
+        registerMock(NioFileManager.class, fileManager);
+        try (MockedConstruction<ImagePDFCreator> images = mockConstruction(ImagePDFCreator.class, (creator, context) ->
+                     doAnswer(invocation -> {
+                         ((OutputStream) context.arguments().get(1)).write(payload);
+                         return null;
+                     }).when(creator).printPdf());
+             MockedConstruction<LabPDFCreator> labs = mockConstruction(LabPDFCreator.class, (creator, context) ->
+                     doAnswer(invocation -> {
+                         Path labFile = invocation.getArgument(0, java.io.File.class).toPath();
+                         if (Files.getFileStore(labFile).supportsFileAttributeView("posix")) {
+                             assertThat(Files.getPosixFilePermissions(labFile.getParent())).isEqualTo(
+                                     java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+                         }
+                         invocation.getArgument(1, OutputStream.class).write(payload);
+                         return null;
+                     }).when(creator).addEmbeddedDocuments(any(), any()));
+             MockedConstruction<HRMPDFCreator> hrms = mockConstruction(HRMPDFCreator.class, (creator, context) ->
+                     doAnswer(invocation -> {
+                         ((OutputStream) context.arguments().getFirst()).write(payload);
+                         return null;
+                     }).when(creator).printPdf());
+             MockedStatic<ConcatPDF> concat = mockStatic(ConcatPDF.class)) {
+            concat.when(() -> ConcatPDF.concat(any(List.class), any(OutputStream.class))).thenAnswer(invocation -> {
+                List<Object> streams = invocation.getArgument(0);
+                assertThat(streams).hasSize(4);
+                for (Object stream : streams) {
+                    assertThat(((InputStream) stream).readAllBytes()).containsExactly(payload);
+                }
+                invocation.getArgument(1, OutputStream.class).write(payload);
+                return 0;
+            });
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getContentAsByteArray()).containsExactly(payload);
+            assertThat(images.constructed()).hasSize(1);
+            assertThat(labs.constructed()).hasSize(1);
+            assertThat(hrms.constructed()).hasSize(1);
+            assertThat(labFiles).hasSize(1);
+            assertThat(labFiles.getFirst()).doesNotExist();
+            assertThat(labFiles.getFirst().getParent()).doesNotExist();
+        } finally {
+            Files.deleteIfExists(imageFile);
+        }
+    }
+
+    @Test
+    @DisplayName("should refuse to print a consult for a patient the provider is restricted from, before reading attachments")
+    void shouldRefusePrint_whenPatientIsRestricted() {
+        // General consult read is granted; the restriction is on this consult's own patient.
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("r"), eq("1"))).thenReturn(false);
+
+        assertThatThrownBy(action::execute)
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_con)");
+
+        eDocUtilMock.verifyNoInteractions();
+        verifyNoInteractions(consultationManager, faxManager);
+        assertThat(response.getContentAsByteArray()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should check the consult's own patient, not the submitted one, before reading attachments")
+    void shouldRefusePrint_whenOnlyTheSubmittedPatientIsAllowed() {
+        // The submitted patient is one the provider may read; consult 42's saved patient (1) is not.
+        request.setParameter("demographicNo", "2");
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("r"), eq("2"))).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("r"), eq("1"))).thenReturn(false);
+
+        assertThatThrownBy(action::execute)
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_con)");
+
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", "r", "1");
+        eDocUtilMock.verifyNoInteractions();
+        assertThat(response.getContentAsByteArray()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should fail the print, streaming nothing, when an attached document's file cannot be read")
+    void shouldFailPrint_whenAttachedDocumentFileCannotBeRead() throws Exception {
+        EDoc missing = new EDoc();
+        missing.setDocId("41");
+        missing.setFileName("FAKE-missing-" + System.nanoTime() + ".pdf");
+        missing.setContentType("application/pdf");
+        eDocUtilMock.when(() -> EDocUtil.listDocs(any(), any(), any(), anyBoolean()))
+                .thenReturn(new ArrayList<>(List.of(missing)));
+        // The patient's own document, so it passes the owner filter and reaches the readability check.
+        when(ctlDocumentDao.findDocumentNosForDemographic(eq(1), anyCollection())).thenReturn(List.of(41));
+
+        try (MockedStatic<ConcatPDF> concatPdfMock = mockStatic(ConcatPDF.class)) {
+            String result = action.execute();
+
+            assertThat(result).isEqualTo("error");
+            assertThat(request.getAttribute("printError")).isEqualTo(Boolean.TRUE);
+            assertThat(response.getContentAsByteArray()).isEmpty();
+            concatPdfMock.verifyNoInteractions();
         }
     }
 
@@ -239,7 +426,7 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
         // A cleanup-only close failure after the PDF bytes were streamed must not flip the
         // result to "error": Struts would forward an error JSP into the committed binary
         // response — exactly the direct-response corruption CLAUDE.md forbids.
-        Path attachedForm = Files.createTempFile("consult-print-close-fail-", ".pdf");
+        Path attachedForm = createRenderedPdf();
         try {
             EFormData eForm = mock(EFormData.class);
             when(eForm.getId()).thenReturn(7);
@@ -271,6 +458,36 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
     }
 
     @Test
+    void shouldStreamOmissionNoticeBeforeAttachments_whenStoredFormAndHrmAreUnavailable() throws Exception {
+        var formRow = new io.github.carlos_emr.carlos.commn.model.ConsultDocs(42, 701, "F", "999998");
+        var hrmRow = new io.github.carlos_emr.carlos.commn.model.ConsultDocs(42, 801, "H", "999998");
+        when(consultationManager.getAttachedDocumentsByType(loggedInInfo, 42, "F")).thenReturn(List.of(formRow));
+        when(consultationManager.getAttachedDocumentsByType(loggedInInfo, 42, "H")).thenReturn(List.of(hrmRow));
+        Path attachedForm = createRenderedPdf();
+        EFormData eform = mock(EFormData.class);
+        when(eform.getId()).thenReturn(7);
+        when(eform.getDemographicId()).thenReturn(1);
+        when(consultationManager.getAttachedEForms("42")).thenReturn(List.of(eform));
+        when(faxManager.renderFaxDocument(loggedInInfo, FaxManager.TransactionType.EFORM, 7, 1)).thenReturn(attachedForm);
+        try (MockedStatic<ConcatPDF> concat = mockStatic(ConcatPDF.class)) {
+            concat.when(() -> ConcatPDF.concat(org.mockito.ArgumentMatchers.<List<Object>>any(), any(java.io.OutputStream.class))).thenAnswer(invocation -> {
+                List<?> parts = invocation.getArgument(0);
+                assertThat(parts).hasSize(3);
+                try (var notice = org.apache.pdfbox.Loader.loadPDF(((InputStream) parts.get(1)).readAllBytes())) {
+                    String text = new org.apache.pdfbox.text.PDFTextStripper().getText(notice);
+                    assertThat(text).contains("Attachments not included", "clinical form", "An attachment is unavailable")
+                            .doesNotContain("701", "801", "HRM");
+                }
+                return 0;
+            });
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getContentType()).isEqualTo("application/pdf");
+        } finally {
+            Files.deleteIfExists(attachedForm);
+        }
+    }
+
+    @Test
     @DisplayName("should return error when an attached form has no metadata")
     void shouldReturnError_whenAttachedFormMetadataIsMissing() throws Exception {
         when(consultationManager.getAttachedForms(loggedInInfo, 42, 1))
@@ -288,6 +505,45 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
                                 .contains("Attached form \"unknown\"")
                                 .contains("form metadata is missing");
                     });
+        }
+    }
+
+    private Path createRenderedPdf() throws IOException {
+        Path root = Files.createDirectories(Path.of(System.getProperty("java.io.tmpdir"), "carlos-temp"));
+        return Files.createTempFile(root, "consult-print-", ".pdf");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @DisplayName("should refuse a rendered attachment outside the application temp, directly or through a symlink")
+    void shouldRefuseRenderedAttachmentOutsideApplicationTemp_withDirectPathOrSymlink(boolean symlink) throws Exception {
+        Path foreign = Files.createTempFile("not-carlos-owned-", ".pdf");
+        Path rendered = symlink ? createRenderedPdf() : foreign;
+        try {
+            if (symlink) {
+                Files.delete(rendered);
+                try {
+                    Files.createSymbolicLink(rendered, foreign);
+                } catch (UnsupportedOperationException | java.io.IOException unavailable) {
+                    // Windows without the privilege, or a filesystem without symlinks: the direct case still runs.
+                    org.junit.jupiter.api.Assumptions.assumeTrue(false, "symbolic links are not available here");
+                }
+            }
+            EFormData eForm = mock(EFormData.class);
+            when(eForm.getId()).thenReturn(7);
+            when(eForm.getDemographicId()).thenReturn(1);
+            when(consultationManager.getAttachedEForms("42")).thenReturn(List.of(eForm));
+            when(faxManager.renderFaxDocument(loggedInInfo, FaxManager.TransactionType.EFORM, 7, 1))
+                    .thenReturn(rendered);
+            try (MockedStatic<ConcatPDF> concat = mockStatic(ConcatPDF.class)) {
+                org.assertj.core.api.Assertions.assertThatThrownBy(action::execute)
+                        .isInstanceOf(SecurityException.class);
+                assertThat(response.getContentAsByteArray()).isEmpty();
+                concat.verifyNoInteractions();
+            }
+        } finally {
+            Files.deleteIfExists(rendered);
+            Files.deleteIfExists(foreign);
         }
     }
 
@@ -313,7 +569,7 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
             assertThat(result).isEqualTo("error");
             assertThat(request.getAttribute("printError")).isEqualTo(Boolean.TRUE);
             assertThat(transportConstruction.constructed()).hasSize(1);
-            verify(transportConstruction.constructed().get(0)).setDemographicNo("2");
+            org.mockito.Mockito.verify(transportConstruction.constructed().get(0)).setDemographicNo("2");
             // The FORM leg wraps identically to the EFORM leg: attachment named, reason preserved.
             assertThat(logCapture.events())
                     .anySatisfy(event -> {
@@ -356,7 +612,13 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
     @Test
     @DisplayName("should print only the consultation patient's own eForms and documents when consult docs reference another patient's")
     void shouldPrintOnlyOwnedAttachments_whenConsultDocsReferenceAnotherPatient() throws Exception {
-        Path ownForm = Files.createTempFile("consult-print-own-", ".pdf");
+        Path ownForm = createRenderedPdf();
+        // The print refuses a document whose file cannot be read, so the owned one must exist.
+        Path documentDir = Files.createTempDirectory("consult-print-docs-");
+        Path ownPdf = Files.writeString(documentDir.resolve("own.pdf"), "FAKE PDF fixture");
+        io.github.carlos_emr.CarlosProperties properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        String oldDocumentDir = properties.getProperty("DOCUMENT_DIR");
+        properties.setProperty("DOCUMENT_DIR", documentDir.toString());
         try {
             EFormData ownEForm = mock(EFormData.class);
             when(ownEForm.getId()).thenReturn(7);
@@ -384,8 +646,120 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
                 assertThat(printed.getValue()).noneSatisfy(item -> assertThat(String.valueOf(item)).endsWith("foreign.pdf"));
             }
         } finally {
+            if (oldDocumentDir == null) properties.remove("DOCUMENT_DIR");
+            else properties.setProperty("DOCUMENT_DIR", oldDocumentDir);
+            Files.deleteIfExists(ownPdf);
+            Files.deleteIfExists(documentDir);
             Files.deleteIfExists(ownForm);
         }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @ValueSource(strings = {"success", "render", "embed"})
+    @DisplayName("should protect and remove managed lab PDFs after successful or failed rendering")
+    void shouldRemoveManagedLabPdf_whenRenderingCompletesOrFails(String outcome) throws Exception {
+        Path temporaryRoot = Path.of(System.getProperty("java.io.tmpdir"));
+        List<Path> staged = new ArrayList<>();
+        try {
+            NioFileManager fileManager = spy(new NioFileManagerImpl());
+            doAnswer(invocation -> {
+                Path file = (Path) invocation.callRealMethod();
+                staged.add(file);
+                assertThat(file).startsWith(temporaryRoot);
+                if (file.getFileSystem().supportedFileAttributeViews().contains("posix")) {
+                    assertThat(Files.getPosixFilePermissions(file.getParent())).isEqualTo(
+                            java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+                }
+                return file;
+            }).when(fileManager).saveTempFile(eq("consultationLab"), any(ByteArrayOutputStream.class));
+            registerMock(NioFileManager.class, fileManager);
+            listOwnedHl7Lab();
+            try (MockedStatic<ConcatPDF> concat = mockStatic(ConcatPDF.class);
+                 MockedConstruction<LabPDFCreator> creators = mockConstruction(LabPDFCreator.class, (creator, context) -> {
+                         doAnswer(invocation -> {
+                             assertThat(staged.getFirst()).exists();
+                             if (outcome.equals("render")) throw new IOException("synthetic lab render failure");
+                             return null;
+                         }).when(creator).printPdf();
+                         doAnswer(invocation -> {
+                             assertThat(staged.getFirst()).exists();
+                             if (outcome.equals("embed")) throw new IOException("synthetic lab embed failure");
+                             return null;
+                         }).when(creator).addEmbeddedDocuments(any(), any());
+                 })) {
+                assertThat(action.execute()).isEqualTo(outcome.equals("success") ? ActionSupport.NONE : "error");
+                assertThat(request.getAttribute("printError")).isEqualTo(outcome.equals("success") ? null : Boolean.TRUE);
+                assertThat(creators.constructed()).hasSize(1);
+                assertThat(staged).hasSize(1);
+                assertThat(staged.getFirst()).doesNotExist();
+                assertThat(staged.getFirst().getParent()).doesNotExist();
+            }
+        } finally {
+            for (Path file : staged) {
+                Files.deleteIfExists(file);
+                Files.deleteIfExists(file.getParent());
+            }
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @CsvSource({"false, IOException", "true, IOException", "false, SecurityException", "true, SecurityException"})
+    @DisplayName("should preserve the render result and attempt both deletions when cleanup fails")
+    void shouldPreserveRenderResult_whenLabCleanupFails(boolean renderFails, String cleanupType) throws Exception {
+        Path labPdf = new NioFileManagerImpl().saveTempFile("consultationLab", new ByteArrayOutputStream());
+        NioFileManager fileManager = mock(NioFileManager.class);
+        when(fileManager.saveTempFile(eq("consultationLab"), any(ByteArrayOutputStream.class))).thenReturn(labPdf);
+        registerMock(NioFileManager.class, fileManager);
+        listOwnedHl7Lab();
+        String primaryMessage = "synthetic primary lab failure";
+        try (LogCapture logs = LogCapture.forLogger(EctConsultationFormRequestPrintAction22Action.class);
+             MockedStatic<ConcatPDF> concat = mockStatic(ConcatPDF.class);
+             MockedStatic<Files> files = mockStatic(Files.class, invocation -> {
+                 if (invocation.getMethod().getName().equals("deleteIfExists")) {
+                     if (cleanupType.equals("SecurityException")) {
+                         throw new SecurityException("sensitive patient path");
+                     }
+                     throw new IOException("sensitive patient path");
+                 }
+                 return invocation.callRealMethod();
+             });
+             MockedConstruction<LabPDFCreator> creators = mockConstruction(LabPDFCreator.class, (creator, context) ->
+                     doAnswer(invocation -> {
+                         if (renderFails) throw new IOException(primaryMessage);
+                         return null;
+                     }).when(creator).printPdf())) {
+            assertThat(action.execute()).isEqualTo(renderFails ? "error" : ActionSupport.NONE);
+            files.verify(() -> Files.deleteIfExists(labPdf));
+            files.verify(() -> Files.deleteIfExists(labPdf.getParent()));
+            assertThat(logs.events()).filteredOn(event -> event.getLevel() == org.apache.logging.log4j.Level.WARN)
+                    .hasSize(2).allSatisfy(event -> {
+                        assertThat(event.getMessage().getFormattedMessage()).isIn(
+                                "Failed to remove consultation lab temporary file (" + cleanupType + ")",
+                                "Failed to remove consultation lab temporary directory (" + cleanupType + ")");
+                        assertThat(event.getThrown()).isNull();
+                    });
+            if (renderFails) {
+                assertThat(logs.events()).anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(org.apache.logging.log4j.Level.ERROR);
+                    assertThat(event.getThrown()).isInstanceOf(PDFGenerationException.class)
+                            .hasMessageContaining("Attached LAB 30", "IOException");
+                });
+            }
+        } finally {
+            Files.deleteIfExists(labPdf);
+            Files.deleteIfExists(labPdf.getParent());
+        }
+    }
+
+    private void listOwnedHl7Lab() {
+        commonLabResultDataConstruction.close();
+        LabResultData lab = new LabResultData(LabResultData.HL7TEXT);
+        lab.setSegmentID("30");
+        commonLabResultDataConstruction = mockConstruction(CommonLabResultData.class, (data, context) ->
+                when(data.populateLabResultsData(any(), eq("1"), eq("42"), anyBoolean()))
+                        .thenReturn(new ArrayList<>(List.of(lab))));
+        when(patientLabRoutingDao.findLabNosForDemographic(eq(1), eq(PatientLabRoutingDao.HL7), anyCollection()))
+                .thenReturn(List.of(30));
     }
 
     @Test
@@ -431,6 +805,46 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(labPdfConstruction.constructed()).isEmpty();
+        }
+    }
+
+    /**
+     * Issue #4693: the lab the PDF cannot draw is still attached. The legacy print names it on a
+     * page right after the consultation letter instead of leaving it out without a word.
+     */
+    @Test
+    @DisplayName("should print the HL7 lab and name the MDS lab on a page after the consultation letter")
+    @SuppressWarnings("unchecked")
+    void shouldNameMdsLabAfterConsultationLetter_whenConsultHasHl7AndMdsLabs() throws Exception {
+        commonLabResultDataConstruction.close();
+        LabResultData hl7Lab = new LabResultData(LabResultData.HL7TEXT);
+        hl7Lab.setSegmentID("30");
+        LabResultData mdsLab = new LabResultData(LabResultData.MDS);
+        mdsLab.setSegmentID("20");
+        mdsLab.discipline = "Hem/Chem/Other";
+        mdsLab.dateTime = "2024-03-05 10:22:00";
+        commonLabResultDataConstruction = mockConstruction(CommonLabResultData.class, (labData, context) ->
+                when(labData.populateLabResultsData(any(), eq("1"), eq("42"), anyBoolean()))
+                        .thenReturn(new ArrayList<>(List.of(hl7Lab, mdsLab))));
+        when(patientLabRoutingDao.findLabNosForDemographic(eq(1), eq(PatientLabRoutingDao.HL7), anyCollection()))
+                .thenReturn(List.of(30));
+
+        try (MockedStatic<ConcatPDF> concatPdfMock = mockStatic(ConcatPDF.class);
+             MockedConstruction<LabPDFCreator> labPdfConstruction = mockConstruction(LabPDFCreator.class)) {
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            ArgumentCaptor<List<Object>> packet = ArgumentCaptor.forClass(List.class);
+            concatPdfMock.verify(() -> ConcatPDF.concat(packet.capture(), any(java.io.OutputStream.class)));
+            // The consultation letter, the page naming the MDS lab, then the HL7 lab.
+            assertThat(packet.getValue()).hasSize(3);
+            byte[] notice = ((InputStream) packet.getValue().get(1)).readAllBytes();
+            try (org.apache.pdfbox.pdmodel.PDDocument document = org.apache.pdfbox.Loader.loadPDF(notice)) {
+                assertThat(new org.apache.pdfbox.text.PDFTextStripper().getText(document))
+                        .contains("MDS lab result: Hem/Chem/Other, 2024-03-05 10:22:00");
+            }
+            assertThat(labPdfConstruction.constructed()).hasSize(1);
+            assertThat(request.getAttribute("segmentID")).isEqualTo("30");
         }
     }
 

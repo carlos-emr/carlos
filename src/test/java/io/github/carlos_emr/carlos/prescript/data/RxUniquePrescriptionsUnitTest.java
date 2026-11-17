@@ -106,6 +106,28 @@ class RxUniquePrescriptionsUnitTest extends CarlosUnitTestBase {
         return Stream.of(unique(drugs)).map(RxPrescriptionData.Prescription::getDrugId).toList();
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"UNKNOWN", "SUSPENDED", "NEW", "HISTORICAL"})
+    void shouldKeepUncertainImportedHistoryOutOfCurrentMedicationContent_whenLongTermIsSupplied(String currentness) {
+        Drug history = drug(82101, "Synthetic imported history");
+        history.setCdsCurrentness(currentness);
+        history.setLongTerm(true);
+        assertThat(uniqueIds(history)).isEmpty();
+        // Selection does not mutate or archive the preserved source occurrence.
+        assertThat(history.isArchived()).isFalse();
+        assertThat(history.getCdsCurrentness()).isEqualTo(currentness);
+    }
+
+    @Test
+    void shouldRetainExplicitlyCurrentImportedMedication_whenNoGuessedEndDateExists() {
+        Drug current = drug(82102, "Synthetic imported current");
+        current.setCdsCurrentness("CURRENT");
+        current.setEndDate(null);
+        assertThat(uniqueIds(current)).containsExactly(82102);
+        current.setArchived(true);
+        assertThat(uniqueIds(current)).isEmpty();
+    }
+
     @Test
     void shouldKeepNewestEquivalentEntry_whenDifferentDrugOccursBetweenDuplicates() {
         Drug oldest = drug(1, "Synthetic X");

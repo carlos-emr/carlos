@@ -163,6 +163,8 @@ async function clickOpensPopup(page, locator, options = {}) {
  * the only honest reading of a control whose behaviour is a deployment setting.
  *
  * Returns { page, isPopup }. The caller closes the page only when isPopup.
+ * checkErrorPage defaults to true; an aggregate audit may pass false and record
+ * the destination's error page itself before continuing with its next control.
  */
 async function clickOpensPopupOrNavigates(page, locator, options = {}) {
   const context = options.context || page.context();
@@ -206,7 +208,7 @@ async function clickOpensPopupOrNavigates(page, locator, options = {}) {
     await outcome.page.waitForURL(url => String(url) !== 'about:blank', { timeout, waitUntil: 'domcontentloaded' });
     await outcome.page.waitForLoadState('domcontentloaded', { timeout });
     await outcome.page.waitForLoadState('networkidle', { timeout }).catch(() => {});
-    await assertNotErrorPage(outcome.page, label, options);
+    if (options.checkErrorPage !== false) await assertNotErrorPage(outcome.page, label, options);
     return outcome;
   } catch (error) {
     // The caller never receives a rejected popup. Close it here so the next
@@ -431,7 +433,9 @@ async function expectOpenerRefresh(opener, popup, rowLocator, options = {}) {
  * replaced its <select id="specialist"> with a hidden #specialist plus a
  * #specialistInput autocomplete, so the check silently fell through to its
  * programmatic fallback and stopped testing the widget at all (alpha-11
- * observation 5). Typing and picking is the test; the hidden id is the proof.
+ * observation 5). Entering text and picking is the test; the hidden id is the proof.
+ * `inputMode: 'fill'` enters a complete query in one input update when the caller
+ * is testing selection rather than intermediate keystroke/search cancellation.
  */
 async function typeAutocomplete(page, inputSelector, text, options = {}) {
   const timeout = options.timeout || DEFAULT_TIMEOUT;
@@ -439,7 +443,11 @@ async function typeAutocomplete(page, inputSelector, text, options = {}) {
   const input = typeof inputSelector === 'string' ? page.locator(inputSelector) : inputSelector;
   await input.click({ timeout });
   await input.fill('');
-  await input.type(text, { delay: options.delay || 60 });
+  if (options.inputMode === 'fill') {
+    await input.fill(text);
+  } else {
+    await input.type(text, { delay: options.delay || 60 });
+  }
   const suggestions = page.locator(menu).locator('li');
   await suggestions.first().waitFor({ state: 'visible', timeout });
   const option = options.option
@@ -761,6 +769,20 @@ const REQUIRED_SECTIONS = [
   'administration', 'preferences', 'logout',
 ];
 
+/**
+ * Hover the eChart Forms module's "+" (#menuTitle1 a) so its Add Form menu (#menu1) shows.
+ *
+ * The hover is forced. showPopup (share/javascript/popupmenu.js) opens the menu under the cursor (offsets -30/-5),
+ * so after the mouseover the menu's own heading covers the "+", and on a layout where it does Playwright's
+ * actionability re-check never settles ("locator.hover: Timeout", before the check reaches its form). A user simply
+ * lands in the open menu. Callers still prove the entry by finding its link in the menu and clicking it.
+ *
+ * @param {import('playwright').Page} chart the eChart page
+ */
+async function openFormsMenu(chart) {
+  await chart.locator('#menuTitle1 a').hover({ force: true });
+}
+
 module.exports = {
   NAVIGATION,
   REQUIRED_SECTIONS,
@@ -775,6 +797,7 @@ module.exports = {
   expectOpenerRefresh,
   inFrame,
   markOpener,
+  openFormsMenu,
   pathOnly,
   pickDate,
   pressShortcut,

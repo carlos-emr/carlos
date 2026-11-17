@@ -38,6 +38,9 @@ import io.github.carlos_emr.carlos.commn.model.GroupNoteLink;
 
 public interface GroupNoteDao extends AbstractDao<GroupNoteLink> {
 
+    /** Hold the exact source revision until its surrounding group transaction completes. */
+    boolean lockNoteForGroupUpdate(Integer noteId);
+
     public List<GroupNoteLink> findLinksByDemographic(Integer demographicNo);
 
     public List<GroupNoteLink> findLinksByDemographicSince(Integer demographicNo, Date lastDateUpdated);

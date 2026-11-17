@@ -91,7 +91,7 @@ class DocumentAttachmentManagerImplConsultAttachmentUnitTest extends CarlosUnitT
 
     @BeforeEach
     void setUp() {
-        manager = new DocumentAttachmentManagerImpl();
+        manager = new DocumentAttachmentManagerImpl(org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.LabManager.class));
         injectDependency(manager, "securityInfoManager", securityInfoManager);
         injectDependency(manager, "consultDocsDao", consultDocsDao);
         injectDependency(manager, "attachmentOwnershipService", attachmentOwnershipService);
@@ -109,6 +109,9 @@ class DocumentAttachmentManagerImplConsultAttachmentUnitTest extends CarlosUnitT
         parent.setDemographicId(123);
         lenient().when(parents.lockForAttachmentSync(456)).thenReturn(parent);
         lenient().when(parents.find((Object) 456)).thenReturn(parent);
+        // The render resolves the consultation's patient from the stored consultation (#3145).
+        lenient().when(parents.find(456)).thenReturn(parent);
+        injectDependency(manager, "consultationRequestDao", parents);
         documents = createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.DocumentDao.class);
         routing = createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao.class);
         registerMock(AttachmentSelectionAccess.class, new AttachmentSelectionAccess(securityInfoManager, documents,

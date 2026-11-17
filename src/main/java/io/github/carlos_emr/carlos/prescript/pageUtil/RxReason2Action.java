@@ -184,10 +184,12 @@ public final class RxReason2Action extends ActionSupport {
         request.setAttribute(PARAM_DRUG_ID, Integer.parseInt(drugIdStr));
         request.setAttribute(ATTR_DEMO_NO, Integer.parseInt(demographicNo));
 
-        if (code != null && code.trim().equals("")) {
+        // A missing box is "no code", like an empty one, not a NullPointerException in the lookup.
+        if (code == null || code.trim().isEmpty()) {
             request.setAttribute("message", getText("SelectReason.error.codeEmpty"));
             return SUCCESS;
         }
+        code = code.trim();
 
         List<Icd9> list = icd9Dao.getIcd9Code(code);
         if (list.size() == 0) {
@@ -222,7 +224,9 @@ public final class RxReason2Action extends ActionSupport {
         drugReasonDao.addNewDrugReason(dr);
 
         String ip = request.getRemoteAddr();
-        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DRUGREASON, "" + dr.getId(), ip, demographicNo, dr.getAuditString());
+        // The reason is named by id and by the medication row it belongs to. Its diagnostic code and
+        // comment are clinical content and are not copied into the audit log.
+        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DRUGREASON, "" + dr.getId(), ip, demographicNo, "drugId=" + dr.getDrugId());
 
         return "close";
     }
@@ -265,7 +269,7 @@ public final class RxReason2Action extends ActionSupport {
         request.setAttribute(ATTR_DEMO_NO, drugReason.getDemographicNo());
 
         String ip = request.getRemoteAddr();
-        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ARCHIVE, LogConst.CON_DRUGREASON, "" + drugReason.getId(), ip, "" + drugReason.getDemographicNo(), drugReason.getAuditString());
+        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ARCHIVE, LogConst.CON_DRUGREASON, "" + drugReason.getId(), ip, "" + drugReason.getDemographicNo(), "drugId=" + drugReason.getDrugId());
 
         request.setAttribute("message", getText("SelectReason.msg.archived"));
         return SUCCESS;

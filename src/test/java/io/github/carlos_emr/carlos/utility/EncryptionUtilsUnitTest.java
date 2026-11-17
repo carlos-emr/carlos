@@ -197,6 +197,28 @@ class EncryptionUtilsUnitTest {
         }
 
         @Test
+        @DisplayName("should recognise real encrypt output as well-formed ciphertext")
+        void shouldRecogniseCiphertext_forEncryptOutput() throws Exception {
+            assertThat(EncryptionUtils.isWellFormedCiphertext(EncryptionUtils.encrypt("x"))).isTrue();
+            assertThat(EncryptionUtils.isWellFormedCiphertext(EncryptionUtils.encrypt("synthetic-secret"))).isTrue();
+        }
+
+        @Test
+        @DisplayName("should not treat plaintext or near-miss {ENC} values as well-formed ciphertext")
+        void shouldRejectNearMisses_forWellFormedCiphertext() throws Exception {
+            String ciphertext = EncryptionUtils.encrypt("synthetic-secret");
+            assertThat(EncryptionUtils.isWellFormedCiphertext(null)).isFalse();
+            assertThat(EncryptionUtils.isWellFormedCiphertext("")).isFalse();
+            assertThat(EncryptionUtils.isWellFormedCiphertext("plaintext")).isFalse();
+            assertThat(EncryptionUtils.isWellFormedCiphertext("{ENC}")).isFalse();
+            assertThat(EncryptionUtils.isWellFormedCiphertext("{ENC}not base64!")).isFalse();
+            // Valid Base64, but shorter than an IV plus a GCM tag.
+            assertThat(EncryptionUtils.isWellFormedCiphertext("{ENC}QUJDRA==")).isFalse();
+            assertThat(EncryptionUtils.isWellFormedCiphertext("{enc}" + ciphertext.substring(5))).isFalse();
+            assertThat(EncryptionUtils.isWellFormedCiphertext(ciphertext.substring(5))).isFalse();
+        }
+
+        @Test
         @DisplayName("should encrypt string with {ENC} prefix")
         void shouldEncryptString_withPrefix() throws Exception {
             String encrypted = EncryptionUtils.encrypt("Hello World");

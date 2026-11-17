@@ -45,18 +45,18 @@
 %>
 
 
-<%@page import="org.springframework.web.context.WebApplicationContext" %>
-<%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="io.github.carlos_emr.carlos.demographic.data.*,io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="java.text.*, java.util.*, io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.entities.*" %>
+
+
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="java.util.*, io.github.carlos_emr.carlos.entities.*" %>
 <%@ page import="io.github.carlos_emr.carlos.entities.WCB" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<%@taglib uri="jakarta.tags.core" prefix="c" %>
+
 <%@taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
@@ -69,12 +69,15 @@
     String encodedDemoNoJs = SafeEncode.forJavaScriptAttribute(StringUtils.noNull(demographicNo));
     String encodedProvNo = SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(StringUtils.noNull((String) session.getAttribute("user"))));
     String encodedBillingCode = SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(StringUtils.noNull(billingcode)));
+    // This list is inserted into the bill form at <ctx>/billing, so its links name the full route (#4864).
+    String encodedContextPath = SafeEncode.forJavaScriptAttribute(request.getContextPath());
+    String encodedUserJs = SafeEncode.forJavaScriptAttribute(StringUtils.noNull((String) session.getAttribute("user")));
 %>
 
 <div>
     <div>
         <label> WCB Forms available to attach.</label> <a
-            onclick="popup(700,960,'viewformwcb?demographic_no=<%= encodedDemoNo %>&formId=0&provNo=999998&parentAjaxId=forms&hideToBill=true','<%= encodedDemoNoJs %>NEWWCB'); return false;"
+            onclick="var billForm = document.BillingCreateBillingForm, physician = billForm && billForm.xml_provider ? billForm.xml_provider.value : ''; if (!physician || physician === 'none') { physician = '<%= encodedUserJs %>'; } popup(700,960,'<%= encodedContextPath %>/billing/CA/BC/viewformwcb?demographic_no=<%= encodedDemoNo %>&formId=0&provNo=' + encodeURIComponent(physician) + '&parentAjaxId=forms&hideToBill=true','<%= encodedDemoNoJs %>NEWWCB'); return false;"
             href="javascript:void(0);">New WCB Form</a> <br>
     </div>
     <table class="table table-striped table-sm">
@@ -99,7 +102,7 @@
                    onclick="checkifSet('<carlos:encode value='<%= StringUtils.noNull(wcb.getW_icd9()) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= StringUtils.noNull(wcb.getW_feeitem()) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= StringUtils.noNull(wcb.getW_extrafeeitem()) %>' context="javaScriptAttribute"/>');">Populate</a>
             </td>
             <td align="middle">
-                <a onclick="popup(700,960,'viewformwcb?demographic_no=<%= encodedDemoNo %>&formId=<%=wcb.getId()%>&provNo=<%= encodedProvNo %>&parentAjaxId=forms&billingcode=<%= encodedBillingCode %>&hideToBill=true','<%= encodedDemoNoJs %>NEWWCB'); return false;"
+                <a onclick="popup(700,960,'<%= encodedContextPath %>/billing/CA/BC/viewformwcb?demographic_no=<%= encodedDemoNo %>&formId=<%=wcb.getId()%>&provNo=<%= encodedProvNo %>&parentAjaxId=forms&billingcode=<%= encodedBillingCode %>&hideToBill=true','<%= encodedDemoNoJs %>NEWWCB'); return false;"
                    href="javascript:void(0);"><fmt:formatDate pattern="yyyy-MM-dd" value="${wcb.w_doi}"/></a>
 
             </td>

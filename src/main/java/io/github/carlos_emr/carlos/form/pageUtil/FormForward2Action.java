@@ -29,6 +29,8 @@
 
 package io.github.carlos_emr.carlos.form.pageUtil;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import java.io.IOException;
 import java.net.URLDecoder;
 import java.sql.SQLException;
@@ -66,6 +68,9 @@ public class FormForward2Action extends ActionSupport {
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     @Override
     public String execute() throws ServletException, IOException {
+        request = ServletActionContext.getRequest();
+        response = ServletActionContext.getResponse();
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String demographicNo = request.getParameter("demographic_no");
 
@@ -87,7 +92,7 @@ public class FormForward2Action extends ActionSupport {
                     + FormShortcutRouteResolver.resolve(demographicNo, strFrm, formId, appointmentNo, provNo);
             response.sendRedirect(redirect);
         } catch (SQLException e) {
-            logger.error("Failed to resolve form shortcut path", e);
+            logger.error("Failed to resolve form shortcut path: {}", LogSafe.exceptionTrace(e));
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to resolve form path");
         } catch (IllegalArgumentException e) {
             if (logger.isWarnEnabled()) {

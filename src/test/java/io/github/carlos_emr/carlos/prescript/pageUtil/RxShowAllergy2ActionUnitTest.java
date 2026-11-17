@@ -302,7 +302,7 @@ class RxShowAllergy2ActionUnitTest extends CarlosUnitTestBase {
         try (MockedStatic<CarlosProperties> propertyMock = mockStatic(CarlosProperties.class);
              MockedStatic<RxPatientData> patients = mockStatic(RxPatientData.class);
              var _ = mockConstruction(RxDrugData.class, (mock, context) -> {
-                 when(mock.getAllergyWarnings(eq("J01FA09"), eq(allergies), anyList())).thenAnswer(invocation -> {
+                 when(mock.getAllergyWarnings(eq("J01FA09"), eq(allergies), anyList(), org.mockito.ArgumentMatchers.isNull())).thenAnswer(invocation -> {
                      if (failed) throw new IllegalStateException("reference unavailable");
                      invocation.<List<Allergy>>getArgument(2).addAll(unresolved);
                      return matches;

@@ -50,6 +50,7 @@ import io.github.carlos_emr.carlos.webserv.rest.conversion.DrugConverter;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.FavoriteConverter;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.PrescriptionConverter;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DrugTo1;
+import io.github.carlos_emr.carlos.webserv.rest.util.AccessDeniedExceptionMapper;
 
 /**
  * CXF local-transport endpoint tests for {@link RxWebService} using CXF local transport.
@@ -95,8 +96,92 @@ class RxWebServiceEndpointTest extends CarlosRestTestBase {
     }
 
     @Override
+    protected List<Object> additionalProviders() {
+        return List.of(new AccessDeniedExceptionMapper(), new io.github.carlos_emr.carlos.webserv.rest.util.RxConcurrencyExceptionMapper());
+    }
+
+    @Test
+    void shouldReturn403_whenDrugListReadIsDenied() {
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("r"), eq(100))).thenReturn(false);
+        try (Response response = request().path("/rx/drugs/all/100").get()) {
+            assertThat(response.getStatus()).isEqualTo(403);
+            assertThat(response.readEntity(String.class)).isEqualTo("Access denied");
+        }
+        org.mockito.Mockito.verifyNoInteractions(mockRxManager, mockDrugConverter);
+    }
+
+    @Test
+    void shouldReturn403_beforeRecordingAPrescriptionPrint() {
+        var prescription = new io.github.carlos_emr.carlos.commn.model.Prescription();
+        prescription.setDemographicId(100);
+        when(mockPrescriptionManager.getPrescription(any(), eq(7))).thenReturn(prescription);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("r"), eq(100))).thenReturn(false);
+        try (Response response = request().path("/rx/recordPrescriptionPrint/7").post(null)) {
+            assertThat(response.getStatus()).isEqualTo(403);
+        }
+        org.mockito.Mockito.verify(mockPrescriptionManager, org.mockito.Mockito.never()).print(any(), anyInt());
+    }
+
+    @Test
+    void shouldReturnConflict_whenRxUpdateSourceIsStale() throws Exception {
+        when(mockDrugConverter.getAsDomainObject(any(), any())).thenReturn(new Drug());
+        when(mockRxManager.updateDrug(any(), any())).thenThrow(new io.github.carlos_emr.carlos.managers.RxSourceVersionValidator.Conflict());
+        try (Response response = request().path("/rx/update").query("demographicNo", "100")
+                .post(jakarta.ws.rs.client.Entity.json(aspirinTransfer()))) {
+            assertThat(response.getStatus()).isEqualTo(409);
+            assertThat(responseJson(response).at("/error").asText()).isEqualTo("RX_SOURCE_CHANGED");
+        }
+    }
+
+    @Test
+    void shouldReturnConflict_whenRxUpdateHasOptimisticFailure() throws Exception {
+        when(mockDrugConverter.getAsDomainObject(any(), any())).thenReturn(new Drug());
+        when(mockRxManager.updateDrug(any(), any())).thenThrow(new org.springframework.orm.ObjectOptimisticLockingFailureException(Drug.class, 1));
+        try (Response response = request().path("/rx/update").query("demographicNo", "100")
+                .post(jakarta.ws.rs.client.Entity.json(aspirinTransfer()))) {
+            assertThat(response.getStatus()).isEqualTo(409);
+            assertThat(responseJson(response).at("/error").asText()).isEqualTo("RX_SOURCE_CHANGED");
+        }
+    }
+
+    @Test
+    void shouldReturnConflict_whenRxPrescribeSourceIsStale() throws Exception {
+        when(mockDrugConverter.getAsDomainObject(any(), any())).thenReturn(new Drug());
+        when(mockRxManager.prescribe(any(), any(), any())).thenThrow(new io.github.carlos_emr.carlos.managers.RxSourceVersionValidator.Conflict());
+        try (Response response = request().path("/rx/prescribe").query("demographicNo", "100")
+                .post(jakarta.ws.rs.client.Entity.json(List.of(aspirinTransfer())))) {
+            assertThat(response.getStatus()).isEqualTo(409);
+            assertThat(responseJson(response).at("/error").asText()).isEqualTo("RX_SOURCE_CHANGED");
+        }
+    }
+
+    @Test
+    void shouldReturnJsonFailure_whenPrescriptionWriteRollsBack() throws Exception {
+        when(mockDrugConverter.getAsDomainObject(any(), any())).thenReturn(new Drug());
+        when(mockRxManager.prescribe(any(), any(), any())).thenThrow(new io.github.carlos_emr.carlos.managers.PrescriptionWriteException());
+        try (Response response = request().path("/rx/prescribe").query("demographicNo", "100")
+                .post(jakarta.ws.rs.client.Entity.json(List.of(aspirinTransfer())))) {
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(responseJson(response).at("/success").asBoolean()).isFalse();
+        }
+    }
+
+    @Test
+    void shouldRejectInvalidVersionPreference_beforeAnyPrescriptionWrite() {
+        for (String invalid : List.of("1", "fal\u017fe", " true", "false ")) {
+            try (Response response = request().path("/rx/prescribe").query("demographicNo", "100")
+                    .query("includeRowVersion", invalid).post(jakarta.ws.rs.client.Entity.json(List.of(aspirinTransfer())))) {
+                assertThat(response.getStatus()).isEqualTo(400);
+            }
+        }
+        org.mockito.Mockito.verifyNoInteractions(mockRxManager, mockDrugConverter);
+    }
+
+    @Override
     protected Object getServiceBean() {
         RxWebService service = new RxWebService();
+        injectDependency(service, "legacyProjection", org.mockito.Mockito.mock(
+                io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class));
         injectDependency(service, "securityInfoManager", mockSecurityInfoManager);
         injectDependency(service, "rxManager", mockRxManager);
         injectDependency(service, "drugConverter", mockDrugConverter);
@@ -122,6 +207,28 @@ class RxWebServiceEndpointTest extends CarlosRestTestBase {
     @Nested
     @DisplayName("GET /rx/drugs/all/{demographicNo}")
     class GetAllDrugs {
+
+        @Test
+        void shouldIncludeVersions_whenRequestedInTheCurrentCxfRequest() {
+            Drug drug = new Drug(); drug.setId(1); drug.setRowVersion(23L);
+            when(mockRxManager.getDrugs(any(LoggedInInfo.class), eq(1), eq(io.github.carlos_emr.carlos.webserv.rest.to.model.RxStatus.ALL))).thenReturn(List.of(drug));
+            when(mockDrugConverter.getAllAsTransferObjects(any(LoggedInInfo.class), any()))
+                    .thenAnswer(invocation -> List.of(aspirinTransfer()));
+            try (Response response = request().path("/rx/drugs/all/1").get()) {
+                assertThat(response.getStatus()).isEqualTo(200);
+                assertThat(responseJson(response).at("/drug/0/rowVersion").isMissingNode()).isTrue();
+            }
+            try (Response response = request().path("/rx/drugs/all/1").query("includeRowVersion", "TRUE").get()) {
+                assertThat(response.getStatus()).isEqualTo(200);
+                var token = responseJson(response).at("/drug/0/rowVersion");
+                assertThat(token.isIntegralNumber()).isTrue();
+                assertThat(token.longValue()).isEqualTo(23L);
+            }
+            try (Response response = request().path("/rx/drugs/all/1").query("includeRowVersion", "false").get()) {
+                assertThat(response.getStatus()).isEqualTo(200);
+                assertThat(responseJson(response).at("/drug/0/rowVersion").isMissingNode()).isTrue();
+            }
+        }
 
         @Test
         @DisplayName("should return 200 with drug list")

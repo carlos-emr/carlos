@@ -36,7 +36,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.commons.io.FilenameUtils;
-import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
@@ -102,7 +101,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             try {
                 docFile = PathValidationUtils.validateUpload(docFile);
             } catch (SecurityException e) {
-                logger.error("Invalid upload source - potential path traversal: {}", LogSafe.sanitize(docFile.getPath()));
+                logger.error("Invalid upload source - potential path traversal");
                 map.put("error", "Invalid file upload");
                 docFile = null; // Treat as if no file was uploaded
             }
@@ -219,7 +218,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                 // write file to local dir
                 writeLocalFile(docFile, fileName);
                 newDoc.setContentType(this.filedataContentType);
-                if (fileName.endsWith(".PDF") || fileName.endsWith(".pdf")) {
+                if (fileName.toLowerCase(java.util.Locale.ROOT).endsWith(".pdf")) {
                     newDoc.setContentType("application/pdf");
                     // get number of pages when document is a PDF
                     numberOfPages = countNumOfPages(filePath);
@@ -233,7 +232,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                 // the document store with no row pointing at it. That is litter rather
                 // than a patient record, but it is why a retry inside the same second can
                 // come back as a name collision.
-                logger.error("Failed to store uploaded document", e);
+                logger.error("Failed to store uploaded document: {}", LogSafe.exceptionTrace(e));
                 map.put("error", props.getString("dms.addDocument.errorNoWrite"));
             }
 
@@ -241,7 +240,8 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                 try {
                     LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
 
-                    String providerId = request.getParameter("providers");
+                    // The uploader sends "Send to provider" as "provider" (documentUploader.jsp); "0" is unassigned.
+                    String providerId = request.getParameter("provider");
                     if (providerId != null) {
                         WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
                         ProviderInboxRoutingDao providerInboxRoutingDao = (ProviderInboxRoutingDao) ctx.getBean(ProviderInboxRoutingDao.class);
@@ -380,7 +380,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             // collision without attaching the exception to a log event.
             throw e;
         } catch (Exception e) {
-            logger.error("Error writing local file", e);
+            logger.error("Error writing local file: {}", LogSafe.exceptionTrace(e));
             throw e;
         }
     }
@@ -404,12 +404,12 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             File validatedDocFile = PathValidationUtils.validateUpload(docFile);
             try (InputStream fis = Files.newInputStream(validatedDocFile.toPath());
                     OutputStream fos = Files.newOutputStream(destinationFile.toPath(), StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
-                IOUtils.copy(fis, fos);
+                fis.transferTo(fos);
             }
         } catch (FileAlreadyExistsException e) {
             return WriteToIncomingDocsResult.ALREADY_EXISTS;
         } catch (IOException | SecurityException e) {
-            logger.error("Error writing file to incoming docs", e);
+            logger.error("Error writing file to incoming docs: {}", LogSafe.exceptionTrace(e));
             return WriteToIncomingDocsResult.FAILED;
         }
 

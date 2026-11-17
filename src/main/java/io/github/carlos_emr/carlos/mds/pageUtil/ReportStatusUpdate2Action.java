@@ -134,9 +134,9 @@ public class ReportStatusUpdate2Action extends ActionSupport {
                 // Resolve the audit patient after waiting and reauthorizing the actual document.
                 // A simultaneous reassignment must not leave this ACK referencing the old chart.
                 String demographic = status == 'A' ? getDemographicIdFromLab(lab_type, labNo) : null;
-                int cleared = CommonLabResultData.updateReportStatusWithOlderVersions(
+                CommonLabResultData.ReportChainUpdate chain = CommonLabResultData.updateReportStatusWithOlderVersionsDetailed(
                         labNo, providerNo, status, comment, lab_type, false, multiID);
-                return new ReportUpdate(cleared, demographic);
+                return new ReportUpdate(chain, demographic);
             });
             if (status == 'A') {
                 try {
@@ -155,12 +155,12 @@ public class ReportStatusUpdate2Action extends ActionSupport {
                 // from the accession number, and which says nothing about which of those
                 // versions were still NEW. Reporting it is what keeps the inbox badge in step
                 // with the figure the next page load computes.
-                writeClearedCount(update.cleared());
+                writeClearedCount(update.chain());
                 return NONE;
             }
             return SUCCESS;
         } catch (Exception e) {
-            if ("DOC".equals(lab_type)) response.setStatus(e instanceof SecurityException ? 403 : 500);
+            response.setStatus(e instanceof SecurityException ? 403 : 500);
             logger.error("exception in ReportStatusUpdate2Action ({})", e.getClass().getSimpleName());
             return "failure";
         }
@@ -195,7 +195,7 @@ public class ReportStatusUpdate2Action extends ActionSupport {
             withDocumentWriteLock(labNo, lab_type, () -> CommonLabResultData.updateReportStatus(labNo, providerNo, status, comment, lab_type));
 
         } catch (Exception e) {
-            if ("DOC".equals(lab_type)) response.setStatus(e instanceof SecurityException ? 403 : 500);
+            response.setStatus(e instanceof SecurityException ? 403 : 500);
             logger.error("exception in setting comment ({})", e.getClass().getSimpleName());
             return "failure";
         }
@@ -236,7 +236,7 @@ public class ReportStatusUpdate2Action extends ActionSupport {
         }), "Document status update did not return a result");
     }
 
-    private record ReportUpdate(int cleared, String demographic) { }
+    private record ReportUpdate(CommonLabResultData.ReportChainUpdate chain, String demographic) { }
 
     private boolean requireCanonicalReportType() {
         String[] types = request.getParameterValues("labType");
@@ -267,9 +267,12 @@ public class ReportStatusUpdate2Action extends ActionSupport {
      */
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
-    private void writeClearedCount(int clearedCount) {
+    private void writeClearedCount(CommonLabResultData.ReportChainUpdate chain) {
         ObjectNode json = objectMapper.createObjectNode();
-        json.put("clearedCount", clearedCount);
+        json.put("clearedCount", chain.clearedCount());
+        json.set("affectedVersionIds", objectMapper.valueToTree(chain.affectedVersionIds()));
+        // Empty wire alias keeps cached pre-upgrade scripts working; no versions are retained.
+        json.set("retainedVersionIds", objectMapper.createArrayNode());
         response.setContentType("application/json; charset=UTF-8");
         try {
             response.getWriter().write(json.toString());

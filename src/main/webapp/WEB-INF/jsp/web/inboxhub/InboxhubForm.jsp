@@ -19,21 +19,21 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.*" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 
-<%@ page import="org.apache.logging.log4j.Logger" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarLogDao" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.inboxhub.query.InboxhubQuery" %>
+
+
+
+
+
+
 <%@ page import="io.github.carlos_emr.carlos.mds.data.CategoryData" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 
@@ -176,24 +176,30 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                                 <fmt:message key="inbox.inboxmanager.msgReviewStatus"/>
                             </label>
                             <input type="hidden" name="query.status" id="statusId" value="${carlos:forHtmlAttribute(query.status)}"/>
+                            <%-- The toolbar's Acknowledged-today toggle, kept in the form so the Search button's
+                                 full-page submit keeps it too (otherwise status=A comes back unbounded and pages in
+                                 the whole acknowledged history). Disabled, and so never sent, while the toggle is off;
+                                 syncAcknowledgedTodayField() keeps it in step with ackToggleState. --%>
+                            <input type="hidden" name="query.acknowledgedToday" id="acknowledgedTodayId" value="true"
+                                ${query.acknowledgedToday and query.status eq 'A' ? '' : 'disabled'}/>
                             <div class="form-check">
                                 <input type="radio" class="form-check-input" name="statusReview" id="statusAll" value="All"
-                                    ${empty query.status ? 'checked' : ''} onclick="changeValueElementByName('query.status', '')">
+                                    ${empty query.status ? 'checked' : ''} onclick="changeValueElementByName('query.status', ''); clearAcknowledgedToggle();">
                                 <label class="form-check-label" for="statusAll"><fmt:message key="inbox.inboxmanager.msgAll"/>
                             </div>
                             <div class="form-check">
                                 <input type="radio" class="form-check-input" name="statusReview" id="statusNew" value="N"
-                                    ${query.status eq 'N' ? 'checked' : ''} onclick="changeValueElementByName('query.status', 'N')">
+                                    ${query.status eq 'N' ? 'checked' : ''} onclick="changeValueElementByName('query.status', 'N'); clearAcknowledgedToggle();">
                                 <label class="form-check-label" for="statusNew"><fmt:message key="inbox.inboxmanager.msgNew"/></label>
                             </div>
                             <div class="form-check">
                                 <input type="radio" class="form-check-input" name="statusReview" id="statusAcknowledged" value="A"
-                                    ${query.status eq 'A' ? 'checked' : ''} onclick="changeValueElementByName('query.status', 'A')">
+                                    ${query.status eq 'A' ? 'checked' : ''} onclick="changeValueElementByName('query.status', 'A'); clearAcknowledgedToggle();">
                                 <label class="form-check-label" for="statusAcknowledged"><fmt:message key="inbox.inboxmanager.msgAcknowledged"/></label>
                             </div>
                             <div class="form-check">
                                 <input type="radio" class="form-check-input" name="statusReview" id="statusFiled" value="F"
-                                    ${query.status eq 'F' ? 'checked' : ''} onclick="changeValueElementByName('query.status', 'F')">
+                                    ${query.status eq 'F' ? 'checked' : ''} onclick="changeValueElementByName('query.status', 'F'); clearAcknowledgedToggle();">
                                 <label class="form-check-label" for="statusFiled"><fmt:message key="inbox.inboxmanager.msgFiled"/></label>
                             </div>
                         </div>
@@ -540,6 +546,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     }
 
     function fetchInboxhubData() {
+        // The toolbar's Acknowledged toggle lists what was acknowledged TODAY. List mode loads
+        // every page of whatever it asks for, so a bare status=A paged in every result the
+        // provider had ever acknowledged, with the progress bar measured against the New totals.
+        // The server bounds it by acknowledgement time, so a lab acknowledged today still shows
+        // however old its result is; older acknowledgements stay reachable from the search panel,
+        // which never sends this. Carried in inboxSearchFormData so every later page keeps it.
+        syncAcknowledgedTodayField();
         // Re-serialize the search form so programmatic checkbox/radio changes take effect
         inboxSearchFormData = jQuery("#inboxSearchForm").serialize();
         const viewModeBtn = document.getElementById("btnViewMode");
@@ -620,6 +633,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     try {
         const inboxhubRefreshChannel = new BroadcastChannel('inboxhub-refresh');
         inboxhubRefreshChannel.onmessage = function(event) {
+            if (event && event.data && event.data.labType === 'HL7' && isInboxhubItemToken(event.data.compatibilityFor)) {
+                refreshInboxhubAfterHrmRevoke();
+                return;
+            }
             if (event && event.data && event.data.action === 'hrm-revoked') {
                 if (event.data.labType === 'HRM' && isInboxhubItemToken(event.data.segmentID)) {
                     refreshInboxhubAfterHrmRevoke();
@@ -638,7 +655,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
             // screen that is the whole job: the badges are re-read from hidden inputs on
             // every draw, so the totals have to move whether or not anything is re-fetched.
             const handledInPlace = acknowledgedId
-                ? dropAcknowledgedInboxhubItem(acknowledgedId, acknowledgedType, acknowledgedRows)
+                ? dropAcknowledgedInboxhubItem(acknowledgedId, acknowledgedType, acknowledgedRows, event.data.retainedVersionIds)
                 : false;
             if (handledInPlace) {
                 // Deliberately NO full re-fetch. fetchInboxhubData re-runs the whole search from
@@ -898,6 +915,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
      */
     var nextInboxhubItem = null;
     var previousInboxhubItem = null;
+    var legacyInboxhubRefreshPending = false;
 
     /**
      * Records the items on either side of the one about to be removed.
@@ -1048,14 +1066,24 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
      * @param {string} segmentId segment id of the acknowledged lab, document or HRM report
      * @param {string} labType its report type; older senders may not supply one
      * @param {number} clearedCount routing rows the acknowledgement cleared; see above
-     * @return {boolean} true when the item was on screen AND the inbox holds the whole result
-     *                   set, so nothing needs re-fetching; false when the server must be asked
+     * @param {Array} versionMetadata empty compatibility marker from a current sender
+     * @return {boolean} true when no additional caller refresh is needed (including an already
+     *                   scheduled resync); false when the caller must re-fetch the result set
      */
-    function dropAcknowledgedInboxhubItem(segmentId, labType, clearedCount) {
+    function dropAcknowledgedInboxhubItem(segmentId, labType, clearedCount, versionMetadata) {
         const itemEl = inboxhubItemElement(segmentId, labType);
         // A sender that predates the typed message — a popup running a cached script — gives
         // only an id, and then the rendered row is the one place the type can come from.
         const resolvedType = labType || (itemEl.length > 0 ? itemEl.data('labType') : null);
+        if (resolvedType === 'HL7' && !Array.isArray(versionMetadata)) {
+            // A cached sender may infer both rows and badge counts from an obsolete
+            // chain. Re-submit once to replace the list AND server-owned totals.
+            if (!legacyInboxhubRefreshPending) {
+                legacyInboxhubRefreshPending = true;
+                refreshInboxhubAfterHrmRevoke();
+            }
+            return true;
+        }
         removeInboxhubRow(segmentId, resolvedType);
         // The total moves whether or not a row was on screen — the clinician may have changed
         // a filter while the popup was open. Row removal and counting are separate for that
@@ -1401,7 +1429,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     // State variables preserved across inbox refreshes (the toolbar HTML inside
     // #inboxhubMode is replaced on each fetch, so checkbox state must be restored)
     var activeTypeFilter = null;
-    var ackToggleState = false;
+    // Starts from the submitted search, so the Search button keeps the Acknowledged-today toggle.
+    var ackToggleState = ${query.acknowledgedToday and query.status eq 'A' ? 'true' : 'false'};
     var rapidReviewState = false;
 
     /**
@@ -1448,10 +1477,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     }
 
     /**
-     * Toggles the inbox between showing New items and Acknowledged items.
-     * Updates the hidden status filter field and refreshes the inbox data.
+     * Toggles the inbox between showing New items and what was acknowledged today.
+     * Updates the hidden status filter field and refreshes the inbox data; while the toggle is
+     * on, fetchInboxhubData asks the server for today's acknowledgements only.
      *
-     * @param {boolean} checked - true to show Acknowledged, false to show New
+     * @param {boolean} checked - true to show today's acknowledgements, false to show New
      */
     function toggleAcknowledged(checked) {
         ackToggleState = checked;
@@ -1462,6 +1492,29 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         if (radio) radio.checked = true;
 
         fetchInboxhubData();
+    }
+
+    /**
+     * Turns the toolbar's Acknowledged-today toggle off when the clinician picks a review status
+     * in the search panel. From then on the status alone decides the list, so an Acknowledged
+     * status chosen there reaches the whole history even when a category link, a type badge or
+     * the preview switch re-runs the search instead of the Search button.
+     */
+    function clearAcknowledgedToggle() {
+        ackToggleState = false;
+        var ackToggle = document.getElementById('ackToggle');
+        if (ackToggle) ackToggle.checked = false;
+        syncAcknowledgedTodayField();
+    }
+
+    /**
+     * Mirrors ackToggleState into the search form's hidden query.acknowledgedToday field, enabled
+     * only while the toggle is on, so both the AJAX requests (which serialize the form) and the
+     * Search button's full-page submit carry the bound exactly when the toggle is on.
+     */
+    function syncAcknowledgedTodayField() {
+        var field = document.getElementById('acknowledgedTodayId');
+        if (field) field.disabled = !ackToggleState;
     }
 
     /**

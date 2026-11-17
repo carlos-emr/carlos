@@ -24,9 +24,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verify;
 
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 
 import jakarta.ws.rs.core.Response;
@@ -36,24 +40,33 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
 import io.github.carlos_emr.carlos.commn.dao.ContactDao;
+import io.github.carlos_emr.carlos.commn.dao.CdsLegacyProjectionDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.dao.WaitingListDao;
 import io.github.carlos_emr.carlos.commn.dao.WaitingListNameDao;
+import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.managers.AllergyManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.MeasurementManager;
 import io.github.carlos_emr.carlos.managers.NoteManager;
 import io.github.carlos_emr.carlos.managers.RxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService;
 import io.github.carlos_emr.carlos.test.base.CarlosRestTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchResult;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicTo1;
+import io.github.carlos_emr.carlos.webserv.rest.util.SecurityExceptionMapper;
 
 /**
  * CXF local-transport endpoint tests for {@link DemographicService} using CXF local transport.
@@ -72,6 +85,7 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
 
     @Mock
     private DemographicManager mockDemographicManager;
+    @Mock private io.github.carlos_emr.carlos.commn.dao.DemographicDao updateRecords;
     @Mock
     private ContactDao mockContactDao;
     @Mock
@@ -94,6 +108,8 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
     private ProfessionalSpecialistDao mockSpecialistDao;
     @Mock
     private SecurityInfoManager mockSecurityInfoManager;
+    @Mock
+    private CdsLegacyProjectionDao mockProjectionRecords;
 
     @Test
     void shouldPreserveXml_whenDemographicListClientRequestsIt() throws Exception {
@@ -112,7 +128,7 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
 
     @Override
     protected Object getServiceBean() {
-        DemographicService service = new DemographicService();
+        DemographicService service = new DemographicService(new CdsLegacyProjectionService(mockProjectionRecords), updateRecords);
         injectDependency(service, "demographicManager", mockDemographicManager);
         injectDependency(service, "contactDao", mockContactDao);
         injectDependency(service, "allergyManager", mockAllergyManager);
@@ -128,11 +144,23 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
         return service;
     }
 
+    @Override
+    protected List<Object> additionalServerProviders() {
+        return List.of(new SecurityExceptionMapper(),
+                new io.github.carlos_emr.carlos.webserv.rest.util.DemographicWriteProfileResponseFilter());
+    }
+
     @BeforeEach
     void setUpSecurityDefaults() {
+        var existing = createTestDemographic(42, "Existing", "Patient");
+        existing.setSin("FAKE-SIN"); existing.setHin("FAKE-HIN");
+        org.mockito.Mockito.lenient().when(updateRecords.findForUpdate(42)).thenReturn(existing);
+        org.mockito.Mockito.lenient().when(updateRecords.findFreshForUpdate(42)).thenReturn(existing);
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), any(), any(), any()))
             .thenReturn(true);
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"), eq(42)))
+            .thenReturn(true);
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(42)))
             .thenReturn(true);
     }
 
@@ -148,10 +176,208 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
         return demo;
     }
 
+    @Nested
+    @DisplayName("Demographic write field lengths")
+    class WriteFieldLengths {
+
+        @BeforeEach
+        void allowRecordUpdates() {
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("u"), eq(42)))
+                    .thenReturn(true);
+        }
+
+        private DemographicTo1 payload(String method) {
+            DemographicTo1 data = new DemographicTo1();
+            if ("PUT".equals(method)) data.setDemographicNo(42);
+            data.setFirstName("FAKE");
+            data.setLastName("PATIENT");
+            data.setDobYear("1980");
+            data.setDobMonth("06");
+            data.setDobDay("15");
+            return data;
+        }
+
+        @ParameterizedTest
+        @CsvSource({"POST,pronoun,A", "POST,gender,A", "PUT,pronoun,A", "PUT,gender,A",
+                "POST,pronoun,😀", "POST,gender,😀", "PUT,pronoun,😀", "PUT,gender,😀"})
+        void shouldRejectOverlongFields_beforeAnyWrite(String method, String field, String character) {
+            DemographicTo1 data = payload(method);
+            String invalid = character.repeat(26);
+            if ("pronoun".equals(field)) data.setPronoun(invalid);
+            else data.setGender(invalid);
+            data.setNurse("999998");
+            data.setNotes("FAKE-NOTES");
+            data.setWaitingListID(7);
+
+            try (Response response = request().path("/demographics").invoke(method, data)) {
+                assertThat(response.getStatus()).isEqualTo(400);
+                assertThat(response.readEntity(String.class))
+                        .contains("exceeds maximum length of 25 characters.")
+                        .doesNotContain(invalid, "FAKE-NOTES");
+            }
+            verifyNoInteractions(mockDemographicManager, mockWaitingListDao);
+        }
+
+        @ParameterizedTest
+        @CsvSource({"POST,A", "PUT,A", "POST,😀", "PUT,😀"})
+        void shouldPreserveFullColumnCapacity_whenFieldsAreAtTheLimit(String method, String character) {
+            DemographicTo1 data = payload(method);
+            String exact = character.repeat(25);
+            data.setPronoun(exact);
+            data.setGender(exact);
+
+            try (Response response = request().path("/demographics").invoke(method, data)) {
+                assertThat(response.getStatus()).isEqualTo(200);
+                var json = responseJson(response);
+                assertThat(json.get("pronoun").textValue()).isEqualTo(exact);
+                assertThat(json.get("gender").textValue()).isEqualTo(exact);
+            }
+            ArgumentCaptor<Demographic> saved = ArgumentCaptor.forClass(Demographic.class);
+            if ("POST".equals(method)) {
+                verify(mockDemographicManager).createDemographic(any(LoggedInInfo.class), saved.capture(), eq(null));
+            } else {
+                verify(mockDemographicManager).updateDemographic(any(LoggedInInfo.class), saved.capture());
+            }
+            assertThat(saved.getValue().getPronoun()).isEqualTo(exact);
+            assertThat(saved.getValue().getGender()).isEqualTo(exact);
+        }
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"default", "preserve-hidden-identifiers", "legacy-null-identifiers"})
+    void shouldPreserveHiddenIdentifiersByDefault_andSupportExplicitLegacyNullClears(String profile) {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("u"), eq(42)))
+                .thenReturn(true);
+        var data = new DemographicTo1(); data.setDemographicNo(42);
+        data.setFirstName("Changed"); data.setLastName("Patient");
+        data.setDobYear("1980"); data.setDobMonth("06"); data.setDobDay("15");
+        if (profile.equals("legacy-null-identifiers")) {
+            when(updateRecords.findFreshForUpdate(42)).thenThrow(new UnsupportedOperationException("Legacy DAO"));
+        }
+        var client = request().path("/demographics");
+        if (!profile.equals("default")) client.header("X-Carlos-Demographic-Write-Profile", profile);
+        try (Response response = client.invoke("PUT", data)) {
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getHeaderString("X-Carlos-Demographic-Write-Profile"))
+                    .isEqualTo(profile.equals("default") ? "preserve-hidden-identifiers" : profile);
+            assertThat(response.readEntity(String.class)).doesNotContain("FAKE-SIN");
+        }
+        var saved = ArgumentCaptor.forClass(Demographic.class);
+        verify(mockDemographicManager).updateDemographic(eq(mockLoggedInInfo), saved.capture());
+        assertThat(saved.getValue().getFirstName()).isEqualTo("Changed");
+        boolean preserve = !profile.equals("legacy-null-identifiers");
+        assertThat(saved.getValue().getSin()).isEqualTo(preserve ? "FAKE-SIN" : null);
+        assertThat(saved.getValue().getHin()).isEqualTo(preserve ? "FAKE-HIN" : null);
+        if (preserve) verify(updateRecords).findFreshForUpdate(42);
+        else verify(updateRecords).findForUpdate(42);
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"", "unknown-private-value", "legacy-null-identifiers,preserve-hidden-identifiers"})
+    void shouldRejectUnknownIdentifierWriteProfiles_beforeLockingOrWriting(String profile) {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("u"), eq(42)))
+                .thenReturn(true);
+        var data = new DemographicTo1(); data.setDemographicNo(42);
+        data.setDobYear("1980"); data.setDobMonth("06"); data.setDobDay("15");
+        try (Response response = request().path("/demographics")
+                .header("X-Carlos-Demographic-Write-Profile", profile).invoke("PUT", data)) {
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(response.readEntity(String.class)).doesNotContain("unknown-private-value");
+        }
+        verifyNoInteractions(updateRecords, mockDemographicManager);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"HY000,1020", "HY000,1205", "40001,1213"})
+    void shouldReportPreWriteDatabaseConflicts_withoutLeakingSqlOrChangingRelatedRecords(String state, int code) {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("u"), eq(42)))
+                .thenReturn(true);
+        when(updateRecords.findFreshForUpdate(42)).thenThrow(new IllegalStateException(
+                new java.sql.SQLException("FAKE-PRIVATE-SQL-VALUE", state, code)));
+        var data = new DemographicTo1(); data.setDemographicNo(42);
+        data.setDobYear("1980"); data.setDobMonth("06"); data.setDobDay("15");
+        data.setNurse("41"); data.setWaitingListID(7);
+        try (Response response = request().path("/demographics").invoke("PUT", data)) {
+            assertThat(response.getStatus()).isEqualTo(409);
+            assertThat(response.readEntity(String.class)).contains("reload before retrying")
+                    .doesNotContain("FAKE-PRIVATE-SQL-VALUE", "SQLException");
+        }
+        verifyNoInteractions(mockDemographicManager, mockWaitingListDao);
+    }
+
     /** Tests for GET /demographics (list all). */
     @Nested
     @DisplayName("GET /demographics")
     class GetAllDemographics {
+
+        @ParameterizedTest
+        @CsvSource({"0,501", "0,2147483647", "0,-1", "-1,10"})
+        @DisplayName("should return 403 before validating pagination when demographic read is denied")
+        void shouldReturn403_whenInvalidListPaginationIsRequestedWithoutReadPrivilege(int offset, int limit) {
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"), any()))
+                    .thenReturn(false);
+            try (Response response = request().path("/demographics")
+                    .query("offset", offset).query("limit", limit).get()) {
+                assertThat(response.getStatus()).isEqualTo(403);
+                verifyNoInteractions(mockDemographicManager);
+            }
+        }
+
+        @ParameterizedTest
+        @CsvSource({"0,501", "0,2147483647", "0,-1", "-1,10"})
+        @DisplayName("should return 400 before reading demographics for invalid pagination")
+        void shouldReturn400_whenListPaginationIsInvalid(int offset, int limit) {
+            try (Response response = request().path("/demographics")
+                    .query("offset", offset).query("limit", limit).get()) {
+                assertThat(response.getStatus()).isEqualTo(400);
+                verifyNoInteractions(mockDemographicManager);
+            }
+        }
+
+        @ParameterizedTest
+        @CsvSource({"0,0", "0,1", "0,500", "2147483647,10"})
+        @DisplayName("should preserve supported demographic list pagination boundaries")
+        void shouldReturn200_whenListPaginationIsWithinBounds(int offset, int limit) {
+            when(mockDemographicManager.getActiveDemographicCount(any())).thenReturn(0L);
+            when(mockDemographicManager.getActiveDemographics(any(), eq(offset), eq(limit)))
+                    .thenReturn(Collections.emptyList());
+            try (Response response = request().path("/demographics")
+                    .query("offset", offset).query("limit", limit).get()) {
+                assertThat(response.getStatus()).isEqualTo(200);
+                verify(mockDemographicManager).getActiveDemographics(any(), eq(offset), eq(limit));
+            }
+        }
+
+        @Test
+        @DisplayName("should preserve zero defaults for omitted list pagination")
+        void shouldUseZeroDefaults_whenListPaginationIsOmitted() {
+            when(mockDemographicManager.getActiveDemographicCount(any())).thenReturn(0L);
+            when(mockDemographicManager.getActiveDemographics(any(), eq(0), eq(0)))
+                    .thenReturn(Collections.emptyList());
+            try (Response response = request().path("/demographics").get()) {
+                assertThat(response.getStatus()).isEqualTo(200);
+                verify(mockDemographicManager).getActiveDemographics(any(), eq(0), eq(0));
+            }
+        }
+
+        @Test
+        @DisplayName("should return the health card number and no SIN for each listed demographic")
+        void shouldReturnTheHealthCardNumberAndNoSin_forEachListedDemographic() {
+            Demographic demo = createTestDemographic(1, "John", "Smith");
+            demo.setHin("FAKE-HIN");
+            demo.setSin("FAKE-SIN");
+            when(mockDemographicManager.getActiveDemographicCount(any(LoggedInInfo.class))).thenReturn(1L);
+            when(mockDemographicManager.getActiveDemographics(any(LoggedInInfo.class), eq(0), eq(10)))
+                .thenReturn(List.of(demo));
+
+            try (Response response = request().path("/demographics").query("offset", 0).query("limit", 10).get()) {
+                assertThat(response.getStatus()).isEqualTo(200);
+                var wireJson = responseJson(response);
+                // Existing list clients read the HIN from this response; it is part of the published contract.
+                assertThat(wireJson.at("/Item/0/hin").textValue()).isEqualTo("FAKE-HIN");
+                assertThat(wireJson.toString()).doesNotContain("FAKE-SIN");
+            }
+        }
 
         @Test
         @DisplayName("should return 200 with demographics list")
@@ -235,6 +461,30 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
     @DisplayName("GET /demographics/{dataId}")
     class GetDemographicById {
 
+        private void assertDeniedIncludes(String include, String object, boolean imported) {
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq(object), eq("r"), eq("42")))
+                    .thenReturn(false);
+            if (imported) {
+                when(mockProjectionRecords.hasSourceFields(eq(42), any())).thenReturn(true);
+            }
+            try (Response response = request().path("/demographics/42").query("includes[]", include).get()) {
+                assertThat(response.getStatus()).isEqualTo(403);
+                assertThat(response.hasEntity()).isFalse();
+            }
+            verifyNoInteractions(mockProjectionRecords, mockDemographicManager, mockAllergyManager,
+                    mockMeasurementManager, mockNoteManager, mockRxManager);
+        }
+
+        @Test
+        void shouldDenyUnauthorizedNativeClinicalIncludes_beforePatientReads() {
+            assertDeniedIncludes("measurements", "_measurement", false);
+        }
+
+        @Test
+        void shouldDenyUnauthorizedImportedClinicalIncludes_withoutDisclosingImportState() {
+            assertDeniedIncludes("medications", "_rx", true);
+        }
+
         @Test
         @DisplayName("should return 200 with demographic data when valid ID provided")
         void shouldReturn200WithDemographic_whenValidIdProvided() {
@@ -302,6 +552,60 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
             assertThat(wireJson.at("/documents")).hasSize(0);
             assertThat(wireJson.at("/medicationSummary").isArray()).isTrue();
             assertThat(wireJson.at("/medicationSummary")).hasSize(0);
+        }
+
+        @Test
+        @DisplayName("should write midnight timestamps as epoch milliseconds in the record and its includes")
+        void shouldWriteMidnightTimestampsAsEpochMillis_whenRecordIncludesAllergiesAndMeasurements() {
+            // Issue #3877: on /ws/services these timestamps were "yyyy-MM-dd" strings whenever they
+            // fell on local midnight, and a number otherwise, which broke Ocean's sync.
+            Calendar calendar = Calendar.getInstance();
+            calendar.clear();
+            calendar.set(2026, Calendar.MARCH, 11);
+            Date midnight = calendar.getTime();
+            Demographic demo = createTestDemographic(42, "Jane", "Doe");
+            demo.setLastUpdateDate(midnight);
+            Allergy allergy = new Allergy();
+            allergy.setId(7);
+            allergy.setDemographicNo(42);
+            allergy.setDescription("FAKE-allergen");
+            allergy.setArchived(false);
+            allergy.setLastUpdateDate(midnight);
+            Measurement weight = new Measurement();
+            weight.setDemographicId(42);
+            weight.setType("WT");
+            weight.setDataField("70");
+            weight.setDateObserved(midnight);
+            weight.setCreateDate(midnight);
+            when(mockDemographicManager.getDemographic(any(LoggedInInfo.class), eq(42))).thenReturn(demo);
+            when(mockDemographicManager.getDemographicExts(any(LoggedInInfo.class), eq(42)))
+                .thenReturn(Collections.emptyList());
+            when(mockWaitingListDao.search_wlstatus(42)).thenReturn(Collections.emptyList());
+            when(mockWaitingListNameDao.findAll(any(), any())).thenReturn(Collections.emptyList());
+            when(mockSpecialistDao.findAll()).thenReturn(Collections.emptyList());
+            when(mockSecUserRoleDao.getSecUserRolesByRoleName(any())).thenReturn(Collections.emptyList());
+            when(mockDemographicManager.getDemographicContacts(any(LoggedInInfo.class), eq(42)))
+                .thenReturn(Collections.emptyList());
+            when(mockAllergyManager.getActiveAllergies(any(LoggedInInfo.class), eq(42))).thenReturn(List.of(allergy));
+            when(mockMeasurementManager.getMeasurementByType(any(LoggedInInfo.class), eq(42), any()))
+                .thenReturn(Collections.emptyList());
+            when(mockMeasurementManager.getLatestMeasurementsByDemographicIdObservedAfter(
+                    any(LoggedInInfo.class), eq(42), any(Date.class)))
+                .thenReturn(new ArrayList<>(List.of(weight)));
+
+            Response response = request().path("/demographics/42")
+                .query("includes[]", "allergies").query("includes[]", "measurements").get();
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            var wireJson = responseJson(response);
+            for (String pointer : List.of("/lastUpdateDate", "/allergies/0/lastUpdateDate",
+                    "/measurements/0/createDate", "/measurements/0/dateObserved")) {
+                assertThat(wireJson.at(pointer).isIntegralNumber()).as("%s on the wire: %s", pointer,
+                        wireJson.at(pointer)).isTrue();
+                assertThat(wireJson.at(pointer).longValue()).as(pointer).isEqualTo(midnight.getTime());
+            }
+            // A calendar date beside them keeps its string shape.
+            assertThat(wireJson.at("/dateOfBirth").textValue()).isEqualTo("1980-06-15");
         }
     }
 

@@ -25,12 +25,14 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications made by CARLOS Contributors in 2026: provide precision-aware allergy reads.
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTemporalReadService;
+
 import java.util.List;
 
-import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -38,7 +40,6 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 
-import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.managers.AllergyManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -58,22 +59,45 @@ public class AllergyService extends AbstractServiceImpl {
     private AllergyManager allergyManager;
 
     @Autowired
+    private CdsTemporalReadService dates;
+
+    private io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService legacyProjection;
+
+    /** Keeps the framework's public no-argument endpoint lifecycle and requires its projection guard. */
+    @Autowired
+    public void setCdsLegacyProjectionService(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService service) {
+        this.legacyProjection = java.util.Objects.requireNonNull(service);
+    }
     private SecurityInfoManager securityInfoManager;
+
+    @Autowired
+    public void setSecurityInfoManager(SecurityInfoManager service) {
+        this.securityInfoManager = java.util.Objects.requireNonNull(service);
+    }
 
     @GET
     @Path("/active")
     @Produces("application/json")
     public AllergyResponse getCurrentAllergies(@QueryParam("demographicNo") Integer demographicNo) {
-        if (demographicNo == null) {
-            throw new BadRequestException("demographicNo is required");
-        }
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_allergy", SecurityInfoManager.READ, demographicNo)) {
-            throw new AccessDeniedException("_allergy", SecurityInfoManager.READ, demographicNo);
-        }
+        return active(demographicNo, false);
+    }
 
+    @GET
+    @Path("/active/precision")
+    @Produces(MediaType.APPLICATION_JSON)
+    public AllergyResponse getCurrentAllergiesWithPrecision(@QueryParam("demographicNo") Integer demographicNo) {
+        return active(demographicNo, true);
+    }
+
+    private AllergyResponse active(Integer demographicNo, boolean precisionAware) {
+        if (demographicNo == null || demographicNo < 1) throw new jakarta.ws.rs.BadRequestException("demographicNo is required");
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_allergy", "r", demographicNo)) {
+            throw new io.github.carlos_emr.carlos.commn.exception.AccessDeniedException("_allergy", "r");
+        }
         List<Allergy> allergies = allergyManager.getActiveAllergies(getLoggedInInfo(), demographicNo);
-
-        List<AllergyTo1> allergiesT = new AllergyConverter().getAllAsTransferObjects(getLoggedInInfo(), allergies);
+        legacyProjection.requireRestSupported(demographicNo, java.util.Set.of("AllergiesAndAdverseReactions"));
+        List<AllergyTo1> allergiesT = new AllergyConverter(dates, precisionAware)
+                .getAllAsTransferObjects(getLoggedInInfo(), allergies);
 
         AllergyResponse response = new AllergyResponse();
         response.setAllergies(allergiesT);

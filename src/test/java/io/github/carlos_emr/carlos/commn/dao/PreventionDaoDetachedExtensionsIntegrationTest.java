@@ -28,7 +28,6 @@ import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.hibernate.Hibernate;
-import org.hibernate.LazyInitializationException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -44,10 +43,9 @@ import java.util.Date;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Regression coverage for the lazy {@code Prevention.preventionExts} mapping as seen by
+ * Regression coverage for explicitly fetched {@code Prevention.preventionExts} as seen by
  * consumers that receive entities <em>after</em> the DAO transaction has ended.
  *
  * <p>Runs without a test-managed transaction so that every DAO call opens and closes its own
@@ -64,6 +62,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class PreventionDaoDetachedExtensionsIntegrationTest extends CarlosTestBase {
 
     private static final int DEMOGRAPHIC = 20777;
+    private static final String PREVENTION_TYPE = "SYNTHETIC-DETACHED";
 
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
@@ -85,7 +84,7 @@ class PreventionDaoDetachedExtensionsIntegrationTest extends CarlosTestBase {
         transactions.executeWithoutResult(status -> {
             Prevention prevention = new Prevention();
             prevention.setDemographicId(DEMOGRAPHIC);
-            prevention.setPreventionType("Flu");
+            prevention.setPreventionType(PREVENTION_TYPE);
             prevention.setPreventionDate(new Date());
             prevention.setProviderNo("-1");
             prevention.setCreatorProviderNo("999998");
@@ -95,6 +94,7 @@ class PreventionDaoDetachedExtensionsIntegrationTest extends CarlosTestBase {
 
             persistExt(prevention.getId(), ImmunizationProperty.lot.name(), "LOT-001");
             persistExt(prevention.getId(), ImmunizationProperty.providerName.name(), "External Clinic");
+            persistExt(prevention.getId(), "cdsDatePrecision", "FULL_DATE");
         });
     }
 
@@ -132,32 +132,94 @@ class PreventionDaoDetachedExtensionsIntegrationTest extends CarlosTestBase {
 
     @Test
     @Tag("query")
-    @DisplayName("plain list queries leave the extensions collection uninitialized")
-    void shouldLeavePreventionExtsUninitialized_whenLoadedViaListQuery() {
-        List<Prevention> results = preventionDao.findNotDeletedByDemographicId(DEMOGRAPHIC);
+    @DisplayName("the generic list query keeps extensions lazy")
+    void shouldLeavePreventionExtsLazy_whenLoadedViaGenericListQuery() {
+        List<Prevention> results = preventionDao.findByDemographicId(DEMOGRAPHIC);
 
         assertThat(results).hasSize(1);
         Prevention detached = results.get(0);
 
-        // Pins the performance contract of the LAZY mapping at runtime, not just the annotation:
-        // bulk list queries must not load one extension collection per row.
+        // Only clinical callers that consume metadata fetch the collection. Generic inventory
+        // reads must retain develop's bounded query behavior.
         assertThat(Hibernate.isInitialized(detached.getPreventionExts())).isFalse();
-        assertThatThrownBy(detached::setPreventionExtendedProperties)
-                .isInstanceOf(LazyInitializationException.class);
     }
 
     @Test
     @Tag("query")
-    @DisplayName("single extension lookup works for detached preventions without the collection")
-    void shouldResolveSingleExtension_withoutInitializingCollection() {
-        Prevention detached = preventionDao.findNotDeletedByDemographicId(DEMOGRAPHIC).get(0);
+    @DisplayName("single extension lookup agrees with the complete detached release collection")
+    void shouldResolveSingleExtension_withoutChangingDetachedMetadata() {
+        Prevention detached = preventionDao.findUniqueByDemographicId(DEMOGRAPHIC).get(0);
+        assertThat(Hibernate.isInitialized(detached.getPreventionExts())).isTrue();
+        List<Integer> extensionIds = detached.getPreventionExts().stream().map(PreventionExt::getId).toList();
 
         // The PreventionData list view resolves the external provider name this way.
         List<PreventionExt> providerName = preventionExtDao.findByPreventionIdAndKey(
                 detached.getId(), ImmunizationProperty.providerName.name());
 
         assertThat(providerName).extracting(PreventionExt::getVal).containsExactly("External Clinic");
-        assertThat(Hibernate.isInitialized(detached.getPreventionExts())).isFalse();
+        assertThat(detached.getPreventionExts()).extracting(PreventionExt::getId)
+                .containsExactlyElementsOf(extensionIds);
+        detached.setPreventionExtendedProperties();
+        assertThat(detached.getImmunizationProperty(ImmunizationProperty.providerName))
+                .isEqualTo(providerName.get(0).getVal());
+    }
+
+    @Test
+    @Tag("query")
+    @DisplayName("owning clinical lists fetch complete metadata without duplicate preventions")
+    void shouldInitializeImportedMetadata_forEveryOwningClinicalList() {
+        for (List<Prevention> results : List.of(
+                preventionDao.findNotDeletedByDemographicId(DEMOGRAPHIC),
+                preventionDao.findByTypeAndDate(PREVENTION_TYPE, new Date(0), new Date(System.currentTimeMillis() + 86400000)),
+                preventionDao.findByTypeAndDemoNo(PREVENTION_TYPE, DEMOGRAPHIC),
+                preventionDao.findActiveByDemoId(DEMOGRAPHIC))) {
+            assertThat(results).hasSize(1);
+            Prevention detached = results.get(0);
+            assertThat(Hibernate.isInitialized(detached.getPreventionExts())).isTrue();
+            assertThat(detached.getPreventionExts()).hasSize(3);
+            assertThat(detached.isCdsImported()).isTrue();
+            detached.setPreventionExtendedProperties();
+            assertThat(detached.getLotNo()).isEqualTo("LOT-001");
+            assertThat(detached.getImmunizationProperty(ImmunizationProperty.providerName))
+                    .isEqualTo("External Clinic");
+        }
+    }
+
+    @Test
+    @Tag("query")
+    @DisplayName("owning clinical lists keep a stable prevention order behind the extension join")
+    void shouldReturnPreventionsInStableOrder_forEveryOwningClinicalList() {
+        Date sameDay = new Date();
+        List<Integer> added = new java.util.ArrayList<>();
+        transactions.executeWithoutResult(status -> {
+            for (int i = 0; i < 3; i++) {
+                Prevention prevention = new Prevention();
+                prevention.setDemographicId(DEMOGRAPHIC);
+                prevention.setPreventionType(PREVENTION_TYPE);
+                prevention.setPreventionDate(sameDay);
+                prevention.setProviderNo("-1");
+                prevention.setCreatorProviderNo("999998");
+                prevention.setDeleted(false);
+                prevention.setRefused(false);
+                preventionDao.persist(prevention);
+                persistExt(prevention.getId(), ImmunizationProperty.lot.name(), "LOT-" + i);
+                persistExt(prevention.getId(), "cdsDatePrecision", "FULL_DATE");
+                added.add(prevention.getId());
+            }
+        });
+        List<Integer> byId = preventionDao.findNotDeletedByDemographicId(DEMOGRAPHIC).stream()
+                .map(Prevention::getId).toList();
+        assertThat(byId).hasSize(4).isSorted().containsAll(added);
+        for (List<Prevention> results : List.of(
+                preventionDao.findByTypeAndDate(PREVENTION_TYPE, new Date(0), new Date(System.currentTimeMillis() + 86400000)),
+                preventionDao.findByTypeAndDemoNo(PREVENTION_TYPE, DEMOGRAPHIC),
+                preventionDao.findActiveByDemoId(DEMOGRAPHIC))) {
+            // Same type, so the date then the identifier decide: the three same-day additions
+            // keep their identifier order and no prevention appears twice.
+            List<Integer> ids = results.stream().map(Prevention::getId).toList();
+            assertThat(ids).doesNotHaveDuplicates().hasSize(4);
+            assertThat(ids.stream().filter(added::contains).toList()).isSorted();
+        }
     }
 
     private void persistExt(Integer preventionId, String key, String value) {

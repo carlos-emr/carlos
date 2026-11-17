@@ -10,7 +10,7 @@ const start = source.indexOf('async function waitForAnnotationFaxCover(');
 const helper = source.slice(start, source.indexOf('\n}', start) + 2);
 function handoff({pathname = '/carlos/documentManager/FaxDocument', message = '', cover = false, saveFailed = false} = {}) {
   let evaluations = 0;
-  const context = vm.createContext({window: {location: {pathname}}, document: {
+  const context = vm.createContext({h:require('./lib/playwright-harness'),window: {location: {pathname}}, document: {
     getElementById: id => id === 'btnSend' && cover ? {} : null,
     querySelector: selector => selector === '[role="alert"]' && message ? {textContent: message}
       : selector === '#status.error' && saveFailed ? {} : null,
@@ -22,16 +22,26 @@ function handoff({pathname = '/carlos/documentManager/FaxDocument', message = ''
     assert.notEqual(value, false, 'the completed handoff should resolve without waiting for the timeout');
     return {jsonValue: async () => value};
   }};
-  return {run: () => context.waitForAnnotationFaxCover(page), evaluations: () => evaluations};
+  return {run: diagnostics => context.waitForAnnotationFaxCover(page,diagnostics), evaluations: () => evaluations};
 }
-test('missing fax accounts fail the required handoff immediately with a fixture diagnostic', async () => {
+test('missing fax accounts skip the required handoff immediately with a fixture diagnostic', async () => {
   const check = handoff({message: 'No active fax accounts are configured. Contact your system administrator.'});
-  await assert.rejects(check.run(), /requires an active fax account.*owned UI-only fax fixture/);
+  await assert.rejects(check.run(), error=>error.name==='SkipCheck'
+    && /requires an active fax account.*owned UI-only fax fixture/.test(error.message));
   assert.equal(check.evaluations(), 1);
 });
 test('a real fax cover completes the handoff without changing or skipping its checks', async () => {
   const check = handoff({pathname: '/carlos/fax/faxAction', cover: true});
   await assert.doesNotReject(check.run()); assert.equal(check.evaluations(), 1);
+});
+test('a missing fax prerequisite cannot hide accumulated CSP or uncaught script errors',async()=>{
+  const check=handoff({message:'No active fax accounts are configured.'});
+  await assert.rejects(check.run(['pageerror: synthetic diagnostic']),error=>{
+    assert.notEqual(error.name,'SkipCheck');
+    assert.match(error.message,/CSP or uncaught script errors/);
+    assert.doesNotMatch(error.message,/synthetic diagnostic/);
+    return true;
+  });
 });
 test('other server refusals and a failed save remain failures without logging clinical details', async () => {
   for (const state of [{message: 'Sensitive synthetic document detail'}, {pathname: '/carlos/documentManager/AnnotateDocument', saveFailed: true}]) {
@@ -41,5 +51,27 @@ test('other server refusals and a failed save remain failures without logging cl
       assert.doesNotMatch(error.message, /Sensitive/);
       return true;
     });
+  }
+});
+
+test('a missing fax account cannot hide findings, and original runtime errors are preserved', async () => {
+  const h = require('./lib/playwright-harness');
+  for (const findings of [[], ['FAIL an earlier annotation assertion']]) {
+    for (const failure of [new h.SkipCheck('active fax account required'), new Error('browser failed'),
+      Object.assign(new Error('interrupted'), {name:'CheckCancelled'})]) {
+    let check;
+    const context = vm.createContext({
+      h: {...h, runCheck: options => {check=options;}},
+      legacyHarness: {armInterruption() {}},
+      createOwnedAnnotationFixture: () => ({create() {}, cleanup() {}}), readConfig: () => ({}),
+      main: async () => {throw failure;},
+      notes: [], findings, console: {log() {}},
+    });
+    vm.runInContext(source.slice(source.indexOf('let ownedFixture;')), context);
+    await assert.rejects(check.run({}), error => failure.name !== 'SkipCheck' ? error === failure : findings.length
+      ? error.name !== 'SkipCheck' && /1 annotation check/.test(error.message)
+      : error instanceof h.SkipCheck);
+    await check.cleanup();
+    }
   }
 });

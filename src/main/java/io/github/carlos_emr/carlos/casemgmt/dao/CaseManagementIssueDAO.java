@@ -39,25 +39,77 @@ import io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementIssueListDTO;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 
-public interface CaseManagementIssueDAO {
+public interface CaseManagementIssueDAO extends io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadDao {
 
     public List<CaseManagementIssue> getIssuesByDemographic(String demographic_no);
 
     public List<CaseManagementIssue> getIssuesByDemographicOrderActive(Integer demographic_no, Boolean resolved);
 
+    /**
+     * Finds issues linked to a note, optionally filtered by resolution state.
+     * Results are ordered by resolution state, with unresolved issues first;
+     * ordering within each state is unspecified.
+     *
+     * @param noteId Integer identifier of the note; must not be null
+     * @param resolved Boolean resolution state to match, or null to return issues
+     *                 without filtering by resolution
+     * @return non-null {@code List<CaseManagementIssue>} of matching issues, or an
+     *         empty list if the note does not exist or has no matching linked issues
+     * @throws IllegalArgumentException if noteId is null
+     * @throws org.springframework.dao.DataAccessException if persistence access fails
+     */
     public List<CaseManagementIssue> getIssuesByNote(Integer noteId, Boolean resolved);
 
     public Issue getIssueByCmnId(Integer cmnIssueId);
 
     public CaseManagementIssue getIssuebyId(String demo, String id);
 
+    /**
+     * Loads the exact patient issue row without conflating duplicate catalog entries.
+     *
+     * @param id Long primary key of the patient issue row
+     * @return CaseManagementIssue the matching row, or null if the identifier is absent
+     */
+    public CaseManagementIssue findById(Long id);
+
+    /**
+     * Finds at most two patient issues without collapsing duplicate catalogue associations.
+     *
+     * @param demographicNo patient demographic number
+     * @param issueId catalogue issue identifier
+     * @return zero, one or two matching patient issues, ordered by identifier
+     */
+    List<CaseManagementIssue> findCandidatesByDemographicAndIssue(int demographicNo, Long issueId);
+
     public CaseManagementIssue getIssuebyIssueCode(String demo, String issueCode);
 
     public void deleteIssueById(CaseManagementIssue issue);
 
+    /**
+     * Saves each listed patient issue, as {@link #saveIssue(CaseManagementIssue)} does.
+     *
+     * <p>Note saves pass every issue the editor lists, changed or not. An issue whose own values
+     * are unchanged is not written and keeps its {@code update_date}.</p>
+     *
+     * @param issuelist issues to insert (no positive identifier) or write
+     */
     public void saveAndUpdateCaseIssues(List<CaseManagementIssue> issuelist);
 
+    /**
+     * Inserts a new patient issue with {@code update_date} set to now, or writes an existing one.
+     *
+     * <p>An existing issue's {@code update_date} is the time one of its own persisted values last
+     * changed. It moves only when this write changes one of them (for example acute, certain, major,
+     * resolved, type, program or catalogue issue); the date a caller's copy carries, including
+     * {@code null}, is not written.</p>
+     *
+     * @param issue issue to insert (no positive identifier) or write
+     */
     public void saveIssue(CaseManagementIssue issue);
+
+    /** Inserts a new CDS-restored marker with its source change time; never updates an existing row. */
+    void insertCdsMarker(CaseManagementIssue issue);
+
 
     public List<CaseManagementIssue> getAllCertainIssues();
 

@@ -289,7 +289,42 @@ class AddEForm2ActionExecuteEformLinkUnitTest extends CarlosUnitTestBase {
         doReturn("Check the patient eForms before reopening").when(action).getText("eform.submitUnavailable");
         doReturn("This request was not processed. Copy your changes and check saved eForms.")
                 .when(action).getText("eform.submitStale");
+        // A failure after storage started has its own texts, never the replay refusal (#4424);
+        // AddEForm2ActionPostSaveFailureUnitTest asserts the shipped wording.
+        doReturn("Could not confirm the save. Check the patient eForms.")
+                .when(action).getText("eform.submitOutcomeUnknown");
+        doReturn("a follow-on step").when(action).getText("eform.submitStep.followOn");
+        doReturn("Saved, but a follow-on step did not complete. Check the patient eForms and chart.")
+                .when(action).getText(eq("eform.submitSavedStepIncomplete"), any(String[].class));
         return action;
+    }
+
+    @Test
+    @DisplayName("should hand only the saved eForm id to the POST fax handoff, without a redirect or a render")
+    void shouldHandSavedEFormToPostHandoff_whenSavingWithFax() throws Exception {
+        mockRequest.setContextPath("/carlos");
+        mockRequest.setParameter("recipient", "Dr & Smith");
+        mockRequest.setParameter("recipientFaxNumber", "555 1234");
+        mockRequest.setParameter("letterheadFax", "Clinic#1");
+
+        assertThat(submissionAction().execute()).isEqualTo("faxPreparation");
+
+        // The target names the NEW saved revision (42), not the template id (efmfid=1), so the
+        // fax carries exactly what was just stored. EFormFaxPreparation.jsp posts it with a CSRF
+        // token; the clinical fields themselves are never replayed to the fax route.
+        assertThat(mockRequest.getAttribute("preparedFaxTarget")).isEqualTo(
+                "/carlos/fax/faxAction?method=prepareFax&transactionId=42&transactionType=EFORM"
+                        + "&demographicNo=123&recipient=Dr+%26+Smith&recipientFaxNumber=555+1234"
+                        + "&letterheadFax=Clinic%231");
+        assertThat(mockResponse.getStatus()).isEqualTo(200);
+        assertThat(mockResponse.getHeader("Location")).isNull();
+        assertThat(mockResponse.getHeader("Cache-Control")).isEqualTo("no-store");
+        verify(mockEformDataManager, times(1)).saveEformData(any(), any());
+        // Preparation renders on its own POST, and a faxed eForm never writes chart template notes.
+        verify(mockDocumentAttachmentManager, never()).stageEFormPacketForFaxPreview(any(), any(), any());
+        verify(mockDocumentAttachmentManager, never()).renderEFormPacketWithCompleteness(any(), any(), any());
+        eFormUtilMock.verify(() -> EFormUtil.writeEformTemplate(any(), any(), any(), any(), any(), any(), any()),
+                never());
     }
 
     @Test
@@ -358,7 +393,7 @@ class AddEForm2ActionExecuteEformLinkUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should roll back and show a toolbar error when attachment access is denied")
     void shouldRollBackAndShowError_whenAttachmentAccessDenied() {
-        String validLink = "doc1_123_1_referralForm";
+        String validLink = issueOpenerLink("1");
         mockRequest.setParameter("eform_link", validLink);
         doThrow(new SecurityException("PRIVATE_ATTACHMENT_DETAILS"))
                 .when(mockDocumentAttachmentManager).attachToEForm(any(),
@@ -393,10 +428,19 @@ class AddEForm2ActionExecuteEformLinkUnitTest extends CarlosUnitTestBase {
                 .isEqualTo("This eForm (and attachments, if applicable) could not be added to this patient’s documents.");
     }
 
+    /**
+     * The link an opener eForm (fid 13) issued to its "referralForm" button, which opens {@code targetFid}.
+     * It names the opener, not the eForm being saved here (fid 1).
+     */
+    private String issueOpenerLink(String targetFid) {
+        return io.github.carlos_emr.carlos.eform.EFormOpenerLinks.issue(
+                mockRequest.getSession(), "doc1", "123", "13", "referralForm", targetFid);
+    }
+
     @Test
-    @DisplayName("should write fdid to session when eform_link is valid")
+    @DisplayName("should write fdid to session when eform_link was issued by an opener of this eForm")
     void shouldWriteFdidToSession_whenEformLinkIsValid() {
-        String validLink = "doc1_123_1_referralForm";
+        String validLink = issueOpenerLink("1");
         mockRequest.setParameter("eform_link", validLink);
 
         AddEForm2Action action = new AddEForm2Action();
@@ -409,8 +453,54 @@ class AddEForm2ActionExecuteEformLinkUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should not write to session when a well-formed eform_link was never issued")
+    void shouldNotWriteToSession_whenEformLinkWasNeverIssued() {
+        String unissued = "doc1_123_1_referralForm";
+        mockRequest.setParameter("eform_link", unissued);
+
+        assertThat(new AddEForm2Action().execute()).isEqualTo("faxPreparation");
+
+        assertThat(mockRequest.getSession().getAttribute(unissued)).isNull();
+    }
+
+    @Test
+    @DisplayName("should not write to session when eform_link was issued for a button that opens another eForm")
+    void shouldNotWriteToSession_whenEformLinkOpensAnotherEForm() {
+        String otherTarget = issueOpenerLink("99");
+        mockRequest.setParameter("eform_link", otherTarget);
+
+        assertThat(new AddEForm2Action().execute()).isEqualTo("faxPreparation");
+
+        assertThat(mockRequest.getSession().getAttribute(otherTarget)).isNull();
+    }
+
+    @Test
+    @DisplayName("should restore all CARLOS image links without saving them as form fields")
+    void shouldRestoreImageLinks_withoutPersistingTransportFields() throws Exception {
+        String[] images = {
+                "{\"id\":\"signature\",\"value\":\"data:image/png;base64,AQID\"}",
+                "{\"id\":\"letterhead\",\"value\":\"/carlos/eform/displayImage?imagefile=logo.png\"}"
+        };
+        mockRequest.setParameter("carlos-image-link", images);
+        mockRequest.setParameter("clinicalNote", "Synthetic follow-up");
+        try (var forms = mockConstruction(io.github.carlos_emr.carlos.eform.data.EForm.class,
+                (form, construction) -> {
+                    when(form.getFormFileName()).thenReturn("test.html");
+                    when(form.getOpenerNames()).thenReturn(new java.util.ArrayList<>());
+                })) {
+            assertThat(new AddEForm2Action().execute()).isEqualTo("faxPreparation");
+            assertThat(forms.constructed()).hasSize(1);
+            verify(forms.constructed().getFirst()).addImagePathPlaceholders(images);
+            eFormUtilMock.verify(() -> EFormUtil.addEFormValues(
+                    argThat(names -> names.contains("clinicalNote") && !names.contains("carlos-image-link")),
+                    argThat(values -> values.contains("Synthetic follow-up") && !values.contains(images[0])
+                            && !values.contains(images[1])), eq(42), eq(1), eq(123)));
+        }
+    }
+
+    @Test
     void shouldKeepImageFailuresAndRejectedLinkValuesOutOfDiagnostics() throws Exception {
-        mockRequest.setParameter("openosp-image-link", "PRIVATE_IMAGE_CONTENT");
+        mockRequest.setParameter("carlos-image-link", "PRIVATE_IMAGE_CONTENT");
         mockRequest.setParameter("eform_link", "PRIVATE_LINK_VALUE");
         var failure = new IllegalArgumentException("PRIVATE_IMAGE_MESSAGE",
                 new IllegalStateException("PRIVATE_IMAGE_CAUSE"));

@@ -70,6 +70,72 @@ class AddPrevention2ActionUnitTest extends CarlosWebTestBase {
         verify(manager).removePrevention("42");
     }
 
+    /** The audit call any prevention write makes: the signed-in user, the record and its patient. */
+    private void assertAudited(MockedStatic<io.github.carlos_emr.carlos.log.LogAction> audit, String action,
+                               String recordId, String data) {
+        audit.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLog(mockLoggedInInfo, action,
+                io.github.carlos_emr.carlos.log.LogConst.CON_PREVENTION, recordId, "42", data));
+        audit.verifyNoMoreInteractions();
+    }
+
+    @Test void shouldAuditNewRecordAgainstPatient_withoutItsClinicalDetail() throws Exception {
+        mockRequest.setParameter("comments", "FAKE-COMMENT declined by patient");
+        mockRequest.setParameter("lot", "FAKE-LOT-77");
+        data.when(() -> PreventionData.insertPreventionData(any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any(), any())).thenReturn(100);
+        try (MockedStatic<io.github.carlos_emr.carlos.log.LogAction> audit =
+                     mockStatic(io.github.carlos_emr.carlos.log.LogAction.class)) {
+            assertThat(executeAction(new AddPrevention2Action())).isEqualTo("success");
+            // The record id and the patient; never the type, comment, lot or result.
+            assertAudited(audit, io.github.carlos_emr.carlos.log.LogConst.ADD, "100", null);
+        }
+    }
+
+    @Test void shouldAuditReplacementNamingTheRecordItReplaces_whenRecordIsEdited() throws Exception {
+        mockRequest.setParameter("id", "100");
+        data.when(() -> PreventionData.updatetPreventionData(eq("100"), any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any())).thenReturn(101);
+        try (MockedStatic<io.github.carlos_emr.carlos.log.LogAction> audit =
+                     mockStatic(io.github.carlos_emr.carlos.log.LogAction.class)) {
+            assertThat(executeAction(new AddPrevention2Action())).isEqualTo("success");
+            assertAudited(audit, io.github.carlos_emr.carlos.log.LogConst.UPDATE, "101", "previousId=100");
+        }
+    }
+
+    @Test void shouldAuditDeletionAgainstPatient_whenRecordIsDeleted() throws Exception {
+        mockRequest.setParameter("id", "100");
+        mockRequest.setParameter("delete", "delete");
+        try (MockedStatic<io.github.carlos_emr.carlos.log.LogAction> audit =
+                     mockStatic(io.github.carlos_emr.carlos.log.LogAction.class)) {
+            assertThat(executeAction(new AddPrevention2Action())).isEqualTo("success");
+            assertAudited(audit, io.github.carlos_emr.carlos.log.LogConst.DELETE, "100", null);
+        }
+    }
+
+    @Test void shouldNotAudit_whenNothingWasSaved() throws Exception {
+        data.when(() -> PreventionData.insertPreventionData(any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any(), any())).thenThrow(new IllegalStateException("synthetic failure"));
+        try (MockedStatic<io.github.carlos_emr.carlos.log.LogAction> audit =
+                     mockStatic(io.github.carlos_emr.carlos.log.LogAction.class)) {
+            assertThat(executeAction(new AddPrevention2Action())).isEqualTo("form");
+            audit.verifyNoInteractions();
+        }
+    }
+
+    @Test void shouldAuditOnce_whenOneRenderingIsSubmittedTwice() throws Exception {
+        String token = PreventionSubmissionGuard.issue(mockRequest.getSession(), "42", null);
+        mockRequest.setParameter(PreventionSubmissionGuard.PARAMETER, token);
+        data.when(() -> PreventionData.insertPreventionData(any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any(), any())).thenReturn(100);
+        try (MockedStatic<io.github.carlos_emr.carlos.log.LogAction> audit =
+                     mockStatic(io.github.carlos_emr.carlos.log.LogAction.class)) {
+            assertThat(executeAction(new AddPrevention2Action())).isEqualTo("success");
+            assertThat(executeAction(new AddPrevention2Action())).isEqualTo("success");
+            // The repeat is answered from the first save: one record, one audit row.
+            assertAudited(audit, io.github.carlos_emr.carlos.log.LogConst.ADD, "100", null);
+        }
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"", "null", "bad", "-1", "2147483648", "43"})
     void shouldRejectInvalidPatient_withoutWriting(String patient) throws Exception {
@@ -83,21 +149,129 @@ class AddPrevention2ActionUnitTest extends CarlosWebTestBase {
     @Test void shouldRejectUnrelatedRecord_beforeDelete() throws Exception {
         mockRequest.setParameter("id", "100");
         mockRequest.setParameter("delete", "true");
+        mockRequest.removeParameter("prevDate");
+        mockRequest.removeParameter("prevention");
         data.when(() -> PreventionData.requirePreventionInChart(100, 42))
                 .thenThrow(new IllegalArgumentException("unrelated patient"));
+        assertThat(executeAction(new AddPrevention2Action())).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        data.verify(() -> PreventionData.requirePreventionInChart(100, 42));
+        data.verify(() -> PreventionData.deletePreventionData(any(), any()), never());
+        verifyNoInteractions(manager);
+    }
+
+    @Test void shouldDeleteOnlyValidatedChartRecord_whenRhFormPostsNoCreationFields() throws Exception {
+        mockRequest.setParameter("id", "100");
+        mockRequest.setParameter("delete", "delete");
+        mockRequest.removeParameter("prevDate");
+        mockRequest.removeParameter("prevention");
+        assertThat(executeAction(new AddPrevention2Action())).isEqualTo("success");
+        assertThat(mockResponse.getStatus()).isEqualTo(200);
+        data.verify(() -> PreventionData.requirePreventionInChart(100, 42));
+        data.verify(() -> PreventionData.deletePreventionData("100", "42"));
+        verify(manager).removePrevention("42");
+    }
+
+    @Test void shouldRejectDeleteWithoutRecordId_insteadOfCreatingAPrevention() throws Exception {
+        mockRequest.setParameter("delete", "delete");
+        assertThat(executeAction(new AddPrevention2Action())).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        data.verifyNoInteractions();
+        verifyNoInteractions(manager);
+    }
+
+    /** Makes {@code type} unknown to the display config; the mock's default answer is an empty map. */
+    private static void unconfigured(String type) {
+        when(PreventionDisplayConfig.getInstance().getPrevention(type)).thenReturn(null);
+    }
+
+    @Test void shouldSaveRhInjection_whenTypeIsNotAPreventionsPageItem() throws Exception {
+        // The RH form's injection editor posts type RH, which PreventionItems.xml does not list (#4992).
+        unconfigured("RH");
+        mockRequest.setParameter("prevention", AddPrevention2Action.RH_INJECTION_TYPE);
+        data.when(() -> PreventionData.insertPreventionData(any(), eq("42"), eq("2026-09"), any(), any(),
+                eq("RH"), any(), any(), any(), any(), any(), any())).thenReturn(101);
+        assertThat(executeAction(new AddPrevention2Action())).isEqualTo("success");
+        data.verify(() -> PreventionData.insertPreventionData(any(), eq("42"), eq("2026-09"), any(), any(),
+                eq("RH"), any(), any(), any(), any(), any(), any()));
+    }
+
+    @Test void shouldDeleteRhInjection_fromTheRhFormPanel() throws Exception {
+        unconfigured("RH");
+        mockRequest.setParameter("prevention", AddPrevention2Action.RH_INJECTION_TYPE);
+        mockRequest.setParameter("id", "100");
+        mockRequest.setParameter("delete", "delete");
+        assertThat(executeAction(new AddPrevention2Action())).isEqualTo("success");
+        data.verify(() -> PreventionData.requirePreventionType(100, "RH"));
+        data.verify(() -> PreventionData.deletePreventionData("100", "42"));
+    }
+
+    @Test void shouldDeleteTypedRhRecord_withoutCreationDateOrConfiguredType() throws Exception {
+        // The forward merge must combine main's date-free delete with release's RH type guard.
+        unconfigured("RH");
+        mockRequest.setParameter("prevention", AddPrevention2Action.RH_INJECTION_TYPE);
+        mockRequest.setParameter("id", "100");
+        mockRequest.setParameter("delete", "delete");
+        mockRequest.removeParameter("prevDate");
+        assertThat(executeAction(new AddPrevention2Action())).isEqualTo("success");
+        assertThat(mockResponse.getStatus()).isEqualTo(200);
+        data.verify(() -> PreventionData.requirePreventionInChart(100, 42));
+        data.verify(() -> PreventionData.requirePreventionType(100, "RH"));
+        data.verify(() -> PreventionData.deletePreventionData("100", "42"));
+        verify(manager).removePrevention("42");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD", "OPTIONS"})
+    void shouldRejectTypedRhDeleteOnReadMethods_beforeAnyRecordAccess(String method) throws Exception {
+        mockRequest.setMethod(method);
+        mockRequest.setParameter("prevention", AddPrevention2Action.RH_INJECTION_TYPE);
+        mockRequest.setParameter("id", "100");
+        mockRequest.setParameter("delete", "delete");
+        mockRequest.removeParameter("prevDate");
+        assertThat(executeAction(new AddPrevention2Action())).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(405);
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+        data.verifyNoInteractions();
+        verifyNoInteractions(manager);
+    }
+
+    @Test void shouldRejectRhDelete_whenRecordIsAnotherType() throws Exception {
+        // The RH type is accepted without a Preventions-page item, so it must not reach another type's record.
+        unconfigured("RH");
+        mockRequest.setParameter("prevention", AddPrevention2Action.RH_INJECTION_TYPE);
+        mockRequest.setParameter("id", "100");
+        mockRequest.setParameter("delete", "delete");
+        data.when(() -> PreventionData.requirePreventionType(100, "RH"))
+                .thenThrow(new IllegalArgumentException("not an RH record"));
         assertThat(executeAction(new AddPrevention2Action())).isEqualTo("none");
         assertThat(mockResponse.getStatus()).isEqualTo(400);
         data.verify(() -> PreventionData.deletePreventionData(any(), any()), never());
         verifyNoInteractions(manager);
     }
 
-    @Test void shouldDeleteOnlyValidatedChartRecord_whenRequestIsValid() throws Exception {
-        mockRequest.setParameter("id", "100");
-        mockRequest.setParameter("delete", "true");
-        assertThat(executeAction(new AddPrevention2Action())).isEqualTo("success");
-        data.verify(() -> PreventionData.deletePreventionData("100", "42"));
-        verify(manager).removePrevention("42");
+    @Test void shouldRejectUnconfiguredType_withoutWriting() throws Exception {
+        unconfigured("NotAPrevention");
+        mockRequest.setParameter("prevention", "NotAPrevention");
+        assertThat(executeAction(new AddPrevention2Action())).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        data.verifyNoInteractions();
+        verifyNoInteractions(manager);
     }
+
+    @Test void shouldRejectRhDeleteOnGet_beforeReadingOrDeletingRecords() throws Exception {
+        mockRequest.setMethod("GET");
+        mockRequest.setParameter("id", "100");
+        mockRequest.setParameter("delete", "delete");
+        mockRequest.removeParameter("prevDate");
+        mockRequest.removeParameter("prevention");
+        assertThat(executeAction(new AddPrevention2Action())).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(405);
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+        data.verifyNoInteractions();
+        verifyNoInteractions(manager);
+    }
+
     @Test void shouldRejectMissingInteractiveDate_withoutWriting() throws Exception {
         mockRequest.removeParameter("prevDate");
         assertThat(executeAction(new AddPrevention2Action())).isEqualTo("none");
@@ -177,6 +351,8 @@ class AddPrevention2ActionUnitTest extends CarlosWebTestBase {
     void shouldDeleteOnce_whenTheDeleteIsSubmittedTwice() throws Exception {
         mockRequest.setParameter("id", "100");
         mockRequest.setParameter("delete", "true");
+        mockRequest.removeParameter("prevDate");
+        mockRequest.removeParameter("prevention");
         issueToken("100");
 
         assertThat(executeAction(new AddPrevention2Action())).isEqualTo("success");

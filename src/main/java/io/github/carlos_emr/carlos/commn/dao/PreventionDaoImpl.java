@@ -40,8 +40,21 @@ import org.hibernate.Hibernate;
 import io.github.carlos_emr.carlos.commn.NativeSql;
 import io.github.carlos_emr.carlos.commn.model.Prevention;
 import io.github.carlos_emr.carlos.prevention.dto.PreventionListItemDTO;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException;
 
 public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements PreventionDao {
+
+    private enum DateScope { TYPE, PATIENT }
+    private static final String UNCERTAIN_DATE_CONDITION = """
+            AND EXISTS (SELECT provenance.id FROM PreventionExt provenance
+                        WHERE provenance.preventionId = p.id AND provenance.keyval = 'cdsDatePrecision')
+            AND (p.preventionDate IS NULL OR EXISTS (
+                SELECT pd.id FROM PartialDate pd
+                WHERE pd.tableName = 4 AND pd.fieldName = 7 AND pd.tableId = p.id
+                AND pd.id = (SELECT MAX(latest.id) FROM PartialDate latest
+                             WHERE latest.tableName = 4 AND latest.fieldName = 7 AND latest.tableId = p.id)
+                AND pd.format IS NOT NULL AND TRIM(pd.format) <> ''))
+            """;
 
     public PreventionDaoImpl() {
         super(Prevention.class);
@@ -162,7 +175,10 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
 
     @Override
     public List<Prevention> findNotDeletedByDemographicId(Integer demographicId) {
-        String sqlCommand = "select x from " + modelClass.getSimpleName() + " x where demographicId=?1 and deleted=?2";
+        // The extension join changes the plan the single-table query used, which returned rows in
+        // demographic-index (id) order; callers such as the BC health passport forms number their
+        // date slots in list order, so that order is now stated rather than left to the plan.
+        String sqlCommand = "select x from " + modelClass.getSimpleName() + " x left join fetch x.preventionExts where x.demographicId=?1 and x.deleted=?2 order by x.id";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, demographicId);
@@ -176,7 +192,10 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
 
     @Override
     public List<Prevention> findByTypeAndDate(String preventionType, Date startDate, Date endDate) {
-        String sqlCommand = "select x from " + modelClass.getSimpleName() + " x where preventionType=?1 and preventionDate>=?2 and preventionDate<=?3 and deleted='0' and refused='0' order by preventionDate";
+        // This legacy query cannot account for unknown membership in a date interval.
+        // Check the full type scope before filtering; otherwise undated records disappear.
+        requireExactDates(DateScope.TYPE, preventionType);
+        String sqlCommand = "select x from " + modelClass.getSimpleName() + " x left join fetch x.preventionExts where x.preventionType=?1 and x.preventionDate>=?2 and x.preventionDate<=?3 and x.deleted='0' and x.refused='0' order by x.preventionDate, x.id";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, preventionType);
@@ -194,7 +213,7 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
      * Retrieves a list of Prevention entities by prevention type and demographic number.
      */
     public List<Prevention> findByTypeAndDemoNo(String preventionType, Integer demoNo) {
-        String sqlCommand = "select x from " + modelClass.getSimpleName() + " x where preventionType=?1 and demographicId=?2 and deleted='0' order by preventionDate asc";
+        String sqlCommand = "select x from " + modelClass.getSimpleName() + " x left join fetch x.preventionExts where x.preventionType=?1 and x.demographicId=?2 and x.deleted='0' order by x.preventionDate asc, x.id";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, preventionType);
@@ -208,13 +227,16 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
     @SuppressWarnings("unchecked")
     @Override
     public List<Prevention> findActiveByDemoId(Integer demoId) {
-        Query query = createQuery("p", "p.demographicId = ?1 and p.deleted <> '1' ORDER BY p.preventionType, p.preventionDate");
+        Query query = entityManager.createQuery("select p from Prevention p left join fetch p.preventionExts "
+                + "where p.demographicId = ?1 and p.deleted <> '1' order by p.preventionType, p.preventionDate, p.id");
         query.setParameter(1, demoId);
         return query.getResultList();
     }
 
     @Override
     public List<Prevention> findUniqueByDemographicId(Integer demographicId) {
+        // Selecting one row by storage anchors would invent a latest event when intervals overlap.
+        requireExactDates(DateScope.PATIENT, demographicId);
         Query query = entityManager.createNativeQuery("SELECT p1.* FROM preventions p1 left join preventions as p2 on p1.prevention_type = p2.prevention_type and p1.demographic_no = p2.demographic_no and p2.deleted='0' and (p1.prevention_date < p2.prevention_date OR (p1.prevention_date = p2.prevention_date and p1.id < p2.id)) where p1.demographic_no = ?1 AND p1.deleted='0' AND p2.id is null ORDER BY p1.prevention_date DESC", Prevention.class);
         query.setParameter(1, demographicId);
 
@@ -236,6 +258,27 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
             // Low-level DAO code intentionally uses Hibernate.initialize; no CARLOS wrapper exists.
             Hibernate.initialize(prevention.getPreventionExts());
         }
+    }
+
+    private void requireExactDates(DateScope scope, Object value) {
+        if (hasUncertainDates(scope, value)) throw new PreventionDatePrecisionException();
+    }
+
+    @Override
+    public boolean hasUncertainPreventionDates(Integer demographicId) {
+        return demographicId != null && hasUncertainDates(DateScope.PATIENT, demographicId);
+    }
+
+    private boolean hasUncertainDates(DateScope scope, Object value) {
+        Query uncertain = switch (scope) {
+            case TYPE -> entityManager.createQuery("SELECT p.id FROM Prevention p "
+                    + "WHERE p.preventionType = ?1 AND p.deleted = '0' AND p.refused = '0' " + UNCERTAIN_DATE_CONDITION);
+            case PATIENT -> entityManager.createQuery("SELECT p.id FROM Prevention p "
+                    + "WHERE p.demographicId = ?1 AND p.deleted = '0' " + UNCERTAIN_DATE_CONDITION);
+        };
+        uncertain.setParameter(1, value);
+        uncertain.setMaxResults(1);
+        return !uncertain.getResultList().isEmpty();
     }
 
     @NativeSql("preventions")
@@ -265,7 +308,14 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
                     p.id, p.demographicId, p.preventionType, p.preventionDate,
                     p.creationDate, p.providerNo, p.creatorProviderNo,
                     p.deleted, p.refused, p.never,
-                    p.nextDate, p.lastUpdateDate)
+                    p.nextDate, p.lastUpdateDate,
+                    (SELECT pd.format FROM PartialDate pd
+                     WHERE pd.tableName = 4 AND pd.fieldName = 7 AND pd.tableId = p.id
+                     AND pd.id = (SELECT MAX(latest.id) FROM PartialDate latest
+                                  WHERE latest.tableName = 4 AND latest.fieldName = 7
+                                  AND latest.tableId = p.id)),
+                    EXISTS (SELECT provenance.id FROM PreventionExt provenance
+                            WHERE provenance.preventionId = p.id AND provenance.keyval = 'cdsDatePrecision'))
                 FROM Prevention p
                 WHERE p.demographicId = :demoId
                 ORDER BY p.preventionDate DESC
@@ -274,4 +324,52 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
         return query.getResultList();
     }
 
+
+    /** Bounded metadata-only projection. Program scope is checked before loading a prevention type. */
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column> readCdsExportReceiptColumns() {
+        return CdsExportNativeMetadataReadSupport.read(entityManager, CdsExportNativeMetadataReadSupport.Table.PREVENTIONS);
+    }
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto readCdsExportSourceSchema() {
+        return CdsExportPatientTableReadSupport.schema(entityManager, CdsExportPatientTableReadSupport.Plan.PREVENTION_SCOPE);
+    }
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public long countCdsExportRows(int patient) {
+        return CdsExportPatientTableReadSupport.count(entityManager, CdsExportPatientTableReadSupport.Plan.PREVENTION_SCOPE, patient);
+    }
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> findCdsExportRowsAfter(int patient, Long afterId, int limit) {
+        return CdsExportPatientTableReadSupport.page(entityManager, CdsExportPatientTableReadSupport.Plan.PREVENTION_SCOPE, patient, afterId, limit);
+    }
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public byte[] readCdsExportValueChunk(int patient, long rowId, String column, long offset, int length) {
+        return CdsExportPatientTableReadSupport.chunk(entityManager, CdsExportPatientTableReadSupport.Plan.PREVENTION_SCOPE, patient, rowId, column, offset, length);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.SortedMap<Integer, Integer> readCdsExportProgramRestrictions(int patient) {
+        return CdsExportPatientTableReadSupport.preventionProgramRestrictions(entityManager, patient);
+    }
+    // Program-restricted rows are not refused here: every CDS export reader of these rows reads
+    // the restrictions first in their own transaction, authorizes each program live, and proves
+    // the same restrictions inside the source snapshot before it reads a row
+    // (CdsExportPreventionAccessService.Scope).
+
+    /** Explicit patient-owned immunization selection; no unselected prevention payload is read. */
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly=true, propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public long countCdsExportPreventionRows(int patient, java.util.Set<Integer> selected){return CdsExportPatientTableReadSupport.preventionCount(entityManager, CdsExportPatientTableReadSupport.Plan.PREVENTIONS_FULL, patient, selected); }
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly=true, propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> findCdsExportPreventionRowsAfter(int patient, java.util.Set<Integer> selected, Long after, int limit){return CdsExportPatientTableReadSupport.preventionPage(entityManager, CdsExportPatientTableReadSupport.Plan.PREVENTIONS_FULL, patient, selected, after, limit); }
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly=true, propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public byte[] readCdsExportPreventionChunk(int patient, java.util.Set<Integer> selected, long row, String column, long offset, int length){return CdsExportPatientTableReadSupport.preventionChunk(entityManager, CdsExportPatientTableReadSupport.Plan.PREVENTIONS_FULL, patient, selected, row, column, offset, length); }
 }

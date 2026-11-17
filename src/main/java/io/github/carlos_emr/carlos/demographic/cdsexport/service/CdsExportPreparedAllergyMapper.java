@@ -1,0 +1,66 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.demographic.cdsexport.service;
+
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsAllergyDto;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportAllergyDto;
+import java.io.IOException;
+
+/** Historical prepared representation only. Current row/alias/field reconciliation must authorize its selection separately. */
+public final class CdsExportPreparedAllergyMapper {
+    public CdsExportAllergyDto map(CdsAllergyDto source) throws IOException {
+        java.util.Objects.requireNonNull(source);
+        var dates = new CdsExportPreparedTemporalMapper();
+        // A CARLOS import restores text its sender wrote with U+FFFD (CdsCarriedTextResolver):
+        // the element of such a value is its U+FFFD form, by the rule every element follows.
+        return new CdsExportAllergyDto(
+                element(source.description()),
+                source.property(),
+                source.codeSystem(),
+                source.code(),
+                source.reactionType(),
+                dates.map(source.start(), false),
+                source.lifeStage(),
+                source.severity(),
+                longReaction(source) ? null : element(source.reaction()),
+                dates.map(source.recorded(), true),
+                element(source.notes()),
+                // The native state this import wrote: a source archive marker is restored only
+                // when the import opted in (decision 9).
+                source.nativeArchived(),
+                source.ageOfOnset(),
+                source.onsetOfReaction(),
+                source.nativeSeverity(),
+                // A reaction restored from CARLOS.Allergy.Reaction.v1 is longer than Reaction;
+                // the source carried it in that carrier, not in the standard element.
+                longReaction(source) ? source.reaction() : null);
+    }
+
+    private static String element(String value) {
+        return value == null ? null : CdsExportXmlText.element(value);
+    }
+
+    private static boolean longReaction(CdsAllergyDto source) {
+        return source.reaction() != null
+                && source.reaction().codePointCount(0, source.reaction().length()) > 120;
+    }
+}

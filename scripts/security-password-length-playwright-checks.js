@@ -3,6 +3,8 @@
 /*
  * Security Records password edits preserve 20/32-character values, reject values
  * beyond the character/encoder limits, and never partially update a rejected record.
+ * Where MFA and legacy PINs are both offered, a refused edit with MFA ticked shows the
+ * disabled PIN as the unchanged sentinel and can be resubmitted as drafted.
  * Uses an owned provider/login, inherited test-account roles, and application saves.
  * BASE_URL, TEST_*, MYSQL_* and CHROME_PATH use the shared harness configuration.
  */
@@ -11,6 +13,7 @@ const {randomBytes} = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const {runWorkflow} = require('./lib/workflow-session');
 const {throwawayLoginFixture} = require('./lib/throwaway-login-fixture');
+const {failureMark, consumeExpectedFailure, consumeKnownConsole} = require('./lib/concurrency-support');
 
 async function workflow(s) {
   const {sql, context, config, recorder} = s;
@@ -112,8 +115,13 @@ async function workflow(s) {
       });
       try {
         const html = await response.text();
-        h.assert(response.status() === 200 && message.test(html) && !/Security Record Updated Successfully/.test(html),
-          'A rejected direct update did not show its validation error');
+        // SecurityUpdate2Action refuses invalid input with HTTP 400 and re-renders the edit form
+        // with the error and the submitted draft, uncached, instead of a success page.
+        h.assert(response.status() === 400 && message.test(html) && !/Security Record Updated Successfully/.test(html),
+          `A rejected direct update did not show its validation error (HTTP ${response.status()})`);
+        h.assert(/id="security-edit-refused"/.test(html) && html.includes(`value="${rejectedUserName}"`),
+          'A rejected direct update did not keep the submitted draft');
+        h.assert(/no-store/.test(response.headers()['cache-control'] || ''), 'A rejected credential draft must not be cached');
         h.assert(snapshot() === before, 'A rejected direct update changed account fields or credentials');
       } finally { await response.dispose(); }
     }
@@ -124,6 +132,47 @@ async function workflow(s) {
     const before = credentials();
     await save();
     h.assert(credentials() === before, 'An unchanged sentinel rehashed or changed the existing credentials');
+  });
+
+  // Runs last: it leaves MFA enabled on the throwaway login, which the fixture then removes.
+  await s.step('a refused edit with MFA ticked keeps the disabled PIN unchanged and resubmits as drafted', async () => {
+    await openEdit();
+    const mfa = page.locator('input[name="enableMfa"]');
+    const pin = page.locator('input[name="pin"]');
+    const conPin = page.locator('input[name="conPin"]');
+    if (await mfa.count() === 0 || await pin.count() === 0 || await pin.isDisabled()) {
+      // MFA can only disable the PIN in a draft where both controls are offered.
+      console.log('security-password-length: MFA or legacy PIN controls are not offered; MFA draft step not applicable');
+      return;
+    }
+    const before = credentials();
+    await mfa.check(); // its onchange disables the PIN controls, so the browser stops submitting them
+    h.assert(await pin.isDisabled() && await conPin.isDisabled(), 'Ticking MFA did not disable the PIN controls');
+    // The form's own checks allow punctuation in a user name; SecurityUpdate2Action refuses it with the draft.
+    await page.locator('input[name="user_name"]').fill(`${account.username}!`);
+    const isUpdate = r => r.request().method() === 'POST' && h.pathOnly(r.url()).endsWith('/admin/SecurityUpdate');
+    const mark = failureMark(recorder);
+    const [refusal] = await Promise.all([page.waitForResponse(isUpdate), page.locator('input[name="subbutton"]').click()]);
+    h.assert(refusal.status() === 400, `The refused edit answered HTTP ${refusal.status()}`);
+    await page.locator('#security-edit-refused').waitFor();
+    consumeKnownConsole(recorder, mark, /bcArStyle\.css/);
+    consumeExpectedFailure(recorder, mark, {status: 400, path: /\/admin\/SecurityUpdate$/});
+    h.assert(credentials() === before, 'The refused edit changed the password or PIN');
+    // No PIN was submitted, which means "unchanged": the draft must carry the unchanged sentinel,
+    // not a blank PIN that the form's own PIN check then refuses on resubmission.
+    h.assert(await pin.isDisabled() && await pin.inputValue() === '****' && await conPin.inputValue() === '****',
+      'The refused draft replaced the unchanged-PIN sentinel with a blank PIN');
+    await page.locator('input[name="user_name"]').fill(account.username);
+    const posted = page.waitForResponse(isUpdate, {timeout: 15000}).catch(() => null);
+    const dialogs = await h.withExpectedDialogs(page, () => page.locator('input[name="subbutton"]').click());
+    h.assert(dialogs.length === 0, `The draft could not be resubmitted as drafted: ${dialogs.map(d => d.text).join(' | ')}`);
+    const accepted = await posted;
+    h.assert(accepted && accepted.status() === 200, 'The resubmitted draft was not accepted');
+    await page.waitForLoadState('domcontentloaded');
+    h.assert(/Security Record Updated Successfully/.test(await page.locator('body').innerText()), 'The resubmitted draft did not report success');
+    h.assert(credentials() === before, 'Resubmitting the draft changed the password or PIN');
+    h.assert(String(sql.value(`SELECT usingMfa FROM security WHERE security_no=${account.securityNo}`)) === '1',
+      'The resubmitted draft did not enable MFA');
   });
 }
 

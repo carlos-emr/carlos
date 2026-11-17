@@ -17,7 +17,7 @@
 
     Security   : Renders nothing unless the user has _demographic read, circle-of-care access to
                  the patient and _portal.booking_prompt read. The create controls also need
-                 _portal.booking_prompt write and _portal.account read. The server action
+                 _portal.booking_prompt write. The server action
                  (PortalBookingPrompt2Action) re-checks every request.
 
     Behaviour  : js/portalBookingPrompt.js loads the state through the action's panel method and
@@ -48,8 +48,7 @@
                     SecurityInfoManager.READ, portalPatientScope)) { return; }
     boolean portalMayWrite = portalSecurity.hasPrivilege(portalSession,
             PortalStaffContextResolver.OBJECT_BOOKING_PROMPT, SecurityInfoManager.WRITE, portalPatientScope);
-    boolean portalMayCreate = portalMayWrite && portalSecurity.hasPrivilege(portalSession,
-            PortalStaffContextResolver.OBJECT_ACCOUNT, SecurityInfoManager.READ, portalPatientScope);
+    boolean portalMayCreate = portalMayWrite;
 %>
 <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
 <link rel="stylesheet" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/css/portalBookingPrompt.css">

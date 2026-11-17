@@ -119,7 +119,7 @@ public class ConsultationClinicalData2Action extends ActionSupport {
         try {
             demoId = Integer.parseInt(demographicNo);
         } catch (NumberFormatException e) {
-            logger.warn("fetchLongTermMedications: invalid demographicNo '{}'", demographicNo);
+            logger.warn("fetchLongTermMedications: invalid demographicNo");
             return null;
         }
         List<Drug> medications = prescriptionManager.getLongTermDrugs(loggedInInfo, demoId);
@@ -147,7 +147,7 @@ public class ConsultationClinicalData2Action extends ActionSupport {
         try {
             demoId = Integer.parseInt(demographicNo);
         } catch (NumberFormatException e) {
-            logger.warn("fetchAllergies: invalid demographicNo '{}'", demographicNo);
+            logger.warn("fetchAllergies: invalid demographicNo");
             return null;
         }
         List<Allergy> allergies = allergyManager.getActiveAllergies(loggedInInfo, demoId);
@@ -261,7 +261,7 @@ public class ConsultationClinicalData2Action extends ActionSupport {
         try {
             issueTypeEnum = IssueType.valueOf(issueType.toUpperCase());
         } catch (IllegalArgumentException e) {
-            logger.warn("fetchIssueNote: unrecognised issueType '{}'", issueType);
+            logger.warn("fetchIssueNote: unrecognised issueType");
             return null;
         }
         Issue issue = caseManagementManager.getIssueByCode(issueTypeEnum);

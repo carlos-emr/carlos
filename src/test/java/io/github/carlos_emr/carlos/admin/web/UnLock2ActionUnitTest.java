@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 package io.github.carlos_emr.carlos.admin.web;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -38,9 +39,12 @@ class UnLock2ActionUnitTest extends CarlosUnitTestBase {
     private MockedConstruction<LoginCheckLogin> loginChecks;
     private final List<String> locks = new ArrayList<>();
     private UnLock2Action action;
+    private String previousLoginLock;
 
     @BeforeEach
     void setUp() {
+        previousLoginLock = CarlosProperties.getInstance().getProperty("login_lock");
+        CarlosProperties.getInstance().setProperty("login_lock", "true");
         privileges = mock(SecurityInfoManager.class);
         accounts = mock(SecurityDao.class);
         login = mock(LoggedInInfo.class);
@@ -68,6 +72,11 @@ class UnLock2ActionUnitTest extends CarlosUnitTestBase {
 
     @AfterEach
     void tearDown() {
+        if (previousLoginLock == null) {
+            CarlosProperties.getInstance().remove("login_lock");
+        } else {
+            CarlosProperties.getInstance().setProperty("login_lock", previousLoginLock);
+        }
         loginChecks.close();
         loggedIn.close();
         servlet.close();
@@ -164,5 +173,38 @@ class UnLock2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(loginChecks.constructed()).isEmpty();
         }
         logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    void shouldListEveryAddress_whenSitePrivacyAppliesButLocksAreKeyedByAddress() {
+        // Packaged mode: login_lock unset, so lock keys are client addresses that no site owns.
+        CarlosProperties.getInstance().remove("login_lock");
+        scopedAdmin();
+        request.setMethod("GET");
+        assertThat(action.execute()).isEqualTo("success");
+        assertThat(request.getAttribute("lockList")).isEqualTo(new Vector<>(locks));
+        verifyNoInteractions(accounts);
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    void shouldUnlockAndAuditAddress_whenSitePrivacyAppliesButLocksAreKeyedByAddress() {
+        CarlosProperties.getInstance().remove("login_lock");
+        scopedAdmin();
+        request.setParameter("userName", "192.0.2.2");
+        assertThat(action.execute()).isEqualTo("success");
+        assertThat(request.getAttribute("msg")).isEqualTo("Account unlocked: 192.0.2.2");
+        assertThat(locks).containsExactly("denied-one", "denied-two", "permitted");
+        verifyNoInteractions(accounts);
+        logActionMock.verify(() -> LogAction.addLog("900001", "unlock", "adminUnlock", "192.0.2.2", "192.0.2.1"));
+    }
+
+    @Test
+    void shouldKeepFilteringByUsername_whenLoginLockHasSurroundingWhitespace() {
+        CarlosProperties.getInstance().setProperty("login_lock", " true ");
+        scopedAdmin();
+        request.setMethod("GET");
+        assertThat(action.execute()).isEqualTo("success");
+        assertThat(request.getAttribute("lockList")).isEqualTo(new Vector<>(List.of("permitted")));
     }
 }

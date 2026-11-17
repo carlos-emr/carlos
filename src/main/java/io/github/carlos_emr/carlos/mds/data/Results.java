@@ -65,6 +65,10 @@ public class Results {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String resultInterpret(String rS) {
+        // An imported row may carry no status; show none rather than fail the whole report.
+        if (rS == null || rS.isEmpty()) {
+            return "";
+        }
         switch (rS.toUpperCase().charAt(0)) {
             case 'C':
                 return "Corrected";

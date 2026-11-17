@@ -31,8 +31,9 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
  *
  * <p>The shared {@link AbstractNoteBrowserDocumentMutation2Action} contract rejects
  * non-POST requests, requires an authenticated user with {@code _eChart w}, and
- * validates both the document number and {@code queueId} before this action calls
- * {@link EDocUtil}. Refile failures are logged with safe values and returned to
+ * validates both identities and the chart association, and requires the stored document's
+ * write permissions and destination queue access before this action calls {@link EDocUtil}.
+ * Refile failures are logged with safe values and returned to
  * the Struts result as a generic mutation error.</p>
  *
  * @since 2026-06-01
@@ -56,6 +57,12 @@ public class NoteBrowserDocumentRefile2Action extends AbstractNoteBrowserDocumen
     protected String invalidParameterMessage() {
         return "invalid refileDocumentNo or queueId";
     }
+
+    @Override
+    protected String selectedDocumentNo() { return refileDocumentNo; }
+
+    @Override
+    protected String targetQueueId() { return queueId; }
 
     @Override
     protected void mutateDocument() throws DocumentMutationException {

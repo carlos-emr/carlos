@@ -83,14 +83,16 @@ public class APExecute {
         Map<String, Object> replacements = new HashMap<>();
         replacements.put("demographic", demographicNo);
         ParameterizedSql query = DatabaseAP.parameterizeSql(dap.getApSQL(), replacements);
+        if (preventionTimingRequiresReview(query, demographicNo)) return "Prevention timing requires review";
         String output = dap.getApOutput();
         ArrayList<String> names = DatabaseAP.parserGetNames(output); //a list of ${apName} --> apName
 
         if (dap.isJsonOutput()) {
-            ArrayNode values = EFormUtil.getJsonValues(names, query);
+            ArrayNode values = EFormUtil.getJsonValuesOrNull(names, query, demographicId(demographicNo));
+            if (values == null) throw new IllegalStateException("AP JSON query could not be read");
             output = values.toString(); //in case of JsonOutput, return the whole JSONArray and let the javascript deal with it
         } else {
-            ArrayList<String> values = EFormUtil.getValuesOrNull(names, query);
+            ArrayList<String> values = EFormUtil.getValuesOrNull(names, query, demographicId(demographicNo));
             if (values == null) {
                 logFailedQuery(ap);
                 output = "";
@@ -98,9 +100,7 @@ public class APExecute {
                 logUnusableResult(ap, names.size(), values.size());
                 output = "";
             } else {
-                for (int i = 0; i < names.size(); i++) {
-                    output = DatabaseAP.parserReplace(names.get(i), values.get(i), output);
-                }
+                if (!names.isEmpty()) output = DatabaseAP.renderOutput(output, names, values);
             }
         }
         return output;
@@ -162,11 +162,12 @@ public class APExecute {
         replacements.put("invoiceNo", invoiceNo);
         replacements.put("demographic", demographicNo);
         ParameterizedSql query = DatabaseAP.parameterizeSql(dap.getApSQL(), replacements);
+        if (preventionTimingRequiresReview(query, demographicNo)) return "Prevention timing requires review";
 
         String output = dap.getApOutput();
         ArrayList<String> names = DatabaseAP.parserGetNames(output);
 
-        ArrayList<String> values = EFormUtil.getValuesOrNull(names, query);
+        ArrayList<String> values = EFormUtil.getValuesOrNull(names, query, demographicId(demographicNo));
         if (values == null) {
             logFailedQuery(ap);
             output = "";
@@ -174,11 +175,23 @@ public class APExecute {
             logUnusableResult(ap, names.size(), values.size());
             output = "";
         } else {
-            for (int i = 0; i < names.size(); i++) {
-                output = DatabaseAP.parserReplace(names.get(i), values.get(i), output);
-            }
+            if (!names.isEmpty()) output = DatabaseAP.renderOutput(output, names, values);
         }
 
         return output;
+    }
+
+    private static Integer demographicId(String value) {
+        return value == null || value.isBlank() ? null : Integer.valueOf(value);
+    }
+
+    private boolean preventionTimingRequiresReview(ParameterizedSql query, String demographicNo) {
+        if (!io.github.carlos_emr.carlos.prevention.PreventionReadSafetyService.readsPreventions(query.getSql())) return false;
+        try {
+            io.github.carlos_emr.carlos.prevention.PreventionData.requireExactDates(demographicId(demographicNo));
+            return false;
+        } catch (io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException review) {
+            return true;
+        }
     }
 }

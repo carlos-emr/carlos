@@ -44,7 +44,55 @@ migration/
            V1.0.53__decode_diagnostic_description_apostrophes.sql
            V1.0.54__allow_dashboard_exclusion_history.sql
            V1.0.55__preserve_remittance_health_number_version.sql
-           # Develop-only migrations, in develop's order, above the release line's V1.0.56. All were
+           V1.0.57__preserve_rourke2020_immunization_notes.sql
+           V1.0.58__preserve_on_behalf_lab_filing_comments.sql
+           V1.0.59__archive_security_mfa_setting.sql
+           V1.0.59.2__remove_patient_encounter_worksheet.sql
+           V1.0.59.5__preserve_full_appointment_names.sql
+           V1.0.59.6__align_clinical_text_and_status_collations.sql
+           V1.0.59.7__reconcile_managed_performance_indexes.sql
+           V1.0.59.8__widen_messagetbl_pdfattachment.sql
+           V1.0.59.8.1__cds_import_ledger.sql
+           V1.0.59.9__cds_upload_sessions.sql
+           V1.0.59.10__cds_laboratory_results.sql
+           V1.0.59.11__cds_contact_care_capacity.sql
+           V1.0.59.12__cds_preflight_identity.sql
+           V1.0.59.13__cds_import_review_history.sql
+           V1.0.59.14__cds_native_preparation.sql
+           V1.0.59.15__cds_file_verification_epoch.sql
+           V1.0.59.16__cds_provider_lookup_indexes.sql
+           V1.0.59.17__cds_review_source_provenance.sql
+           V1.0.59.18__cds_medication_projection_safety.sql
+           V1.0.59.19__cds_held_patient_lookup.sql
+           V1.0.59.20__cds_identity_authority.sql
+           V1.0.59.21__cds_note_unknown_observation_and_import_permission.sql
+           V1.0.59.22__cds_alphanumeric_prevention_creator.sql
+           V1.0.59.23__cds_report_content_precision.sql
+           V1.0.59.24__cds_durable_resume_intent.sql
+           V1.0.59.25__cds_review_kind_capacity.sql
+           V1.0.59.26__cds_measurements_deleted_capacity.sql
+           V1.0.59.27__preserve_oscar19_text_capacity.sql
+           V1.0.59.30__one_live_consent_per_type.sql
+           V1.0.59.32__preserve_native_archive_capacity.sql
+           V1.0.59.33__audit_imported_billing_filenames.sql
+           V1.0.59.34__preserve_unassigned_digital_signatures.sql
+           V1.0.59.35__freeze_imported_signature_ownership.sql
+           V1.0.59.37__rx_favorite_groups.sql
+           V1.0.59.38__rx_submission_receipts.sql
+           V1.0.59.39__rx_original_versions.sql
+           V1.0.59.40__cds_native_field_baselines.sql
+           V1.0.59.41__cds_export_ledger.sql
+           V1.0.59.42__cds_export_artifact_attempts.sql
+           V1.0.59.43__seed_admin_cds_import_permission.sql
+           V1.0.59.44__index_cds_hrm_patient_scope.sql
+           V1.0.59.45__cds_export_held_patients.sql
+           V1.0.59.46__index_measurements_deleted_owners.sql
+           V1.0.59.47__index_cds_laboratory_result_native_lab.sql
+           V1.0.59.48__index_cds_import_unit_patient_id.sql
+           V1.0.59.49__cds_export_attempt_checkpoint.sql
+           V1.0.60__portal_booking_prompt_security_object.sql
+           V1.0.61__portal_booking_offer.sql
+           # Develop-only migrations, in develop's order, above the release line's V1.0.59.7. All were
            # renumbered at the 2026.08.0-alpha19 forward merge; "was" names develop's earlier number.
            V1.0.66__add_email_consent_audit.sql  # was V1.0.24
            V1.0.67__add_sms_system_of_record.sql  # was V1.0.25
@@ -61,6 +109,7 @@ migration/
            V1.0.78__add_sms_config.sql  # was V1.0.59 (#3927)
            V1.0.79__add_email_log_footer.sql
            V1.0.80__email_front_desk_default.sql
+           V1.0.81__appointment_location_list.sql  # appointment Location List (#3982)
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
            V1.0.4__on_performance_indexes.sql
@@ -70,20 +119,25 @@ migration/
            V1.0.23__activate_legacy_consultation_services.sql
            V1.0.34__add_oma_uninsured_service_fees.sql
            V1.0.56__preserve_claim_item_explanations.sql
+           V1.0.59.28__preserve_oscar19_text_capacity.sql
   bc/      V1.0.1__bc_schema.sql            # British Columbia-only tables (structure)
            V1.0.2__bc_data.sql              # British Columbia reference data (rows)
            V1.0.6__restore_live_legacy_bc_tables_and_reference_data.sql
            V1.0.19__bc_billingmaster_indexes.sql
+           V1.0.59.3__restore_wcb_reference_codes.sql
+           V1.0.59.4__offer_current_bc_antenatal_record.sql
+           V1.0.59.29__preserve_oscar19_text_capacity.sql
+           V1.0.59.31__restore_bcar2007_urine_culture_text.sql
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
-`V1.0.3` onward is a forward delta. The highest version in use is `V1.0.80` (`common/V1.0.80`,
+`V1.0.3` onward is a forward delta. The highest version in use is `V1.0.81` (`common/V1.0.81`,
 shared by both provinces), so the next free number for ANY location — shared or province — is
-`V1.0.81`. Open draft pull requests #4136 and #4487 were numbered `V1.0.60` and `V1.0.61` before
+`V1.0.82`. Open draft pull requests #4136 and #4487 were numbered `V1.0.60` and `V1.0.61` before
 this line reached `V1.0.78`; they must be renumbered above the high-water mark when they merge.
 
 `release/2026.08` and this line allocated versions independently. The 2026.08.0-alpha19 forward merge
-brought the release line's migrations (up to `on/V1.0.56`) here. The release files are published in
+brought the release line's migrations (through `common/V1.0.59.7`) here. The release files are published in
 a tag, so their numbers and checksums are frozen. Every migration that existed only on this line was
 renumbered to `V1.0.66`–`V1.0.78`, in this line's order (see the listing above). Two reasons:
 
@@ -113,8 +167,8 @@ renumbered or not merged. Apply the present migrations in version order;
 do not enable `outOfOrder` to fill gaps. The version line is global:
 the shared `common/` line is in EVERY database's path, and on an **already-migrated database**
 Flyway (no `outOfOrder`) never applies a new migration numbered below the highest it has already
-run — `common/V1.0.80` on both provinces. A hypothetical new `bc/V1.0.11` would
-apply fine on a fresh install (version order places it before `common/V1.0.80`) but would silently
+run — `common/V1.0.81` on both provinces. A hypothetical new `bc/V1.0.11` would
+apply fine on a fresh install (version order places it before `common/V1.0.81`) but would silently
 never run on existing BC databases and would fail `flyway validate` there — so never number a new
 migration at or below the global high-water mark, even if that number was only ever used under the
 other province. Check every active branch inventory (release and develop) before allocating a
@@ -258,9 +312,45 @@ consultation/eForm attachment sources add `common/V1.0.42` and `common/V1.0.43`.
 Consultations list filter indexes (#3976) add `common/V1.0.45`, and the field-note report privilege
 adds `common/V1.0.46`. `common/V1.0.47` aligns the `measurementsDeleted` columns with
 `measurements`. Provider signature identity is enforced by
-`common/V1.0.52__enforce_provider_signature_identity.sql`. The next unallocated version is
-`V1.0.53`. Apply/merge these forward migrations in version order; if their merge
+`common/V1.0.52__enforce_provider_signature_identity.sql`. Rourke 2020 page III/IV
+immunization notes (#4602) add `common/V1.0.57__preserve_rourke2020_immunization_notes.sql`.
+On-behalf lab filing comments keep their full text through
+`common/V1.0.58__preserve_on_behalf_lab_filing_comments.sql`. The security archive keeps each
+record's MFA on/off setting (#5120, not the MFA secret) through
+`common/V1.0.59__archive_security_mfa_setting.sql`; rows archived before it read NULL, meaning
+"not recorded". The Patient Encounter Worksheet's Forms-menu registration is removed by
+`common/V1.0.59.2__remove_patient_encounter_worksheet.sql` (#5089). The BC WCB form's reference lists
+(body parts, natures of injury and sides, #5062) are restored by `bc/V1.0.59.3__restore_wcb_reference_codes.sql`,
+which adds only missing rows, and new BC installs offer BC-AR 2020 instead of BC-AR and BC-AR 2007 in Add Form
+(#5051) through `bc/V1.0.59.4__offer_current_bc_antenatal_record.sql`, which changes nothing once a clinic has
+changed any BC antenatal row in Select Forms. Full linked-patient appointment names (#5067) add
+`common/V1.0.59.5__preserve_full_appointment_names.sql`; it was renumbered from unreleased `V1.0.58`,
+`V1.0.59`, `V1.0.59.1` and `V1.0.59.3` as release migrations merged first. A point version keeps it below
+the `V1.0.60` floor. The collation and index corrections follow at `V1.0.59.6` and `V1.0.59.7`, and the
+widening of `messagetbl.pdfattachment` to `MEDIUMBLOB` (#5444) at `V1.0.59.8`.
+The CDS import migrations follow at `V1.0.59.8.1` and `V1.0.59.9`–`V1.0.59.26`.
+The next unallocated version is `V1.0.59.50`. Apply/merge these forward migrations in version order; if their merge
 order changes after a release, renumber the still-unreleased migration before
 shipping it. The coordination table contains no clinical data and does not
 rewrite legacy memberships. All application instances must run the serialized
 membership writer before relying on cross-instance duplicate prevention.
+
+Published beta7 owns common `V1.0.59.33`. Main's unpublished signature-ownership migrations own common
+`V1.0.59.34` and `V1.0.59.35`. The release line independently allocated those two numbers before main was
+merged back, so its unpublished migrations were renumbered behind them: the BC history amount migration is
+`bc/V1.0.59.36`, and RX groups, durable receipts and original versions follow at common
+`V1.0.59.37`–`V1.0.59.39`. A database migrated by an unpublished release-branch build that recorded the old
+numbers (`bc/V1.0.59.34`, common `V1.0.59.35`–`V1.0.59.37`) fails Flyway validation against this set and
+must be rebuilt; no published package ever carried them.
+
+The coordinated CDS transfer follows at common `V1.0.59.40`–`V1.0.59.49`: nullable native-field
+witnesses (`59.40`), the export ledger (`59.41`), artifact attempts (`59.42`), the independent admin
+import grant (`59.43`), the indexed HRM patient key (`59.44`), the held-patient record (`59.45`),
+`measurementsDeleted` indexes by patient and by original measurement id (`59.46`, #6200), the
+`cds_laboratory_result` index by local report (`59.47`), which the export's laboratory ownership
+check needs for imported charts, the `cds_import_unit` index that orders one imported chart's
+units by id (`59.48`), which the export's capture pages through, and the pointer to a stopped
+export attempt's sealed finished-chart checkpoint (`59.49`), which a resumed attempt adopts from.
+The first seven were numbered `59.38`–`59.44` until main's signature migrations moved the release
+line; a development or test database built with those unpublished numbers fails Flyway validation
+and must be rebuilt. No existing permission decision or clinical row is overwritten.

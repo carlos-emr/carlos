@@ -29,7 +29,7 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -392,7 +392,7 @@
                                 </tr>
                                 <tr>
                                     <td>&nbsp;</td>
-                                    <td class="Headings"><fmt:message key='encounter.formFemaleAnnual.btnNo'/></td>
+                                    <td class="Headings"><fmt:message key='encounter.formFemaleAnnual.formNo'/></td>
                                     <td class="Headings"><fmt:message key='encounter.formFemaleAnnual.btnYes'/></td>
                                     <td>&nbsp;</td>
                                 </tr>

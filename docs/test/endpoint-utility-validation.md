@@ -49,7 +49,7 @@ failure or error. The original files were restored and all ten self-tests passed
 | Temporary mutation | Expected detector |
 |---|---|
 | Set `LocalConduit.DIRECT_DISPATCH` to false in both bases | Static dependency call must run on the test's caller thread |
-| Remove `SmartDateModule` registration | A `java.util.Date` at local midnight must serialize as a calendar date |
+| Remove the `SmartDateModule` registration from `applicationContextREST.xml` (the REST test base loads that mapper since issue #3877) | A `java.util.Date` at local midnight must serialize as a calendar date |
 | Replace UUID addresses with a fixed address | Two instances of the same test class must have distinct addresses |
 | Remove request/session identity injection | REST and SOAP authenticated-request calls must return the supplied provider identity |
 

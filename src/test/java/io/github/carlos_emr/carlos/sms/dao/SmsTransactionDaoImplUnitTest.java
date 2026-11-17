@@ -218,6 +218,31 @@ class SmsTransactionDaoImplUnitTest {
         verify(entityManager, never()).createNativeQuery(anyString());
     }
 
+    @Test
+    @DisplayName("findRetiredQueuedForUpdate offers retirement cleanup queued rows only, one at a time, skipping rows held elsewhere")
+    void shouldOfferOnlyQueuedRows_whenFindingRetiredQueue() {
+        SmsTransactionDaoImpl dao = newDao();
+        SmsTransaction retired = SmsTransaction.outboundAttempt(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "FAKE reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        ReflectionTestUtils.setField(retired, "id", 42L);
+        stubTypedQuery(List.of(retired));
+
+        List<SmsTransaction> rows = dao.findRetiredQueuedForUpdate(SmsProviderType.STUB, 50L, true,
+                copyOfFixedNow(), List.of());
+
+        assertThat(rows).singleElement().isSameAs(retired);
+        assertThat(retired.getStatus()).as("finding a row does not claim it").isEqualTo(SmsStatus.QUEUED);
+        // A SENDING row may already be at the provider: stale recovery owns it, so cleanup never sees one.
+        verify(query).setParameter("status", SmsStatus.QUEUED);
+        verify(query).setParameter("retiredThrough", 50L);
+        verify(query).setParameter("excluded", List.of(-1L));
+        verify(query).setMaxResults(1);
+        verify(query).setLockMode(LockModeType.PESSIMISTIC_WRITE);
+        verify(query).setHint(SpecHints.HINT_SPEC_LOCK_TIMEOUT, Timeouts.SKIP_LOCKED_MILLI);
+    }
+
     private void stubTypedQuery(List<SmsTransaction> results) {
         when(entityManager.createQuery(anyString(), eq(SmsTransaction.class))).thenReturn(query);
         when(query.setParameter(anyString(), any())).thenReturn(query);

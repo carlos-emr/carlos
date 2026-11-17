@@ -32,11 +32,11 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.ClientAbort;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import org.apache.commons.io.IOUtils;
 import org.apache.struts2.ServletActionContext;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -200,11 +200,15 @@ public class ProviderSignatureImage2Action extends ActionSupport {
 
         try (InputStream fileStream = new FileInputStream(sigFile)) {
             OutputStream outputStream = response.getOutputStream();
-            IOUtils.copy(fileStream, outputStream);
+            fileStream.transferTo(outputStream);
         } catch (FileNotFoundException e) {
             MiscUtils.getLogger().debug("Signature image file not found on disk: {}", signatureName);
             response.setStatus(HttpServletResponse.SC_NO_CONTENT);
         } catch (IOException e) {
+            // Clinical pages can close while a background signature image is streaming.
+            if (ClientAbort.isClientAbort(e)) {
+                return;
+            }
             MiscUtils.getLogger().error("Error serving provider signature image", e);
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }

@@ -87,6 +87,7 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
     private SecurityInfoManager securityInfoManager;
     private LoggedInInfo loggedInInfo;
     private Tickler tickler;
+    private boolean committed;
 
     @BeforeEach
     void setUp() {
@@ -108,9 +109,18 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), (String) any()))
                 .thenReturn(true);
 
-        var transactions = createAndRegisterMock(org.springframework.transaction.PlatformTransactionManager.class);
-        when(transactions.getTransaction(any())).thenAnswer(call ->
-                new org.springframework.transaction.support.SimpleTransactionStatus());
+        committed = false;
+        registerMock(org.springframework.transaction.PlatformTransactionManager.class,
+                new org.springframework.transaction.support.AbstractPlatformTransactionManager() {
+                    @Override protected Object doGetTransaction() { return new Object(); }
+                    @Override protected void doBegin(Object transaction, org.springframework.transaction.TransactionDefinition definition) {
+                        // No resources: unit tests exercise Spring's real completion callbacks.
+                    }
+                    @Override protected void doCommit(org.springframework.transaction.support.DefaultTransactionStatus status) { committed = true; }
+                    @Override protected void doRollback(org.springframework.transaction.support.DefaultTransactionStatus status) {
+                        // Collaborators are mocks; database rollback is covered by integration tests.
+                    }
+                });
         tickler = new Tickler();
         tickler.setId(42);
         tickler.setDemographicNo(1001);
@@ -119,7 +129,7 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
         tickler.setTaskAssignedTo("999998");
         tickler.setServiceDate(TicklerFormDate.parse("2026-09-27"));
         tickler.setCreator("999998");
-        when(ticklerManager.getTickler(loggedInInfo, 42)).thenReturn(tickler);
+        when(ticklerManager.getTicklerForUpdate(loggedInInfo, 42)).thenReturn(tickler);
     }
 
     @AfterEach
@@ -137,6 +147,7 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     private void unchangedEditParameters() {
+        request.setParameter(TicklerEditVersion.PARAMETER, TicklerEditVersion.of(tickler));
         request.setParameter("method", "editTickler");
         request.setParameter("ticklerNo", "42");
         request.setParameter("status", "A");
@@ -227,7 +238,7 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
 
         String result = new TestableEditTickler2Action().execute();
 
-        assertThat(result).isEqualTo("error");
+        assertThat(result).isEqualTo("attachmentsRefused");
     }
 
     @Test
@@ -241,7 +252,7 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
         doThrow(new SecurityException("Document is not available"))
                 .when(ticklerAttachmentService).syncAttachments(any(), any(), any(), any());
 
-        assertThat(new TestableEditTickler2Action().execute()).isEqualTo("error");
+        assertThat(new TestableEditTickler2Action().execute()).isEqualTo("attachmentsRefused");
 
         verify(ticklerManager, never()).updateTickler(any(), any());
         assertThat(tickler.getStatus()).isEqualTo(Tickler.STATUS.A);
@@ -310,7 +321,7 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
         });
         doThrow(new IllegalArgumentException("Attachment does not belong to this patient"))
                 .when(ticklerAttachmentService).syncAttachments(any(), any(), any(), any());
-        assertThat(new TestableEditTickler2Action().execute()).isEqualTo("error");
+        assertThat(new TestableEditTickler2Action().execute()).isEqualTo("attachmentsRefused");
         assertThat(jdbc.queryForObject("SELECT comment_count FROM edit_probe WHERE id=42", Integer.class)).isZero();
         jdbc.execute("DROP ALL OBJECTS");
     }
@@ -321,7 +332,7 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
     @ValueSource(strings = {" ", "\t\r\n", "0"})
     void shouldIgnoreEmptyListPlaceholders_withoutPersistingSuggestions(String placeholder) {
         TicklerTextSuggestDao dao = createAndRegisterMock(TicklerTextSuggestDao.class);
-        var action = new TestableEditTickler2Action();
+        var action = new EditTicklerTextSuggest2Action();
         action.setActiveText(new String[]{placeholder});
         action.setInactiveText(new String[]{placeholder});
 
@@ -332,7 +343,7 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldPreserveExactNewText_andSkipPlaceholdersInBothLists() {
         TicklerTextSuggestDao dao = createAndRegisterMock(TicklerTextSuggestDao.class);
-        var action = new TestableEditTickler2Action();
+        var action = new EditTicklerTextSuggest2Action();
         action.setActiveText(new String[]{"", "0", "  Active suggestion <follow-up>  "});
         action.setInactiveText(new String[]{" ", "0", "Inactive suggestion"});
 
@@ -366,7 +377,7 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
         inactive.setCreateDate(new Date(5678));
         when(dao.find(Integer.valueOf(11))).thenReturn(active);
         when(dao.find(Integer.valueOf(12))).thenReturn(inactive);
-        var action = new TestableEditTickler2Action();
+        var action = new EditTicklerTextSuggest2Action();
         action.setActiveText(new String[]{"11", ""});
         action.setInactiveText(new String[]{"0", "12"});
 
@@ -388,7 +399,7 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
     void shouldPersistPrefixedLiteralText_withoutTreatingNumericTextAsAnId(String text) {
         TicklerTextSuggestDao dao = createAndRegisterMock(TicklerTextSuggestDao.class);
         request.setParameter("suggestionValueFormat", "prefixed");
-        var action = new TestableEditTickler2Action();
+        var action = new EditTicklerTextSuggest2Action();
         action.setActiveText(new String[]{"", "text:" + text});
         action.setInactiveText(new String[]{"text:" + text, "text: ", "text:"});
 
@@ -405,7 +416,7 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldPreserveLegacyTextPrefixes_whenNoNewFormatIsDeclared() {
         TicklerTextSuggestDao dao = createAndRegisterMock(TicklerTextSuggestDao.class);
-        var action = new TestableEditTickler2Action();
+        var action = new EditTicklerTextSuggest2Action();
         action.setActiveText(new String[]{"text:literal"});
         action.setInactiveText(new String[]{""});
 
@@ -413,6 +424,78 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
         ArgumentCaptor<TicklerTextSuggest> saved = ArgumentCaptor.forClass(TicklerTextSuggest.class);
         verify(dao).persist(saved.capture());
         assertThat(saved.getValue().getSuggestedText()).isEqualTo("text:literal");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"status", "priority", "assignee", "date", "message", "patient", "history", "comment"})
+    void shouldRefuseStaleEdits_beforeAnyAttachmentCommentOrHistoryWrite(String change) {
+        unchangedEditParameters();
+        String original = request.getParameter(TicklerEditVersion.PARAMETER);
+        request.setParameter("newMessage", "Retained draft");
+        request.setParameter("attachmentsSubmitted", "1");
+        switch (change) {
+            case "status" -> tickler.setStatus(Tickler.STATUS.C);
+            case "priority" -> tickler.setPriority(Tickler.PRIORITY.High);
+            case "assignee" -> tickler.setTaskAssignedTo("999999");
+            case "date" -> tickler.setServiceDate(new Date(1234));
+            case "message" -> tickler.setMessage("Concurrent message");
+            case "patient" -> tickler.setDemographicNo(1002);
+            case "history" -> {
+                var update = new io.github.carlos_emr.carlos.commn.model.TicklerUpdate();
+                update.setId(22);
+                tickler.getUpdates().add(update);
+            }
+            case "comment" -> {
+                var comment = new io.github.carlos_emr.carlos.commn.model.TicklerComment();
+                comment.setId(23);
+                tickler.getComments().add(comment);
+            }
+            default -> throw new AssertionError(change);
+        }
+        String current = TicklerEditVersion.of(tickler);
+        assertThat(new TestableEditTickler2Action().execute()).isEqualTo("conflict");
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(request.getAttribute("ticklerEditErrorKey")).isEqualTo("tickler.ticklerEdit.msgStale");
+        assertThat(request.getParameter("newMessage")).isEqualTo("Retained draft");
+        assertThat(request.getParameter(TicklerEditVersion.PARAMETER)).isEqualTo(original);
+        assertThat(TicklerEditVersion.of(tickler)).isEqualTo(current);
+        verifyNoInteractions(ticklerAttachmentService);
+        verify(ticklerManager, never()).updateTickler(any(), any());
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"bad", "0"})
+    void shouldRefuseMissingOrInvalidOriginalState_withoutWriting(String version) {
+        unchangedEditParameters();
+        if (version == null) request.removeParameter(TicklerEditVersion.PARAMETER);
+        else request.setParameter(TicklerEditVersion.PARAMETER, version);
+        assertThat(new TestableEditTickler2Action().execute()).isEqualTo("conflict");
+        assertThat(response.getStatus()).isEqualTo(409);
+        verifyNoInteractions(ticklerAttachmentService);
+        verify(ticklerManager, never()).updateTickler(any(), any());
+    }
+
+    @Test
+    void shouldRetainTheDraft_whenTheTicklerWasDeleted() {
+        unchangedEditParameters();
+        request.setParameter("newMessage", "Retained after deletion");
+        when(ticklerManager.getTicklerForUpdate(loggedInInfo, 42)).thenReturn(null);
+        assertThat(new TestableEditTickler2Action().execute()).isEqualTo("conflict");
+        assertThat(response.getStatus()).isEqualTo(404);
+        assertThat(request.getAttribute("ticklerReviewAvailable")).isEqualTo(false);
+        assertThat(request.getParameter("newMessage")).isEqualTo("Retained after deletion");
+        verifyNoInteractions(ticklerAttachmentService);
+        verify(ticklerManager, never()).updateTickler(any(), any());
+    }
+
+    @Test
+    void shouldCloseOnlyAfterCommit_whenTheOriginalStateIsCurrent() {
+        unchangedEditParameters();
+        request.setParameter("status", "C");
+        assertThat(new TestableEditTickler2Action().execute()).isEqualTo("close");
+        assertThat(committed).isTrue();
+        assertThat(tickler.getStatus()).isEqualTo(Tickler.STATUS.C);
     }
 
 }

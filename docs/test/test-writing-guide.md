@@ -454,21 +454,30 @@ entityManager.find(Entity.class, id);  // Now finds the entity via shared JDBC c
 
 ### DAO Methods That Override Test Data
 
-Some DAO `save*()` methods override fields like `update_date` with `new Date()`. For example, `CaseManagementIssueDAOImpl.saveIssue()` always sets `update_date` to the current time, ignoring the value you set in the test.
+Some DAO `save*()` methods override fields like `update_date` with `new Date()`, ignoring the value
+you set in the test. Always read the DAO (and the entity's `@PrePersist`/`@PreUpdate` callbacks)
+before assuming a date is persisted as-is.
+
+`CaseManagementIssue` is the strict case (finding 361): `CaseManagementIssueDAOImpl.saveIssue()` and
+`saveAndUpdateCaseIssues()` stamp a new issue with the current time, never write the date a caller's
+copy of an existing issue carries, and the entity's `@PreUpdate` callback stamps the current time
+whenever Hibernate updates the row. Re-setting the date after saving and flushing therefore does
+not work for this entity. Give the issue its date before it is first persisted, outside the DAO:
 
 ```java
-// The DAO implementation:
-public void saveIssue(CaseManagementIssue issue) {
-    issue.setUpdate_date(new Date());  // OVERRIDES your test date!
-    getHibernateTemplate().saveOrUpdate(issue);
-}
-
-// Test fix - re-set the date after saving:
+// Persist the fixture directly with the date the test needs (an INSERT runs no @PreUpdate):
 cmi.setUpdate_date(pastDate);
-caseManagementIssueDAO.saveIssue(cmi);  // Overwritten to now()
-cmi.setUpdate_date(pastDate);            // Re-set to desired date (dirty tracking)
-hibernateTemplate.flush();               // Persists the corrected date
+entityManager.persist(cmi);              // or hibernateTemplate.save(cmi)
+entityManager.flush();
+
+// WRONG for CaseManagementIssue - the flush is an UPDATE, and @PreUpdate replaces pastDate with now:
+caseManagementIssueDAO.saveIssue(cmi);
+cmi.setUpdate_date(pastDate);
+entityManager.flush();
 ```
+
+To move an existing issue's date in a test, use a bulk JPQL or SQL `update`, which runs no entity
+callbacks. `CaseManagementIssueUpdateDateIntegrationTest` pins the save contract.
 
 ### FK Constraints from HBM `<one-to-many>` Mappings
 

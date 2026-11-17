@@ -34,9 +34,9 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.ClinicNbr" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao" %>
-<%@page import="io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page
-        import="java.sql.*, java.util.*, io.github.carlos_emr.*, io.github.carlos_emr.SxmlMisc, io.github.carlos_emr.carlos.providers.data.ProviderBillCenter"
+        import="java.util.*, io.github.carlos_emr.*"
         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <html>
@@ -85,10 +85,11 @@
                     }
                 } else if (xml.method == "add") {
                     if (xml.success) {
-                        jQuery("#xml_p_nbr").append("<option value='" + xml.nbr + "'>" + xml.nbr + " | " + xml.nbrDesc + "</option>");
+                        // Like the options rendered below, the new option's value is the row id, which Remove Selected posts.
+                        jQuery("#xml_p_nbr").append(jQuery("<option>").val(xml.id).text(xml.nbr + " | " + xml.nbrDesc));
                         jQuery("#nbr_value").val("");
                         jQuery("#nbr_string").val("");
-                        jQuery("#xml_p_nbr").val(xml.nbr);
+                        jQuery("#xml_p_nbr").val(String(xml.id));
                     } else {
                         alert(xml.error);
                     }

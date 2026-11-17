@@ -9,7 +9,7 @@
 const h = require('./playwright-harness');
 const ui = require('./playwright-ui');
 const { catalogueLinks, dedupe } = require('./playwright-link-audit');
-const { payload, Findings, Seeder, walkLinks, waitForProviderCache, freeProviderNo, trackServiceScript, fieldIds } = require('./xss-poison-helpers');
+const { payload, Findings, Seeder, walkLinks, waitForProviderCache, freeProviderNo, fieldIds } = require('./xss-poison-helpers');
 
 // The schedule top bar (#firstTable) repeats inside the panel; those openers have their own checks. It is
 // recognised by where the link sits, not by its text: the panel's own menu has items with the same words (its
@@ -66,7 +66,7 @@ async function workflow(s, part = 1) {
     seed.insert('billing_payment_type', { payment_type: P('payment type', 25) }, { key: 'id' });
     seed.insert('cssStyles', { name: P('service code style name'), style: 'color:red', status: 'A' }, { key: 'id' });
     seed.insert('clinic_location', { clinic_location_no: `X${hex}`, clinic_no: 1, clinic_location_name: P('billing location', 40) }, { key: 'id' });
-    trackServiceScript(seed, seed.insert('consultationServices', { serviceDesc: P('consult service'), active: '1' }, { key: 'serviceId' }));
+    seed.insert('consultationServices', { serviceDesc: P('consult service'), active: '1' }, { key: 'serviceId' });
     seed.insert('Institution', { name: P('institution name'), address: P('institution address'), city: P('institution city', 100) }, { key: 'id' });
     seed.insert('ServiceClient', { name: P('rest client name'), clientKey: `k${hex}`, clientSecret: `s${hex}`, uri: P('rest client uri'), lifetime: 1 }, { key: 'id' });
     seed.insert('billingservice', { service_code: `X${hex}`.slice(0, 6), description: P('billing service description'), value: '1.00', billingservice_date: { raw: 'CURDATE()' }, region: 'ON' }, { key: 'billingservice_no' });

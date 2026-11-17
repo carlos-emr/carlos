@@ -33,6 +33,8 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -56,6 +58,8 @@ class ImageRenderingServletTest extends CarlosUnitTestBase {
         digitalSignatureManager = mock(DigitalSignatureManager.class);
         securityInfoManager = mock(SecurityInfoManager.class);
         loggedInInfo = mock(LoggedInInfo.class);
+        // These module-mapping fixtures allow the separate record boundary unless a case says otherwise.
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), anyInt())).thenReturn(true);
 
         registerMock(ClientImageDAO.class, mock(ClientImageDAO.class));
         registerMock(DigitalSignatureManager.class, digitalSignatureManager);

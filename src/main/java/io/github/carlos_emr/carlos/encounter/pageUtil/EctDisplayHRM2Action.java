@@ -39,7 +39,7 @@ public class EctDisplayHRM2Action extends EctDisplayAction {
     private OscarLogDao oscarLogDao = (OscarLogDao) SpringUtils.getBean(OscarLogDao.class);
 
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LoggedInInfo loggedInInfo = getLoggedInInfo(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", "r", null)) {
             return true; //Prevention link won't show up on new CME screen.
@@ -60,6 +60,8 @@ public class EctDisplayHRM2Action extends EctDisplayAction {
             Date date;
 
             ArrayList<HashMap<String, ? extends Object>> allHRMDocuments = HRMUtil.listHRMDocuments(loggedInInfo, "report_date", false, bean.demographicNo, true);
+            String chartPatientParameter = bean.demographicNo != null && bean.demographicNo.matches("\\d+")
+                    ? "&demographicNo=" + bean.demographicNo : "";
             for (HashMap<String, ? extends Object> hrmDocument : allHRMDocuments) {
                 String hrmDocumentId = String.valueOf(hrmDocument.get("id"));
                 String displayHRMName = (String) hrmDocument.get("name");
@@ -78,11 +80,14 @@ public class EctDisplayHRM2Action extends EctDisplayAction {
                     date = null;
                 }
 
-                String user = (String) request.getSession().getAttribute("user");
+                String user = getProviderNo(request);
                 item.setDate(date);
                 hash = Math.abs(winName.hashCode());
 
-                url = "popupPage(700,800,'" + hash + "', '" + request.getContextPath() + "/hospitalReportManager/Display?id=" + hrmDocumentId + "&segmentID=" + hrmDocumentId + "');";
+                // The chart's patient, so a report linked to more than one patient acts for this one (#5060).
+                // 900 wide: the report page needs about 870 px, so 800 scrolled sideways (#3711).
+                url = "popupPage(700,900,'" + hash + "', '" + request.getContextPath() + "/hospitalReportManager/Display?id=" + hrmDocumentId
+                        + "&segmentID=" + hrmDocumentId + chartPatientParameter + "');";
 
                 String labRead = "";
                 if (!oscarLogDao.hasRead(user, "hrm", hrmDocumentId)) {

@@ -30,7 +30,38 @@ claims for Ontario-resident patients. It implements:
   one-to-three-digit value, blank means `0000`) so the batch header, the disk
   file name and the batch counter share one four-character key. A value that
   still is not well formed is reported per provider by Generate OHIP File
-  before any disk is written (issue #4277).
+  before any disk is written (issue #4277). The provider's OHIP billing number
+  and specialty code (also free text, the specialty read as `00` when blank)
+  must fill their numeric six- and two-digit batch-header fields (MOH format
+  N; `support/OhipProviderFields`). A run that includes a provider whose
+  stored value has another length, or a character that is not an ASCII digit,
+  is refused the same way, naming the provider and the field. Before that
+  check, the wrong-length header stopped the run on that provider after its
+  disk was allocated, a non-digit was written into a file MOH rejects, and
+  the simulation only showed an error line.
+  The claim file name (`H`, month letter, group or OHIP number, `.NNN`)
+  restarts at `.001` each month and so recurs every year, while
+  `billing_on_diskname.ohipfilename` is unique. Disk allocation therefore
+  takes the first sequence number that no existing disk holds: once an
+  earlier year has a disk for the same month letter, the month's first new
+  disk continues after that year's numbers instead of colliding, which used
+  to stop generation with "Unable to allocate unique … disk name" while the
+  simulation (which allocates no disk) still worked. The HTML companion names
+  (`billing_on_filename.htmlfilename`, also unique) carry the same number, so
+  a number counts as taken when the claim file name or any of its HTML names
+  is. The MOH specification leaves the sequence number to the provider and
+  only requires it to be unique within a submission (Interface to Health Care
+  Systems Technical Specifications, §4.2). A skipped number never comes back,
+  so the 999 numbers of a month letter are shared by every year of a provider's
+  or group's history; when none is left, generation stops with a message that
+  names the file name.
+  Generation also writes into `HOME_DIR`, which the simulation never
+  touches. `Startup` creates that folder only when it derives the value from
+  `BASE_DOCUMENT_DIR`; a deployment that sets `HOME_DIR` itself must create
+  the folder (the Debian package ships it in its document skeleton). A
+  missing, non-folder or read-only `HOME_DIR` is reported before anything
+  runs as "The OHIP output folder (HOME_DIR) is missing or CARLOS cannot
+  write to it" (`BillingOutputLock`), not as a lock failure.
   **Provider eligibility is by design, not a fault:** generation only ever
   considers *billable* providers (`ProviderDao.getBillableProviders`:
   `status = '1'` and a non-empty `ohipNo`), both for "all providers" and
@@ -421,6 +452,36 @@ contains nested classes `FindWithItems` and `FindByDemoNoWithItems` that
 lock in the JOIN FETCH behaviour against H2. They use
 `entityManager.clear()` after persisting test data to prove that the
 returned entity's collection survives session detachment.
+
+### 6.4 Percentage limits are read by code, never through `BillingService`
+
+`BillingService` (one dated `billingservice` fee row) maps no association.
+Until issue #5307 it carried an EAGER `billingPercLimit` collection with
+`mappedBy = "service_code"`. Because `service_code` is a plain string on
+`BillingPercLimit`, Hibernate joined `billingperclimit.service_code` to the
+fee row's numeric `billingservice_no`. Two things followed:
+
+- every list of fee rows ran one extra `billingperclimit` query per row
+  (21 statements for 20 rows; 1 now);
+- the collection never held the code's limits, so the batch-bill total in
+  `BillingOnHeaderCreationService` never applied a configured min/max.
+
+Percentage limits belong to a service code and are effective-dated. Read the
+limit in effect on the bill's service date with
+`BillingPercLimitDao.findByServiceCodeAndLatestDate(code, serviceDate)`. That
+is what `BillingOnClaimLoader` does for the interactive bill, and what the
+batch-bill total now does. A configured limit the batch cannot apply (a blank,
+non-numeric or negative bound, or a minimum above the maximum) refuses the
+batch with a `BillingValidationException` naming the code, rather than billing
+the percentage unclamped or outside its range. Write them through `ServiceCodePersister`. Do not
+re-map them onto `BillingService`: a limit row is shared by every dated fee
+row of its code, so a cascade from one fee row would be wrong in both
+directions.
+
+Tests: `BillingServiceDaoIntegrationTest$FetchPlan` (statement count, reads
+with limit rows present, detached JSON serialization),
+`BillingOnHeaderCreationServiceIntegrationTest` (clamp by code and service
+date against the real tables), and `FetchPlanMappingUnitTest`.
 
 ## 7 — Services / Loaders / Persisters reference
 

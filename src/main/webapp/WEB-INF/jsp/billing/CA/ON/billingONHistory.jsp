@@ -61,14 +61,16 @@
     <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
 
     <script language="JavaScript">
-        function onUnbilled(billingNo, billCode) {
+        function onUnbilled(billingNo) {
             if (confirm("${carlos:forJavaScript(msgOnUnbilledText)}")) {
                 // Open the popup inside the click handler (popup blockers), then
                 // post into it. carlosPostForm attaches the CSRF token: a
                 // runtime-built form leaves before CSRFGuard can inject one (#4130).
+                // Only the bill id is posted: the server decides from the claim's stored
+                // status whether it may still be unbilled (#4538), so no status is sent.
                 var popup = window.open('', 'unbill_popup', 'height=700,width=720,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes');
                 carlosPostForm('${carlos:forJavaScript(pageContext.request.contextPath)}/billing/CA/ON/BillingDeleteNoAppt',
-                    {billing_no: billingNo, billCode: billCode, dboperation: 'delete_bill', hotclick: '0'},
+                    {billing_no: billingNo, dboperation: 'delete_bill', hotclick: '0'},
                     {target: 'unbill_popup', popup: popup});
             }
         }
@@ -169,7 +171,7 @@
                 <td class="text-center">
                     <c:if test="${row.unbillLinkShown}">
                         <a href="#"
-                           onclick="onUnbilled('<carlos:encode value="${row.invoiceId}" context="javaScriptAttribute"/>','<carlos:encode value="${row.status}" context="javaScriptAttribute"/>');return false;">${msgUnbill}</a>
+                           onclick="onUnbilled('<carlos:encode value="${row.invoiceId}" context="javaScriptAttribute"/>');return false;">${msgUnbill}</a>
                     </c:if>
                     <c:if test="${not row.unbillLinkShown}">&nbsp;</c:if>
                 </td>

@@ -30,6 +30,7 @@
 --%>
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.ProviderBeanResolver" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -48,17 +49,17 @@
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="java.util.*" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
+
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
+
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@page import="org.springframework.web.context.support.WebApplicationContextUtils,io.github.carlos_emr.carlos.lab.ca.all.*,io.github.carlos_emr.carlos.mds.data.*,io.github.carlos_emr.carlos.lab.ca.all.util.*" %>
-<%@page import="org.springframework.web.context.WebApplicationContext,io.github.carlos_emr.carlos.commn.dao.*,io.github.carlos_emr.carlos.commn.model.*, io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.lab.ca.all.*, io.github.carlos_emr.carlos.mds.data.*" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.*, io.github.carlos_emr.carlos.commn.model.*, io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -302,8 +303,11 @@
                                 </td>
                             </tr>
                             <tr>
-                                <td><fmt:message key="dms.documentReport.msgDocDesc"/>:</td>
-                                <td><input tabindex="<%=tabindex++%>" type="text" name="documentDescription"
+                                <td><label for="docDesc_<%=docId%>"><fmt:message key="dms.documentReport.msgDocDesc"/>:</label></td>
+                                <%-- No maxlength: a browser clips a paste to maxlength in UTF-16 units before any check
+                                     runs. documentMetadataSave.js and ManageDocument2Action refuse a description longer
+                                     than Document.DESCRIPTION_MAX_LENGTH code points. --%>
+                                <td><input tabindex="<%=tabindex++%>" type="text" name="documentDescription" id="docDesc_<%=docId%>"
                                            value="<carlos:encode value='<%= curdoc.getDescription() %>' context="htmlAttribute"/>"/></td>
                             </tr>
                             <tr>
@@ -665,8 +669,11 @@
                                 <td colspan="2">
                                     Linked Providers:
                                     <%
-                                        Properties p = (Properties) session.getAttribute("providerBean");
-                                        List<ProviderInboxItem> routeList = providerInboxRoutingDao.getProvidersWithRoutingForDocument("DOC", Integer.parseInt(docId));
+                                        Properties p = ProviderBeanResolver.resolve(session, docId);
+                                        List<ProviderInboxItem> routeList = Collections.emptyList();
+                                        if (docId != null && !docId.trim().isEmpty()) {
+                                            routeList = providerInboxRoutingDao.getProvidersWithRoutingForDocument("DOC", Integer.parseInt(docId));
+                                        }
                                     %>
                                     <ul>
                                         <%

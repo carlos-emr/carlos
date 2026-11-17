@@ -33,6 +33,48 @@ const { SKIP_ITEMS, openMasterRecord } = require('./master-record-tabs-playwrigh
 // alone lets a named link disappear or be skipped while eight others pass.
 const EXPECTED_LINKS = ['Appointment History', 'Consultations', 'Prescriptions', 'E-Chart', 'Preventions', 'Tickler'];
 
+// Every clinical/billing sidebar popup must keep the displayed patient's scope.
+const PATIENT_PARAMETERS = [
+  ['/billing/CA/ON/ViewBillingONHistory', 'demographic_no'],
+  ['/billing/CA/ON/billingShortcutPg1View', 'demographic_no'],
+  ['/billing/CA/BC/reprocessBill', 'demographicNo'],
+  ['/billing', 'demographic_no'],
+  ['/encounter/oscarConsultationRequest/ViewDisplayDemographicConsultationRequests', 'de'],
+  ['/rx/choosePatient', 'demographicNo'],
+  ['/encounter/IncomingEncounter', 'demographicNo'],
+  ['/prevention/ViewPreventionIndex', 'demographic_no'],
+  ['/tickler/ViewTicklerMain', 'demoview'],
+  ['/form/forwardshortcutname', 'demographic_no'],
+  ['/mod/docmgmtComp/DocList', 'demographic_no'],
+  ['/documentManager/ViewDocumentReport', 'functionid'],
+  ['/documentManager/ViewDocumentBrowser', 'functionid'],
+];
+
+function assertPopupScope(links, hostUrl) {
+  const host = new URL(hostUrl);
+  const patient = host.searchParams.get('demographic_no');
+  h.assert(patient && /^[1-9][0-9]*$/.test(patient), 'The Master Record has no valid patient scope');
+  h.assert(links.length >= 8, 'The Master Record lost its clinical and billing popup links');
+  for (const link of links) {
+    h.assert(link.href && !/^(?:#|javascript:)/i.test(link.href),
+      `The Master Record popup link has no usable destination: ${link.label}`);
+    const target = new URL(link.url);
+    h.assert(target.origin === host.origin, `The Master Record popup link points off host: ${link.label}`);
+    const route = PATIENT_PARAMETERS.find(([suffix]) => target.pathname.endsWith(suffix));
+    h.assert(route, `The Master Record popup route needs a patient-scope assertion: ${link.label}`);
+    const values = target.searchParams.getAll(route[1]);
+    h.assert(values.length === 1 && values[0] === patient,
+      `The Master Record popup link lost or changed patient scope: ${link.label}`);
+  }
+}
+
+async function assertPopupDestinations(page) {
+  const links = await page.locator('.MainTableLeftColumn a[onclick]').evaluateAll(elements => elements.map(link => ({
+    href: link.getAttribute('href'), url: link.href, label: link.textContent.trim(),
+  })));
+  assertPopupScope(links, page.url());
+}
+
 async function main() {
   const config = h.readConfig();
   const timeout = Number(process.env.PAGE_HEALTH_TIMEOUT_MS || '20000');
@@ -45,6 +87,7 @@ async function main() {
       preferredDemographicNo: process.env.MASTER_RECORD_DEMOGRAPHIC_NO || '2',
       timeout,
     });
+    await assertPopupDestinations(masterPage);
     await judgePage(session.ledger, session.probe, 'master-record (landing)', masterPage, {});
     const items = dedupe(await catalogueLinks(masterPage));
     h.assert(items.length > 0, 'The Master Record offered no navigable links at all');
@@ -67,4 +110,4 @@ if (require.main === module) {
   h.runCheck({ name: 'page-health-master-record', run: main });
 }
 
-module.exports = { main };
+module.exports = { main, assertPopupScope, assertPopupDestinations };

@@ -34,11 +34,15 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import jakarta.xml.bind.annotation.XmlRootElement;
+
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.BeanUtils;
 
+/** Provider representation shared by SOAP and REST, including direct REST XML responses. */
+@XmlRootElement
 public final class ProviderTransfer {
     private String providerNo;
     private String comments;
@@ -168,6 +172,8 @@ public final class ProviderTransfer {
         this.specialty = specialty;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getDob() {
         return (dob);
     }
@@ -208,6 +214,10 @@ public final class ProviderTransfer {
         this.rmaNo = rmaNo;
     }
 
+    // On the getter: the field is named SignedConfidentiality and would not bind to this property.
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getSignedConfidentiality() {
         return (SignedConfidentiality);
     }
@@ -249,6 +259,15 @@ public final class ProviderTransfer {
         this.title = title;
     }
 
+    /**
+     * Copies every published provider property, the four billing identifiers ({@code billingNo},
+     * {@code ohipNo}, {@code rmaNo}, {@code hsoNo}) included. Existing SOAP and REST clients read
+     * those from this representation without holding a billing right; which providers a caller may
+     * see at all is decided by the service that calls this method.
+     *
+     * @param provider Provider the record to represent; may be {@code null}
+     * @return ProviderTransfer the representation, or {@code null} for a {@code null} provider
+     */
     // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
     // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
     @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
@@ -276,6 +295,6 @@ public final class ProviderTransfer {
 
     @Override
     public String toString() {
-        return (ReflectionToStringBuilder.toString(this));
+        return getClass().getSimpleName() + "[protected]";
     }
 }

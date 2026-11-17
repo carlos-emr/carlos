@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ * Modifications by CARLOS Contributors, 2026.
  *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
@@ -64,12 +65,19 @@ const os = require('node:os');
 const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const {createRoutingLockFixture} = require('./lib/lab-routing-fixture');
+const { PROVIDER_LINKING_RULES_LOCK } = require('./lib/document-fixture-allocation');
 const { serverLogFromEnvironment, verifyStorageFailureLog } = require('./lib/server-log');
+
+const { createFaultReceipt, ownedTriggerStatements, observeOwnedTrigger, dropOwnedTrigger, normalize, sha } = require('./lib/lab-rollback-fault-proof');
 
 const contextPathOf = (baseUrl) => new URL(baseUrl).pathname.replace(/\/+$/, '');
 
-/** A minimal CML ORU^R01 v2.3 message for the run's synthetic patient. */
-function syntheticCmlLab(accession, patientLast) {
+/**
+ * A minimal CML ORU^R01 v2.3 message for the run's synthetic patient. A non-empty `hin` is sent
+ * as the alternate patient id (PID-4), where the CML handler reads the health number.
+ */
+function syntheticCmlLab(accession, patientLast, hin = '') {
   const now = new Date();
   const pad = (n) => String(n).padStart(2, '0');
   const ts = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`
@@ -78,7 +86,7 @@ function syntheticCmlLab(accession, patientLast) {
     // The backslash is doubled so the template literal emits MSH-2 as the four HL7 encoding
     // characters ^~\&; HAPI rejects anything shorter before the CML handler sees the message.
     `MSH|^~\\&|Reports|CML|||${ts}-500||ORU^R01||1|2.3`,
-    `PID|1|||^^ON|${patientLast}^Workflow||19800102|F`,
+    `PID|1|||${hin}^^ON|${patientLast}^Workflow||19800102|F`,
     `ORC|NW|${accession}|||F|||||||999998^DR. PROBE|||${ts.slice(0, 8)}`,
     `OBR|1|${accession}||ML70^SYNTHETIC PANEL||${ts.slice(0, 8)}|${ts.slice(0, 8)}|||||||||999998^DR. PROBE|||||||||F`,
     'OBX|1|ST|7010^SYNTHETIC RESULT|^^CHEMISTRY|NORMAL|||N|||F||765^1007010||70',
@@ -113,11 +121,12 @@ async function openUploader(session) {
 }
 
 /** Upload one file as a CML lab and return the status text the page reports for it. */
-async function uploadThroughPopup(session, filePath, fileName) {
+async function uploadThroughPopup(session, filePath, fileName, proof, phase) {
   const { inbox, popup } = await openUploader(session);
   try {
     await popup.locator('#importFiles').setInputFiles(filePath);
     await popup.locator('#type').selectOption('CML');
+    if (proof) proof.request(phase, { startedAt: new Date().toISOString() });
     const [response] = await Promise.all([
       popup.waitForResponse((r) => r.request().method() === 'POST'
         && new URL(r.url()).pathname.endsWith('/lab/CA/ALL/insideLabUpload'), { timeout: 60000 }),
@@ -127,7 +136,16 @@ async function uploadThroughPopup(session, filePath, fileName) {
     await popup.waitForLoadState('domcontentloaded');
     const item = popup.locator('#file-list .file-item').filter({ hasText: fileName });
     await item.first().waitFor({ state: 'visible', timeout: 20000 });
-    return (await item.first().locator('.upload-text').innerText()).trim();
+    const outcome = (await item.first().locator('.upload-text').innerText()).trim();
+    if (proof) {
+      const actual = new URL(response.url());
+      h.assert(actual.origin === new URL(session.config.baseUrl).origin
+        && actual.pathname === contextPathOf(session.config.baseUrl) + '/lab/CA/ALL/insideLabUpload'
+        && !actual.search && !actual.hash, 'Rollback receipt must name the actual same-origin upload route');
+      proof.request(phase, {method: response.request().method(), path: '/lab/CA/ALL/insideLabUpload',
+        status: response.status(), outcome, finishedAt: new Date().toISOString()});
+    }
+    return outcome;
   } finally {
     await popup.close().catch(() => {});
     await inbox.close().catch(() => {});
@@ -189,7 +207,7 @@ function expectArchivedUploads(stamp, count, why) {
  * from the fixed probe prefix, this run's random stamp and the uploader's millisecond suffix match,
  * so no other document in the store can be touched.
  */
-function removeArchivedUploads(stamp) {
+function removeArchivedUploads(stamp, {requireArchive = true} = {}) {
   const store = process.env.LAB_UPLOAD_DOCUMENT_STORE;
   if (!store) {
     console.warn(`    archived uploads retained: set LAB_UPLOAD_DOCUMENT_STORE to remove LabUpload.lab-upload-probe-${stamp}.hl7.*`);
@@ -202,74 +220,156 @@ function removeArchivedUploads(stamp) {
   const found = ownFiles();
   // name matched the fixed pattern above and is joined to the resolved store root.
   for (const name of found) fs.unlinkSync(path.join(root, name)); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
-  // Every run archives at least the first upload; finding none means the store or the archive
-  // name no longer matches, and cleanup would otherwise pass while leaving the files behind.
-  h.assert(found.length > 0, `No archived LabUpload.lab-upload-probe-${stamp}.hl7.* file was found in LAB_UPLOAD_DOCUMENT_STORE`);
+  // A committed source requires an archive. Setup failure before any accepted
+  // upload legitimately has none; still remove any owned partial archive.
+  h.assert(!requireArchive || found.length > 0, `No archived LabUpload.lab-upload-probe-${stamp}.hl7.* file was found in LAB_UPLOAD_DOCUMENT_STORE`);
   h.assert(ownFiles().length === 0, 'The archived synthetic lab uploads were not all removed');
+}
+
+/*
+ * The routing locks present before this check uploads anything: report ids, all positive. The
+ * application also keeps ONE row that is no report, ProviderLabRoutingDao.PROVIDER_LINKING_RULES_LOCK
+ * (Integer.MIN_VALUE), its clinic-wide coordination row; it exists from the first time the provider
+ * linking rules are saved (provider-linking-rules does that) and stays. The snapshot leaves out
+ * exactly that key, as lib/document-fixture-allocation.js does; any other key that is not a positive
+ * id still fails the check.
+ */
+const INITIAL_ROUTING_LOCKS_QUERY = 'SELECT lab_no FROM providerLabRoutingLock'
+  + ` WHERE BINARY CAST(lab_no AS CHAR) <> '${PROVIDER_LINKING_RULES_LOCK}' ORDER BY lab_no`;
+function initialRoutingLocks(sql) {
+  return sql.rows(INITIAL_ROUTING_LOCKS_QUERY).map(row => {
+    h.assert(row.length === 1 && /^[1-9]\d*$/.test(row[0]), 'Invalid initial routing lock snapshot');
+    return row[0];
+  });
 }
 
 async function workflow(session, options = {}) {
   const { sql, patient, marker, cleanup, config } = session;
+  // A native HL7 continuation returns before the separate legacy flat-CML path.
+  // Its lifecycle must not depend on ON-only labReportInformation on BC.
+  const includeLegacyCml = !options.afterInitial;
+  const exclusiveLocks = process.env.EXCLUSIVE === '1' && process.env.CARLOS_DISPOSABLE_VM === 'true';
+  const initialLocks = exclusiveLocks ? initialRoutingLocks(sql) : undefined;
   const stamp = crypto.randomBytes(4).toString('hex').toUpperCase();
   const accession = `LU${stamp}`;
   const flatAccession = `FL${stamp}`;
   const failureTrigger = `lab_upload_probe_${stamp}`;
   let triggerMayExist = false;
   const fileName = `lab-upload-probe-${stamp}.hl7`;
-  const content = Buffer.from(syntheticCmlLab(accession, marker), 'latin1');
+  // Optional native-version workflow owns only this accession and the same
+  // durable upload cleanup. Ordinary upload/rollback checks keep their fixture.
+  const content = Buffer.from(options.initialContent
+    ? options.initialContent(accession, marker) : syntheticCmlLab(accession, marker), 'latin1');
+  let proof = null;
+  if (options.injectFailure) {
+    if (!process.env.LAB_ROLLBACK_FAULT_ARTIFACT_DIR) throw new h.SkipCheck(
+      'Set LAB_ROLLBACK_FAULT_ARTIFACT_DIR to a private directory for rollback fault evidence');
+    h.assert(process.env.LAB_UPLOAD_DOCUMENT_STORE, 'Rollback fault requires actual installed document store');
+    h.assert(serverLogFromEnvironment().configured, 'Rollback fault requires actual server-log proof');
+    proof = createFaultReceipt(process.env.LAB_ROLLBACK_FAULT_ARTIFACT_DIR, {
+      triggerName: failureTrigger, accession, payloadSha256: sha(content),
+      testSourceSha256: sha(fs.readFileSync(__filename)),
+      wrapperSourceSha256: sha(fs.readFileSync(path.join(__dirname, 'lab-upload-rollback-playwright-checks.js'))),
+      helperSourceSha256: sha(fs.readFileSync(require.resolve('./lib/lab-rollback-fault-proof'))),
+      handlerSourceSha256: sha(fs.readFileSync(path.resolve(__dirname, '../src/main/java/io/github/carlos_emr/carlos/lab/ca/all/upload/handlers/CMLHandler.java'))),
+      logTimeZone: new Date().getTimezoneOffset() === 0 ? 'UTC' : 'UNVERIFIED',
+    });
+    cleanup(() => proof.close());
+  }
   // The uploader records the saved file's name (LabUpload.<name>.<millis>), which carries the
   // run's random stamp, so the check finds its own fileUploadCheck row without hashing.
   const ownUpload = `filename LIKE ${h.sqlString(`%${fileName}%`)}`;
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-lab-upload-'));
+  cleanup(() => fs.rmSync(workDir, { recursive: true, force: true }));
   // fileName is built from a fixed prefix and random hex, never from input.
   const filePath = path.join(workDir, fileName); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
-  fs.writeFileSync(filePath, content);
   h.assert(sql.value(`SELECT COUNT(*) FROM fileUploadCheck WHERE ${ownUpload}`) === '0',
     'A fileUploadCheck row already carries this run\'s stamp');
 
+  h.assert(sql.value(`SELECT /* assert empty upload namespace */
+    (SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)})
+    + (SELECT COUNT(*) FROM hl7TextMessage WHERE FROM_BASE64(message) LIKE ${h.sqlString('%'+accession+'%')})
+    + ${includeLegacyCml ? `(SELECT COUNT(*) FROM labPatientPhysicianInfo WHERE accession_num=${h.sqlString(flatAccession)})
+    + (SELECT COUNT(*) FROM labReportInformation WHERE location_id=${h.sqlString(flatAccession)})` : '0'}`) === '0',
+  'The generated upload namespace already belongs to another source');
+
+  // Keep ownership after deleting measurementsExt: a later DELETE may fail or
+  // lose its acknowledgement, and the lab_no discovery links will already be gone.
+  const ownedMeasurements = new Set();
+  let archivedUploadsRemoved = false;
+  let storedLabObserved = false;
   cleanup(async () => {
-    if (triggerMayExist) sql.execute(`DROP TRIGGER IF EXISTS ${failureTrigger}`);
-    fs.rmSync(workDir, { recursive: true, force: true });
-    const flatLabs = sql.rows(`SELECT id FROM labPatientPhysicianInfo WHERE accession_num=${h.sqlString(flatAccession)}`)
-      .map(([id]) => id).filter((id) => /^\d+$/.test(id));
+    if (triggerMayExist) dropOwnedTrigger(sql, failureTrigger, accession);
+    const flatLabs = includeLegacyCml ? sql.rows(`SELECT id FROM labPatientPhysicianInfo WHERE accession_num=${h.sqlString(flatAccession)}`)
+      .map(([id]) => id).filter((id) => /^\d+$/.test(id)) : [];
+    storedLabObserved ||= flatLabs.length > 0;
     if (flatLabs.length) {
       const ids = flatLabs.join(',');
+      // Keep the accession-bearing rows until lock cleanup succeeds, so a failed
+      // teardown can rediscover the same owned IDs on its next attempt.
+      if (exclusiveLocks) {
+        createRoutingLockFixture(query => sql.execute(query), query => sql.rows(query), flatLabs,
+          {exclusive: true, initialLocks}).cleanup();
+      }
       sql.execute(`DELETE FROM providerLabRouting WHERE lab_type='CML' AND lab_no IN (${ids});
         DELETE FROM patientLabRouting WHERE lab_type='CML' AND lab_no IN (${ids});
         DELETE FROM labTestResults WHERE labPatientPhysicianInfo_id IN (${ids});
         DELETE FROM labPatientPhysicianInfo WHERE id IN (${ids})`);
     }
-    sql.execute(`DELETE FROM labReportInformation WHERE location_id=${h.sqlString(flatAccession)}`);
+    if (includeLegacyCml) sql.execute(`DELETE FROM labReportInformation WHERE location_id=${h.sqlString(flatAccession)}`);
     const labs = sql.rows(`SELECT lab_no FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)}
       UNION SELECT lab_id FROM hl7TextMessage WHERE FROM_BASE64(message) LIKE ${h.sqlString(`%${accession}%`)}`)
       .map(([labNo]) => labNo).filter((labNo) => /^\d+$/.test(labNo));
+    storedLabObserved ||= labs.length > 0;
     if (labs.length) {
-      const list = labs.join(',');
       const measurements = sql.rows(`SELECT measurement_id FROM measurementsExt
         WHERE keyval='lab_no' AND val IN (${labs.map((labNo) => h.sqlString(labNo)).join(',')})`)
         .map(([id]) => id).filter((id) => /^\d+$/.test(id));
-      if (measurements.length) {
-        const ids = measurements.join(',');
-        sql.execute(`DELETE FROM measurementsExt WHERE measurement_id IN (${ids});
-          DELETE FROM measurements WHERE id IN (${ids})`);
+      measurements.forEach(id => ownedMeasurements.add(id));
+    }
+    if (ownedMeasurements.size) {
+      const ids = [...ownedMeasurements].join(',');
+      sql.execute(`DELETE FROM measurementsExt WHERE measurement_id IN (${ids});
+        DELETE FROM measurements WHERE id IN (${ids});
+        DELETE FROM measurementsDeleted WHERE originalId IN (${ids}) AND demographicNo=${patient}`);
+      h.assert(sql.value(`SELECT
+        (SELECT COUNT(*) FROM measurementsExt WHERE measurement_id IN (${ids}))
+        + (SELECT COUNT(*) FROM measurements WHERE id IN (${ids}))
+        + (SELECT COUNT(*) FROM measurementsDeleted WHERE originalId IN (${ids}) AND demographicNo=${patient})`) === '0',
+      'The synthetic lab measurements were not all removed');
+    }
+    if (labs.length) {
+      const list = labs.join(',');
+      // As with CML, lock failures must leave the source IDs available for retry.
+      if (exclusiveLocks) {
+        createRoutingLockFixture(query => sql.execute(query), query => sql.rows(query), labs,
+          {exclusive: true, initialLocks}).cleanup();
+      } else {
+        sql.execute(`DELETE FROM providerLabRoutingLock WHERE lab_no IN (${list})`);
       }
-      // The upload path also writes a providerLabRoutingLock row for each lab it files; nothing else removes it.
-      sql.execute(`DELETE FROM providerLabRoutingLock WHERE lab_no IN (${list});
-        DELETE FROM providerLabRouting WHERE lab_type='HL7' AND lab_no IN (${list});
+      sql.execute(`DELETE FROM providerLabRouting WHERE lab_type='HL7' AND lab_no IN (${list});
         DELETE FROM patientLabRouting WHERE lab_type='HL7' AND lab_no IN (${list});
         DELETE FROM hl7TextInfo WHERE lab_no IN (${list});
         DELETE FROM hl7TextMessage WHERE lab_id IN (${list})`);
     }
     sql.execute(`DELETE FROM fileUploadCheck WHERE ${ownUpload}`);
-    removeArchivedUploads(stamp);
+    if (!archivedUploadsRemoved) {
+      removeArchivedUploads(stamp, {requireArchive: storedLabObserved});
+      // A later database verification can fail after file removal succeeded.
+      // Keep the initial missing-archive guard, but do not demand deleted files on retry.
+      archivedUploadsRemoved = Boolean(process.env.LAB_UPLOAD_DOCUMENT_STORE);
+    }
     h.assert(sql.value(`SELECT
         (SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)})
       + (SELECT COUNT(*) FROM fileUploadCheck WHERE ${ownUpload})
       + (SELECT COUNT(*) FROM hl7TextMessage WHERE FROM_BASE64(message) LIKE ${h.sqlString(`%${accession}%`)})
-      + (SELECT COUNT(*) FROM labPatientPhysicianInfo WHERE accession_num=${h.sqlString(flatAccession)})
-      + (SELECT COUNT(*) FROM labReportInformation WHERE location_id=${h.sqlString(flatAccession)})`) === '0',
+      + ${includeLegacyCml ? `(SELECT COUNT(*) FROM labPatientPhysicianInfo WHERE accession_num=${h.sqlString(flatAccession)})
+      + (SELECT COUNT(*) FROM labReportInformation WHERE location_id=${h.sqlString(flatAccession)})` : '0'}`) === '0',
     'The synthetic lab rows were not all removed');
+    if (proof) proof.update({cleanupAcknowledged: true});
   });
+
+  fs.writeFileSync(filePath, content);
 
   await session.step('rejected content stays retryable without a checksum', async () => {
     const invalid = Buffer.from(`SYNTHETIC INVALID LAB ${stamp}`);
@@ -292,19 +392,19 @@ async function workflow(session, options = {}) {
     await session.step('database rejection rolls back the checksum and partial lab', async () => {
       // The trigger applies only to this run's synthetic accession. It rejects metadata after
       // the checksum and raw HL7 message have been inserted, exercising actual MariaDB rollback.
+      h.assert(sql.value(`SELECT COUNT(*) FROM information_schema.TRIGGERS
+        WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME=${h.sqlString(failureTrigger)}`) === '0', 'Owned rollback trigger already exists');
+      proof.update({triggerAbsentBeforeCreate: true});
       triggerMayExist = true;
       try {
-        sql.execute(`DELIMITER //
-          CREATE TRIGGER ${failureTrigger} BEFORE INSERT ON hl7TextInfo FOR EACH ROW
-          BEGIN
-            IF NEW.accessionNum=${h.sqlString(accession)} THEN
-              SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Synthetic upload rollback probe';
-            END IF;
-          END//
-          DELIMITER ;`);
+        const {body, sql: triggerSql} = ownedTriggerStatements(failureTrigger, accession);
+        proof.update({triggerSqlSha256: sha(triggerSql), expectedTriggerBodySha256: sha(normalize(body))});
+        sql.execute(triggerSql);
+        proof.update(observeOwnedTrigger(sql, failureTrigger, accession));
         const serverLog = serverLogFromEnvironment();
         const logMark = serverLog.mark();
-        const status = await uploadThroughPopup(session, filePath, fileName);
+        proof.update({logCursorBeforeFault: logMark?.cursor || null, logSource: serverLog.source});
+        const status = await uploadThroughPopup(session, filePath, fileName, proof, 'fault');
         h.assert(['Invalid lab', 'Failed to upload HL7 lab'].includes(status),
           `Injected database failure reported "${status}"`);
         h.assert(sql.value(`SELECT
@@ -313,20 +413,22 @@ async function workflow(session, options = {}) {
           + (SELECT COUNT(*) FROM hl7TextMessage WHERE FROM_BASE64(message) LIKE ${h.sqlString(`%${accession}%`)})`) === '0',
         'A rejected lab left its checksum or partially stored rows behind');
         expectArchivedUploads(stamp, 0, 'after the rolled-back upload');
+        proof.update({rollbackRows: 0, archivedCopiesAfterFailure: 0});
         // After the rollback, which matters more, so a log failure cannot mask it. #4436: the handler's
         // cleanup used to run in the session the rejected insert had poisoned, so Hibernate logged
         // HHH000099 and the database's own message never reached an ERROR line.
         await verifyStorageFailureLog({ reader: serverLog, mark: logMark,
           databaseMessage: 'Synthetic upload rollback probe', assert: h.assert });
       } finally {
-        sql.execute(`DROP TRIGGER IF EXISTS ${failureTrigger}`);
+        dropOwnedTrigger(sql, failureTrigger, accession);
         triggerMayExist = false;
+        proof.update({triggerDropAcknowledged: true, triggerAbsentAfterDrop: true});
       }
     });
   }
 
   await session.step('first HL7 upload is filed', async () => {
-    const status = await uploadThroughPopup(session, filePath, fileName);
+    const status = await uploadThroughPopup(session, filePath, fileName, proof, 'retry');
     h.assert(status === 'Uploaded successfully', `First upload reported "${status}"`);
     await expectValue(sql, `SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)}`, '1',
       'The uploaded lab did not reach hl7TextInfo under its accession');
@@ -342,12 +444,17 @@ async function workflow(session, options = {}) {
   });
 
   await session.step('the same file again is refused as already uploaded', async () => {
-    const status = await uploadThroughPopup(session, filePath, fileName);
+    const status = await uploadThroughPopup(session, filePath, fileName, proof, 'duplicate');
     h.assert(status === 'Already uploaded', `Duplicate upload reported "${status}"`);
     h.assert(sql.value(`SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)}`) === '1',
       'The duplicate upload filed a second copy of the lab');
     expectArchivedUploads(stamp, 1, 'after the duplicate upload');
   });
+
+  if (options.afterInitial) {
+    await options.afterInitial({accession, stamp, filePath, fileName, content});
+    return;
+  }
 
   await session.step('lab/CMLlabUpload answers a distinct XML outcome', async () => {
     const { inbox, popup } = await openUploader(session);
@@ -400,4 +507,7 @@ async function workflow(session, options = {}) {
 }
 
 if (require.main === module) runWorkflow('lab-upload', workflow);
-module.exports = { workflow, syntheticCmlLab, syntheticCmlFlatFile, openUploader };
+module.exports = {
+  workflow, syntheticCmlLab, syntheticCmlFlatFile, openUploader, uploadThroughPopup, removeArchivedUploads,
+  INITIAL_ROUTING_LOCKS_QUERY, initialRoutingLocks,
+};

@@ -25,9 +25,11 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.sms.SmsDirection;
+import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.dao.SmsTransactionDao;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
 import io.github.carlos_emr.carlos.sms.viewmodel.SmsHistoryViewModel;
+import io.github.carlos_emr.carlos.sms.service.SmsProviderRetirementService;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.springframework.stereotype.Service;
 
@@ -109,18 +111,27 @@ public class SmsHistoryViewModelAssembler {
         return nullToEmpty(demographic.getLastName()) + ", " + nullToEmpty(demographic.getFirstName());
     }
 
+    /**
+     * Shown instead of FAILED for a text that was queued again for another provider after a swap. Its error
+     * column shows the stored "Moved to ... as text N." note, so staff follow the new text instead of resending
+     * this one, which would send it twice.
+     */
+    static final String MOVED_STATUS = "MOVED";
+
     private static SmsHistoryViewModel.Row toRow(SmsTransaction transaction) {
         boolean inbound = transaction.getDirection() == SmsDirection.INBOUND;
+        boolean moved = transaction.getStatus() == SmsStatus.FAILED
+                && SmsProviderRetirementService.QUEUE_PROVIDER_MOVED_CODE.equals(transaction.getErrorCode());
         return new SmsHistoryViewModel.Row(
                 String.valueOf(transaction.getId()),
                 format(transaction.getCreatedAt()),
                 code(transaction.getDirection()),
                 code(transaction.getMessagePurpose()),
-                code(transaction.getStatus()),
+                moved ? MOVED_STATUS : code(transaction.getStatus()),
                 lastFourDigits(inbound ? transaction.getFromPhoneNumber() : transaction.getToPhoneNumber()),
                 code(transaction.getConsentStatus()),
                 nullToEmpty(transaction.getConsentReasonCode()),
-                nullToEmpty(transaction.getErrorCode()),
+                moved ? nullToEmpty(transaction.getErrorMessage()) : nullToEmpty(transaction.getErrorCode()),
                 format(completedAt(transaction)),
                 transaction.hasStoredMessageBody()
         );

@@ -95,6 +95,7 @@
     </div>
 <% } %>
     <form action="${pageContext.request.contextPath}/encounter/oscarMeasurements/DeleteData2" method="post">
+        <input type="hidden" name="demographicNo" value="<%=demo%>">
 
         <table style="border-width: 2px; width: 100%; border-spacing: 0px; ">
             <c:if test="${not empty messages}">
@@ -213,7 +214,12 @@
                                     </td>
 
                                     <!-- Data Field -->
-                                    <td title="data">${carlos:forHtmlContent(data.dataField)}</td>
+                                    <td title="data">${carlos:forHtmlContent(data.dataField)}
+                                        <c:if test="${data.sourceLabNo != null}">
+                                            <a class="source-lab" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/lab/CA/ALL/ViewLabDisplay?segmentID=${carlos:forHtmlAttribute(carlos:forUriComponent(data.sourceLabNo))}"
+                                               target="_blank" rel="noopener"><fmt:message key="encounter.oscarMeasurements.sourceLab"/></a>
+                                        </c:if>
+                                    </td>
 
                                     <!-- Comments -->
                                     <td title="comments">${carlos:forHtmlContent(data.comments)}</td>
@@ -247,7 +253,7 @@
                             <td>
                                 <input type="button" name="Button" class="btn DoNotPrint"
                                     value="<fmt:message key="encounter.oscarMeasurements.oldmesurementindex"/>"
-                                    onclick="javascript: popupPage(300,800,'encounter/oscarMeasurements/SetupHistoryIndex')">
+                                    onclick="javascript: popupPage(300,800,'<%=request.getContextPath()%>/encounter/oscarMeasurements/SetupHistoryIndex?demographicNo=<%=demo%>')">
                             </td>
 
                             <!-- Print button -->

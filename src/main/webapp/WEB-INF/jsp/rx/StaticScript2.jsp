@@ -40,19 +40,19 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
+
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.DrugDao" %>
+
 <%@page import="io.github.carlos_emr.carlos.commn.dao.PartialDateDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.PartialDate" %>
-<%@page import="java.util.List" %>
+
 <%@page import="io.github.carlos_emr.carlos.commn.model.Drug" %>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
+
 <%@page import="io.github.carlos_emr.carlos.rx.StaticScriptBean" %>
-<%@page import="io.github.carlos_emr.carlos.prescript.util.RxUtil" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
+
 
 <%@page import="java.util.ArrayList" %>
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
@@ -195,7 +195,7 @@
                     }).then(function() {
                         <c:set var="__enc_1"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(regionalIdentifier) %>' context="uriComponent"/></c:set>
                         <c:set var="__enc_2"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(cn) %>' context="uriComponent"/></c:set>
-                        window.location.href = "${carlos:forJavaScript(ctx)}" + "/rx/ViewStaticScript2?regionalIdentifier=" + '<carlos:encode value='${__enc_1}' context="javaScriptBlock"/>' + "&cn=" + '<carlos:encode value='${__enc_2}' context="javaScriptBlock"/>' + "&demographicNo=" + staticScriptDemographicNo;
+                        window.location.href = RxPatientContext.withPatient("${carlos:forJavaScript(ctx)}" + "/rx/ViewStaticScript2?regionalIdentifier=" + '<carlos:encode value='${__enc_1}' context="javaScriptBlock"/>' + "&cn=" + '<carlos:encode value='${__enc_2}' context="javaScriptBlock"/>' + "&demographicNo=" + staticScriptDemographicNo);
                     }).catch(function() {
                         alert('${carlos:forJavaScript(staticScriptRequestError)}');
                     });
@@ -247,7 +247,7 @@
                     // The stage was accepted (2xx); a truncated body changes nothing.
                 }
                 // Open the prescribing pad so the staged card and safety warnings are visible.
-                location.href = "${carlos:forJavaScript(ctx)}" + "/rx/choosePatient?demographicNo=" + staticScriptDemographicNo;
+                location.href = RxPatientContext.withPatient("${carlos:forJavaScript(ctx)}" + "/rx/choosePatient?demographicNo=" + staticScriptDemographicNo);
             }
 
         </script>
@@ -339,7 +339,14 @@
                                         </a>
                                         <%}%>
 
-                                        <% if (drug.nonAuthoritative) { %>
+                                        <% if (drug.cdsCurrentness != null) { %>
+                                        <br/>Imported medication state: <carlos:encode value='<%= drug.cdsCurrentness %>' context="html"/>
+                                        <br/>Source non-authoritative indicator: <carlos:encode value='<%= drug.cdsNonAuthoritative == null ? "Unknown" : drug.cdsNonAuthoritative.toString() %>' context="html"/>
+                                        <br/>Source substitution not allowed: <carlos:encode value='<%= drug.cdsSubstitutionNotAllowed == null ? "Unknown" : drug.cdsSubstitutionNotAllowed.toString() %>' context="html"/>
+                                        <% if (!Boolean.FALSE.equals(drug.cdsProjectionIncomplete)) { %>
+                                        <br/>Clinical reconciliation required before renewal; review complete imported medication details.
+                                        <% } %>
+                                        <% } else if (drug.nonAuthoritative) { %>
                                         &nbsp;
                                         <fmt:message key="WriteScript.msgNonAuthoritative"/>
                                         <% } %>
@@ -349,7 +356,7 @@
                                         %><br/><fmt:message
                                             key="WriteScript.msgPickUpDate"/>&nbsp;<carlos:encode value='<%= drug.pickupDate %>' context="html"/>&nbsp;
                                         <%
-                                            if (!((drug.pickupTime).equals("")) && !((drug.pickupTime).equals("12:00 AM"))) {
+                                            if (!((drug.pickupTime).equals(""))) {
                                         %> &nbsp;<carlos:encode value='<%= drug.pickupTime %>' context="html"/>&nbsp;
                                         <% }
                                         } %>
@@ -378,7 +385,7 @@
                                             <%
 							if (drug.customName==null)
 									{
-						%> <a href="javascript:ShowDrugInfo('<carlos:encode value='<%= drug.genericName %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= drug.regionalIdentifier %>' context="javaScriptAttribute"/>');">Info</a> <%
+						%> <a href="${pageContext.request.contextPath}/rx/drugInfo?GN=<carlos:encode value='<%= drug.genericName %>' context="uriComponent"/><% if (drug.regionalIdentifier != null && !drug.regionalIdentifier.isEmpty() && !"null".equals(drug.regionalIdentifier) && !"0".equals(drug.regionalIdentifier)) { %>&amp;DIN=<carlos:encode value='<%= drug.regionalIdentifier %>' context="uriComponent"/><% } %>" onclick="ShowDrugInfo('<carlos:encode value='<%= drug.genericName %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= drug.regionalIdentifier %>' context="javaScriptAttribute"/>'); return false;">Info</a> <%
 							}
 						%>
                         </td>
@@ -425,7 +432,7 @@
             <td><br/>
                 <br/>
                 <input type="button" value="Back To Search Drug" class="ControlPushButton"
-                       onclick="javascript:window.location.href='<%= request.getContextPath() %>/rx/searchDrug?demographicNo=<carlos:encode value='<%= String.valueOf(currentDemographicNo) %>' context="javaScriptAttribute"/>';"/></td>
+                       onclick="javascript:window.location.href=RxPatientContext.withPatient('<%= request.getContextPath() %>/rx/searchDrug?demographicNo=<carlos:encode value='<%= String.valueOf(currentDemographicNo) %>' context="javaScriptAttribute"/>');"/></td>
         </tr>
         <!----End new rows here-->
         <tr height="100%">

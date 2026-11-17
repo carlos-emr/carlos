@@ -36,11 +36,14 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt;
 
-public interface CaseManagementNoteExtDAO {
+public interface CaseManagementNoteExtDAO extends io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadDao {
 
     public CaseManagementNoteExt getNoteExt(Long id);
 
     public List<CaseManagementNoteExt> getExtByNote(Long noteId);
+
+    /** Reads current extension rows and holds their locks until the caller's transaction completes. */
+    List<CaseManagementNoteExt> getExtByNoteForUpdate(Long noteId);
 
     public List getExtByKeyVal(String keyVal);
 

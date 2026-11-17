@@ -104,6 +104,9 @@ class NotesServiceTicklerNoteUnitTest extends CarlosUnitTestBase {
         injectDependency(service, "securityInfoManager", securityInfoManager);
         injectDependency(service, "providerMgr", providerMgr);
         injectDependency(service, "ticklerDao", ticklerDao);
+        var ticklerManager = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.TicklerManager.class);
+        injectDependency(service, "noteTicklerManager", ticklerManager);
+        lenient().when(ticklerManager.getTicklerDemographicNo(any(), org.mockito.ArgumentMatchers.anyInt())).thenReturn(OWNING_DEMOGRAPHIC_ID);
 
         lenient().when(securityInfoManager.hasPrivilege(any(), eq("_tickler"), any(), any())).thenReturn(true);
         lenient().when(securityInfoManager.hasPrivilege(any(), eq("_eChart"), any(), any())).thenReturn(true);
@@ -200,12 +203,12 @@ class NotesServiceTicklerNoteUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("ticklerSaveNote should deny access when the payload carries no tickler id")
-    void shouldDenyTicklerSaveNote_whenTicklerIdMissing() {
+    void shouldRejectTicklerSaveNote_whenTicklerIdMissing() {
         ObjectNode json = ticklerSaveNoteJson();
         ((ObjectNode) json.get("tickler")).remove("id");
 
         assertThatThrownBy(() -> service.ticklerSaveNote(json))
-                .isInstanceOf(AccessDeniedException.class);
+                .isInstanceOf(jakarta.ws.rs.BadRequestException.class);
     }
 
     @Test

@@ -27,7 +27,7 @@ FORWARD=$(for f in "${MIG}/common/"V*.sql "${MIG}/on/"V*.sql; do
     printf '%s\n' "$f"
   done \
   | awk -F'/V1\\.0\\.' '{ n=$2; sub(/__.*/,"",n); print n "\t" $0 }' \
-  | sort -n | cut -f2)
+  | LC_ALL=C sort -V | cut -f2)
 if [ -z "${FORWARD}" ]; then
   echo "No forward migrations (V1.0.3+) discovered under ${MIG}; loading genesis baseline only." >&2
 fi
@@ -35,7 +35,7 @@ fi
 # way instead of silently loading both files. The repo's migration hook blocks duplicates at
 # authoring time — this guards files that bypass the hook (plain git add, external tools).
 if [ -n "${FORWARD}" ]; then
-  DUP_VERSIONS=$(echo "${FORWARD}" | awk -F'/V1\\.0\\.' '{ n=$2; sub(/__.*/,"",n); print n }' | sort -n | uniq -d)
+  DUP_VERSIONS=$(echo "${FORWARD}" | awk -F'/V1\\.0\\.' '{ n=$2; sub(/__.*/,"",n); print n }' | LC_ALL=C sort -V | uniq -d)
   if [ -n "${DUP_VERSIONS}" ]; then
     echo "ERROR: duplicate forward migration version(s) across common+on: $(printf '%s\n' "${DUP_VERSIONS}" | sed 's/^/V1.0./')" >&2
     exit 1
@@ -93,13 +93,16 @@ $SQL carlos < /scripts/development.sql
 # EFormDocs rows predate lab_type (their INSERTs name the seven original columns,
 # so the reload leaves lab_type NULL), and the migration's inference UPDATE is
 # what resolves a demo lab attachment's source from patientLabRouting, exactly as
-# it does for legacy rows on an upgraded database.
+# it does for legacy rows on an upgraded database. Reapply the CDS care reference rows
+# and the appointment Location List seed that the demo snapshot also erases.
 echo 'Re-applying reference-data migrations undone by the demo snapshot...'
 for REF_MIGRATION in \
     "${MIG}/common/V1.0.32__add_nrtf_tuning_fork_measurement_type.sql" \
     "${MIG}/common/V1.0.33__aacp_provided_revised_reviewed_validation.sql" \
     "${MIG}/on/V1.0.34__add_oma_uninsured_service_fees.sql" \
-    "${MIG}/common/V1.0.43__consultation_eform_lab_sources.sql"; do
+    "${MIG}/common/V1.0.43__consultation_eform_lab_sources.sql" \
+    "${MIG}/common/V1.0.59.11__cds_contact_care_capacity.sql" \
+    "${MIG}"/common/V*__appointment_location_list.sql; do
   $SQL carlos < "${REF_MIGRATION}"
 done
 # development.sql also truncate-reloads the security tables (secObjectName,
@@ -133,6 +136,14 @@ $SQL carlos < /scripts/demo-name-sanitization.sql
 $SQL carlos < /scripts/demo-name-sanitization-on.sql
 echo 'Adding NHS synthetic development patients...'
 $SQL carlos < /scripts/nhs-synthetic/patients.sql
+# The NHS synthetic patients above take ordinary auto-increment numbers, so they are inserted
+# before the range-owning file below (90001-90099), which deletes that range first.
+# Synthetic patients with full histories for the AI chart tools (#6148): 22 FAKE adults
+# generated once with Synthea (scripts/devdata/synthea/run_synthea.sh) and converted by generate_dev_patients.py.
+# Loaded after the sanitization, whose rules they already meet (FAKE- names). Additive and
+# idempotent: the file owns demographic_no 90001-90099 and deletes that range first.
+echo 'Seeding synthetic patients with full histories (#6148)...'
+$SQL carlos < /scripts/demo-synthetic-patients.sql
 echo 'Seeding Rich Text Letter eForm...'
 $SQL carlos < /database/mysql/updates/update-2012-07-12.sql
 echo 'Modernizing Rich Text Letter eForm to 2026.3.0...'
@@ -205,4 +216,23 @@ $SQL carlos -e "UPDATE clinic SET clinic_name = 'CARLOS Demo Clinic' WHERE TRIM(
 echo 'Loading Administration test fixtures...'
 $SQL carlos < /scripts/admin_test_data.sql
 $SQL carlos < /scripts/admin_test_account.sql
+# Query by Example runs as a separate read-only account that MariaDB grants SELECT on the
+# reportable tables only (issue #3372). Last, so every table it may read already exists. The
+# same file grants it on packaged installs (carlos-ctl db-users / db-migrate); re-run it with
+# the qbe-reporting-account helper from the app container after a schema change. '%' because
+# the app connects from another container. Dev-only password, matching db_reporting_password
+# in .devcontainer/development/config/shared/volumes/carlos.properties.
+echo 'Provisioning the read-only Query by Example reporting account...'
+REPORT_PASSWORD="${CARLOS_REPORT_DB_PASSWORD:-carlos-report-dev}"
+# The password goes into SQL string literals below; refuse what would end the literal, as the
+# qbe-reporting-account helper does.
+case "$REPORT_PASSWORD" in
+    *"'"*|*'\'*) echo "CARLOS_REPORT_DB_PASSWORD: quotes and backslashes are not supported" >&2; exit 1 ;;
+esac
+# On stdin, not argv, like the root password above.
+$SQL <<EOSQL
+CREATE USER IF NOT EXISTS 'carlos_report'@'%' IDENTIFIED BY '${REPORT_PASSWORD}';
+ALTER USER 'carlos_report'@'%' IDENTIFIED BY '${REPORT_PASSWORD}';
+EOSQL
+$SQL carlos < /scripts/carlos_report_grants.sql
 echo 'Database initialization complete!'

@@ -22,6 +22,7 @@
 
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
+import io.github.carlos_emr.carlos.utility.LegacyXmlBeans;
 import cds.CareElementsDocument.CareElements;
 import cds.NewCategoryDocument.NewCategory;
 import cds.OmdCdsDocument;
@@ -49,13 +50,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Round-trip coverage for the NRTF / FTLS neurological exam mapping in the OntarioMD CDS
- * export and import.
+ * export and marker resolution.
  *
  * <p>The CDS {@code DiabetesComplicationsScreening} element has a single neurological exam code
  * ({@code 67536-3}) and no free-text slot, so NRTF (128 Hz tuning fork) is exported as that code
  * plus a CARLOS {@code NewCategory} marker naming the screening's ordinal. These tests build
  * records the way {@link DemographicExportAction42Action} does, serialise and re-parse them through
- * XMLBeans, and resolve them the way {@link ImportDemographicDataAction42Action} does.</p>
+ * XMLBeans, and resolve their ordinal markers with the shared mapping helper.</p>
  *
  * <p>Imported exams are compared <em>in screening order</em>, so a same-day FTLS/NRTF swap (the
  * import restoring the wrong screening as NRTF) fails the assertions even when the resulting set
@@ -234,28 +235,22 @@ class CdsNeurologicalExamUnitTest {
     }
 
     @Test
-    @DisplayName("should wire the NRTF marker into the CDS export and import actions")
-    void shouldUseNrtfMapping_inExportAndImportActions() throws Exception {
+    @DisplayName("should wire the NRTF marker into the CDS export action")
+    void shouldUseNrtfMapping_inExportAction() throws Exception {
         String export = Files.readString(PAGE_UTIL.resolve("DemographicExportAction42Action.java"), StandardCharsets.UTF_8);
-        String importer = Files.readString(PAGE_UTIL.resolve("ImportDemographicDataAction42Action.java"), StandardCharsets.UTF_8);
 
         assertThat(export)
                 .contains("meas.getType().equals(\"FTLS\")")
                 .contains("meas.getType().equals(CdsNeurologicalExam.NRTF)")
                 .contains("CdsNeurologicalExam.addNrtfMarker(patientRec, nrtfMarkerCategory, dcs, meas.getDataField())");
-        assertThat(importer)
-                .contains("CdsNeurologicalExam.readNrtfMarkers(patientRec.getNewCategoryArray())")
-                .contains("nrtfMarkers.claim(neurologicalExamOrdinal++, ds)")
-                .contains("saveMeasurements(CdsNeurologicalExam.NRTF, demographicNo, admProviderNo, nrtfResult, dateObserved)")
-                .doesNotContain("StringUtils.filled(nrtfResult)")
-                .contains("CdsNeurologicalExam.isNrtfMarkerCategory(ce)");
+
     }
 
     // --- helpers mirroring the action code ---
 
     /** Builds one patient record the way the export action's care-element loop does. */
     private static final class Export {
-        private final OmdCdsDocument doc = OmdCdsDocument.Factory.newInstance();
+        private final OmdCdsDocument doc = LegacyXmlBeans.newInstance(OmdCdsDocument.class, OmdCdsDocument.type);
         private final PatientRecord patient = doc.addNewOmdCds().addNewPatientRecord();
         private final CareElements care = patient.addNewCareElements();
         private NewCategory marker;
@@ -275,7 +270,7 @@ class CdsNeurologicalExamUnitTest {
         }
 
         OmdCdsDocument reparse() throws Exception {
-            return OmdCdsDocument.Factory.parse(doc.xmlText(new XmlOptions().setSavePrettyPrint()));
+            return LegacyXmlBeans.parse(OmdCdsDocument.class, OmdCdsDocument.type, doc.xmlText(new XmlOptions().setSavePrettyPrint()));
         }
     }
 

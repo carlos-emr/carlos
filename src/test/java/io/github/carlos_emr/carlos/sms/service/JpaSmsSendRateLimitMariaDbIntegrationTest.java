@@ -62,7 +62,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -116,7 +115,7 @@ class JpaSmsSendRateLimitMariaDbIntegrationTest {
         assertThat(serverUrl).matches("jdbc:mysql://[^/]+/");
         user = System.getenv("SMS_TEST_DB_USER");
         password = System.getenv("SMS_TEST_DB_PASSWORD");
-        admin = DriverManager.getConnection(serverUrl, user, password);
+        admin = io.github.carlos_emr.carlos.test.base.MariaDbTestConnections.open(serverUrl, user, password);
         try (var statement = admin.createStatement(); var result = statement.executeQuery("SELECT VERSION()")) {
             assertThat(result.next()).isTrue();
             assertThat(result.getString(1)).containsIgnoringCase("MariaDB");
@@ -126,13 +125,14 @@ class JpaSmsSendRateLimitMariaDbIntegrationTest {
 
         }
         schemaUrl = serverUrl + schema;
-        try (Connection fixture = DriverManager.getConnection(schemaUrl, user, password)) {
-            executeMigrationStatement(fixture, "add_sms_system_of_record", "CREATE TABLE sms_transaction (");
-            executeMigrationStatement(fixture, "add_sms_system_of_record", "CREATE TABLE sms_provider_rate_limit (");
+        try (Connection fixture = io.github.carlos_emr.carlos.test.base.MariaDbTestConnections.open(schemaUrl, user, password)) {
+            executeMigrationStatement(fixture, "add_sms_system_of_record", "CREATE TABLE IF NOT EXISTS sms_transaction (");
+            executeMigrationStatement(fixture, "add_sms_system_of_record", "CREATE TABLE IF NOT EXISTS sms_provider_rate_limit (");
             executeMigrationStatement(fixture, "add_sms_consent", "ALTER TABLE sms_transaction");
         }
         entityManagerFactory = new Configuration().addAnnotatedClass(SmsProviderRateLimit.class)
                 .addAnnotatedClass(SmsTransaction.class)
+                .setProperty("hibernate.connection.driver_class", io.github.carlos_emr.carlos.utility.MariaDbCompatibilityDriver.class.getName())
                 .setProperty("hibernate.connection.url", schemaUrl)
                 .setProperty("hibernate.connection.username", user)
                 .setProperty("hibernate.connection.password", password)
@@ -308,13 +308,14 @@ class JpaSmsSendRateLimitMariaDbIntegrationTest {
         AtomicInteger sends = new AtomicInteger();
         StubSmsProviderClient provider = new StubSmsProviderClient() {
             @Override
-            public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId) {
+            public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId, SmsProviderSettings settings) {
                 sends.incrementAndGet();
-                return super.send(command, clientReferenceId);
+                return super.send(command, clientReferenceId, settings);
             }
 
             @Override
-            public SmsProviderMessageStatusDto lookupMessageStatus(String clientReferenceId, String messageId) {
+            public SmsProviderMessageStatusDto lookupMessageStatus(String clientReferenceId, String messageId,
+                                                               SmsProviderSettings settings) {
                 return SmsProviderMessageStatusDto.notFound();
             }
         };
@@ -329,7 +330,7 @@ class JpaSmsSendRateLimitMariaDbIntegrationTest {
                 new SmsRetryCalculator(), limiter, consent);
 
         // This connection holds the limiter row, so the direct send waits for its permit after claiming.
-        try (Connection holder = DriverManager.getConnection(schemaUrl, user, password)) {
+        try (Connection holder = io.github.carlos_emr.carlos.test.base.MariaDbTestConnections.open(schemaUrl, user, password)) {
             holder.setAutoCommit(false);
             try (var statement = holder.createStatement()) {
                 statement.executeUpdate("UPDATE sms_provider_rate_limit SET send_count = send_count");
@@ -412,9 +413,9 @@ class JpaSmsSendRateLimitMariaDbIntegrationTest {
                 new JpaSmsTransactionService(dao, event -> { }, transactionManager));
         StubSmsProviderClient provider = new StubSmsProviderClient() {
             @Override
-            public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId) {
+            public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId, SmsProviderSettings settings) {
                 sends.incrementAndGet();
-                return super.send(command, clientReferenceId);
+                return super.send(command, clientReferenceId, settings);
             }
         };
         return new SmsSendService(new SmsSendValidator(),
@@ -499,7 +500,7 @@ class JpaSmsSendRateLimitMariaDbIntegrationTest {
     private void waitForCreator(boolean commit) throws Exception {
         SmsSendRateLimitService service = service(new SmsProviderRateLimitDaoImpl());
         // This connection keeps the new key uncommitted while another transaction requests a permit.
-        try (Connection holder = DriverManager.getConnection(schemaUrl, user, password)) {
+        try (Connection holder = io.github.carlos_emr.carlos.test.base.MariaDbTestConnections.open(schemaUrl, user, password)) {
             holder.setAutoCommit(false);
             try (var statement = holder.createStatement()) {
                 statement.executeUpdate("INSERT INTO sms_provider_rate_limit VALUES "

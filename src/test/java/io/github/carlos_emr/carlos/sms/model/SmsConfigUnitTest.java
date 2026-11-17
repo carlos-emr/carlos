@@ -90,6 +90,80 @@ class SmsConfigUnitTest {
     }
 
     @Test
+    @DisplayName("keeps each provider's credentials and sender number in its own entry, the selected one's number also in its column")
+    void shouldKeepEntryPerProvider_whenProviderChanges() {
+        SmsConfig config = new SmsConfig();
+        config.setProviderType(SmsProviderType.VOIPMS);
+        config.setCredential("field_one", "voipms-value");
+        config.setSenderNumber("+16135550100");
+
+        config.setProviderType(SmsProviderType.CLOUDLI);
+        config.setCredential("field_one", "cloudli-value");
+        config.setSenderNumber("+16135550199");
+
+        assertThat(config.getCredential(SmsProviderType.VOIPMS, "field_one")).isEqualTo("voipms-value");
+        assertThat(config.getCredential("field_one")).as("the selected provider's").isEqualTo("cloudli-value");
+        assertThat(config.storedSenderNumber(SmsProviderType.VOIPMS)).contains("+16135550100");
+        assertThat(config.storedSenderNumber(SmsProviderType.CLOUDLI)).contains("+16135550199");
+        assertThat(config.getSenderNumber()).isEqualTo("+16135550199");
+        assertThat(config.credentialNames(SmsProviderType.VOIPMS)).as("the sender number is not a credential")
+                .containsExactly("field_one");
+        String stored = (String) ReflectionTestUtils.getField(config, "credentialsJson");
+        assertThat(stored).contains("\"VOIPMS\":{", "\"CLOUDLI\":{", "\"@senderNumber\":\"+16135550100\"")
+                .doesNotContain("voipms-value", "cloudli-value");
+    }
+
+    @Test
+    @DisplayName("reads a row saved before per-provider entries as the selected provider's entry, and writes entries next")
+    void shouldReadFlatCredentials_asSelectedProvidersEntry() {
+        SmsConfig config = new SmsConfig();
+        config.setProviderType(SmsProviderType.VOIPMS);
+        config.setCredential("field_one", "voipms-value");
+        String encrypted = ((String) ReflectionTestUtils.getField(config, "credentialsJson"))
+                .replaceAll(".*\"field_one\":\"([^\"]+)\".*", "$1");
+        ReflectionTestUtils.setField(config, "credentialsJson", "{\"field_one\":\"" + encrypted + "\"}");
+        config.setSenderNumber("+16135550100");
+
+        assertThat(config.credentialsReadable()).isTrue();
+        assertThat(config.getCredential(SmsProviderType.VOIPMS, "field_one")).isEqualTo("voipms-value");
+        assertThat(config.credentialNames(SmsProviderType.CLOUDLI)).isEmpty();
+        assertThat((String) ReflectionTestUtils.getField(config, "credentialsJson"))
+                .as("written as entries").startsWith("{\"VOIPMS\":{");
+
+        ReflectionTestUtils.setField(config, "credentialsJson", "{\"field_one\":\"" + encrypted + "\"}");
+        config.setProviderType(SmsProviderType.CLOUDLI);
+        assertThat(config.getCredential(SmsProviderType.VOIPMS, "field_one"))
+                .as("still the provider it was saved for after a swap").isEqualTo("voipms-value");
+        assertThat(config.storedSenderNumber(SmsProviderType.VOIPMS)).contains("+16135550100");
+        assertThat(config.credentialNames()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("treats stored credentials that are neither entries nor the earlier flat map as unreadable")
+    void shouldFailClosed_whenStoredCredentialsHaveAnotherShape() {
+        for (String json : new String[]{"{not json", "[]", "\"text\"", "{\"VOIPMS\":{\"field_one\":1}}",
+                "{\"field_one\":\"x\",\"VOIPMS\":{}}", "{\"VOIPMS\":[]}"}) {
+            SmsConfig config = new SmsConfig();
+            ReflectionTestUtils.setField(config, "credentialsJson", json);
+
+            assertThat(config.credentialsReadable()).as(json).isFalse();
+            assertThat(config.credentialNames()).as(json).isEmpty();
+        }
+    }
+
+    @Test
+    @DisplayName("refuses the sender number's reserved key as a credential name")
+    void shouldRefuseReservedKey_asCredentialName() {
+        SmsConfig config = new SmsConfig();
+        config.setSenderNumber("+16135550100");
+
+        assertThatThrownBy(() -> config.setCredential(SmsConfig.SENDER_NUMBER_KEY, "x"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(config.hasCredential(SmsConfig.SENDER_NUMBER_KEY)).isFalse();
+        assertThat(config.getCredential(SmsConfig.SENDER_NUMBER_KEY)).isEmpty();
+    }
+
+    @Test
     @DisplayName("removes a credential when it is set blank")
     void shouldRemoveCredential_whenBlank() {
         SmsConfig config = new SmsConfig();

@@ -19,6 +19,11 @@ public record SmsProviderMessageStatusDto(
         return new SmsProviderMessageStatusDto(Status.FOUND, providerResult, null, null);
     }
 
+    /** The code a provider that cannot look texts up answers with, through the interface's default. */
+    public static final String LOOKUP_UNSUPPORTED_CODE = "PROVIDER_STATUS_LOOKUP_UNSUPPORTED";
+    /** The fixed message stored with {@link #LOOKUP_UNSUPPORTED_CODE}. */
+    public static final String LOOKUP_UNSUPPORTED_MESSAGE = "SMS provider message status lookup is not implemented.";
+
     public static SmsProviderMessageStatusDto notFound() {
         return new SmsProviderMessageStatusDto(Status.NOT_FOUND, null, null, null);
     }

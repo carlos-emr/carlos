@@ -1,0 +1,138 @@
+<?xml version='1.0' encoding='UTF-8'?><wsdl:definitions xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:tns="http://ws.oscarehr.org/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:ns1="http://schemas.xmlsoap.org/soap/http" name="ProgramWsService" targetNamespace="http://ws.oscarehr.org/">
+  <wsdl:types>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:ns0="http://ws.oscarehr.org/" targetNamespace="http://ws.oscarehr.org/">
+  <xsd:complexType name="getAllProgramProviders"/>
+  <xsd:complexType name="getAllProgramProvidersResponse">
+    <xsd:sequence>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="return" type="ns0:programProviderTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAllPrograms"/>
+  <xsd:complexType name="getAllProgramsResponse">
+    <xsd:sequence>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="return" type="ns0:programTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="programProviderTransfer">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="id" type="xsd:long"/>
+      <xsd:element minOccurs="0" name="programId" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="providerNo" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="roleId" type="xsd:long"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="programTransfer">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="abstinenceSupport" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="address" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="ageMax" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="ageMin" type="xsd:int"/>
+      <xsd:element name="alcohol" type="xsd:boolean"/>
+      <xsd:element name="allowBatchAdmission" type="xsd:boolean"/>
+      <xsd:element name="allowBatchDischarge" type="xsd:boolean"/>
+      <xsd:element minOccurs="0" name="defaultServiceRestrictionDays" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="description" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="email" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="emailNotificationAddressesCsv" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="emergencyNumber" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="enableEncounterTime" type="xsd:boolean"/>
+      <xsd:element minOccurs="0" name="enableEncounterTransportationTime" type="xsd:boolean"/>
+      <xsd:element minOccurs="0" name="exclusiveView" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="facilityDesc" type="xsd:string"/>
+      <xsd:element name="facilityId" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="fax" type="xsd:string"/>
+      <xsd:element name="firstNation" type="xsd:boolean"/>
+      <xsd:element minOccurs="0" name="functionalCentreId" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="genderDesc" type="xsd:string"/>
+      <xsd:element name="hic" type="xsd:boolean"/>
+      <xsd:element name="holdingTank" type="xsd:boolean"/>
+      <xsd:element name="housing" type="xsd:boolean"/>
+      <xsd:element minOccurs="0" name="id" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="intakeProgram" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="lastReferralNotification" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="lastUpdateDate" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="lastUpdateUser" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="location" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="manOrWoman" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="maxAllowed" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="maximumServiceRestrictionDays" type="xsd:int"/>
+      <xsd:element name="mentalHealth" type="xsd:boolean"/>
+      <xsd:element minOccurs="0" name="name" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="numOfIntakes" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="numOfMembers" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="orgCd" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="phone" type="xsd:string"/>
+      <xsd:element name="physicalHealth" type="xsd:boolean"/>
+      <xsd:element minOccurs="0" name="programStatus" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="queueSize" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="shelterId" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="siteSpecificField" type="xsd:string"/>
+      <xsd:element name="transgender" type="xsd:boolean"/>
+      <xsd:element minOccurs="0" name="type" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="url" type="xsd:string"/>
+      <xsd:element name="userDefined" type="xsd:boolean"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:element name="getAllProgramProviders" type="ns0:getAllProgramProviders"/>
+  <xsd:element name="getAllProgramProvidersResponse" type="ns0:getAllProgramProvidersResponse"/>
+  <xsd:element name="getAllPrograms" type="ns0:getAllPrograms"/>
+  <xsd:element name="getAllProgramsResponse" type="ns0:getAllProgramsResponse"/>
+</xsd:schema>
+  </wsdl:types>
+  <wsdl:message name="getAllPrograms">
+    <wsdl:part element="tns:getAllPrograms" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAllProgramProvidersResponse">
+    <wsdl:part element="tns:getAllProgramProvidersResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAllProgramProviders">
+    <wsdl:part element="tns:getAllProgramProviders" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAllProgramsResponse">
+    <wsdl:part element="tns:getAllProgramsResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:portType name="ProgramWs">
+    <wsdl:operation name="getAllPrograms">
+      <wsdl:input message="tns:getAllPrograms" name="getAllPrograms">
+    </wsdl:input>
+      <wsdl:output message="tns:getAllProgramsResponse" name="getAllProgramsResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAllProgramProviders">
+      <wsdl:input message="tns:getAllProgramProviders" name="getAllProgramProviders">
+    </wsdl:input>
+      <wsdl:output message="tns:getAllProgramProvidersResponse" name="getAllProgramProvidersResponse">
+    </wsdl:output>
+    </wsdl:operation>
+  </wsdl:portType>
+  <wsdl:binding name="ProgramWsServiceSoapBinding" type="tns:ProgramWs">
+    <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <wsdl:operation name="getAllPrograms">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getAllPrograms">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getAllProgramsResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAllProgramProviders">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getAllProgramProviders">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getAllProgramProvidersResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:service name="ProgramWsService">
+    <wsdl:port binding="tns:ProgramWsServiceSoapBinding" name="ProgramWsPort">
+      <soap:address location="http://127.0.0.1:18080/carlos/ws/ProgramService"/>
+    </wsdl:port>
+  </wsdl:service>
+</wsdl:definitions>

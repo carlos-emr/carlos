@@ -23,19 +23,28 @@ package io.github.carlos_emr.carlos.email.util;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.ChartDisplayOption;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailConsentStatus;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.encounter.data.EctFormData.PatientForm;
+import io.github.carlos_emr.carlos.managers.FormsManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 /**
@@ -118,6 +127,40 @@ class EmailNoteUtilUnitTest {
         assertThat(note)
                 .contains("You have a secure message.", "Attached Message (message.pdf encrypted)")
                 .doesNotContain("Riverside Clinic footer line");
+    }
+
+    @Test
+    @DisplayName("should chart every attached form, undated ones last, when a form has no created or edited date")
+    void shouldListAllAttachedForms_whenAFormHasNoDates() {
+        // Issue #5994: formCreated/formEdited are nullable, and a form with neither date made the
+        // note's sort throw after the email had already been accepted, so no chart note was written.
+        FormsManager formsManager = mock(FormsManager.class);
+        Date older = new Date(1_700_000_000_000L);
+        Date newer = new Date(older.getTime() + 86_400_000L);
+        when(formsManager.getFormById(any(LoggedInInfo.class), eq(11), eq(7)))
+                .thenReturn(new PatientForm("Undated Form", 11, 7, null, null));
+        when(formsManager.getFormById(any(LoggedInInfo.class), eq(12), eq(7)))
+                .thenReturn(new PatientForm("Older Form", 12, 7, older, older));
+        when(formsManager.getFormById(any(LoggedInInfo.class), eq(13), eq(7)))
+                .thenReturn(new PatientForm("Newer Form", 13, 7, newer, null));
+
+        EmailLog emailLog = emailLog();
+        Demographic demographic = new Demographic();
+        demographic.setDemographicNo(7);
+        emailLog.setDemographic(demographic);
+        emailLog.setEmailAttachments(List.of(
+                new EmailAttachment("a.pdf", "/tmp/a.pdf", DocumentType.FORM, 11),
+                new EmailAttachment("b.pdf", "/tmp/b.pdf", DocumentType.FORM, 12),
+                new EmailAttachment("c.pdf", "/tmp/c.pdf", DocumentType.FORM, 13)));
+        EmailNoteUtil noteUtil = noteUtil(emailLog);
+        ReflectionTestUtils.setField(noteUtil, "formsManager", formsManager);
+
+        String note = noteUtil.createNote();
+
+        assertThat(note).contains("Form: Newer Form", "Form: Older Form", "Form: Undated Form");
+        assertThat(note.indexOf("Form: Newer Form")).isLessThan(note.indexOf("Form: Older Form"));
+        assertThat(note.indexOf("Form: Older Form")).isLessThan(note.indexOf("Form: Undated Form"));
+        assertThat(note).contains("(ID: 11)", "(ID: 12)", "(ID: 13)");
     }
 
     private EmailLog emailLog() {

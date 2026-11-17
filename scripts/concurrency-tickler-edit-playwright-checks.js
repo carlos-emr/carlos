@@ -1,84 +1,92 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
-/*
- * Concurrency check: two sessions edit the same tickler (stale edit un-completes it).
- *
- * User path (both sessions of the shared test login): Schedule > Search > Master Record > Tickler >
- * the tickler row's edit link > Edit Tickler popup > change field > Save. Session A opens the edit
- * popup first (status Active, priority Normal). Session B opens its own edit popup, sets the status
- * to Complete and saves. Session A, still on its stale form, raises the priority to High and saves.
- *
- * Asserted: B's completion lands (control); A's save reaches the server and stores its priority or is
- * refused; and the tickler is NOT silently put back to Active. EditTickler2Action compares the posted
- * status / priority / assignee / date with the row it just loaded, not with what the form was
- * rendered from, so every posted field wins; the stale Active status reverts the completion. The
- * check fails at that last step.
- *
- * Fixtures: one owned tickler seeded by SQL for the owned FAKE- patient (removed by cleanup with its
- * comments and history rows, asserted gone). Wave-7 sweep "concurrency".
- */
+/* Two sessions edit the same tickler. A stale priority/comment save must not undo B's completion,
+ * append history, or discard the draft. Reviewing the current record permits the intended change.
+ * Direct replay and deletion are refused explicitly; all SQL fixtures and history are owned. */
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
-const { openSecondSession, failureMark, consumeKnownConsole } = require('./lib/concurrency-support');
+const { openSecondSession, failureMark, consumeExpectedFailure } = require('./lib/concurrency-support');
 const { seedTickler, openPatientTicklerList, openTicklerEdit, saveTicklerEdit } = require('./lib/concurrency-tickler');
+
+async function refusedSave(s, edit, status) {
+  const mark = failureMark(s.recorder);
+  const [response] = await Promise.all([
+    edit.waitForResponse(r => r.request().method() === 'POST' && /\/tickler\/EditTickler$/.test(new URL(r.url()).pathname)),
+    edit.locator('input[name="updateTickler"]').click(),
+  ]);
+  h.assert(response.status() === status, `Expected HTTP ${status}, received ${response.status()}`);
+  await edit.locator('#error').waitFor({ state: 'visible' });
+  consumeExpectedFailure(s.recorder, mark, { status, path: /\/tickler\/EditTickler$/ });
+  h.assert(await edit.locator('input[name="updateTickler"]').isEnabled(), 'Refusal left the draft disabled');
+}
 
 async function workflow(s) {
   const { sql } = s;
   const tickler = seedTickler(s, 'edit race');
+  const deleted = seedTickler(s, 'deleted edit');
   const stateQuery = `SELECT CONCAT(status,'|',priority) FROM tickler WHERE tickler_no=${tickler.id}`;
-  const state = () => sql.value(stateQuery);
+  const counts = () => sql.value(`SELECT CONCAT((SELECT COUNT(*) FROM tickler_comments WHERE tickler_no=${tickler.id}),
+    '|',(SELECT COUNT(*) FROM tickler_update WHERE tickler_no=${tickler.id}))`);
   const b = await openSecondSession(s, { label: 'second-session' });
   const aList = await openPatientTicklerList(s.context, s.master, s.recorder, 'tickler-list-a');
   const bList = await openPatientTicklerList(b.context, b.master, s.recorder, 'tickler-list-b');
-  let aEdit;
-  let saveOutcome;
+  const aEdit = await openTicklerEdit(s.context, s.recorder, aList, tickler.message, 'tickler-edit-a');
+  const original = await aEdit.locator('input[name="ticklerEditVersion"]').inputValue();
+  const draft = `${s.marker} retained draft comment`;
+  let committedCounts;
 
-  await s.step('session A opens the edit popup and holds it', async () => {
-    aEdit = await openTicklerEdit(s.context, s.recorder, aList, tickler.message, 'tickler-edit-a');
-    h.assert(await aEdit.locator('select[name="status"]').inputValue() === 'A', 'The edit popup does not start Active');
-    h.assert(new URL(aEdit.url()).searchParams.get('tickler_no') === tickler.id, 'The edit popup opened another tickler');
-  });
-  await s.step('session B completes the same tickler from its own edit popup', async () => {
+  await s.step('session B completes the tickler and records one comment', async () => {
     const bEdit = await openTicklerEdit(b.context, s.recorder, bList, tickler.message, 'tickler-edit-b');
     await bEdit.locator('select[name="status"]').selectOption('C');
+    await bEdit.locator('[name="newMessage"]').fill(`${s.marker} completion comment`);
     await saveTicklerEdit(bEdit);
     await expectValue(sql, stateQuery, 'C|Normal', 'Session B\'s completion did not reach the database');
+    committedCounts = counts();
+    h.assert(committedCounts === '1|2', `Completion must write one comment and original/change history: ${committedCounts}`);
     await bEdit.close().catch(() => {});
   });
-  await s.step('session A saves a different field (priority) from its stale popup', async () => {
+  await s.step('the stale save explicitly refuses all writes and retains the draft', async () => {
     await aEdit.locator('select[name="priority"]').selectOption('High');
-    // A correct application may store the save (merge) or refuse it; the popup reports a refusal with an alert and a console
-    // error instead of the #tickler-edit-ok sentinel. Either is accepted here; the next step judges what the row holds.
-    const mark = failureMark(s.recorder);
-    const sentinel = () => {
-      const frame = document.getElementById('ticklerEditFrame');
-      return Boolean(frame && frame.contentDocument && frame.contentDocument.getElementById('tickler-edit-ok'));
-    };
-    const refusal = new Promise(resolve => aEdit.once('dialog', () => resolve('refused')));
-    const stored = aEdit.waitForFunction(sentinel, null, { timeout: 30000 }).then(() => 'saved', () => 'timeout');
-    const dialogs = await h.withExpectedDialogs(aEdit, async () => {
-      await aEdit.locator('input[name="updateTickler"]').click();
-      saveOutcome = await Promise.race([stored, refusal]);
-      await aEdit.waitForTimeout(300);
-    });
-    h.assert(saveOutcome !== 'timeout', 'Session A\'s stale save was neither stored nor refused');
-    if (saveOutcome === 'refused') {
-      h.assert(dialogs.length === 1 && dialogs[0].type === 'alert', 'A refused stale save raised more than the one alert');
-      consumeKnownConsole(s.recorder, mark, /\[ticklerEdit\] Server did not return expected success response/);
-    } else {
-      h.assert(dialogs.length === 0, 'A stored stale save also raised an alert');
-    }
+    await aEdit.locator('[name="newMessage"]').fill(draft);
+    await refusedSave(s, aEdit, 409);
+    h.assert((await aEdit.locator('#error').innerText()).includes('Review the current tickler'), 'Missing recovery guidance');
+    h.assert(await aEdit.locator('[name="newMessage"]').inputValue() === draft, 'Conflict discarded the draft comment');
+    h.assert(await aEdit.locator('select[name="priority"]').inputValue() === 'High', 'Conflict discarded the draft priority');
+    h.assert(await aEdit.locator('[name="ticklerEditVersion"]').inputValue() === original, 'Conflict silently refreshed the stale version');
+    h.assert(sql.value(stateQuery) === 'C|Normal' && counts() === committedCounts, 'Conflict changed the tickler or its history');
   });
-  await s.step('the tickler session B completed is still completed', async () => {
-    const [status, priority] = state().split('|');
-    h.assert(status === 'C',
-      `Session A's stale Edit Tickler save silently put the completed tickler back to status '${status}' (priority now ${priority}). `
-      + 'EditTickler2Action applies every posted field with no comparison against the state the form was rendered from, so the later save wins '
-      + 'and the completion is lost without a warning to either user.');
-    // A stored save must also keep A's own change; a refusal leaves the row as B saved it.
-    if (saveOutcome === 'saved') {
-      h.assert(priority === 'High', `Session A's stale save was reported stored but its priority change was lost (priority is ${priority})`);
-    }
+  await s.step('replaying the same stale draft remains a no-write conflict', async () => {
+    await refusedSave(s, aEdit, 409);
+    h.assert(sql.value(stateQuery) === 'C|Normal' && counts() === committedCounts, 'Replay changed the tickler or its history');
+  });
+  await s.step('reviewing the current tickler permits the priority change without undoing completion', async () => {
+    const pagePromise = s.context.waitForEvent('page');
+    await aEdit.locator('#reviewCurrentTickler').click();
+    const current = await pagePromise;
+    h.wireStrictPage(current, 'tickler-current', s.recorder);
+    await current.waitForLoadState('domcontentloaded');
+    h.assert(await current.locator('select[name="status"]').inputValue() === 'C', 'Recovery did not display the current completion');
+    h.assert(await current.locator('[name="ticklerEditVersion"]').inputValue() !== original, 'Recovery did not load the current state');
+    h.assert(await aEdit.locator('[name="newMessage"]').inputValue() === draft, 'Opening recovery discarded the original draft');
+    await current.locator('select[name="priority"]').selectOption('High');
+    await current.locator('[name="newMessage"]').fill(draft);
+    await saveTicklerEdit(current);
+    await expectValue(sql, stateQuery, 'C|High', 'Reviewed priority change lost the completion or failed to save');
+    h.assert(counts() === '2|3', 'Reviewed save must append exactly one comment and one update');
+    await current.close().catch(() => {});
+  });
+  await s.step('a deleted tickler refuses the edit and leaves its draft visible', async () => {
+    // The list reuses the named edit_tickler window. B's editor is closed; using B's
+    // context keeps A's refused draft open instead of navigating that existing window.
+    const edit = await openTicklerEdit(b.context, s.recorder, bList, deleted.message, 'tickler-deleted');
+    sql.execute(`DELETE FROM tickler WHERE tickler_no=${deleted.id} AND demographic_no=${s.patient}`);
+    await edit.locator('[name="newMessage"]').fill(draft);
+    await refusedSave(s, edit, 404);
+    h.assert(await edit.locator('[name="newMessage"]').inputValue() === draft, 'Deletion discarded the draft');
+    h.assert(await edit.locator('#tickler-edit-recovery').isHidden(), 'A deleted tickler offers a misleading current-record link');
+    h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE tickler_no=${deleted.id}`) === '0', 'The deleted tickler was recreated');
+    h.assert(sql.value(`SELECT COUNT(*) FROM tickler_comments WHERE tickler_no=${deleted.id}`) === '0', 'The deleted tickler gained a comment');
+    h.assert(await aEdit.locator('[name="newMessage"]').inputValue() === draft, 'The original refused draft was replaced');
   });
 }
 

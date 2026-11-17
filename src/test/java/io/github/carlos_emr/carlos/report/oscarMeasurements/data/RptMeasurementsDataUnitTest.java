@@ -25,11 +25,13 @@ package io.github.carlos_emr.carlos.report.oscarMeasurements.data;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.Tag;
 import java.util.Date;
 import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /** Distinct patient IDs are scalar results, not counts or tuple rows.
@@ -58,5 +60,21 @@ class RptMeasurementsDataUnitTest extends CarlosUnitTestBase {
         RptMeasurementsData data = new RptMeasurementsData();
         assertThat(data.getNbPatientSeen("2026-01-01", "2026-10-05")).isZero();
         assertThat(data.getPatientsSeen("2026-01-01", "2026-10-05")).isEmpty();
+    }
+
+    @Test
+    void passesMidnightOfTheDayAfterTheEndDate_asExclusiveUpperBound() {
+        MeasurementDao dao = createAndRegisterMock(MeasurementDao.class);
+        when(dao.findByCreateDate(any(Date.class), any(Date.class))).thenReturn(List.of(101));
+        RptMeasurementsData data = new RptMeasurementsData();
+
+        data.getNbPatientSeen("2026-01-01", "2026-10-05");
+        data.getPatientsSeen("2026-01-01", "2026-12-31");
+
+        ArgumentCaptor<Date> to = ArgumentCaptor.forClass(Date.class);
+        verify(dao, org.mockito.Mockito.times(2)).findByCreateDate(any(Date.class), to.capture());
+        assertThat(to.getAllValues()).containsExactly(
+                java.sql.Timestamp.valueOf("2026-10-06 00:00:00"),
+                java.sql.Timestamp.valueOf("2027-01-01 00:00:00"));
     }
 }

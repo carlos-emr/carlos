@@ -50,6 +50,22 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFormDataDao {
+
+    @Override
+    // S2077: requireSort accepts five fixed order clauses; patient/group/status are bound and the optional predicate is literal.
+    @SuppressWarnings("java:S2077")
+    public List<EFormListingRow> findLegacyPatientFormsInGroup(Boolean current, int demographicNo, String group, String sort) {
+        String order = EFormListingRow.requireSort(sort);
+        Query query = entityManager.createNativeQuery("SELECT f.fdid, f.fid, f.form_name, f.subject, NULL,"
+                + " CAST(f.form_date AS CHAR), CAST(f.form_time AS CHAR), f.roleType FROM eform_data f, eform_groups g"
+                + " WHERE f.fid=g.fid AND f.patient_independent=0 AND f.demographic_no=?1 AND g.group_name=?2"
+                + (current == null ? "" : " AND f.status=?3") + " ORDER BY " + order, Object[].class)
+                .setParameter(1, demographicNo).setParameter(2, group);
+        if (current != null) query.setParameter(3, current ? 1 : 0);
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = query.getResultList();
+        return rows.stream().map(EFormListingRow::from).toList();
+    }
     
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -132,8 +148,14 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
 
     @Override
     public List<EFormData> findByDemographicIdCurrentAttachedToConsult(String consultationId) {
-        String sql = "SELECT * FROM eform_data e JOIN consultdocs cd ON e.fdid = cd.document_no WHERE e.patient_independent = false AND cd.requestId = ?1 "
-                + "AND cd.docType = 'E' AND cd.deleted IS NULL " +
+        String sql = "SELECT e.* FROM eform_data e "
+                + "JOIN consultdocs cd ON e.fdid = cd.document_no "
+                + "JOIN consultationRequests cr ON cr.requestId = cd.requestId "
+                + "WHERE cd.requestId = ?1 AND cd.docType = 'E' AND cd.deleted IS NULL "
+                // Patient-independent eForms stay out of consult packets, as before; the others
+                // must belong to the consult's own patient and not be deleted (status 0).
+                + "AND e.patient_independent = false AND e.demographic_no = cr.demographicNo "
+                + "AND e.status = true " +
                 "ORDER BY e.form_date DESC, e.form_time DESC";
         Query query = entityManager.createNativeQuery(sql, modelClass);
         query.setParameter(1, consultationId);
@@ -301,13 +323,13 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
         return results;
     }
 
-    // for EFormReportTool
+    // for EFormReportTool: only current instances; one deleted from the chart (status 0) is left out.
     @Override
     public List<Object[]> findMetaFieldsByFormId(Integer formId) {
 
         Query query = entityManager
                 .createQuery("select distinct x.id, x.demographicId,x.formDate, x.formTime, x.providerNo  from "
-                        + modelClass.getSimpleName() + " x where x.formId = ?1");
+                        + modelClass.getSimpleName() + " x where x.formId = ?1 and x.current = true");
         query.setParameter(1, formId);
 
         @SuppressWarnings("unchecked")

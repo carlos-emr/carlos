@@ -55,6 +55,7 @@ public class FrmRecordFactory {
         Set<String> allowed = new HashSet<>();
         allowed.add("2MinWalk");
         allowed.add("AdfV2");
+        allowed.add("Alpha");
         allowed.add("Annual");
         allowed.add("AnnualV2");
         allowed.add("BCAR");
@@ -134,6 +135,10 @@ public class FrmRecordFactory {
         if (which == null || !ALLOWED_FORM_CLASSES.contains(which)) {
             MiscUtils.getLogger().warn("Rejected disallowed form class name: {}", LogSafe.sanitize(which));
             return null;
+        }
+
+        if ("Growth0_36".equals(which)) {
+            return new Growth0To36Form();
         }
 
         // Build the full class name from the whitelisted form name.

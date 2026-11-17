@@ -21,17 +21,23 @@
  */
 package io.github.carlos_emr.carlos.messenger.pageUtil;
 
+import io.github.carlos_emr.carlos.commn.model.MessageTbl;
 import io.github.carlos_emr.carlos.managers.MessengerDemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.messenger.data.ContactIdentifier;
 import io.github.carlos_emr.carlos.messenger.data.MsgMessageData;
 import io.github.carlos_emr.carlos.messenger.data.MsgProviderData;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
+import io.github.carlos_emr.carlos.utility.FormSubmissionGuard;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.*;
 import org.mockito.*;
 
 import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -40,8 +46,10 @@ import static org.mockito.Mockito.*;
 /**
  * Integration tests for {@link MsgCreateMessage2Action}.
  *
- * <p>Validates security enforcement, session validation, and the fix for
- * ConversionUtils dead null checks (Issue #1).</p>
+ * <p>Validates security enforcement, session validation, the fix for
+ * ConversionUtils dead null checks (Issue #1), and that a message carries only the
+ * attachments of the compose window it was written in, refusing chart PDFs rendered for
+ * another patient (issue #4673).</p>
  *
  * @since 2026-02-20
  */
@@ -60,6 +68,7 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
+        mockRequest.setMethod("POST");
 
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
         replaceSpringUtilsBean(MessengerDemographicManager.class, mockDemoManager);
@@ -68,6 +77,8 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
         String loggedInInfoKey = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
         setSessionAttribute(loggedInInfoKey, mockLoggedInInfo);
         setSessionAttribute("user", TEST_PROVIDER);
+        mockRequest.setParameter(MessengerSubmissionGuard.PARAMETER,
+                MessengerSubmissionGuard.issue(mockRequest.getSession(), TEST_PROVIDER));
 
         action = new MsgCreateMessage2Action();
 
@@ -190,6 +201,606 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
         } catch (Exception e) {
             // JDBC not available in test — acceptable as we verified the guard
             assertThat(e).isNotInstanceOf(SecurityException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("attachments of the compose window")
+    class ComposeWindowAttachments {
+
+        private static final String RECIPIENT = "FAKE-recipient";
+        private final AtomicReference<String> sentItems = new AtomicReference<>();
+        private final AtomicReference<String> sentPdfs = new AtomicReference<>();
+        private final AtomicReference<String> sentSubject = new AtomicReference<>();
+        private final java.util.concurrent.atomic.AtomicInteger sends = new java.util.concurrent.atomic.AtomicInteger();
+        private Runnable duringSend = () -> { };
+        private String sentMessageId = "77";
+        private RuntimeException sendFailure;
+        private boolean noRecipients;
+        private String thisWindow;
+        private String otherWindow;
+
+        @BeforeEach
+        void setUpCompose() {
+            allowPrivilege("_msg", "w");
+            MsgSessionBean bean = new MsgSessionBean();
+            bean.setProviderNo(TEST_PROVIDER);
+            bean.setUserName("Test Provider");
+            setSessionAttribute("msgSessionBean", bean);
+            thisWindow = MsgAttachmentStaging.newKey();
+            otherWindow = MsgAttachmentStaging.newKey();
+            // Two compose windows: this one for patient 101, the other for patient 202.
+            MsgAttachmentStaging.stagePdfs(getMockSession(), thisWindow, 101, "<PDF>FAKE patient 101 chart</PDF>");
+            MsgAttachmentStaging.stagePdfs(getMockSession(), otherWindow, 202, "<PDF>FAKE patient 202 chart</PDF>");
+            action.setProvider(new String[]{RECIPIENT});
+            action.setSubject("FAKE subject");
+            action.setMessage("FAKE body");
+        }
+
+        private String send() throws Exception {
+            try (MockedConstruction<MsgMessageData> ignored = mockConstruction(MsgMessageData.class, (data, context) -> {
+                when(data.getDups4(any())).thenAnswer(invocation -> invocation.getArgument(0));
+                when(data.getProviderStructure(any(), any())).thenReturn(
+                        noRecipients ? new ArrayList<>() : new ArrayList<>(List.of(new MsgProviderData())));
+                when(data.createSentToString(any())).thenReturn(RECIPIENT);
+                when(data.sendMessage2(any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                        .thenAnswer(invocation -> {
+                            sends.incrementAndGet();
+                            sentSubject.set(invocation.getArgument(1));
+                            sentItems.set(invocation.getArgument(6));
+                            sentPdfs.set(invocation.getArgument(7));
+                            duringSend.run();
+                            if (sendFailure != null) {
+                                throw sendFailure;
+                            }
+                            return sentMessageId;
+                        });
+            })) {
+                return executeAction(action);
+            }
+        }
+
+        /**
+         * messagetbl.thesubject is a utf8mb4 VARCHAR(128) and the packaged database cuts a longer
+         * value off without an error, so the action refuses it. The column
+         * counts code points: an emoji is one character, two Java chars.
+         */
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(strings = {"S", "\uD83D\uDE00"})
+        @DisplayName("should send a subject that fills messagetbl.thesubject exactly, an emoji counting as one character")
+        void shouldSendTheWholeSubject_whenItFillsTheColumnExactly(String character) throws Exception {
+            String subject = character.repeat(MessageTbl.SUBJECT_MAX_LENGTH);
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+            action.setSubject(subject);
+
+            assertThat(send()).isEqualTo("success");
+
+            assertThat(sends.get()).isEqualTo(1);
+            assertThat(sentSubject.get()).isEqualTo(subject);
+        }
+
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(strings = {"S", "\uD83D\uDE00"})
+        @DisplayName("should refuse a subject one character longer than the column, send nothing and keep what was written")
+        void shouldRefuseTheSubject_whenItIsOneCharacterLongerThanTheColumn(String character) throws Exception {
+            String subject = character.repeat(MessageTbl.SUBJECT_MAX_LENGTH + 1);
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+            action.setSubject(subject);
+
+            assertThat(send()).isEqualTo("error");
+
+            assertThat(sends.get()).isZero();
+            verifyNoInteractions(mockDemoManager);
+            assertThat((String) getMockRequest().getAttribute("createMessageError"))
+                    .isEqualTo(LocaleUtils.getMessage(getMockRequest(), "messenger.CreateMessage.msgSubjectTooLong"))
+                    .contains(Integer.toString(MessageTbl.SUBJECT_MAX_LENGTH));
+            assertThat(getMockRequest().getAttribute("ReSubject")).isEqualTo(subject);
+            assertThat(getMockRequest().getAttribute("ReText")).isEqualTo("FAKE body");
+            assertThat(getMockRequest().getAttribute("demographic_no")).isEqualTo("101");
+            assertThat(getMockRequest().getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE)).isEqualTo(thisWindow);
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow).pdfAttachment())
+                    .isEqualTo("<PDF>FAKE patient 101 chart</PDF>");
+        }
+
+        @Test
+        @DisplayName("should measure the subject as it is stored, after its surrounding spaces are trimmed")
+        void shouldSendTheTrimmedSubject_whenOnlyItsSurroundingSpacesPassTheColumn() throws Exception {
+            String subject = "S".repeat(MessageTbl.SUBJECT_MAX_LENGTH);
+            action.setSubject("  " + subject + "  ");
+
+            assertThat(send()).isEqualTo("success");
+
+            assertThat(sentSubject.get()).isEqualTo(subject);
+        }
+
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(strings = {"recipients", "delivery", "patient"})
+        void shouldKeepTheOriginalArchiveCarrier_whenAReplyOrForwardSendIsRedisplayed(String refusal) throws Exception {
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("patient".equals(refusal) ? "202" : "101");
+            action.setSubject("  FAKE raw <subject> & retry  ");
+            action.setMessage("FAKE raw body H&P + 中文\nretry");
+            action.setProvider(new String[]{"999998-0-1"});
+            getMockRequest().setParameter("archiveMessageId", new String[]{"0055", "55"});
+            noRecipients = "recipients".equals(refusal);
+            if ("delivery".equals(refusal)) sentMessageId = null;
+
+            assertThat(send()).isEqualTo("error");
+
+            assertThat(getMockRequest().getAttribute("archiveMessageId")).isEqualTo(55);
+            assertThat(getMockRequest().getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE)).isEqualTo(thisWindow);
+            assertThat(getMockRequest().getAttribute("ReSubject")).isEqualTo("  FAKE raw <subject> & retry  ");
+            assertThat(getMockRequest().getAttribute("ReText")).isEqualTo("FAKE raw body H&P + 中文\nretry");
+            @SuppressWarnings("unchecked")
+            List<ContactIdentifier> ticked = (List<ContactIdentifier>) getMockRequest().getAttribute("replyList");
+            assertThat(ticked).extracting(ContactIdentifier::getCompositeId).containsExactly("999998-0-1");
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow).pdfDemographicNo()).isEqualTo(101);
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), otherWindow).pdfDemographicNo()).isEqualTo(202);
+            assertThat(sends.get()).isEqualTo("delivery".equals(refusal) ? 1 : 0);
+            verifyNoInteractions(mockDemoManager);
+        }
+
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(strings = {"", "0", "-1", "2147483648", "55&messageNo=99", "<script>", " 55", "55.0"})
+        void shouldLeaveAnInvalidOptionalArchiveCarrierAbsent_withoutLosingTheRefusedCompose(String raw) throws Exception {
+            noRecipients = true;
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+            getMockRequest().setParameter("archiveMessageId", raw);
+
+            assertThat(send()).isEqualTo("error");
+
+            assertThat(getMockRequest().getAttribute("archiveMessageId")).isNull();
+            assertThat(getMockRequest().getAttribute("ReSubject")).isEqualTo("FAKE subject");
+            assertThat(getMockRequest().getAttribute("ReText")).isEqualTo("FAKE body");
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow)).isNotNull();
+            assertThat(sends.get()).isZero();
+        }
+
+        @Test
+        void shouldRejectConflictingRawArchiveCarriers_withoutChoosingTheFirstMessage() throws Exception {
+            noRecipients = true;
+            getMockRequest().setParameter("archiveMessageId", new String[]{"55", "56"});
+
+            assertThat(send()).isEqualTo("error");
+
+            assertThat(getMockRequest().getAttribute("archiveMessageId")).isNull();
+            assertThat(sends.get()).isZero();
+        }
+
+        @Test
+        void shouldKeepFreshComposeCompatible_whenNoArchiveCarrierIsSubmitted() throws Exception {
+            noRecipients = true;
+            assertThat(send()).isEqualTo("error");
+            assertThat(getMockRequest().getAttribute("archiveMessageId")).isNull();
+            noRecipients = false;
+            assertThat(send()).isEqualTo("success");
+            assertThat(sends.get()).isEqualTo(1);
+        }
+
+        @Test
+        void shouldSendTheRecoveredComposition_whenTheUserRetriesAfterAnOrdinarySendFailure() throws Exception {
+            noRecipients = true;
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+            getMockRequest().setParameter("archiveMessageId", "55");
+            assertThat(send()).isEqualTo("error");
+            Object recoveredId = getMockRequest().getAttribute("archiveMessageId");
+            assertThat(recoveredId).isEqualTo(55);
+            String recoveredSubject = (String) getMockRequest().getAttribute("ReSubject");
+            String recoveredBody = (String) getMockRequest().getAttribute("ReText");
+            // A following HTTP request/action carries form values, never the old request attributes.
+            String recoveredSubmission = getMockRequest().getParameter(MessengerSubmissionGuard.PARAMETER);
+            mockRequest = new org.springframework.mock.web.MockHttpServletRequest("POST", "/messenger/CreateMessage");
+            mockRequest.setParameter(MessengerSubmissionGuard.PARAMETER, recoveredSubmission);
+            mockRequest.setSession(getMockSession());
+            mockRequest.setParameter("archiveMessageId", recoveredId.toString());
+            setUpActionContext();
+            action = new MsgCreateMessage2Action();
+            injectField("securityInfoManager", mockSecurityInfoManager);
+            injectField("messengerDemographicManager", mockDemoManager);
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+            action.setSubject(recoveredSubject);
+            action.setMessage(recoveredBody);
+            action.setProvider(new String[]{RECIPIENT});
+            assertThat(mockRequest.getAttribute("archiveMessageId")).isNull();
+            noRecipients = false;
+
+            assertThat(send()).isEqualTo("success");
+
+            assertThat(sends.get()).isEqualTo(1);
+            assertThat(sentPdfs.get()).isEqualTo("<PDF>FAKE patient 101 chart</PDF>");
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow)).isNull();
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), otherWindow).pdfDemographicNo()).isEqualTo(202);
+            verify(mockDemoManager).attachDemographicToMessage(any(), eq(77), eq(101));
+        }
+
+        /** The next HTTP request of the same rendered form: a new action, the same posted fields and token. */
+        private void repeatSubmission(String token) {
+            mockRequest = new org.springframework.mock.web.MockHttpServletRequest("POST", "/messenger/CreateMessage");
+            mockRequest.setSession(getMockSession());
+            mockResponse = new org.springframework.mock.web.MockHttpServletResponse();
+            if (token != null) {
+                mockRequest.setParameter(MessengerSubmissionGuard.PARAMETER, token);
+            }
+            setUpActionContext();
+            action = new MsgCreateMessage2Action();
+            injectField("securityInfoManager", mockSecurityInfoManager);
+            injectField("messengerDemographicManager", mockDemoManager);
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+            action.setSubject("FAKE subject");
+            action.setMessage("FAKE body");
+            action.setProvider(new String[]{RECIPIENT});
+        }
+
+        @Test
+        @DisplayName("should send one message when one rendered compose form is submitted twice")
+        void shouldSendOnce_whenTheSameRenderedFormIsSubmittedTwice() throws Exception {
+            String token = MessengerSubmissionGuard.issue(getMockSession(), TEST_PROVIDER);
+            repeatSubmission(token);
+
+            assertThat(send()).isEqualTo("success");
+            assertThat(getMockRequest().getAttribute("SentMessageProvs")).isEqualTo(RECIPIENT);
+
+            // A double click, a re-click during a slow send or a reload of the result page.
+            repeatSubmission(token);
+            assertThat(send()).isEqualTo("conflict");
+
+            assertThat(sends.get()).isEqualTo(1);
+            assertThat(getMockRequest().getAttribute("SentMessageProvs")).isNull();
+            assertThat(getMockResponse().getStatus()).isEqualTo(409);
+            verify(mockDemoManager, times(1)).attachDemographicToMessage(any(), eq(77), eq(101));
+            // The repeat neither takes nor restores this window's attachments.
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow)).isNull();
+        }
+
+        @Test
+        @DisplayName("should not confirm a changed message as sent when the already used form is submitted again")
+        void shouldRedisplayUnsentChange_whenTheUsedFormIsResubmittedWithDifferentContent() throws Exception {
+            String token = MessengerSubmissionGuard.issue(getMockSession(), TEST_PROVIDER);
+            repeatSubmission(token);
+            assertThat(send()).isEqualTo("success");
+
+            // The user went back to the page that had sent, changed the message and sent again.
+            repeatSubmission(token);
+            action.setSubject("FAKE corrected subject");
+            action.setMessage("FAKE corrected body");
+            String result = send();
+
+            // A consumed identity cannot confirm or send the changed message.
+            assertThat(result).isEqualTo("conflict");
+            assertThat(getMockResponse().getStatus()).isEqualTo(409);
+            assertThat(sends.get()).isEqualTo(1);
+            assertThat(getMockRequest().getAttribute("SentMessageProvs")).isNull();
+            assertThat(getMockRequest().getAttribute("messageSubmissionErrorKey"))
+                    .isEqualTo("messenger.SubmissionConflict.msgUnavailable");
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow)).isNull();
+
+            // Opening a fresh compose form issues its own identity for the correction.
+            String fresh = MessengerSubmissionGuard.issue(getMockSession(), TEST_PROVIDER);
+            repeatSubmission(fresh);
+            action.setSubject("FAKE corrected subject");
+            action.setMessage("FAKE corrected body");
+            assertThat(send()).isEqualTo("success");
+            assertThat(sends.get()).isEqualTo(2);
+        }
+
+        @Test
+        @DisplayName("should not confirm the first send when the used form is submitted again for other recipients")
+        void shouldRedisplayUnsentChange_whenTheUsedFormIsResubmittedForOtherRecipients() throws Exception {
+            String token = MessengerSubmissionGuard.issue(getMockSession(), TEST_PROVIDER);
+            repeatSubmission(token);
+            assertThat(send()).isEqualTo("success");
+
+            repeatSubmission(token);
+            action.setProvider(new String[]{"999997-0-1"});
+
+            assertThat(send()).isEqualTo("conflict");
+            assertThat(getMockResponse().getStatus()).isEqualTo(409);
+            assertThat(sends.get()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("should keep the token usable when the first submission was refused before anything was stored")
+        void shouldSendOnRetry_whenTheFirstSubmissionWasRefusedBeforeStorage() throws Exception {
+            String token = MessengerSubmissionGuard.issue(getMockSession(), TEST_PROVIDER);
+            repeatSubmission(token);
+            noRecipients = true;
+            assertThat(send()).isEqualTo("error");
+            assertThat(sends.get()).isZero();
+
+            // The same rendering submitted again (the second click of a double click) may still send.
+            repeatSubmission(token);
+            noRecipients = false;
+            assertThat(send()).isEqualTo("success");
+            assertThat(sends.get()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("should refuse a token this session did not issue for the compose form, and send nothing")
+        void shouldRefuseWithConflict_whenTheTokenWasNotIssuedForThisForm() throws Exception {
+            String foreign = FormSubmissionGuard.issue(getMockSession(), FormSubmissionGuard.Scope.APPOINTMENT_ADD, null);
+            repeatSubmission(foreign);
+
+            assertThat(send()).isEqualTo("conflict");
+
+            assertThat(getMockResponse().getStatus()).isEqualTo(409);
+            assertThat(sends.get()).isZero();
+            // Nothing was taken from this window: it can still be sent from a freshly opened form.
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow)).isNotNull();
+            verifyNoInteractions(mockDemoManager);
+        }
+
+        @Test
+        @DisplayName("should refuse missing submission identities and retain attachments")
+        void shouldRefuseSubmission_whenNoTokenIsPosted() throws Exception {
+            repeatSubmission(null);
+            assertThat(send()).isEqualTo("conflict");
+            assertThat(getMockResponse().getStatus()).isEqualTo(409);
+            assertThat(sends.get()).isZero();
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow).pdfAttachment())
+                    .isEqualTo("<PDF>FAKE patient 101 chart</PDF>");
+            verifyNoInteractions(mockDemoManager);
+        }
+
+        @Test
+        @DisplayName("should send this window's chart PDFs only, and only once")
+        void shouldSendOnlyThisWindowsAttachments_whenAnotherWindowHasAttachments() throws Exception {
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+
+            assertThat(send()).isEqualTo("success");
+
+            assertThat(sentPdfs.get()).isEqualTo("<PDF>FAKE patient 101 chart</PDF>");
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow)).isNull();
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), otherWindow).pdfAttachment())
+                    .isEqualTo("<PDF>FAKE patient 202 chart</PDF>");
+            verify(mockDemoManager).attachDemographicToMessage(any(), eq(77), eq(101));
+        }
+
+        @Test
+        @DisplayName("should release the items saved for a message once a reply carrying them is sent")
+        void shouldReleaseTheMessagesSavedItems_whenAReplyCarryingThemIsSent() throws Exception {
+            String saved = MsgAttachmentStaging.forwardKey(getMockSession(), 55);
+            MsgAttachmentStaging.stageItems(getMockSession(), saved, "<root>FAKE saved item</root>");
+            String reply = MsgAttachmentStaging.composeKey(getMockSession(), 55);
+            action.setAttachmentKey(reply);
+
+            assertThat(send()).isEqualTo("success");
+
+            assertThat(sentItems.get()).isEqualTo("<root>FAKE saved item</root>");
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), saved)).isNull();
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), MsgAttachmentStaging.composeKey(getMockSession(), 55)))
+                    .isNull();
+        }
+
+        @Test
+        @DisplayName("should send no attachments when the form names no compose window")
+        void shouldSendNoAttachments_whenComposeKeyMissing() throws Exception {
+            action.setDemographic_no("101");
+
+            assertThat(send()).isEqualTo("success");
+
+            assertThat(sentPdfs.get()).isNull();
+            assertThat(sentItems.get()).isNull();
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), otherWindow)).isNotNull();
+        }
+
+        @Test
+        @DisplayName("should refuse chart PDFs on a message linked to another patient and keep everything")
+        void shouldRefuseChartPdfs_whenMessageLinkedToAnotherPatient() throws Exception {
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("202");
+
+            assertThat(send()).isEqualTo("error");
+
+            assertThat(sends.get()).isZero();
+            verify(mockDemoManager, never()).attachDemographicToMessage(any(), anyInt(), anyInt());
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow).pdfAttachment())
+                    .isEqualTo("<PDF>FAKE patient 101 chart</PDF>");
+            assertThat(getMockRequest().getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE)).isEqualTo(thisWindow);
+            assertThat((String) getMockRequest().getAttribute("createMessageError")).contains("different patient");
+            assertThat(getMockRequest().getAttribute("ReSubject")).isEqualTo("FAKE subject");
+            assertThat(getMockRequest().getAttribute("ReText")).isEqualTo("FAKE body");
+            assertThat(getMockRequest().getAttribute("demographic_no")).isEqualTo("202");
+        }
+
+        @Test
+        @DisplayName("should refuse chart PDFs larger than a message can hold, which the database would cut in two, and keep everything")
+        void shouldRefuseChartPdfs_whenLargerThanAMessageCanHold() throws Exception {
+            String tooLarge = "<PDF>" + "A".repeat(MessageTbl.PDF_ATTACHMENT_MAX_BYTES) + "</PDF>";
+            MsgAttachmentStaging.stagePdfs(getMockSession(), thisWindow, 101, tooLarge);
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+
+            assertThat(send()).isEqualTo("error");
+
+            assertThat(sends.get()).isZero();
+            assertThat((String) getMockRequest().getAttribute("createMessageError"))
+                    .isEqualTo(MsgAttachPDF2Action.PDFS_TOO_LARGE);
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow).pdfAttachment()).isEqualTo(tooLarge);
+            assertThat(getMockRequest().getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE)).isEqualTo(thisWindow);
+        }
+
+        @Test
+        @DisplayName("should refuse chart PDFs that fit only until the send doubles a backslash of a title, and keep everything")
+        void shouldRefuseChartPdfs_whenTheyOnlyOverflowOnceQuoted() throws Exception {
+            // As staged this is exactly the column's size; the send stores it one byte over.
+            String record = "<PDF>" + "A".repeat(MessageTbl.PDF_ATTACHMENT_MAX_BYTES - "<PDF></PDF>".length() - 1) + "\\" + "</PDF>";
+            assertThat(record).hasSize(MessageTbl.PDF_ATTACHMENT_MAX_BYTES);
+            MsgAttachmentStaging.stagePdfs(getMockSession(), thisWindow, 101, record);
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+
+            assertThat(send()).isEqualTo("error");
+
+            assertThat(sends.get()).isZero();
+            assertThat((String) getMockRequest().getAttribute("createMessageError"))
+                    .isEqualTo(MsgAttachPDF2Action.PDFS_TOO_LARGE);
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow).pdfAttachment()).isEqualTo(record);
+            assertThat(getMockRequest().getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE)).isEqualTo(thisWindow);
+        }
+
+        @Test
+        @DisplayName("should send chart PDFs that fill a message exactly once a backslash of a title is doubled")
+        void shouldSendChartPdfs_whenTheyFillAMessageExactlyOnceQuoted() throws Exception {
+            String record = "<PDF>" + "A".repeat(MessageTbl.PDF_ATTACHMENT_MAX_BYTES - "<PDF></PDF>".length() - 2) + "\\" + "</PDF>";
+            MsgAttachmentStaging.stagePdfs(getMockSession(), thisWindow, 101, record);
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+
+            assertThat(send()).isEqualTo("success");
+
+            assertThat(sends.get()).isEqualTo(1);
+            assertThat(sentPdfs.get()).isEqualTo(record);
+        }
+
+        @Test
+        @DisplayName("should send chart PDFs that fill a message exactly")
+        void shouldSendChartPdfs_whenTheyFillAMessageExactly() throws Exception {
+            String exact = "<PDF>" + "A".repeat(MessageTbl.PDF_ATTACHMENT_MAX_BYTES - "<PDF></PDF>".length()) + "</PDF>";
+            assertThat(exact).hasSize(MessageTbl.PDF_ATTACHMENT_MAX_BYTES);
+            MsgAttachmentStaging.stagePdfs(getMockSession(), thisWindow, 101, exact);
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+
+            assertThat(send()).isEqualTo("success");
+
+            assertThat(sends.get()).isEqualTo(1);
+            assertThat(sentPdfs.get()).isEqualTo(exact);
+        }
+
+        @Test
+        @DisplayName("should tick the refused message's recipients again, leaving out an id that is not a contact's")
+        void shouldTickTheRecipientsAgain_whenASendIsRefused() throws Exception {
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("202");
+            action.setProvider(new String[]{"999998-0-1", "FAKE-recipient", "5-"});
+
+            assertThat(send()).isEqualTo("error");
+
+            @SuppressWarnings("unchecked")
+            List<ContactIdentifier> ticked = (List<ContactIdentifier>) getMockRequest().getAttribute("replyList");
+            assertThat(ticked).extracting(ContactIdentifier::getCompositeId).containsExactly("999998-0-1");
+        }
+
+        @Test
+        @DisplayName("should refuse chart PDFs on a message whose patient link was cleared")
+        void shouldRefuseChartPdfs_whenPatientLinkCleared() throws Exception {
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("");
+
+            assertThat(send()).isEqualTo("error");
+
+            assertThat(sends.get()).isZero();
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow)).isNotNull();
+        }
+
+        @Test
+        @DisplayName("should refuse once, then send without them, when the session released this window's attachments")
+        void shouldRefuseOnceThenSendWithoutThem_whenTheSessionReleasedThisWindowsAttachments() throws Exception {
+            // Attachments staged in enough other windows push this window's out of the session.
+            for (int i = 0; i < MsgAttachmentStaging.MAX_ENTRIES; i++) {
+                MsgAttachmentStaging.stageItems(getMockSession(), MsgAttachmentStaging.newKey(), "<root/>");
+            }
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+
+            assertThat(send()).isEqualTo("error");
+
+            assertThat(sends.get()).isZero();
+            assertThat((String) getMockRequest().getAttribute("createMessageError")).contains("attachments were released");
+            assertThat(getMockRequest().getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE)).isEqualTo(thisWindow);
+            assertThat(getMockRequest().getAttribute("ReText")).isEqualTo("FAKE body");
+            assertThat(getMockRequest().getAttribute("demographic_no")).isEqualTo("101");
+
+            // The user has been told; sending again goes out without them.
+            assertThat(send()).isEqualTo("success");
+            assertThat(sends.get()).isEqualTo(1);
+            assertThat(sentPdfs.get()).isNull();
+            assertThat(sentItems.get()).isNull();
+        }
+
+        @Test
+        @DisplayName("should put the attachments back when there is no valid recipient")
+        void shouldKeepAttachments_whenNoValidRecipients() throws Exception {
+            noRecipients = true;
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+
+            assertThat(send()).isEqualTo("error");
+
+            assertThat(sends.get()).isZero();
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow).pdfAttachment())
+                    .isEqualTo("<PDF>FAKE patient 101 chart</PDF>");
+            assertThat(getMockRequest().getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE)).isEqualTo(thisWindow);
+        }
+
+        @Test
+        void shouldKeepTheChooserClear_whenTheInflightSendReturnsNoMessageId() throws Exception {
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+            duringSend = () -> MsgAttachmentStaging.stagePdfs(getMockSession(), thisWindow, 101, null);
+            sentMessageId = null;
+
+            assertThat(send()).isEqualTo("error");
+
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow)).isNull();
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), otherWindow).pdfDemographicNo()).isEqualTo(202);
+            assertThat(getMockRequest().getAttribute("ReText")).isEqualTo("FAKE body");
+            assertThat(getMockRequest().getAttribute("ReSubject")).isEqualTo("FAKE subject");
+            assertThat(getMockRequest().getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE)).isEqualTo(thisWindow);
+            assertThat((String) getMockRequest().getAttribute("createMessageError")).contains("message was not sent");
+        }
+
+        @Test
+        void shouldKeepDiscardedAttachmentsAbsent_whenTheInflightSendThrows() throws Exception {
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+            duringSend = () -> MsgAttachmentStaging.discard(getMockSession(), thisWindow);
+            sendFailure = new IllegalStateException("FAKE transport failure");
+
+            assertThat(send()).isEqualTo("error");
+            assertThat(getMockResponse().getStatus()).isEqualTo(500);
+
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow)).isNull();
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), otherWindow).pdfDemographicNo()).isEqualTo(202);
+        }
+
+        @Test
+        void shouldKeepTheNewerReplacement_whenTheInflightSendFails() throws Exception {
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+            duringSend = () -> MsgAttachmentStaging.stagePdfs(getMockSession(), thisWindow, 202, "<PDF>FAKE replacement</PDF>");
+            sentMessageId = "";
+
+            assertThat(send()).isEqualTo("error");
+
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow).pdfAttachment())
+                    .isEqualTo("<PDF>FAKE replacement</PDF>");
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow).pdfDemographicNo()).isEqualTo(202);
+        }
+
+        @Test
+        void shouldKeepTheNewerSendRestorable_whenTheOlderSendSucceeds() throws Exception {
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+            AtomicReference<MsgAttachmentStaging.Staged> newerSend = new AtomicReference<>();
+            duringSend = () -> {
+                MsgAttachmentStaging.stagePdfs(getMockSession(), thisWindow, 202, "<PDF>FAKE newer send</PDF>");
+                newerSend.set(MsgAttachmentStaging.take(getMockSession(), thisWindow));
+            };
+
+            assertThat(send()).isEqualTo("success");
+            MsgAttachmentStaging.restore(getMockSession(), thisWindow, newerSend.get());
+
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow).pdfAttachment())
+                    .isEqualTo("<PDF>FAKE newer send</PDF>");
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow).pdfDemographicNo()).isEqualTo(202);
         }
     }
 }

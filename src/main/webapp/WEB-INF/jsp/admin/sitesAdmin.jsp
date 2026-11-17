@@ -28,7 +28,7 @@
 <%@ include file="/taglibs.jsp" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
@@ -46,7 +46,7 @@
     }
 %>
 
-<%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <html>
     <head>
@@ -58,8 +58,9 @@
 
         <script type="text/javascript" language="JavaScript"
                 src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
-        <link href="${request.contextPath}/css/displaytag.css" rel="stylesheet"></link>
-    </head>
+        <link href="${pageContext.request.contextPath}/css/displaytag.css" rel="stylesheet"></link>
+    <%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
+</head>
 
     <body vlink="#0000FF" class="BodyStyle">
 
@@ -85,25 +86,50 @@
                     <input type="submit" style="border:1px solid #666666;" value="<fmt:message key='admin.sitesAdmin.btnAddNewSite'/>" />
                 </form>
 
-                <display-el:table name="sites" id="site" class="its"
-                                  style="border:1px solid #666666; width:99%;margin-top:2px;">
-                    <display-el:column title="<fmt:message key='admin.sitesAdmin.col.active'/>"><c:choose><c:when
-                            test="${site.status==0}"><fmt:message key="admin.sitesAdmin.value.no"/></c:when><c:otherwise><fmt:message key="admin.sitesAdmin.value.yes"/></c:otherwise></c:choose></display-el:column>
-                    <display-el:column title="<fmt:message key='admin.sitesAdmin.col.siteName'/>">
-                        <a href="<%= request.getContextPath() %>/admin/ManageSites?method=update&siteId=${carlos:forHtmlAttribute(site.siteId)}">${carlos:forHtml(site.name)}</a></display-el:column>
-                    <display-el:column property="shortName" title="<fmt:message key='admin.sitesAdmin.col.shortName'/>"/>
-                    <display-el:column property="bgColor" title="<fmt:message key='admin.sitesAdmin.col.color'/>" style="background-color:${site.bgColor}"/>
-                    <display-el:column property="phone" title="<fmt:message key='admin.sitesAdmin.col.telephone'/>"/>
-                    <display-el:column property="fax" title="<fmt:message key='admin.sitesAdmin.col.fax'/>"/>
-                    <display-el:column property="address" title="<fmt:message key='admin.sitesAdmin.col.address'/>" style="width: 200px;"/>
-                    <display-el:column property="city" title="<fmt:message key='admin.sitesAdmin.col.city'/>"/>
-                    <display-el:column property="province" title="<fmt:message key='admin.sitesAdmin.col.province'/>"/>
-                    <display-el:column property="postal" title="<fmt:message key='admin.sitesAdmin.col.postalCode'/>"/>
+                <c:if test="${not empty sites}">
+                <table class="its" style="border:1px solid #666666; width:99%;margin-top:2px;" id="site" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+<thead><tr>
+                    <th scope="col"><fmt:message key='admin.sitesAdmin.col.active'/></th>
+                    <%-- A GET link, so it opens the site with the read-only method=edit (the GET guard refuses method=update). --%>
+                    <th scope="col"><fmt:message key='admin.sitesAdmin.col.siteName'/></th>
+                    <th scope="col"><fmt:message key='admin.sitesAdmin.col.shortName'/></th>
+                    <th scope="col"><fmt:message key='admin.sitesAdmin.col.color'/></th>
+                    <th scope="col"><fmt:message key='admin.sitesAdmin.col.telephone'/></th>
+                    <th scope="col"><fmt:message key='admin.sitesAdmin.col.fax'/></th>
+                    <th scope="col"><fmt:message key='admin.sitesAdmin.col.address'/></th>
+                    <th scope="col"><fmt:message key='admin.sitesAdmin.col.city'/></th>
+                    <th scope="col"><fmt:message key='admin.sitesAdmin.col.province'/></th>
+                    <th scope="col"><fmt:message key='admin.sitesAdmin.col.postalCode'/></th>
+
                     <% if (IsPropertiesOn.isProviderFormalizeEnable()) { %>
-                    <display-el:column property="providerIdFrom" title="<fmt:message key='admin.sitesAdmin.col.providerIdFrom'/>"/>
-                    <display-el:column property="providerIdTo" title="<fmt:message key='admin.sitesAdmin.col.providerIdTo'/>"/>
+                    <th scope="col"><fmt:message key='admin.sitesAdmin.col.providerIdFrom'/></th>
+                    <th scope="col"><fmt:message key='admin.sitesAdmin.col.providerIdTo'/></th>
                     <% } %>
-                </display-el:table>
+
+                </tr></thead>
+<tbody><c:forEach var="site" items="${sites}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
+                    <td><c:choose><c:when
+                            test="${site.status==0}"><fmt:message key="admin.sitesAdmin.value.no"/></c:when><c:otherwise><fmt:message key="admin.sitesAdmin.value.yes"/></c:otherwise></c:choose></td>
+                    <%-- A GET link, so it opens the site with the read-only method=edit (the GET guard refuses method=update). --%>
+                    <td>
+                        <a href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/admin/ManageSites?method=edit&amp;siteId=${carlos:forUriComponent(site.siteId)}">${carlos:forHtml(site.name)}</a></td>
+                    <%-- Site values are encoded as text so stored markup cannot become page content. --%>
+                    <td>${carlos:forHtml(site.shortName)}</td>
+                    <td style="background-color:${site.cssBgColor}">${carlos:forHtml(site.bgColor)}</td>
+                    <td>${carlos:forHtml(site.phone)}</td>
+                    <td>${carlos:forHtml(site.fax)}</td>
+                    <td style="width: 200px;">${carlos:forHtml(site.address)}</td>
+                    <td>${carlos:forHtml(site.city)}</td>
+                    <td>${carlos:forHtml(site.province)}</td>
+                    <td>${carlos:forHtml(site.postal)}</td>
+                    <% if (IsPropertiesOn.isProviderFormalizeEnable()) { %>
+                    <td>${carlos:forHtml(site.providerIdFrom)}</td>
+                    <td>${carlos:forHtml(site.providerIdTo)}</td>
+                    <% } %>
+                </tr></c:forEach></tbody>
+</table>
+                </c:if>
+<c:if test="${empty sites}"><fmt:message key="table.msg.emptyList"/></c:if>
 
 
             </td>

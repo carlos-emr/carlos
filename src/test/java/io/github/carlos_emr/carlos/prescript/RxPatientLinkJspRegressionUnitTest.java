@@ -174,13 +174,20 @@ class RxPatientLinkJspRegressionUnitTest {
     }
 
     @Test
-    @DisplayName("should name this page's patient on every pharmacy modal URL")
+    @DisplayName("should preserve this page's patient and chart context on every pharmacy modal URL")
     void shouldNamePatient_onPharmacyModalUrls() throws IOException {
         String jsp = read("rx/SelectPharmacy2.jsp");
         int start = jsp.indexOf("function openPharmacyModal(url) {");
-        int end = jsp.indexOf("iframe.src = url;", start);
-        assertThat(start).isPositive();
-        assertThat(jsp.substring(start, end)).contains("\"demographicNo=\" + encodeURIComponent(demo)");
+        assertThat(start).as("pharmacy modal function exists").isGreaterThanOrEqualTo(0);
+        Matcher nextFunction = Pattern.compile("\\bfunction\\s+\\w+\\s*\\(").matcher(jsp);
+        assertThat(nextFunction.find(start + "function openPharmacyModal".length()))
+                .as("pharmacy modal function has a bounded source section").isTrue();
+        int end = nextFunction.start();
+        assertThat(end).isGreaterThan(start);
+        assertThat(jsp.substring(start, end))
+                .contains("\"demographicNo=\" + encodeURIComponent(demo)")
+                .contains("RxPatientContext.withPatient(url)");
+        assertThat(jsp).contains("data-chart-context=", "ChartProgramContext.token(request)");
     }
 
     @Test
@@ -224,30 +231,19 @@ class RxPatientLinkJspRegressionUnitTest {
                 "rx/SideLinksNoEditFavorites2.jsp"}) {
             String jsp = read(name);
             assertThat(jsp).as(name).contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>");
-            // SideLinksEditFavorites2.jsp renders the favourite name through null-safe SafeEncode
-            // scriptlets (develop's JspEncodingRegressionTest and RxPrintFlowRegressionTest pin that
-            // form and forbid the tag there); the other sidebars use the tag.
-            boolean favouritesViaSafeEncode = name.equals("rx/SideLinksEditFavorites2.jsp");
-            for (String value : new String[] {"allergies[j].getDescription()", "allergies[j].getReaction()",
-                    "favorites[j].getFavoriteName()"}) {
-                if (favouritesViaSafeEncode && value.startsWith("favorites")) {
-                    continue;
-                }
+            for (String value : new String[] {"allergies[j].getDescription()", "allergies[j].getReaction()"}) {
                 assertThat(jsp).as(name + " attribute " + value)
                         .contains("<carlos:encode value='<%= " + value + " %>' context=\"htmlAttribute\"/>");
             }
-            for (String value : new String[] {"allergies[j].getShortDesc(13, 8, \"...\")",
-                    "favorites[j].getFavoriteName()", "favorites[j].getFavoriteName().substring(0, 10) + \"...\""}) {
-                if (favouritesViaSafeEncode && value.startsWith("favorites")) {
-                    continue;
-                }
+            String[] favoriteText = name.equals("rx/SideLinksEditFavorites2.jsp")
+                    ? new String[] {"favorite.name() != null && favorite.name().length() > 13 ? favorite.name().substring(0, 10) + \"...\" : favorite.name()"}
+                    : new String[] {"favorites[j].getFavoriteName()", "favorites[j].getFavoriteName().substring(0, 10) + \"...\""};
+            String favoriteAttribute = name.equals("rx/SideLinksEditFavorites2.jsp") ? "favorite.name()" : "favorites[j].getFavoriteName()";
+            assertThat(jsp).contains("<carlos:encode value='<%= " + favoriteAttribute + " %>' context=\"htmlAttribute\"/>");
+            assertThat(jsp).contains("<carlos:encode value='<%= allergies[j].getShortDesc(13, 8, \"...\") %>' context=\"html\"/>");
+            for (String value : favoriteText) {
                 assertThat(jsp).as(name + " text " + value)
-                        .contains("<carlos:encode value='<%= " + value + " %>' context=\"html\"/>");
-            }
-            if (favouritesViaSafeEncode) {
-                assertThat(jsp).as(name + " favourite name")
-                        .contains("SafeEncode.forHtmlAttribute(favoriteName)")
-                        .contains("SafeEncode.forHtmlContent(favoriteDisplayName)");
+                        .contains("<carlos:encode value='<%= " + value + " %>'" + (name.equals("rx/SideLinksEditFavorites2.jsp") ? "/>" : " context=\"html\"/>"));
             }
             // A raw title lets persisted quotes create attributes; a raw text label permits markup.
             assertThat(jsp).doesNotContain("title=\"<%= allergies", "title=\"<%= favorites",
@@ -287,7 +283,7 @@ class RxPatientLinkJspRegressionUnitTest {
                     .contains("/rx/choosePatient?demographicNo=<%= bean2.getDemographicNo() %>&usefav=true");
         }
         assertThat(read("rx/SearchDrug3.jsp"))
-                .contains("window.location.href = RxPatientContext.withPatient(ctx + \"/rx/searchDrug\");")
+                .contains("window.location.href = RxPatientContext.withPatient(ctx + \"/rx/choosePatient\");")
                 .contains("onFailure: reportRefusedSave");
     }
 
@@ -329,8 +325,8 @@ class RxPatientLinkJspRegressionUnitTest {
         assertThat(read("rx/WriteScript.jsp"))
                 .contains("name=\"randomId\" value=\"\"")
                 .contains("form.elements['randomId'].value = randomId")
-                .contains("javascript:addFavorite('${rx2.randomId}'")
-                .doesNotContain("javascript:addFavorite('${loopStatus.index}'");
+                .contains("addFavorite('${rx2.randomId}'")
+                .doesNotContain("addFavorite('${loopStatus.index}'");
     }
 
     @Test

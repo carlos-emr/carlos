@@ -67,10 +67,8 @@ import io.github.carlos_emr.carlos.util.ConcatPDF;
 import java.awt.Color;
 import org.openpdf.text.Document;
 import org.openpdf.text.DocumentException;
-import org.openpdf.text.Element;
 import org.openpdf.text.Font;
 import org.openpdf.text.PageSize;
-import org.openpdf.text.Phrase;
 import org.openpdf.text.Rectangle;
 import org.openpdf.text.pdf.BaseFont;
 import org.openpdf.text.pdf.ColumnText;
@@ -116,10 +114,54 @@ public class FrmPDFServlet extends HttpServlet {
     Logger log = MiscUtils.getLogger();
 
     /**
+     * The smallest size a {@code fit} field is set in, the size of the printed forms' own captions. A value still
+     * too long at this size is printed at it and overruns its blank.
+     */
+    static final float MIN_FIT_FONT_SIZE = 6f;
+
+    /**
      * Default constructor required by the servlet container.
      */
     public FrmPDFServlet() {
         super();
+    }
+
+    /**
+     * The font size at which {@code text} fits in {@code width} points: {@code size} when it already fits, otherwise
+     * the size that makes it exactly as wide as {@code width}, but never below {@link #MIN_FIT_FONT_SIZE}.
+     *
+     * @param font the font the text is set in
+     * @param text the value to print; {@code null} or empty prints nothing, so it keeps {@code size}
+     * @param size the size the print configuration asks for
+     * @param width the width of the value's blank on the printed form, in points
+     * @return the size to set the text in
+     */
+    static float fittedFontSize(BaseFont font, String text, float size, float width) {
+        if (text == null || text.isEmpty()) {
+            return size;
+        }
+        // Measure what is drawn: characters the face lacks are set in a fallback face, which
+        // BaseFont.getWidthPoint would count as zero width (#5046).
+        float natural = ColumnText.getWidth(PdfFonts.phrase(text, new Font(font, size)));
+        if (natural <= width) {
+            return size;
+        }
+        // A string's width is proportional to its size, so one division finds the size that fills the blank.
+        return Math.max(MIN_FIT_FONT_SIZE, size * width / natural);
+    }
+
+    /**
+     * The text alignment a print-config line names in its first column: left, right, or anything else centred.
+     *
+     * <p>The column branch passes the result to {@code ColumnText}, which takes {@code Element}'s alignment constants;
+     * they have the same values as {@link PdfContentByte}'s.</p>
+     */
+    static int alignmentOf(String configured) {
+        String alignment = configured.trim();
+        if ("left".equals(alignment)) {
+            return PdfContentByte.ALIGN_LEFT;
+        }
+        return "right".equals(alignment) ? PdfContentByte.ALIGN_RIGHT : PdfContentByte.ALIGN_CENTER;
     }
 
     /** Delegates all GET requests to {@link #doPost(HttpServletRequest, HttpServletResponse)}. */
@@ -150,7 +192,7 @@ public class FrmPDFServlet extends HttpServlet {
             try {
                 res.sendError(HttpServletResponse.SC_FORBIDDEN);
             } catch (java.io.IOException ioe) {
-                log.warn("Unable to send 403 for unauthenticated form PDF request", ioe);
+                log.warn("Unable to send 403 for unauthenticated form PDF request: {}", LogSafe.exceptionTrace(ioe));
             }
             return;
         }
@@ -243,7 +285,7 @@ public class FrmPDFServlet extends HttpServlet {
             LogAction.addLogSynchronous(loggedInInfo, "FrmPDFServlet", "formID=" + req.getParameter("formId") + ",form_class=" + req.getParameter("form_class"));
 
         } catch (DocumentException dex) {
-            log.error("Document error generating form PDF", dex);
+            log.error("Document error generating form PDF: {}", LogSafe.exceptionTrace(dex));
             if (!res.isCommitted()) {
                 res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                     "An internal error occurred. Please try again or contact your system administrator.");
@@ -251,7 +293,7 @@ public class FrmPDFServlet extends HttpServlet {
         } catch (java.io.IOException e) {
             throw e;
         } catch (Exception e) {
-            log.error("Unexpected error in FrmPDFServlet", e);
+            log.error("Unexpected error in FrmPDFServlet: {}", LogSafe.exceptionTrace(e));
             if (!res.isCommitted()) {
                 res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                     "An internal error occurred. Please try again or contact your system administrator.");
@@ -409,7 +451,7 @@ public class FrmPDFServlet extends HttpServlet {
                     try {
                         props = pp.get().process(props);
                     } catch (Exception e) {
-                        log.warn("Post-processor {} failed during execution - form rendered without post-processing", Encode.forJava(postProcessorName), e);
+                        log.warn("Post-processor {} failed during execution - form rendered without post-processing {}", Encode.forJava(postProcessorName), LogSafe.exceptionTrace(e));
                     }
                 } else {
                     log.warn("Post-processor '{}' is not on the allowlist and will not be applied", Encode.forJava(postProcessorName));
@@ -526,9 +568,9 @@ public class FrmPDFServlet extends HttpServlet {
             int n;
             try {
                 reader = new PdfReader(propFilename);
-                log.info("Found template at {}", LogSafe.sanitize(propFilename));
+                log.info("Found form template");
             } catch (Exception dex) {
-                log.debug("change path to inside oscar from: {}", LogSafe.sanitize(propFilename));
+                log.debug("Resolving bundled form template");
                 reader = new PdfReader("/oscar/form/prop/" + template);
                 log.debug("Found template at /oscar/form/prop/{}", LogSafe.sanitize(template));
             }
@@ -628,12 +670,10 @@ public class FrmPDFServlet extends HttpServlet {
                             // xxxx", font));
                             ct.setSimpleColumn(Integer.parseInt(cfgVal[1].trim()), (height - Integer.parseInt(cfgVal[2]
                                     .trim())), Integer.parseInt(cfgVal[7].trim()), (height - Integer.parseInt(cfgVal[8]
-                                    .trim())), Integer.parseInt(cfgVal[9].trim()), (cfgVal[0].trim().equals("left") ?
-                                    Element.ALIGN_LEFT : (cfgVal[0].trim().equals("right") ? Element.ALIGN_RIGHT :
-                                    Element.ALIGN_CENTER)));
+                                    .trim())), Float.parseFloat(cfgVal[9].trim()), alignmentOf(cfgVal[0]));
 
                             //ct.addText(new Phrase(12, props.getProperty(tempName.toString(), ""), font)); // page
-                            ct.setText(new Phrase(12, propValue, font));
+                            ct.setText(PdfFonts.phrase(12, propValue, font));
                             // size
                             // leading
                             // space between two
@@ -663,14 +703,12 @@ public class FrmPDFServlet extends HttpServlet {
                             cb.stroke();
 
                         } else if (tempName.toString().startsWith("__")) {
-                            cb.beginText();
-                            cb.setFontAndSize(bf, Integer.parseInt(cfgVal[5].trim()));
-                            cb.showTextAligned((cfgVal[0].trim().equals("left") ? PdfContentByte.ALIGN_LEFT
-                                    : (cfgVal[0].trim().equals("right") ? PdfContentByte.ALIGN_RIGHT
-                                    : PdfContentByte.ALIGN_CENTER)), (cfgVal.length >= 7 ? (cfgVal[6]
-                                    .trim()) : propValue), Integer
-                                    .parseInt(cfgVal[1].trim()), (height - Integer.parseInt(cfgVal[2].trim())), 0);
-                            cb.endText();
+                            // Form values can be in any script: PdfFonts draws characters the configured
+                            // face lacks in the bundled fallback faces instead of dropping them (#5046).
+                            PdfFonts.showTextAligned(cb, alignmentOf(cfgVal[0]),
+                                    (cfgVal.length >= 7 ? (cfgVal[6].trim()) : propValue),
+                                    new Font(bf, Float.parseFloat(cfgVal[5].trim())),
+                                    Float.parseFloat(cfgVal[1].trim()), height - Float.parseFloat(cfgVal[2].trim()), 0);
                         } else if (tempName.toString().equals("forms_promotext")) {
 //	                        if ( CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT") != null ){
 //	                            log.info("adding user placed forms_promotext");
@@ -684,16 +722,24 @@ public class FrmPDFServlet extends HttpServlet {
 //
 //	                            cb.endText();
 //	                        }
+                        } else if (cfgVal.length == 8 && "fit".equals(cfgVal[6].trim())) {
+                            // "fit, <far edge>" in the seventh and eighth columns: the value's blank on the printed
+                            // form ends at <far edge>, so a value too long for it is set in a smaller font instead of
+                            // running past the blank (and, at the right of the page, off the paper). Opt-in per line.
+                            float x = Float.parseFloat(cfgVal[1].trim());
+                            float width = Math.abs(Float.parseFloat(cfgVal[7].trim()) - x);
+                            PdfFonts.showTextAligned(cb, alignmentOf(cfgVal[0]), propValue,
+                                    new Font(bf, fittedFontSize(bf, propValue, Float.parseFloat(cfgVal[5].trim()), width)),
+                                    x, (height - Integer.parseInt(cfgVal[2].trim())), 0);
                         } else { // write prop text
-                            cb.beginText();
-                            cb.setFontAndSize(bf, Integer.parseInt(cfgVal[5].trim()));
-                            cb.showTextAligned((cfgVal[0].trim().equals("left") ? PdfContentByte.ALIGN_LEFT
-                                    : (cfgVal[0].trim().equals("right") ? PdfContentByte.ALIGN_RIGHT
-                                    : PdfContentByte.ALIGN_CENTER)), (cfgVal.length >= 7 ? ((propValue.equals("") ? "" : cfgVal[6].trim()))
-                                    : propValue), Integer.parseInt(cfgVal[1]
-                                    .trim()), (height - Integer.parseInt(cfgVal[2].trim())), 0);
-
-                            cb.endText();
+                            // A seventh column is fixed text (a checkbox's "X"), printed only when the field has a value.
+                            String text = propValue;
+                            if (cfgVal.length >= 7) {
+                                text = propValue.isEmpty() ? "" : cfgVal[6].trim();
+                            }
+                            PdfFonts.showTextAligned(cb, alignmentOf(cfgVal[0]), text,
+                                    new Font(bf, Float.parseFloat(cfgVal[5].trim())),
+                                    Float.parseFloat(cfgVal[1].trim()), height - Float.parseFloat(cfgVal[2].trim()), 0);
                         }
 
                     }
@@ -881,7 +927,7 @@ public class FrmPDFServlet extends HttpServlet {
                     document.close();
                 }
                 catch (Exception e) {
-                    log.error("Error closing PDF document", e);
+                    log.error("Error closing PDF document: {}", LogSafe.exceptionTrace(e));
                 }
             }
             if (writer != null) {
@@ -889,14 +935,14 @@ public class FrmPDFServlet extends HttpServlet {
                     writer.close();
                 }
                 catch (Exception e) {
-                    log.error("Error closing PDF writer", e);
+                    log.error("Error closing PDF writer: {}", LogSafe.exceptionTrace(e));
                 }
             }   
             if (reader != null) {
                 try {
                     reader.close();
                 } catch (Exception e) {
-                    log.error("Error closing PDF reader", e);
+                    log.error("Error closing PDF reader: {}", LogSafe.exceptionTrace(e));
                 }
             }
         }
@@ -925,7 +971,7 @@ public class FrmPDFServlet extends HttpServlet {
         // Step 1: Extract just the filename, removing any directory paths
         String baseFilename = org.apache.commons.io.FilenameUtils.getName(cfgFilename);
         if (baseFilename == null || baseFilename.isEmpty()) {
-            log.warn("Invalid config filename after sanitization: {}", LogSafe.sanitize(cfgFilename));
+            log.warn("Invalid config filename after sanitization");
             return ret;
         }
         
@@ -956,7 +1002,7 @@ public class FrmPDFServlet extends HttpServlet {
             return cpProps;
         }
         
-        log.warn("Config file not found: " + cleanFilename);
+        log.warn("Config file not found");
         return ret;
     }
     
@@ -972,14 +1018,14 @@ public class FrmPDFServlet extends HttpServlet {
             try (InputStream is = new FileInputStream(validatedFile)) {
                 Properties props = new Properties();
                 props.load(is);
-                log.debug("Loaded config from filesystem: " + safeFilename);
+                log.debug("Loaded config from filesystem");
                 return props;
             }
         } catch (SecurityException e) {
-            log.warn("Path validation failed for file: " + safeFilename);
+            log.warn("Path validation failed for file");
             return null;
         } catch (Exception e) {
-            log.debug("Failed to load from filesystem: " + safeFilename);
+            log.debug("Failed to load from filesystem");
             return null;
         }
     }
@@ -1004,12 +1050,12 @@ public class FrmPDFServlet extends HttpServlet {
                 try (InputStream autoCloseIs = is) {
                     Properties props = new Properties();
                     props.load(autoCloseIs);
-                    log.debug("Loaded config from classpath: " + safeFilename);
+                    log.debug("Loaded config from classpath");
                     return props;
                 }
             }
         } catch (Exception e) {
-            log.debug("Failed to load from classpath: " + safeFilename);
+            log.debug("Failed to load from classpath");
         }
         return null;
     }

@@ -59,7 +59,11 @@ function faultDatabase(failAt) {
     value(query) {
       if (query.startsWith('SELECT value FROM billingservice')) return '20.00';
       if (query.startsWith('SELECT MAX(id)')) throw new Error('lost insert acknowledgement');
-      if (query.includes('AND first_name=')) return providers.has(query.match(/provider_no='(\d+)'/)[1]) ? '1' : '0';
+      // Model allocation lookups too: returning zero for an already inserted ID lets
+      // a random collision overwrite fixture state and appear twice during cleanup.
+      if (query.startsWith('SELECT COUNT(*) FROM provider WHERE provider_no=')) {
+        return providers.has(query.match(/provider_no='(\d+)'/)[1]) ? '1' : '0';
+      }
       return '0';
     },
     execute(query) {
@@ -90,6 +94,25 @@ for (const failAt of ['prerequisite', 'site', 'claim-result']) {
     assert.equal(fake.disposed(), true);
   });
 }
+
+test('provider allocation retries collisions before cleanup recovers each owned provider once', async (t) => {
+  const root = directory(t);
+  const fake = faultDatabase('claim-result');
+  const state = { providers: {}, headerIds: [], groupNo: '', marker: 'PW3942-collision' };
+  // group; first provider/OHIP; duplicate provider then retry/OHIP; duplicate provider then retry/OHIP.
+  const choices = [0.1, 0.1, 0.2, 0.1, 0.3, 0.4, 0.3, 0.5, 0.6];
+  t.mock.method(Math, 'random', () => {
+    assert.ok(choices.length, 'Unexpected random allocation');
+    return choices.shift();
+  });
+  assert.throws(() => createFixture(fake.db, {
+    templateProvider: '999998', window: { serviceDate: '2003-02-03' }, paidCode: 'A007A', testUser: 'test',
+  }, state), /lost insert acknowledgement/);
+  assert.deepEqual([...fake.providers].sort(), ['971000', '973000', '975000']);
+  await cleanupResources(null, fake.db, state, root);
+  assert.deepEqual(fake.deleted.sort(), [...fake.providers].sort());
+  assert.equal(choices.length, 0);
+});
 
 test('browser and database cleanup failures are reported and credentials are still disposed', async (t) => {
   const root = directory(t);

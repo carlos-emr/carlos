@@ -28,14 +28,15 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ page pageEncoding="UTF-8" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
+
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ page import="io.github.carlos_emr.carlos.rx.util.*" %>
-<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
+
+<%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.LimitedUseCode" %>
@@ -45,7 +46,7 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.LimitedUseLookup" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScriptForm" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
+
 <%@ page import="java.util.*" %>
 <%long start = System.currentTimeMillis();%>
 
@@ -93,7 +94,7 @@
             </c:if>
 
             <c:if test="${bean.stashIndex == -1}">
-                <c:redirect url="/rx/searchDrug"><c:param name="demographicNo" value="${bean.demographicNo}"/></c:redirect>
+                <c:redirect url="/rx/searchDrug"><c:param name="demographicNo" value="${bean.demographicNo}"/><c:if test="${not empty param.chartContext}"><c:param name="chartContext" value="${param.chartContext}"/></c:if></c:redirect>
             </c:if>
         </c:if>
 
@@ -867,6 +868,9 @@
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
 
 
+        <style>
+            .link-button { background: none; border: 0; color: var(--bs-link-color, #0000EE); cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
+        </style>
     </head>
     <body topmargin="0" leftmargin="0" vlink="#0000FF"
           onload="javascript:pageLoad();">
@@ -884,6 +888,9 @@
         <input type="hidden" name="draftRevision"/>
     </form>
 
+    <% for (RxPrescriptionData.Prescription pendingCard : bean.getStash()) { if (pendingCard.getPendingSubmission() != null) { %>
+    <p role="alert"><fmt:message key="oscarRx.pendingSubmission"/></p>
+    <% break; } } %>
     <form action="${pageContext.request.contextPath}/rx/writeScript" method="post" id="frm" name="frm">
 
     <input type="hidden" name="action" id="action"/>
@@ -1448,8 +1455,8 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                                             <%for (LimitedUseCode limitedUseCode : luList) {%>
                                                             <tr>
                                                                 <td valign="top"><a
-                                                                        onclick="addLuCode('<%=limitedUseCode.getUseId()%>')"
-                                                                        href="javascript: return void(0);"><%=limitedUseCode.getUseId()%>
+                                                                        onclick="event.preventDefault();addLuCode('<carlos:encode value='<%=limitedUseCode.getUseId()%>' context="javaScriptAttribute"/>')"
+                                                                        href="#"><carlos:encode value='<%=limitedUseCode.getUseId()%>' context="html"/>
                                                                 </a>&nbsp;
                                                                 </td>
                                                                 <td><%=limitedUseCode.getTxt()%>
@@ -1515,18 +1522,22 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
 
                             <!-- peice Went Here --> <%
                                 //RxPatientData.Patient.Allergy[] allerg = (RxPatientData.Patient.Allergy[]) request.getAttribute("ALLERGIES");
-                                Allergy[] allerg = bean.getAllergyWarnings(loggedInInfo, atcCode);
-                                if (allerg != null && allerg.length > 0) {
-                                    for (int allergIndex = 0; allergIndex < allerg.length; allergIndex++) {
+                                RxSessionBean.AllergyCheck productAllergyCheck = bean.checkProductAllergies(loggedInInfo, atcCode, regionalIdentifier);
+                                for (Allergy allerg : productAllergyCheck.warnings()) {
                             %>
-                            <div style="background-color:<%=severityOfReactionColor(allerg[allergIndex].getSeverityOfReaction())%>;margin-right:100px;margin-left:20px;margin-top:10px;padding-left:10px;padding-top:10px;padding-bottom:5px;border-bottom: 2px solid gray;border-right: 2px solid #999;border-top: 1px solid #CCC;border-left: 1px solid #CCC;">
-                                <b>Allergy:</b> <carlos:encode value='<%= allerg[allergIndex].getDescription() %>' context="html"/> <b>Reaction:</b>
-                                <carlos:encode value='<%= allerg[allergIndex].getReaction() %>' context="html"/>
-                                <b>Severity:</b> <%=severityOfReaction(allerg[allergIndex].getSeverityOfReaction())%>
-                                <b>Onset of Reaction:</b> <%=onSetOfReaction(allerg[allergIndex].getOnsetOfReaction())%>
+                            <div style="background-color:<%=severityOfReactionColor(allerg.getSeverityOfReaction())%>;margin-right:100px;margin-left:20px;margin-top:10px;padding-left:10px;padding-top:10px;padding-bottom:5px;border-bottom: 2px solid gray;border-right: 2px solid #999;border-top: 1px solid #CCC;border-left: 1px solid #CCC;">
+                                <b>Allergy:</b> <carlos:encode value="<%= allerg.getDescription() %>"/> <b>Reaction:</b>
+                                <carlos:encode value="<%= allerg.getReaction() %>"/>
+                                <b>Severity:</b> <%=severityOfReaction(allerg.getSeverityOfReaction())%>
+                                <b>Onset of Reaction:</b> <%=onSetOfReaction(allerg.getOnsetOfReaction())%>
                             </div>
-                            <% }
-                            }%>
+                            <% } %>
+                            <% if (productAllergyCheck.failed()) { %>
+                            <div role="alert"><fmt:message key="WriteScript.allergyCheck.failed"/></div>
+                            <% } else { for (Allergy uncheckedAllergy : productAllergyCheck.unchecked()) { %>
+                            <div role="alert"><fmt:message key="WriteScript.allergyCheck.unchecked"/>:
+                                <carlos:encode value="<%= uncheckedAllergy.getDescription() %>"/></div>
+                            <% } } %>
 
                             <div id="interactionsRx"></div>
                             <div id="renalDosing"></div>
@@ -1596,30 +1607,30 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                                     </c:otherwise>
                                                 </c:choose>
                                                 <td>
-                                                    <a href="javascript:submitPending('${rx.randomId}', '${carlos:forJavaScript(rx.draftRevision)}', 'edit');">
+                                                    <button type="button" class="link-button" onclick="submitPending('${rx.randomId}', '${carlos:forJavaScript(rx.draftRevision)}', 'edit');">
                                                         <fmt:message key="WriteScript.msgEdit"/>
-                                                    </a>
+                                                    </button>
                                                 </td>
                                                 <td>
-                                                    <a href="javascript:submitPending('${rx.randomId}', '${carlos:forJavaScript(rx.draftRevision)}', 'delete');">
+                                                    <button type="button" class="link-button" onclick="submitPending('${rx.randomId}', '${carlos:forJavaScript(rx.draftRevision)}', 'delete');">
                                                         <fmt:message key="WriteScript.msgDelete"/>
-                                                    </a>
+                                                    </button>
                                                 </td>
                                                 <td>
-                                                    <a href="javascript:submitPending('${rx.randomId}', '${carlos:forJavaScript(rx.draftRevision)}', 'edit');">
+                                                    <button type="button" class="link-button" onclick="submitPending('${rx.randomId}', '${carlos:forJavaScript(rx.draftRevision)}', 'edit');">
                                                         ${carlos:forHtml(rx.rxDisplay)}
-                                                    </a>
+                                                    </button>
                                                 </td>
                                                 <td>
-                                                    <a href="javascript:ShowDrugInfo('<carlos:encode value='${rx2.genericName}' context="javaScriptAttribute"/>', '<carlos:encode value='${rx2.regionalIdentifier}' context="javaScriptAttribute"/>');">
+                                                    <a href="${pageContext.request.contextPath}/rx/drugInfo?GN=${carlos:forUriComponent(rx2.genericName)}<c:if test="${not empty rx2.regionalIdentifier and rx2.regionalIdentifier ne 'null' and rx2.regionalIdentifier ne '0'}">&amp;DIN=${carlos:forUriComponent(rx2.regionalIdentifier)}</c:if>" onclick="ShowDrugInfo('${carlos:forJavaScriptAttribute(rx2.genericName)}', '${carlos:forJavaScriptAttribute(rx2.regionalIdentifier)}'); return false;">
                                                         <fmt:message key="WriteScript.msgInfo"/>
                                                     </a>
                                                 </td>
                                                 <td>
                                                     <c:set var="drugNameForFavorite" value="${rx2.custom ? rx2.customName : rx2.brandName}"/>
-                                                    <a href="javascript:addFavorite('${rx2.randomId}', '<carlos:encode value='<%= (String)pageContext.getAttribute("drugNameForFavorite") %>' context="javaScript"/>');">
+                                                    <button type="button" class="link-button" onclick="addFavorite('${rx2.randomId}', '<carlos:encode value='<%= (String)pageContext.getAttribute("drugNameForFavorite") %>' context="javaScriptAttribute"/>');">
                                                         <fmt:message key="WriteScript.msgAddtoFavorites"/>
-                                                    </a>
+                                                    </button>
                                                 </td>
                                                 </tr>
                                             </c:forEach>
@@ -1688,7 +1699,24 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                     var ran_number = Math.round(Math.random() * 1000000);
                     var params = "demographicNo=<%=bean.getDemographicNo()%>&atcCode=<%=atcCode%>&rand=" + ran_number;  //hack to get around ie caching the page
                     //alert(params);
-                    CarlosAjax.updater('renalDosing', url, {method: 'GET', parameters: params});
+                    var panel = document.getElementById('renalDosing');
+                    var sequence = (panel.renalDosingRequest || 0) + 1;
+                    panel.renalDosingRequest = sequence;
+                    CarlosAjax.request(url, {method: 'GET', parameters: params, onComplete: function (transport) {
+                        if (panel.renalDosingRequest !== sequence) return;
+                        if (transport.status === 200 && transport.responseJSON && transport.responseJSON.renalState === 'no-guidance') {
+                            panel.innerHTML = '';
+                            return;
+                        }
+                        var fragment = document.createElement('template');
+                        fragment.innerHTML = transport.responseText || '';
+                        if (transport.status >= 200 && transport.status < 300 && fragment.content.querySelector('[data-renal-dosing-panel]')) {
+                            panel.innerHTML = transport.responseText;
+                        } else {
+                            panel.innerHTML = '<p role="status"><fmt:message key="oscarRx.renal.unavailable"/> <button type="button"><fmt:message key="eform.download.msgRefresh"/></button></p>';
+                            panel.querySelector('button').onclick = getRenalDosingInformation;
+                        }
+                    }});
                     //alert(origRequest.responseText);
                 }
 

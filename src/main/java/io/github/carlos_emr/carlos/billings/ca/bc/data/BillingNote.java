@@ -45,7 +45,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
-import io.github.carlos_emr.carlos.util.UtilMisc;
 
 /**
  * +------------------+------------+------+-----+---------+----------------+
@@ -82,7 +81,8 @@ public class BillingNote {
         n.setBillingmasterNo(ConversionUtils.fromIntString(billingmaster_no));
         n.setProviderNo(provider_no);
         n.setCreatedate(new Date());
-        n.setNote(UtilMisc.mysqlEscape(note));
+        // JPA binds this value; SQL escaping would alter the note on every save.
+        n.setNote(note);
         n.setNoteType(BillingNotes.DEFAULT_NOTE_TYPE);
 
         BillingNoteDao dao = SpringUtils.getBean(BillingNoteDao.class);

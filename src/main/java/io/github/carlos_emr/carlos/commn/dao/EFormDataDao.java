@@ -41,6 +41,8 @@ import io.github.carlos_emr.carlos.commn.model.EFormData;
 
 public interface EFormDataDao extends AbstractDao<EFormData> {
 
+    List<EFormListingRow> findLegacyPatientFormsInGroup(Boolean current, int demographicNo, String group, String sort);
+
     public static final String SORT_NAME = "form_name";
     public static final String SORT_SUBJECT = "subject";
 
@@ -74,6 +76,10 @@ public interface EFormDataDao extends AbstractDao<EFormData> {
 
     public List<Integer> findAllFdidByFormId(Integer formId);
 
+    /**
+     * The id, patient, date, time and provider of every current instance of an eForm, for the EForm Report Tool.
+     * Instances deleted from the chart are left out.
+     */
     public List<Object[]> findMetaFieldsByFormId(Integer formId);
 
     public List<Integer> findAllCurrentFdidByFormId(Integer formId);

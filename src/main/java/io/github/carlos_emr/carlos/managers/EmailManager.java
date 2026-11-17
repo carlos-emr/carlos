@@ -14,10 +14,16 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.commons.lang3.math.NumberUtils;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDeliveryService;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
@@ -53,15 +59,21 @@ import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailSendResult;
 import io.github.carlos_emr.carlos.email.core.EmailConsentResolver;
 import io.github.carlos_emr.carlos.email.core.EmailConsentResult;
+import io.github.carlos_emr.carlos.email.core.EmailAttachmentSettings;
+import io.github.carlos_emr.carlos.email.core.EmailDocumentManifestComposer;
+import io.github.carlos_emr.carlos.email.core.EmailFieldLengthException;
+import io.github.carlos_emr.carlos.email.core.EmailFieldLengthValidator;
 import io.github.carlos_emr.carlos.email.core.EmailSender;
 import io.github.carlos_emr.carlos.email.core.EmailSenderFactory;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
 import io.github.carlos_emr.carlos.email.util.EmailNoteUtil;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
+import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.PDFEncryptionUtil;
+import io.github.carlos_emr.carlos.utility.DocumentManifest;
 import io.github.carlos_emr.carlos.utility.PDFSigningConfig;
 import io.github.carlos_emr.carlos.utility.PDFSigningUtil;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -111,6 +123,24 @@ public class EmailManager {
     static final String ARCHIVE_REDACTION = "[redacted]";
     private static final String SENDER_CONFIG_FAILURE_MESSAGE = "The email sender could not be set up from its configuration";
     static final String SENDER_CONFIG_MISCONFIGURATION_ERROR = "Email sender account is not configured or is inactive.";
+    /**
+     * Opt-in enforcement (#3673): when on ("true", "yes" or "on", as for every CARLOS switch), a
+     * sender account whose plaintext credential cannot be protected at rest is refused instead of
+     * sending: while the application encryption key is unavailable, or while an unreadable leftover
+     * credential keeps the transport's plaintext credential from being encrypted. Absent or off
+     * only warns. The servlet Startup listener creates and saves a key when none is set, so on a
+     * normal deployment only the leftover case applies; the first guards entry points that bypass
+     * Startup, should that change.
+     */
+    static final String REQUIRE_CREDENTIAL_KEY_PROPERTY = "email.credentials.require_encryption_key";
+    static final String CREDENTIAL_KEY_REQUIRED_ERROR =
+            "Email sender account cannot be used until the server encryption key is configured. Contact your administrator.";
+    /** Values CARLOS reads as a deliberate "off"; anything else that is not on is reported. */
+    private static final Set<String> OFF_VALUES = Set.of("false", "no", "off");
+    static final String CREDENTIAL_KEY_MISMATCH_ERROR =
+            "Email sender account credentials cannot be read with the server's current encryption key. Contact your administrator.";
+    static final String CREDENTIAL_UNREADABLE_LEFTOVER_ERROR =
+            "Email sender account holds an old credential the server's current encryption key cannot read. Contact your administrator.";
     private static final String EMAIL_AUDIT_CONTENT = "Email";
     private static final String UNKNOWN_NAME_PART = "Unknown";
     private static final String SENDER_NAME_PART = "Sender";
@@ -152,9 +182,13 @@ public class EmailManager {
     private PatientPortalInviteDeliveryDao inviteDeliveries;
     @Autowired
     private ClinicEmailFooterService clinicFooterService;
+    @Autowired
+    private EmailDocumentManifestComposer documentManifestComposer;
     private final EmailConsentResolver emailConsentResolver;
     private final EmailSenderFactory emailSenderFactory;
     private final OutboundEmailArchiveService outboundEmailArchiveService;
+    /** Sender config ids already reported for a credential key problem in this server run. */
+    private final Set<Integer> credentialKeyWarnings = ConcurrentHashMap.newKeySet();
 
     /**
      * Creates an email manager with the consent gate and sender factory used by the send path.
@@ -171,6 +205,24 @@ public class EmailManager {
         this.emailSenderFactory = emailSenderFactory;
         this.outboundEmailArchiveService = outboundEmailArchiveService;
         this.securityInfoManager = securityInfoManager;
+        logCredentialKeyEnforcement();
+    }
+
+    /**
+     * States once, at startup, whether credential key enforcement is on, so a mistyped value is
+     * not silently read as off.
+     */
+    private void logCredentialKeyEnforcement() {
+        String raw = CarlosProperties.getInstance().getProperty(REQUIRE_CREDENTIAL_KEY_PROPERTY);
+        boolean enforced = CarlosProperties.getInstance().isPropertyActive(REQUIRE_CREDENTIAL_KEY_PROPERTY);
+        String value = raw == null ? "" : raw.trim().toLowerCase(Locale.ROOT);
+        if (!enforced && !value.isEmpty() && !OFF_VALUES.contains(value)) {
+            logger.warn("{} has an unrecognised value, so email credential key enforcement is OFF. "
+                    + "Use true, yes or on to enable it.", REQUIRE_CREDENTIAL_KEY_PROPERTY);
+        } else {
+            logger.info("Email credential key enforcement ({}): {}", REQUIRE_CREDENTIAL_KEY_PROPERTY,
+                    enforced ? "on" : "off");
+        }
     }
 
     /**
@@ -224,7 +276,8 @@ public class EmailManager {
 
     /**
      * Sends an email as {@link #sendEmailWithResult(LoggedInInfo, EmailData)} does, with a gate that runs
-     * between the durable outbox write and dispatch. The gate does not run when consent blocks the send.
+     * between the durable outbox write and dispatch. The gate does not run when consent blocks the send
+     * or the sender account's credentials are refused ({@code credentialKeyRefusal}).
      */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public EmailSendResult sendEmailWithResult(LoggedInInfo loggedInInfo, EmailData emailData,
@@ -292,6 +345,8 @@ public class EmailManager {
                 emailData.setPassword("");
                 emailData.setPasswordClue("");
             }
+            List<EmailFieldLengthValidator.Violation> violations = EmailFieldLengthValidator.validate(emailData);
+            if (!violations.isEmpty()) throw new EmailFieldLengthException(violations);
             EmailConfig emailConfig = findActiveSenderEmailConfig(emailData);
             if (emailConfig == null) {
                 logger.warn("Email send failed before transport: sender configuration is missing or inactive; senderConfigId={}",
@@ -301,7 +356,6 @@ public class EmailManager {
             EmailConsentResult consentResult = emailConsentResolver.resolve(loggedInInfo, emailData.getDemographicNo());
             EmailLog emailLog = prepareEmailForOutbox(loggedInInfo, emailData, emailConfig);
             persistedEmailLog = emailLog;
-            upgradeConfigCredentialsAtRest(emailLog.getEmailConfig());
             applyConsentSnapshot(emailLog, consentResult, emailData);
             logPreparedEmail(loggedInInfo, emailLog);
             if (isBlockedByConsent(consentResult, emailData)) {
@@ -312,6 +366,22 @@ public class EmailManager {
                         String.valueOf(emailLog.getDemographic().getDemographicNo()), "");
                 return EmailSendResult.failed(emailLog, true);
             }
+
+            String credentialRefusal = credentialKeyRefusal(emailLog.getEmailConfig());
+            if (credentialRefusal != null) {
+                updateEmailStatus(loggedInInfo, emailLog, EmailStatus.FAILED, credentialRefusal);
+                String reason = credentialRefusalReason(credentialRefusal);
+                LogAction.addLog(loggedInInfo, "EmailManager.sendEmail.refusedCredentialKey", EMAIL_AUDIT_CONTENT,
+                        "emailLogId=" + emailLog.getId() + "&senderConfigId=" + emailLog.getEmailConfig().getId()
+                                + "&reason=" + reason,
+                        String.valueOf(emailLog.getDemographic().getDemographicNo()), "");
+                return EmailSendResult.failed(emailLog, EmailStatus.FAILED.equals(emailLog.getStatus()));
+            }
+            // Only once the send may proceed, and never for a row holding a field the current key
+            // cannot read: either would mix fields under two keys (a stale {ENC} password beside a
+            // newly encrypted api_key).
+            upgradeConfigCredentialsAtRest(emailLog.getEmailConfig());
+
             if (portalPassword) {
                 // The portal path archives and dispatches exactly like a normal send; only the
                 // password handling around the transport step differs.
@@ -323,7 +393,7 @@ public class EmailManager {
                     portalResult = portalEmailDelivery.send(loggedInInfo, emailLog, emailData,
                             () -> {
                                 encryptEmail(emailData);
-                                signAttachments(emailData);
+                                signAttachments(emailData, loggedInInfo, emailLog);
                             },
                             () -> archiveId.set(sendWithArchive(loggedInInfo,
                                     createSenderBeforeTransport(loggedInInfo, emailLog, emailData), emailLog,
@@ -354,7 +424,7 @@ public class EmailManager {
                 }
                 // After encryption and before the sender is built, so the signature covers the
                 // exact bytes that are archived and dispatched.
-                signAttachments(emailData);
+                signAttachments(emailData, loggedInInfo, emailLog);
                 EmailSender emailSender = emailSenderFactory.create(loggedInInfo, emailLog.getEmailConfig(), emailData);
                 Integer archiveId = sendWithArchive(loggedInInfo, emailSender, emailLog,
                         emailData.getArchiveRedactions(), dispatchGate);
@@ -799,9 +869,11 @@ public class EmailManager {
      * first use (the send path), so hand-inserted plaintext {@code emailConfig.configDetails} rows
      * are migrated the first time they are used to send.
      *
-     * <p>The upgrade is best-effort: if the encryption key is unavailable, or the persistence of the
-     * re-encrypted row fails, the row is left as-is and the send proceeds with the existing
-     * (plaintext) value rather than blocking outbound mail. Already-encrypted rows are detected by
+     * <p>The upgrade is best-effort. Without an encryption key it does nothing (see
+     * {@link #credentialKeyRefusal}); if encrypting or persisting the re-encrypted row fails, the
+     * row is left as-is and the send proceeds with the existing (plaintext) value rather than
+     * blocking outbound mail. A row holding any credential the current key cannot decrypt is left
+     * untouched, so its fields never end up under two keys. Already-encrypted rows are detected by
      * {@link EmailConfigSecrets} and produce no database write. Neither the secret nor the raw
      * {@code configDetails} JSON is ever logged.</p>
      *
@@ -811,7 +883,18 @@ public class EmailManager {
         if (emailConfig == null || emailConfig.getId() == null) {
             return;
         }
+        if (!EncryptionUtils.isKeyConfigured()) {
+            // Nothing can be encrypted without the key. credentialKeyRefusal reports that once per
+            // account; attempting here would log a stack trace on every send.
+            return;
+        }
         String original = emailConfig.getConfigDetailsJson();
+        if (!EmailConfigSecrets.encryptedSecretsDecrypt(original)) {
+            // A field the current key cannot read means this key may not be the one to keep: the
+            // runbook restores the original. Encrypting the row's other field now would put the
+            // two under different keys, and restoring the original would then lose this one.
+            return;
+        }
         try {
             String encrypted = EmailConfigSecrets.encryptSecrets(original);
             if (!java.util.Objects.equals(original, encrypted)
@@ -819,13 +902,163 @@ public class EmailManager {
                 emailConfig.setConfigDetailsJson(encrypted);
             }
         } catch (EmailSendingException | RuntimeException e) {
-            // Best-effort: neither a missing key (EmailSendingException) nor a persistence failure
-            // (RuntimeException, e.g. DataAccessException) may block outbound mail. The detached
+            // Best-effort: neither an encryption failure (EmailSendingException) nor a persistence
+            // failure (RuntimeException, e.g. DataAccessException) may block outbound mail. The detached
             // object is changed only after persistence succeeds. The DAO binds only the account ID
             // and encrypted JSON, never the plaintext credential, keeping database errors safe.
             logger.warn("Unable to encrypt email transport credentials at rest for config id={}",
                     emailConfig.getId(), e);
         }
+    }
+
+    /**
+     * Decides, before any transport is created, whether a sender account must be refused because
+     * of its credentials and the application encryption key (#3673).
+     *
+     * <ul>
+     *   <li>An unauthenticated LOCAL relay never uses a credential, so it is never refused. A
+     *       leftover secret on such a row is reported once.</li>
+     *   <li>An encrypted credential the transport reads that does not decrypt with the current
+     *       key, or that cannot be read because no key is available, is always refused: the send
+     *       would fail anyway, and the likely cause (the key was lost and a new one generated)
+     *       needs an administrator to restore the original key, not a retry. A leftover credential
+     *       the transport never reads, plaintext or encrypted, does not stop the send, with one
+     *       exception: when an unreadable leftover keeps the transport's plaintext credential from
+     *       being encrypted and {@value #REQUIRE_CREDENTIAL_KEY_PROPERTY} is on, the send is refused
+     *       until an administrator clears or re-enters the leftover.</li>
+     *   <li>A plaintext credential the transport reads, with no key available, is refused only when
+     *       {@value #REQUIRE_CREDENTIAL_KEY_PROPERTY} is on; otherwise it is reported once
+     *       and sent. With a key it is encrypted by {@link #upgradeConfigCredentialsAtRest}, unless
+     *       an unreadable leftover blocks that.</li>
+     * </ul>
+     *
+     * <p>A warning that lets the send proceed is logged once per account per server run, whatever
+     * its later edits; each refusal logs an ERROR, since each is a send that did not go out. Logs
+     * name the account id, the setting and the credential's field name, never the credential, the
+     * key or the JSON.</p>
+     *
+     * @return the staff-facing reason to record, or null when the send may proceed
+     */
+    String credentialKeyRefusal(EmailConfig emailConfig) {
+        if (emailConfig == null) {
+            return null;
+        }
+        EmailConfigSecrets.TransportSecretState state =
+                EmailConfigSecrets.transportSecretState(emailConfig.getConfigDetailsJson());
+        if (state == EmailConfigSecrets.TransportSecretState.NONE) {
+            return null;
+        }
+        Integer id = emailConfig.getId();
+        if (emailConfig.getEmailProvider() == EmailConfig.EmailProvider.LOCAL) {
+            if (state != EmailConfigSecrets.TransportSecretState.UNPARSEABLE && firstReport(id)) {
+                logger.warn("Sender config id={} is a LOCAL relay but holds a credential it never uses; remove it.", id);
+            }
+            return null;
+        }
+        String details = emailConfig.getConfigDetailsJson();
+        String field = transportCredentialField(emailConfig);
+        return EncryptionUtils.isKeyConfigured()
+                ? credentialRefusalWithKey(id, details, field, state)
+                : credentialRefusalWithoutKey(id, details, field);
+    }
+
+    /**
+     * {@link #credentialKeyRefusal} with a key: an encrypted credential the transport reads that does
+     * not decrypt is refused; so, under enforcement, is a plaintext one an unreadable leftover keeps
+     * from being encrypted.
+     */
+    private String credentialRefusalWithKey(Integer id, String details, String field,
+                                            EmailConfigSecrets.TransportSecretState state) {
+        if (state != EmailConfigSecrets.TransportSecretState.ENCRYPTED
+                || EmailConfigSecrets.encryptedSecretsDecrypt(details)) {
+            return null;
+        }
+        // Only the credential this transport reads can stop its mail. A leftover it never reads,
+        // such as an old password on an API account, is reported and the send proceeds, unless
+        // enforcement refuses it below.
+        if (EmailConfigSecrets.encryptedSecretDecrypts(details, field)) {
+            // The leftover also stops the at-rest upgrade, so a plaintext credential beside it stays plaintext.
+            boolean ownPlaintext = EmailConfigSecrets.transportSecretState(details, field)
+                    == EmailConfigSecrets.TransportSecretState.PLAINTEXT;
+            if (ownPlaintext && CarlosProperties.getInstance().isPropertyActive(REQUIRE_CREDENTIAL_KEY_PROPERTY)) {
+                logger.error("Email send refused: sender config id={} holds a credential its transport never uses that "
+                        + "cannot be decrypted with the current {}, so its {} cannot be encrypted at rest, and {} requires "
+                        + "that. Clear or re-enter the old credential on this sender account.",
+                        id, EncryptionUtils.SECRET_KEY_ENV_VAR, field, REQUIRE_CREDENTIAL_KEY_PROPERTY);
+                return CREDENTIAL_UNREADABLE_LEFTOVER_ERROR;
+            }
+            if (firstReport(id)) {
+                String unencrypted = ownPlaintext ? " Until then, its " + field + " stays unencrypted at rest." : "";
+                logger.warn("Sender config id={} holds a credential its transport never uses that cannot be "
+                        + "decrypted with the current {}; remove it.{}", id, EncryptionUtils.SECRET_KEY_ENV_VAR, unencrypted);
+            }
+            return null;
+        }
+        logger.error("Email send refused: sender config id={} holds credentials that cannot be decrypted with "
+                + "the current {}: they were encrypted under a different key, or the stored value is damaged. "
+                + "Restore the original key if it changed (generating a new one does not recover them); "
+                + "otherwise re-enter the credentials.",
+                id, EncryptionUtils.SECRET_KEY_ENV_VAR);
+        return CREDENTIAL_KEY_MISMATCH_ERROR;
+    }
+
+    /**
+     * {@link #credentialKeyRefusal} without a key. Nothing encrypted can be read, but only the credential
+     * this transport reads can stop its mail, so a leftover beside it, plaintext or encrypted, never decides.
+     */
+    private String credentialRefusalWithoutKey(Integer id, String details, String field) {
+        EmailConfigSecrets.TransportSecretState own = EmailConfigSecrets.transportSecretState(details, field);
+        if (own == EmailConfigSecrets.TransportSecretState.NONE) {
+            if (firstReport(id)) {
+                logger.warn("Sender config id={} holds a credential its transport never uses; remove it.", id);
+            }
+            return null;
+        }
+        if (own == EmailConfigSecrets.TransportSecretState.ENCRYPTED) {
+            logger.error("Email send refused: sender config id={} holds encrypted credentials but {} is not available. "
+                    + "Configure the original key.", id, EncryptionUtils.SECRET_KEY_ENV_VAR);
+            return CREDENTIAL_KEY_MISMATCH_ERROR;
+        }
+        String held = own == EmailConfigSecrets.TransportSecretState.UNPARSEABLE
+                ? "a configuration that cannot be parsed" : "plaintext credentials";
+        if (CarlosProperties.getInstance().isPropertyActive(REQUIRE_CREDENTIAL_KEY_PROPERTY)) {
+            logger.error("Email send refused: sender config id={} holds {}, {} is not available, and {} requires it",
+                    id, held, EncryptionUtils.SECRET_KEY_ENV_VAR, REQUIRE_CREDENTIAL_KEY_PROPERTY);
+            return CREDENTIAL_KEY_REQUIRED_ERROR;
+        }
+        if (firstReport(id)) {
+            logger.warn("Sender config id={} holds credentials that stay unencrypted because {} is not available. "
+                    + "Configure the key, then set {}=true to refuse such sends.",
+                    id, EncryptionUtils.SECRET_KEY_ENV_VAR, REQUIRE_CREDENTIAL_KEY_PROPERTY);
+        }
+        return null;
+    }
+
+    /**
+     * The audit reason for a refusal: encrypted credentials with no key at all ({@code keyMissing})
+     * are told apart from ones the current key cannot read ({@code keyMismatch}); plaintext
+     * credentials refused under enforcement are {@code keyRequired}, and a plaintext credential an
+     * unreadable leftover keeps from being encrypted, refused under enforcement, is
+     * {@code unreadableLeftover}.
+     */
+    private static String credentialRefusalReason(String refusal) {
+        if (CREDENTIAL_UNREADABLE_LEFTOVER_ERROR.equals(refusal)) {
+            return "unreadableLeftover";
+        }
+        if (!CREDENTIAL_KEY_MISMATCH_ERROR.equals(refusal)) {
+            return "keyRequired";
+        }
+        return EncryptionUtils.isKeyConfigured() ? "keyMismatch" : "keyMissing";
+    }
+
+    /** The credential field the account's transport reads: the API key for an API account, else the password. */
+    private static String transportCredentialField(EmailConfig emailConfig) {
+        return emailConfig.getEmailType() == EmailConfig.EmailType.API ? "api_key" : "password"; // NOSONAR java:S2068 - JSON field names, not credentials
+    }
+
+    /** True the first time an account is reported in this server run; ids are never null in practice. */
+    private boolean firstReport(Integer configId) {
+        return configId == null || credentialKeyWarnings.add(configId);
     }
 
     public boolean hasActiveEmailConfig(int senderConfigId) {
@@ -941,7 +1174,7 @@ public class EmailManager {
     @Transactional
     public EmailResolutionResult resolveEmailStatus(LoggedInInfo loggedInInfo, Integer emailLogId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
+            throw new SecurityException("missing required sec object (_email)");
         }
 
         EmailLog emailLog = emailLogDao.find(emailLogId);
@@ -1359,14 +1592,34 @@ public class EmailManager {
      * Sanitization rules:
      * - If no encrypted message and no attachments: disable encryption entirely
      * - If no encrypted message and unencrypted attachments: disable encryption
+     * - If encryption disabled: clear all encryption-related fields (checked first)
      * - If no attachments: disable attachment encryption
-     * - If encryption disabled: clear all encryption-related fields
      * - If no chart note: clear internal comment
      *
      * @param emailData EmailData the email data to sanitize
      */
     private void sanitizeEmailFields(EmailData emailData) {
-        if (StringUtils.isNullOrEmpty(emailData.getEncryptedMessage()) && emailData.getAttachments().isEmpty()) {
+        // Every send path, not only the eForm setup, must strip line breaks from the subject: the
+        // direct compose POST reaches here with the raw request value, and CR/LF in a subject is
+        // an SMTP header injection. Done before validation so the stored and sent subjects match.
+        emailData.setSubject(EmailAttachmentSettings.sanitizeSubject(emailData.getSubject()));
+        // The eForm setup strips control characters from the password and clue, but the direct
+        // compose and resend POSTs reach here with the raw values. Apply the same rule to every
+        // path, before validation, so the length check, the stored value and the PDF password
+        // all see one value (the compose page counts these fields the same way).
+        emailData.setPassword(EmailAttachmentSettings.sanitizePassword(emailData.getPassword()));
+        emailData.setPasswordClue(EmailAttachmentSettings.sanitizePassword(emailData.getPasswordClue()));
+        if (!emailData.getIsEncrypted()) {
+            // Encryption is off, so nothing below will use these fields: the encrypted message is
+            // only ever sent as the password-protected PDF. Clear them first. Previously an
+            // encrypted message typed before switching encryption off (and with no attachments)
+            // was kept and stored although never sent, and the length check could then reject a
+            // field the compose page hides and does not check, e.g. on an eForm auto-send.
+            emailData.setEncryptedMessage("");
+            emailData.setIsAttachmentEncrypted(false);
+            emailData.setPassword("");
+            emailData.setPasswordClue("");
+        } else if (StringUtils.isNullOrEmpty(emailData.getEncryptedMessage()) && emailData.getAttachments().isEmpty()) {
             emailData.setIsEncrypted(false);
             emailData.setIsAttachmentEncrypted(false);
             emailData.setPassword("");
@@ -1378,11 +1631,6 @@ public class EmailManager {
             emailData.setPasswordClue("");
         } else if (emailData.getAttachments().isEmpty()) {
             emailData.setIsAttachmentEncrypted(false);
-        } else if (!emailData.getIsEncrypted()) {
-            emailData.setEncryptedMessage("");
-            emailData.setIsAttachmentEncrypted(false);
-            emailData.setPassword("");
-            emailData.setPasswordClue("");
         }
 
         if (emailData.getChartDisplayOption().equals(ChartDisplayOption.WITHOUT_NOTE)) {
@@ -1509,12 +1757,34 @@ public class EmailManager {
      * fail-closed: if signing is enabled and any single attachment cannot be signed, the whole
      * send is aborted rather than delivering a partially signed or unsigned set.</p>
      *
+     * <p>This form embeds no document manifest; the send path uses
+     * {@link #signAttachments(EmailData, LoggedInInfo, EmailLog)}.</p>
+     *
      * @param emailData EmailData containing the final attachment list
+     * @throws EmailSendingException if signing is enabled but an attachment cannot be signed
+     */
+    void signAttachments(EmailData emailData) throws EmailSendingException {
+        signAttachments(emailData, null, null);
+    }
+
+    /**
+     * Signs outgoing PDF attachments as {@link #signAttachments(EmailData)} does and, when
+     * {@code pdf.signing.document_id.secret} is set, embeds each document's manifest in the same
+     * update as its signature (carlos-emr/carlos#4691). An attachment with no CARLOS record behind
+     * it, such as the rendered message text, gets no manifest. A manifest that cannot be built
+     * stops the send like any other signing failure. Each signed attachment gets an audit entry
+     * naming the signing key, the record and its document ID (carlos-emr/carlos#4691).
+     *
+     * @param emailData EmailData containing the final attachment list
+     * @param loggedInInfo the sending provider's session, or {@code null} for no manifests
+     * @param emailLog the send's email log, holding the patient and the sending provider, or
+     *        {@code null} for no manifests
      * @throws EmailSendingException if signing is enabled but an attachment cannot be signed
      */
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
-    void signAttachments(EmailData emailData) throws EmailSendingException {
+    void signAttachments(EmailData emailData, LoggedInInfo loggedInInfo, EmailLog emailLog)
+            throws EmailSendingException {
         List<EmailAttachment> attachments = emailData.getAttachments();
         if (attachments == null || attachments.isEmpty()) {
             return;
@@ -1527,12 +1797,24 @@ public class EmailManager {
         ensureWorkingDirectory(emailData);
         // An encrypted PDF can only be modified with its owner password.
         String ownerPassword = emailData.getIsEncrypted() ? emailData.getPassword() : null;
+        EmailDocumentManifestComposer.AttachmentManifests manifests = documentManifests(loggedInInfo, emailLog);
+        String keyId = signingKeyIdForAudit(signingConfig, loggedInInfo, emailLog);
         for (EmailAttachment attachment : attachments) {
             Path signedPDFPath = null;
             try {
                 Path attachmentPDFPath = PathValidationUtils.resolveTrustedPath(new File(attachment.getFilePath())).toPath();
-                signedPDFPath = PDFSigningUtil.signPDF(attachmentPDFPath, signingConfig, ownerPassword);
+                DocumentManifest manifest = manifests.forAttachment(attachment);
+                signedPDFPath = PDFSigningUtil.signPDF(attachmentPDFPath, signingConfig, ownerPassword, manifest);
+                boolean attachmentEncrypted = false;
+                if (loggedInInfo != null && emailLog != null) {
+                    // A protected message PDF can share a send with clear document attachments.
+                    // Read the signed bytes, not either send-level intent flag, for this audit row.
+                    try (PDDocument signed = Loader.loadPDF(signedPDFPath.toFile(), ownerPassword == null ? "" : ownerPassword)) {
+                        attachmentEncrypted = signed.isEncrypted();
+                    }
+                }
                 attachment.setFilePath(emailData.getWorkingDirectory().adoptGeneratedPdf(signedPDFPath).toString());
+                auditSignedAttachment(loggedInInfo, emailLog, attachment, keyId, manifest, attachmentEncrypted);
             } catch (IOException | RuntimeException e) {
                 // Any RuntimeException, not a chosen few: one that escaped would skip
                 // completeFailedSend and strand the EmailLog at PENDING behind a 500.
@@ -1543,6 +1825,64 @@ public class EmailManager {
                 logger.error("Failed to sign an email PDF attachment", e);
                 throw new EmailSendingException("Failed to sign email PDF attachment", e);
             }
+        }
+    }
+
+    /**
+     * The signing key's ID for the audit entries, or {@code null} when the send has no context to
+     * audit under. Read once per send; an unreadable keystore fails the send here, as signing would.
+     */
+    private String signingKeyIdForAudit(PDFSigningConfig signingConfig, LoggedInInfo loggedInInfo,
+            EmailLog emailLog) throws EmailSendingException {
+        if (loggedInInfo == null || emailLog == null) {
+            return null;
+        }
+        try {
+            return PDFSigningUtil.signingKeyId(signingConfig);
+        } catch (IOException | RuntimeException e) {
+            logger.error("Failed to read the PDF signing key for an email's signed PDFs", e);
+            throw new EmailSendingException("Failed to sign email PDF attachment", e);
+        }
+    }
+
+    /**
+     * Records that CARLOS signed one attachment: the email, the record it came from, the signing
+     * key and the embedded document ID and version, if any. The document ID is an opaque HMAC, so
+     * the entry is how a document ID is traced back to its record. No names or content. Like
+     * other audit entries it is written in the background ({@link LogAction#addLog}): a failure to
+     * store it is logged and does not stop the send.
+     */
+    private static void auditSignedAttachment(LoggedInInfo loggedInInfo, EmailLog emailLog, EmailAttachment attachment,
+            String keyId, DocumentManifest manifest, boolean encrypted) {
+        if (loggedInInfo == null || emailLog == null) {
+            return;
+        }
+        String data = "emailLogId=" + emailLog.getId()
+                + "&source=" + (attachment.getDocumentType() == null ? "" : attachment.getDocumentType().getName())
+                + "&recordId=" + attachment.getDocumentId()
+                + "&kid=" + keyId
+                + "&documentId=" + (manifest == null ? "" : manifest.documentId())
+                + "&version=" + (manifest == null ? "" : String.valueOf(manifest.version()))
+                + "&encrypted=" + encrypted;
+        String demographicNo = emailLog.getDemographic() == null ? null
+                : String.valueOf(emailLog.getDemographic().getDemographicNo());
+        // contentId is limited to 80 characters; keep the full tracing payload in log.data.
+        LogAction.addLog(loggedInInfo, "EmailManager.signAttachment", EMAIL_AUDIT_CONTENT,
+                String.valueOf(emailLog.getId()), demographicNo, data);
+    }
+
+    private EmailDocumentManifestComposer.AttachmentManifests documentManifests(LoggedInInfo loggedInInfo,
+            EmailLog emailLog) throws EmailSendingException {
+        if (loggedInInfo == null || emailLog == null) {
+            return EmailDocumentManifestComposer.AttachmentManifests.NONE;
+        }
+        try {
+            return documentManifestComposer.forSend(loggedInInfo, emailLog);
+        } catch (RuntimeException e) {
+            // Usually an invalid pdf.signing.document_id.secret. The message names the setting,
+            // never the patient or the document.
+            logger.error("Failed to prepare the document manifests for an email's signed PDFs", e);
+            throw new EmailSendingException("Failed to sign email PDF attachment", e);
         }
     }
 

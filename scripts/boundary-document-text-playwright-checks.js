@@ -5,7 +5,8 @@
  * User path: Schedule > Search > Master Record > E-Chart > Documents "+" > choose type, description and a small PDF > Add.
  * Asserts: a description of exactly the 255-character column that carries an apostrophe, accents, CJK, an emoji,
  * "&amp;", quotes, a backslash, "%41", "+" and ";" is stored byte for byte; and, last, a description one character past the
- * column is refused or visibly limited rather than silently cut.
+ * column is refused or visibly limited rather than silently cut; and a pasted description of 255 emoji and "X"
+ * (511 UTF-16 units) stays whole in the box and is refused, never clipped by the browser to text the column then accepts.
  * Fixtures: the owned FAKE- patient and a throw-away PDF; cleanup deletes the owned document / ctl_document rows, the chart
  * note and note link each upload creates, and the stored files they name (inside the document store only; SKIP when it is
  * not readable) and asserts they are gone.
@@ -16,6 +17,7 @@ const os = require('node:os');
 const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const b = require('./lib/boundary-values');
+const { failureMark, consumeExpectedFailure } = require('./lib/concurrency-support');
 const { runWorkflow } = require('./lib/workflow-session');
 const { markDocumentResidue, removeDocumentResidue } = require('./lib/document-residue');
 
@@ -47,8 +49,13 @@ async function workflow(s) {
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'bnd-doc-'));
   // Each upload files a chart note for its document and a note link (lib/document-residue.js); neither carries the description.
   const mark = markDocumentResidue(sql);
+  // The paste step's text is all emoji and carries no marker, so a document it wrongly stored is owned by its number:
+  // anything newer than this floor on the owned patient whose description starts with the emoji.
+  const pasteFloor = Number(sql.rows('SELECT COALESCE(MAX(document_no), 0) FROM document')[0][0]);
+  h.assert(Number.isInteger(pasteFloor) && pasteFloor >= 0, 'The document number floor is not a number');
   const rows = () => sql.rows(`SELECT d.document_no, d.docfilename FROM document d JOIN ctl_document c ON c.document_no=d.document_no
-    WHERE c.module='demographic' AND c.module_id=${patient} AND d.docdesc LIKE ${q(`${marker}%`)}`);
+    WHERE c.module='demographic' AND c.module_id=${patient} AND (d.docdesc LIKE ${q(`${marker}%`)}
+      OR (d.document_no > ${pasteFloor} AND d.docdesc LIKE ${q(`${T.emoji.repeat(8)}%`)}))`);
   s.cleanup(() => {
     const files = new Set();
     try {
@@ -71,19 +78,37 @@ async function workflow(s) {
   });
   const chart = await s.chart();
 
-  async function upload(description, label) {
+  async function upload(description, label, { paste = false } = {}) {
     const before = rows().length;
     const add = await s.popup(chart, chart.locator('a[onclick*="ViewDocumentReport?"][onclick*="mode=add"]').first(), `document-add-${label}`);
     const form = add.locator('form[action*="addEditDocument"]').first();
     await form.waitFor({ state: 'visible', timeout: 20000 });
     const types = await form.locator('select[name="docType"] option').evaluateAll(options => options.map(option => option.value).filter(value => value));
     await form.locator('select[name="docType"]').selectOption(types[0]);
-    await form.locator('input[name="docDesc"]').fill(description);
+    const box = form.locator('input[name="docDesc"]');
+    if (paste) {
+      // Inserted as a paste is: a maxlength counted in UTF-16 units would clip it here, before any check runs.
+      await box.fill('');
+      await box.focus();
+      await add.keyboard.insertText(description);
+    } else {
+      await box.fill(description);
+    }
     const shown = await form.locator('input[name="docDesc"]').inputValue();
     await form.locator('input[type="file"]').setInputFiles(tinyPdf(scratch, `bnd-${label}.pdf`));
-    await form.locator('input[name="Submit"]').first().click();
+    const mark = failureMark(s.recorder);
+    const [post] = await Promise.all([
+      add.waitForResponse(response => response.request().method() === 'POST'
+        && h.pathOnly(response.url()).endsWith('/documentManager/addEditDocument')),
+      form.locator('input[name="Submit"]').first().click(),
+    ]);
+    if (b.cpLength(description) > column) {
+      h.assert(post.status() === 400, `Overlong upload answered HTTP ${post.status()} instead of 400`);
+      await add.waitForLoadState('load');
+      consumeExpectedFailure(s.recorder, mark, { status: 400, path: /\/documentManager\/addEditDocument$/ });
+    } else h.assert(post.status() < 400, `Valid upload answered HTTP ${post.status()}`);
     const deadline = Date.now() + 25000;
-    while (Date.now() < deadline && rows().length <= before) await new Promise(resolve => setTimeout(resolve, 400));
+    while (post.status() < 400 && Date.now() < deadline && rows().length <= before) await new Promise(resolve => setTimeout(resolve, 400));
     await new Promise(resolve => setTimeout(resolve, 1000));
     // A refused upload leaves the add page open and re-rendered with its message; a saved one closes it.
     const text = add.isClosed() ? '' : (await add.locator('body').innerText().catch(() => '')).replace(/\s+/g, ' ').trim();
@@ -115,6 +140,48 @@ async function workflow(s) {
     }
     b.assertNotSilentlyTruncated(sql, 'document', 'docdesc', `document_no=${found[0][0]}`, shown, 'Document description past the column');
     h.assert(b.cpLength(shown) <= column, `The description box accepted ${b.cpLength(shown)} characters but document.docdesc holds ${column}`);
+  });
+
+  await s.step('an overlong edit refuses all changes and keeps the stored document intact', async () => {
+    const [[id, file]] = rows();
+    const before = sql.rows(`SELECT * FROM document WHERE document_no=${id}`);
+    const filePath = path.join(store, path.basename(file));
+    const content = fs.readFileSync(filePath);
+    const report = await s.popup(s.master, s.master.locator('.patient-nav a[href*="/documentManager/ViewDocumentReport"], a[onclick*="/documentManager/ViewDocumentReport"]').first(), 'document-boundary-report');
+    const row = report.locator('tr', { has: report.locator(`#docNo${id}`) });
+    const editor = await s.popup(report, row.locator('a[onclick*="/documentManager/ViewEditDocument"]'), 'document-boundary-edit');
+    await editor.locator('input[name="docDesc"]').fill(full + 'x');
+    await editor.locator('#observationDate').fill('2026-02-03');
+    const mark = failureMark(s.recorder);
+    const [post] = await Promise.all([
+      editor.waitForResponse(response => response.request().method() === 'POST'
+        && h.pathOnly(response.url()).endsWith('/documentManager/addEditDocument')),
+      editor.locator('input[name="Submit"]').click(),
+    ]);
+    h.assert(post.status() === 400, `Overlong edit answered HTTP ${post.status()} instead of 400`);
+    await editor.waitForLoadState('load');
+    consumeExpectedFailure(s.recorder, mark, { status: 400, path: /\/documentManager\/addEditDocument$/ });
+    h.assert(b.lengthRefusal(await editor.locator('body').innerText()), 'The edit refusal did not explain the description limit');
+    h.assert(JSON.stringify(sql.rows(`SELECT * FROM document WHERE document_no=${id}`)) === JSON.stringify(before),
+      'A refused edit still changed the stored document');
+    h.assert(fs.readFileSync(filePath).equals(content), 'A refused edit changed the stored file');
+    await editor.close();
+    await report.close();
+  });
+
+  await s.step('a pasted description of emoji one character past the column stays whole in the box and is refused', async () => {
+    // Only text of (almost) nothing but emoji shows the fault: a maxlength of twice the column, counted in UTF-16 units,
+    // clips 255 emoji and "X" (511 units) to exactly 255 emoji, which every later check accepts. Any ASCII marker in
+    // front would leave the clipped text over the column, refused anyway, so this text carries none.
+    const pasted = T.emoji.repeat(column) + 'X';
+    h.assert(b.cpLength(pasted) === column + 1 && pasted.length > 2 * column,
+      'Test bug: the pasted description is not one past the column with more UTF-16 units than a doubled maxlength allows');
+    const before = rows().length;
+    const { shown, text } = await upload(pasted, 'P', { paste: true });
+    h.assert(shown === pasted,
+      `The description box kept ${b.cpLength(shown)} of the ${b.cpLength(pasted)} pasted characters: the browser clipped the paste before any check`);
+    h.assert(rows().length === before, 'A pasted description one character past the column was saved');
+    h.assert(b.lengthRefusal(text), `The pasted description was not saved but the page gave no length-related refusal (page said: "${text.slice(0, 160)}")`);
   });
 }
 

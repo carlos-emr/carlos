@@ -29,6 +29,7 @@
 
 --%>
 
+<%@ taglib prefix="source" tagdir="/WEB-INF/tags" %>
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils"%>
 
 <%
@@ -70,6 +71,7 @@
 </head>
 <body>
 <div class="container mt-2">
+    <div><source:cdsSourceFields demographicNo="${demographicNo}" category="CareElements"/></div>
 
     <%-- Session-level error and info messages --%>
     <%=WebUtils.popErrorAndInfoMessagesAsHtml(session)%>
@@ -114,7 +116,7 @@
                             <td><carlos:encode value="${data.typeDescription}" context="html"/></td>
                             <td>
                                 <a href="#"
-                                   onclick="popupPage(300,800,'${pageContext.request.contextPath}/encounter/oscarMeasurements/SetupDisplayHistory?type=${carlos:forUriComponent(data.type)}'); return false;">
+                                   onclick="popupPage(300,800,'${pageContext.request.contextPath}/encounter/oscarMeasurements/SetupDisplayHistory?type=${carlos:forUriComponent(data.type)}&amp;demographicNo=${carlos:forHtmlAttribute(demographicNo)}'); return false;">
                                     <fmt:message key="encounter.oscarMeasurements.historyIndex.btnMore"/>
                                 </a>
                             </td>

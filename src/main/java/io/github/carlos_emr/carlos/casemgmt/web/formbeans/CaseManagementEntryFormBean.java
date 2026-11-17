@@ -32,11 +32,24 @@ import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.web.CheckBoxBean;
 import io.github.carlos_emr.carlos.casemgmt.web.CheckIssueBoxBean;
 
+import java.io.Serializable;
 import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
 
-public class CaseManagementEntryFormBean {
+/**
+ * Retains the note editor's note, CPP, issue selections and submitted form fields between requests.
+ * The entry action stores it under {@code ChartProgramContext.formKey}: patient and authenticated
+ * chart context for current callers, or the patient-only key for legacy callers. Request rendering
+ * also exposes the selected form as {@code caseManagementEntryForm}.
+ *
+ * <p>The form and its editor model are serializable so an HTTP session can be passivated or restored;
+ * the explicit serial version gives the form a stable serialization identity. Stored form fields do
+ * not replace the action's patient, program, permission or note-lock validation.</p>
+ */
+public class CaseManagementEntryFormBean implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     private CaseManagementNote caseNote;
     private CaseManagementCPP cpp;
     private String demoNo;

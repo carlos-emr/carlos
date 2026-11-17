@@ -57,9 +57,9 @@
             authentication policy is enforced separately by LoginFilter /
             UnauthenticatedRejectionResolver, which already list the same path.
             /form/createcustomedpdf is the extensionless prescription PDF servlet
-            (FrmCustomedPDFServlet, web.xml); the Rx print and fax flows POST to it,
+            (FrmCustomedPDFServlet, web.xml); the Rx print flow POSTs to it,
             and without this exclusion Struts claims the request and 404s before the
-            servlet runs, breaking prescription faxing.
+            servlet runs, breaking prescription printing. Faxing uses rx/faxPrescription.
          4. Serve only the two packaged Ontario MOH stylesheets through the default
             servlet; their extension is otherwise interpreted as an action name. -->
     <constant name="struts.action.excludePattern" value="^(?!(/[^/]+)?/(eform/efmformrtl_templates|library/eforms/signatureControl)\.jsp$).*\.(css|js|json|png|jpg|jpeg|bmp|gif|svg|ico|map|woff|woff2|ttf|eot|html|htm|jsp|jspf)$|^(/[^/]+)?/WEB-INF/.*|^/ws/.*|^/servlet/.*|^(/[^/]+)?/(patientlistbyappt|form/createpdf|form/createcustomedpdf|eform/createpdf|imageRenderingServlet|contentRenderingServlet(?:/.*)?|EFormSignatureViewForPdfGenerationServlet|EFormImageViewForPdfGenerationServlet|EFormApCacheForPdfGenerationServlet|EFormViewForPdfGenerationServlet|eformViewForPdfGenerationServlet)$|^(/[^/]+)?/billing/CA/ON/(ES|OU)\.xsl$|^/csrfguard$" />

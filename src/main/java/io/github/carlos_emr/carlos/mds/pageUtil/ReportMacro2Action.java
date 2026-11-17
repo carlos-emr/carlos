@@ -59,6 +59,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
+import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 
 
 import org.apache.struts2.ActionSupport;
@@ -140,6 +141,9 @@ public class ReportMacro2Action extends ActionSupport {
         // flag, not success, to decide whether to drop the item from its list and counters.
         result.put("acknowledged", outcome.acknowledged());
         result.put("clearedCount", outcome.clearedCount());
+        result.set("affectedVersionIds", objectMapper.valueToTree(outcome.affectedVersionIds()));
+        // Empty wire alias keeps cached pre-upgrade scripts working; no versions are retained.
+        result.set("retainedVersionIds", objectMapper.createArrayNode());
         response.getWriter().write(result.toString());
         return NONE;
     }
@@ -154,7 +158,15 @@ public class ReportMacro2Action extends ActionSupport {
      *                     counters count routing rows, so the browser needs this number rather
      *                     than assuming one per acknowledged item.
      */
-    protected record MacroOutcome(boolean success, boolean acknowledged, int clearedCount) {
+    protected record MacroOutcome(boolean success, boolean acknowledged, int clearedCount,
+            java.util.List<Integer> affectedVersionIds) {
+        protected MacroOutcome(boolean success, boolean acknowledged, int clearedCount) {
+            this(success, acknowledged, clearedCount, java.util.List.of());
+        }
+        static MacroOutcome ran(boolean acknowledged, int clearedCount, CommonLabResultData.ReportChainUpdate chain) {
+            return chain == null ? ran(acknowledged, clearedCount)
+                    : new MacroOutcome(true, acknowledged, clearedCount, chain.affectedVersionIds());
+        }
         static MacroOutcome notRun() {
             return new MacroOutcome(false, false, 0);
         }
@@ -177,7 +189,8 @@ public class ReportMacro2Action extends ActionSupport {
          */
         MacroOutcome combinedWith(MacroOutcome other) {
             return new MacroOutcome(success || other.success(), acknowledged || other.acknowledged(),
-                    Math.max(clearedCount, other.clearedCount()));
+                    Math.max(clearedCount, other.clearedCount()),
+                    java.util.stream.Stream.concat(affectedVersionIds.stream(), other.affectedVersionIds().stream()).distinct().toList());
         }
     }
 
@@ -213,6 +226,7 @@ public class ReportMacro2Action extends ActionSupport {
 
         boolean acknowledged = false;
         int clearedCount = 0;
+        CommonLabResultData.ReportChainUpdate chainUpdate = null;
 
         // The tickler's lab attachment is validated first, before the acknowledgement mutates
         // the routing rows: segmentID, labType and demographicNo are all request values, and a
@@ -223,12 +237,25 @@ public class ReportMacro2Action extends ActionSupport {
             ObjectNode jTickler = (ObjectNode) macro.get("tickler");
 
             if (jTickler.has("taskAssignedTo") && jTickler.has("message")) {
-                // The lab is attached through the attachment service (#3984), which requires
-                // _tickler write on the patient, _lab read, and proves the lab is routed to that
-                // patient under its own source. The checks run before any side effect so a
-                // refused attachment leaves neither an empty tickler nor an acknowledged lab.
+                // The reviewed item is attached through the attachment service (#3984), which
+                // requires _tickler write on the patient, read on the item's type, and proves the
+                // item belongs to that patient. The checks run before any side effect so a refused
+                // attachment leaves neither an empty tickler nor an acknowledged item.
+                boolean reviewedIsDocument = LabResultData.DOCUMENT.equals(StringUtils.trimToEmpty(labType));
+                if (reviewedIsDocument && StringUtils.isBlank(segmentID)) {
+                    // A blank id would parse to an empty attachment set, which the service
+                    // accepts and attaches nothing: the tickler would be filed unlinked.
+                    logger.warn("Document macro not run: missing segmentID");
+                    return MacroOutcome.failed();
+                }
                 pendingAttachment = new EnumMap<>(DocumentType.class);
-                pendingAttachment.put(DocumentType.LAB, Set.of(TicklerAttachmentParameters.labValue(labType, segmentID)));
+                if (reviewedIsDocument) {
+                    // The document viewer posts labType=DOC. The service refuses a document
+                    // submitted as a lab source, so a document is attached as a document.
+                    pendingAttachment.put(DocumentType.DOC, Set.of(segmentID.trim()));
+                } else {
+                    pendingAttachment.put(DocumentType.LAB, Set.of(TicklerAttachmentParameters.labValue(labType, segmentID)));
+                }
                 try {
                     pendingTickler = buildTickler(jTickler, Integer.parseInt(demographicNo), providerNo);
                     ticklerAttachmentService.requireAttachable(loggedInInfo, pendingTickler.getDemographicNo(), pendingAttachment);
@@ -261,8 +288,9 @@ public class ReportMacro2Action extends ActionSupport {
             // inbox shows one row per accession chain, so a macro that only stamped the newest
             // version left the row behind pointing at the previous version, and the lab looked
             // like the macro had done nothing. Same routine as the Acknowledge button.
-            clearedCount = CommonLabResultData.acknowledgeReport(segmentInt, providerNo, comment, labType,
-                    skipComment(providerNo), request.getParameter("multiID"));
+            chainUpdate = CommonLabResultData.updateReportStatusWithOlderVersionsDetailed(segmentInt, providerNo, 'A',
+                    comment, labType, skipComment(providerNo), request.getParameter("multiID"));
+            clearedCount = chainUpdate.clearedCount();
 
             // The routing transaction has already completed. A separate audit failure
             // must not hide the committed outcome or invite a duplicate macro retry.
@@ -295,7 +323,7 @@ public class ReportMacro2Action extends ActionSupport {
             ticklerAttachmentService.syncAttachments(loggedInInfo, t, pendingAttachment);
         }
 
-        return MacroOutcome.ran(acknowledged, clearedCount);
+        return MacroOutcome.ran(acknowledged, clearedCount, chainUpdate);
     }
 
     /**

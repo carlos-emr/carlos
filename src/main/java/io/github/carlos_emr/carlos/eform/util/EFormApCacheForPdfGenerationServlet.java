@@ -238,6 +238,13 @@ public final class EFormApCacheForPdfGenerationServlet extends HttpServlet {
 
     private static String execute(EForm form, DatabaseAP ap) throws ApLookupException {
         ParameterizedSql query = form.parameterizeAllFields(ap.getApSQL());
+        try {
+            if (io.github.carlos_emr.carlos.prevention.PreventionReadSafetyService.readsPreventions(query.getSql())) {
+                io.github.carlos_emr.carlos.prevention.PreventionData.requireExactDates(Integer.valueOf(form.getDemographicNo()));
+            }
+        } catch (io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException review) {
+            throw new ApLookupException("Prevention timing requires review before this document can be generated");
+        }
         String output = ap.getApOutput();
         ArrayList<String> names = DatabaseAP.parserGetNames(output);
         if (ap.isJsonOutput()) {
@@ -246,7 +253,7 @@ public final class EFormApCacheForPdfGenerationServlet extends HttpServlet {
             // literal <(name)NotFound>. Both reached the document — one as a blank clinical field
             // over HTTP 200, the other as that text rendered where a value belongs.
             com.fasterxml.jackson.databind.node.ArrayNode jsonValues =
-                    EFormUtil.getJsonValuesOrNull(names, query);
+                    EFormUtil.getJsonValuesOrNull(names, query, Integer.valueOf(form.getDemographicNo()));
             if (jsonValues == null) {
                 throw new ApLookupException("AP JSON query could not be executed or read");
             }
@@ -256,7 +263,7 @@ public final class EFormApCacheForPdfGenerationServlet extends HttpServlet {
         // list, which is the same value a healthy query returns for a patient with no matching data.
         // Reading it as "no data" printed a blank clinical field over HTTP 200 — invisible to every
         // render gate and to the clinician receiving the document.
-        List<String> values = EFormUtil.getValuesOrNull(names, query);
+        List<String> values = EFormUtil.getValuesOrNull(names, query, Integer.valueOf(form.getDemographicNo()));
         if (values == null) {
             throw new ApLookupException("AP query could not be executed or read");
         }
@@ -278,10 +285,7 @@ public final class EFormApCacheForPdfGenerationServlet extends HttpServlet {
             throw new ApLookupException("AP output declares " + names.size()
                     + " names but the query returned " + values.size() + " values");
         }
-        for (int i = 0; i < names.size(); i++) {
-            output = DatabaseAP.parserReplace(names.get(i), values.get(i), output);
-        }
-        return output;
+        return DatabaseAP.renderOutput(output, names, values);
     }
 
     /**

@@ -38,7 +38,54 @@ function checkFields() {
         }
     })
 
+    $("#ticklerAddForm .date-picker, #ticklerAddForm .time-picker").each(function () {
+        var format = this.name === 'serviceDate' ? 'Y-m-d' : 'h:i K';
+        if (!parseTicklerValue(this.value, format)) {
+            this.setCustomValidity(ticklerFormatMessage(format));
+            this.reportValidity();
+            paintErrorField($(this));
+            verified = false;
+        }
+    });
     return verified;
+}
+
+/** Return localized field guidance shared by the picker and save-time validation. */
+function ticklerFormatMessage(format) {
+    var form = document.getElementById?.('ticklerAddForm');
+    if (form) return form.getAttribute(format === 'Y-m-d' ? 'data-date-error' : 'data-time-error');
+    return format === 'Y-m-d'
+        ? 'Invalid service date. Use yyyy-MM-dd (for example 2030-12-31).'
+        : 'Invalid service time. Use hh:mm AM/PM or 24-hour HH:mm (for example 14:30).';
+}
+
+/** Parse only complete 12-hour AM/PM or 24-hour times, returning hours/minutes or undefined. */
+function parseTicklerTime(value) {
+    var match = /^(0?[1-9]|1[0-2]):([0-5]\d) (AM|PM)$/i.exec(value);
+    if (match) return [+match[1] % 12 + (match[3].toUpperCase() === 'PM' ? 12 : 0), +match[2]];
+    match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value);
+    return match ? [+match[1], +match[2]] : undefined;
+}
+
+/** Parse exact calendar dates or supported times, rejecting partial values and date rollover. */
+function parseTicklerValue(value, format) {
+    var match;
+    var date = new Date(2000, 0, 1);
+    if (format === 'Y-m-d') {
+        match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+        if (!match || +match[1] === 0) return undefined;
+        date.setHours(0, 0, 0, 0);
+        date.setFullYear(+match[1], +match[2] - 1, +match[3]);
+        if (date.getFullYear() !== +match[1] || date.getMonth() !== +match[2] - 1
+                || date.getDate() !== +match[3]) return undefined;
+    } else if (format === 'h:i K') {
+        var time = parseTicklerTime(value);
+        if (!time) return undefined;
+        date.setHours(time[0], time[1], 0, 0);
+    } else {
+        return undefined;
+    }
+    return date;
 }
 
 /**
@@ -48,8 +95,114 @@ function checkFields() {
  */
 function initTicklerPickers() {
     if (typeof flatpickr === 'undefined') return;
-    flatpickr('#ticklerAddForm .date-picker', {dateFormat: 'Y-m-d', allowInput: true});
-    flatpickr('#ticklerAddForm .time-picker', {enableTime: true, noCalendar: true, dateFormat: 'h:i K', allowInput: true});
+    $('#ticklerAddForm .date-picker, #ticklerAddForm .time-picker').each(function () {
+        var input = this;
+        var isTime = input.name === 'serviceTime';
+        var format = isTime ? 'h:i K' : 'Y-m-d';
+        var message = ticklerFormatMessage(format);
+        var feedback = document.createElement('div');
+        feedback.className = 'text-danger';
+        feedback.id = input.id + 'Error';
+        feedback.hidden = true;
+        feedback.textContent = message;
+        input.parentNode.parentNode.appendChild(feedback);
+        input.setAttribute('aria-describedby', feedback.id);
+        function clearError() {
+            input.setCustomValidity('');
+            input.removeAttribute('aria-invalid');
+            input.style.border = '';
+            feedback.hidden = true;
+        }
+        function showError() {
+            input.setCustomValidity(message);
+            input.setAttribute('aria-invalid', 'true');
+            feedback.hidden = false;
+        }
+        // Flatpickr recognizes "today" before calling parseDate. Check raw text before any
+        // commit event, including outside pointer presses (which precede blur).
+        var invalidText = null;
+        var interactingWithPicker = false;
+        /** Preserve refused raw input and close the picker on commit while allowing a calendar interaction to correct it. */
+        function rejectInvalidText(event) {
+            if (input.value && !parseTicklerValue(input.value, format)) {
+                // Stop Flatpickr's commit handler from clearing/reinterpreting raw input.
+                if (event) {
+                    event.stopImmediatePropagation();
+                    // A pointer press inside the calendar blurs this input before
+                    // its arrow/day handler runs. Keep the picker open for correction.
+                    if (event.type === 'blur' && interactingWithPicker) {
+                        showError();
+                        return;
+                    }
+                }
+                invalidText = input.value;
+                if (event) {
+                    if (event.type === 'keydown' && event.key === 'Enter') event.preventDefault();
+                    // Closing explicitly also retires the popup after a refused Tab/Enter.
+                    // Flatpickr's own commit handler would clear or reinterpret this text.
+                    input._flatpickr.close();
+                }
+                showError();
+            }
+        }
+        /** Apply strict validation before Enter or Tab lets Flatpickr normalize incomplete input. */
+        function rejectOnCommitKey(event) {
+            if (event.key === 'Enter' || event.key === 'Tab') rejectInvalidText(event);
+        }
+        /** Distinguish calendar correction clicks from outside commits so raw invalid text survives popup closure. */
+        function rejectOnOutsidePress(event) {
+            interactingWithPicker = input._flatpickr.calendarContainer.contains(event.target);
+            if (interactingWithPicker) invalidText = null;
+            if (event.target !== input && !input._flatpickr.calendarContainer.contains(event.target)) {
+                // Let Flatpickr close its popup; onClose restores the refused text.
+                rejectInvalidText();
+            }
+        }
+        input.addEventListener('blur', rejectInvalidText, true);
+        input.addEventListener('keydown', rejectOnCommitKey, true);
+        document.addEventListener('pointerdown', rejectOnOutsidePress, true);
+        document.addEventListener('mousedown', rejectOnOutsidePress, true);
+        document.addEventListener('touchstart', rejectOnOutsidePress, true);
+        /** Clear field errors only after the current text parses completely; retain invalid text for subsequent commits. */
+        function clearIfValid() {
+            invalidText = input.value && !parseTicklerValue(input.value, format) ? input.value : null;
+            if (!invalidText) clearError();
+        }
+        input.addEventListener('input', clearIfValid);
+        flatpickr(input, {
+            dateFormat: format,
+            enableTime: isTime,
+            noCalendar: isTime,
+            monthSelectorType: isTime ? 'static' : 'dropdown',
+            allowInput: true,
+            disableMobile: true,
+            parseDate: parseTicklerValue,
+            // Preserve refused text when Flatpickr closes after an outside press.
+            // Do not log flatpickr's error: it includes the user's input.
+            errorHandler: showError,
+            onDestroy: function () {
+                document.removeEventListener('pointerdown', rejectOnOutsidePress, true);
+                document.removeEventListener('mousedown', rejectOnOutsidePress, true);
+                document.removeEventListener('touchstart', rejectOnOutsidePress, true);
+                input.removeEventListener('input', clearIfValid);
+                input.removeEventListener('blur', rejectInvalidText, true);
+                input.removeEventListener('keydown', rejectOnCommitKey, true);
+                feedback.remove();
+            },
+            onClose: function () {
+                if (invalidText !== null) { input.value = invalidText; showError(); }
+            },
+            onChange: function (dates) {
+                if (dates.length && invalidText === null) clearError();
+            }
+        });
+    });
+}
+
+function destroyTicklerPickers() {
+    $('#ticklerAddForm .date-picker, #ticklerAddForm .time-picker').each(function () {
+        if (this._flatpickr) this._flatpickr.destroy();
+    });
 }
 
 //paint a red border around missing fields
@@ -77,6 +230,7 @@ function sendData(path, param, target, button) {
                         alert('Ticklers could not all be saved. Some may already have been created; review the selected patients before trying again.');
                     }
                 } else if (target == "modal") {
+                    destroyTicklerPickers();
                     if (typeof DOMPurify !== 'undefined') {
                         // DOMPurify sanitization with defaults plus form elements. Event handlers are stripped by DOMPurify defaults.
                         try {
@@ -103,6 +257,7 @@ function sendData(path, param, target, button) {
                     console.error('Drilldown request failed:', status, error);
                 }
                 if (target == "modal") {
+                    destroyTicklerPickers();
                     $('#assignTickler').find('.modal-body').html(
                         '<p style="color:red">Request failed. Please reload the page.</p>');
                     bootstrap.Modal.getOrCreateInstance(document.getElementById('assignTickler')).show();

@@ -39,7 +39,6 @@ import net.sf.jasperreports.export.SimpleExporterInput;
 import net.sf.jasperreports.export.SimpleOutputStreamExporterOutput;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.PrintResourceLogDao;
 import io.github.carlos_emr.carlos.commn.model.PrintResourceLog;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -47,11 +46,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.commn.dao.forms.FormBCAR2020Dao;
-import io.github.carlos_emr.carlos.commn.dao.forms.FormBCAR2020DataDao;
-import io.github.carlos_emr.carlos.commn.dao.forms.FormBCAR2020TextDao;
 import io.github.carlos_emr.carlos.form.model.FormBCAR2020;
-import io.github.carlos_emr.carlos.form.model.FormBCAR2020Data;
-import io.github.carlos_emr.carlos.form.model.FormBCAR2020Text;
 import io.github.carlos_emr.carlos.form.util.LanguageUtil;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -60,14 +55,12 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URISyntaxException;
 import java.sql.SQLException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -77,15 +70,12 @@ public class FrmBCAR20202Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
     private FormBCAR2020Dao bcar2020Dao = SpringUtils.getBean(FormBCAR2020Dao.class);
-    private FormBCAR2020DataDao bcar2020DataDao = SpringUtils.getBean(FormBCAR2020DataDao.class);
-    private FormBCAR2020TextDao bcar2020TextDao = SpringUtils.getBean(FormBCAR2020TextDao.class);
+    private final BCAR2020FormSaveService formSaveService = SpringUtils.getBean(BCAR2020FormSaveService.class);
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private final Logger logger = MiscUtils.getLogger();
     private final String RECORD_NAME = "BCAR2020";
-    private SimpleDateFormat formDateFormat = new SimpleDateFormat("yyyy/MM/dd");
 
     public FrmBCAR20202Action() {
     }
@@ -102,129 +92,53 @@ public class FrmBCAR20202Action extends ActionSupport {
         return "pg1";
     }
 
+    /**
+     * Stores the form and closes its window ({@code exit}, encounter/close.jsp). It does not redirect: a redirect
+     * already sent by {@link #save()} would have committed the response before the close page (issue #4919).
+     */
     public String saveAndExit() throws Exception {
-        save();
+        persistForm();
         return "exit";
     }
 
+    /** Stores the form and shows the page it was asked to go to next ({@code forwardTo}). */
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String save() throws Exception {
-        FrmBCAR2020Record bcar2020Record = (FrmBCAR2020Record) (new FrmRecordFactory()).factory(RECORD_NAME);
+        response.sendRedirect(request.getContextPath() + persistForm());
+        return NONE;
+    }
 
+    /**
+     * The extensionless route of a BC-AR 2020 page: 1 to 5, or 6 for Attachments. The pages live under WEB-INF and
+     * are served only at these routes; the public {@code formBCAR2020pg<N>.jsp} addresses no longer exist.
+     */
+    static String pageRoute(int pageNo) {
+        return pageNo == 6 ? "/form/formBCAR2020Attachments" : "/form/formBCAR2020pg" + pageNo;
+    }
+
+    /** Stores a new version of the form from the request and returns the application path of the next page. */
+    private String persistForm() throws Exception {
         int formId = StringUtils.isNotEmpty(request.getParameter("formId")) ? Integer.parseInt(request.getParameter("formId")) : 0;
         int demographicNo = StringUtils.isNotEmpty(request.getParameter("demographicNo")) ? Integer.parseInt(request.getParameter("demographicNo")) : 0;
-        String providerNo = StringUtils.isNotEmpty(request.getParameter("provNo")) ? request.getParameter("provNo") : "0";
-        Integer page = StringUtils.isNotEmpty(request.getParameter("pageNo")) ? Integer.parseInt(request.getParameter("pageNo")) : 1;
-        Integer forwardTo = StringUtils.isNotEmpty(request.getParameter("forwardTo")) ? Integer.parseInt(request.getParameter("forwardTo")) : page;
-
-        List<FormBCAR2020Data> currentRecords = bcar2020DataDao.findFields(formId);
-        List<FormBCAR2020Text> currentTextRecords = bcar2020TextDao.findFields(formId);
-        List<FormBCAR2020Data> addRecords = new ArrayList<>();
-        List<FormBCAR2020Text> addTextRecords = new ArrayList<>();
-
-        Map<String, String> currentValues = getMappedRecords(currentRecords);
-        currentValues.putAll(getMappedTextRecords(currentTextRecords));
-
-        List<FormBCAR2020Data> persistRecords = new ArrayList<>();
-        List<FormBCAR2020Text> persistTextRecords = new ArrayList<>();
-        Set<String> keys = request.getParameterMap().keySet();
-
-        FormBCAR2020 formBCAR2020 = new FormBCAR2020();
-        formBCAR2020.setDemographicNo(demographicNo);
-        formBCAR2020.setProviderNo(providerNo);
-        formBCAR2020.setFormCreated(new Date());
-
-        bcar2020Dao.persist(formBCAR2020);
-        formId = formBCAR2020.getId();
-
-        // copy all current values to new form
-        for (FormBCAR2020Data rec : currentRecords) {
-            if ((rec.getPageNo() == null || !rec.getPageNo().equals(page)) || StringUtils.trimToNull(request.getParameter(rec.getField())) != null) {
-                rec.setFormId(formId);
-                addRecords.add(rec);
-            }
+        int page = StringUtils.isNotEmpty(request.getParameter("pageNo")) ? Integer.parseInt(request.getParameter("pageNo")) : 1;
+        int forwardTo = StringUtils.isNotEmpty(request.getParameter("forwardTo")) ? Integer.parseInt(request.getParameter("forwardTo")) : page;
+        Map<String, String> values = new HashMap<>();
+        for (String key : request.getParameterMap().keySet()) {
+            values.put(key, request.getParameter(key));
         }
-        for (FormBCAR2020Text rec : currentTextRecords) {
-            if ((rec.getPageNo() == null || !rec.getPageNo().equals(page)) || StringUtils.trimToNull(request.getParameter(rec.getField())) != null) {
-                rec.setFormId(formId);
-                addTextRecords.add(rec);
-            }
-        }
-
-        for (String key : keys) {
-            if (key.contains("mt_")) {
-                // Multi text field type (this gets stored in a different table due to the size requirements
-                String value = StringUtils.trimToNull(request.getParameter(key));
-                // If the field is a global field (exists on all pages), set the page number to 0
-                Integer setPage = bcar2020Record.isGlobalField(key) ? 0 : page;
-
-                if (currentValues.get(setPage + "_" + key) != null) {
-                    FormBCAR2020Text record = getTextRecordByKey(addTextRecords, key);
-
-                    if (record != null) {
-                        if (value != null && !value.equals(currentValues.get(setPage + "_" + key))) {
-                            record.setValue(value);
-                        } else if (value == null) {
-                            record.setValue("");
-                        }
-                    }
-
-                } else if (currentValues.get(setPage + "_" + key) == null && value != null) {
-                    addTextRecords.add(new FormBCAR2020Text(formId, providerNo, setPage, key, value));
-                }
-            } else if (key.contains("_")) {
-                String value = StringUtils.trimToNull(request.getParameter(key));
-                // If the field is a global field (exists on all pages), set the page number to 0
-                Integer setPage = bcar2020Record.isGlobalField(key) ? 0 : page;
-
-                if (currentValues.get(setPage + "_" + key) != null) {
-                    FormBCAR2020Data record = getRecordByKey(addRecords, key);
-
-                    if (record != null) {
-                        if (value != null && !value.equals(currentValues.get(setPage + "_" + key))) {
-                            value = ((key.startsWith("c_") && value.equals("checked")) || value.equals("on")) ? "X" : value;
-                            record.setValue(value);
-                        } else if (value == null) {
-                            record.setValue("");
-                        }
-                    }
-
-                } else if (currentValues.get(setPage + "_" + key) == null && value != null) {
-                    value = ((key.startsWith("c_") && value.equals("checked")) || value.equals("on")) ? "X" : value;
-
-                    addRecords.add(new FormBCAR2020Data(formId, providerNo, setPage, key, value));
-                }
-            }
-        }
-
-        for (FormBCAR2020Data rec : addRecords) {
-            persistRecords.add(rec);
-        }
-
-        bcar2020DataDao.batchPersistAtomically(persistRecords, 50);
-
-        for (FormBCAR2020Text rec : addTextRecords) {
-            persistTextRecords.add(rec);
-        }
-
-        bcar2020TextDao.batchPersistAtomically(persistTextRecords, 50);
-
-        String url = "/form/formBCAR2020pg";
-        if (forwardTo == 6) {
-            url = url + "Attachments.jsp";
-        } else {
-            url = url + forwardTo + ".jsp";
-        }
-        url = url + "?demographic_no=" + demographicNo + "&formId=" + formId + "&provNo=" + providerNo;
-        response.sendRedirect(request.getContextPath() + url);
-        return NONE;
+        FormBCAR2020 saved = formSaveService.saveVersion(LoggedInInfo.getLoggedInInfoFromSession(request),
+                formId, demographicNo, page, values);
+        return pageRoute(forwardTo) + "?demographic_no=" + demographicNo + "&formId=" + saved.getId()
+                + "&provNo=" + saved.getProviderNo();
     }
 
     public String print() {
         Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
         Integer formId = Integer.parseInt(request.getParameter("formId"));
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        requirePatientRights(loggedInInfo, demographicNo, "r");
+        FrmBCAR2020Record.requireFormOfPatient(bcar2020Dao, formId, demographicNo);
 
         List<Integer> pagesToPrint = new ArrayList<>();
         // Loops through checking which pages were selected for printing
@@ -245,6 +159,20 @@ public class FrmBCAR20202Action extends ActionSupport {
         }
 
         return null;
+    }
+
+    /**
+     * Requires the BC-AR rights ({@code _form}) and the rights to this patient's record ({@code _demographic}), as
+     * {@code FrmForm2Action} does: a per-patient restriction is held on {@code _demographic$N}, which a
+     * {@code _form} check alone never reads.
+     */
+    private void requirePatientRights(LoggedInInfo loggedInInfo, int demographicNo, String rights) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", rights, demographicNo)) {
+            throw new SecurityException("missing required sec object (_form)");
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", rights, demographicNo)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
     }
 
     public void printPdf(OutputStream os, LoggedInInfo loggedInInfo, Integer demographicNo, Integer formId, List<Integer> pagesToPrint) {
@@ -301,51 +229,4 @@ public class FrmBCAR20202Action extends ActionSupport {
         }
     }
 
-    private FormBCAR2020Data getRecordByKey(List<FormBCAR2020Data> records, String key) {
-        FormBCAR2020Data record = null;
-
-        for (FormBCAR2020Data rec : records) {
-            if (rec.getField().equals(key)) {
-                record = rec;
-            }
-        }
-
-        return record;
-    }
-
-    private Map<String, String> getMappedRecords(List<FormBCAR2020Data> records) {
-        Map<String, String> recordMap = new HashMap<String, String>();
-
-        if (records != null) {
-            for (FormBCAR2020Data record : records) {
-                recordMap.put(record.getPageNo() + "_" + record.getField(), record.getValue());
-            }
-        }
-
-        return recordMap;
-    }
-
-    private FormBCAR2020Text getTextRecordByKey(List<FormBCAR2020Text> records, String key) {
-        FormBCAR2020Text record = null;
-
-        for (FormBCAR2020Text rec : records) {
-            if (rec.getField().equals(key)) {
-                record = rec;
-            }
-        }
-
-        return record;
-    }
-
-    private Map<String, String> getMappedTextRecords(List<FormBCAR2020Text> records) {
-        Map<String, String> recordMap = new HashMap<String, String>();
-
-        if (records != null) {
-            for (FormBCAR2020Text record : records) {
-                recordMap.put(record.getPageNo() + "_" + record.getField(), record.getValue());
-            }
-        }
-
-        return recordMap;
-    }
 }

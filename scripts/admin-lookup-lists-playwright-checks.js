@@ -22,6 +22,7 @@
  * Lists (best effort, while the browser is open) before the SQL teardown.
  * Reordering (method=order) has no UI control and is not driven (reported).
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const {clickOpensPopupOrNavigates} = require('./lib/playwright-ui');
 const {revealAuditLink} = require('./lib/playwright-link-audit');
@@ -166,11 +167,14 @@ async function workflow(s) {
     h.assert(response.status() !== 200 || !(await response.text()).includes('lookupListItems_'), 'A tokenless POST was answered with the manager page');
     h.assert(orderNow() === before, 'A tokenless POST changed the item display order');
   });
-  await s.step('a GET to the lookup list mutator is refused and changes nothing', async () => {
+  await s.step('GET and HEAD to the lookup list mutator are refused and change nothing', async () => {
     const before = orderNow();
-    const response = await s.context.request.get(h.appUrl(s.config.baseUrl, '/lookupListManagerAction'), {params: probe, maxRedirects: 0});
-    h.assert(orderNow() === before, 'A GET changed the item display order');
-    h.assert(response.status() === 405, `A GET to the lookup list mutator answered HTTP ${response.status()} instead of 405`);
+    for (const method of ['GET', 'HEAD']) {
+      const response = await s.context.request.fetch(h.appUrl(s.config.baseUrl, '/lookupListManagerAction'),
+        {method, params: probe, maxRedirects: 0});
+      h.assert(orderNow() === before, `${method} changed the item display order`);
+      h.assert(response.status() === 405, `${method} to the lookup list mutator answered HTTP ${response.status()} instead of 405`);
+    }
   });
   if (admin && admin !== s.schedule && !admin.isClosed()) await admin.close();
 }

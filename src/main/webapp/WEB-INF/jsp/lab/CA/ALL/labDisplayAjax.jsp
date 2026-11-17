@@ -34,24 +34,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.PatientLabRouting" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao" %>
-<%@ page import="java.util.*,
-                 java.sql.*,
-                 io.github.carlos_emr.carlos.db.*,
-                 io.github.carlos_emr.carlos.lab.ca.all.*,
-                 io.github.carlos_emr.carlos.lab.ca.all.util.*,
-                 io.github.carlos_emr.carlos.utility.SpringUtils,
-                 io.github.carlos_emr.carlos.lab.ca.all.parsers.*,
-                 io.github.carlos_emr.carlos.lab.LabRequestReportLink,
-                 io.github.carlos_emr.carlos.mds.data.ReportStatus,
-                 io.github.carlos_emr.carlos.log.*,
-                 io.github.carlos_emr.CarlosProperties,
-                 org.apache.commons.codec.binary.Base64,
-                 io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao,
-                 io.github.carlos_emr.carlos.commn.model.Hl7TextInfo,
-                 io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO,
-                 io.github.carlos_emr.carlos.commn.model.UserProperty,
-                 javax.swing.text.rtf.RTFEditorKit,
-                 java.io.ByteArrayInputStream" %>
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.carlos.lab.ca.all.*, io.github.carlos_emr.carlos.utility.SpringUtils, io.github.carlos_emr.carlos.lab.ca.all.parsers.*, io.github.carlos_emr.carlos.lab.LabRequestReportLink, io.github.carlos_emr.carlos.mds.data.ReportStatus, io.github.carlos_emr.carlos.log.*, io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao, io.github.carlos_emr.carlos.commn.model.Hl7TextInfo, io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO, io.github.carlos_emr.carlos.commn.model.UserProperty, javax.swing.text.rtf.RTFEditorKit, java.io.ByteArrayInputStream" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Tickler" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
@@ -63,7 +46,7 @@
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.AcknowledgementData" %>
 <%@ page import="java.net.URLEncoder" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.EmbeddedLabDocumentLoader" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.service.LabPdfPreviewSettings" %>
@@ -73,10 +56,10 @@
 <fmt:setLocale value="<%= LocaleUtils.resolveBundleLocale(request) %>"/>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProperties" %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -173,7 +156,9 @@
         }
     }
 
-    String multiLabId = Hl7textResultsData.getMatchingLabs(segmentID);
+    Hl7textResultsData.DisplayLabVersions displayVersions = Hl7textResultsData.getMatchingLabsForDisplay(segmentID);
+    String multiLabId = displayVersions.labIds();
+    boolean cmlVersionChainUnavailable = !displayVersions.reliable();
 
     MessageHandler handler = Factory.getHandler(segmentID);
     // Inline preview of PDFs embedded in HL7 ED results (#3977): read the lab display
@@ -406,6 +391,10 @@
     };
 </script>
 <div id="labdoc_<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>">
+    <% if (cmlVersionChainUnavailable) { %>
+    <div class="alert alert-warning" role="alert" data-carlos-cml-chain="unavailable"><fmt:message key="cml.versionChain.unavailable"/></div>
+    <fieldset disabled style="border:0;margin:0;padding:0;">
+    <% } %>
     <!-- form forwarding of the lab -->
     <form name="reassignForm_<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>" method="post">
         <input type="hidden" name="flaggedLabs" value="<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>"/>
@@ -579,7 +568,7 @@
                                                                         <a href="javascript:window.close()"><% } else { // we were called from lab module
                                                                         %></a>
                                                                         <c:set var="__enc_19"><carlos:encode value='<%= segmentID %>' context="uriComponent"/></c:set>
-                                                                        <a href="javascript:popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=HL7&segmentID=<carlos:encode value='${__enc_19}' context="javaScriptAttribute"/>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'searchPatientWindow')">
+                                                                        <a href="${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=HL7&amp;segmentID=<carlos:encode value='${__enc_19}' context="htmlAttribute"/>&amp;name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>" onclick="popupStart(360, 680, this.href, 'searchPatientWindow'); return false;">
                                                                             <% } %>
                                                                             <carlos:encode value='<%= handler.getPatientName() %>' context="html"/>
                                                                         </a>
@@ -1074,12 +1063,13 @@
                             + "&group=" + k;
                     String embeddedDocumentHref = request.getContextPath() + "/lab/DownloadEmbeddedDocumentFromLab" + embeddedDocumentQuery;
                     String embeddedDocumentViewHref = request.getContextPath() + "/lab/ViewEmbeddedDocumentFromLab" + embeddedDocumentQuery;
-                    String labValuesHref = "javascript:popupStart('660','900','" + request.getContextPath()
+                    // A real URL, opened in the popup by onclick. As a javascript: URL the browser percent-decoded it
+                    // first, so a test name with & or ' reached ViewLabValues cut short or broke the link.
+                    String labValuesUrl = request.getContextPath()
                             + "/lab/CA/ON/ViewLabValues?testName=" + URLEncoder.encode(obxName, StandardCharsets.UTF_8)
                             + "&demo=" + (demographicID != null ? URLEncoder.encode(demographicID, StandardCharsets.UTF_8) : "")
-                            + "&labType=HL7&identifier=" + URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)
-                            + "')";
-                    String observationHref = isEmbeddedDocumentResult ? embeddedDocumentHref : labValuesHref;
+                            + "&labType=HL7&identifier=" + URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8);
+                    String observationHref = isEmbeddedDocumentResult ? embeddedDocumentHref : labValuesUrl;
                 %>
                 <%
                     if (handler.getMsgType().equals("EPSILON")) {
@@ -1091,7 +1081,7 @@
 
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="<%=lineClass%>">
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                            href="<%= SafeEncode.forHtmlAttribute(observationHref) %>"><carlos:encode value='<%= obxName %>' context="html"/>
+                            href="<%= SafeEncode.forHtmlAttribute(observationHref) %>"<% if (!isEmbeddedDocumentResult) { %> onclick="popupStart('660','900',this.href); return false;"<% } %>><carlos:encode value='<%= obxName %>' context="html"/>
                     </a></td>
                     <td align="right">
                         <% if (isEmbeddedDocumentResult) { %>
@@ -1137,7 +1127,7 @@
                     if (!obxName.equals("")) { %>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="<%=lineClass%>">
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<carlos:encode value='<%= demographicID %>' context="javaScript"/>&labType=HL7&identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>')"><carlos:encode value='<%= obxName %>' context="html"/>
+                            href="${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&amp;demo=<carlos:encode value='<%= demographicID %>' context="uriComponent"/>&amp;labType=HL7&amp;identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>" onclick="popupStart('660','900',this.href); return false;"><carlos:encode value='<%= obxName %>' context="html"/>
                     </a></td>
                     <td align="right"><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/>
                     </td>
@@ -1190,11 +1180,11 @@
                     if (isUnstructuredDoc && !isEmbeddedDocumentResult && !isUndisplayableEmbeddedDocument) {
                         if (handler.getOBXIdentifier(j, k).equalsIgnoreCase(handler.getOBXIdentifier(j, k - 1)) && (obxCount > 1)) {%>
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<carlos:encode value='<%= demographicID %>' context="javaScript"/>&labType=HL7&identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>')"></a><%
+                            href="${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&amp;demo=<carlos:encode value='<%= demographicID %>' context="uriComponent"/>&amp;labType=HL7&amp;identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>" onclick="popupStart('660','900',this.href); return false;"></a><%
 	                                   				}
 	                                   			else{%>
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<carlos:encode value='<%= demographicID %>' context="javaScript"/>&labType=HL7&identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>')"><carlos:encode value='<%= obxName %>' context="html"/>
+                            href="${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&amp;demo=<carlos:encode value='<%= demographicID %>' context="uriComponent"/>&amp;labType=HL7&amp;identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>" onclick="popupStart('660','900',this.href); return false;"><carlos:encode value='<%= obxName %>' context="html"/>
                     </a><%}%>
                             <%if(isVIHARtf){
 												    //create bytes from the rtf string
@@ -1232,11 +1222,11 @@
                         if (handler.getMsgType().equals("PATHL7") && !isAllowedDuplicate && (obxCount > 1) && handler.getOBXIdentifier(j, k).equalsIgnoreCase(handler.getOBXIdentifier(j, k - 1)) && (handler.getOBXValueType(j, k).equals("TX") || handler.getOBXValueType(j, k).equals("FT"))) {
                     %>
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<carlos:encode value='<%= demographicID %>' context="javaScript"/>&labType=HL7&identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>')"></a><%
+                            href="${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&amp;demo=<carlos:encode value='<%= demographicID %>' context="uriComponent"/>&amp;labType=HL7&amp;identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>" onclick="popupStart('660','900',this.href); return false;"></a><%
 	                                   				}
 	                               				else{%>
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                            href="<%= SafeEncode.forHtmlAttribute(observationHref) %>"><carlos:encode value='<%= obxName %>' context="html"/>
+                            href="<%= SafeEncode.forHtmlAttribute(observationHref) %>"<% if (!isEmbeddedDocumentResult) { %> onclick="popupStart('660','900',this.href); return false;"<% } %>><carlos:encode value='<%= obxName %>' context="html"/>
                     </a></td>
                     <%}%>
                     <%
@@ -1404,4 +1394,5 @@ bgcolor="#003399">
         </table>
     </form>
 
+    <% if (cmlVersionChainUnavailable) { %></fieldset><% } %>
 </div>

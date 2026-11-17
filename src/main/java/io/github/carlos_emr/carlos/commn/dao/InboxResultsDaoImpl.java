@@ -28,6 +28,7 @@ import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.SystemPreferences;
@@ -149,10 +150,29 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
         return populateDocumentResultsData(providerNo, demographicNo, patientFirstName, patientLastName, patientHealthNumber, status, isPaged, page, pageSize, mixLabsAndDocs, isAbnormal, null, null);
     }
 
-    @SuppressWarnings("unchecked")
     public ArrayList<LabResultData> populateDocumentResultsData(String providerNo, String demographicNo, String patientFirstName,
                                                                 String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page,
                                                                 Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, Date startDate, Date endDate) {
+        return populateDocumentResultsData(providerNo, demographicNo, patientFirstName, patientLastName, patientHealthNumber, status, isPaged, page, pageSize, mixLabsAndDocs, isAbnormal, startDate, endDate, null);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Builds one of eight native queries: labs and documents mixed or not, crossed with the
+     * unmatched view ({@code demographicNo} {@code "0"}), one patient, a name or health-number
+     * search, or the provider's whole list. Each row carries the document's type as its
+     * discipline, which the Inbox views show in their Discipline column, and its saved
+     * description ({@code document.docdesc}); a blank value of either is returned as none. The
+     * clinic's Inbox date preference picks the received or observation date
+     * for filtering, display and order. A failure is logged and the rows built so far are
+     * returned.</p>
+     */
+    @SuppressWarnings("unchecked")
+    public ArrayList<LabResultData> populateDocumentResultsData(String providerNo, String demographicNo, String patientFirstName,
+                                                                String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page,
+                                                                Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, Date startDate, Date endDate,
+                                                                Date acknowledgedSince) {
         if (providerNo == null) {
             providerNo = "";
         }
@@ -184,11 +204,18 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
             }
         }
 
+        // The clinic's Inbox date preference: "receivedCreated" filters, shows and orders documents
+        // by the date they were received; anything else uses the observation date. Every query
+        // shape selects and orders by the same column.
+        boolean byReceivedDate = "receivedCreated".equals(dateSearchType);
+        String selectedDateColumn = byReceivedDate ? "doc.contentdatetime" : "doc.observationdate";
+        String documentOrderBy = " ORDER BY " + selectedDateColumn + " DESC, doc.document_no DESC ";
+
         String dateSql = "";
         SimpleDateFormat dateSqlFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         //Check if the startDate is null, if a date exists then creates the SQL for the startDate
         if (startDate != null) {
-            if (dateSearchType.equals("receivedCreated")) {
+            if (byReceivedDate) {
                 dateSql += " AND doc.contentdatetime >= :startDate";
             } else {
                 dateSql += " AND doc.observationdate >= :startDate";
@@ -197,7 +224,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
 
         //Check if the endDate is null, if a date exists then creates the SQL for the endDate
         if (endDate != null) {
-            if (dateSearchType.equals("receivedCreated")) {
+            if (byReceivedDate) {
                 dateSql += " AND doc.contentdatetime <= :endDate";
             } else {
                 dateSql += " AND doc.observationdate <= :endDate";
@@ -211,15 +238,24 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                 isDocAbnormalSql = " AND (doc.abnormal = FALSE OR doc.abnormal IS NULL) ";
             }
         }
+        // Acknowledging stamps the routing row, so the acknowledgement bound sits on the routing
+        // row (alias plr in every subquery that reads one), never on the document's own dates.
+        String routingStatusSql = ("".equals(status) ? " IS NOT NULL " : " = :status ")
+            + (acknowledgedSince == null ? "" : " AND plr.timestamp >= :acknowledgedSince ");
 
         int docNoLoc = -1;
         int statusLoc = -1;
-        int docTypeLoc = -1;
         int lastNameLoc = -1;
         int firstNameLoc = -1;
         int hinLoc = -1;
         int sexLoc = -1;
         int moduleLoc = -1;
+        // Every query shape below selects the document's own description (document.docdesc) at
+        // descriptionLoc. Six shapes once read document.doctype there instead (every mixed
+        // labs-and-documents shape, and the separate shapes for one patient or a name search).
+        // The Inbox views show a document's type in their Discipline column, which the row carries
+        // as its discipline, read from the loaded document below; the lab_type column the shapes
+        // still select is no longer read (#5685).
         int descriptionLoc = -1;
         int updateDateLoc = -1;
         try {
@@ -231,7 +267,6 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                 if ("0".equals(demographicNo)) {
                     docNoLoc = 1;
                     statusLoc = 2;
-                    docTypeLoc = 3;
                     lastNameLoc = 4;
                     firstNameLoc = 5;
                     hinLoc = 6;
@@ -240,13 +275,13 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                     descriptionLoc = 10;
                     updateDateLoc = 11;
                     sql = " SELECT X.id, X.lab_no as document_no, X.status, X.lab_type as doctype, d.last_name, d.first_name, hin, sex, d.demographic_no as module_id, "
-                        + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime" : "doc.observationdate") + ", doc.doctype as description, date(doc.updatedatetime) "
+                        + selectedDateColumn + ", doc.docdesc as description, date(doc.updatedatetime) "
                         + " FROM document doc, "
                         + " (SELECT plr.id, plr.lab_type, plr.lab_no, plr.status "
                         + "  FROM patientLabRouting plr2, providerLabRouting plr, hl7TextInfo info "
                         + "  WHERE plr.lab_no = plr2.lab_no "
                         + (searchProvider ? " AND plr.provider_no = :providerNo " : " ")
-                        + "    AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = :status ")
+                        + "    AND plr.status " + routingStatusSql
                         + "    AND plr.lab_type = 'HL7'   "
                         + "    AND plr2.lab_type = 'HL7' "
                         + "    AND plr2.demographic_no = '0' "
@@ -257,7 +292,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                         + " SELECT plr.id, plr.lab_type, plr.lab_no, plr.status "
                         + " FROM providerLabRouting plr, ctl_document cd  "
                         + " WHERE plr.lab_type = 'DOC' "
-                        + " AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = :status ")
+                        + " AND plr.status " + routingStatusSql
                         + " AND cd.document_no  = plr.lab_no "
                         + " AND cd.module_id = -1 "
                         + (searchProvider ? " AND plr.provider_no = :providerNo " : " ")
@@ -269,13 +304,12 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                         + isDocAbnormalSql
                         + dateSql
                         + " GROUP BY doc.document_no"
-                        + " ORDER BY " + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime DESC," : "doc.observationdate DESC,") + " doc.document_no DESC "
+                        + documentOrderBy
                         + (isPaged ? "	LIMIT " + (page * pageSize) + "," + pageSize : "");
 
                 } else if (demographicNo != null && !"".equals(demographicNo)) {
                     docNoLoc = 1;
                     statusLoc = 2;
-                    docTypeLoc = 9;
                     lastNameLoc = 3;
                     firstNameLoc = 4;
                     hinLoc = 5;
@@ -284,14 +318,14 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                     descriptionLoc = 10;
                     updateDateLoc = 11;
                     sql = " SELECT plr.id, doc.document_no, plr.status, d.last_name, d.first_name, hin, sex, d.demographic_no as module_id,"
-                        + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime" : "doc.observationdate") + ", plr.lab_type as doctype, doc.doctype as description, date(doc.updatedatetime) "
+                        + selectedDateColumn + ", plr.lab_type as doctype, doc.docdesc as description, date(doc.updatedatetime) "
                         + " FROM demographic d, providerLabRouting plr, document doc, "
                         + " (SELECT * FROM "
                         + " (SELECT DISTINCT plr.id, plr.lab_type FROM providerLabRouting plr, ctl_document cd "
                         + " WHERE 	" + " (cd.module_id = :demographicNo "
                         + "	AND cd.document_no = plr.lab_no"
                         + "	AND plr.lab_type = 'DOC'  	"
-                        + "	AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = :status ")
+                        + " AND plr.status " + routingStatusSql
                         + (searchProvider ? " AND plr.provider_no = :providerNo )" : " )")
                         + " ORDER BY id DESC) AS Y"
                         + " UNION"
@@ -299,7 +333,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                         + " (SELECT DISTINCT plr.id, plr.lab_type FROM providerLabRouting plr, patientLabRouting plr2"
                         + " WHERE"
                         + "	plr.lab_type = 'HL7' AND plr2.lab_type = 'HL7'"
-                        + "	AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = :status ")
+                        + " AND plr.status " + routingStatusSql
                         + (searchProvider ? " AND plr.provider_no = :providerNo " : " ")
                         + " 	AND plr.lab_no = plr2.lab_no AND plr2.demographic_no = :demographicNo "
                         + " ORDER BY id DESC) AS Z"
@@ -309,12 +343,11 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                         + isDocAbnormalSql
                         + dateSql
                         + " GROUP BY doc.document_no"
-                        + " ORDER BY " + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime DESC," : "doc.observationdate DESC,") + " doc.document_no DESC "
+                        + documentOrderBy
                         + (isPaged ? "	LIMIT " + (page * pageSize) + "," + pageSize : "");
                 } else if (patientSearch) { // N arg
                     docNoLoc = 1;
                     statusLoc = 2;
-                    docTypeLoc = 9;
                     lastNameLoc = 3;
                     firstNameLoc = 4;
                     hinLoc = 5;
@@ -326,7 +359,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                     // out-of-province or imported patients) never satisfies LIKE, so a blank search
                     // field ("%%") would otherwise drop those patients from every Inbox search.
                     sql = " SELECT plr.id, doc.document_no, plr.status, d.last_name, d.first_name, hin, sex, d.demographic_no as module_id, "
-                        + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime" : "doc.observationdate") + ", plr.lab_type as doctype, doc.doctype as description, date(doc.updatedatetime) "
+                        + selectedDateColumn + ", plr.lab_type as doctype, doc.docdesc as description, date(doc.updatedatetime) "
                         + " FROM demographic d, providerLabRouting plr, document doc,  "
                         + " (SELECT * FROM "
                         + "	 (SELECT * FROM  "
@@ -335,7 +368,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                         + "			WHERE 	 "
                         + " (COALESCE(d.first_name, '') like :patientFirstName AND COALESCE(d.last_name, '') like :patientLastName AND COALESCE(d.hin, '') like :patientHealthNumber "
                         + "		AND cd.module_id = d.demographic_no 	AND cd.document_no = plr.lab_no	AND plr.lab_type = 'DOC' "
-                        + "	AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = :status ")
+                        + " AND plr.status " + routingStatusSql
                         + (searchProvider ? " AND plr.provider_no = :providerNo " : " ")
                         + "		) ORDER BY id DESC) AS Y "
                         + " 	UNION "
@@ -347,7 +380,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                         + "		AND	plr.lab_type = 'HL7' AND plr2.lab_type = 'HL7' "
                         + (isAbnormal != null ? " AND plr.lab_no = info.lab_no AND (info.result_status IS NULL OR info.result_status != 'A') "
                         : " ")
-                        + "	AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = :status ")
+                        + " AND plr.status " + routingStatusSql
                         + (searchProvider ? " AND plr.provider_no = :providerNo " : " ")
                         + " 	AND plr.lab_no = plr2.lab_no AND plr2.demographic_no = d.demographic_no ORDER BY id DESC) AS Z "
                         + " 			ORDER BY id DESC) AS X "
@@ -356,13 +389,12 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                         + isDocAbnormalSql
                         + dateSql
                         + " GROUP BY doc.document_no"
-                        + " ORDER BY " + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime DESC," : "doc.observationdate DESC,") + " doc.document_no DESC "
+                        + documentOrderBy
                         + (isPaged ? "	LIMIT " + (page * pageSize) + "," + pageSize : "");
 
                 } else {
                     docNoLoc = 0;
                     statusLoc = 1;
-                    docTypeLoc = 8;
                     lastNameLoc = 2;
                     firstNameLoc = 3;
                     hinLoc = 4;
@@ -373,25 +405,24 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                     // N
                     // document_no, status, last_name, first_name, hin, sex, module_id, observationdate
                     sql = "SELECT doc.document_no, plr.status, d.last_name, d.first_name, d.hin, d.sex, cd.module_id,"
-                        + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime" : "doc.observationdate") + ", plr.lab_type, doc.doctype, date(doc.updatedatetime) "
+                        + selectedDateColumn + ", plr.lab_type, doc.docdesc as description, date(doc.updatedatetime) "
                         + "FROM document doc "
                         + "LEFT JOIN providerLabRouting plr ON doc.document_no = plr.lab_no "
                         + "LEFT JOIN ctl_document cd ON cd.document_no = doc.document_no "
                         + "LEFT JOIN demographic d ON cd.module_id = d.demographic_no "
                         + "WHERE plr.lab_type = 'DOC' "
                         + (searchProvider ? " AND plr.provider_no = :providerNo " : " ")
-                        + " AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = :status ")
+                        + " AND plr.status " + routingStatusSql
                         + isDocAbnormalSql
                         + dateSql
                         + " GROUP BY doc.document_no "
-                        + " ORDER BY " + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime DESC," : "doc.observationdate DESC,") + " doc.document_no DESC"
+                        + documentOrderBy
                         + (isPaged ? " LIMIT " + (page * pageSize) + "," + pageSize : "");
                 }
             } else { // Don't mix labs and docs.
                 if ("0".equals(demographicNo)) {
                     docNoLoc = 1;
                     statusLoc = 2;
-                    docTypeLoc = 5;
                     lastNameLoc = 6;
                     firstNameLoc = 7;
                     hinLoc = 8;
@@ -400,23 +431,22 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                     descriptionLoc = 10;
                     updateDateLoc = 11;
                     sql = "SELECT plr.id, doc.document_no, plr.status, demographic_no as module_id,"
-                        + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime" : "doc.observationdate") + ", plr.lab_type as doctype, last_name, first_name, hin, sex, docdesc, date(doc.updatedatetime) as updateDateLoc"
+                        + selectedDateColumn + ", plr.lab_type as doctype, last_name, first_name, hin, sex, docdesc, date(doc.updatedatetime) as updateDateLoc"
                         + " FROM providerLabRouting plr"
                         + " LEFT JOIN document doc ON doc.document_no = plr.lab_no"
                         + " RIGHT JOIN ctl_document cd ON cd.document_no = plr.lab_no AND cd.module_id = -1"
                         + " LEFT JOIN demographic d ON d.demographic_no = -1"
                         + " WHERE plr.lab_type = 'DOC' "
-                        + " AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = :status ")
+                        + " AND plr.status " + routingStatusSql
                         + (searchProvider ? " AND plr.provider_no = :providerNo " : "")
                         + isDocAbnormalSql
                         + dateSql
                         + " GROUP BY doc.document_no"
-                        + " ORDER BY " + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime DESC," : "doc.observationdate DESC,") + " doc.document_no DESC"
+                        + documentOrderBy
                         + (isPaged ? "	LIMIT " + (page * pageSize) + "," + pageSize : "");
                 } else if (demographicNo != null && !"".equals(demographicNo)) {
                     docNoLoc = 1;
                     statusLoc = 2;
-                    docTypeLoc = 9;
                     lastNameLoc = 3;
                     firstNameLoc = 4;
                     hinLoc = 5;
@@ -425,24 +455,23 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                     descriptionLoc = 10;
                     updateDateLoc = 11;
                     sql = "SELECT plr.id, doc.document_no, plr.status, last_name, first_name, hin, sex, module_id,"
-                        + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime" : "doc.observationdate") + ", plr.lab_type as doctype, doc.doctype as description, date(doc.updatedatetime) "
+                        + selectedDateColumn + ", plr.lab_type as doctype, doc.docdesc as description, date(doc.updatedatetime) "
                         + "FROM ctl_document cd, demographic d, providerLabRouting plr, document doc "
                         + "WHERE d.demographic_no = :demographicNo "
                         + "	AND cd.module_id = d.demographic_no "
                         + "	AND cd.document_no = plr.lab_no "
                         + "	AND plr.lab_type = 'DOC' "
-                        + "	AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = :status ")
+                        + " AND plr.status " + routingStatusSql
                         + (searchProvider ? " AND plr.provider_no = :providerNo " : "")
                         + "	AND doc.document_no = cd.document_no "
                         + isDocAbnormalSql
                         + dateSql
                         + " GROUP BY doc.document_no"
-                        + " ORDER BY " + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime DESC," : "doc.observationdate DESC,") + " doc.document_no DESC"
+                        + documentOrderBy
                         + (isPaged ? "	LIMIT " + (page * pageSize) + "," + pageSize : "");
                 } else if (patientSearch) {
                     docNoLoc = 1;
                     statusLoc = 2;
-                    docTypeLoc = 9;
                     lastNameLoc = 3;
                     firstNameLoc = 4;
                     hinLoc = 5;
@@ -454,24 +483,23 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                     // out-of-province or imported patients) never satisfies LIKE, so a blank search
                     // field ("%%") would otherwise drop those patients from every Inbox search.
                     sql = "SELECT plr.id, doc.document_no, plr.status, last_name, first_name, hin, sex, module_id,"
-                        + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime" : "doc.observationdate") + ", plr.lab_type as doctype, doc.doctype as description, date(doc.updatedatetime) "
+                        + selectedDateColumn + ", plr.lab_type as doctype, doc.docdesc as description, date(doc.updatedatetime) "
                         + "FROM ctl_document cd, demographic d, providerLabRouting plr, document doc "
                         + "WHERE COALESCE(d.first_name, '') like :patientFirstName AND COALESCE(d.last_name, '') like :patientLastName AND COALESCE(d.hin, '') like :patientHealthNumber "
                         + "	AND cd.module_id = d.demographic_no "
                         + "	AND cd.document_no = plr.lab_no "
                         + "	AND plr.lab_type = 'DOC' "
-                        + "	AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = :status ")
+                        + " AND plr.status " + routingStatusSql
                         + (searchProvider ? " AND plr.provider_no = :providerNo " : "")
                         + "	AND doc.document_no = cd.document_no "
                         + isDocAbnormalSql
                         + dateSql
                         + " GROUP BY doc.document_no"
-                        + " ORDER BY " + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime DESC," : "doc.observationdate DESC,") + " doc.document_no DESC"
+                        + documentOrderBy
                         + (isPaged ? "	LIMIT " + (page * pageSize) + "," + pageSize : "");
                 } else {
                     docNoLoc = 1;
                     statusLoc = 2;
-                    docTypeLoc = 9;
                     lastNameLoc = 3;
                     firstNameLoc = 4;
                     hinLoc = 5;
@@ -481,24 +509,24 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                     updateDateLoc = 11;
                     sql = " SELECT * "
                         + " FROM (SELECT plr.id, doc.document_no, plr.status, last_name, first_name, hin, sex, module_id,"
-                        + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime" : "doc.observationdate") + ", plr.lab_type as doctype, docdesc, updatedatetime "
+                        + selectedDateColumn + ", plr.lab_type as doctype, docdesc, updatedatetime "
                         + " FROM ctl_document cd, demographic d, providerLabRouting plr, document doc "
                         + " WHERE (cd.module_id = d.demographic_no) "
                         + " 	AND cd.document_no = plr.lab_no "
                         + " 	AND plr.lab_type = 'DOC' "
-                        + "	AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = :status ")
+                        + " AND plr.status " + routingStatusSql
                         + (searchProvider ? " AND plr.provider_no = :providerNo " : "")
                         + " 	AND doc.document_no = cd.document_no  "
                         + isDocAbnormalSql
                         + dateSql
                         + " UNION "
                         + " SELECT X.id, X.lab_no as document_no, X.status, last_name, first_name, hin, sex, X.module_id,"
-                        + (dateSearchType.equals("receivedCreated") ? "X.contentdatetime" : "X.observationdate") + ", X.lab_type as doctype, docdesc, updatedatetime "
+                        + (byReceivedDate ? "X.contentdatetime" : "X.observationdate") + ", X.lab_type as doctype, docdesc, updatedatetime "
                         + " FROM (SELECT plr.id, plr.lab_no, plr.status, plr.lab_type, cd.module_id,"
-                        + (dateSearchType.equals("receivedCreated") ? "contentdatetime" : "observationdate") + ", docdesc, updatedatetime "
+                        + (byReceivedDate ? "contentdatetime" : "observationdate") + ", docdesc, updatedatetime "
                         + " FROM ctl_document cd, providerLabRouting plr, document d "
                         + " WHERE plr.lab_type = 'DOC' "
-                        + "	AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = :status ")
+                        + " AND plr.status " + routingStatusSql
                         + (searchProvider ? " AND plr.provider_no = :providerNo " : "")
                         + " AND plr.lab_no = cd.document_no " + " AND cd.module_id = -1 "
                         + " AND d.document_no = cd.document_no "
@@ -508,7 +536,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                         + " ON d.demographic_no = -1"
                         + ") AS X "
                         + " GROUP BY document_no"
-                        + " ORDER BY " + (dateSearchType.equals("receivedCreated") ? "contentdatetime DESC," : "observationdate DESC,") + " document_no DESC"
+                        + " ORDER BY " + (byReceivedDate ? "contentdatetime DESC," : "observationdate DESC,") + " document_no DESC"
                         + (isPaged ? "	LIMIT " + (page * pageSize) + "," + pageSize : "");
                 }
             }
@@ -524,6 +552,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
             if (endDate != null && sql.contains(":endDate")) query.setParameter("endDate", new java.sql.Timestamp(endDate.getTime()));
             if (providerNo != null && sql.contains(":providerNo")) query.setParameter("providerNo", providerNo);
             if (status != null && sql.contains(":status")) query.setParameter("status", status);
+            if (acknowledgedSince != null && sql.contains(":acknowledgedSince")) query.setParameter("acknowledgedSince", new java.sql.Timestamp(acknowledgedSince.getTime()));
             if (demographicNo != null && sql.contains(":demographicNo")) query.setParameter("demographicNo", demographicNo);
             if (patientFirstName != null && sql.contains(":patientFirstName")) query.setParameter("patientFirstName", "%" + patientFirstName + "%");
             if (patientLastName != null && sql.contains(":patientLastName")) query.setParameter("patientLastName", "%" + patientLastName + "%");
@@ -576,11 +605,11 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                 // Native query dates can be LocalDate/LocalDateTime in Hibernate 7.
                 // The document is already loaded above: use its mapped date values rather
                 // than parsing driver-dependent strings and silently dropping inbox rows.
-                Date selectedDate = dateSearchType.equals("receivedCreated")
+                Date selectedDate = byReceivedDate
                         ? contentDateTime : document.getObservationdate();
                 SimpleDateFormat dateOnlyFormatter = new SimpleDateFormat("yyyy-MM-dd");
                 if (selectedDate != null) {
-                    lbData.dateTime = dateSearchType.equals("receivedCreated")
+                    lbData.dateTime = byReceivedDate
                             ? dateSqlFormatter.format(selectedDate) : dateOnlyFormatter.format(selectedDate);
                     lbData.setDateObj(selectedDate);
                 } else if (document.getUpdatedatetime() != null) {
@@ -633,15 +662,13 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                 }
 
 
-                lbData.discipline = getStringValue(r[docTypeLoc]);
-                if (lbData.discipline.trim().equals("")) {
-                    lbData.discipline = null;
-                }
+                // A document's discipline is its type: every Inbox view shows it in the Discipline
+                // column (#5685). Null-safe, as document.doctype is nullable.
+                lbData.discipline = StringUtils.defaultIfBlank(document.getDoctype(), null);
 
-                lbData.description = getStringValue(r[descriptionLoc]);
-                if (lbData.description.trim().equals("")) {
-                    lbData.description = null;
-                }
+                // Null-safe: a NullPointerException here would end the loop in the catch below
+                // and silently drop this row and every row after it from the Inbox page.
+                lbData.description = StringUtils.defaultIfBlank(getStringValue(r[descriptionLoc]), null);
 
                 lbData.lastUpdateDate = getStringValue(r[updateDateLoc]);
 

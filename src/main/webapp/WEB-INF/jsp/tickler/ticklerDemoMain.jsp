@@ -28,7 +28,16 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-
+<%--
+    Purpose: Displays a patient's ticklers within the chart workflow.
+    Features: Pages and filters ticklers, opens attachments, and edits linked
+    clinical notes. Note saves POST to CaseManagementEntry; failed saves retain
+    the editor and display the localized failure message.
+    Parameters: demoview selects the patient; limit1/limit2 control paging;
+    ticklerview and the date fields filter results. parentAjaxId/updateParent
+    identify an optional owning chart panel to refresh.
+    @since 2026-10-24 (POST note-save recovery)
+--%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -57,23 +66,20 @@
     if (request.getParameter("limit2") != null) strLimit2 = request.getParameter("limit2");
     String demoview = request.getParameter("demoview") == null ? "all" : request.getParameter("demoview");
 
-    // A valid, POSITIVE demographic number, or null when demoview is absent,
-    // non-numeric or 0. The tickler search below binds this as a NON-NULL
-    // positional parameter (WHERE t.demographicNo = ?1) and the Add-Tickler
-    // button further down dereferences the fetched demographic, so each of
-    // those inputs used to yield a 500: an absent param bound null
-    // (IllegalArgumentException), a non-numeric value threw NumberFormatException,
-    // and a schedule tickler alert on an appointment with NO linked patient
-    // reaches this page as demoview=0 (infirmarydemographiclist.jspf) whose
-    // demographic 0 does not exist. Parse defensively and treat all three as
-    // "no patient context".
+    // The POSITIVE demographic number the ViewTicklerDemoMain gate parsed from demoview
+    // and authorized (_tickler r for that patient, including _demographic$/_eChart$
+    // record locks), or null when demoview carries no patient context (absent, "all"
+    // or 0; a schedule tickler alert on an appointment with NO linked patient reaches
+    // this page as demoview=0 from infirmarydemographiclist.jspf). Only the gate's
+    // authorized id drives the queries below, never the raw request parameter. The
+    // tickler search binds it as a NON-NULL positional parameter
+    // (WHERE t.demographicNo = ?1), so with no patient context the page renders the
+    // empty list and omits the Add-Tickler button instead of failing with a 500.
     Integer demoViewDemographicNo = null;
-    String demoViewParam = request.getParameter("demoview");
-    if (demoViewParam != null && demoViewParam.matches("\\d+")) {
-        int parsedDemoViewNo = Integer.parseInt(demoViewParam);
-        if (parsedDemoViewNo > 0) {
-            demoViewDemographicNo = parsedDemoViewNo;
-        }
+    // JSPs compile below Java 16 (jspc), so no instanceof pattern variables here.
+    Object authorizedDemoView = request.getAttribute(PatientReadAccess.AUTHORIZED_PATIENT_ATTRIBUTE);
+    if (authorizedDemoView instanceof String) {
+        demoViewDemographicNo = Integer.valueOf((String) authorizedDemoView);
     }
 
 //Retrieve encounter id for updating encounter navbar if info this page changes anything
@@ -94,7 +100,7 @@
 <%@ page import="java.util.*,java.text.*, io.github.carlos_emr.*" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
+
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
@@ -102,9 +108,10 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.PatientReadAccess" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Tickler" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.TicklerComment" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.TicklerUpdate" %>
+
 <%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentData" %>
@@ -140,10 +147,11 @@
 %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="tickler.ticklerMain.errorNoteSaveFailed" var="ticklerNoteSaveFailed"/>
 
 <html>
     <head>
@@ -209,14 +217,12 @@
                     },
                     async: false,
                     success: function (data) {
-                        // alert('ok');
+                        jQuery("#note-form").dialog("close");
                     },
                     error: function (jqXHR, textStatus, errorThrown) {
-                        alert(errorThrown);
+                        alert('${carlos:forJavaScriptBlock(ticklerNoteSaveFailed)}');
                     }
                 });
-
-                jQuery("#note-form").dialog("close");
             }
 
 
@@ -250,6 +256,23 @@
             //-->
         </script>
         <script>
+            <fmt:message key="tickler.ticklerDemoMain.msgConfirmDelete" var="msgConfirmDelete"/>
+            var i18nConfirmDelete = '<carlos:encode value='<%= (String) pageContext.getAttribute("msgConfirmDelete") %>' context="javaScriptBlock"/>';
+
+            /**
+             * Asks before Delete changes the status of the ticked tasks (#5683). Returns false when the
+             * clinician dismisses the prompt, so the caller must not submit. With nothing ticked the
+             * server only redirects back (DbTicklerDemoMain2Action), so there is nothing to confirm.
+             */
+            function confirmDeleteSelected() {
+                var ml = document.ticklerform;
+                var len = ml.elements.length;
+                for (var i = 0; i < len; i++) {
+                    var e = ml.elements[i];
+                    if (e.name == "checkbox" && e.checked) return confirm(i18nConfirmDelete);
+                }
+                return true;
+            }
 
             function Check(e) {
                 e.checked = true;
@@ -425,6 +448,8 @@
                 font-family: tahoma, sans-serif;
                 font-size: 11px;
             }
+
+            .tickler-date-picker { background: none; border: 0; padding: 0; font: 11px tahoma, sans-serif; color: #0000ee; text-decoration: underline; cursor: pointer; }
 
             TD.black {
                 font-weight: bold;
@@ -796,15 +821,13 @@
                 <td width="30%">
                     <div align="center"><input type="text" name="xml_vdate"
                                                value="<carlos:encode value='<%= xml_vdate %>' context="htmlAttribute"/>"> <font size="1"
-                                                                             face="Arial, Helvetica, sans-serif"> <a
-                            href="#"
-                            onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup?type=admission&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:message key="tickler.ticklerDemoMain.btnBegin"/>:</a></font></div>
+                                                                             face="Arial, Helvetica, sans-serif"> <button type="button" class="tickler-date-picker"
+                            onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup?type=admission&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:message key="tickler.ticklerDemoMain.btnBegin"/>:</button></font></div>
                 </td>
                 <td width="30%"><input type="text" name="xml_appointment_date"
                                        value="<carlos:encode value='<%= xml_appointment_date %>' context="htmlAttribute"/>"> <font size="1"
-                                                                                face="Arial, Helvetica, sans-serif"><a
-                        href="#"
-                        onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup?type=end&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:message key="tickler.ticklerDemoMain.btnEnd"/>:</a></font></td>
+                                                                                face="Arial, Helvetica, sans-serif"><button type="button" class="tickler-date-picker"
+                        onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup?type=end&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:message key="tickler.ticklerDemoMain.btnEnd"/>:</button></font></td>
                 <td width="20%">
                     <div align="right"><input type="hidden" name="demoview"
                                               value="<carlos:encode value='<%= demoview %>' context="htmlAttribute"/>"> <input type="hidden" name="Submit"
@@ -822,6 +845,7 @@
     </form>
 
     <form name="ticklerform" method="post" action="DbTicklerDemoMain">
+        <%@ include file="/WEB-INF/jsp/tickler/ticklerStaleSelection.jspf" %>
         <table bgcolor=#666699 border=0 cellspacing=0 width=100%>
 
             <tr>
@@ -935,7 +959,8 @@
                         <tr>
                             <TD ROWSPAN="1" class="<%=cellColour%> noprint"><input
                                     type="checkbox" name="checkbox"
-                                    value="<%=t.getId()%>"></TD>
+                                    value="<%=t.getId()%>"
+                                    data-rendered-status="<%= t.getStatus() == null ? "" : t.getStatus().name() %>"></TD>
                             <TD ROWSPAN="1" class="<%=cellColour%>">
                                 <%if (Boolean.parseBoolean(CarlosProperties.getInstance().getProperty("tickler_edit_enabled"))) {%>
                                 <a href=#
@@ -1021,7 +1046,7 @@
                                         }
                                         if (href != null) {
                                 %>
-                                <a href="javascript:reportWindow('<%=SafeEncode.forJavaScript(href)%>')" title="<carlos:encode value='<%= attachment.getDisplayName() %>' context="htmlAttribute"/>">ATT</a>
+                                <a href="<%=SafeEncode.forHtmlAttribute(href)%>" onclick="reportWindow(this.href); return false;" title="<carlos:encode value='<%= attachment.getDisplayName() %>' context="htmlAttribute"/>">ATT</a>
                                 <%
                                         } else {
                                 %>
@@ -1098,24 +1123,19 @@
                                                      <c:set var="__enc_1"><carlos:encode value='<%= parentAjaxId %>' context="uriComponent"/></c:set>
                                                      <c:set var="__enc_2"><carlos:encode value='<%= d.getChartNo() %>' context="uriComponent"/></c:set>
                                                      <c:set var="__enc_3"><carlos:encode value='<%= d.getDisplayName() %>' context="uriComponent"/></c:set>
-                                                     v                                                     
-alue="<fmt:message key="tickler.ticklerDemoMain.btnAddTickler"/>"
+                                                     value="<fmt:message key="tickler.ticklerDemoMain.btnAddTickler"/>"
                                                      onClick="popupPage('400','600', '<%= request.getContextPath() %>/tickler/ViewAddTickler?updateParent=true&parentAjaxId=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>&bFirstDisp=false&messageID=null&demographic_no=<carlos:encode value='<%= String.valueOf(d.getDemographicNo()) %>' context="javaScriptAttribute"/>&chart_no=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>&name=<carlos:encode value='${__enc_3}' context="javaScriptAttribute"/>')"
                                                      class="sbttn"><% } %> <input type="hidden" name="submit_form"
-                                                                           value=""> <% if (ticklerview.compareTo("D") == 0) {%>
-                                <input
-                                        type="button"
-                                        value="<fmt:message key="tickler.ticklerDemoMain.btnErase"/>"
-                                        class="sbttn"
-                                        onclick="document.forms['ticklerform'].submit_form.value='Erase Completely'; document.forms['ticklerform'].submit();">
-                                <%} else {%> <input type="button"
+                                                                           value="">
+                                <%-- Deleted tasks remain part of the clinical record; no erase action. --%>
+                                <% if (ticklerview.compareTo("D") != 0) {%> <input type="button"
                                                     value="<fmt:message key="tickler.ticklerDemoMain.btnComplete"/>"
                                                     class="sbttn"
                                                     onclick="document.forms['ticklerform'].submit_form.value='Complete'; document.forms['ticklerform'].submit();">
                                 <input type="button"
                                        value="<fmt:message key="tickler.ticklerDemoMain.btnDelete"/>"
                                        class="sbttn"
-                                       onclick="document.forms['ticklerform'].submit_form.value='Delete'; document.forms['ticklerform'].submit();">
+                                       onclick="if (!confirmDeleteSelected()) return false; document.forms['ticklerform'].submit_form.value='Delete'; document.forms['ticklerform'].submit();">
                                 <%}%> <input type="button" name="button"
                                              value="<fmt:message key="global.btnCancel"/>"
                                              onClick="window.close()" class="sbttn"></td>

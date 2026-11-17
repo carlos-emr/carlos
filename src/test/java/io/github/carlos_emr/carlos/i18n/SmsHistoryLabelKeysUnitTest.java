@@ -53,6 +53,8 @@ class SmsHistoryLabelKeysUnitTest {
         for (SmsStatus value : SmsStatus.values()) {
             keys.add("sms.status." + value.name());
         }
+        // Not a stored status: the history shows a text queued again for another provider as Moved.
+        keys.add("sms.status.MOVED");
         for (SmsDirection value : SmsDirection.values()) {
             keys.add("sms.direction." + value.name());
         }

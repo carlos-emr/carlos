@@ -11,6 +11,13 @@ and VS-Code.
       search for "Dev Containers" by Microsoft and click "Install".
 * **Git:** Installed
 
+On Apple Silicon, Docker Desktop must support `linux/amd64` emulation. The CARLOS application
+container uses that platform because its eForm PDF and measurement-chart renderer needs a matching
+Chrome for Testing/chromedriver pair, which upstream publishes for Linux amd64. MariaDB and DrugRef
+continue to use the host's native architecture. The Compose configuration selects the application
+platform automatically; direct image builds must include `--platform=linux/amd64`. This affects only
+the development container and does not change release browser pins.
+
 ## Optional: If you are developing on windows it's recommended that you work within WSL (Windows Subsystem for Linux)
 
 ### Steps to get started within WSL 
@@ -461,6 +468,7 @@ HIBERNATE_FORMAT_SQL=true
 
 * The `.devcontainer/development/config/shared/local.env` file contains environment variables that can be customized for your development environment.
 * You can find more information about the CARLOS EMR project and its development environment in the project's documentation.
+* The encryption key CARLOS generates on first start (`encryption.util.secret.key`) is written to `/root/carlos.properties` inside the container. A container rebuild loses it, but the database volume keeps anything encrypted with it: email and fax passwords, MFA enrolments, saved signatures. CARLOS then refuses to start rather than generate a new key over that data. Copy the key line out before rebuilding and put it back afterwards. If you don't need the encrypted dev data, set `encryption.util.secret.key.acknowledge_loss=true` for one start and remove it again (see `docs/email/provider-to-patient-email-operations.md`, "Credential Encryption Key").
 
 ## Switching Branches 
 

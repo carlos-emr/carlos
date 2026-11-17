@@ -36,6 +36,8 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -175,8 +177,8 @@ class DemographicUpdate2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
-    @DisplayName("should return validationError when last name exceeds thirty characters")
-    void shouldReturnValidationError_whenLastNameExceedsThirtyCharacters() throws Exception {
+    @DisplayName("should return validationError when last name exceeds fifty characters")
+    void shouldReturnValidationError_whenLastNameExceedsFiftyCharacters() throws Exception {
         allowPrivilege("_demographic", "w");
         replaceSpringUtilsBean(DemographicDao.class, mockDemographicDao);
         mockRequest.setMethod("POST");
@@ -194,8 +196,31 @@ class DemographicUpdate2ActionUnitTest extends CarlosWebTestBase {
         List<String> fieldLengthValidationErrors =
                 (List<String>) mockRequest.getAttribute("fieldLengthValidationErrors");
         assertThat(fieldLengthValidationErrors)
-                .contains("Last name exceeds maximum length of 30 characters.");
+                .contains("Last name exceeds maximum length of 50 characters.");
         verify(mockDemographicDao, never()).save(any(Demographic.class));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"nameUsed,71", "pronouns,26", "gender,26"})
+    @DisplayName("should refuse over-length identity fields before loading or changing the patient")
+    void shouldRefuseOverlongIdentityFields_beforeChangingPatientData(String field, int length) throws Exception {
+        allowPrivilege("_demographic", "w");
+        mockRequest.setMethod("POST");
+        addRequestParameter("last_name", "Valid");
+        addRequestParameter("first_name", "Valid");
+        addRequestParameter(field, "X".repeat(length));
+        replaceSpringUtilsBean(DemographicDao.class, mockDemographicDao);
+        addRequestParameter("demographic_no", "123");
+        Demographic original = new Demographic(123);
+        original.setLastName("Preserved");
+        original.setPrefName("Existing");
+        when(mockDemographicDao.getDemographic("123")).thenReturn(original);
+        assertThat(executeAction(action)).isEqualTo("validationError");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        verify(mockDemographicDao, never()).save(any(Demographic.class));
+        assertThat(original.getLastName()).isEqualTo("Preserved");
+        assertThat(original.getPrefName()).isEqualTo("Existing");
+        verify(mockDemographicDao, never()).getDemographic("123");
     }
 
     @Test

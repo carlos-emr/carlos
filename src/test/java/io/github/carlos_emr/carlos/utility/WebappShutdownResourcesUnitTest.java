@@ -190,6 +190,34 @@ public class WebappShutdownResourcesUnitTest {
     }
 
     @Test
+    void shouldStopOnlyOwnedMariaDbScheduler_withIsolatedDriverClassLoader() throws Exception {
+        try (ChildFirstTestClassLoader webappClassLoader = new ChildFirstTestClassLoader(
+                testClassesUrl(), mainClassesUrl(), getClass().getClassLoader())) {
+            Class<?> providerClass = webappClassLoader.loadClass(org.mariadb.jdbc.client.util.SchedulerProvider.class.getName());
+            assertThat(providerClass.getClassLoader()).isSameAs(webappClassLoader);
+            Class<?> helperClass = webappClassLoader.loadClass(MariaDbSchedulerHelper.class.getName());
+            Method schedulerMethod = providerClass.getMethod("getTimeoutScheduler");
+            Method closeMethod = helperClass.getMethod("closeScheduler", ClassLoader.class);
+            var scheduler = (java.util.concurrent.ScheduledThreadPoolExecutor) schedulerMethod.invoke(null);
+            try {
+                assertThat(closeMethod.invoke(null, new ClassLoader(webappClassLoader) { })).isEqualTo(0);
+                assertThat(scheduler.isShutdown()).isFalse();
+                assertThat(closeMethod.invoke(null, webappClassLoader)).isEqualTo(1);
+                assertThat(scheduler.isShutdown()).isTrue();
+                closeMethod.invoke(null, webappClassLoader);
+
+                // Connector/J close resets its singleton; later use creates a working scheduler.
+                var restarted = (java.util.concurrent.ScheduledThreadPoolExecutor) schedulerMethod.invoke(null);
+                assertThat(restarted).isNotSameAs(scheduler);
+                assertThat(restarted.schedule(() -> "still running", 1, TimeUnit.MILLISECONDS)
+                        .get(5, TimeUnit.SECONDS)).isEqualTo("still running");
+            } finally {
+                closeMethod.invoke(null, webappClassLoader);
+            }
+        }
+    }
+
+    @Test
     void shouldRunAllShutdownSteps_whenEarlierStepThrows() {
         ClassLoader unrelatedClassLoader = new ClassLoader(null) {
         };
@@ -199,18 +227,39 @@ public class WebappShutdownResourcesUnitTest {
              MockedStatic<LogAction> logAction = mockStatic(LogAction.class);
              MockedStatic<DroolsShutdownResources> droolsShutdown = mockStatic(DroolsShutdownResources.class);
              MockedStatic<QueueCache> queueCache = mockStatic(QueueCache.class)) {
-            dbConnections.when(DbConnectionFilter::releaseAllKnownDbResources)
+            dbConnections.when(DbConnectionFilter::releaseAllThreadDbResources)
                     .thenThrow(new AssertionError("db cleanup failed"));
 
             WebappShutdownResources.ShutdownReport report = WebappShutdownResources.releaseForContext(unrelatedClassLoader);
 
             assertThat(report.results()).hasSize(8);
-            assertThat(report.results().get(0).successful()).isFalse();
+            assertThat(report.results().stream().filter(result -> result.step()
+                    == WebappShutdownResources.ShutdownStep.DB_THREAD_RESOURCES).findFirst().orElseThrow().successful()).isFalse();
             assertThat(report.failureCount()).isEqualTo(1);
             tracking.verify(OscarTrackingBasicDataSource::clearTrackingState);
             logAction.verify(LogAction::shutdownExecutorService);
             droolsShutdown.verify(DroolsShutdownResources::shutdownExecutors);
             queueCache.verify(QueueCache::shutdownSharedTimer);
+        }
+    }
+
+    @Test
+    void shouldStopDatabaseProducers_beforeClosingTrackedConnections() {
+        java.util.List<String> calls = new java.util.ArrayList<>();
+        try (MockedStatic<DbConnectionFilter> db = mockStatic(DbConnectionFilter.class);
+             MockedStatic<OscarTrackingBasicDataSource> tracking = mockStatic(OscarTrackingBasicDataSource.class);
+             MockedStatic<LogAction> audit = mockStatic(LogAction.class);
+             MockedStatic<DroolsShutdownResources> drools = mockStatic(DroolsShutdownResources.class);
+             MockedStatic<QueueCache> queues = mockStatic(QueueCache.class)) {
+            audit.when(LogAction::shutdownExecutorService).thenAnswer(call -> { calls.add("audit"); return null; });
+            drools.when(DroolsShutdownResources::shutdownExecutors).thenAnswer(call -> { calls.add("drools"); return 0; });
+            queues.when(QueueCache::shutdownSharedTimer).thenAnswer(call -> { calls.add("queue"); return null; });
+            db.when(DbConnectionFilter::releaseAllThreadDbResources).thenAnswer(call -> { calls.add("db"); return null; });
+            tracking.when(OscarTrackingBasicDataSource::clearTrackingState).thenAnswer(call -> { calls.add("tracking"); return null; });
+
+            WebappShutdownResources.releaseForContext(new ClassLoader(null) { });
+
+            assertThat(calls).containsExactly("audit", "drools", "queue", "db", "tracking");
         }
     }
 
@@ -291,6 +340,20 @@ public class WebappShutdownResourcesUnitTest {
                 .toURL();
     }
 
+    /** Invokes package-private cleanup from the same isolated loader as the utility. */
+    public static final class MariaDbSchedulerHelper {
+        private MariaDbSchedulerHelper() { }
+
+        /**
+         * Runs real scheduler ownership and cleanup against the isolated driver singleton.
+         * @param webappClassLoader loader whose resources are being released
+         * @return number of owned schedulers selected for cleanup
+         */
+        public static int closeScheduler(ClassLoader webappClassLoader) {
+            return WebappShutdownResources.closeMariaDbScheduler(webappClassLoader);
+        }
+    }
+
     public static final class DriverRegistrationHelper {
 
         private DriverRegistrationHelper() {
@@ -358,15 +421,20 @@ public class WebappShutdownResourcesUnitTest {
                 WebappShutdownResourcesUnitTest.class.getName() + "$DriverRegistrationHelper";
         private static final String WEBAPP_SHUTDOWN_RESOURCES_CLASS =
                 WebappShutdownResources.class.getName();
+        private static final String MARIADB_SCHEDULER_CLASS =
+                org.mariadb.jdbc.client.util.SchedulerProvider.class.getName();
 
         private ChildFirstTestClassLoader(URL testClassesUrl, URL mainClassesUrl, ClassLoader parent) {
-            super(new URL[]{testClassesUrl, mainClassesUrl}, parent);
+            super(new URL[]{testClassesUrl, mainClassesUrl,
+                    org.mariadb.jdbc.client.util.SchedulerProvider.class.getProtectionDomain().getCodeSource().getLocation()}, parent);
         }
 
         @Override
         protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
             if (name.startsWith(CHILD_FIRST_CLASS_PREFIX)
-                    || WEBAPP_SHUTDOWN_RESOURCES_CLASS.equals(name)) {
+                    || WEBAPP_SHUTDOWN_RESOURCES_CLASS.equals(name)
+                    || MARIADB_SCHEDULER_CLASS.equals(name)
+                    || MariaDbSchedulerHelper.class.getName().equals(name)) {
                 synchronized (getClassLoadingLock(name)) {
                     Class<?> loadedClass = findLoadedClass(name);
                     if (loadedClass == null) {

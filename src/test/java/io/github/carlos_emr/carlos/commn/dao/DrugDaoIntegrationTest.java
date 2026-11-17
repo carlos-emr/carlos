@@ -34,6 +34,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.annotation.Propagation;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
@@ -61,6 +68,9 @@ public class DrugDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private DrugDao drugDao;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
@@ -129,6 +139,129 @@ public class DrugDaoIntegrationTest extends CarlosTestBase {
         entityManager.persist(drug);
         entityManager.flush();
         return drug;
+    }
+
+    @Test
+    void shouldPreserveFirstDiscontinuation_andRefuseAnotherPatient() {
+        Drug drug = createAndPersist(DEMO_NO, "Owned discontinuation", "", false);
+        assertThat(drugDao.discontinueIfActive(drug.getId(), DEMO_NO_2, today, "foreign")).isFalse();
+        assertThat(drugDao.discontinueIfActive(drug.getId(), DEMO_NO, today, " doseChange ")).isTrue();
+        assertThat(drugDao.discontinueIfActive(drug.getId(), DEMO_NO, tomorrow, "allergy")).isFalse();
+        entityManager.refresh(drug);
+        assertThat(drug.isArchived()).isTrue();
+        assertThat(drug.getArchivedReason()).isEqualTo("doseChange");
+        assertThat(drug.getArchivedDate().getTime()).isEqualTo(today.getTime());
+        assertThat(drug.getLastUpdateDate().getTime()).isEqualTo(today.getTime());
+    }
+
+    @Test
+    void shouldExcludeUncertainImportedHistoryFromActiveQueries_whenAllHistoryRemainsAvailable() {
+        int patient = 821004;
+        Drug legacy = createDrug(patient, "Synthetic native medication", "", false);
+        Drug active = createDrug(patient, "Synthetic imported active", "", false);
+        active.setCdsCurrentness("CURRENT");
+        Drug uncertain = createDrug(patient, "Synthetic imported unknown", "", false);
+        uncertain.setCdsCurrentness("UNKNOWN");
+        uncertain.setLongTerm(true);
+        Drug suspended = createDrug(patient, "Synthetic imported suspended", "", false);
+        suspended.setCdsCurrentness("SUSPENDED");
+        for (Drug drug : List.of(legacy, active, uncertain, suspended)) entityManager.persist(drug);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(drugDao.findByDemographicId(patient, false)).extracting(Drug::getId)
+                .containsExactlyInAnyOrder(legacy.getId(), active.getId());
+        assertThat(drugDao.findByDemographicIdOrderByPosition(patient, false)).extracting(Drug::getId)
+                .containsExactlyInAnyOrder(legacy.getId(), active.getId());
+        assertThat(drugDao.findLongTermDrugsByDemographic(patient)).isEmpty();
+        assertThat(drugDao.findByDemographicId(patient, null)).extracting(Drug::getId)
+                .containsExactlyInAnyOrder(legacy.getId(), active.getId(), uncertain.getId(), suspended.getId());
+        assertThat(drugDao.findByDemographicIdOrderByPositionForExport(patient, null)).hasSize(4);
+    }
+
+    @Test
+    void shouldPersistUnknownSourceIndicatorsAndDates_whenImportDoesNotSupplyThem() {
+        Drug drug = createDrug(821005, "Synthetic unknown clinical history", "", false);
+        drug.setCdsCurrentness("UNKNOWN");
+        drug.setCdsDoseText("1/2–1");
+        drug.setNoSubs((Boolean) null);
+        drug.setNonAuthoritative(null);
+        drug.setRxDate(null);
+        drug.setEndDate(null);
+        drug.setWrittenDate(null);
+        entityManager.persist(drug);
+        entityManager.flush();
+        int id = drug.getId();
+        entityManager.clear();
+
+        Drug loaded = drugDao.find(id);
+        assertThat(loaded.getNoSubs()).isNull();
+        assertThat(loaded.getNonAuthoritative()).isNull();
+        assertThat(loaded.getRxDate()).isNull();
+        assertThat(loaded.getEndDate()).isNull();
+        assertThat(loaded.getWrittenDate()).isNull();
+        assertThat(loaded.getDosageDisplay()).isEqualTo("1/2–1");
+        assertThat(loaded.isCurrent()).isFalse();
+    }
+
+    @Test
+    void shouldPreserveTheFirstDiscontinuation_whenAStaleRequestRetries() {
+        Drug drug = createAndPersist(DEMO_NO, "Synthetic medication", "J01CA04", false);
+        int id = drug.getId();
+        entityManager.clear();
+        assertThat(drugDao.archiveIfActive(id, DEMO_NO, "doseChange", today)).isEqualTo(1);
+        assertThat(drugDao.archiveIfActive(id, DEMO_NO, "allergy", tomorrow)).isZero();
+        entityManager.clear();
+        Drug stored = drugDao.find(id);
+        assertThat(stored.isArchived()).isTrue();
+        assertThat(stored.getArchivedReason()).isEqualTo("doseChange");
+        assertThat(stored.getArchivedDate().getTime()).isEqualTo(today.getTime());
+        assertThat(stored.getLastUpdateDate().getTime()).isEqualTo(today.getTime());
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void shouldAllowOnlyOneDiscontinuation_whenTransactionsOverlap() throws Exception {
+        var transaction = new TransactionTemplate(transactionManager);
+        Integer id = transaction.execute(status -> createAndPersist(DEMO_NO, "Concurrent discontinuation", "", false).getId());
+        var firstSaved = new CountDownLatch(1);
+        var secondStarted = new CountDownLatch(1);
+        var releaseFirst = new CountDownLatch(1);
+        var workers = Executors.newFixedThreadPool(2);
+        try {
+            var first = workers.submit(() -> transaction.execute(status -> {
+                boolean changed = drugDao.discontinueIfActive(id, DEMO_NO, today, "doseChange");
+                firstSaved.countDown();
+                try {
+                    if (!releaseFirst.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("Transaction wait timed out");
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException(interrupted);
+                }
+                return changed;
+            }));
+            assertThat(firstSaved.await(10, TimeUnit.SECONDS)).isTrue();
+            var second = workers.submit(() -> transaction.execute(status -> {
+                secondStarted.countDown();
+                return drugDao.discontinueIfActive(id, DEMO_NO, tomorrow, "allergy");
+            }));
+            assertThat(secondStarted.await(10, TimeUnit.SECONDS)).isTrue();
+            assertThatThrownBy(() -> second.get(150, TimeUnit.MILLISECONDS))
+                    .isInstanceOf(TimeoutException.class);
+            releaseFirst.countDown();
+            assertThat(first.get(10, TimeUnit.SECONDS)).isTrue();
+            assertThat(second.get(10, TimeUnit.SECONDS)).isFalse();
+            transaction.executeWithoutResult(status -> {
+                Drug saved = entityManager.find(Drug.class, id);
+                assertThat(saved.getArchivedReason()).isEqualTo("doseChange");
+                assertThat(saved.getArchivedDate().getTime()).isEqualTo(today.getTime());
+            });
+        } finally {
+            releaseFirst.countDown();
+            workers.shutdown();
+            if (!workers.awaitTermination(15, TimeUnit.SECONDS)) workers.shutdownNow();
+            transaction.executeWithoutResult(status -> entityManager.remove(entityManager.find(Drug.class, id)));
+        }
     }
 
     @Test

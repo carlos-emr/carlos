@@ -1,0 +1,8 @@
+Symbola 2.60 (Symbola_hint.ttf), unmodified.
+Source: Ubuntu fonts-symbola 2.60-4 (upstream George Douros, http://users.teilar.gr/~g1951d/).
+Package SHA-256: 8530383dcac28c1d131fc06b8bff9517839d8e27896dce04c90ad6edfb808cdf
+Font SHA-256: af8bd8cc9c808272034651cb5ebf6c38370ae536fe631eb89462f127f11e793f
+License and copyright notice: LICENSE.txt. Later Symbola releases changed the license; this
+2.60 release is the one Debian and Ubuntu distribute under the notice below.
+PdfFonts falls back to this face for emoji and symbols (monochrome outlines), which neither
+DejaVu nor Droid Sans Fallback contains. Only the glyphs a PDF uses are embedded in it.

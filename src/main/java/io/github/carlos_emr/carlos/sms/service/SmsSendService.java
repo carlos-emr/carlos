@@ -10,6 +10,7 @@ import io.github.carlos_emr.carlos.sms.dto.SmsProviderSendResultDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsSendResultDto;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
 import io.github.carlos_emr.carlos.sms.validator.SmsSendValidator;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +29,12 @@ public class SmsSendService {
     private static final String DIRECT_PROVIDER_EXCEPTION_CODE = "DIRECT_PROVIDER_EXCEPTION";
     /** Returned, without recording anything, while SMS is turned off in Administration &gt; SMS. */
     public static final String SMS_TURNED_OFF_MESSAGE = "SMS sending is turned off in Administration > SMS.";
+    /**
+     * Returned, without recording anything, while the provider cannot send: a credential or the sender number it
+     * needs is not saved, or a saved credential cannot be read.
+     */
+    public static final String SMS_PROVIDER_NOT_READY_MESSAGE = "The SMS provider is not set up: a credential or "
+            + "the sender number it needs is missing or cannot be read. Check Administration > SMS.";
     /** Fixed, synthetic body for the Administration &gt; SMS system test; never patient content. */
     static final String SYSTEM_TEST_BODY = "CARLOS SMS system test. No reply needed.";
 
@@ -129,9 +136,24 @@ public class SmsSendService {
         }
 
         SmsProviderType providerType = forcedProvider != null ? forcedProvider : providerSelector.configuredDefault();
+        SmsProviderSettings settings;
+        try {
+            settings = configService == null ? SmsProviderSettings.none(providerType)
+                    : configService.readyProviderSettings(providerType);
+        } catch (SmsProviderNotReadyException e) {
+            // Nothing is recorded, so nothing waits in the queue on settings that cannot work until an
+            // administrator fixes them.
+            LOGGER.error("SMS not sent: SMS provider {} is not ready: {}.", providerType, e.getMessage());
+            return SmsSendResultDto.validationFailed(List.of(SMS_PROVIDER_NOT_READY_MESSAGE));
+        }
         SmsConsentDecisionDto consentDecision = Objects.requireNonNull(
                 consentService.evaluate(command), "SMS consent decision is required");
-        SmsTransaction transaction = transactionRecorder.recordOutboundAttempt(command, providerType, consentDecision);
+        SmsTransaction transaction;
+        try {
+            transaction = transactionRecorder.recordOutboundAttempt(command, providerType, consentDecision);
+        } catch (SmsProviderSelectionChangedException e) {
+            return SmsSendResultDto.validationFailed(List.of(e.getMessage()));
+        }
         if (!consentDecision.allowed()) {
             return SmsSendResultDto.consentBlocked(consentDecision);
         }
@@ -165,12 +187,36 @@ public class SmsSendService {
             return releaseClaimAfterFailure(transaction, "claim renewal", e);
         }
 
+        if (forcedProvider == null) {
+            boolean settingsCurrent;
+            try {
+                settingsCurrent = providerSelector.configuredDefault() == providerType
+                        && (configService == null || configService.sendingEnabled())
+                        && (configService == null || settings.equals(configService.readyProviderSettings(providerType)));
+                if (settingsCurrent && configService != null && configService.retirementTrackingEnabled()) {
+                    settingsCurrent = configService.dispatchSettings(transaction).filter(settings::equals).isPresent();
+                }
+            } catch (RuntimeException e) {
+                return releaseClaimAfterFailure(transaction, "provider settings recheck", e);
+            }
+            if (!settingsCurrent) {
+                return releaseClaimAfterFailure(transaction, "provider settings change",
+                        new IllegalStateException("SMS provider settings changed before dispatch"));
+            }
+        }
+
         SmsProviderSendResultDto providerResult;
         try {
             SmsProviderClient providerClient = providerResolver.resolve(providerType);
-            providerResult = Objects.requireNonNull(providerClient.send(command, clientReferenceId(transaction)),
-                    "SMS provider result is required");
+            // The recorded row, not the caller's command: the provider gets the number in E.164 form, exactly
+            // as the queue worker hands it over.
+            providerResult = Objects.requireNonNull(
+                    providerClient.send(transaction.toSendCommand(), clientReferenceId(transaction), settings),
+                    "SMS provider result is required").withCarlosErrorCode();
         } catch (RuntimeException e) {
+            // Types and frames only: provider code handles the patient's number and the message text.
+            LOGGER.warn("SMS transaction {} send through provider {} failed with an error; its outcome is unknown;{}",
+                    transaction.getId(), providerType, LogSafe.exceptionTrace(e));
             providerResult = SmsProviderSendResultDto.uncertain(DIRECT_PROVIDER_EXCEPTION_CODE);
         }
         SmsTransaction recorded = transactionRecorder.markProviderResult(transaction, providerResult);

@@ -50,11 +50,11 @@
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
-<%@ page import="java.util.*,io.github.carlos_emr.carlos.rx.data.*,io.github.carlos_emr.carlos.rx.pageUtil.*, io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
+<%@ page import="java.util.*, io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxDrugData" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
@@ -305,7 +305,7 @@
                                                             <carlos:encode value='<%= getMaxVal(t.name) %>' context="html"/>
                                                         </a>
                                                         <span>&nbsp;&nbsp;(<a
-                                                                href="javascript:ShowDrugInfoGN('<carlos:encode value='<%= t.name %>' context="javaScript"/>');"><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
+                                                                href="${pageContext.request.contextPath}/rx/drugInfo?GN=<carlos:encode value='<%= t.name %>' context="uriComponent"/>" onclick="ShowDrugInfoGN('<carlos:encode value='<%= t.name %>' context="javaScriptAttribute"/>'); return false;"><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
                                                     </td>
                                                 </tr>
                                                 <%
@@ -335,7 +335,7 @@
                                                                     title="<carlos:encode value='<%= brandName %>' context="htmlAttribute"/>"><carlos:encode value='<%= brandName %>' context="html"/></button>
                                                         <%}%>
                                                             <span>&nbsp;&nbsp;(<a
-                                                                    href="javascript:ShowDrugInfoBN('<carlos:encode value='<%= t.pKey %>' context="javaScript"/>');"><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
+                                                                    href="${pageContext.request.contextPath}/rx/drugInfo?BN=<carlos:encode value='<%= t.pKey %>' context="uriComponent"/>" onclick="ShowDrugInfoBN('<carlos:encode value='<%= t.pKey %>' context="javaScriptAttribute"/>'); return false;"><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
                                                     </td>
                                                 </tr>
                                                 <%
@@ -402,7 +402,7 @@
                                                 <carlos:encode value='<%= t.name %>' context="html"/>
                                             </a>
                                             <span>&nbsp;&nbsp;(<a
-                                                    href="javascript:ShowDrugInfo('<carlos:encode value='<%= t.pKey %>' context="javaScript"/>');"><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
+                                                    href="${pageContext.request.contextPath}/rx/drugInfo?BN=<carlos:encode value='<%= t.pKey %>' context="uriComponent"/>" onclick="ShowDrugInfo('<carlos:encode value='<%= t.pKey %>' context="javaScriptAttribute"/>'); return false;"><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
                                         </td>
                                     </tr>
                                     <%

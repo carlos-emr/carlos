@@ -36,6 +36,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -54,6 +56,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -93,6 +96,11 @@ class DbTicklerAdd2ActionUnitTest extends CarlosUnitTestBase {
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(loggedInInfo);
 
+        var providers = createAndRegisterMock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class);
+        var recipient = new io.github.carlos_emr.carlos.commn.model.Provider();
+        recipient.setProviderNo("999998");
+        recipient.setStatus("1");
+        when(providers.getProvider("999998")).thenReturn(recipient);
         ticklerManager = createAndRegisterMock(TicklerManager.class);
         ticklerAttachmentService = createAndRegisterMock(TicklerAttachmentService.class);
         SecurityInfoManager securityInfoManager = createAndRegisterMock(SecurityInfoManager.class);
@@ -116,6 +124,31 @@ class DbTicklerAdd2ActionUnitTest extends CarlosUnitTestBase {
     void tearDown() {
         loggedInInfoMock.close();
         servletActionContextMock.close();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"x", "😀"})
+    void shouldRefuseBeforeAnyWrite_whenMessageExceedsUtf8StorageCapacity(String character) throws Exception {
+        int width = character.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+        request.setParameter("ticklerMessage", character.repeat(65536 / width));
+        request.setParameter("writeToEncounter", "true");
+        assertThat(new DbTicklerAdd2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(request.getAttribute("ticklerMessageTooLong")).isEqualTo(Boolean.TRUE);
+        assertThat(request.getAttribute("rowsAffected")).isNull();
+        org.mockito.Mockito.verifyNoInteractions(ticklerManager, ticklerAttachmentService);
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    void shouldPreserveTheWholeMessage_whenSupplementaryCharactersExactlyFitUtf8Capacity() throws Exception {
+        String message = "😀".repeat(16383) + "abc";
+        request.setParameter("ticklerMessage", message);
+        assertThat(new DbTicklerAdd2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        ArgumentCaptor<Tickler> saved = ArgumentCaptor.forClass(Tickler.class);
+        verify(ticklerManager).addTickler(eq(loggedInInfo), saved.capture());
+        assertThat(saved.getValue().getMessage()).isEqualTo(message);
+        assertThat(request.getAttribute("rowsAffected")).isEqualTo(Boolean.TRUE);
     }
 
     @Test
@@ -207,5 +240,25 @@ class DbTicklerAdd2ActionUnitTest extends CarlosUnitTestBase {
 
         verify(ticklerAttachmentService, never()).syncAttachments(any(), any(), any());
         assertThat(request.getAttribute("ticklerLinkFailed")).isEqualTo(true);
+    }
+
+    @Test
+    void shouldRejectUnavailableRecipient_beforeSavingTask() throws Exception {
+        request.setParameter("task_assigned_to", "missing-provider");
+        assertThat(new DbTicklerAdd2Action().execute()).isEqualTo("recipientRefused");
+        assertThat(response.getStatus()).isEqualTo(400);
+        verify(ticklerManager, never()).addTickler(any(), any());
+        verifyNoInteractions(ticklerAttachmentService);
+    }
+
+    @Test
+    void shouldRejectInactiveRecipient_beforeSavingTask() throws Exception {
+        var providers = io.github.carlos_emr.carlos.utility.SpringUtils.getBean(
+                io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class);
+        providers.getProvider("999998").setStatus("0");
+        assertThat(new DbTicklerAdd2Action().execute()).isEqualTo("recipientRefused");
+        assertThat(response.getStatus()).isEqualTo(400);
+        verify(ticklerManager, never()).addTickler(any(), any());
+        verifyNoInteractions(ticklerAttachmentService);
     }
 }

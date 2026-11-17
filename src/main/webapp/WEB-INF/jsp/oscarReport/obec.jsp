@@ -31,7 +31,7 @@
 
 <%@ taglib uri="/struts-tags" prefix="s" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -59,7 +59,7 @@
 <body>
 
 <%@ page
-        import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.DateUtils, java.net.*" %>
+        import="java.util.*, java.sql.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.DateUtils" %>
 <%
     if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logoutPage");
@@ -117,7 +117,7 @@
 </div>
 </s:if>
 
-<form action="${ctx}/oscarReport/obec" class="card card-body bg-body-tertiary"
+<form action="${ctx}/oscarReport/obec" method="post" class="card card-body bg-body-tertiary"
       id="obecForm">
     <fieldset>
         <h4>

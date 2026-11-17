@@ -7,8 +7,11 @@
 // Table-driven over 25 forms (Rourke 2006 and the original Rourke, Letterhead, the 2003 Lab Req, ADFv2,
 // ALPHA, CESD, CHF, Caregiver and its SF36, SF36, Cost Questionnaire, Falls History, HOME FAST, Grip
 // Strength, ImmunAllergies, Intake Information, both Late Life FDI forms, Position Hazard, Risk
-// Assessment, Self Efficacy, Self Management, Treatment Preference, Health Passport) plus the Patient
-// Encounter Worksheet, which only prints. Rourke 2020 and the growth charts are form-rourke2020-*.
+// Assessment, Self Efficacy, Self Management, Treatment Preference, Health Passport). The Patient Encounter
+// Worksheet, which only printed, was retired in #5089. Rourke 2020 and the growth charts are form-rourke2020-*.
+// British Columbia: the same flow over seven BC forms (BC-AR, BC-AR 2007, the Labour and Birth Summary and the
+// Birth Summary 2008, BC-INR, Chart Checklist, BC-NewBorn), claimed only by the form-catalog-smoke-bc* entries,
+// which run on a BC install. BC-AR 2012/2020 are form-bc-antenatal-record, BC-NewBorn 2008 form-bc-newborn.
 //
 // Each form has up to eight CONCERNS, asserted one labelled step each:
 //   bare       (Position Hazard and Health Passport only) the form opens for a patient whose address, phone and
@@ -36,8 +39,8 @@
 // elsewhere and never as the known one (lib/form-claims.js classify()).
 //
 // Fixtures: the owned synthetic patient (given a complete demographic record, as every registered patient
-// has, after the bare concern has run: Position Hazard and Health Passport throw on NULL address and
-// health-card columns, finding 241), and one marker-named Forms-menu
+// has, after the bare concern has run: Position Hazard and Health Passport threw on NULL address and
+// health-card columns until #4599, finding 241), and one marker-named Forms-menu
 // registration per form (the shipped rows are hidden on Ontario installs and are clinic-wide, so run
 // EXCLUSIVE=1). Cleanup deletes every form row of the owned patient and every registration and asserts both.
 const h = require('./lib/playwright-harness');
@@ -76,7 +79,7 @@ const FORMS = [
   { key: 'rourke2006', code: 'R06', title: 'Rourke Baby Record 2006', view: 'formrourke2006', table: 'formRourke2006',
     prose: { name: 'p1_signature1w' }, fields: [check('p1_breastFeeding1w'), typed('c_length', '51.5')],
     print: { kind: 'pdf', button: 'Print', where: 'popup' },
-    known: { keys: claims.ASSERTION_ONLY, reopen: claims.ASSERTION_ONLY } },
+    known: { keys: claims.ASSERTION_ONLY } },
   { key: 'rourke', code: 'ROU', title: 'Rourke Baby Record', view: 'formrourke', table: 'formRourke',
     prose: { name: 'c_birthRemarks' }, fields: [check('p1_breastFeeding1w'), typed('c_length', '51.5')],
     print: { kind: 'window', button: 'Print' } },
@@ -91,8 +94,8 @@ const FORMS = [
     prose: { name: 'actProblem' }, fields: [typed('sendFacility', 'FAKE Facility'), check('capTreatDecY')],
     print: { kind: 'window', button: 'Print' }, known: { redisplay: claims.ASSERTION_ONLY } },
   { key: 'alpha', code: 'ALP', title: 'ALPHA', view: 'formalpha', table: 'formAlpha',
-    prose: { name: 'socialSupport' }, fields: [], print: { kind: 'window', button: 'Print' },
-    known: { open: claims.ASSERTION_ONLY } },
+    prose: { name: 'socialSupport' }, fields: [check('provCounselling'), check('homecare'), typed('other1Name', 'FAKE Alpha support')],
+    print: { kind: 'window', button: 'Print', carries: true } },
   { key: 'cesd', code: 'CES', title: 'CESD', view: 'formCESD', table: 'formCESD',
     prose: null, fields: [check('Q1Rare'), check('Q2Some')], print: { kind: 'window', button: 'Print' },
     known: { redisplay: claims.ASSERTION_ONLY, restore: claims.ASSERTION_ONLY } },
@@ -119,7 +122,7 @@ const FORMS = [
     prose: { name: 'tradeName', limit: 50 }, fields: [check('doseAdminIM')], print: { kind: 'window', button: 'Print' } },
   { key: 'intakeinfo', code: 'INT', title: 'Intake Information', view: 'formintakeinfo', table: 'formIntakeInfo',
     prose: { name: 'ethnoCulturalGr' }, fields: [check('maritalStMarried'), typed('nbpplInHousehold', '4')],
-    print: { kind: 'window', button: 'Print' } },
+    print: { kind: 'window', button: 'Print' }, known: { keys: claims.ASSERTION_ONLY } },
   { key: 'fdidisability', code: 'FDID', title: 'FDI Disability', view: 'formlatelifeFDIdisability', table: 'formLateLifeFDIDisability',
     prose: null, fields: [check('D1Often'), check('D2Little')], print: { kind: 'window', button: 'Print' },
     reveal: async page => { await page.getByText('Questionnaire', { exact: true }).first().click(); } },
@@ -131,7 +134,7 @@ const FORMS = [
     } },
   { key: 'positionhazard', code: 'POS', title: 'Position Hazard', view: 'formPositionHazard', table: 'formPositionHazard',
     prose: { name: 'staffName' }, fields: [check('NewHire')], print: { kind: 'pdf', button: 'Print Pdf', where: 'popup' },
-    provider: false, bare: true, known: { open: /positionHazardStyle\.css/, bare: claims.ASSERTION_ONLY } },
+    provider: false, bare: true, known: { bare: claims.ASSERTION_ONLY } },
   { key: 'riskassessment', code: 'RISK', title: 'Risk Assessment', view: 'formselfadministered', table: 'formSelfAdministered',
     prose: null, fields: [check('healthEx'), check('stayInHospNo')], print: { kind: 'window', button: 'Print' } },
   { key: 'selfefficacy', code: 'SEFF', title: 'Self Efficacy', view: 'formselfefficacy', table: 'formSelfEfficacy',
@@ -148,9 +151,26 @@ const FORMS = [
   { key: 'healthpassport', code: 'HPP', title: 'Health Passport', view: 'formbchp', table: 'formBCHP',
     prose: { name: 'pg1_allergies' }, fields: [check('pg1_diabetes')], print: { kind: 'pdf', button: 'Print', where: 'popup' },
     bare: true },
-  // Prints a worksheet and saves nothing: no table, so no save, redisplay or reopen.
-  { key: 'worksheet', code: 'PEW', title: 'Patient Encounter Worksheet', view: 'patientEncounterWorksheet', table: '',
-    prose: { name: 'encounter_notes' }, fields: [], ready: 'Print', print: { kind: 'pdf', button: 'Print', where: 'same' } },
+  // British Columbia forms, asserted only by the form-catalog-smoke-bc* entries, which run on a BC install. BC-AR and
+  // BC-AR 2007 open on page 1 of three, BC-NewBorn on page 1 of three; the BC seed shows five of these in the Forms menu
+  // already, but each still gets its own marker-named registration like every other row.
+  { key: 'bcar', code: 'BCAR', title: 'BC-AR', view: 'formbcar', table: 'formBCAR',
+    prose: { name: 'pg1_curMedic' }, fields: [check('pg1_bleeding'), typed('c_hospital', 'FAKE General Hospital')],
+    print: { kind: 'pdf', button: 'Print', where: 'popup' } },
+  { key: 'bcar2007', code: 'BA07', title: 'BC-AR 2007', view: 'formbcar2007', table: 'formBCAR2007',
+    prose: { name: 'pg1_curMedic' }, fields: [check('pg1_IVFpregnancy'), typed('c_hospital', 'FAKE General Hospital')],
+    print: { kind: 'pdf', button: 'Print', where: 'popup' }, bare: true },
+  { key: 'bclabourbirth', code: 'BCLB', title: 'BC Labour and Birth Summary', view: 'formbcbirthsummo', table: 'formBCBirthSumMo',
+    prose: { name: 'birMDPres' }, fields: [check('twinA'), typed('gestWks', '39')], print: { kind: 'pdf', button: 'Print', where: 'popup' } },
+  { key: 'bcbirthsum2008', code: 'BB08', title: 'BC Birth Summary 2008', view: 'formbcbirthsummo2008', table: 'formBCBirthSumMo2008',
+    prose: { name: 'birMDPres' }, fields: [check('twinA'), typed('gestWks', '39')], print: { kind: 'pdf', button: 'Print', where: 'popup' } },
+  { key: 'bcinr', code: 'BINR', title: 'BC-INR', view: 'formbcinr', table: 'formBCINR',
+    prose: null, fields: [check('targetINR2'), typed('c_phone3', '250-555-0199')], print: { kind: 'window', button: 'Print' } },
+  { key: 'bcchecklist', code: 'BCCL', title: 'Chart Checklist', view: 'formbcclientchartchecklist', table: 'formBCClientChartChecklist',
+    prose: null, fields: [typed('c3rd2a0', 'FAKE checklist note')], print: { kind: 'window', button: 'Print' } },
+  { key: 'bcnewborn', code: 'BCNB', title: 'BC-NewBorn', view: 'formbcnewborn', table: 'formBCNewBorn',
+    prose: { name: 'pg1_ResComment' }, fields: [check('pg1_delRomPassY'), typed('c_hospitalNo', 'FAKE-12345')],
+    print: { kind: 'pdf', button: 'Print', where: 'popup' } },
 ].map(form => ({ ...form,
   concerns: [...(form.bare ? ['bare'] : []), ...(form.table ? CONCERNS : ['open', 'keys', 'print'])] }));
 
@@ -172,17 +192,9 @@ function validatePin(env = process.env) {
  * cannot be found there. scripts/form-claims.test.js proves each literal equals the generated label, so the
  * table cannot drift from the wording below.
  */
-const PINNED = Object.freeze({
-  'positionhazard.bare': 'Position Hazard: opens for a patient whose address, phone and health-card columns are NULL',
-  'alpha.open': 'ALPHA: opens from the Forms menu with no error page, script error or failed asset',
-  'cesd.redisplay': 'CESD: Save redisplays the saved record in the window it was pressed in',
-  'cesd.restore': 'CESD: the redisplayed and the reopened form show every saved value again',
-  'letterhead.restore': 'Letterhead: the redisplayed and the reopened form show every saved value again',
-  'rourke2006.keys': 'Rourke Baby Record 2006: shows no unresolved message key',
-  'rourke2006.reopen': "Rourke Baby Record 2006: a fresh chart's saved-form entry reopens the saved record",
-  'positionhazard.open': 'Position Hazard: opens from the Forms menu with no error page, script error or failed asset',
-  'adfv2.redisplay': 'ADFv2: Save redisplays the saved record in the window it was pressed in',
-});
+// Empty: findings 230 (ALPHA, #4590) and 232 (CESD, #4591) are fixed, as is 236 (Rourke 2006 and Mental Health
+// reopen, #4595).
+const PINNED = Object.freeze({});
 const CONCERN_STEP = Object.freeze({
   bare: 'opens for a patient whose address, phone and health-card columns are NULL',
   open: 'opens from the Forms menu with no error page, script error or failed asset',
@@ -335,14 +347,26 @@ async function workflow(s, { select = validatePin() } = {}) {
   /** Open the form from its Forms-menu entry. The entry being there is a precondition; the form opening is the test. */
   async function openFromMenu(entry) {
     const { form } = entry;
-    const link = await claims.asPrecondition(async () => {
-      await chart.locator('#menuTitle1 a').hover();
-      const found = chart.getByRole('link', { name: entry.name, exact: true });
-      const listed = await found.count();
-      claims.precondition(listed === 1, `the Forms menu lists the registered form ${listed} times, not once`);
-      return found;
-    }, 'the Forms-menu entry');
-    entry.page = await claims.reaching(() => s.popup(chart, link, `form-${form.code}`));
+    // Closing a form window makes the chart rebuild its Forms module (the menu and its anchors are replaced), so
+    // a hover, count or click can race that rebuild and find no visible entry. Such a failure means no form window
+    // opened, so it is retried on the rebuilt menu, at most three times; any other failure is the form's own.
+    for (let attempt = 1; ; attempt++) {
+      try {
+        await chart.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+        const link = await claims.asPrecondition(async () => {
+          await ui.openFormsMenu(chart);
+          const found = chart.getByRole('link', { name: entry.name, exact: true });
+          const listed = await found.count();
+          claims.precondition(listed === 1, `the Forms menu lists the registered form ${listed} times, not once`);
+          return found;
+        }, 'the Forms-menu entry');
+        entry.page = await claims.reaching(() => s.popup(chart, link, `form-${form.code}`));
+        break;
+      } catch (error) {
+        if (attempt >= 3 || !(error instanceof claims.Precondition)) throw error;
+        await chart.waitForTimeout(1000);
+      }
+    }
     h.assert(new URL(entry.page.url()).searchParams.get('demographic_no') === patient, 'the form opened for another patient');
     if (form.reveal) await claims.asPrecondition(() => form.reveal(entry.page), 'revealing the questions');
     await entry.page.getByRole('button', { name: form.ready || 'Save', exact: true }).first().waitFor({ state: 'visible', timeout: 10000 });
@@ -365,7 +389,17 @@ async function workflow(s, { select = validatePin() } = {}) {
       await page.evaluate(() => {
         window.__prints = 0;
         window.__printed = '';
-        window.print = () => { window.__prints++; window.__printed = document.body.innerText; };
+        // innerText leaves out every form control's text, but the printed page shows the controls the
+        // form leaves on screen: ALPHA prints its textareas as they are (Letterhead swaps its own for a
+        // div first, and hides the textarea). So add what visible text controls outside .hidePrint hold.
+        window.print = () => {
+          window.__prints++;
+          const shown = [...document.querySelectorAll('textarea, input[type="text"]')]
+            .filter(control => !control.closest('.hidePrint')
+              && control.checkVisibility({ visibilityProperty: true, opacityProperty: true }))
+            .map(control => control.value);
+          window.__printed = [document.body.innerText, ...shown].join('\n');
+        };
       });
       await h.withExpectedDialogs(page, () => button.click(), { accept: spec.confirm !== false });
       h.assert(await page.evaluate(() => window.__prints) === 1, `${spec.button} did not call the browser print exactly once`);
@@ -399,14 +433,13 @@ async function workflow(s, { select = validatePin() } = {}) {
 
   // ---- Phase 0: the bare concern, before the fixture is completed ----
   for (const entry of entries.filter(item => item.form.bare)) {
-    // Judged on the open alone (the 500 of finding 241 against a rendered form): what else the page raises, the missing
-    // Position Hazard stylesheet (235) for one, is the `open` concern's to meet once the fixture is complete.
+    // Judge only whether the form renders for finding 241; browser problems belong to the later `open` concern.
     await conclude(entry, 'bare', () => openFromMenu(entry), { assertionOnly: true });
     await closeAll(entry);
   }
 
   // FIXTURE, not an assertion. The shipped templates read the patient's address and health-card columns, and two
-  // of them (Position Hazard, Health Passport) throw on NULL (finding 241, pinned by the bare concern above); every
+  // of them (Position Hazard, Health Passport) threw on NULL until #4599 (finding 241, asserted by the bare concern above); every
   // registered patient has them, the harness's bare fixture row does not, so they are filled in before the rest.
   sql.execute(`UPDATE demographic SET address='1 Test St',city='Toronto',postal='M5V 2T6',phone='416-555-0100',
     phone2='416-555-0101',hin='9876543217',ver='AB',email='fake@example.invalid',roster_status='RO'

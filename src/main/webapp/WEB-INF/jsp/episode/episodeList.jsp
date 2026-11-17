@@ -26,11 +26,11 @@
   for dynamic output rendered by the page.
 --%>
 <!DOCTYPE html>
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+
 <%@page import="java.text.SimpleDateFormat" %>
 <%@ include file="/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+
 <%
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -38,8 +38,8 @@
 
 <%@page import="java.util.*" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Episode" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.EpisodeDao" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+
+
 
 <%
 
@@ -118,7 +118,7 @@
             %>
             <tr class="gradeB">
                 <td>
-                    <a href="<%=request.getContextPath()%>/Episode?method=edit&episode.id=<%=episode.getId()%>"><%=episode.getDescription() %>
+                    <a href="<%=request.getContextPath()%>/Episode?method=edit&episode.id=<%=episode.getId()%>"><%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtml(episode.getDescription())%>
                     </a>
                 </td>
                 <td style="text-align:center"><%=startDateStr %>

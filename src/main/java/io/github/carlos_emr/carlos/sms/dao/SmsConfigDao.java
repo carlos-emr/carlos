@@ -32,4 +32,7 @@ public interface SmsConfigDao extends AbstractDao<SmsConfig> {
      * @return the settings row ({@link SmsConfig#SINGLETON_ID}), or empty while nothing has been saved
      */
     Optional<SmsConfig> findCurrent();
+
+    /** Serializes provider selection changes and admission; call before any ordinary config read. */
+    Optional<SmsConfig> findCurrentForUpdate();
 }

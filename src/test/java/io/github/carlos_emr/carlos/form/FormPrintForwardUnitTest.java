@@ -101,10 +101,12 @@ class FormPrintForwardUnitTest {
 
     /**
      * Tokens the JSPs emit that this action deliberately handles before the forward, so they never
-     * reach findActionValue: the AJAX quick-save and the letter save both write their own response
-     * and return null.
+     * reach a result: the AJAX quick-save and the letter save both write their own response and
+     * return null, and a successful {@code save} redirects to {@code /form/forwardname} (pinned by
+     * {@link #shouldReturnActionName_forEveryForwardButSave}). A {@code save} result would dispatch
+     * to that action path and nest a second FORWARD, so none is declared (issue #3394).
      */
-    private static final Set<String> HANDLED_BEFORE_FORWARD = Set.of("autosaveAjax", "saveFormLetter");
+    private static final Set<String> HANDLED_BEFORE_FORWARD = Set.of("autosaveAjax", "saveFormLetter", "save");
 
     @Test
     @DisplayName("should canonicalise a known action token regardless of case")
@@ -138,7 +140,7 @@ class FormPrintForwardUnitTest {
         Set<String> declaredResults = declaredResultNames();
         assertThat(declaredResults)
                 .as("the form/formname action declares results at all (guards against a vacuous pass)")
-                .contains("printAll", "save", "exit");
+                .contains("printAll", "graph", "exit");
 
         Set<String> unresolved = new TreeSet<>();
         for (String token : submitTokensEmittedByFormJsps()) {

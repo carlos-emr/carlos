@@ -37,6 +37,8 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import java.util.List;
 
 public interface MyGroupDao extends AbstractDao<MyGroup> {
+
+    List<String> findReportGroups(String providerNo, boolean bySite);
     List<MyGroup> findAll();
 
     List<String> getGroupDoctors(String groupNo);

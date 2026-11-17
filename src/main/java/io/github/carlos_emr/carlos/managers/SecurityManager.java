@@ -29,7 +29,6 @@
 package io.github.carlos_emr.carlos.managers;
 
 import io.github.carlos_emr.Misc;
-import org.apache.cxf.common.util.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.SecurityArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
@@ -78,6 +77,9 @@ public class SecurityManager {
         }
 
         Security dbSecurity = securityDao.find(security.getId());
+        // Read before the merge: inside a caller's transaction the merge copies the new state onto
+        // this same managed instance.
+        String mfaChange = mfaChangeNote(dbSecurity, security);
 
         securityArchiveDao.archiveRecord(dbSecurity);
 
@@ -86,7 +88,19 @@ public class SecurityManager {
 
         securityDao.merge(security);
 
-        LogAction.addLogSynchronous(loggedInInfo, "SecurityManager.updateSecurityRecord", "id=" + security.getId());
+        LogAction.addLogSynchronous(loggedInInfo, "SecurityManager.updateSecurityRecord",
+                "id=" + security.getId() + mfaChange);
+    }
+
+    /**
+     * The audit note for an MFA switch, empty when it did not change. The security archive has no
+     * MFA column, so this log line is the only record of who turned MFA on or off, and when.
+     */
+    private static String mfaChangeNote(Security before, Security after) {
+        if (before == null || before.isUsingMfa() == after.isUsingMfa()) {
+            return "";
+        }
+        return after.isUsingMfa() ? ", mfa off->on" : ", mfa on->off";
     }
 
     @SuppressFBWarnings(value = "HARD_CODE_PASSWORD",
@@ -462,15 +476,15 @@ public class SecurityManager {
             return false;
         }
 
-        if (StringUtils.isEmpty(security.getPassword())) {
+        if (security.getPassword() == null || security.getPassword().trim().isEmpty()) {
             return false;
         }
 
-        if (StringUtils.isEmpty(security.getProviderNo())) {
+        if (security.getProviderNo() == null || security.getProviderNo().trim().isEmpty()) {
             return false;
         }
 
-        if (StringUtils.isEmpty(security.getUserName())) {
+        if (security.getUserName() == null || security.getUserName().trim().isEmpty()) {
             return false;
         }
 

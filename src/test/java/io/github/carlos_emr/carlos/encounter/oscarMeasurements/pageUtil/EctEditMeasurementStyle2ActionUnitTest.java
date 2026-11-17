@@ -15,6 +15,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.util.List;
 
@@ -34,6 +35,7 @@ class EctEditMeasurementStyle2ActionUnitTest extends CarlosUnitTestBase {
     private SecurityInfoManager security;
     private LoggedInInfo login;
     private MockHttpServletRequest request;
+    private MockHttpServletResponse response;
     private MockedStatic<ServletActionContext> servletContext;
     private MockedStatic<LoggedInInfo> loginContext;
     private EctEditMeasurementStyle2Action action;
@@ -46,9 +48,11 @@ class EctEditMeasurementStyle2ActionUnitTest extends CarlosUnitTestBase {
         login = mock(LoggedInInfo.class);
         registerMock(MeasurementGroupStyleDao.class, dao);
         registerMock(SecurityInfoManager.class, security);
-        request = new MockHttpServletRequest();
+        request = new MockHttpServletRequest("POST", "/encounter/oscarMeasurements/EditMeasurementStyle");
+        response = new MockHttpServletResponse();
         servletContext = mockStatic(ServletActionContext.class);
         servletContext.when(ServletActionContext::getRequest).thenReturn(request);
+        servletContext.when(ServletActionContext::getResponse).thenReturn(response);
         loginContext = mockStatic(LoggedInInfo.class);
         loginContext.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(login);
         when(security.hasPrivilege(login, "_admin", "w", null)).thenReturn(true);
@@ -124,6 +128,17 @@ class EctEditMeasurementStyle2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(row.getId()).isEqualTo(91);
         assertThat(row.getCssId()).isEqualTo(3);
         verify(dao, never()).merge(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD"})
+    void shouldRefuseTheChange_whenNotPosted(String method) throws Exception {
+        request.setMethod(method);
+        assertThat(action.execute()).isEqualTo(EctEditMeasurementStyle2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        verifyNoInteractions(dao, security);
+        assertThat(row.getCssId()).isEqualTo(3);
     }
 
     @Test

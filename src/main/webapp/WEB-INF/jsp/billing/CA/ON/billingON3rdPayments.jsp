@@ -66,10 +66,6 @@
             }
         }
 
-        function onViewPayment(id) {
-            popupPage(500, 500, "${pageContext.request.contextPath}/billing/CA/ON/billingON3rdPayments?method=viewPayment_ext&billPaymentId=" + id);
-        }
-
         function clickSaveAndSettle() {
             var validInput = true;
 
@@ -317,7 +313,7 @@
                 <td><carlos:encode value='${payRow.totalRefund}' context='html'/></td>
                 <td><carlos:encode value='${payRow.balanceDisplay}' context='html'/></td>
                 <td>
-                    <a href="javascript:onViewPayment('<carlos:encode value="${payRow.id}" context="javaScript"/>')" >view</a>
+                    <a href="${pageContext.request.contextPath}/billing/CA/ON/billingON3rdPayments?method=viewPayment_ext&amp;billPaymentId=<carlos:encode value="${payRow.id}" context="uriComponent"/>" onclick="popupPage(500, 500, this.href); return false;">view</a>
                 </td>
             </tr>
         </c:forEach>

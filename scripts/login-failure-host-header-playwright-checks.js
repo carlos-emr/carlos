@@ -103,6 +103,8 @@
  * writes -- /loginfailed is a public page and every request here is a GET.
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const http = require('node:http');
 const https = require('node:https');
 const { chromium } = require('playwright');
@@ -262,11 +264,12 @@ function describeFirstDifference(left, right) {
     + `  spoofed Host:    ${JSON.stringify(right.slice(from, from + window))}`;
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('login-failure-host-header',async({cancellation})=>{
   const recorder = createRecorder();
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
+  const browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
 
   try {
+    cancellation?.throwIfCancelled();
     const target = new URL(appUrl(config.baseUrl, '/loginfailed'));
     target.searchParams.set('errormsg', ERROR_MESSAGE);
     const pathname = target.pathname;
@@ -277,7 +280,9 @@ function describeFirstDifference(left, right) {
 
     // --- 1: the response body does not depend on the Host header -----------------
     const honest = await rawGet(pathname, search, honestHost);
+    cancellation?.throwIfCancelled();
     const spoofed = await rawGet(pathname, search, SPOOFED_HOST);
+    cancellation?.throwIfCancelled();
 
     assert(
       honest.status === 200,
@@ -344,12 +349,16 @@ function describeFirstDifference(left, right) {
 
     // --- 2-4: what a real browser parses -----------------------------------------
     const context = await browser.newContext({ ignoreHTTPSErrors: isLoopbackTarget() });
+    cancellation?.throwIfCancelled();
     const page = await context.newPage();
+    cancellation?.throwIfCancelled();
     wirePage(page, 'loginfailed', recorder);
     // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to loopback by default
     await page.goto(target.toString(), { waitUntil: 'domcontentloaded', timeout: 30000 });
+    cancellation?.throwIfCancelled();
 
     const baseElementCount = await page.locator('base').count();
+    cancellation?.throwIfCancelled();
     assert(
       baseElementCount === 0,
       `The failed-login page carries ${baseElementCount} <base> element(s). A <base> re-points every `
@@ -358,6 +367,7 @@ function describeFirstDifference(left, right) {
 
     const pageUrl = page.url();
     const baseUri = await page.evaluate(() => document.baseURI);
+    cancellation?.throwIfCancelled();
     assert(
       baseUri === pageUrl,
       `document.baseURI is ${baseUri}, expected the page's own URL ${pageUrl}. Relative references `
@@ -372,6 +382,7 @@ function describeFirstDifference(left, right) {
       favicon: document.querySelector('link[rel="icon"]')?.href ?? null,
       globalJs: document.querySelector('script[src$="/js/global.js"]')?.src ?? null,
     }));
+    cancellation?.throwIfCancelled();
 
     for (const [name, href] of Object.entries(assets)) {
       assert(
@@ -388,6 +399,7 @@ function describeFirstDifference(left, right) {
 
     // --- 4: the page still renders its message, encoded --------------------------
     const bodyText = await page.locator('body').innerText();
+    cancellation?.throwIfCancelled();
     assert(
       bodyText.includes(ERROR_MESSAGE),
       `The failed-login page did not render the errormsg it was given. Body text was: ${bodyText}`,
@@ -398,12 +410,16 @@ function describeFirstDifference(left, right) {
         + 'became a real element. carlos:encode is no longer encoding this value, which is a stored '
         + 'reflected-XSS sink on a pre-authentication page.',
     );
+    cancellation?.throwIfCancelled();
 
     await screenshot(page, config.screenshotDir, 'login-failure-host-header');
+    cancellation?.throwIfCancelled();
     await page.close();
+    cancellation?.throwIfCancelled();
 
     assertNoPageErrors(recorder);
     await context.close();
+    cancellation?.throwIfCancelled();
 
     console.log(
       'PASS login failure host header: /loginfailed serves a byte-identical body under a spoofed '
@@ -423,4 +439,4 @@ function describeFirstDifference(left, right) {
   } finally {
     await browser.close();
   }
-})();
+});

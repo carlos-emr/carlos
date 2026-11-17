@@ -48,7 +48,7 @@ class SmsSendTransactionBoundaryIntegrationTest extends CarlosTestBase {
                 dao, mock(ApplicationEventPublisher.class), transactionManager));
         SmsProviderClient provider = new StubSmsProviderClient() {
             @Override
-            public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId) {
+            public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId, SmsProviderSettings settings) {
                 assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
                 Long id = Long.valueOf(clientReferenceId.substring("sms-transaction-".length()));
                 sentId.set(id);
@@ -57,7 +57,7 @@ class SmsSendTransactionBoundaryIntegrationTest extends CarlosTestBase {
                     assertThat(committed).isNotNull();
                     assertThat(committed.getStatus()).isEqualTo(SmsStatus.SENDING);
                 }
-                return super.send(command, clientReferenceId);
+                return super.send(command, clientReferenceId, settings);
             }
         };
         SmsSendService service = (SmsSendService) transactional(new SmsSendService(new SmsSendValidator(),

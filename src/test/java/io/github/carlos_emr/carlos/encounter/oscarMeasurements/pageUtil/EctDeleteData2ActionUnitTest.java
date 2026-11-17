@@ -42,6 +42,7 @@ import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -181,12 +182,89 @@ class EctDeleteData2ActionUnitTest extends CarlosUnitTestBase {
 
         verify(measurementDao, never()).remove(anyInt());
         verify(measurementsDeletedDao, never()).persist(any(MeasurementsDeleted.class));
+        // Nothing was deleted, so nothing is audited as deleted.
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should audit each deleted reading against its patient, by id only")
+    void shouldAuditEachDeletedReadingAgainstItsPatient_whenReadingsAreDeleted() throws Exception {
+        LoggedInInfo signedIn = mock(LoggedInInfo.class);
+        when(signedIn.getLoggedInProviderNo()).thenReturn("999998");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), signedIn);
+        request.setRemoteAddr("192.0.2.7");
+        request.setParameter("demographicNo", "111");
+        when(securityInfoManager.hasPrivilege(nullable(LoggedInInfo.class), anyString(), anyString(),
+                nullable(String.class))).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(nullable(LoggedInInfo.class), eq(111)))
+                .thenReturn(true);
+        Measurement first = measurementFor(111, 5);
+        first.setDataField("128/82");
+        first.setComments("FAKE-COMMENT after exertion");
+        when(measurementDao.find((Object) Integer.valueOf(5))).thenReturn(first);
+        when(measurementDao.find((Object) Integer.valueOf(6))).thenReturn(measurementFor(111, 6));
+        action.setDeleteCheckbox(new String[]{"5", "6"});
+
+        action.execute();
+
+        verify(measurementDao).remove((Object) Integer.valueOf(5));
+        verify(measurementDao).remove((Object) Integer.valueOf(6));
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLog("999998",
+                io.github.carlos_emr.carlos.log.LogConst.DELETE, io.github.carlos_emr.carlos.log.LogConst.CON_MEASUREMENT,
+                "5", "192.0.2.7", "111"));
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLog("999998",
+                io.github.carlos_emr.carlos.log.LogConst.DELETE, io.github.carlos_emr.carlos.log.LogConst.CON_MEASUREMENT,
+                "6", "192.0.2.7", "111"));
+        // Only that six-argument form: no data column for the reading or its comment.
+        logActionMock.verifyNoMoreInteractions();
     }
 
     @Test
     @DisplayName("should refuse deletion when the row carries no demographic")
     void shouldRefuseDelete_whenDemographicNull() {
         assertThat(action.isAllowedToDelete(mock(LoggedInInfo.class), null)).isFalse();
+    }
+
+    @Test
+    @DisplayName("should delete, archive and answer the close page when the read-only Add Measurement page posts")
+    void shouldDeleteAndArchive_whenPostedByReadOnlyMeasurementPage() throws Exception {
+        // AddMeasurementData.jsp opens a saved reading read-only and posts Delete with the form's
+        // hidden inputs (issue #4715): the reading, the chart's patient and no history "type" to
+        // return to, so the answer is the success result that closes the popup, not a redirect.
+        request.setParameter("demographicNo", "111");
+        when(securityInfoManager.hasPrivilege(nullable(LoggedInInfo.class), anyString(), anyString(),
+                nullable(String.class))).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(nullable(LoggedInInfo.class), eq(111)))
+                .thenReturn(true);
+        when(measurementDao.find((Object) Integer.valueOf(5))).thenReturn(measurementFor(111, 5));
+        action.setDeleteCheckbox(new String[]{"5"});
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(EctDeleteData2Action.SUCCESS);
+        assertThat(response.getRedirectedUrl()).isNull();
+        assertThat(response.getStatus()).isEqualTo(200);
+        verify(measurementsDeletedDao).persist(any(MeasurementsDeleted.class));
+        verify(measurementDao).remove((Object) Integer.valueOf(5));
+    }
+
+    @Test
+    @DisplayName("should answer 400 and delete nothing when the posted reading is another patient's")
+    void shouldAnswerBadRequest_whenReadingBelongsToAnotherPatient() throws Exception {
+        // The read-only page now submits its demographicNo, so the action can tell that the reading
+        // named by deleteCheckbox is not in the chart the page was opened for.
+        request.setParameter("demographicNo", "111");
+        when(securityInfoManager.hasPrivilege(nullable(LoggedInInfo.class), anyString(), anyString(),
+                nullable(String.class))).thenReturn(true);
+        when(measurementDao.find((Object) Integer.valueOf(7))).thenReturn(measurementFor(222, 7));
+        action.setDeleteCheckbox(new String[]{"7"});
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(EctDeleteData2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        verify(measurementDao, never()).remove(any(Object.class));
+        verify(measurementsDeletedDao, never()).persist(any(MeasurementsDeleted.class));
     }
 
     /**
@@ -196,6 +274,13 @@ class EctDeleteData2ActionUnitTest extends CarlosUnitTestBase {
     private static Measurement measurementFor(int demographicNo) {
         Measurement measurement = new Measurement();
         measurement.setDemographicId(demographicNo);
+        return measurement;
+    }
+
+    /** The same row with its primary key, which a delete reads back through {@code getId()}. */
+    private static Measurement measurementFor(int demographicNo, int id) {
+        Measurement measurement = measurementFor(demographicNo);
+        ReflectionTestUtils.setField(measurement, "id", id);
         return measurement;
     }
 }

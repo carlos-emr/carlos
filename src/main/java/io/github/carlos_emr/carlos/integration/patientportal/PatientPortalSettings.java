@@ -199,9 +199,10 @@ public record PatientPortalSettings(
      * Reads a value as written, bypassing {@code CarlosProperties.getProperty}. That method logs a
      * WARN for every unset key, and it drops, and logs verbatim, any value beginning with a
      * deprecated {@code oscar.} namespace: a random service token could begin that way and land in
-     * the log. Every portal key has its own default or is required, so nothing is lost.
+     * the log. Every portal key has its own default or is required, so nothing is lost. Job keys
+     * ({@link PortalJobKey}) are read the same way.
      */
-    private static String rawProperty(String key) {
+    static String rawProperty(String key) {
         return (String) CarlosProperties.getInstance().get(key);
     }
 
@@ -345,7 +346,7 @@ public record PatientPortalSettings(
         }
     }
 
-    private static void validateClinicId(String clinicId) {
+    static void validateClinicId(String clinicId) {
         if (clinicId.length() > MAX_CLINIC_ID_LENGTH
                 || clinicId.chars().anyMatch(character -> !isClinicIdCharacter(character))) {
             throw new PatientPortalConfigurationException(

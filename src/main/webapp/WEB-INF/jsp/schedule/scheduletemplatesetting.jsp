@@ -46,7 +46,7 @@
     @since 2001-02-01
 --%>
 <!DOCTYPE html>
-<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ page import="java.util.*, java.lang.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -69,23 +69,21 @@
 %>
 
 <%
-    boolean isSiteAccessPrivacy = false;
-    boolean isTeamAccessPrivacy = false;
     boolean grantOnlyCurProviderScheduleData = false;
+    boolean canEditGlobalScheduleSettings = false;
 %>
-<security:oscarSec objectName="_site_access_privacy" roleName="<%=roleName$%>" rights="r" reverse="false">
-    <%
-        isSiteAccessPrivacy = true;
-    %>
-</security:oscarSec>
-<security:oscarSec objectName="_team_access_privacy" roleName="<%=roleName$%>" rights="r" reverse="false">
-    <%
-        isTeamAccessPrivacy = true;
-    %>
-</security:oscarSec>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.schedule.curprovider_only" rights="r" reverse="<%=false%>">
     <%
         grantOnlyCurProviderScheduleData = true;
+    %>
+</security:oscarSec>
+<%-- Holiday and Template Code Setting edit install-wide data (scheduleholiday, scheduletemplatecode),
+     not per-site or per-team rows, so _site_access_privacy / _team_access_privacy must not hide them
+     (the seeded admin role carries _site_access_privacy; issue #4528). The popups' actions enforce
+     _admin.schedule "w" server-side; mirror that here so the links show exactly when they will open. --%>
+<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.schedule" rights="w" reverse="<%=false%>">
+    <%
+        canEditGlobalScheduleSettings = true;
     %>
 </security:oscarSec>
 
@@ -193,7 +191,7 @@
             <p><fmt:message key="schedule.scheduletemplatesetting.formOrDo"/>:</p>
 
             <div class="d-flex flex-column gap-2">
-                <%if (!(isSiteAccessPrivacy || isTeamAccessPrivacy || grantOnlyCurProviderScheduleData)) {%>
+                <%if (canEditGlobalScheduleSettings && !grantOnlyCurProviderScheduleData) {%>
                 <div class="p-2 bg-success-subtle rounded">
                     <a href="#"
                        onclick="popupPage(440,530,'${pageContext.request.contextPath}/schedule/HolidaySetting?year=<%=year%>&month=<%=month%>&day=<%=day%>')"

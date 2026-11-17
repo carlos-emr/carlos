@@ -53,7 +53,6 @@ const DENIED = {
     'casemgmt/ViewIssueSearch',
     'casemgmt/ViewMessages',
     'casemgmt/ViewNewEncounterLayout',
-    'casemgmt/ViewSearch',
     'common/omdDiseaseList',
     'demographic/ViewDemographicEditDemographicJs',
     'demographic/ViewPrintClientLabLabel',
@@ -326,7 +325,6 @@ const DENIED = {
     'web/inboxhub/Inboxhub',
   ],
   doctor: [
-    'admin/ManageFlowsheets',
     'admin/ViewJobTypes',
     'admin/ViewJobs',
     'admin/ViewLotNrDeleteRecordHtm',
@@ -429,10 +427,26 @@ const ERROR_PAGE_REFUSALS = [
     'oscarResearch/oscarDxResearch/dxResearchLoadQuickList',
   ];
 
+/**
+ * The BC billing views of the same Struts package, which refuse the same way (HTTP 500 "Error
+ * Page" instead of 403). Each is probed wherever the full-privilege control is served it: some
+ * need the BC billing tables, so on an Ontario database they are skipped rather than counted
+ * against the control ratio. Every one is read-only on a GET without its write parameters: reprocessBill
+ * writes only on a POST carrying a save, ManageTeleplan's writing methods are POST-only and the
+ * sweep sends no `method`, and the other three are view gates.
+ */
+const BC_BILLING_ERROR_PAGE_REFUSALS = [
+    'billing/CA/BC/ManageTeleplan',
+    'billing/CA/BC/ViewWcbForms',
+    'billing/CA/BC/privateBilling/ViewStatement',
+    'billing/CA/BC/reprocessBill',
+    'billing/CA/BC/viewReceivePaymentAction',
+  ];
+
 for (const route of MUTATES_ON_GET) {
-  for (const list of [...Object.values(DENIED), ERROR_PAGE_REFUSALS]) {
+  for (const list of [...Object.values(DENIED), ERROR_PAGE_REFUSALS, BC_BILLING_ERROR_PAGE_REFUSALS]) {
     if (list.includes(route)) throw new Error(`${route} mutates on GET and must not be in a read sweep list`);
   }
 }
 
-module.exports = { DENIED, ERROR_PAGE_REFUSALS, MUTATES_ON_GET, patientQuery };
+module.exports = { DENIED, ERROR_PAGE_REFUSALS, BC_BILLING_ERROR_PAGE_REFUSALS, MUTATES_ON_GET, patientQuery };

@@ -21,6 +21,7 @@ import io.github.carlos_emr.carlos.commn.model.Queue;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask;
 import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
@@ -56,6 +57,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -322,6 +324,49 @@ class ManageDocument2ActionUnitTest extends CarlosUnitTestBase {
         response.reset(); request.removeParameter("flagproviders"); metadataTransactions.failCommit = true;
         metadata(route); assertThat(response.getStatus()).isEqualTo(500);
         assertThat(mapper.readTree(response.getContentAsString()).path("accepted").asBoolean()).isTrue();
+    }
+
+    /**
+     * document.docdesc is a utf8mb4 VARCHAR(255): the packaged database cut a longer description
+     * typed in the document viewer or inbox to 255 characters without a word. The save is refused
+     * before the transaction, routing or audit row. "😀" is one character, two Java chars.
+     */
+    @ParameterizedTest
+    @CsvSource({"ajax,d", "legacy,d", "fallback,d", "ajax,😀", "legacy,😀"})
+    void shouldRefuseTheWholeMetadataSave_whenTheDescriptionIsOneCharacterLongerThanTheColumn(String route, String character)
+            throws Exception {
+        prepareMetadata();
+        request.setParameter("documentDescription", character.repeat(Document.DESCRIPTION_MAX_LENGTH + 1));
+        request.setParameter("flagproviders", "999998");
+
+        metadata(route);
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertNoMetadataWrites();
+        verify(documentDao, Mockito.never()).findForPageMutation(anyInt());
+        assertThat(metadataTransactions.commits + metadataTransactions.rollbacks).isZero();
+        var json = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+        assertThat(json.path("success").asBoolean(true)).isFalse();
+        assertThat(json.path("accepted").asBoolean(true)).isFalse();
+        assertThat(json.path("descriptionTooLong").asBoolean()).isTrue();
+        assertThat(json.path("document").asInt()).isEqualTo(42);
+        assertThat(json.path("error").asText()).isEqualTo(java.util.ResourceBundle
+                .getBundle("oscarResources", request.getLocale()).getString("dms.error.descriptionTooLong"));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"ajax,d", "legacy,d", "ajax,😀", "legacy,😀"})
+    void shouldStoreTheWholeTrimmedDescription_whenItFillsTheColumnExactly(String route, String character) {
+        Document document = prepareMetadata();
+        String description = character.repeat(Document.DESCRIPTION_MAX_LENGTH);
+        // The surrounding blanks are not stored, as every other description writer (EDoc) trims.
+        request.setParameter("documentDescription", "  " + description + " ");
+
+        metadata(route);
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(document.getDocdesc()).isEqualTo(description);
+        assertThat(metadataTransactions.commits).isEqualTo(1);
     }
 
     @ParameterizedTest @ValueSource(strings = {"GET", "HEAD"})
@@ -863,6 +908,60 @@ class ManageDocument2ActionUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    /** A stored PDF of patient 10 the signed-in provider may read, served by {@code method=display}. */
+    private void prepareDisplayOfPatientDocument() throws Exception {
+        authorizeEdocWrite();
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("r"), eq("10"))).thenReturn(true);
+        when(ctlDocumentDao.findByDocumentNoAndModule(42, "demographic")).thenReturn(List.of(patientLink(10)));
+        when(ctlDocumentDao.getCtrlDocument(42)).thenReturn(patientLink(10));
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), eq(10))).thenReturn(true);
+        Document stored = new Document(42);
+        stored.setDocfilename("stored.pdf");
+        stored.setContenttype("application/pdf");
+        stored.setDocdesc("FAKE-DESCRIPTION consult letter");
+        when(documentDao.getDocument("42")).thenReturn(stored);
+        Files.write(tempDir.resolve("stored.pdf"), "%PDF-1.4 synthetic".getBytes(java.nio.charset.StandardCharsets.ISO_8859_1));
+        request.setParameter("method", "display");
+        request.setParameter("doc_no", "42");
+    }
+
+    @Test
+    void shouldWriteOneReadRowNamingThePatient_whenADocumentIsDisplayed() throws Exception {
+        prepareDisplayOfPatientDocument();
+
+        try (MockedStatic<PathValidationUtils> paths = cachePaths()) {
+            paths.when(() -> PathValidationUtils.validateExistingPath(any(File.class), any(File.class)))
+                    .thenReturn(tempDir.resolve("stored.pdf").toFile());
+            action.execute();
+        }
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentAsByteArray()).startsWith("%PDF".getBytes(java.nio.charset.StandardCharsets.ISO_8859_1));
+        // One view is one audit event, under the one content spelling ("document") that the inbox's
+        // "has this provider read it" lookup uses, filed under the patient the document belongs to.
+        logActionMock.verify(() -> LogAction.addLog("999998", LogConst.READ, LogConst.CON_DOCUMENT, "42",
+                request.getRemoteAddr(), "10"));
+        logActionMock.verifyNoMoreInteractions();
+    }
+
+    @Test
+    void shouldWriteOneReadRowNamingThePatient_whenTheRequestAlsoNamesAPatient() throws Exception {
+        prepareDisplayOfPatientDocument();
+        // The inbox viewer adds demoNo to the URL; the row is still the one keyed by the stored link.
+        request.setParameter("demoNo", "10");
+
+        try (MockedStatic<PathValidationUtils> paths = cachePaths()) {
+            paths.when(() -> PathValidationUtils.validateExistingPath(any(File.class), any(File.class)))
+                    .thenReturn(tempDir.resolve("stored.pdf").toFile());
+            action.execute();
+        }
+
+        logActionMock.verify(() -> LogAction.addLog("999998", LogConst.READ, LogConst.CON_DOCUMENT, "42",
+                request.getRemoteAddr(), "10"));
+        logActionMock.verifyNoMoreInteractions();
+    }
+
     @Test
     void shouldStreamIncomingRasterFromConfiguredRoot_withoutDependingOnFiledDocumentDirectory() throws Exception {
         Path incoming = Files.createDirectory(tempDir.resolve("incoming"));
@@ -1198,7 +1297,7 @@ class ManageDocument2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldPropagateFailure_whenProviderRoutingDenied() throws Exception {
         doThrow(new SecurityException("missing _edoc")).when(providerInboxRoutingDao)
-                .addToProviderInbox("999998", 42, LabResultData.DOCUMENT);
+                .addToProviderInboxStrict("999998", 42, LabResultData.DOCUMENT);
         Method route = ManageDocument2Action.class.getDeclaredMethod(
                 "routeDocumentToProviders", String[].class, String.class);
         route.setAccessible(true);
@@ -1207,7 +1306,7 @@ class ManageDocument2ActionUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(java.lang.reflect.InvocationTargetException.class)
                 .hasCauseInstanceOf(SecurityException.class);
 
-        verify(providerInboxRoutingDao).addToProviderInbox("999998", 42, LabResultData.DOCUMENT);
+        verify(providerInboxRoutingDao).addToProviderInboxStrict("999998", 42, LabResultData.DOCUMENT);
     }
 
     @Test
@@ -1227,6 +1326,80 @@ class ManageDocument2ActionUnitTest extends CarlosUnitTestBase {
         List<Path> storedFiles = listStoredDocuments();
         assertThat(storedFiles).hasSize(1);
         assertThat(Files.readString(storedFiles.get(0))).isEqualTo("original-content");
+    }
+
+    /**
+     * Filing an incoming document stored the typed description cut to document.docdesc (255
+     * characters) without a word. The filing is refused before the queued file is read, moved or
+     * filed, through the filing contract the Incoming Docs page shows ("😀": one character).
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"d", "😀"})
+    void shouldRefuseIncomingFilingBeforeMovingAnything_whenTheDescriptionIsOneCharacterTooLong(String character) throws Exception {
+        Path incomingDir = configureIncomingDocumentDirectories();
+        Path sourceFile = createIncomingSource(incomingDir, "long.pdf", "source-content");
+        setupSuccessfulAddIncomingRequest("long.pdf");
+        request.addHeader("X-Carlos-Incoming-Filing", "bounded-v1");
+        request.setParameter("documentDescription", character.repeat(Document.DESCRIPTION_MAX_LENGTH + 1));
+        request.setParameter("flagproviders", "999998");
+
+        try (MockedStatic<EDocUtil> edocUtil = Mockito.mockStatic(EDocUtil.class, Mockito.CALLS_REAL_METHODS)) {
+            assertThat(action.addIncomingDocument()).isEqualTo(ActionSupport.NONE);
+            edocUtil.verify(() -> EDocUtil.addDocumentSQL(Mockito.any(EDoc.class)), Mockito.never());
+        }
+
+        assertThat(response.getStatus()).isEqualTo(422);
+        var payload = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+        assertThat(payload.path("success").asBoolean(true)).isFalse();
+        assertThat(payload.path("accepted").asBoolean(true)).isFalse();
+        assertThat(payload.path("retryable").asBoolean(true)).isFalse();
+        assertThat(payload.path("descriptionTooLong").asBoolean()).isTrue();
+        assertThat(payload.path("error").asText()).isEqualTo(java.util.ResourceBundle
+                .getBundle("oscarResources", request.getLocale()).getString("dms.error.descriptionTooLong"));
+        assertThat(Files.readString(sourceFile)).isEqualTo("source-content");
+        assertThat(listStoredDocuments()).isEmpty();
+        assertThat(action.pageCountRequests).isZero();
+        verifyNoInteractions(providerInboxRoutingDao);
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    void shouldAnswerANativeFilingWithTheDescriptionMessage_whenTheDescriptionIsTooLong() throws Exception {
+        Path incomingDir = configureIncomingDocumentDirectories();
+        Path sourceFile = createIncomingSource(incomingDir, "long.pdf", "source-content");
+        setupSuccessfulAddIncomingRequest("long.pdf");
+        request.setParameter("documentDescription", "d".repeat(Document.DESCRIPTION_MAX_LENGTH + 1));
+
+        assertThat(action.addIncomingDocument()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(422);
+        var html = org.jsoup.Jsoup.parse(response.getContentAsString());
+        assertThat(html.select("p[role=alert]").text()).isEqualTo(java.util.ResourceBundle
+                .getBundle("oscarResources", request.getLocale()).getString("dms.error.descriptionTooLong"));
+        // No resubmission of the same over-long text is offered; the link reopens the queued document.
+        assertThat(html.select("form,input,script")).isEmpty();
+        assertThat(html.select("a").attr("href")).contains("/documentManager/ViewIncomingDocs?queueId=1&pdfDir=Fax");
+        assertThat(Files.readString(sourceFile)).isEqualTo("source-content");
+        assertThat(listStoredDocuments()).isEmpty();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"d", "😀"})
+    void shouldFileTheWholeDescription_whenAnIncomingDescriptionFillsTheColumnExactly(String character) throws Exception {
+        Path incomingDir = configureIncomingDocumentDirectories();
+        createIncomingSource(incomingDir, "full.pdf", "source-content");
+        setupSuccessfulAddIncomingRequest("full.pdf");
+        String description = character.repeat(Document.DESCRIPTION_MAX_LENGTH);
+        request.setParameter("documentDescription", " " + description + " ");
+        org.mockito.ArgumentCaptor<EDoc> filed = org.mockito.ArgumentCaptor.forClass(EDoc.class);
+
+        try (MockedStatic<EDocUtil> edocUtil = Mockito.mockStatic(EDocUtil.class, Mockito.CALLS_REAL_METHODS)) {
+            edocUtil.when(() -> EDocUtil.addDocumentSQL(Mockito.any(EDoc.class))).thenReturn("42");
+            assertThat(action.addIncomingDocument()).isEqualTo("nextIncomingDoc");
+            edocUtil.verify(() -> EDocUtil.addDocumentSQL(filed.capture()));
+        }
+
+        assertThat(filed.getValue().getDescription()).isEqualTo(description);
     }
 
     @Test
@@ -1560,12 +1733,46 @@ class ManageDocument2ActionUnitTest extends CarlosUnitTestBase {
         request.addHeader("X-Carlos-Incoming-Filing", "bounded-v1");
         request.setParameter("flagproviders", "999998");
         doThrow(new SecurityException("private denial")).when(providerInboxRoutingDao)
-                .addToProviderInbox("999998", 42, LabResultData.DOCUMENT);
+                .addToProviderInboxStrict("999998", 42, LabResultData.DOCUMENT);
         assertThat(runAddIncomingDocumentWithEdocMock()).isEqualTo("none");
         assertThat(sourceFile).doesNotExist();
         assertThat(listStoredDocuments()).hasSize(1);
         assertThat(response.getContentAsString()).contains("\"accepted\":true", "\"success\":false", "\"retryable\":false")
                 .doesNotContain("private denial");
+        verifyNoInteractions(patientLabRoutingDao, ctlDocumentDao);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"true,true", "true,false", "false,true", "false,false"})
+    @DisplayName("Real DAO routing failure reports accepted but unconfirmed filing, never successful delivery")
+    void shouldReportUnconfirmedWhenRealDaoStrictRoutingFails(boolean contract, boolean denied) throws Exception {
+        // Keep the real legacy wrapper: it catches this strict failure. Mocking that
+        // wrapper to throw cannot reproduce the delivery failure seen by this action.
+        var realRouting = spy(new io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDaoImpl());
+        RuntimeException failure = denied ? new SecurityException("private routing denial")
+                : new IllegalStateException("private routing persistence failure");
+        doThrow(failure).when(realRouting).addToProviderInboxStrict("999998", 42, LabResultData.DOCUMENT);
+        registerMock(ProviderInboxRoutingDao.class, realRouting);
+        action = new TestManageDocument2Action();
+        Path incomingDir = configureIncomingDocumentDirectories();
+        Path sourceFile = createIncomingSource(incomingDir, "real-routing.pdf", "source-content");
+        setupSuccessfulAddIncomingRequest("real-routing.pdf");
+        if (contract) request.addHeader("X-Carlos-Incoming-Filing", "bounded-v1");
+        request.setParameter("flagproviders", "999998");
+
+        assertThat(runAddIncomingDocumentWithEdocMock()).isEqualTo("none");
+        assertThat(sourceFile).doesNotExist();
+        assertThat(listStoredDocuments()).hasSize(1);
+        assertThat(Files.readString(listStoredDocuments().get(0))).isEqualTo("source-content");
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(response.getContentAsString()).doesNotContain("private routing");
+        if (contract) {
+            assertThat(response.getContentAsString()).contains("\"accepted\":true", "\"success\":false", "\"retryable\":false");
+        } else {
+            assertThat(response.getContentAsString()).contains("could not be confirmed").doesNotContain("Retry saving");
+        }
+        verify(realRouting).addToProviderInboxStrict("999998", 42, LabResultData.DOCUMENT);
+        Mockito.verify(realRouting, Mockito.never()).addToProviderInbox(anyString(), anyInt(), anyString());
         verifyNoInteractions(patientLabRoutingDao, ctlDocumentDao);
     }
 
@@ -1824,4 +2031,132 @@ class ManageDocument2ActionUnitTest extends CarlosUnitTestBase {
             throw new AssertionError("sendError must not be called for committed responses");
         }
     }
+
+    private Document descriptionCandidate(int number, String description) {
+        Document document = new Document(number); document.setDocdesc(description);
+        document.setRestrictToProgram(false); document.setStatus('A');
+        return document;
+    }
+
+    private void authorizeDescriptionSearch(java.util.Map<Integer, Integer> owners) {
+        authorizeEdocWrite();
+        when(securityInfoManager.hasPrivilegeReadOnly(any(), eq("_edoc"), eq("r"), nullable(String.class))).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("r"), nullable(String.class)))
+                .thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), anyInt()))
+                .thenAnswer(call -> ((Integer) call.getArgument(1)) == 10);
+        when(ctlDocumentDao.findByDocumentNoAndModule(anyInt(), eq("demographic")))
+                .thenAnswer(call -> List.of(patientLink(owners.getOrDefault((Integer) call.getArgument(0), 11))));
+        when(documentDao.find(anyInt())).thenAnswer(call -> descriptionCandidate(call.getArgument(0), "stored"));
+    }
+
+    @Test
+    void descriptionSearchFiltersLockedRowsBeforeDistinctAndAuthorizedOrdering() throws Exception {
+        authorizeDescriptionSearch(java.util.Map.of(200, 11, 199, 10, 198, 10));
+        when(documentDao.findDocumentDescriptionCandidates("%needle%", null, 100)).thenReturn(List.of(
+                descriptionCandidate(200, "Shared"), descriptionCandidate(199, "Open other"),
+                descriptionCandidate(198, "Shared")));
+        when(documentDao.findDocumentDescriptions("%needle%")).thenReturn(List.of("Shared", "Open other"));
+        request.setParameter("term", " needle ");
+        action.searchDocumentDescriptions();
+        var json = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+        assertThat(json.size()).isEqualTo(2);
+        assertThat(json.get(0).get("label").asText()).isEqualTo("Open other");
+        assertThat(json.get(1).get("label").asText()).isEqualTo("Shared");
+        verify(securityInfoManager).isAllowedAccessToPatientRecord(any(), eq(11));
+    }
+
+    @Test
+    void descriptionSearchContinuesPastOneHundredInaccessibleNewestRows() throws Exception {
+        java.util.Map<Integer, Integer> owners = new java.util.HashMap<>();
+        java.util.List<Document> first = new java.util.ArrayList<>();
+        java.util.List<Document> second = new java.util.ArrayList<>();
+        for (int id = 300; id >= 201; id--) { owners.put(id, 11); first.add(descriptionCandidate(id, "LOCKED-"+id)); }
+        for (int id = 200; id >= 176; id--) { owners.put(id, 10); second.add(descriptionCandidate(id, "Open-"+id)); }
+        authorizeDescriptionSearch(owners);
+        when(documentDao.findDocumentDescriptionCandidates("%", null, 100)).thenReturn(first);
+        when(documentDao.findDocumentDescriptionCandidates("%", 201, 100)).thenReturn(second);
+        when(documentDao.findDocumentDescriptions("%")).thenReturn(first.stream().limit(20).map(Document::getDocdesc).toList());
+        action.searchDocumentDescriptions();
+        var json = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+        assertThat(json.size()).isEqualTo(20);
+        assertThat(json.get(0).get("label").asText()).isEqualTo("Open-200");
+        assertThat(json.get(19).get("label").asText()).isEqualTo("Open-181");
+        assertThat(response.getContentAsString()).doesNotContain("LOCKED");
+        verify(documentDao).findDocumentDescriptionCandidates("%", 201, 100);
+    }
+
+    @Test
+    void shouldStopScanning_afterTheDescriptionPageLimit() throws Exception {
+        authorizeDescriptionSearch(java.util.Map.of());
+        int pages = ManageDocument2Action.DESCRIPTION_SCAN_PAGES + 3;
+        for (int page = 0; page < pages; page++) {
+            java.util.List<Document> rows = new java.util.ArrayList<>();
+            int newest = 100_000 - page * 100;
+            for (int id = newest; id > newest - 100; id--) rows.add(descriptionCandidate(id, "LOCKED-" + id));
+            when(documentDao.findDocumentDescriptionCandidates("%", page == 0 ? null : newest + 1, 100)).thenReturn(rows);
+        }
+        action.searchDocumentDescriptions();
+        assertThat(new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString()).size()).isZero();
+        verify(documentDao, Mockito.times(ManageDocument2Action.DESCRIPTION_SCAN_PAGES))
+                .findDocumentDescriptionCandidates(anyString(), any(), anyInt());
+    }
+
+    @Test
+    void shouldAuthorizeEachOfferedDescriptionOnce_whenNewerDocumentsRepeatIt() throws Exception {
+        java.util.Map<Integer, Integer> owners = new java.util.HashMap<>();
+        java.util.List<Document> rows = new java.util.ArrayList<>();
+        for (int id = 200; id > 150; id--) { owners.put(id, 10); rows.add(descriptionCandidate(id, "Repeated")); }
+        authorizeDescriptionSearch(owners);
+        when(documentDao.findDocumentDescriptionCandidates("%", null, 100)).thenReturn(rows);
+        action.searchDocumentDescriptions();
+        var json = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+        assertThat(json.size()).isEqualTo(1);
+        assertThat(json.get(0).get("label").asText()).isEqualTo("Repeated");
+        // Only the newest document carrying the description is authorized; older repeats are skipped.
+        verify(ctlDocumentDao, Mockito.atLeastOnce()).findByDocumentNoAndModule(eq(200), eq("demographic"));
+        verify(ctlDocumentDao, Mockito.never()).findByDocumentNoAndModule(
+                ArgumentMatchers.intThat(number -> number < 200), eq("demographic"));
+    }
+
+    @Test
+    void descriptionSearchRequiresAccessToEveryActualOwner() throws Exception {
+        authorizeDescriptionSearch(java.util.Map.of(200, 10, 199, 10));
+        when(ctlDocumentDao.findByDocumentNoAndModule(200, "demographic"))
+                .thenReturn(List.of(patientLink(10), patientLink(11)));
+        when(documentDao.findDocumentDescriptionCandidates("%", null, 100)).thenReturn(List.of(
+                descriptionCandidate(200, "Mixed-owner private"), descriptionCandidate(199, "Open")));
+        when(documentDao.findDocumentDescriptions("%")).thenReturn(List.of("Mixed-owner private", "Open"));
+        action.searchDocumentDescriptions();
+        assertThat(response.getContentAsString()).contains("Open").doesNotContain("Mixed-owner private");
+    }
+
+    @Test
+    void descriptionSearchDoesNotTreatReadFailureAsAnEmptyAuthorizedResult() throws Exception {
+        authorizeDescriptionSearch(java.util.Map.of(200, 10));
+        when(documentDao.findDocumentDescriptionCandidates("%", null, 100))
+                .thenReturn(List.of(descriptionCandidate(200, "Private")));
+        when(ctlDocumentDao.findByDocumentNoAndModule(200, "demographic"))
+                .thenThrow(new IllegalStateException("unavailable"));
+        assertThatThrownBy(() -> action.searchDocumentDescriptions()).isInstanceOf(IllegalStateException.class);
+        assertThat(response.getContentAsString()).isEmpty();
+    }
+
+    @Test
+    void descriptionSearchRejectsUnexpectedCandidateOrderBeforeOutput() throws Exception {
+        authorizeDescriptionSearch(java.util.Map.of(200, 10, 201, 10));
+        when(documentDao.findDocumentDescriptionCandidates("%", null, 100)).thenReturn(List.of(
+                descriptionCandidate(200, "First"), descriptionCandidate(201, "Out of order")));
+        assertThatThrownBy(() -> action.searchDocumentDescriptions()).isInstanceOf(IllegalStateException.class);
+        assertThat(response.getContentAsString()).isEmpty();
+    }
+
+    @Test
+    void descriptionSearchRequiresReadAsWellAsWriteWithoutQueryingAnyPatient() throws Exception {
+        authorizeEdocWrite();
+        assertThatThrownBy(() -> action.searchDocumentDescriptions()).isInstanceOf(SecurityException.class);
+        verify(documentDao, Mockito.never()).findDocumentDescriptionCandidates(anyString(), any(), anyInt());
+        assertThat(response.getContentAsString()).isEmpty();
+    }
+
 }

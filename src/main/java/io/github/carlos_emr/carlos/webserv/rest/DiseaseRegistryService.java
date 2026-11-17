@@ -41,6 +41,7 @@ import jakarta.ws.rs.core.Response;
 import io.github.carlos_emr.carlos.casemgmt.dao.IssueDAO;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
+import io.github.carlos_emr.carlos.commn.dao.QuickListCodingSystem;
 import io.github.carlos_emr.carlos.commn.dao.QuickListDao;
 import io.github.carlos_emr.carlos.commn.model.Dxresearch;
 import io.github.carlos_emr.carlos.commn.model.QuickList;
@@ -90,11 +91,13 @@ public class DiseaseRegistryService extends AbstractServiceImpl {
                 quickListMap.put(item.getQuickListName(), dxList);
             }
 
-            String desc = dxresearchDao.getDescription(item.getCodingSystem(), item.getDxResearchCode());
+            // A row stored under an older name of its coding system (the seeded lists' "ichppc") reads as that coding system (#4989).
+            String codingSystem = QuickListCodingSystem.canonical(item.getCodingSystem());
+            String desc = dxresearchDao.getDescription(codingSystem, item.getDxResearchCode());
             if (desc != null) {
                 DiagnosisTo1 dx = new DiagnosisTo1();
                 dx.setCode(item.getDxResearchCode());
-                dx.setCodingSystem(item.getCodingSystem());
+                dx.setCodingSystem(codingSystem);
                 dx.setDescription(desc);
                 dxList.getDxList().add(dx);
             }
@@ -148,12 +151,7 @@ public class DiseaseRegistryService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public Response addToDiseaseRegistry(@PathParam("demographicNo") Integer demographicNo, IssueTo1 issue) {
-        if (demographicNo == null) {
-            throw new BadRequestException("demographicNo is required");
-        }
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_newCasemgmt.DxRegistry", "w", demographicNo)) {
-            throw new SecurityException("missing required sec object (_newCasemgmt.DxRegistry)");
-        }
+        io.github.carlos_emr.carlos.webserv.rest.util.PatientApiAccess.require(getLoggedInInfo(), securityInfoManager, "_newCasemgmt.DxRegistry", "w", demographicNo);
         boolean activeEntryExists = dxresearchDao.activeEntryExists(demographicNo, issue.getType(), issue.getCode());
 
         if (!activeEntryExists) {
@@ -190,12 +188,7 @@ public class DiseaseRegistryService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public Response getDiseaseRegistry(@QueryParam("demographicNo") Integer demographicNo) {
-        if (demographicNo == null) {
-            throw new BadRequestException("demographicNo is required");
-        }
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_newCasemgmt.DxRegistry", "r", demographicNo)) {
-            throw new SecurityException("missing required sec object (_newCasemgmt.DxRegistry)");
-        }
+        io.github.carlos_emr.carlos.webserv.rest.util.PatientApiAccess.require(getLoggedInInfo(), securityInfoManager, "_newCasemgmt.DxRegistry", "r", demographicNo);
         List<Dxresearch> dxresearchList = dxresearchDao.getByDemographicNo(demographicNo);
         return Response.ok(dxresearchList).build();
     }
