@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later. */
+// #5813: a lone empty text parameter survives upload/edit/reopen/run.
 // #5725: four native report instances in ONE context/login, including two
 // additional instances of the same template. Never intercept the clear beacon.
 const fs=require('node:fs');
@@ -31,10 +32,10 @@ async function workflow(s) {
     ext:sql.rows(`SELECT * FROM demographicExt WHERE demographic_no IN (${patient},${second}) ORDER BY id`)});
   const before=clinical();
   const templates=[
-    {title:titles[0],header:['patient_id','surname','given','sex_code'],types:['number','text','text','text'],
+    {title:titles[0],parameterType:'text',header:['patient_id','surname','given','sex_code'],types:['number','text','text','text'],
       query:`SELECT demographic_no AS patient_id,last_name AS surname,first_name AS given,sex AS sex_code FROM demographic WHERE last_name='${marker}' AND sex='{pick}' ORDER BY demographic_no`,
       row:sex=>[sex==='F'?patient:second,marker,sex==='F'?'Workflow':secondName,sex]},
-    {title:titles[1],header:['patient_label','charge','sex_code'],types:['text','number','text'],
+    {title:titles[1],parameterType:'list',header:['patient_label','charge','sex_code'],types:['text','number','text'],
       query:`SELECT CONCAT('T2-',first_name) AS patient_label,CAST('12.34' AS DECIMAL(10,2)) AS charge,sex AS sex_code FROM demographic WHERE last_name='${marker}' AND sex='{pick}' ORDER BY demographic_no`,
       row:sex=>['T2-'+(sex==='F'?'Workflow':secondName),'12.34',sex]},
   ];
@@ -50,7 +51,11 @@ async function workflow(s) {
     for(const template of templates) {
       await click(library.getByRole('link',{name:'Add Template',exact:true}));
       const escape=value=>value.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
-      const xml=`<report title="${template.title}" description="${marker} tab isolation" active="1"><query>${escape(template.query)}</query><param id="pick" type="list" description="Sex"><choice id="F">Female</choice><choice id="M">Male</choice><choice id="X">No matching patient</choice></param></report>`;
+      const parameter=template.parameterType==='text'
+        ? '<param\nid="pick"\ttype="text" description="Sex" meta:hint="optional"/><!-- <param id="commentedOut" type="text" description="Unused"/> -->'
+        : '<param id="pick" type="list" description="Sex"><choice id="F">Female</choice><choice id="M">Male</choice><choice id="X">No matching patient</choice></param>';
+      const root=template.parameterType==='text'?'r:report':'report';
+      const xml=`<${root} xmlns:r="urn:carlos:report" xmlns:meta="urn:carlos:regression-metadata" title="${template.title}" description="${marker} tab isolation" active="1"><query>${escape(template.query)}</query>${parameter}</${root}>`;
       await library.locator('#uploadReportXml').setInputFiles({name:'owned-report-tabs.xml',mimeType:'text/xml',buffer:Buffer.from(xml)});
       await click(library.locator('input[type="submit"][value^="Upload"]'));
       await library.locator('.alert-success',{hasText:'Saved Successfully'}).waitFor();
@@ -68,7 +73,8 @@ async function workflow(s) {
     const [page]=await Promise.all([s.context.waitForEvent('page',{timeout:20000}),target.click({button:'middle'})]);
     await page.waitForLoadState('load');
     h.assert(page.context()===s.context&&new URL(page.url()).searchParams.get('templateid')===template.id,'Report tab lost its session or template');
-    await page.locator('select#pick').waitFor();
+    await page.locator(template.parameterType==='text'?'input#pick':'select#pick').waitFor();
+    h.assert(await page.locator('#commentedOut').count()===0,'A commented parameter became an input');
     return {page,template};
   }
   const beacons=[];
@@ -89,7 +95,8 @@ async function workflow(s) {
     h.assert(clinical()===before,'Report execution changed clinical data');
   }
   async function run(instance,sex) {
-    await instance.page.locator('#pick').selectOption(sex);
+    const field=instance.page.locator('#pick');
+    if(instance.template.parameterType==='text')await field.fill(sex);else await field.selectOption(sex);
     await Promise.all([instance.page.waitForNavigation({waitUntil:'load'}),instance.page.locator('input[type="submit"][value="Run Query"]').click()]);
     await table(instance,sex);
   }
@@ -133,6 +140,34 @@ async function workflow(s) {
       if(entry.resourceType==='ping'&&entry.requestRef?.deref()===beacon&&/ERR_ABORTED/.test(entry.errorText))s.recorder.requestFailures.splice(i,1);
     }
   }
+  await s.step('a lone empty text parameter survives native upload, edit, reopen, run and export',async()=>{
+    const otherBefore=JSON.stringify(sql.rows('SELECT * FROM reportTemplates WHERE templateid=?',[templates[1].id]));
+    const proof=await open(templates[0]);
+    h.assert(await proof.page.locator('input#pick').inputValue()==='', 'The empty text parameter acquired a value');
+    await Promise.all([proof.page.waitForNavigation({waitUntil:'load'}),proof.page.getByRole('link',{name:'Edit Template',exact:true}).click()]);
+    const textarea=proof.page.locator('textarea#xmltext');
+    const source=await textarea.inputValue();
+    const editedQuery=templates[0].query.replace(' ORDER BY'," AND 'A&B'='A&B' ORDER BY");
+    const changed=source.replace(`${marker} tab isolation`,`${marker} tab isolation edited`)
+      .replace(templates[0].query,editedQuery);
+    h.assert(changed!==source&&changed.includes(editedQuery),'The owned description or SQL was not present in the editor');
+    await textarea.fill(changed);
+    await Promise.all([proof.page.waitForNavigation({waitUntil:'load'}),proof.page.locator('input[type="submit"][value="Done"]').click()]);
+    await proof.page.locator('input#pick').waitFor();
+    h.assert(await proof.page.locator('input#pick').inputValue()==='', 'The edited text parameter lost its empty state');
+    templates[0].query=editedQuery;
+    const persistedXml=sql.value('SELECT templatexml FROM reportTemplates WHERE templateid=?',[templates[0].id]);
+    h.assert(persistedXml.includes('meta:hint="optional"')
+      && persistedXml.includes('xmlns:meta="urn:carlos:regression-metadata"'),
+    'The empty parameter lost its inherited namespace metadata');
+    h.assert(sql.value('SELECT templatesql FROM reportTemplates WHERE templateid=?',[templates[0].id])===editedQuery,
+      'Editing the report changed its legacy raw ampersand SQL');
+    h.assert(JSON.stringify(sql.rows('SELECT * FROM reportTemplates WHERE templateid=?',[templates[1].id]))===otherBefore,
+      'Editing one template changed the other template');
+    await run(proof,'F');await exports(proof);
+    await leave(proof,()=>Promise.all([proof.page.waitForNavigation({waitUntil:'load'}),proof.page.locator('input[type="button"][value="Back"]').click()]));
+    await proof.page.close();
+  });
   let a,b,c,d;
   await s.step('different templates and parameters in two shared-session tabs retain exact rows and CSV/XLS exports',async()=>{
     a=await open(templates[0]);b=await open(templates[1]);await run(a,'F');await run(b,'M');await exports(a);await exports(b);await exports(a);
