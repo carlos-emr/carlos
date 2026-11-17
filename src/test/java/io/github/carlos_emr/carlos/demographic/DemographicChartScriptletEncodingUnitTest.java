@@ -94,11 +94,13 @@ class DemographicChartScriptletEncodingUnitTest {
         // A configured text snippet gets its stored value in value="", once for each column.
         assertThat(StringUtils.countMatches(jsp,
                 ".replace(\"value=\\\"\\\"\", \"value=\\\"\" + SafeEncode.forHtmlAttribute(")).isEqualTo(2);
-        // A configured select is matched as plain text, never as a pattern, once for each column.
+        // A configured select is never matched as a pattern, nor against the template's source text: both
+        // columns select the saved value by the option's decoded value (DemographicCustomFieldSelect).
         assertThat(jsp).doesNotContain("propDemoExtForm[k].replaceAll(")
-                .doesNotContain("propDemoExtForm[k + 1].replaceAll(");
-        Matcher select = Pattern.compile("propDemoExtForm\\[k( \\+ 1)?\\]\\.replace\\(\"value=\\\\\"\" \\+ "
-                + "StringUtils\\.trimToEmpty\\(.*\\+ \" selected\"\\)\\);").matcher(jsp);
+                .doesNotContain("propDemoExtForm[k + 1].replaceAll(")
+                .doesNotContain("+ \" selected\"");
+        Matcher select = Pattern.compile("DemographicCustomFieldSelect\\.markSaved\\(propDemoExtForm\\[k( \\+ 1)?\\], "
+                + "demoExt\\.get\\(propDemoExt\\[k( \\+ 1)?\\]\\.replace\\(' ', '_'\\)\\)\\)").matcher(jsp);
         int selectBranches = 0;
         while (select.find()) {
             selectBranches++;

@@ -4,6 +4,7 @@
 <%@ page import="java.text.DecimalFormat" %>
 
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.DemographicCustomFieldSelect" %>
 
 <%@ page import="io.github.carlos_emr.AppointmentMainBean" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
@@ -835,7 +836,7 @@
                                                         <td align="left">
                                                             <% if (bExtForm) {
                                                                 if (propDemoExtForm[k].indexOf("<select") >= 0) {
-                                                                    out.println(propDemoExtForm[k].replace("value=\"" + StringUtils.trimToEmpty(demoExt.get(propDemoExt[k].replace(' ', '_'))) + "\"", "value=\"" + StringUtils.trimToEmpty(demoExt.get(propDemoExt[k].replace(' ', '_'))) + "\"" + " selected"));
+                                                                    out.println(DemographicCustomFieldSelect.markSaved(propDemoExtForm[k], demoExt.get(propDemoExt[k].replace(' ', '_'))));
                                                                 } else {
                                                                     out.println(propDemoExtForm[k].replace("value=\"\"", "value=\"" + SafeEncode.forHtmlAttribute(StringUtils.trimToEmpty(demoExt.get(propDemoExt[k].replace(' ', '_')))) + "\""));
                                                                 }
@@ -855,7 +856,7 @@
                                                         <td align="left">
                                                             <% if (bExtForm) {
                                                                 if (propDemoExtForm[k + 1].indexOf("<select") >= 0) {
-                                                                    out.println(propDemoExtForm[k + 1].replace("value=\"" + StringUtils.trimToEmpty(demoExt.get(propDemoExt[k + 1].replace(' ', '_'))) + "\"", "value=\"" + StringUtils.trimToEmpty(demoExt.get(propDemoExt[k + 1].replace(' ', '_'))) + "\"" + " selected"));
+                                                                    out.println(DemographicCustomFieldSelect.markSaved(propDemoExtForm[k + 1], demoExt.get(propDemoExt[k + 1].replace(' ', '_'))));
                                                                 } else {
                                                                     out.println(propDemoExtForm[k + 1].replace("value=\"\"", "value=\"" + SafeEncode.forHtmlAttribute(StringUtils.trimToEmpty(demoExt.get(propDemoExt[k + 1].replace(' ', '_')))) + "\""));
                                                                 }
