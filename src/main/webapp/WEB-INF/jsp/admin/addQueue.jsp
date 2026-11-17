@@ -136,7 +136,7 @@
             } else {
 
                 if (qn.length > 0) {
-                    var data = "method=addNewQueue&newQueueName=" + qn;
+                    var data = { method: 'addNewQueue', newQueueName: qn };
                     var url = "${ctx}/documentManager/inboxManage";
 
                     $.ajax({
