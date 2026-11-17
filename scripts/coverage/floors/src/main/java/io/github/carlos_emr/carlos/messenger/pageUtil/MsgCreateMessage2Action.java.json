@@ -3,10 +3,10 @@
   "path": "src/main/java/io/github/carlos_emr/carlos/messenger/pageUtil/MsgCreateMessage2Action.java",
   "kind": "floor",
   "floor": {
-    "lines": 96.29629629629629,
-    "instructions": 95.15151515151516,
-    "branches": 83.33333333333333,
-    "sourceBlob": "5a4bb11e6e58f8e148f7a2dae14de0b4f3669dd7"
+    "lines": 97.95918367346938,
+    "instructions": 97.79411764705883,
+    "branches": 89.85507246376811,
+    "sourceBlob": "abd1143947469970030ca3f0859758780f057dc5"
   },
-  "evidenceSha256": "169b613a391dbe5da690ed367422f730f32d246d493371b449ec3b487fdcdf70"
+  "evidenceSha256": "35815dadceafe2827ef8bf75a0116e737bb3ed91d5fa463ac4b86bd5589f5c1a"
 }
