@@ -103,7 +103,7 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
             // removed by that import's later rollback.
             try (var _ = EFormImagePublicationLock.acquire(imageFolder)) {
                 File destinationFile = PathValidationUtils.validateUpload(image, imageFileName, imageFolder);
-                try (InputStream fis = Files.newInputStream(image.toPath());
+                try (InputStream fis = PathValidationUtils.openValidatedUploadInputStream(image);
                      OutputStream fos = Files.newOutputStream(destinationFile.toPath())) {
                     byte[] buffer = new byte[4096];
                     int bytesRead;
