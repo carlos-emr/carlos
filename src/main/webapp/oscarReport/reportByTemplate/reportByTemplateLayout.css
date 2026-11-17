@@ -9,6 +9,14 @@
     overflow-wrap: anywhere;
 }
 
+/* The bar is navigation only. resultReport.jsp already hides .noprint in print; the other pages had no
+   such rule, so a printed template (View Template XML has a Print button) carried the bar. */
+@media print {
+    .rbt-page .noprint {
+        display: none;
+    }
+}
+
 @media screen {
     .rbt-page {
         padding-inline: 1rem;
