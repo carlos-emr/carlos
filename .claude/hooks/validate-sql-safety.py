@@ -651,7 +651,9 @@ def has_sql_context(statement: str) -> bool:
         # CAST(...), CASE and quoted disjunctions can all embed raw values.
         # A bare quote also starts an IN-list value assembled by a generic
         # builder. Ordinary prose ending in a quote supplies neither signal.
-        r"(?:[=<>!]|LIKE\b)\s*'\s*$|"
+        r"^\s*(?:(?:WHERE|AND|OR|ON)\b\s*)?(?:\(\s*)*"
+        r"(?:[\w.$`]+\s*\(|CASE\b)[^;]*(?:[=<>!]|LIKE\b)\s*'\s*$|"
+        r"^\s*'\s+(?:AND|OR)\b\s+[^;]*(?:[=<>!]|LIKE\b)\s*'\s*$|"
         # A literal containing only a clause starter is a query fragment, not
         # a keyword embedded in a sentence ("Error reading XML from ...").
         r'^\s*(?:SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|INTO|VALUES|SET|JOIN)\s*$|'

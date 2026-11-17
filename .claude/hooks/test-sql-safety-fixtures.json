@@ -1461,5 +1461,53 @@
         "content": "filters.add(\"lower(last_name) = :name\"); query.setParameter(\"name\", name);"
       }
     }
+  },
+  {
+    "section": "Non-SQL quoted attributes (#6265 review)",
+    "description": "QS-markup: HTML marker regexp constants",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SyntheticMarkup.java",
+        "content": "Pattern marker = Pattern.compile(\"<meta name='\" + VISUAL_EDITOR_MARKER_NAME + \"' content='\" + VISUAL_EDITOR_MARKER_CONTENT + \"' data-fingerprint='([0-9a-f]{8})'>\");"
+      }
+    }
+  },
+  {
+    "section": "Non-SQL quoted attributes (#6265 review)",
+    "description": "QS-markup: HTML attribute value",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SyntheticMarkup.java",
+        "content": "String html = \"<span data-value='\" + value + \"'>\";"
+      }
+    }
+  },
+  {
+    "section": "Non-SQL quoted attributes (#6265 review)",
+    "description": "QS-markup: XML attribute value",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SyntheticMarkup.java",
+        "content": "String xml = \"<request subject='\" + subject + \"'/>\";"
+      }
+    }
+  },
+  {
+    "section": "Non-SQL quoted attributes (#6265 review)",
+    "description": "QS-markup: ordinary prose comparison",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SyntheticMarkup.java",
+        "content": "sb.append(\"Invalid value = '\" + source + \"'\");"
+      }
+    }
   }
 ]
