@@ -531,6 +531,88 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
     // getAppointmentsForPatient
     // -----------------------------------------------------------------------
 
+    @Test
+    void shouldAvoidQueriesAndAudits_whenALegacySyncRequestsZeroRows() {
+        assertThat(scheduleManager.getAppointmentUpdatedAfterDate(mockLoggedInInfo, null, 0)).isEmpty();
+        assertThat(scheduleManager.getAppointmentArchiveUpdatedAfterDate(mockLoggedInInfo, null, 0)).isEmpty();
+        assertThat(scheduleManager.getAppointmentsByProgramProviderDemographicDate(
+                mockLoggedInInfo, 5, TEST_PROVIDER, TEST_DEMO_NO, null, 0)).isEmpty();
+        verifyNoInteractions(mockOscarAppointmentDao, mockAppointmentArchiveDao, mockPatientConsentManager);
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    void shouldRejectAMissingFilteredSyncTimestamp_beforeQueryingOrAuditing() {
+        assertThatThrownBy(() -> scheduleManager.getAppointmentsByProgramProviderDemographicDate(
+                mockLoggedInInfo, 5, TEST_PROVIDER, TEST_DEMO_NO, null, 1))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Schedule update timestamp is required");
+        verifyNoInteractions(mockOscarAppointmentDao, mockAppointmentArchiveDao);
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    void shouldReportADisappearedEdit_beforeArchivingOrAuditing() {
+        when(mockOscarAppointmentDao.findForUpdate(77)).thenReturn(null);
+        assertThatThrownBy(() -> scheduleManager.updateAppointment(mockLoggedInInfo, 77, "2000", row -> {
+            throw new AssertionError("Missing-row edit callback ran");
+        })).isInstanceOfSatisfying(AppointmentUpdateException.class, refused ->
+                assertThat(refused.getReason()).isEqualTo(AppointmentUpdateException.Reason.NOT_FOUND));
+        verifyNoInteractions(mockAppointmentArchiveDao);
+        verify(mockOscarAppointmentDao, never()).merge(any());
+        logActionMock.verifyNoInteractions();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"", " "})
+    void shouldPreserveLegacyEdits_whenTheVersionIsBlank(String version) {
+        Appointment current = createTestAppointment(77, TEST_PROVIDER, new Date());
+        current.setUpdateDateTime(new Date(2000));
+        when(mockOscarAppointmentDao.findForUpdate(77)).thenReturn(current);
+        assertThat(scheduleManager.updateAppointment(mockLoggedInInfo, 77, version,
+                row -> row.setReason("legacy edit"))).isSameAs(current);
+        assertThat(current.getReason()).isEqualTo("legacy edit");
+        verify(mockAppointmentArchiveDao).archiveAppointment(current);
+        verify(mockOscarAppointmentDao).merge(current);
+    }
+
+    @Test
+    void shouldPreserveLegacyRemovalAndItsEditor_whenNoVersionIsSent() {
+        Appointment current = createTestAppointment(77, TEST_PROVIDER, new Date());
+        current.setLastUpdateUser("prior-editor");
+        when(mockOscarAppointmentDao.findForUpdate(77)).thenReturn(current);
+        assertThat(scheduleManager.removeAppointment(mockLoggedInInfo, 77, null)).isSameAs(current);
+        assertThat(current.getLastUpdateUser()).isEqualTo("prior-editor");
+        verify(mockAppointmentArchiveDao).archiveAppointment(current);
+        verify(mockOscarAppointmentDao).remove(current);
+    }
+
+    @Test
+    void shouldIdentifyTheRemovingEditor_whenThePreviousEditorIsEmpty() {
+        Appointment current = createTestAppointment(77, TEST_PROVIDER, new Date());
+        current.setLastUpdateUser("");
+        when(mockOscarAppointmentDao.findForUpdate(77)).thenReturn(current);
+        scheduleManager.removeAppointment(mockLoggedInInfo, 77, null);
+        assertThat(current.getLastUpdateUser()).isEqualTo(mockLoggedInInfo.getLoggedInProviderNo());
+        verify(mockAppointmentArchiveDao).archiveAppointment(current);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldFailClosedWithoutAnAccessAudit_whenTheConsentPolicyReturnsInvalidRows(boolean wrongType) {
+        Date after = new Date(0);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_appointment.UpdatedAfterDate"), eq("x"), isNull()))
+                .thenReturn(false);
+        when(mockOscarAppointmentDao.findByUpdateDateAndId(after, Integer.MAX_VALUE, 2))
+                .thenReturn(List.of(createTestAppointment(77, TEST_PROVIDER, new Date())));
+        when(mockPatientConsentManager.filterProviderSpecificConsent(any(), anyList()))
+                .thenAnswer(call -> wrongType ? List.of(mock(io.github.carlos_emr.carlos.commn.model.DemographicData.class)) : null);
+        assertThatThrownBy(() -> scheduleManager.getAppointmentUpdatedAfterDate(mockLoggedInInfo, after, 1))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage(wrongType ? "Invalid schedule consent result type" : "Schedule consent policy returned no result");
+        logActionMock.verifyNoInteractions();
+    }
+
     /**
      * Tests for {@link ScheduleManagerImpl#getAppointmentsForPatient}
      * covering pagination and empty result sets.
