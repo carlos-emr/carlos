@@ -80,3 +80,11 @@ test('an absent or nonpositive acknowledgement keeps the consent banner', () => 
     assert.equal(c.state.removed, false);
   }
 });
+
+test('the release ledger retires the repaired consent failure as an active regression', () => {
+  const ledger = JSON.parse(fs.readFileSync(path.join(__dirname,
+    '../docs/testing/release-2026.08-known-outcomes.json'), 'utf8'));
+  assert.equal(ledger.browserExpectedFailures.some(row => row.check === 'chart-informed-consent'), false);
+  assert.equal(ledger.retiredBrowserExpectations.filter(row =>
+    row.check === 'chart-informed-consent' && row.finding === 332).length, 1);
+});
