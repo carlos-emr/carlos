@@ -82,6 +82,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public class PrivacyStatementAppendingFilter implements Filter {
 
+    private static final int APPEND_BUFFER_SIZE_BYTES = 1024 * 1024;
+
     /**
      * @deprecated the AJAX decision moved to
      *     {@link io.github.carlos_emr.carlos.utility.RequestNegotiation#isAjax}, which matches
@@ -199,6 +201,10 @@ public class PrivacyStatementAppendingFilter implements Filter {
             }
             if (!delegatingServletResponse.isResponseWriterObtained()
                     && !delegatingServletResponse.isResponseOutputStreamObtained()) {
+                delegatingServletResponse.completeWithoutStatement();
+                return;
+            }
+            if (!delegatingServletResponse.prepareAppendBuffer()) {
                 delegatingServletResponse.completeWithoutStatement();
                 return;
             }
@@ -324,8 +330,10 @@ public class PrivacyStatementAppendingFilter implements Filter {
 
         private boolean responseWriterObtained;
         private boolean responseOutputStreamObtained;
+        private boolean appendBufferUnavailable;
 
         private DelegatingWriter writer;
+        private ServletOutputStream outputStream;
         /** The shared defer/publish/retract rules; its two delegate calls are its only access to the response. */
         private final DeferredContentLength contentLength = new DeferredContentLength(
                 super::setContentLengthLong,
@@ -333,7 +341,34 @@ public class PrivacyStatementAppendingFilter implements Filter {
 
         public DelegatingServletResponse(HttpServletResponse response) {
             super(response);
-            response.setBufferSize(1024 * 1024 * 1); // 1 Megs
+        }
+
+        /**
+         * Reserve the append buffer only when a body channel can still produce HTML.
+         * A channel selected before its content type keeps the existing large-page protection;
+         * known non-HTML static responses and metadata-only responses retain the container buffer.
+         */
+        private void configureAppendBufferForBody() {
+            if (appendBufferUnavailable || isKnownNonHtml()) return;
+            try {
+                if (super.getBufferSize() < APPEND_BUFFER_SIZE_BYTES) {
+                    super.setBufferSize(APPEND_BUFFER_SIZE_BYTES);
+                }
+            } catch (IllegalStateException alreadyWritten) {
+                // Written bytes can prevent growth before commit; the length can still be
+                // retracted and the notice appended safely. A committed response is different.
+                appendBufferUnavailable = isCommitted();
+            }
+        }
+
+        /** Reserve the notice buffer, reporting a refusal without corrupting the existing response. */
+        public boolean prepareAppendBuffer() {
+            configureAppendBufferForBody();
+            if (appendBufferUnavailable) {
+                logger.warn("Skipping privacy statement injection because the HTML response buffer "
+                        + "could not be enlarged before body content was written");
+            }
+            return !appendBufferUnavailable;
         }
 
         // Each flag is set only after the container hands the channel over. A caller may ask
@@ -356,11 +391,56 @@ public class PrivacyStatementAppendingFilter implements Filter {
             }
             ServletOutputStream stream = super.getOutputStream();
             responseOutputStreamObtained = true;
-            return stream;
+            if (outputStream == null) {
+                // DefaultServlet obtains the stream before declaring a static asset's type.
+                // The first write sees that type, while an HTML body written before its type
+                // still reserves the buffer before any bytes can commit.
+                outputStream = new ServletOutputStream() {
+                    @Override
+                    public void write(int value) throws IOException {
+                        configureAppendBufferForBody();
+                        stream.write(value);
+                    }
+
+                    @Override
+                    public void write(byte[] bytes, int offset, int length) throws IOException {
+                        if (length > 0) configureAppendBufferForBody();
+                        stream.write(bytes, offset, length);
+                    }
+
+                    @Override
+                    public void write(java.nio.ByteBuffer buffer) throws IOException {
+                        if (buffer.hasRemaining()) configureAppendBufferForBody();
+                        stream.write(buffer);
+                    }
+
+                    @Override
+                    public boolean isReady() {
+                        return stream.isReady();
+                    }
+
+                    @Override
+                    public void setWriteListener(jakarta.servlet.WriteListener listener) {
+                        stream.setWriteListener(listener);
+                    }
+
+                    @Override
+                    public void flush() throws IOException {
+                        stream.flush();
+                    }
+
+                    @Override
+                    public void close() throws IOException {
+                        stream.close();
+                    }
+                };
+            }
+            return outputStream;
         }
 
         @Override
         public PrintWriter getWriter() throws IOException {
+            configureAppendBufferForBody();
             if (writer == null)
                 writer = new DelegatingWriter(super.getWriter());
             responseWriterObtained = true;
@@ -464,6 +544,9 @@ public class PrivacyStatementAppendingFilter implements Filter {
         }
 
         private void updateContentLengthForType() {
+            if (responseWriterObtained || (responseOutputStreamObtained && getContentType() != null)) {
+                configureAppendBufferForBody();
+            }
             if (!isCommitted() && RequestNegotiation.isHtmlContentType(getContentType())) {
                 // A type change before writing makes a previously published length unsafe.
                 // Keep it pending in case the response ultimately needs no decoration.
@@ -484,6 +567,10 @@ public class PrivacyStatementAppendingFilter implements Filter {
         public void resetBuffer() {
             super.resetBuffer();
             contentLength.onBufferReset();
+            appendBufferUnavailable = false;
+            if (responseWriterObtained || responseOutputStreamObtained) {
+                configureAppendBufferForBody();
+            }
         }
 
         @Override
@@ -491,8 +578,10 @@ public class PrivacyStatementAppendingFilter implements Filter {
             super.reset();
             contentLength.onReset();
             writer = null;
+            outputStream = null;
             responseWriterObtained = false;
             responseOutputStreamObtained = false;
+            appendBufferUnavailable = false;
         }
 
         private boolean isKnownNonHtml() {
