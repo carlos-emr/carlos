@@ -7,9 +7,10 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
+<fmt:setLocale value="${documentSummaryLocale}"/>
 <fmt:setBundle basename="oscarResources"/>
 <!DOCTYPE html>
-<html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
+<html lang="${carlos:forHtmlAttribute(documentSummaryLanguageTag)}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -28,13 +29,14 @@
     <c:if test="${not documentSummaryReviewWorkflow}"><p class="alert alert-warning"><fmt:message key="documentSummary.warning"/></p></c:if>
 </header>
 <c:if test="${documentSummaryReviewAvailable and not documentSummaryReviewWorkflow}">
-    <p><a class="btn btn-outline-primary" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/ReviewAiDocumentSummary?documentId=${carlos:forHtmlAttribute(documentSummaryId)}">Prepare a clinician-reviewed summary</a></p>
+    <p><a class="btn btn-outline-primary" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/ReviewAiDocumentSummary?documentId=${carlos:forHtmlAttribute(documentSummaryId)}"><fmt:message key="documentSummary.review.prepare"/></a></p>
 </c:if>
 <c:if test="${documentSummaryReviewWorkflow}">
-    <section class="alert alert-warning" aria-label="AI summary and review notice">
+    <fmt:message key="documentSummary.review.noticeLabel" var="documentSummaryNoticeLabel"/>
+    <section class="alert alert-warning" aria-label="${carlos:forHtmlAttribute(documentSummaryNoticeLabel)}">
         <p class="document-summary-text"><carlos:encode value="${documentSummaryNotice}"/></p>
     </section>
-    <p><a href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/ManageDocument?method=display&amp;doc_no=${carlos:forHtmlAttribute(documentSummaryId)}">Open current original document</a></p>
+    <p><a href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/ManageDocument?method=display&amp;doc_no=${carlos:forHtmlAttribute(documentSummaryId)}"><fmt:message key="documentSummary.review.openOriginal"/></a></p>
 </c:if>
 <p class="alert alert-info"><carlos:encode value="${documentSummaryExtraction}"/></p>
 <c:if test="${not empty documentSummaryError}">
@@ -43,11 +45,11 @@
 <c:choose>
     <c:when test="${documentSummaryGenerated}">
         <c:if test="${documentSummaryReviewWorkflow}">
-            <p>Generated: <carlos:encode value="${documentSummaryGeneratedAt}"/></p>
+            <p><fmt:message key="documentSummary.review.generatedAt"><fmt:param><carlos:encode value="${documentSummaryGeneratedAt}"/></fmt:param></fmt:message></p>
             <c:if test="${not empty documentSummaryRevisedAt}">
-                <p>Clinician text revision: <carlos:encode value="${documentSummaryRevisedAt}"/>.</p>
+                <p><fmt:message key="documentSummary.review.revisedAt"><fmt:param><carlos:encode value="${documentSummaryRevisedAt}"/></fmt:param></fmt:message></p>
             </c:if>
-            <p><a href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/ReviewedAiSummaryOriginal?documentId=${carlos:forHtmlAttribute(documentSummaryId)}&amp;draftId=${carlos:forHtmlAttribute(documentSummaryDraftId)}">Download the exact original used for this summary</a></p>
+            <p><a href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/ReviewedAiSummaryOriginal?documentId=${carlos:forHtmlAttribute(documentSummaryId)}&amp;draftId=${carlos:forHtmlAttribute(documentSummaryDraftId)}"><fmt:message key="documentSummary.review.downloadOriginal"/></a></p>
         </c:if>
         <details id="document-summary-overview" class="mb-3">
             <summary id="overview-heading"><fmt:message key="documentSummary.overview"/></summary>
@@ -69,20 +71,20 @@
                 <p class="alert alert-warning" role="alert"><carlos:encode value="${documentSummaryCorrectionError}"/></p>
             </c:if>
             <details class="my-3"<c:if test="${not empty documentSummaryCorrectionError}"> open</c:if>>
-                <summary>Correct summary text or remove points</summary>
-                <p>Save corrections to display a new draft before confirming your review. Supporting excerpts stay unchanged. Removing every point discards this draft. You can leave a removed point's text as it is, or clear it.</p>
+                <summary><fmt:message key="documentSummary.review.correctHeading"/></summary>
+                <p><fmt:message key="documentSummary.review.correctHelp"/></p>
                 <form method="post" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/ReviseReviewedAiDocumentSummary">
                     <input type="hidden" name="documentId" value="${carlos:forHtmlAttribute(documentSummaryId)}">
                     <input type="hidden" name="draftId" value="${carlos:forHtmlAttribute(documentSummaryDraftId)}">
                     <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>">
-                    <label for="summary-correction-overview">Overview</label>
+                    <label for="summary-correction-overview"><fmt:message key="documentSummary.overview"/></label>
                     <textarea id="summary-correction-overview" name="overview" maxlength="4000" rows="4" class="form-control mb-3" required><carlos:encode value="${documentSummaryCorrectionPending ? documentSummaryCorrectionOverview : documentSummaryOverview}"/></textarea>
                     <c:forEach items="${documentSummaryPoints}" var="point" varStatus="position">
-                        <label for="summary-correction-point-${position.index}">Point ${position.count}</label>
+                        <label for="summary-correction-point-${position.index}"><fmt:message key="documentSummary.review.point"><fmt:param value="${position.count}"/></fmt:message></label>
                         <textarea id="summary-correction-point-${position.index}" name="pointText" maxlength="2000" rows="3" class="form-control"><carlos:encode value="${documentSummaryCorrectionPending ? documentSummaryCorrectionPoints[position.index] : point.text}"/></textarea>
-                        <label class="d-block mb-3"><input type="checkbox" name="removePoint" value="${position.index}"<c:if test="${documentSummaryCorrectionPending and documentSummaryCorrectionRemoved[position.index]}"> checked</c:if>> Remove point ${position.count}</label>
+                        <label class="d-block mb-3"><input type="checkbox" name="removePoint" value="${position.index}"<c:if test="${documentSummaryCorrectionPending and documentSummaryCorrectionRemoved[position.index]}"> checked</c:if>> <fmt:message key="documentSummary.review.removePoint"><fmt:param value="${position.count}"/></fmt:message></label>
                     </c:forEach>
-                    <button type="submit" class="btn btn-outline-primary">Save corrections and clear this review</button>
+                    <button type="submit" class="btn btn-outline-primary"><fmt:message key="documentSummary.review.save"/></button>
                 </form>
             </details>
             <c:if test="${not documentSummaryReviewed}">
@@ -90,30 +92,31 @@
                     <input type="hidden" name="documentId" value="${carlos:forHtmlAttribute(documentSummaryId)}">
                     <input type="hidden" name="draftId" value="${carlos:forHtmlAttribute(documentSummaryDraftId)}">
                     <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>">
-                    <p id="summary-confirm-saved">This confirms the saved summary displayed above. Unsaved corrections and removal selections do not apply. Save corrections first to review and confirm revised text.</p>
-                    <label><input type="checkbox" name="affirmReview" value="true" required aria-describedby="summary-confirm-saved"> I reviewed the original, this exact saved summary displayed above and the extraction limits and patient notice.</label>
-                    <button type="submit" class="btn btn-primary d-block mt-2">Record my clinician review</button>
+                    <p id="summary-confirm-saved"><fmt:message key="documentSummary.review.confirmSaved"/></p>
+                    <label><input type="checkbox" name="affirmReview" value="true" required aria-describedby="summary-confirm-saved"> <fmt:message key="documentSummary.review.affirm"/></label>
+                    <button type="submit" class="btn btn-primary d-block mt-2"><fmt:message key="documentSummary.review.record"/></button>
                 </form>
             </c:if>
             <c:if test="${documentSummaryReviewed}">
-                <p role="status">Clinician review is recorded for this original and summary version.</p>
+                <p role="status"><fmt:message key="documentSummary.review.recorded"/></p>
             </c:if>
-            <p>Summary delivery is unavailable. You can still send the original through the usual document workflow.</p>
+            <p><fmt:message key="documentSummary.review.deliveryUnavailable"/></p>
             <form method="post" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/GenerateReviewedAiDocumentSummary" class="my-3">
                 <input type="hidden" name="documentId" value="${carlos:forHtmlAttribute(documentSummaryId)}">
                 <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>">
-                <button type="submit" class="btn btn-outline-primary">Generate a new draft and clear this review</button>
+                <button type="submit" class="btn btn-outline-primary"><fmt:message key="documentSummary.review.regenerate"/></button>
             </form>
             <form method="post" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/DiscardReviewedAiDocumentSummary">
                 <input type="hidden" name="documentId" value="${carlos:forHtmlAttribute(documentSummaryId)}">
                 <input type="hidden" name="draftId" value="${carlos:forHtmlAttribute(documentSummaryDraftId)}">
                 <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>">
-                <button type="submit" class="btn btn-outline-secondary">Discard this draft and review</button>
+                <button type="submit" class="btn btn-outline-secondary"><fmt:message key="documentSummary.review.discard"/></button>
             </form>
         </c:if>
     </c:when>
     <c:otherwise>
-        <form id="document-summary-form" data-pending="<fmt:message key="documentSummary.pending"/>" method="post" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/${documentSummaryReviewWorkflow ? 'GenerateReviewedAiDocumentSummary' : 'GenerateAiDocumentSummary'}">
+        <fmt:message key="documentSummary.pending" var="documentSummaryPendingLabel"/>
+        <form id="document-summary-form" data-pending="${carlos:forHtmlAttribute(documentSummaryPendingLabel)}" method="post" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/${documentSummaryReviewWorkflow ? 'GenerateReviewedAiDocumentSummary' : 'GenerateAiDocumentSummary'}">
             <input type="hidden" name="documentId" value="${carlos:forHtmlAttribute(documentSummaryId)}">
             <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>">
             <button type="submit" class="btn btn-primary" <c:if test="${not documentSummaryAllowed}">disabled</c:if>><fmt:message key="documentSummary.generate"/></button>
